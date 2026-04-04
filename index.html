@@ -1000,17 +1000,19 @@ async function authInit(){
       document.getElementById('authScreen').classList.add('hidden');
       updateAuthBtn();
       if(!_appInitialized){
-        _appInitialized=true; // Set BEFORE any await — prevents race with getSession() path
+        _appInitialized=true;
         setSyncStatus('syncing','Syncing…');
         const loaded=await loadFromSupabase();
         if(loaded){
           ensureMonth();
-          // Validate activeMonth — Supabase data might reference a month not in S.months
           if(!S.activeMonth||!S.months.find(m=>m.id===S.activeMonth)){
             S.activeMonth=currentMonthId();
           }
           normalizeCatOrder();normalizeBktOrder();
         }
+        // Always reset WI session — must not persist across page loads
+        S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+        if(!S.scenarios)S.scenarios=[];
         setSyncStatus('synced','Synced');
         if(isMobile()){initMobile();}else{initDesktop();}
         if(!S.accounts.length){startWizard();}
@@ -1037,24 +1039,25 @@ async function authInit(){
     _supaUser=session.user;
     updateAuthBtn();
     if(!_appInitialized){
-      _appInitialized=true; // Set BEFORE any await — prevents race with onAuthStateChange
+      _appInitialized=true;
       setSyncStatus('syncing','Syncing…');
       const loaded=await loadFromSupabase();
       if(loaded){
         ensureMonth();
-        // Validate activeMonth — Supabase data might reference a month not in S.months
         if(!S.activeMonth||!S.months.find(m=>m.id===S.activeMonth)){
           S.activeMonth=currentMonthId();
         }
         normalizeCatOrder();normalizeBktOrder();
       }
+      // Always reset WI session — must not persist across page loads
+      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+      if(!S.scenarios)S.scenarios=[];
       setSyncStatus('synced','Synced');
       if(isMobile()){initMobile();}else{initDesktop();}
       if(!S.accounts.length){startWizard();}
     }
   } else {
-    // No session — show auth screen
-    document.getElementById('authScreen').classList.remove('hidden');
+    // No session — auth screen is visible by default, nothing to do
     setSyncStatus('offline','Not signed in');
   }
 
@@ -1141,6 +1144,7 @@ function showAuthMsg(type, text){
 }
 
 function skipAuth(){
+  _appInitialized=true; // Allow init/resize to proceed in offline mode
   document.getElementById('authScreen').classList.add('hidden');
   setSyncStatus('offline','Offline mode');
   if(isMobile()){initMobile();}else{initDesktop();}
@@ -1148,16 +1152,24 @@ function skipAuth(){
 }
 
 async function signOut(){
-  // Clear local state immediately — never block the UI on a network call
   const client=supaReady()?supaClient():null;
+  // Wipe all budget data from memory and localStorage — no data accessible after sign out
+  localStorage.removeItem(KEY);
+  localStorage.removeItem(KEY+'_saved_at');
+  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
+     activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
+     wiOpen:false,txFilter:'all',onboarded:false};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
+  // Close WI if open
+  document.getElementById('wiOverlay')?.classList.add('hidden');
+  document.getElementById('wiStrip')?.classList.add('hidden');
   updateAuthBtn();
   setSyncStatus('offline','Not signed in');
   showAuthSignIn();
+  // Auth screen is visible by default — just ensure it's shown
   document.getElementById('authScreen').classList.remove('hidden');
-  // Tell Supabase in the background — if it fails the local session is still cleared
   if(client) client.auth.signOut().catch(err=>console.warn('SignOut error:',err.message));
 }
 
@@ -3571,6 +3583,8 @@ let _layoutIsMobile=isMobile();
 let _resizeTimer=null;
 
 function initDesktop(){
+  if(!_appInitialized)return;
+  document.getElementById('authScreen')?.classList.add('hidden');
   const shell=document.getElementById('mShell');
   if(shell)shell.style.display='none';
   render();
@@ -3582,8 +3596,10 @@ function initDesktop(){
 }
 
 function initMobile(){
+  if(!_appInitialized)return;
   const shell=document.getElementById('mShell');
-  if(!shell)return; // DOM not ready yet
+  if(!shell)return;
+  document.getElementById('authScreen')?.classList.add('hidden');
   shell.style.cssText='display:flex;flex-direction:column;height:100vh;height:100dvh;';
   mInit();
 }
@@ -3600,17 +3616,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   localStorage.setItem('bcc_app_version',APP_VERSION);
 
-  // On mobile, reveal the shell immediately so the page isn't blank during async auth.
-  // The CSS media query shows it on mobile but the old inline style blocked it.
-  if(isMobile()){
-    const shell=document.getElementById('mShell');
-    if(shell)shell.style.cssText='display:flex;flex-direction:column;height:100vh;height:100dvh;';
-  }
-
-  // Resize handler — always active
+  // Resize handler — only re-init if app is already initialized (auth complete)
   window.addEventListener('resize',()=>{
     clearTimeout(_resizeTimer);
     _resizeTimer=setTimeout(()=>{
+      if(!_appInitialized)return; // Never re-init before auth completes
       const nowMobile=isMobile();
       if(nowMobile===_layoutIsMobile)return;
       _layoutIsMobile=nowMobile;
@@ -3622,14 +3632,15 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(supaReady()){
     // Supabase configured — auth flow handles app init
     authInit().catch(err=>{
-      // If auth setup throws for any reason, fall back to a usable offline state
       console.error('authInit failed, falling back to offline mode:',err);
+      _appInitialized=true;
       setSyncStatus('error','Auth error — running offline');
       if(isMobile()){initMobile();}else{initDesktop();}
       if(!S.accounts.length){startWizard();}
     });
   } else {
-    // No Supabase config — run locally
+    // No Supabase config — run locally without auth gate
+    _appInitialized=true;
     if(isMobile()){initMobile();}
     else{initDesktop();}
     if(!S.accounts.length){startWizard();}
@@ -4603,7 +4614,7 @@ function mAcctOptions(selectedId){
 </div>
 
 <!-- ════ AUTH SCREEN ════ -->
-<div id="authScreen" class="hidden">
+<div id="authScreen">
   <div class="auth-box">
     <div class="auth-logo">
       <div class="auth-logo-dot"></div>
