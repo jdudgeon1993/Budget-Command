@@ -49,7 +49,8 @@ async function authInit(){
     } else if(event==='SIGNED_OUT'){
       _supaUser=null;
       updateAuthBtn();
-      setSyncStatus('offline','Offline');
+      setSyncStatus('offline','Not signed in');
+      document.getElementById('authScreen').classList.remove('hidden');
     }
   });
 
@@ -1065,49 +1066,104 @@ function save(){
 async function supabase_push(){
   if(!supaReady()||!_supaUser)return;
   const client=supaClient();
+  const now=new Date().toISOString();
   const {error}=await client
     .from('bcc_budget_state')
-    .upsert({user_id:_supaUser.id, data:S, updated_at:new Date().toISOString()},
+    .upsert({user_id:_supaUser.id, data:S, updated_at:now},
             {onConflict:'user_id'});
-  if(!error)_pendingSync=false;
-  else console.warn('Supabase push error:',error.message);
+  if(!error){
+    _pendingSync=false;
+    // Stamp localStorage so we know when we last synced
+    localStorage.setItem(KEY+'_saved_at', String(new Date(now).getTime()));
+  } else {
+    console.warn('Supabase push error:',error.message);
+  }
 }
 
 // ── Load: Supabase first, fall back to localStorage ─────────────────────────
 async function loadFromSupabase(){
   if(!supaReady())return false;
   const client=supaClient();
-  const {data:session}=await client.auth.getSession();
-  if(!session?.session?.user)return false;
-  _supaUser=session.session.user;
+
+  // Get current session
+  const {data:sessionData}=await client.auth.getSession();
+  if(!sessionData?.session?.user)return false;
+  _supaUser=sessionData.session.user;
+
+  // Fetch from Supabase — maybeSingle() returns null (not error) when no row exists
   const {data,error}=await client
     .from('bcc_budget_state')
     .select('data, updated_at')
     .eq('user_id',_supaUser.id)
-    .single();
-  if(error||!data)return false;
-  // Compare with localStorage — use whichever is newer
-  const localRaw=localStorage.getItem(KEY);
-  if(localRaw){
-    try{
-      const local=JSON.parse(localRaw);
-      const localTime=localStorage.getItem(KEY+'_saved_at')||0;
-      const remoteTime=new Date(data.updated_at).getTime();
-      if(remoteTime>localTime){
-        S=data.data;
-        localStorage.setItem(KEY,JSON.stringify(S));
-        localStorage.setItem(KEY+'_saved_at',String(remoteTime));
-        console.log('Loaded from Supabase (newer)');
-      } else {
-        S=local;
-        console.log('Kept localStorage (newer), pushing to Supabase');
-        await supabase_push();
-      }
-    }catch(e){S=data.data;}
-  } else {
-    S=data.data;
-    localStorage.setItem(KEY,JSON.stringify(S));
+    .maybeSingle();
+
+  // Table missing or real error
+  if(error){
+    console.warn('Supabase load error:',error.message,'(code:'+error.code+')');
+    // If table doesn't exist yet, just use localStorage
+    if(error.code==='42P01'||error.message.includes('does not exist')){
+      console.warn('Table bcc_budget_state not found — run the SQL setup first.');
+      setSyncStatus('error','Table missing — run SQL setup');
+    }
+    return false;
   }
+
+  // No remote data yet — fresh account or first sync
+  // Keep whatever is in S (already loaded from localStorage by load())
+  // and push it up to Supabase to back it up
+  if(!data){
+    console.log('No Supabase data yet — pushing existing local data up');
+    // S is already populated from load() — just push it
+    if(S.accounts||S.cats||S.txs){
+      await supabase_push();
+    }
+    return true;
+  }
+
+  // We have remote data — compare timestamps with localStorage
+  const localRaw=localStorage.getItem(KEY);
+  const localTime=parseInt(localStorage.getItem(KEY+'_saved_at')||'0');
+  const remoteTime=new Date(data.updated_at).getTime();
+
+  if(localRaw&&localTime>remoteTime){
+    // Local is newer — keep it and push to Supabase
+    try{
+      S=JSON.parse(localRaw);
+      console.log('Kept localStorage (newer by '+(localTime-remoteTime)+'ms), syncing up');
+      await supabase_push();
+    }catch(e){
+      S=data.data;
+    }
+  } else {
+    // Remote is newer (or no local) — use Supabase data
+    // But only if it actually has content — never replace good data with empty
+    const remoteHasData=data.data&&(
+      (data.data.accounts&&data.data.accounts.length>0)||
+      (data.data.cats&&data.data.cats.length>0)||
+      (data.data.txs&&data.data.txs.length>0)
+    );
+    const localHasData=S.accounts?.length>0||S.cats?.length>0||S.txs?.length>0;
+    if(remoteHasData||!localHasData){
+      S=data.data;
+      localStorage.setItem(KEY,JSON.stringify(S));
+      localStorage.setItem(KEY+'_saved_at',String(remoteTime));
+      console.log('Loaded from Supabase (newer by '+(remoteTime-localTime)+'ms)');
+    } else {
+      console.log('Remote is empty but local has data — keeping local, pushing up');
+      await supabase_push();
+    }
+  }
+
+  // Ensure data integrity — never let these be undefined
+  if(!S||typeof S!=='object')S={};
+  if(!S.months)S.months=[];
+  S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
+  if(!S.accounts)S.accounts=[];
+  if(!S.cats)S.cats=[];
+  if(!S.buckets)S.buckets=[];
+  if(!S.txs)S.txs=[];
+  if(!S.txFilter)S.txFilter='all';
+
   return true;
 }
 
@@ -3741,7 +3797,8 @@ async function authInit(){
     } else if(event==='SIGNED_OUT'){
       _supaUser=null;
       updateAuthBtn();
-      setSyncStatus('offline','Offline');
+      setSyncStatus('offline','Not signed in');
+      document.getElementById('authScreen').classList.remove('hidden');
     }
   });
 
