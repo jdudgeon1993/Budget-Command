@@ -189,7 +189,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .bndue.ok{color:var(--text3);}
 
 .td-alloc{width:128px;padding:5px 7px;}
-.alloc-wrap{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:6px;overflow:hidden;transition:border-color .12s;}
+.alloc-wrap{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:6px;overflow:hidden;transition:border-color .12s;position:relative;}
 .alloc-wrap:focus-within{border-color:var(--accent);}
 .alloc-pfx{font-size:12px;color:var(--text3);padding:0 5px;font-family:var(--mono);pointer-events:none;}
 .alloc-inp{flex:1;min-width:0;width:68px;padding:6px 5px 6px 0;background:none;border:none;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);text-align:right;}
@@ -787,6 +787,15 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .auth-msg.error{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
 .auth-skip{display:block;text-align:center;font-size:12px;color:var(--text3);margin-top:16px;cursor:pointer;text-decoration:underline;}
 .auth-skip:hover{color:var(--text2);}
+/* Update banner */
+#updateBanner{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;border-radius:var(--rl);padding:10px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:12px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:slideUp .3s ease;}
+#updateBanner.hidden{display:none;}
+#updateBanner button{background:rgba(255,255,255,.25);border:none;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);}
+#updateBanner button:hover{background:rgba(255,255,255,.4);}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+/* Expression hint badge */
+.expr-hint{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--accent);opacity:0;transition:opacity .15s;pointer-events:none;letter-spacing:.3px;font-family:var(--mono);}
+.alloc-wrap:focus-within .expr-hint{opacity:1;}
 /* Sync indicator in topbar */
 #syncStatus{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;padding:3px 8px;border-radius:10px;transition:all .3s;}
 #syncStatus.synced{background:var(--gbg);color:var(--green);}
@@ -919,6 +928,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 const isMobile=()=>window.innerWidth<768;
 const COLORS=['#2a7c6f','#3b82c4','#7c3b82','#c45c3b','#3b8248','#c4a43b','#c43b6a','#6a3bc4','#3b9ea6','#a6753b','#5c6bc0','#e57373','#4db6ac','#81c784','#ffb74d','#f06292'];
 const KEY='bcc_v6';
+const APP_VERSION='20260404-5';
 
 // ═══════════════════════════════════════════════════════
 // SUPABASE — replace BOTH values below with your project
@@ -1240,7 +1250,7 @@ async function supabase_push(){
     _pendingSync=false;
     localStorage.setItem(KEY+'_saved_at', String(new Date(now).getTime()));
     setSyncStatus('synced','Synced ✓');
-    setTimeout(()=>setSyncStatus('synced','Synced'),2000);
+    setTimeout(()=>setSyncStatus('synced','●'),4000);
   }
 }
 
@@ -1296,6 +1306,8 @@ async function loadFromSupabase(){
     // Local is newer — keep it and push to Supabase
     try{
       S=JSON.parse(localRaw);
+      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+      if(!S.scenarios)S.scenarios=[];
       console.log('Kept localStorage (newer by '+(localTime-remoteTime)+'ms), syncing up');
       await supabase_push();
     }catch(e){
@@ -1312,6 +1324,9 @@ async function loadFromSupabase(){
     const localHasData=S.accounts?.length>0||S.cats?.length>0||S.txs?.length>0;
     if(remoteHasData||!localHasData){
       S=data.data;
+      // WI session state should never persist across page loads
+      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+      if(!S.scenarios)S.scenarios=[];
       localStorage.setItem(KEY,JSON.stringify(S));
       localStorage.setItem(KEY+'_saved_at',String(remoteTime||Date.now()));
       console.log('Loaded from Supabase (newer by '+(remoteTime-localTime)+'ms)');
@@ -1488,7 +1503,7 @@ function monthIncome(mid){
 
 function bAlloc(mid,bid){const m=getMonth(mid);return m?(m.allocations[bid]||0):0;}
 function bBudget(mid,bid){
-  if(S.scenario&&S.wiScenario?.budgets[bid]!==undefined)return S.wiScenario.budgets[bid];
+  if(S.scenario&&S.wiScenario?.budgets?.[bid]!==undefined)return S.wiScenario.budgets[bid];
   const m=getMonth(mid);return m?(m.budgets[bid]||0):0;
 }
 function monthProjectedIncome(mid){const m=getMonth(mid);return m?.projectedIncome??null;}
@@ -1850,6 +1865,7 @@ function renderMain(){
               onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
               onkeydown="if(event.key==='Enter')this.blur()"
               onfocus="this.select()" />
+            <span class="expr-hint">𝑓x</span>
           </div>`}
         </td>
         <td class="td-bar">
@@ -3500,9 +3516,10 @@ function wireFormKeys(){
       if(!found)addTx();
     });
   });
-  // Evaluate expression in txAmt on blur
+  // Evaluate expression in txAmt on blur — wire once via flag
   const txAmtEl=document.getElementById('txAmt');
-  if(txAmtEl){
+  if(txAmtEl&&!txAmtEl._exprWired){
+    txAmtEl._exprWired=true;
     txAmtEl.addEventListener('blur',()=>{
       const raw=txAmtEl.value;
       if(!raw)return;
@@ -3575,6 +3592,13 @@ function initMobile(){
 document.addEventListener('DOMContentLoaded',()=>{
   // Apply saved theme immediately
   applyTheme(localStorage.getItem('bcc_theme')||'dark');
+
+  // Show update banner if app version changed since last visit
+  const lastVersion=localStorage.getItem('bcc_app_version');
+  if(lastVersion&&lastVersion!==APP_VERSION){
+    document.getElementById('updateBanner')?.classList.remove('hidden');
+  }
+  localStorage.setItem('bcc_app_version',APP_VERSION);
 
   // On mobile, reveal the shell immediately so the page isn't blank during async auth.
   // The CSS media query shows it on mobile but the old inline style blocked it.
@@ -4612,6 +4636,13 @@ function mAcctOptions(selectedId){
     <div id="authMsg" class="auth-msg" style="display:none"></div>
     <a class="auth-skip" onclick="skipAuth()">Use offline without account →</a>
   </div>
+</div>
+
+<!-- Update banner -->
+<div id="updateBanner" class="hidden">
+  🚀 App updated!
+  <button onclick="window.location.reload(true)">Refresh now</button>
+  <button onclick="document.getElementById('updateBanner').classList.add('hidden')" style="background:rgba(255,255,255,.15)">Later</button>
 </div>
 </body>
 </html>
