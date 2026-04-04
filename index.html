@@ -1217,6 +1217,7 @@ let S={
 };
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
+  if(!_appInitialized)return; // Never save before app is ready (prevents writing during/after signout)
   localStorage.setItem(KEY, JSON.stringify(S));
   if(supaReady()&&_supaUser){
     _pendingSync=true;
@@ -1263,87 +1264,49 @@ async function supabase_push(){
   }
 }
 
-// ── Load: Supabase first, fall back to localStorage ─────────────────────────
+// ── Load: Supabase is the source of truth, localStorage is offline fallback ──
 async function loadFromSupabase(){
   if(!supaReady())return false;
   const client=supaClient();
 
-  // Get current session
   const {data:sessionData}=await client.auth.getSession();
   if(!sessionData?.session?.user)return false;
   _supaUser=sessionData.session.user;
 
-  // Fetch from Supabase — maybeSingle() returns null (not error) when no row exists
   const {data,error}=await client
     .from('bcc_budget_state')
     .select('data, updated_at')
     .eq('user_id',_supaUser.id)
     .maybeSingle();
 
-  // Table missing or real error
   if(error){
     console.warn('Supabase load error:',error.message,'(code:'+error.code+')');
-    // If table doesn't exist yet, just use localStorage
     if(error.code==='42P01'||error.message.includes('does not exist')){
-      console.warn('Table bcc_budget_state not found — run the SQL setup first.');
       setSyncStatus('error','Table missing — run SQL setup');
+      return false;
     }
-    return false;
-  }
-
-  // No remote data yet — fresh account or first sync
-  // Keep whatever is in S (already loaded from localStorage by load())
-  // and push it up to Supabase to back it up
-  if(!data){
-    console.log('No Supabase data yet — pushing existing local data up');
-    S.wiOpen=false;S.scenario=false;S.wiScenario=null;
-    if(!S.scenarios)S.scenarios=[];
-    if(S.accounts?.length||S.cats?.length||S.txs?.length){
-      await supabase_push();
-    }
+    // Network/other error — fall back to localStorage
+    console.warn('Falling back to localStorage');
+    const raw=localStorage.getItem(KEY);
+    if(raw){try{S=JSON.parse(raw);}catch(e){}}
     return true;
   }
 
-  // We have remote data — compare timestamps with localStorage.
-  // Normalize the Supabase timestamp ("2026-04-04 13:31:59.556+00") to ISO 8601
-  // before parsing — iOS Safari rejects the space-separator and bare "+00" offset.
-  const localRaw=localStorage.getItem(KEY);
-  const localTime=parseInt(localStorage.getItem(KEY+'_saved_at')||'0');
-  const remoteIso=(data.updated_at||'').replace(' ','T').replace(/\+00$/,'+00:00');
-  const remoteTime=new Date(remoteIso).getTime()||0;
+  const remote=data?.data;
+  const remoteHasData=remote&&typeof remote==='object'&&
+    (remote.accounts?.length||remote.cats?.length||remote.months?.length);
 
-  if(localRaw&&localTime>remoteTime){
-    // Local is newer — keep it and push to Supabase
-    try{
-      S=JSON.parse(localRaw);
-      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
-      if(!S.scenarios)S.scenarios=[];
-      console.log('Kept localStorage (newer by '+(localTime-remoteTime)+'ms), syncing up');
-      await supabase_push();
-    }catch(e){
-      S=data.data;
-    }
+  if(remoteHasData){
+    // Supabase has data — use it, it is the source of truth
+    S=remote;
+    localStorage.setItem(KEY,JSON.stringify(S));
+    console.log('Loaded from Supabase');
   } else {
-    // Remote is newer (or no local) — use Supabase data
-    // But only if it actually has content — never replace good data with empty
-    const remoteHasData=data.data&&(
-      (data.data.accounts&&data.data.accounts.length>0)||
-      (data.data.cats&&data.data.cats.length>0)||
-      (data.data.txs&&data.data.txs.length>0)
-    );
-    const localHasData=S.accounts?.length>0||S.cats?.length>0||S.txs?.length>0;
-    if(remoteHasData||!localHasData){
-      S=data.data;
-      // WI session state should never persist across page loads
-      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
-      if(!S.scenarios)S.scenarios=[];
-      localStorage.setItem(KEY,JSON.stringify(S));
-      localStorage.setItem(KEY+'_saved_at',String(remoteTime||Date.now()));
-      console.log('Loaded from Supabase (newer by '+(remoteTime-localTime)+'ms)');
-    } else {
-      console.log('Remote is empty but local has data — keeping local, pushing up');
-      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
-      if(!S.scenarios)S.scenarios=[];
+    // Supabase row is empty or missing — check localStorage for existing data to upload
+    const raw=localStorage.getItem(KEY);
+    if(raw){try{S=JSON.parse(raw);}catch(e){}}
+    if(S.accounts?.length||S.cats?.length){
+      console.log('No Supabase data — uploading from localStorage');
       await supabase_push();
     }
   }
