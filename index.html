@@ -261,15 +261,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 
 /* ═══ RIGHT PANEL ═══ */
 .rpanel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
-.rp-head{padding:13px 15px 11px;border-bottom:1px solid var(--border);flex-shrink:0;}
-.rp-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:9px;}
-.rp-filters{display:flex;gap:3px;margin-bottom:8px;}
-.rfbtn{flex:1;padding:5px 3px;background:none;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:var(--sans);font-weight:500;color:var(--text3);cursor:pointer;transition:all .12s;}
-.rfbtn:hover{color:var(--text2);border-color:var(--border2);}
-.rfbtn.active{background:var(--surface);color:var(--text);border-color:var(--border2);}
-.rp-search{width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--sans);color:var(--text);margin-bottom:9px;}
-.rp-search:focus{outline:none;border-color:var(--accent);}
-.rp-search::placeholder{color:var(--text3);}
+/* rp styles moved to right panel section */
 
 /* TX FORM */
 .txf{display:flex;flex-direction:column;gap:5px;}
@@ -300,14 +292,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tx-l{flex:1;min-width:0;}
 .tx-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tx-meta{font-size:11px;color:var(--text3);margin-top:1px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
-.tx-dot2{width:3px;height:3px;border-radius:50%;background:var(--text3);display:inline-block;flex-shrink:0;}
+/* tx-dot2 defined in right panel section */
 .tx-r{text-align:right;flex-shrink:0;}
 .tx-amt{font-family:var(--mono);font-size:13px;font-weight:500;}
 .tx-amt.out{color:var(--red);}
 .tx-amt.in{color:var(--green);}
 .tx-amt.xfr{color:var(--purple);}
-.tx-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;align-self:center;}
-.tx-row:hover .tx-acts{opacity:1;}
+/* tx-acts defined in right panel section */
 .tx-empty{padding:34px 15px;text-align:center;font-size:13px;color:var(--text3);line-height:1.8;}
 
 /* ═══ EMPTY / ONBOARDING ═══ */
@@ -449,6 +440,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tx-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;align-self:center;flex-shrink:0;}
 .tx-row:hover .tx-acts{opacity:1;}
 .tx-empty{padding:32px 14px;text-align:center;font-size:13px;color:var(--text3);line-height:1.8;}
+
+/* ═══ ACCESSIBILITY — focus rings for keyboard navigation ═══ */
+*:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r);}
+input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.bni:focus{outline:2px solid var(--accent);outline-offset:-2px;}
+.btable tr.brow:focus{outline:2px solid var(--accent);outline-offset:-2px;}
+.alloc-inp:focus{outline:none;} /* handled by parent .alloc-wrap:focus-within */
 </style>
 </head>
 <body>
@@ -470,6 +469,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
     <button class="tbtn" id="wiBtnTop" onclick="toggleWI()">⚡ What If</button>
     <button class="tbtn" onclick="openModal('acct')">+ Account</button>
     <button class="tbtn primary" onclick="openModal('new')">+ New</button>
+    <button class="tbtn" onclick="showShortcuts()" title="Keyboard shortcuts" style="padding:5px 8px;font-size:14px;">⌨</button>
   </div>
 </div>
 
@@ -600,6 +600,9 @@ function load(){
   ensureMonth();
   if(!S.activeMonth&&S.months.length)S.activeMonth=currentMonthId();
   if(!S.txFilter)S.txFilter='all';
+  // Normalize ordering on every load so it's not run repeatedly during renders
+  normalizeCatOrder();
+  normalizeBktOrder();
 }
 
 function migrateV5(raw){
@@ -681,9 +684,9 @@ const getAcct=id=>S.accounts.find(a=>a.id===id);
 
 function acctBalance(aid){
   const acct=getAcct(aid);if(!acct)return 0;
-  // Opening transaction sets the starting balance snapshot
-  const openingTx=S.txs.find(t=>t.accountId===aid&&t.type==='opening');
-  let bal=openingTx?openingTx.amount:(acct.openingBalance||0);
+  // Sum all opening transactions for this account (should only be one, but defensive)
+  const openingTotal=S.txs.filter(t=>t.accountId===aid&&t.type==='opening').reduce((s,t)=>s+t.amount,0);
+  let bal=openingTotal>0?openingTotal:(acct.openingBalance||0);
   // Apply all subsequent regular transactions
   S.txs.forEach(t=>{
     if(t.type==='opening')return;
@@ -746,6 +749,9 @@ const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(
 function render(){
   renderTopbar();renderSidebar();renderMain();renderTxList();
   if(S.wiOpen)renderWI();
+  wireFormKeys();
+  // Slight delay so alloc inputs are in DOM
+  setTimeout(wireAllocKeys, 50);
 }
 
 function renderTopbar(){
@@ -778,7 +784,13 @@ function renderTopbar(){
   let th='';
   S.months.forEach(m=>{
     const st=monthStatus(m.id);
-    th+=`<div class="mtab ${st}${m.id===S.activeMonth?' active':''}" onclick="setMonth('${m.id}')"><div class="mtab-pip"></div>${m.label}</div>`;
+    const mRts=readyToSpend(m.id);
+    const mAlloc=totalAllocated(m.id);
+    // Show allocation status dot: green=fully allocated, amber=partial, none=nothing allocated
+    const allocDot=mAlloc>0?(mRts===0?' style="background:var(--green)"':mRts<0?' style="background:var(--red)"':' style="background:var(--amber)"'):'';
+    th+=`<div class="mtab ${st}${m.id===S.activeMonth?' active':''}" onclick="setMonth('${m.id}')" title="${m.label} — ${mAlloc>0?'RTS: $'+Math.abs(mRts).toFixed(2)+(mRts<0?' over':''):'Nothing allocated yet'}">
+      <div class="mtab-pip"${allocDot}></div>${m.label}
+    </div>`;
   });
   th+=`<div class="mtab-add" onclick="addNextMonth()">+</div>`;
   tEl.innerHTML=th;
@@ -834,7 +846,7 @@ function renderSidebar(){
         else if(alloc>0)dotCls='partial';
         const isFirstBkt=bIdx===0;
         const isLastBkt=bIdx===catBuckets.length-1;
-        h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')">
+        h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')" tabindex="0" role="button" aria-label="${b.name}" onkeydown="if(event.key==='Enter'||event.key===' ')setBucket('${b.id}')">
           <div class="bni-line" style="background:${cat.color||COLORS[0]}"></div>
           <div class="bni-dot ${dotCls}"></div>
           <span class="bni-name">${b.name}</span>
@@ -850,11 +862,23 @@ function renderSidebar(){
     });
   }
 
-  // Settings at bottom
+    // Settings at bottom
+  const lastExp=localStorage.getItem('bcc_last_export');
+  const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'never';
+  const expCheck=lastExp?'done':'';
   h+=`<div style="flex:1"></div>
   <div class="sb-sep" style="margin-top:auto"></div>
+  <div class="sb-link" onclick="exportData()" style="color:var(--text3);font-size:12px;" title="Last exported: ${expLabel}">
+    <span class="sb-link-icon">&#x2193;</span><span>Export Backup</span>
+    <span style="font-size:10px;color:var(--green);margin-left:auto">${expCheck}</span>
+  </div>
+  <div class="sb-link" onclick="document.getElementById('importFile').click()" style="color:var(--text3);font-size:12px;">
+    <span class="sb-link-icon">&#x2191;</span><span>Import Backup</span>
+  </div>
+  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)" />
   <div class="sb-link" onclick="confirmFreshStart()" style="color:var(--text3);font-size:12px;">
-    <span class="sb-link-icon">↺</span><span>Fresh Start</span></div>`;
+    <span class="sb-link-icon">&#x21BA;</span><span>Fresh Start</span>
+  </div>`;
 
   el.innerHTML=h;
 }
@@ -1006,7 +1030,7 @@ function renderMain(){
 
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
 
-      h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')">
+      h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter')setBucket('${b.id}')">
         <td class="td-accent"><div class="accent-bar" style="background:${color}"></div></td>
         <td class="td-name">
           <div class="bn">${b.name}</div>
@@ -1248,7 +1272,11 @@ function updateBudget(bid){
 }
 function fundCategory(catId,mid){
   const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
-  S.buckets.filter(b=>b.catId===catId&&!b.archived).forEach(b=>{m.allocations[b.id]=m.budgets[b.id]||b.defaultBudget||0;});
+  S.buckets.filter(b=>b.catId===catId&&!b.archived).forEach(b=>{
+    // Use existing budget target, fall back to default, never go below 0
+    const target=Math.max(m.budgets[b.id]||b.defaultBudget||0, 0);
+    m.allocations[b.id]=target;
+  });
   save();render();
 }
 
@@ -2026,14 +2054,12 @@ function delCat(id){
 // REORDER
 // ═══════════════════════════════════════════════════════
 function normalizeCatOrder(){
-  // Ensure every cat has a numeric order field
-  S.cats.forEach((c,i)=>{if(c.order===undefined)c.order=i;});
+  S.cats.forEach((c,i)=>{if(c.order===undefined||c.order===null)c.order=i;});
 }
 function normalizeBktOrder(){
-  // Ensure every bucket has a numeric order field within its category
   S.cats.forEach(cat=>{
     const bkts=S.buckets.filter(b=>b.catId===cat.id);
-    bkts.forEach((b,i)=>{if(b.order===undefined)b.order=i;});
+    bkts.forEach((b,i)=>{if(b.order===undefined||b.order===null)b.order=i;});
   });
 }
 
@@ -2072,12 +2098,212 @@ function moveBkt(id,dir){
 }
 
 // ═══════════════════════════════════════════════════════
-// KEYBOARD
+// EXPORT / IMPORT
 // ═══════════════════════════════════════════════════════
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeModal();closeWizard();}
-  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();addTx();}
+
+function exportData(){
+  const snapshot={
+    version:6,
+    exportedAt:new Date().toISOString(),
+    data:S,
+  };
+  const json=JSON.stringify(snapshot,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const date=new Date().toISOString().split('T')[0];
+  a.href=url;
+  a.download=`budget-command-center-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  // Record last export time
+  localStorage.setItem('bcc_last_export', Date.now().toString());
+  renderSidebar();
+  // Brief confirmation
+  const btn=event?.currentTarget;
+  if(btn){
+    const orig=btn.innerHTML;
+    btn.style.color='var(--green)';
+    btn.querySelector('span').textContent='✓ Exported!';
+    setTimeout(()=>{btn.style.color='';renderSidebar();},2000);
+  }
+}
+
+function importData(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const parsed=JSON.parse(e.target.result);
+      const imported=parsed.data||parsed;
+      if(!Array.isArray(imported.accounts)&&!Array.isArray(imported.cats)){
+        alert('Invalid backup file — this does not look like a Budget Command Center export.');
+        event.target.value='';return;
+      }
+      const exportDate=parsed.exportedAt?new Date(parsed.exportedAt).toLocaleString():'unknown date';
+      const msg='Import backup from '+exportDate+'?\n\nThis will REPLACE all current data.\n\nContinue?';
+      if(!confirm(msg)){event.target.value='';return;}
+      S=Object.assign({
+        accounts:[],cats:[],buckets:[],months:[],txs:[],
+        activeMonth:null,activeBucket:null,activeAccount:null,
+        scenario:false,scenarioBudgets:{},wiOpen:false,txFilter:'all',onboarded:true,
+      },imported);
+      S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
+      normalizeCatOrder();normalizeBktOrder();
+      save();ensureMonth();
+      if(!S.activeMonth)S.activeMonth=currentMonthId();
+      render();populateTxCats();updateTxFormForType();wireFormKeys();
+      event.target.value='';
+      alert('Backup imported successfully!');
+    }catch(err){
+      alert('Failed to read backup file: '+err.message);
+      event.target.value='';
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════════════
+// KEYBOARD & ACCESSIBILITY
+// ═══════════════════════════════════════════════════════
+
+// Tab order in the tx form: desc → amt → date → acct → cat → bkt → submit
+// Enter in any tx field submits the form
+function txFieldEnter(e){
+  if(e.key==='Enter'){e.preventDefault();addTx();}
+}
+
+// Advance focus to next field on Enter within tx form inputs
+function txAdvance(e, nextId){
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const next = document.getElementById(nextId);
+    if(next) next.focus();
+    else addTx();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  const inInput = tag==='input'||tag==='select'||tag==='textarea';
+  const modalOpen = !document.getElementById('overlay').classList.contains('hidden');
+  const wizOpen   = !document.getElementById('wizardOverlay').classList.contains('hidden');
+
+  // ── Always available ──────────────────────────────
+  if(e.key==='Escape'){
+    if(modalOpen){closeModal();return;}
+    if(wizOpen){closeWizard();return;}
+    // Escape from bucket detail → back to overview
+    if(S.activeBucket){setBucket(null);return;}
+    if(S.activeAccount){clearActive();return;}
+  }
+
+  // ── Modal shortcuts ───────────────────────────────
+  if(modalOpen){
+    if(e.key==='Enter'&&!inInput){e.preventDefault();saveModal();}
+    return; // don't fire global shortcuts while modal is open
+  }
+
+  // ── Transaction form shortcuts ────────────────────
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();addTx();return;}
+
+  // Don't fire navigation shortcuts when typing in an input
+  if(inInput)return;
+
+  // ── Global navigation ─────────────────────────────
+  // N = focus description field (start new transaction)
+  if(e.key==='n'||e.key==='N'){
+    e.preventDefault();
+    const desc=document.getElementById('txDesc');
+    if(desc&&document.getElementById('txForm').style.display!=='none'){
+      desc.focus();desc.select();
+    }
+    return;
+  }
+
+  // I = focus income (set type to In, focus desc)
+  if(e.key==='i'||e.key==='I'){
+    e.preventDefault();
+    setTxType('in');
+    document.getElementById('txDesc')?.focus();
+    return;
+  }
+
+  // Left/Right arrow = previous/next month
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+    e.preventDefault();
+    const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+    if(idx===-1)return;
+    const next=e.key==='ArrowRight'?idx+1:idx-1;
+    if(next>=0&&next<S.months.length)setMonth(S.months[next].id);
+    return;
+  }
+
+  // O = overview (clear active bucket/account)
+  if(e.key==='o'||e.key==='O'){
+    e.preventDefault();
+    clearActive();
+    return;
+  }
 });
+
+// Wire up Enter key on tx form fields to advance or submit
+document.addEventListener('DOMContentLoaded',()=>{
+  // These fire after render since fields are static HTML
+  wireFormKeys();
+});
+
+function wireFormKeys(){
+  const fields=['txDesc','txAmt','txDate','txAcct','txCat','txBkt','txXfrTo'];
+  fields.forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.addEventListener('keydown',e=>{
+      if(e.key!=='Enter')return;
+      e.preventDefault();
+      // Find next visible field
+      let found=false;
+      for(let j=i+1;j<fields.length;j++){
+        const next=document.getElementById(fields[j]);
+        if(next&&next.offsetParent!==null&&!next.disabled){
+          next.focus();found=true;break;
+        }
+      }
+      if(!found)addTx();
+    });
+  });
+}
+
+// Wire allocation input Enter to commit and move to next bucket
+function wireAllocKeys(){
+  document.querySelectorAll('.alloc-inp').forEach(inp=>{
+    inp.addEventListener('keydown',e=>{
+      if(e.key!=='Enter'&&e.key!=='Tab')return;
+      if(e.key==='Tab')return; // let browser handle tab
+      e.preventDefault();
+      inp.dispatchEvent(new Event('change'));
+      // Move focus to next alloc input
+      const all=[...document.querySelectorAll('.alloc-inp')];
+      const idx=all.indexOf(inp);
+      if(idx>-1&&idx<all.length-1)all[idx+1].focus();
+    });
+  });
+}
+
+// Show keyboard shortcuts hint
+function showShortcuts(){
+  const msg=`Keyboard shortcuts:
+N — Start new transaction (focus description)
+I — New income transaction
+← → — Previous / next month
+O — Back to overview
+Ctrl+Enter — Submit transaction
+Escape — Close modal / back`;
+  alert(msg);
+}
 
 // ═══════════════════════════════════════════════════════
 // INIT
@@ -2089,6 +2315,7 @@ render();
 populateTxCats();
 updateTxFormForType();
 document.getElementById('txDate').value=new Date().toISOString().split('T')[0];
+wireFormKeys();
 // Show wizard if brand new user
 if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
 </script>
