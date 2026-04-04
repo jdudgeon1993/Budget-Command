@@ -5,205 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Budget Command Center</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-// ═══════════════════════════════════════════════════════
-// AUTH & SYNC
-// ═══════════════════════════════════════════════════════
-
-function setSyncStatus(state, label){
-  const el=document.getElementById('syncStatus');
-  if(!el)return;
-  if(!supaReady()){el.style.display='none';return;}
-  el.style.display='';
-  el.className='';
-  el.classList.add(state);
-  el.textContent=label;
-}
-
-async function authInit(){
-  if(!supaReady()){
-    // No Supabase config — run fully offline
-    setSyncStatus('offline','Offline');
-    return;
-  }
-
-  const client=supaClient();
-
-  // Listen for auth state changes (handles magic link callback)
-  client.auth.onAuthStateChange(async(event, session)=>{
-    if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'){
-      _supaUser=session.user;
-      document.getElementById('authScreen').classList.add('hidden');
-      updateAuthBtn();
-      setSyncStatus('syncing','Syncing…');
-      // Pull latest from Supabase, then init the app
-      const loaded=await loadFromSupabase();
-      if(loaded){
-        ensureMonth();
-        if(!S.activeMonth)S.activeMonth=currentMonthId();
-        normalizeCatOrder();normalizeBktOrder();
-      }
-      setSyncStatus('synced','Synced');
-      if(isMobile()){initMobile();}else{initDesktop();}
-      if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
-    } else if(event==='SIGNED_OUT'){
-      _supaUser=null;
-      updateAuthBtn();
-      setSyncStatus('offline','Not signed in');
-      document.getElementById('authScreen').classList.remove('hidden');
-    }
-  });
-
-  // Check for existing session
-  const {data:{session}}=await client.auth.getSession();
-  if(session){
-    _supaUser=session.user;
-    setSyncStatus('syncing','Syncing…');
-    const loaded=await loadFromSupabase();
-    if(loaded){
-      ensureMonth();
-      if(!S.activeMonth)S.activeMonth=currentMonthId();
-      normalizeCatOrder();normalizeBktOrder();
-    }
-    setSyncStatus('synced','Synced');
-    updateAuthBtn();
-  } else {
-    // No session — show auth screen if Supabase is configured
-    document.getElementById('authScreen').classList.remove('hidden');
-    setSyncStatus('offline','Not signed in');
-  }
-
-  // Push any pending offline changes when coming back online
-  window.addEventListener('online',async()=>{
-    if(_supaUser&&_pendingSync){
-      setSyncStatus('syncing','Syncing…');
-      await supabase_push();
-      setSyncStatus('synced','Synced');
-    }
-  });
-  window.addEventListener('offline',()=>{
-    setSyncStatus('offline','Offline');
-  });
-}
-
-// ── Auth form toggles ─────────────────────────────────────────────────────────
-function showAuthSignIn(){
-  document.getElementById('authSignInForm').style.display='';
-  document.getElementById('authRegisterForm').style.display='none';
-  document.getElementById('authTitle').textContent='Sign in';
-  document.getElementById('authSub').textContent='Your budget data syncs across all your devices.';
-  document.getElementById('authMsg').style.display='none';
-  document.getElementById('authEmail')?.focus();
-}
-
-function showAuthRegister(){
-  document.getElementById('authSignInForm').style.display='none';
-  document.getElementById('authRegisterForm').style.display='';
-  document.getElementById('authTitle').textContent='Create account';
-  document.getElementById('authSub').textContent='Set up your Budget Command Center account.';
-  document.getElementById('authMsg').style.display='none';
-  document.getElementById('authRegEmail')?.focus();
-}
-
-// ── Sign In ───────────────────────────────────────────────────────────────────
-async function authSignIn(){
-  const email=document.getElementById('authEmail')?.value.trim();
-  const password=document.getElementById('authPassword')?.value;
-  if(!email||!password){showAuthMsg('error','Please enter your email and password.');return;}
-  if(!supaReady()){showAuthMsg('error','Supabase not configured. Check your SUPA_URL and SUPA_KEY.');return;}
-
-  const btn=document.getElementById('authSignInBtn');
-  btn.disabled=true;btn.textContent='Signing in…';
-
-  const {data,error}=await supaClient().auth.signInWithPassword({email,password});
-  if(error){
-    showAuthMsg('error',error.message);
-    btn.disabled=false;btn.textContent='Sign In';
-  }
-  // Success handled by onAuthStateChange listener
-}
-
-// ── Register ──────────────────────────────────────────────────────────────────
-async function authRegister(){
-  const email=document.getElementById('authRegEmail')?.value.trim();
-  const pw=document.getElementById('authRegPassword')?.value;
-  const pw2=document.getElementById('authRegPassword2')?.value;
-  if(!email||!pw){showAuthMsg('error','Please fill in all fields.');return;}
-  if(pw.length<6){showAuthMsg('error','Password must be at least 6 characters.');return;}
-  if(pw!==pw2){showAuthMsg('error','Passwords do not match.');return;}
-  if(!supaReady()){showAuthMsg('error','Supabase not configured.');return;}
-
-  const btn=document.querySelector('#authRegisterForm .auth-btn');
-  btn.disabled=true;btn.textContent='Creating account…';
-
-  const {data,error}=await supaClient().auth.signUp({email,password:pw});
-  if(error){
-    showAuthMsg('error',error.message);
-    btn.disabled=false;btn.textContent='Create Account';
-  } else if(data?.user&&!data?.session){
-    // Email confirmation required — tell user
-    showAuthMsg('success','Account created! Check your email to confirm, then sign in.');
-    setTimeout(()=>showAuthSignIn(),2000);
-  }
-  // If session returned immediately (email confirm disabled), onAuthStateChange handles it
-}
-
-function showAuthMsg(type, text){
-  const el=document.getElementById('authMsg');
-  if(!el)return;
-  el.style.display='block';
-  el.className='auth-msg '+type;
-  el.textContent=text;
-}
-
-function skipAuth(){
-  document.getElementById('authScreen').classList.add('hidden');
-  setSyncStatus('offline','Offline mode');
-  if(isMobile()){initMobile();}else{initDesktop();}
-  if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
-}
-
-async function signOut(){
-  if(!supaReady()||!_supaUser)return;
-  await supaClient().auth.signOut();
-  _supaUser=null;
-  updateAuthBtn();
-  document.getElementById('authScreen').classList.remove('hidden');
-}
-
-function authAction(){
-  if(_supaUser){
-    if(confirm('Sign out of '+(_supaUser.email||'your account')+'?'))signOut();
-  }
-}
-
-function updateAuthBtn(){
-  const btn=document.getElementById('authBtn');
-  if(!btn||!supaReady())return;
-  btn.style.display='';
-  if(_supaUser){
-    btn.textContent=_supaUser.email?.split('@')[0]||'Account';
-    btn.title='Signed in as '+_supaUser.email+' — click to sign out';
-  } else {
-    btn.textContent='Sign in';
-    btn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
-  }
-}
-
-// Wrap save to update sync indicator
-const _rawSave=save;
-function save(){
-  _rawSave();
-  if(supaReady()&&_supaUser){
-    setSyncStatus('syncing','Syncing…');
-    supabase_push().then(()=>{
-      setSyncStatus('synced','Synced ✓');
-      // Fade back to just "Synced" after 2s
-      setTimeout(()=>setSyncStatus('synced','Synced'),2000);
-    }).catch(()=>setSyncStatus('error','Sync failed'));
-  }
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -1019,6 +821,7 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 let _supa = null;
 let _supaUser = null;
 let _pendingSync = false;
+let _appInitialized = false;
 
 function supaClient(){
   try{
@@ -1034,6 +837,214 @@ function supaReady(){
     !!supaClient() &&
     SUPA_URL !== 'YOUR_SUPABASE_URL' &&
     SUPA_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTH & SYNC
+// ═══════════════════════════════════════════════════════
+
+function setSyncStatus(state, label){
+  const el=document.getElementById('syncStatus');
+  if(!el)return;
+  if(!supaReady()){el.style.display='none';return;}
+  el.style.display='';
+  el.className='';
+  el.classList.add(state);
+  el.textContent=label;
+}
+
+async function authInit(){
+  if(!supaReady()){
+    setSyncStatus('offline','Offline');
+    return;
+  }
+
+  const client=supaClient();
+
+  // Listen for auth state changes (sign-in, token refresh, sign-out)
+  client.auth.onAuthStateChange(async(event, session)=>{
+    if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'){
+      _supaUser=session.user;
+      document.getElementById('authScreen').classList.add('hidden');
+      updateAuthBtn();
+      if(!_appInitialized){
+        // First load — pull latest data then render the UI
+        setSyncStatus('syncing','Syncing…');
+        const loaded=await loadFromSupabase();
+        if(loaded){
+          ensureMonth();
+          if(!S.activeMonth)S.activeMonth=currentMonthId();
+          normalizeCatOrder();normalizeBktOrder();
+        }
+        _appInitialized=true;
+        setSyncStatus('synced','Synced');
+        if(isMobile()){initMobile();}else{initDesktop();}
+        if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+      } else if(event==='TOKEN_REFRESHED'){
+        // Session silently renewed — push any pending offline changes
+        if(_pendingSync){
+          setSyncStatus('syncing','Syncing…');
+          await supabase_push();
+          setSyncStatus('synced','Synced');
+        }
+      }
+    } else if(event==='SIGNED_OUT'){
+      _supaUser=null;
+      _appInitialized=false;
+      updateAuthBtn();
+      setSyncStatus('offline','Not signed in');
+      showAuthSignIn();
+      document.getElementById('authScreen').classList.remove('hidden');
+    }
+  });
+
+  // Check for existing session immediately so we don't flash the auth screen
+  const {data:{session}}=await client.auth.getSession();
+  if(session){
+    _supaUser=session.user;
+    updateAuthBtn();
+    if(!_appInitialized){
+      setSyncStatus('syncing','Syncing…');
+      const loaded=await loadFromSupabase();
+      if(loaded){
+        ensureMonth();
+        if(!S.activeMonth)S.activeMonth=currentMonthId();
+        normalizeCatOrder();normalizeBktOrder();
+      }
+      _appInitialized=true;
+      setSyncStatus('synced','Synced');
+      if(isMobile()){initMobile();}else{initDesktop();}
+      if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+    }
+  } else {
+    // No session — show auth screen
+    document.getElementById('authScreen').classList.remove('hidden');
+    setSyncStatus('offline','Not signed in');
+  }
+
+  // Push pending offline changes when coming back online
+  window.addEventListener('online',async()=>{
+    if(_supaUser&&_pendingSync){
+      setSyncStatus('syncing','Syncing…');
+      await supabase_push();
+      setSyncStatus('synced','Synced');
+    }
+  });
+  window.addEventListener('offline',()=>{
+    setSyncStatus('offline','Offline');
+  });
+}
+
+// ── Auth form toggles ─────────────────────────────────────────────────────────
+function showAuthSignIn(){
+  document.getElementById('authSignInForm').style.display='';
+  document.getElementById('authRegisterForm').style.display='none';
+  document.getElementById('authTitle').textContent='Sign in';
+  document.getElementById('authSub').textContent='Your budget data syncs across all your devices.';
+  document.getElementById('authMsg').style.display='none';
+  document.getElementById('authEmail')?.focus();
+}
+
+function showAuthRegister(){
+  document.getElementById('authSignInForm').style.display='none';
+  document.getElementById('authRegisterForm').style.display='';
+  document.getElementById('authTitle').textContent='Create account';
+  document.getElementById('authSub').textContent='Set up your Budget Command Center account.';
+  document.getElementById('authMsg').style.display='none';
+  document.getElementById('authRegEmail')?.focus();
+}
+
+// ── Sign In ───────────────────────────────────────────────────────────────────
+async function authSignIn(){
+  const email=document.getElementById('authEmail')?.value.trim();
+  const password=document.getElementById('authPassword')?.value;
+  if(!email||!password){showAuthMsg('error','Please enter your email and password.');return;}
+  if(!supaReady()){showAuthMsg('error','Supabase not configured. Check SUPA_URL and SUPA_KEY.');return;}
+
+  const btn=document.getElementById('authSignInBtn');
+  btn.disabled=true;btn.textContent='Signing in…';
+
+  const {error}=await supaClient().auth.signInWithPassword({email,password});
+  if(error){
+    showAuthMsg('error',error.message);
+    btn.disabled=false;btn.textContent='Sign In';
+  }
+  // Success handled by onAuthStateChange listener
+}
+
+// ── Register ──────────────────────────────────────────────────────────────────
+async function authRegister(){
+  const email=document.getElementById('authRegEmail')?.value.trim();
+  const pw=document.getElementById('authRegPassword')?.value;
+  const pw2=document.getElementById('authRegPassword2')?.value;
+  if(!email||!pw){showAuthMsg('error','Please fill in all fields.');return;}
+  if(pw.length<6){showAuthMsg('error','Password must be at least 6 characters.');return;}
+  if(pw!==pw2){showAuthMsg('error','Passwords do not match.');return;}
+  if(!supaReady()){showAuthMsg('error','Supabase not configured.');return;}
+
+  const btn=document.querySelector('#authRegisterForm .auth-btn');
+  btn.disabled=true;btn.textContent='Creating account…';
+
+  const {data,error}=await supaClient().auth.signUp({email,password:pw});
+  if(error){
+    showAuthMsg('error',error.message);
+    btn.disabled=false;btn.textContent='Create Account';
+  } else if(data?.user&&!data?.session){
+    showAuthMsg('success','Account created! Check your email to confirm, then sign in.');
+    setTimeout(()=>showAuthSignIn(),2000);
+  }
+  // If session returned immediately (email confirm disabled), onAuthStateChange handles it
+}
+
+function showAuthMsg(type, text){
+  const el=document.getElementById('authMsg');
+  if(!el)return;
+  el.style.display='block';
+  el.className='auth-msg '+type;
+  el.textContent=text;
+}
+
+function skipAuth(){
+  document.getElementById('authScreen').classList.add('hidden');
+  setSyncStatus('offline','Offline mode');
+  if(isMobile()){initMobile();}else{initDesktop();}
+  if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+}
+
+async function signOut(){
+  if(!supaReady()||!_supaUser)return;
+  setSyncStatus('syncing','Signing out…');
+  await supaClient().auth.signOut();
+  // onAuthStateChange SIGNED_OUT handles the rest, but also do it here for reliability
+  _supaUser=null;
+  _appInitialized=false;
+  _pendingSync=false;
+  updateAuthBtn();
+  setSyncStatus('offline','Not signed in');
+  showAuthSignIn();
+  document.getElementById('authScreen').classList.remove('hidden');
+}
+
+function authAction(){
+  if(_supaUser){
+    if(confirm('Sign out of '+(_supaUser.email||'your account')+'?'))signOut();
+  } else {
+    document.getElementById('authScreen').classList.remove('hidden');
+  }
+}
+
+function updateAuthBtn(){
+  const btn=document.getElementById('authBtn');
+  if(!btn||!supaReady())return;
+  btn.style.display='';
+  if(_supaUser){
+    btn.textContent=_supaUser.email?.split('@')[0]||'Account';
+    btn.title='Signed in as '+_supaUser.email+' — click to sign out';
+    btn.onclick=authAction;
+  } else {
+    btn.textContent='Sign in';
+    btn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1059,7 +1070,14 @@ function save(){
   localStorage.setItem(KEY, JSON.stringify(S));
   if(supaReady() && _supaUser){
     _pendingSync=true;
-    supabase_push().catch(err=>console.warn('Sync failed:',err.message));
+    setSyncStatus('syncing','Syncing…');
+    supabase_push().then(()=>{
+      setSyncStatus('synced','Synced ✓');
+      setTimeout(()=>setSyncStatus('synced','Synced'),2000);
+    }).catch(err=>{
+      console.warn('Sync failed:',err.message);
+      setSyncStatus('error','Sync failed');
+    });
   }
 }
 
@@ -1114,7 +1132,7 @@ async function loadFromSupabase(){
   if(!data){
     console.log('No Supabase data yet — pushing existing local data up');
     // S is already populated from load() — just push it
-    if(S.accounts||S.cats||S.txs){
+    if(S.accounts?.length||S.cats?.length||S.txs?.length){
       await supabase_push();
     }
     return true;
@@ -3758,199 +3776,6 @@ function mAcctOptions(selectedId){
 // AUTH & SYNC
 // ═══════════════════════════════════════════════════════
 
-function setSyncStatus(state, label){
-  const el=document.getElementById('syncStatus');
-  if(!el)return;
-  if(!supaReady()){el.style.display='none';return;}
-  el.style.display='';
-  el.className='';
-  el.classList.add(state);
-  el.textContent=label;
-}
-
-async function authInit(){
-  if(!supaReady()){
-    // No Supabase config — run fully offline
-    setSyncStatus('offline','Offline');
-    return;
-  }
-
-  const client=supaClient();
-
-  // Listen for auth state changes (handles magic link callback)
-  client.auth.onAuthStateChange(async(event, session)=>{
-    if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'){
-      _supaUser=session.user;
-      document.getElementById('authScreen').classList.add('hidden');
-      updateAuthBtn();
-      setSyncStatus('syncing','Syncing…');
-      // Pull latest from Supabase, then init the app
-      const loaded=await loadFromSupabase();
-      if(loaded){
-        ensureMonth();
-        if(!S.activeMonth)S.activeMonth=currentMonthId();
-        normalizeCatOrder();normalizeBktOrder();
-      }
-      setSyncStatus('synced','Synced');
-      if(isMobile()){initMobile();}else{initDesktop();}
-      if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
-    } else if(event==='SIGNED_OUT'){
-      _supaUser=null;
-      updateAuthBtn();
-      setSyncStatus('offline','Not signed in');
-      document.getElementById('authScreen').classList.remove('hidden');
-    }
-  });
-
-  // Check for existing session
-  const {data:{session}}=await client.auth.getSession();
-  if(session){
-    _supaUser=session.user;
-    setSyncStatus('syncing','Syncing…');
-    const loaded=await loadFromSupabase();
-    if(loaded){
-      ensureMonth();
-      if(!S.activeMonth)S.activeMonth=currentMonthId();
-      normalizeCatOrder();normalizeBktOrder();
-    }
-    setSyncStatus('synced','Synced');
-    updateAuthBtn();
-  } else {
-    // No session — show auth screen if Supabase is configured
-    document.getElementById('authScreen').classList.remove('hidden');
-    setSyncStatus('offline','Not signed in');
-  }
-
-  // Push any pending offline changes when coming back online
-  window.addEventListener('online',async()=>{
-    if(_supaUser&&_pendingSync){
-      setSyncStatus('syncing','Syncing…');
-      await supabase_push();
-      setSyncStatus('synced','Synced');
-    }
-  });
-  window.addEventListener('offline',()=>{
-    setSyncStatus('offline','Offline');
-  });
-}
-
-// ── Auth form toggles ─────────────────────────────────────────────────────────
-function showAuthSignIn(){
-  document.getElementById('authSignInForm').style.display='';
-  document.getElementById('authRegisterForm').style.display='none';
-  document.getElementById('authTitle').textContent='Sign in';
-  document.getElementById('authSub').textContent='Your budget data syncs across all your devices.';
-  document.getElementById('authMsg').style.display='none';
-  document.getElementById('authEmail')?.focus();
-}
-
-function showAuthRegister(){
-  document.getElementById('authSignInForm').style.display='none';
-  document.getElementById('authRegisterForm').style.display='';
-  document.getElementById('authTitle').textContent='Create account';
-  document.getElementById('authSub').textContent='Set up your Budget Command Center account.';
-  document.getElementById('authMsg').style.display='none';
-  document.getElementById('authRegEmail')?.focus();
-}
-
-// ── Sign In ───────────────────────────────────────────────────────────────────
-async function authSignIn(){
-  const email=document.getElementById('authEmail')?.value.trim();
-  const password=document.getElementById('authPassword')?.value;
-  if(!email||!password){showAuthMsg('error','Please enter your email and password.');return;}
-  if(!supaReady()){showAuthMsg('error','Supabase not configured. Check your SUPA_URL and SUPA_KEY.');return;}
-
-  const btn=document.getElementById('authSignInBtn');
-  btn.disabled=true;btn.textContent='Signing in…';
-
-  const {data,error}=await supaClient().auth.signInWithPassword({email,password});
-  if(error){
-    showAuthMsg('error',error.message);
-    btn.disabled=false;btn.textContent='Sign In';
-  }
-  // Success handled by onAuthStateChange listener
-}
-
-// ── Register ──────────────────────────────────────────────────────────────────
-async function authRegister(){
-  const email=document.getElementById('authRegEmail')?.value.trim();
-  const pw=document.getElementById('authRegPassword')?.value;
-  const pw2=document.getElementById('authRegPassword2')?.value;
-  if(!email||!pw){showAuthMsg('error','Please fill in all fields.');return;}
-  if(pw.length<6){showAuthMsg('error','Password must be at least 6 characters.');return;}
-  if(pw!==pw2){showAuthMsg('error','Passwords do not match.');return;}
-  if(!supaReady()){showAuthMsg('error','Supabase not configured.');return;}
-
-  const btn=document.querySelector('#authRegisterForm .auth-btn');
-  btn.disabled=true;btn.textContent='Creating account…';
-
-  const {data,error}=await supaClient().auth.signUp({email,password:pw});
-  if(error){
-    showAuthMsg('error',error.message);
-    btn.disabled=false;btn.textContent='Create Account';
-  } else if(data?.user&&!data?.session){
-    // Email confirmation required — tell user
-    showAuthMsg('success','Account created! Check your email to confirm, then sign in.');
-    setTimeout(()=>showAuthSignIn(),2000);
-  }
-  // If session returned immediately (email confirm disabled), onAuthStateChange handles it
-}
-
-function showAuthMsg(type, text){
-  const el=document.getElementById('authMsg');
-  if(!el)return;
-  el.style.display='block';
-  el.className='auth-msg '+type;
-  el.textContent=text;
-}
-
-function skipAuth(){
-  document.getElementById('authScreen').classList.add('hidden');
-  setSyncStatus('offline','Offline mode');
-  if(isMobile()){initMobile();}else{initDesktop();}
-  if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
-}
-
-async function signOut(){
-  if(!supaReady()||!_supaUser)return;
-  await supaClient().auth.signOut();
-  _supaUser=null;
-  updateAuthBtn();
-  document.getElementById('authScreen').classList.remove('hidden');
-}
-
-function authAction(){
-  if(_supaUser){
-    if(confirm('Sign out of '+(_supaUser.email||'your account')+'?'))signOut();
-  }
-}
-
-function updateAuthBtn(){
-  const btn=document.getElementById('authBtn');
-  if(!btn||!supaReady())return;
-  btn.style.display='';
-  if(_supaUser){
-    btn.textContent=_supaUser.email?.split('@')[0]||'Account';
-    btn.title='Signed in as '+_supaUser.email+' — click to sign out';
-  } else {
-    btn.textContent='Sign in';
-    btn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
-  }
-}
-
-// Wrap save to update sync indicator
-const _rawSave=save;
-function save(){
-  _rawSave();
-  if(supaReady()&&_supaUser){
-    setSyncStatus('syncing','Syncing…');
-    supabase_push().then(()=>{
-      setSyncStatus('synced','Synced ✓');
-      // Fade back to just "Synced" after 2s
-      setTimeout(()=>setSyncStatus('synced','Synced'),2000);
-    }).catch(()=>setSyncStatus('error','Sync failed'));
-  }
-}
 </script>
 
 <!-- ════ MOBILE SHELL ════ -->
