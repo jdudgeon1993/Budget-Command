@@ -1,0 +1,2096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f1117;--bg2:#161920;--bg3:#1d2028;
+  --surface:#232730;--surface2:#2a2f3a;
+  --border:#2e333f;--border2:#3a404e;
+  --text:#f0f2f5;--text2:#8b92a0;--text3:#555d6e;
+  --green:#3dba8c;--gbg:#1a3329;--gb:#2a5c42;
+  --red:#e05c5c;--rbg:#2f1818;--rb:#5c2a2a;
+  --amber:#e0a43c;--abg:#2f2210;--ab:#5c4010;
+  --blue:#4a9edd;--bbg:#1a2535;--bb:#2a4a6e;
+  --purple:#9b7fe8;--pbg:#1e1a30;--pb:#3d3060;
+  --accent:#2a7c6f;--accent2:#1f5f55;
+  --sans:'DM Sans',system-ui,sans-serif;
+  --mono:'DM Mono',monospace;
+  --r:8px;--rl:12px;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;display:flex;flex-direction:column;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* ═══ TOPBAR ═══ */
+.topbar{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:stretch;flex-shrink:0;z-index:100;overflow:hidden;}
+.tb-logo{display:flex;align-items:center;gap:8px;padding:0 18px;border-right:1px solid var(--border);font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:-.3px;white-space:nowrap;flex-shrink:0;}
+.tb-logo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+
+.tb-accounts{display:flex;align-items:stretch;gap:0;overflow-x:auto;scrollbar-width:none;border-right:1px solid var(--border);}
+.tb-accounts::-webkit-scrollbar{display:none;}
+.acct-chip{display:flex;flex-direction:column;justify-content:center;padding:0 16px;border-right:1px solid var(--border);cursor:pointer;transition:background .12s;min-width:120px;flex-shrink:0;}
+.acct-chip:hover{background:var(--bg3);}
+.acct-chip:last-child{border-right:none;}
+.ac-name{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:1px;display:flex;align-items:center;gap:5px;}
+.ac-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.ac-bal{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-.5px;}
+.ac-bal.pos{color:var(--text);}
+.ac-bal.neg{color:var(--red);}
+.ac-type{font-size:9px;color:var(--text3);}
+
+.tb-total{display:flex;flex-direction:column;justify-content:center;padding:0 16px;border-right:1px solid var(--border);min-width:130px;flex-shrink:0;}
+.tb-total-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:1px;}
+.tb-total-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.5px;color:var(--text);}
+
+.tb-rts{display:flex;flex-direction:column;justify-content:center;padding:0 16px;border-right:1px solid var(--border);min-width:150px;flex-shrink:0;background:var(--bg3);}
+.tb-rts-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:1px;}
+.tb-rts-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.5px;}
+.tb-rts-val.pos{color:var(--green);}
+.tb-rts-val.neg{color:var(--red);}
+.tb-rts-val.zero{color:var(--text3);}
+
+.tb-months{display:flex;align-items:stretch;flex:1;overflow-x:auto;scrollbar-width:none;}
+.tb-months::-webkit-scrollbar{display:none;}
+.mtab{display:flex;align-items:center;padding:0 15px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;color:var(--text3);transition:all .12s;gap:5px;user-select:none;}
+.mtab:hover{color:var(--text2);background:var(--bg3);}
+.mtab.present{color:var(--text2);}
+.mtab.active{color:var(--text);border-bottom-color:var(--accent);background:var(--bg3);}
+.mtab-pip{width:5px;height:5px;border-radius:50%;background:var(--text3);flex-shrink:0;}
+.mtab.present .mtab-pip{background:var(--green);}
+.mtab-add{display:flex;align-items:center;padding:0 14px;color:var(--text3);cursor:pointer;font-size:18px;transition:all .12s;border-bottom:2px solid transparent;}
+.mtab-add:hover{color:var(--text2);background:var(--bg3);}
+
+.tb-actions{display:flex;align-items:center;gap:6px;padding:0 14px;border-left:1px solid var(--border);flex-shrink:0;}
+.tbtn{background:none;border:1px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:var(--r);font-size:12px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.tbtn:hover{border-color:var(--accent);color:var(--text);background:var(--bg3);}
+.tbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tbtn.primary:hover{background:var(--accent2);}
+.tbtn.wi-on{background:var(--abg);border-color:var(--amber);color:var(--amber);}
+.tbtn.danger{background:var(--rbg);border-color:var(--rb);color:var(--red);}
+
+/* ═══ STRIPS ═══ */
+.strip{padding:7px 24px;display:flex;align-items:center;gap:12px;font-size:12px;flex-shrink:0;}
+.strip.hidden{display:none;}
+.strip.wi{background:var(--abg);border-bottom:1px solid var(--ab);color:var(--amber);}
+.strip.warn{background:var(--rbg);border-bottom:1px solid var(--rb);color:var(--red);}
+
+/* ═══ LAYOUT ═══ */
+.app{display:grid;grid-template-columns:232px 1fr 316px;flex:1;overflow:hidden;min-height:0;}
+
+/* ═══ SIDEBAR ═══ */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:12px 0 32px;}
+.sb-link{display:flex;align-items:center;padding:8px 16px;cursor:pointer;color:var(--text2);font-size:13px;gap:9px;transition:background .1s,color .1s;}
+.sb-link:hover,.sb-link.active{background:var(--bg3);color:var(--text);}
+.sb-link-icon{font-size:13px;color:var(--text3);width:14px;text-align:center;}
+.sb-sep{height:1px;background:var(--border);margin:8px 0;}
+.sb-sec{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 4px;margin-top:4px;}
+.sb-sec-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);}
+.sb-add{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;line-height:1;padding:0;transition:color .12s;}
+.sb-add:hover{color:var(--accent);}
+.cat-block{margin-bottom:2px;}
+.cat-row{display:flex;align-items:center;padding:5px 16px;gap:8px;cursor:default;user-select:none;}
+.cat-row:hover .cat-acts{opacity:1;}
+.cat-color{width:3px;height:13px;border-radius:2px;flex-shrink:0;}
+.cat-label{flex:1;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.cat-row:hover .cat-label{color:var(--text2);}
+.cat-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;}
+.bni{display:flex;align-items:center;padding:6px 16px 6px 27px;cursor:pointer;gap:8px;transition:background .1s;position:relative;}
+.bni:hover{background:var(--bg3);}
+.bni.active{background:var(--surface);}
+.bni-line{position:absolute;left:0;top:0;bottom:0;width:2px;opacity:0;transition:opacity .12s;}
+.bni.active .bni-line{opacity:1;}
+.bni-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background .2s;}
+.bni-dot.funded{background:var(--green);}
+.bni-dot.partial{background:var(--amber);}
+.bni-dot.over{background:var(--red);}
+.bni-dot.empty{background:var(--border2);}
+.bni-name{flex:1;font-size:13px;color:var(--text2);}
+.bni.active .bni-name{color:var(--text);}
+.bni-val{font-size:11px;font-family:var(--mono);color:var(--text3);}
+.bni-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;}
+.bni:hover .bni-acts{opacity:1;}
+.ib{background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:2px 4px;border-radius:3px;transition:all .1s;line-height:1;}
+.ib:hover{color:var(--text);background:var(--border2);}
+.ib.del:hover{color:var(--red);background:var(--rbg);}
+
+/* ═══ MAIN ═══ */
+.main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.main-scroll{flex:1;overflow-y:auto;padding:24px 28px;}
+.wi-panel{background:var(--bg2);border-top:1px solid var(--border);padding:14px 28px 16px;flex-shrink:0;max-height:240px;overflow-y:auto;}
+.wi-panel.hidden{display:none;}
+.wi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px;margin-top:10px;}
+.wi-row{display:flex;align-items:center;gap:8px;}
+.wi-label{flex:1;font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wi-inp{width:86px;flex-shrink:0;padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:12px;color:var(--text);text-align:right;}
+.wi-inp:focus{outline:none;border-color:var(--amber);}
+.wi-foot{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--text3);display:flex;gap:20px;}
+
+/* ═══ MONTH HDR ═══ */
+.month-hdr{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
+.month-title{font-size:21px;font-weight:600;letter-spacing:-.5px;}
+.chip{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;}
+.chip-past{background:var(--bg3);color:var(--text3);border:1px solid var(--border2);}
+.chip-present{background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
+.chip-future{background:#1a1d2e;color:#6b7dd4;border:1px solid #3a4080;}
+.notice{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:9px 14px;font-size:12px;color:var(--text3);margin-bottom:16px;}
+
+/* ═══ POOL STRIP ═══ */
+.pool-strip{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--border);border-radius:var(--rl);overflow:hidden;border:1px solid var(--border);margin-bottom:6px;}
+.ps-cell{background:var(--surface);padding:13px 18px;}
+.ps-cell.hi{background:var(--surface2);}
+.ps-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:3px;}
+.ps-val{font-family:var(--mono);font-size:18px;font-weight:500;letter-spacing:-.5px;}
+.ps-val.green{color:var(--green);}
+.ps-val.red{color:var(--red);}
+.ps-val.dim{color:var(--text2);}
+.ps-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+
+/* ═══ HINT BAR ═══ */
+.hint-bar{border-radius:var(--r);padding:9px 14px;margin-bottom:16px;font-size:12px;display:flex;align-items:center;gap:8px;}
+.hint-bar.info{background:var(--bbg);border:1px solid var(--bb);color:var(--blue);}
+.hint-bar.warn{background:var(--rbg);border:1px solid var(--rb);color:var(--red);}
+.hint-bar.success{background:var(--gbg);border:1px solid var(--gb);color:var(--green);}
+
+/* ═══ CATEGORY + BUCKET TABLE ═══ */
+.cat-sec{margin-bottom:20px;}
+.cat-sec-hdr{display:flex;align-items:center;gap:9px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.csh-color{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.csh-name{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);flex:1;}
+.csh-totals{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.fund-btn{background:none;border:1px solid var(--border2);border-radius:5px;padding:3px 9px;font-size:11px;font-family:var(--sans);font-weight:500;color:var(--text3);cursor:pointer;transition:all .12s;margin-left:6px;}
+.fund-btn:hover{border-color:var(--accent);color:var(--accent);}
+.btable{width:100%;border-collapse:collapse;}
+.btable tr.brow{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer;}
+.btable tr.brow:last-child{border-bottom:none;}
+.btable tr.brow:hover{background:var(--bg2);}
+.btable tr.brow.act{background:var(--surface);}
+.btable thead tr{border-bottom:1px solid var(--border);}
+.btable th{padding:6px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);text-align:left;}
+.btable th:last-child{text-align:right;}
+.btable td{padding:0;vertical-align:middle;}
+
+.td-accent{width:3px;padding:0;}
+.accent-bar{width:3px;border-radius:2px;height:30px;display:block;opacity:.35;transition:opacity .12s;}
+.btable tr:hover .accent-bar,.btable tr.act .accent-bar{opacity:1;}
+
+.td-name{padding:9px 10px 9px 7px;}
+.td-name .bn{font-size:13px;color:var(--text);}
+.td-name .bt{display:flex;align-items:center;gap:4px;margin-top:2px;}
+.bntag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text3);}
+.bndue{font-size:10px;font-family:var(--mono);}
+.bndue.urgent{color:var(--red);}
+.bndue.soon{color:var(--amber);}
+.bndue.ok{color:var(--text3);}
+
+.td-alloc{width:128px;padding:5px 7px;}
+.alloc-wrap{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:6px;overflow:hidden;transition:border-color .12s;}
+.alloc-wrap:focus-within{border-color:var(--accent);}
+.alloc-pfx{font-size:12px;color:var(--text3);padding:0 5px;font-family:var(--mono);pointer-events:none;}
+.alloc-inp{flex:1;min-width:0;width:68px;padding:6px 5px 6px 0;background:none;border:none;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);text-align:right;}
+.alloc-inp:focus{outline:none;}
+.alloc-inp.funded{color:var(--green);}
+.alloc-inp.neg{color:var(--red);}
+
+.td-bar{width:72px;padding:5px 7px;}
+.bbar{height:4px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.bbar-fill{height:100%;border-radius:2px;transition:width .25s;}
+.bf-ok{background:var(--green);}
+.bf-warn{background:var(--amber);}
+.bf-over{background:var(--red);}
+.bbar-sub{font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:2px;}
+
+.td-spent{width:86px;padding:5px 7px;text-align:right;}
+.td-avail{width:86px;padding:5px 7px;text-align:right;}
+.tv{font-family:var(--mono);font-size:12px;}
+.tv.dim{color:var(--text2);}
+.tv.muted{color:var(--text3);}
+.tv.green{color:var(--green);}
+.tv.red{color:var(--red);}
+.tv-sub{font-size:10px;color:var(--text3);}
+
+.td-pill{width:58px;padding:5px 7px;text-align:right;}
+.pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;}
+.pill-funded{background:var(--gbg);color:var(--green);}
+.pill-partial{background:var(--abg);color:var(--amber);}
+.pill-empty{background:var(--bg3);color:var(--text3);}
+.pill-over{background:var(--rbg);color:var(--red);}
+.pill-done{background:var(--gbg);color:var(--green);}
+.pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
+
+/* ═══ BUCKET DETAIL ═══ */
+.back-btn{background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);display:flex;align-items:center;gap:5px;padding:0;margin-bottom:20px;font-family:var(--sans);transition:color .12s;}
+.back-btn:hover{color:var(--text2);}
+.det-name{font-size:23px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px;}
+.det-meta{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:7px;margin-bottom:20px;flex-wrap:wrap;}
+.det-sep{color:var(--border2);}
+.det-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px;}
+.dn{background:var(--surface);padding:13px 15px;}
+.dn-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
+.dn-val{font-family:var(--mono);font-size:17px;font-weight:500;}
+.dn-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.det-bar{margin-bottom:18px;}
+.det-bar-track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:5px;}
+.det-bar-fill{height:100%;border-radius:4px;transition:width .4s;}
+.det-bar-note{display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono);color:var(--text3);}
+.det-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 17px;margin-bottom:18px;}
+.det-block-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
+.det-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
+.det-row:last-child{border-bottom:none;}
+.det-row-label{font-size:13px;color:var(--text2);}
+.det-row-val{font-family:var(--mono);font-size:13px;font-weight:500;}
+.sink-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px;}
+.ss{background:var(--surface);padding:11px 13px;}
+.ss-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
+.ss-val{font-family:var(--mono);font-size:14px;font-weight:500;}
+.alloc-edit-row{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:16px;}
+.aer-label{font-size:13px;color:var(--text2);flex:1;}
+.aer-input{width:108px;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-family:var(--mono);font-size:13px;color:var(--text);text-align:right;}
+.aer-input:focus{outline:none;border-color:var(--accent);}
+
+/* ═══ ACCOUNT VIEW ═══ */
+.acct-detail{padding:0;}
+.acct-hdr{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.acct-hdr-name{font-size:22px;font-weight:600;letter-spacing:-.5px;}
+.acct-balance-block{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:20px;}
+
+/* ═══ RIGHT PANEL ═══ */
+.rpanel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.rp-head{padding:13px 15px 11px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.rp-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:9px;}
+.rp-filters{display:flex;gap:3px;margin-bottom:8px;}
+.rfbtn{flex:1;padding:5px 3px;background:none;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:var(--sans);font-weight:500;color:var(--text3);cursor:pointer;transition:all .12s;}
+.rfbtn:hover{color:var(--text2);border-color:var(--border2);}
+.rfbtn.active{background:var(--surface);color:var(--text);border-color:var(--border2);}
+.rp-search{width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--sans);color:var(--text);margin-bottom:9px;}
+.rp-search:focus{outline:none;border-color:var(--accent);}
+.rp-search::placeholder{color:var(--text3);}
+
+/* TX FORM */
+.txf{display:flex;flex-direction:column;gap:5px;}
+.txf-row{display:flex;gap:5px;}
+.tfi{flex:1;min-width:0;padding:7px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--sans);color:var(--text);transition:border-color .12s,background .12s;}
+.tfi:focus{outline:none;border-color:var(--accent);background:var(--surface);}
+.tfi::placeholder{color:var(--text3);}
+.tfi.mono{font-family:var(--mono);}
+.tfi.sm{flex:0 0 84px;}
+.tfi-sel{flex:1;min-width:0;padding:7px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--sans);color:var(--text);cursor:pointer;}
+.tfi-sel:focus{outline:none;border-color:var(--accent);}
+.tfi-sel option{background:var(--surface2);}
+.type-tog{display:grid;grid-template-columns:1fr 1fr 1fr;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);flex:0 0 126px;}
+.ttbtn{padding:7px 0;border:none;cursor:pointer;font-size:11px;font-family:var(--sans);font-weight:500;color:var(--text3);background:var(--surface2);transition:all .12s;}
+.ttbtn.sel-out{background:var(--rbg);color:var(--red);}
+.ttbtn.sel-in{background:var(--gbg);color:var(--green);}
+.ttbtn.sel-xfr{background:var(--pbg);color:var(--purple);}
+.rec-chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text3);cursor:pointer;white-space:nowrap;}
+.rec-chk input{cursor:pointer;accent-color:var(--accent);}
+.txf-submit{padding:8px 12px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;white-space:nowrap;}
+.txf-submit:hover{background:var(--accent2);}
+
+/* TX LIST */
+.tx-list{flex:1;overflow-y:auto;}
+.tx-date-hdr{padding:5px 15px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;}
+.tx-row{display:flex;align-items:flex-start;padding:9px 15px;gap:8px;border-bottom:1px solid var(--border);transition:background .1s;}
+.tx-row:hover{background:var(--bg3);}
+.tx-l{flex:1;min-width:0;}
+.tx-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tx-meta{font-size:11px;color:var(--text3);margin-top:1px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.tx-dot2{width:3px;height:3px;border-radius:50%;background:var(--text3);display:inline-block;flex-shrink:0;}
+.tx-r{text-align:right;flex-shrink:0;}
+.tx-amt{font-family:var(--mono);font-size:13px;font-weight:500;}
+.tx-amt.out{color:var(--red);}
+.tx-amt.in{color:var(--green);}
+.tx-amt.xfr{color:var(--purple);}
+.tx-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;align-self:center;}
+.tx-row:hover .tx-acts{opacity:1;}
+.tx-empty{padding:34px 15px;text-align:center;font-size:13px;color:var(--text3);line-height:1.8;}
+
+/* ═══ EMPTY / ONBOARDING ═══ */
+.empty-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:54vh;text-align:center;padding:40px;}
+.empty-icon{font-size:32px;margin-bottom:14px;opacity:.2;}
+.empty-title{font-size:18px;font-weight:600;margin-bottom:8px;}
+.empty-sub{font-size:13px;color:var(--text3);line-height:1.7;max-width:300px;margin-bottom:22px;}
+.empty-btn{background:var(--accent);color:#fff;border:none;padding:9px 20px;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;}
+.empty-btn:hover{background:var(--accent2);}
+
+/* ═══ ONBOARDING WIZARD ═══ */
+.wizard-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;}
+.wizard-overlay.hidden{display:none;}
+.wizard{background:var(--bg2);border-radius:var(--rl);width:100%;max-width:500px;border:1px solid var(--border2);box-shadow:0 32px 80px rgba(0,0,0,.7);overflow:hidden;}
+.wiz-head{padding:24px 28px 0;}
+.wiz-step{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;}
+.wiz-title{font-size:20px;font-weight:600;letter-spacing:-.3px;margin-bottom:6px;}
+.wiz-sub{font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:20px;}
+.wiz-progress{display:flex;gap:4px;margin-bottom:20px;}
+.wiz-pip{flex:1;height:3px;border-radius:2px;background:var(--border2);}
+.wiz-pip.done{background:var(--accent);}
+.wiz-body{padding:0 28px;}
+.wiz-foot{padding:20px 28px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+.wiz-acct-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.wiz-acct-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
+.wai-color{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.wai-name{flex:1;font-size:14px;font-weight:500;}
+.wai-type{font-size:11px;color:var(--text3);background:var(--bg3);padding:2px 7px;border-radius:10px;}
+.wai-bal{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--green);}
+.wai-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0 2px;transition:color .1s;}
+.wai-del:hover{color:var(--red);}
+.add-acct-form{display:flex;gap:6px;align-items:flex-end;margin-bottom:4px;}
+
+/* ═══ MODAL ═══ */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
+.overlay.hidden{display:none;}
+.modal{background:var(--bg2);border-radius:var(--rl);width:100%;max-width:440px;border:1px solid var(--border2);box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;max-height:92vh;display:flex;flex-direction:column;}
+.modal-head{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.modal-title{font-size:15px;font-weight:600;}
+.modal-x{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px;transition:color .12s;}
+.modal-x:hover{color:var(--text);}
+.modal-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+.modal-tab{flex:1;padding:10px;background:none;border:none;cursor:pointer;font-size:13px;font-family:var(--sans);font-weight:500;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
+.modal-tab:hover{color:var(--text2);}
+.modal-tab.active{color:var(--text);border-bottom-color:var(--accent);}
+.modal-body{padding:20px;overflow-y:auto;flex:1;}
+.fg{margin-bottom:13px;}
+.fg:last-child{margin-bottom:0;}
+.fl{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:5px;}
+.fi{width:100%;padding:8px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:14px;font-family:var(--sans);color:var(--text);transition:all .12s;}
+.fi:focus{outline:none;border-color:var(--accent);background:var(--surface);}
+.fi option{background:var(--surface2);}
+.fi-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.color-row{display:flex;flex-wrap:wrap;gap:7px;}
+.cswatch{width:26px;height:26px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform .1s,border-color .1s;}
+.cswatch:hover{transform:scale(1.12);}
+.cswatch.sel{border-color:var(--text);transform:scale(1.12);}
+.tog-row{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.togbtn{padding:8px;border:none;cursor:pointer;font-size:12px;font-family:var(--sans);font-weight:500;background:var(--surface2);color:var(--text3);transition:all .12s;}
+.togbtn.on{background:var(--accent);color:#fff;}
+.modal-foot{padding:13px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;}
+.btn-cancel{background:none;border:1px solid var(--border2);color:var(--text2);padding:7px 13px;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .12s;}
+.btn-cancel:hover{color:var(--text);}
+.btn-save{background:var(--accent);color:#fff;border:none;padding:7px 17px;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;}
+.btn-save:hover{background:var(--accent2);}
+.btn-del{background:var(--rbg);color:var(--red);border:1px solid var(--rb);padding:7px 13px;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;margin-right:auto;transition:opacity .12s;}
+.hint{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5;}
+.contrib-preview{background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);padding:9px 13px;margin-top:7px;font-size:12px;color:var(--blue);}
+
+/* ═══ BULK BUCKET BUILDER ═══ */
+.modal.wide{max-width:700px;}
+.bbuilder{display:flex;flex-direction:column;gap:0;}
+.brow-builder{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;}
+.brow-builder:last-child{margin-bottom:0;}
+.brow-main{display:grid;grid-template-columns:1fr 110px 90px 100px 60px 60px 28px;gap:6px;padding:9px 10px;align-items:center;}
+.brow-input{padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--sans);color:var(--text);width:100%;}
+.brow-input:focus{outline:none;border-color:var(--accent);background:var(--bg3);}
+.brow-input.mono{font-family:var(--mono);}
+.brow-select{padding:6px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:var(--sans);color:var(--text);width:100%;cursor:pointer;}
+.brow-select:focus{outline:none;border-color:var(--accent);}
+.brow-select option{background:var(--surface2);}
+.brow-toggle{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;user-select:none;}
+.brow-toggle-btn{width:36px;height:22px;border-radius:11px;border:1px solid var(--border2);background:var(--surface2);position:relative;cursor:pointer;transition:all .15s;flex-shrink:0;}
+.brow-toggle-btn.on{background:var(--accent);border-color:var(--accent);}
+.brow-toggle-btn::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text3);transition:transform .15s,background .15s;}
+.brow-toggle-btn.on::after{transform:translateX(14px);background:#fff;}
+.brow-toggle-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.brow-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:0;line-height:1;transition:color .1s;align-self:center;}
+.brow-del:hover{color:var(--red);}
+.brow-sink-drawer{padding:10px 10px 10px 10px;background:var(--bg3);border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;}
+.brow-sink-drawer.hidden{display:none;}
+.brow-field{display:flex;flex-direction:column;gap:4px;}
+.brow-field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
+.contrib-tip{grid-column:1/-1;font-size:11px;color:var(--blue);background:var(--bbg);border:1px solid var(--bb);border-radius:5px;padding:6px 10px;margin-top:2px;}
+.brow-col-hdr{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:0 10px 6px;}
+.brow-hdrs{display:grid;grid-template-columns:1fr 110px 90px 100px 60px 60px 28px;gap:6px;padding:0 10px 6px;}
+.add-bkt-btn{display:flex;align-items:center;gap:6px;background:none;border:1px dashed var(--border2);border-radius:var(--r);padding:9px 14px;font-size:13px;font-family:var(--sans);color:var(--text3);cursor:pointer;transition:all .12s;width:100%;margin-top:8px;}
+.add-bkt-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--gbg);}
+
+/* ═══ RIGHT PANEL ═══ */
+.rpanel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+/* Compact form — all rows inline, never taller than needed */
+.rp-form{background:var(--bg3);border-bottom:2px solid var(--border2);flex-shrink:0;padding:8px 12px;display:flex;flex-direction:column;gap:6px;}
+.rpf-row{display:flex;align-items:center;gap:6px;}
+.rpf-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);white-space:nowrap;width:32px;flex-shrink:0;}
+.rpf-submit-row{gap:8px;margin-top:2px;}
+
+/* Ledger header */
+.rp-ledger-head{padding:9px 12px 7px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2);}
+.rp-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);}
+.rpf-row.rp-filters-row{margin-bottom:0;}
+.rp-filters{display:flex;gap:3px;}
+.rfbtn{flex:1;padding:4px 2px;background:none;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:var(--sans);font-weight:500;color:var(--text3);cursor:pointer;transition:all .12s;text-align:center;}
+.rfbtn:hover{color:var(--text2);border-color:var(--border2);}
+.rfbtn.active{background:var(--surface);color:var(--text);border-color:var(--border2);}
+.rp-search{width:100%;padding:6px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--sans);color:var(--text);margin-top:6px;}
+.rp-search:focus{outline:none;border-color:var(--accent);}
+.rp-search::placeholder{color:var(--text3);}
+
+/* TX LIST */
+.tx-list{flex:1;overflow-y:auto;}
+.tx-date-hdr{padding:5px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;}
+.tx-row{display:flex;align-items:flex-start;padding:9px 12px;gap:7px;border-bottom:1px solid var(--border);transition:background .1s;cursor:default;}
+.tx-row:hover{background:var(--bg3);}
+.tx-indicator{width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;min-height:30px;}
+.tx-l{flex:1;min-width:0;}
+.tx-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
+.tx-meta{font-size:11px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:3px;overflow:hidden;}
+.tx-meta-acct{color:var(--text3);flex-shrink:0;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tx-meta-cat{flex-shrink:0;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tx-meta-bkt{color:var(--text3);flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tx-dot2{width:3px;height:3px;border-radius:50%;background:var(--border2);display:inline-block;flex-shrink:0;}
+.tx-r{text-align:right;flex-shrink:0;}
+.tx-amt{font-family:var(--mono);font-size:13px;font-weight:500;line-height:1.2;}
+.tx-amt.out{color:var(--red);}
+.tx-amt.in{color:var(--green);}
+.tx-amt.xfr{color:var(--purple);}
+.tx-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;align-self:center;flex-shrink:0;}
+.tx-row:hover .tx-acts{opacity:1;}
+.tx-empty{padding:32px 14px;text-align:center;font-size:13px;color:var(--text3);line-height:1.8;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget<span style="color:var(--text3);margin:0 2px">/</span>CC</div>
+  <div class="tb-accounts" id="tbAccounts"></div>
+  <div class="tb-total">
+    <div class="tb-total-label">Total Cash</div>
+    <div class="tb-total-val" id="tbTotal">—</div>
+  </div>
+  <div class="tb-rts">
+    <div class="tb-rts-label">Ready to Spend</div>
+    <div class="tb-rts-val zero" id="tbRTS">—</div>
+  </div>
+  <div class="tb-months" id="tbMonths"></div>
+  <div class="tb-actions">
+    <button class="tbtn" id="wiBtnTop" onclick="toggleWI()">⚡ What If</button>
+    <button class="tbtn" onclick="openModal('acct')">+ Account</button>
+    <button class="tbtn primary" onclick="openModal('new')">+ New</button>
+  </div>
+</div>
+
+<!-- WI STRIP -->
+<div class="strip wi hidden" id="wiStrip">
+  ⚡ Scenario mode — adjustments won't affect real data
+  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="promoteScenario()">Promote to template</button>
+  <button class="tbtn" style="font-size:11px;padding:3px 9px;" onclick="exitWI()">Exit</button>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="main-scroll" id="mainScroll"></div>
+    <div class="wi-panel hidden" id="wiPanel"></div>
+  </div>
+  <div class="rpanel">
+
+    <!-- ── TX FORM (compact, fixed height) ── -->
+    <div class="rp-form" id="txForm">
+      <!-- Row 1: type toggle -->
+      <div class="rpf-row rpf-type-row">
+        <span class="rpf-label">Type</span>
+        <div class="type-tog" style="flex:1">
+          <button class="ttbtn sel-out" id="ttOut" onclick="setTxType('out')">↑ Out</button>
+          <button class="ttbtn" id="ttIn"  onclick="setTxType('in')">↓ In</button>
+          <button class="ttbtn" id="ttXfr" onclick="setTxType('xfr')">⇄ Xfr</button>
+        </div>
+      </div>
+      <!-- Row 2: description -->
+      <div class="rpf-row">
+        <input class="tfi" id="txDesc" placeholder="Description..." style="flex:1" />
+      </div>
+      <!-- Row 3: amount + date -->
+      <div class="rpf-row">
+        <input class="tfi mono" id="txAmt" type="number" placeholder="Amount" min="0" step=".01" style="flex:1" />
+        <input class="tfi" id="txDate" type="date" style="flex:1" />
+      </div>
+      <!-- Row 4: account -->
+      <div class="rpf-row">
+        <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
+      </div>
+      <!-- Row 5: category + bucket (out only) -->
+      <div class="rpf-row" id="txBktRow">
+        <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1"><option value="">Category...</option></select>
+        <select class="tfi-sel" id="txBkt" style="flex:1"><option value="">Bucket...</option></select>
+      </div>
+      <!-- Row 6: transfer to (xfr only) -->
+      <div class="rpf-row" id="txXfrRow" style="display:none">
+        <select class="tfi-sel" id="txXfrTo" style="flex:1"><option value="">To account...</option></select>
+      </div>
+      <!-- Row 7: recurring + submit -->
+      <div class="rpf-row rpf-submit-row">
+        <label class="rec-chk" style="flex:1"><input type="checkbox" id="txRec"> ↻ Recurring</label>
+        <button class="txf-submit" id="txSubmitBtn" onclick="addTx()" style="flex:2">Add Transaction</button>
+      </div>
+    </div>
+
+    <!-- ── LEDGER ── -->
+    <div class="rp-ledger-head">
+      <div class="rpf-row" style="margin-bottom:6px;padding:0">
+        <span class="rp-title" id="rpTitle" style="flex:1">Ledger</span>
+        <div class="rp-filters" style="gap:3px">
+          <button class="rfbtn active" id="fAll" onclick="setFilter('all')">All</button>
+          <button class="rfbtn" id="fIn"  onclick="setFilter('in')">↓ In</button>
+          <button class="rfbtn" id="fOut" onclick="setFilter('out')">↑ Out</button>
+          <button class="rfbtn" id="fXfr" onclick="setFilter('xfr')">⇄</button>
+        </div>
+      </div>
+      <input class="rp-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" />
+    </div>
+    <div class="tx-list" id="txList"></div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<!-- ONBOARDING WIZARD -->
+<div class="wizard-overlay hidden" id="wizardOverlay">
+  <div class="wizard" id="wizardBox"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// PALETTE & KEY
+// ═══════════════════════════════════════════════════════
+const COLORS=['#2a7c6f','#3b82c4','#7c3b82','#c45c3b','#3b8248','#c4a43b','#c43b6a','#6a3bc4','#3b9ea6','#a6753b','#5c6bc0','#e57373','#4db6ac','#81c784','#ffb74d','#f06292'];
+const KEY='bcc_v6';
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let S={
+  accounts:[],  // {id,name,color,type:'budget'|'savings',openingBalance}
+  cats:[],       // {id,name,color}
+  buckets:[],    // {id,catId,name,type,dueDay,recurring,rollover,archived,defaultBudget,targetAmount,targetDate,contribFreq}
+  months:[],     // {id,label,year,month,budgets:{},allocations:{}}
+  txs:[],        // {id,accountId,toAccountId?,monthId,bucketId?,desc,amount,type:'in'|'out'|'xfr'|'opening',date,recurring}
+  activeMonth:null,
+  activeBucket:null,
+  activeAccount:null,
+  scenario:false,
+  scenarioBudgets:{},
+  wiOpen:false,
+  txFilter:'all',
+  onboarded:false,
+};
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+
+function load(){
+  // Try v6
+  const r6=localStorage.getItem(KEY);
+  if(r6){
+    try{
+      S=JSON.parse(r6);
+      S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
+    }catch(e){}
+  } else {
+    // Try migrate from v5
+    const r5=localStorage.getItem('buckets_v5');
+    if(r5){migrateV5(r5);}
+  }
+  ensureMonth();
+  if(!S.activeMonth&&S.months.length)S.activeMonth=currentMonthId();
+  if(!S.txFilter)S.txFilter='all';
+}
+
+function migrateV5(raw){
+  try{
+    const old=JSON.parse(raw);
+    // Create default checking account
+    const acct={id:'_acct_default',name:'Checking',color:COLORS[0],type:'budget',openingBalance:0};
+    S.accounts=[acct];
+    S.cats=old.cats||[];
+    S.buckets=old.buckets||[];
+    S.months=(old.months||[]).map(m=>({...m,allocations:m.allocations||{}}));
+    // Assign all txs to default account; fix monthId based on date
+    S.txs=(old.txs||[]).map(t=>({
+      ...t,
+      accountId:acct.id,
+      monthId:dateToMonthId(t.date)||t.monthId,
+    }));
+    S.activeMonth=old.activeMonth;
+    S.onboarded=true;
+    save();
+  }catch(e){console.warn('Migration failed',e);}
+}
+
+// ═══════════════════════════════════════════════════════
+// MONTH HELPERS
+// ═══════════════════════════════════════════════════════
+const nowY=()=>new Date().getFullYear();
+const nowM=()=>new Date().getMonth();
+const mId=(y,m)=>`m_${y}_${m}`;
+const currentMonthId=()=>mId(nowY(),nowM());
+const mLabel=(y,m)=>new Date(y,m,1).toLocaleString('default',{month:'short',year:'numeric'});
+const lastDay=(y,m)=>new Date(y,m+1,0).getDate();
+
+function dateToMonthId(dateStr){
+  if(!dateStr)return null;
+  const d=new Date(dateStr+'T12:00:00');
+  return mId(d.getFullYear(),d.getMonth());
+}
+
+function ensureMonth(){
+  const id=currentMonthId();
+  if(!S.months.find(m=>m.id===id)){
+    const budgets={},allocations={};
+    S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=b.defaultBudget||0;allocations[b.id]=0;});
+    S.months.push({id,label:mLabel(nowY(),nowM()),year:nowY(),month:nowM(),budgets,allocations});
+    S.months.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+  }
+}
+
+function addNextMonth(){
+  const last=S.months[S.months.length-1];
+  if(!last){ensureMonth();render();return;}
+  let y=last.year,m=last.month+1;if(m>11){m=0;y++;}
+  const id=mId(y,m);if(S.months.find(mo=>mo.id===id)){render();return;}
+  const budgets={},allocations={};
+  S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=b.defaultBudget||0;allocations[b.id]=0;});
+  S.months.push({id,label:mLabel(y,m),year:y,month:m,budgets,allocations});
+  S.months.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+  save();render();
+}
+
+function monthStatus(id){
+  const m=S.months.find(x=>x.id===id);if(!m)return'present';
+  if(m.year===nowY()&&m.month===nowM())return'present';
+  if(m.year<nowY()||(m.year===nowY()&&m.month<nowM()))return'past';
+  return'future';
+}
+
+function resolveDue(b,y,m){if(!b.dueDay)return null;if(b.dueDay==='eom')return lastDay(y,m);return Math.min(parseInt(b.dueDay),lastDay(y,m));}
+function daysUntilDue(b,y,m){const d=resolveDue(b,y,m);if(d===null)return null;const due=new Date(y,m,d),now=new Date();now.setHours(0,0,0,0);return Math.round((due-now)/864e5);}
+
+// ═══════════════════════════════════════════════════════
+// COMPUTED
+// ═══════════════════════════════════════════════════════
+const getMonth=id=>S.months.find(m=>m.id===id);
+const getBucket=id=>S.buckets.find(b=>b.id===id);
+const getCat=id=>S.cats.find(c=>c.id===id);
+const getAcct=id=>S.accounts.find(a=>a.id===id);
+
+function acctBalance(aid){
+  const acct=getAcct(aid);if(!acct)return 0;
+  // Opening transaction sets the starting balance snapshot
+  const openingTx=S.txs.find(t=>t.accountId===aid&&t.type==='opening');
+  let bal=openingTx?openingTx.amount:(acct.openingBalance||0);
+  // Apply all subsequent regular transactions
+  S.txs.forEach(t=>{
+    if(t.type==='opening')return;
+    if(t.accountId===aid&&t.type==='in')bal+=t.amount;
+    if(t.accountId===aid&&t.type==='out')bal-=t.amount;
+    if(t.accountId===aid&&t.type==='xfr')bal-=t.amount;
+    if(t.toAccountId===aid&&t.type==='xfr')bal+=t.amount;
+  });
+  return bal;
+}
+
+function totalCash(){return S.accounts.reduce((s,a)=>s+acctBalance(a.id),0);}
+
+const mTxs=mid=>S.txs.filter(t=>t.monthId===mid);
+
+// Income = only explicit type:'in' txs on budget accounts
+// Opening balances, transfers, expenses are all excluded from Ready to Spend
+function monthIncome(mid){
+  const budgetAccts=new Set(S.accounts.filter(a=>a.type==='budget').map(a=>a.id));
+  return mTxs(mid)
+    .filter(t=>t.type==='in'&&budgetAccts.has(t.accountId))
+    .reduce((s,t)=>s+t.amount,0);
+}
+
+function bAlloc(mid,bid){const m=getMonth(mid);return m?(m.allocations[bid]||0):0;}
+function bBudget(mid,bid){
+  if(S.scenario&&S.scenarioBudgets[bid]!==undefined)return S.scenarioBudgets[bid];
+  const m=getMonth(mid);return m?(m.budgets[bid]||0):0;
+}
+const bSpent=(mid,bid)=>mTxs(mid).filter(t=>t.bucketId===bid&&t.type==='out').reduce((s,t)=>s+t.amount,0);
+const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAlloc(mid,b.id),0);
+// Ready to Spend = sum of all budget account balances minus total allocated
+// This reflects real cash on hand, not just this month's income
+function readyToSpend(mid){
+  const budgetBal=S.accounts
+    .filter(a=>a.type==='budget')
+    .reduce((s,a)=>s+acctBalance(a.id),0);
+  return budgetBal-totalAllocated(mid);
+}
+
+function rolloverBal(bid,mid){
+  const m=getMonth(mid);if(!m)return 0;
+  const b=getBucket(bid);if(!b||!b.rollover)return 0;
+  const prior=S.months.filter(mo=>mo.year<m.year||(mo.year===m.year&&mo.month<m.month));
+  return prior.reduce((s,mo)=>{const a=mo.allocations?mo.allocations[bid]||0:0;return s+(a-bSpent(mo.id,bid));},0);
+}
+const sinkingSaved=bid=>S.txs.filter(t=>t.bucketId===bid&&t.type==='out').reduce((s,t)=>s+t.amount,0);
+function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m/4.33).toFixed(2);if(b.contribFreq==='biweekly')return+(m/2).toFixed(2);return m;}
+
+// ═══════════════════════════════════════════════════════
+// FORMAT
+// ═══════════════════════════════════════════════════════
+const $f=n=>'$'+(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const ld=d=>{if(!d)return'';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});};
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function render(){
+  renderTopbar();renderSidebar();renderMain();renderTxList();
+  if(S.wiOpen)renderWI();
+}
+
+function renderTopbar(){
+  // Account chips
+  const el=document.getElementById('tbAccounts');
+  let h='';
+  S.accounts.forEach(a=>{
+    const bal=acctBalance(a.id);
+    const isActive=S.activeAccount===a.id;
+    h+=`<div class="acct-chip${isActive?' active':''}" onclick="setActiveAccount('${a.id}')">
+      <div class="ac-name"><div class="ac-dot" style="background:${a.color}"></div>${a.name}<span class="ac-type">${a.type==='savings'?'savings':''}</span></div>
+      <div class="ac-bal ${bal>=0?'pos':'neg'}">${$f(bal)}</div>
+    </div>`;
+  });
+  el.innerHTML=h;
+
+  // Total cash
+  document.getElementById('tbTotal').textContent=$f(totalCash());
+
+  // RTS
+  const mid=S.activeMonth;
+  const rts=mid?readyToSpend(mid):0;
+  const rEl=document.getElementById('tbRTS');
+  if(!mid||(!S.accounts.some(a=>a.type==='budget'))){rEl.className='tb-rts-val zero';rEl.textContent='—';return;}
+  rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
+  rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' over':'');
+
+  // Month tabs
+  const tEl=document.getElementById('tbMonths');
+  let th='';
+  S.months.forEach(m=>{
+    const st=monthStatus(m.id);
+    th+=`<div class="mtab ${st}${m.id===S.activeMonth?' active':''}" onclick="setMonth('${m.id}')"><div class="mtab-pip"></div>${m.label}</div>`;
+  });
+  th+=`<div class="mtab-add" onclick="addNextMonth()">+</div>`;
+  tEl.innerHTML=th;
+}
+
+function renderSidebar(){
+  const el=document.getElementById('sidebar');
+  let h=`<div class="sb-link${!S.activeBucket&&!S.activeAccount?' active':''}" onclick="clearActive()">
+    <span class="sb-link-icon">▣</span><span>Overview</span></div>`;
+
+  if(S.accounts.length){
+    h+=`<div class="sb-sep"></div>
+    <div class="sb-sec"><span class="sb-sec-label">Accounts</span>
+      <button class="sb-add" onclick="openModal('acct')">+</button></div>`;
+    S.accounts.forEach(a=>{
+      const bal=acctBalance(a.id);
+      h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')">
+        <span class="sb-link-icon"><div style="width:8px;height:8px;border-radius:50%;background:${a.color};display:inline-block"></div></span>
+        <span style="flex:1">${a.name}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:${bal>=0?'var(--text3)':'var(--red)'}">${$f(bal)}</span>
+        <button class="ib" style="opacity:0.5" onclick="event.stopPropagation();editAcct('${a.id}')">✎</button>
+      </div>`;
+    });
+  }
+
+  if(S.cats.length){
+    h+=`<div class="sb-sep"></div>
+    <div class="sb-sec"><span class="sb-sec-label">Buckets</span>
+      <button class="sb-add" onclick="openModal('cat')">+</button></div>`;
+    const sCats=sortedCats();
+    sCats.forEach((cat,catIdx)=>{
+      const catBuckets=sortedBuckets(cat.id);
+      const isFirstCat=catIdx===0;
+      const isLastCat=catIdx===sCats.length-1;
+      h+=`<div class="cat-block"><div class="cat-row">
+        <div class="cat-color" style="background:${cat.color||COLORS[0]}"></div>
+        <span class="cat-label">${cat.name}</span>
+        <div class="cat-acts">
+          <button class="ib" onclick="event.stopPropagation();moveCat('${cat.id}',-1)" title="Move up" ${isFirstCat?'disabled style="opacity:.3"':''}>↑</button>
+          <button class="ib" onclick="event.stopPropagation();moveCat('${cat.id}',1)" title="Move down" ${isLastCat?'disabled style="opacity:.3"':''}>↓</button>
+          <button class="ib" onclick="editCat('${cat.id}')">✎</button>
+          <button class="ib" onclick="openModal('bkt','${cat.id}')">+</button>
+          <button class="ib del" onclick="delCat('${cat.id}')">×</button>
+        </div></div>`;
+      catBuckets.forEach((b,bIdx)=>{
+        const mid=S.activeMonth;
+        const alloc=bAlloc(mid,b.id);
+        const target=bBudget(mid,b.id);
+        const avail=alloc+rolloverBal(b.id,mid)-bSpent(mid,b.id);
+        let dotCls='empty';
+        if(avail<0)dotCls='over';
+        else if(alloc>=target&&target>0)dotCls='funded';
+        else if(alloc>0)dotCls='partial';
+        const isFirstBkt=bIdx===0;
+        const isLastBkt=bIdx===catBuckets.length-1;
+        h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')">
+          <div class="bni-line" style="background:${cat.color||COLORS[0]}"></div>
+          <div class="bni-dot ${dotCls}"></div>
+          <span class="bni-name">${b.name}</span>
+          <span class="bni-val">${alloc>0?$f(alloc):''}</span>
+          <div class="bni-acts">
+            <button class="ib" onclick="event.stopPropagation();moveBkt('${b.id}',-1)" title="Move up" ${isFirstBkt?'disabled style="opacity:.3"':''}>↑</button>
+            <button class="ib" onclick="event.stopPropagation();moveBkt('${b.id}',1)" title="Move down" ${isLastBkt?'disabled style="opacity:.3"':''}>↓</button>
+            <button class="ib" onclick="event.stopPropagation();editBucket('${b.id}')">✎</button>
+            <button class="ib del" onclick="event.stopPropagation();archiveOrDelete('${b.id}')">×</button>
+          </div></div>`;
+      });
+      h+=`</div>`;
+    });
+  }
+
+  // Settings at bottom
+  h+=`<div style="flex:1"></div>
+  <div class="sb-sep" style="margin-top:auto"></div>
+  <div class="sb-link" onclick="confirmFreshStart()" style="color:var(--text3);font-size:12px;">
+    <span class="sb-link-icon">↺</span><span>Fresh Start</span></div>`;
+
+  el.innerHTML=h;
+}
+
+function renderMain(){
+  const el=document.getElementById('mainScroll');
+  const mid=S.activeMonth;
+
+  // Account view
+  if(S.activeAccount){renderAccountView(el,mid);return;}
+
+  // No categories yet
+  if(!S.cats.length&&!S.accounts.length){
+    el.innerHTML=`<div class="empty-wrap">
+      <div class="empty-icon">⬡</div>
+      <div class="empty-title">Budget Command Center</div>
+      <div class="empty-sub">Start by adding your accounts and their current balances, then create budget categories and buckets.</div>
+      <button class="empty-btn" onclick="startWizard()">Get Started</button>
+    </div>`;return;
+  }
+  if(!S.cats.length){
+    el.innerHTML=`<div class="empty-wrap">
+      <div class="empty-icon">◈</div>
+      <div class="empty-title">Add your first category</div>
+      <div class="empty-sub">Create categories like Housing, Food, or Savings, then add buckets inside each one.</div>
+      <button class="empty-btn" onclick="openModal('cat')">Create category</button>
+    </div>`;return;
+  }
+  if(!mid){el.innerHTML='';return;}
+
+  const m=getMonth(mid);
+  const st=monthStatus(mid);
+  const past=st==='past';
+  const income=monthIncome(mid);
+  const alloc=totalAllocated(mid);
+  const rts=readyToSpend(mid);
+  const totalSpent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const unalloc=S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0).length;
+
+  let h='';
+  const chipTxt=st==='past'?'Closed':st==='present'?'Current':'Upcoming';
+  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span></div>`;
+  if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
+
+  if(S.activeBucket){h+=renderBucketDetail(mid,past,m);el.innerHTML=h;return;}
+
+  // Pool strip
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  h+=`<div class="pool-strip">
+    <div class="ps-cell">
+      <div class="ps-label">Budget Account Balances</div>
+      <div class="ps-val green">${$f(budgetBal)}</div>
+      <div class="ps-sub">actual cash in budget accounts</div>
+    </div>
+    <div class="ps-cell">
+      <div class="ps-label">Allocated to Buckets</div>
+      <div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div>
+      <div class="ps-sub">assigned this month</div>
+    </div>
+    <div class="ps-cell hi">
+      <div class="ps-label">Ready to Spend</div>
+      <div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div>
+      <div class="ps-sub">${rts>0?'unallocated cash':rts<0?'⚠ over-allocated':'fully allocated ✓'}</div>
+    </div>
+    <div class="ps-cell">
+      <div class="ps-label">Spent</div>
+      <div class="ps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div>
+      <div class="ps-sub">from transactions</div>
+    </div>
+  </div>`;
+
+  // Hints
+  if(!past&&income>0&&unalloc>0&&rts>0)
+    h+=`<div class="hint-bar info">💡 ${$f(rts)} unallocated — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
+  else if(!past&&rts<0)
+    h+=`<div class="hint-bar warn">⚠ Over-allocated by ${$f(Math.abs(rts))} — reduce bucket allocations until Ready to Spend reaches $0.</div>`;
+  else if(!past&&rts===0&&alloc>0)
+    h+=`<div class="hint-bar success">✓ Every dollar has a job. You're fully allocated.</div>`;
+
+  // No buckets
+  if(!S.buckets.filter(b=>!b.archived).length){
+    h+=`<div class="empty-wrap" style="min-height:160px;padding:30px 0;">
+      <div class="empty-title" style="font-size:15px">No buckets yet</div>
+      <div class="empty-sub" style="font-size:13px;margin-bottom:14px">Add buckets to categories to start tracking.</div>
+      <button class="empty-btn" onclick="openModal('bkt')">Add a bucket</button>
+    </div>`;el.innerHTML=h;return;
+  }
+
+  // Category sections
+  sortedCats().forEach(cat=>{
+    const catBuckets=sortedBuckets(cat.id);
+    if(!catBuckets.length)return;
+    const color=cat.color||COLORS[0];
+    const catAlloc=catBuckets.reduce((s,b)=>s+bAlloc(mid,b.id),0);
+    const catTarget=catBuckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
+    // Sort by due date urgency within the user's preferred order
+    const sorted=[...catBuckets].sort((a,b)=>{
+      const da=daysUntilDue(a,m.year,m.month);
+      const db=daysUntilDue(b,m.year,m.month);
+      // Overdue/urgent float to top, rest keep user order
+      if(da!==null&&da<=0&&(db===null||db>0))return -1;
+      if(db!==null&&db<=0&&(da===null||da>0))return 1;
+      return (a.order??0)-(b.order??0);
+    });
+
+    h+=`<div class="cat-sec">
+      <div class="cat-sec-hdr">
+        <div class="csh-color" style="background:${color}"></div>
+        <span class="csh-name">${cat.name}</span>
+        <span class="csh-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
+        ${!past?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund all</button>`:''}
+      </div>
+      <table class="btable">
+      <thead><tr>
+        <th style="width:3px;padding:0"></th>
+        <th>Bucket</th>
+        <th style="width:128px">Allocated</th>
+        <th style="width:72px">Progress</th>
+        <th style="width:86px;text-align:right">Spent</th>
+        <th style="width:86px;text-align:right">Available</th>
+        <th style="width:58px;text-align:right"></th>
+      </tr></thead><tbody>`;
+
+    sorted.forEach(b=>{
+      const alloc=bAlloc(mid,b.id);
+      const target=bBudget(mid,b.id);
+      const roll=rolloverBal(b.id,mid);
+      const eff=alloc+roll;
+      const spent=bSpent(mid,b.id);
+      const avail=eff-spent;
+      const pctRaw=eff>0?spent/eff:0;
+      const pct=Math.min(pctRaw,1);
+      const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
+      const days=daysUntilDue(b,m.year,m.month);
+      let dueHtml='';
+      if(days!==null){const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
+      const tags=[];
+      if(b.type==='sinking')tags.push('saving');
+      if(b.recurring)tags.push('↻');
+      if(roll>0)tags.push(`+${$f(roll)} rolled`);
+
+      let pillHtml='';
+      if(past&&spent===0&&alloc>0)pillHtml=`<span class="pill pill-missed">Missed</span>`;
+      else if(alloc===0)pillHtml=`<span class="pill pill-empty">Unfunded</span>`;
+      else if(avail<0)pillHtml=`<span class="pill pill-over">Over</span>`;
+      else if(spent>=eff&&eff>0)pillHtml=`<span class="pill pill-done">Done</span>`;
+      else if(alloc>=target&&target>0)pillHtml=`<span class="pill pill-funded">Funded</span>`;
+      else pillHtml=`<span class="pill pill-partial">Partial</span>`;
+
+      const allocCls=alloc===0?'':alloc>=target?'funded':'';
+
+      h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')">
+        <td class="td-accent"><div class="accent-bar" style="background:${color}"></div></td>
+        <td class="td-name">
+          <div class="bn">${b.name}</div>
+          <div class="bt">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>
+        </td>
+        <td class="td-alloc" onclick="event.stopPropagation()">
+          ${past?`<span class="tv dim">${$f(alloc)}</span>`:`
+          <div class="alloc-wrap">
+            <span class="alloc-pfx">$</span>
+            <input class="alloc-inp ${allocCls}" type="number" min="0" step="1"
+              value="${alloc||''}" placeholder="0" title="Allocate to ${b.name}"
+              onchange="setAlloc('${mid}','${b.id}',this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()"
+              onfocus="this.select()" />
+          </div>`}
+        </td>
+        <td class="td-bar">
+          <div class="bbar"><div class="bbar-fill ${eff>0?fillCls:'bf-ok'}" style="width:${eff>0?Math.round(pct*100):0}%"></div></div>
+          <div class="bbar-sub">${eff>0?Math.round(pctRaw*100)+'%':''}</div>
+        </td>
+        <td class="td-spent"><span class="tv ${spent>0?'dim':'muted'}">${spent>0?$f(spent):'—'}</span>${target>0?`<div class="tv-sub">of ${$f(target)}</div>`:''}</td>
+        <td class="td-avail"><span class="tv ${avail>0?'green':avail<0?'red':'muted'}">${eff>0||spent>0?$f(avail):'—'}</span></td>
+        <td class="td-pill">${pillHtml}</td>
+      </tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  });
+  el.innerHTML=h;
+}
+
+function renderAccountView(el,mid){
+  const a=getAcct(S.activeAccount);if(!a){clearActive();return;}
+  const bal=acctBalance(a.id);
+  const txs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  let h=`<button class="back-btn" onclick="clearActive()">← Overview</button>
+  <div class="acct-hdr">
+    <div style="width:12px;height:12px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
+    <div class="acct-hdr-name">${a.name}</div>
+    <span class="chip ${a.type==='savings'?'chip-future':'chip-present'}">${a.type}</span>
+    <button class="tbtn" style="margin-left:auto" onclick="editAcct('${a.id}')">Edit account</button>
+  </div>
+  <div class="acct-balance-block">
+    <div class="ps-cell"><div class="ps-label">Current Balance</div><div class="ps-val ${bal>=0?'green':'red'}">${$f(bal)}</div></div>
+    <div class="ps-cell"><div class="ps-label">Total In</div><div class="ps-val dim">${$f(txs.filter(t=>t.accountId===a.id&&(t.type==='in'||t.toAccountId===a.id)).reduce((s,t)=>s+t.amount,0))}</div></div>
+    <div class="ps-cell"><div class="ps-label">Total Out</div><div class="ps-val dim">${$f(txs.filter(t=>t.accountId===a.id&&t.type==='out').reduce((s,t)=>s+t.amount,0))}</div></div>
+  </div>
+  <div class="det-block">
+    <div class="det-block-title">All Transactions</div>`;
+
+  if(!txs.length){h+=`<div style="padding:20px 0;text-align:center;font-size:13px;color:var(--text3)">No transactions yet</div>`;}
+  else{
+    txs.slice(0,50).forEach(tx=>{
+      const isXfrIn=tx.type==='xfr'&&tx.toAccountId===a.id;
+      const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
+      const color=cat?.color||'var(--text3)';
+      const typeLabel=tx.type==='xfr'?(isXfrIn?`← from ${getAcct(tx.accountId)?.name||''}`:`→ to ${getAcct(tx.toAccountId)?.name||''}`):'';
+      h+=`<div class="det-row">
+        <span class="det-row-label">${tx.desc}<span style="font-size:11px;color:var(--text3);margin-left:6px">${ld(tx.date)}</span>${typeLabel?`<span style="font-size:11px;color:var(--purple);margin-left:6px">${typeLabel}</span>`:''}</span>
+        <span class="det-row-val" style="color:${tx.type==='xfr'?'var(--purple)':isXfrIn||tx.type==='in'?'var(--green)':'var(--red)'}">${isXfrIn||tx.type==='in'?'+':'-'}${$f(tx.amount)}</span>
+      </div>`;
+    });
+  }
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+
+function renderBucketDetail(mid,past,m){
+  const b=getBucket(S.activeBucket);if(!b)return'';
+  const cat=getCat(b.catId);const color=cat?.color||COLORS[0];
+  const alloc=bAlloc(mid,b.id);const target=bBudget(mid,b.id);
+  const roll=rolloverBal(b.id,mid);const eff=alloc+roll;
+  const spent=bSpent(mid,b.id);const avail=eff-spent;
+  const pctRaw=eff>0?spent/eff:0;const pct=Math.min(pctRaw,1);
+  const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
+  const isSink=b.type==='sinking';
+  const days=daysUntilDue(b,m?.year,m?.month);
+
+  let h=`<button class="back-btn" onclick="setBucket(null)">← Overview</button>
+  <div class="det-name">${b.name}</div>
+  <div class="det-meta">
+    <span style="color:${color}">${cat?.name||''}</span><span class="det-sep">·</span>
+    <span>${b.type}</span>
+    ${b.recurring?`<span class="det-sep">·</span><span>↻ Recurring</span>`:''}
+    ${b.rollover?`<span class="det-sep">·</span><span>Rolls over</span>`:''}
+    ${days!==null?`<span class="det-sep">·</span><span style="color:${days<0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">Due ${days<0?`${Math.abs(days)}d ago`:days===0?'today':`in ${days}d`}</span>`:''}
+  </div>
+  <div class="det-nums">
+    <div class="dn"><div class="dn-label">Allocated</div><div class="dn-val ${alloc>=target&&target>0?'':'dim'}" style="${alloc>=target&&target>0?'color:var(--green)':''}">${$f(alloc)}</div><div class="dn-sub">of ${$f(target)} target</div></div>
+    <div class="dn"><div class="dn-label">Spent</div><div class="dn-val" style="color:var(--text2)">${$f(spent)}</div><div class="dn-sub">from transactions</div></div>
+    <div class="dn"><div class="dn-label">Available</div><div class="dn-val" style="color:${avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)'}">${$f(avail)}</div><div class="dn-sub">${avail<0?'overspent':avail===0&&spent>0?'fully spent':'remaining'}</div></div>
+  </div>
+  <div class="det-bar">
+    <div class="det-bar-track"><div class="det-bar-fill ${fillCls}" style="width:${Math.round(pct*100)}%"></div></div>
+    <div class="det-bar-note"><span>${Math.round(pctRaw*100)}% spent</span><span>${pctRaw>1?'⚠ over by '+$f(spent-eff):$f(Math.max(eff-spent,0))+' remaining'}</span></div>
+  </div>`;
+
+  if(roll>0){
+    h+=`<div class="det-block"><div class="det-block-title">Rollover</div>
+      <div class="det-row"><span class="det-row-label">Allocated this month</span><span class="det-row-val">${$f(alloc)}</span></div>
+      <div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val" style="color:var(--accent)">+${$f(roll)}</span></div>
+      <div class="det-row"><span class="det-row-label">Effective total</span><span class="det-row-val">${$f(eff)}</span></div>
+    </div>`;
+  }
+
+  if(isSink){
+    const saved=sinkingSaved(b.id);const tgt=b.targetAmount||0;
+    const td=b.targetDate?new Date(b.targetDate+'-01'):null;const now=new Date();
+    const mLeft=td?Math.max((td.getFullYear()-now.getFullYear())*12+(td.getMonth()-now.getMonth()),0):0;
+    const mNeed=mLeft>0?Math.ceil((tgt-saved)/mLeft):0;const contrib=contribAmt(b);
+    h+=`<div class="sink-stats">
+      <div class="ss"><div class="ss-label">Saved</div><div class="ss-val" style="color:var(--green)">${$f(saved)}</div></div>
+      <div class="ss"><div class="ss-label">Goal</div><div class="ss-val">${$f(tgt)}</div></div>
+      <div class="ss"><div class="ss-label">Months Left</div><div class="ss-val">${mLeft||'—'}</div></div>
+      <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val" style="${mNeed>target?'color:var(--red)':''}">${$f(mNeed)}</div></div>
+    </div>
+    <div class="det-block"><div class="det-block-title">Contribution Schedule</div>
+      <div class="det-row"><span class="det-row-label">Monthly target</span><span class="det-row-val">${$f(b.defaultBudget||0)}</span></div>
+      <div class="det-row"><span class="det-row-label">Frequency</span><span class="det-row-val" style="text-transform:capitalize">${b.contribFreq||'monthly'}</span></div>
+      <div class="det-row"><span class="det-row-label">Per contribution</span><span class="det-row-val" style="color:var(--accent)">${$f(contrib)}</span></div>
+    </div>`;
+  }
+
+  if(!past){
+    h+=`<div class="alloc-edit-row">
+      <span class="aer-label">Allocate to ${b.name}</span>
+      <input class="aer-input" id="aerAlloc" type="number" value="${alloc||''}" placeholder="0.00"
+        onkeydown="if(event.key==='Enter')commitAlloc('${mid}','${b.id}')" />
+      <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="commitAlloc('${mid}','${b.id}')">Set</button>
+    </div>
+    <div class="alloc-edit-row" style="margin-top:-10px;">
+      <span class="aer-label">Monthly target (template)</span>
+      <input class="aer-input" id="aerBudget" type="number" value="${target||''}" placeholder="0.00"
+        onkeydown="if(event.key==='Enter')updateBudget('${b.id}')" />
+      <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="updateBudget('${b.id}')">Set</button>
+      <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="editBucket('${b.id}')">Edit</button>
+    </div>`;
+  }
+  return h;
+}
+
+function renderTxList(){
+  const mid=S.activeMonth;
+  const past=monthStatus(mid)==='past';
+  document.getElementById('txForm').style.display=past?'none':'flex';
+  updateTxFormForType();
+
+  let txs=S.txs.filter(t=>{
+    if(S.activeAccount)return t.accountId===S.activeAccount||t.toAccountId===S.activeAccount;
+    return t.monthId===mid;
+  });
+
+  const filter=S.txFilter||'all';
+  if(filter==='in')txs=txs.filter(t=>t.type==='in');
+  if(filter==='out')txs=txs.filter(t=>t.type==='out');
+  if(filter==='xfr')txs=txs.filter(t=>t.type==='xfr');
+
+  const search=(document.getElementById('rpSearch')?.value||'').toLowerCase();
+  if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
+
+  if(S.activeBucket)txs=txs.filter(t=>t.bucketId===S.activeBucket);
+
+  // Update title
+  let title='Transactions';
+  if(S.activeBucket)title=getBucket(S.activeBucket)?.name||'Transactions';
+  else if(S.activeAccount)title=getAcct(S.activeAccount)?.name||'Transactions';
+  document.getElementById('rpTitle').textContent=title;
+
+  // Pre-fill form bucket
+  if(S.activeBucket){
+    const b=getBucket(S.activeBucket);
+    if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=b.id;}
+  } else {
+    populateTxCats();
+  }
+
+  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const list=document.getElementById('txList');
+  if(!txs.length){list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${search}"`:''}.<br>${past?'Month is closed.':'Log one above.'}</div>`;return;}
+
+  const groups={};
+  txs.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+  let h='';
+  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
+    h+=`<div class="tx-date-hdr">${ld(date)}</div>`;
+    groups[date].forEach(tx=>{
+      const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
+      const color=cat?.color||'var(--text3)';
+      const acct=getAcct(tx.accountId);
+      const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
+      const isXfrIn=tx.type==='xfr'&&tx.toAccountId===S.activeAccount;
+      const isOpening=tx.type==='opening';
+      const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
+      const amtPfx=isOpening||tx.type==='in'||isXfrIn?'+':'-';
+      // Color indicator bar by type
+      const indColor=tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':isOpening?'var(--blue)':'var(--red)';
+      // Meta line: account > category > bucket
+      let metaLine='';
+      if(acct)metaLine+=`<span class="tx-meta-acct">${acct.name}</span>`;
+      if(cat){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-cat" style="color:${color}">${cat.name}</span>`;}
+      if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${b.name}</span>`;}
+      if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span style="color:var(--purple)">→ ${toAcct.name}</span>`;}
+      if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span style="color:var(--accent)">↻</span>`;
+      h+=`<div class="tx-row">
+        <div class="tx-indicator" style="background:${indColor}"></div>
+        <div class="tx-l">
+          <div class="tx-name">${tx.desc}</div>
+          <div class="tx-meta">${metaLine||'<span style="color:var(--text3)">—</span>'}</div>
+        </div>
+        <div class="tx-r">
+          <div class="tx-amt ${amtCls}">${amtPfx}${$f(tx.amount)}</div>
+        </div>
+        <div class="tx-acts">
+          ${!past?`<button class="ib" onclick="editTx('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:''}
+        </div>
+      </div>`;
+    });
+  });
+  list.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════
+// ALLOCATION
+// ═══════════════════════════════════════════════════════
+function setAlloc(mid,bid,val){
+  const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
+  m.allocations[bid]=Math.max(parseFloat(val)||0,0);
+  save();renderTopbar();renderSidebar();renderMain();
+}
+function commitAlloc(mid,bid){
+  const val=parseFloat(document.getElementById('aerAlloc')?.value)||0;
+  const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
+  m.allocations[bid]=val;save();renderTopbar();renderSidebar();renderMain();
+}
+function updateBudget(bid){
+  const val=parseFloat(document.getElementById('aerBudget')?.value)||0;
+  const m=getMonth(S.activeMonth);if(!m)return;
+  m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderMain();
+}
+function fundCategory(catId,mid){
+  const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
+  S.buckets.filter(b=>b.catId===catId&&!b.archived).forEach(b=>{m.allocations[b.id]=m.budgets[b.id]||b.defaultBudget||0;});
+  save();render();
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
+function setBucket(id){S.activeBucket=id||null;S.activeAccount=null;save();renderSidebar();renderMain();renderTxList();}
+function setActiveAccount(id){S.activeAccount=id;S.activeBucket=null;save();renderSidebar();renderMain();renderTxList();}
+function clearActive(){S.activeBucket=null;S.activeAccount=null;save();renderSidebar();renderMain();renderTxList();}
+function setFilter(f){
+  S.txFilter=f;
+  ['All','In','Out','Xfr'].forEach(x=>{const el=document.getElementById('f'+x);if(el)el.className='rfbtn'+(f===x.toLowerCase()?' active':'');});
+  renderTxList();
+}
+function archiveOrDelete(id){
+  const b=getBucket(id);if(!b)return;
+  const hasTxs=S.txs.some(t=>t.bucketId===id);
+  if(hasTxs){if(!confirm(`Archive "${b.name}"? Transactions preserved, hidden from active view.`))return;b.archived=true;}
+  else{if(!confirm(`Delete "${b.name}"?`))return;S.buckets=S.buckets.filter(x=>x.id!==id);S.months.forEach(m=>{delete m.budgets[id];if(m.allocations)delete m.allocations[id];});}
+  if(S.activeBucket===id)S.activeBucket=null;
+  save();render();populateTxCats();
+}
+
+// ═══════════════════════════════════════════════════════
+// TRANSACTIONS
+// ═══════════════════════════════════════════════════════
+let txType='out';
+let editingTxId=null;
+
+function setTxType(t){
+  txType=t;
+  document.getElementById('ttOut').className='ttbtn'+(t==='out'?' sel-out':'');
+  document.getElementById('ttIn').className='ttbtn'+(t==='in'?' sel-in':'');
+  document.getElementById('ttXfr').className='ttbtn'+(t==='xfr'?' sel-xfr':'');
+  updateTxFormForType();
+}
+function updateTxFormForType(){
+  const bktRow=document.getElementById('txBktRow');
+  const xfrRow=document.getElementById('txXfrRow');
+  if(!bktRow||!xfrRow)return;
+  bktRow.style.display=txType==='out'?'flex':'none';
+  xfrRow.style.display=txType==='xfr'?'flex':'none';
+  // Add gap between rows when shown
+  bktRow.style.gap='6px';
+  // Populate accounts
+  const asel=document.getElementById('txAcct');if(!asel)return;
+  const prevA=asel.value;
+  asel.innerHTML='<option value="">Account...</option>';
+  S.accounts.forEach(a=>asel.innerHTML+=`<option value="${a.id}">${a.name}</option>`);
+  if(prevA)asel.value=prevA;
+  // Transfer-to accounts
+  const tsel=document.getElementById('txXfrTo');if(!tsel)return;
+  const prevT=tsel.value;
+  tsel.innerHTML='<option value="">To account...</option>';
+  S.accounts.forEach(a=>tsel.innerHTML+=`<option value="${a.id}">${a.name}</option>`);
+  if(prevT)tsel.value=prevT;
+}
+function onTxTypeOrAcctChange(){updateTxFormForType();}
+function populateTxCats(){
+  const sel=document.getElementById('txCat');if(!sel)return;
+  const prev=sel.value;
+  sel.innerHTML='<option value="">Category...</option>';
+  sortedCats().forEach(c=>sel.innerHTML+=`<option value="${c.id}">${c.name}</option>`);
+  if(prev)sel.value=prev;
+  syncTxBuckets();
+}
+function syncTxBuckets(){
+  const catId=document.getElementById('txCat')?.value;
+  const bsel=document.getElementById('txBkt');if(!bsel)return;
+  const prev=bsel.value;
+  bsel.innerHTML='<option value="">Bucket...</option>';
+  sortedBuckets(catId).forEach(b=>bsel.innerHTML+=`<option value="${b.id}">${b.name}</option>`);
+  if(prev)bsel.value=prev;
+}
+function addTx(){
+  const desc=document.getElementById('txDesc').value.trim();
+  const amt=parseFloat(document.getElementById('txAmt').value);
+  const date=document.getElementById('txDate').value;
+  const rec=document.getElementById('txRec').checked;
+  const acctId=document.getElementById('txAcct').value;
+  const bkt=txType==='out'?document.getElementById('txBkt').value:null;
+  const toAcct=txType==='xfr'?document.getElementById('txXfrTo').value:null;
+
+  if(!desc){document.getElementById('txDesc').focus();return;}
+  if(!amt||amt<=0){document.getElementById('txAmt').focus();return;}
+  if(!date){document.getElementById('txDate').focus();return;}
+  if(!acctId){alert('Please select an account.');return;}
+  if(txType==='out'&&!bkt){alert('Please select a bucket.');return;}
+  if(txType==='xfr'&&!toAcct){alert('Please select destination account.');return;}
+  if(txType==='xfr'&&toAcct===acctId){alert('Cannot transfer to the same account.');return;}
+
+  // Determine correct month from date
+  const monthId=dateToMonthId(date);
+  // Ensure that month exists
+  const d=new Date(date+'T12:00:00');
+  const my=d.getFullYear(),mm=d.getMonth();
+  addMonth(my,mm);
+
+  const tx={
+    id:'_'+Math.random().toString(36).slice(2,9),
+    accountId:acctId,
+    toAccountId:toAcct||null,
+    monthId,
+    bucketId:bkt||null,
+    desc,amount:amt,type:txType,date,recurring:rec
+  };
+
+  if(editingTxId){
+    const idx=S.txs.findIndex(t=>t.id===editingTxId);
+    if(idx>-1)S.txs[idx]={...S.txs[idx],...tx,id:editingTxId};
+    editingTxId=null;
+    document.getElementById('txSubmitBtn').textContent='Add Transaction';
+  } else {
+    S.txs.push(tx);
+  }
+  save();
+  document.getElementById('txDesc').value='';
+  document.getElementById('txAmt').value='';
+  document.getElementById('txRec').checked=false;
+  render();
+}
+
+function addMonth(y,m){
+  const id=mId(y,m);if(S.months.find(mo=>mo.id===id))return;
+  const budgets={},allocations={};
+  S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=b.defaultBudget||0;allocations[b.id]=0;});
+  S.months.push({id,label:mLabel(y,m),year:y,month:m,budgets,allocations});
+  S.months.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+}
+
+function editTx(id){
+  const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  editingTxId=id;
+  document.getElementById('txDesc').value=tx.desc;
+  document.getElementById('txAmt').value=tx.amount;
+  document.getElementById('txDate').value=tx.date;
+  document.getElementById('txRec').checked=tx.recurring;
+  setTxType(tx.type);
+  document.getElementById('txAcct').value=tx.accountId||'';
+  if(tx.bucketId){const b=getBucket(tx.bucketId);if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=tx.bucketId;}}
+  if(tx.toAccountId)document.getElementById('txXfrTo').value=tx.toAccountId;
+  document.getElementById('txSubmitBtn').textContent='Update Transaction';
+  document.getElementById('txDesc').focus();
+}
+function delTx(id){
+  if(!confirm('Delete this transaction?'))return;
+  S.txs=S.txs.filter(t=>t.id!==id);save();render();
+}
+
+// ═══════════════════════════════════════════════════════
+// WHAT IF
+// ═══════════════════════════════════════════════════════
+function toggleWI(){
+  S.wiOpen=!S.wiOpen;
+  if(S.wiOpen){
+    S.scenario=true;S.scenarioBudgets={};
+    const mid=S.activeMonth;
+    S.buckets.filter(b=>!b.archived).forEach(b=>{S.scenarioBudgets[b.id]=bBudget(mid,b.id);});
+    document.getElementById('wiStrip').classList.remove('hidden');
+    document.getElementById('wiPanel').classList.remove('hidden');
+    document.getElementById('wiBtnTop').className='tbtn wi-on';
+    renderWI();
+  } else exitWI();
+}
+function renderWI(){
+  const mid=S.activeMonth;
+  const panel=document.getElementById('wiPanel');
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--amber)">⚡ What If Scenario</span>
+    <span style="font-size:12px;color:var(--text3)">Adjust targets — see impact without changing real data</span>
+  </div><div class="wi-grid">`;
+  sortedCats().forEach(cat=>{sortedBuckets(cat.id).forEach(b=>{
+    const val=S.scenarioBudgets[b.id]!==undefined?S.scenarioBudgets[b.id]:bBudget(mid,b.id);
+    h+=`<div class="wi-row"><span class="wi-label">${b.name}</span>
+      <input class="wi-inp" type="number" value="${val}" min="0" step="10"
+        onchange="S.scenarioBudgets['${b.id}']=parseFloat(this.value)||0;renderTopbar();renderMain();" /></div>`;
+  });});
+  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(S.scenarioBudgets[b.id]??bBudget(mid,b.id)),0);
+  const scRts=monthIncome(mid)-scAlloc;const realRts=readyToSpend(mid);const diff=scRts-realRts;
+  h+=`</div><div class="wi-foot">Scenario ready to spend: <strong style="color:${scRts>=0?'var(--green)':'var(--red)'}">${$f(scRts)}</strong>&nbsp;·&nbsp;vs current: <strong style="color:${diff>=0?'var(--green)':'var(--red)'}">${diff>=0?'+':''}${$f(diff)}</strong></div>`;
+  panel.innerHTML=h;
+}
+function exitWI(){
+  S.scenario=false;S.scenarioBudgets={};S.wiOpen=false;
+  document.getElementById('wiStrip').classList.add('hidden');
+  document.getElementById('wiPanel').classList.add('hidden');
+  document.getElementById('wiBtnTop').className='tbtn';
+  render();
+}
+function promoteScenario(){
+  if(!confirm('Apply scenario targets to current and future months?'))return;
+  const now=new Date();
+  S.months.forEach(m=>{if(m.year>now.getFullYear()||(m.year===now.getFullYear()&&m.month>=now.getMonth())){Object.keys(S.scenarioBudgets).forEach(bid=>{m.budgets[bid]=S.scenarioBudgets[bid];});}});
+  S.buckets.forEach(b=>{if(S.scenarioBudgets[b.id]!==undefined)b.defaultBudget=S.scenarioBudgets[b.id];});
+  exitWI();save();render();
+}
+
+// ═══════════════════════════════════════════════════════
+// FRESH START
+// ═══════════════════════════════════════════════════════
+function confirmFreshStart(){
+  if(!confirm('⚠ Fresh Start will erase ALL data — accounts, categories, buckets, and transactions. This cannot be undone.\n\nAre you sure?'))return;
+  localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
+  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},wiOpen:false,txFilter:'all',onboarded:false};
+  closeModal();ensureMonth();S.activeMonth=currentMonthId();
+  startWizard();
+}
+
+// ═══════════════════════════════════════════════════════
+// ONBOARDING WIZARD
+// ═══════════════════════════════════════════════════════
+let wiz={step:1,accounts:[]};
+const ACCT_COLORS=['#2a7c6f','#3b82c4','#7c3b82','#c45c3b','#3b8248','#c4a43b'];
+
+function startWizard(){wiz={step:1,accounts:[]};renderWizard();}
+
+function renderWizard(){
+  const ov=document.getElementById('wizardOverlay');
+  ov.classList.remove('hidden');
+  const box=document.getElementById('wizardBox');
+  const steps=3;
+  const pips=Array.from({length:steps},(_,i)=>`<div class="wiz-pip${i<wiz.step?' done':''}"></div>`).join('');
+
+  if(wiz.step===1){
+    box.innerHTML=`<div class="wiz-head">
+      <div class="wiz-step">Step 1 of 3</div>
+      <div class="wiz-title">Add your accounts</div>
+      <div class="wiz-sub">Add each bank account with its current balance. Budget accounts feed your Ready to Spend. Savings accounts are tracked separately.</div>
+      <div class="wiz-progress">${pips}</div>
+    </div>
+    <div class="wiz-body">
+      <div class="wiz-acct-list" id="wizAcctList"></div>
+      <div class="add-acct-form">
+        <input class="fi" id="wAcctName" placeholder="Account name..." style="flex:2" />
+        <input class="fi mono" id="wAcctBal" type="number" placeholder="Balance" style="flex:1" />
+        <select class="fi" id="wAcctType" style="flex:1.5">
+          <option value="budget">Budget</option>
+          <option value="savings">Savings</option>
+        </select>
+        <button class="btn-save" onclick="wizAddAcct()">Add</button>
+      </div>
+      <div class="hint">You can add more accounts later.</div>
+    </div>
+    <div class="wiz-foot">
+      <button class="btn-cancel" onclick="closeWizard()">Skip</button>
+      <button class="btn-save" onclick="wiz.step=2;renderWizard()">Next →</button>
+    </div>`;
+    renderWizAcctList();
+  } else if(wiz.step===2){
+    box.innerHTML=`<div class="wiz-head">
+      <div class="wiz-step">Step 2 of 3</div>
+      <div class="wiz-title">Confirm your accounts</div>
+      <div class="wiz-sub">Review your accounts below. These will be created with opening balances posted as of today.</div>
+      <div class="wiz-progress">${pips}</div>
+    </div>
+    <div class="wiz-body">
+      ${wiz.accounts.length?'<div class="wiz-acct-list">'+wiz.accounts.map(a=>`
+        <div class="wiz-acct-item">
+          <div class="wai-color" style="background:${a.color}"></div>
+          <span class="wai-name">${a.name}</span>
+          <span class="wai-type">${a.type}</span>
+          <span class="wai-bal">${$f(a.balance)}</span>
+          <button class="wai-del" onclick="wiz.accounts=wiz.accounts.filter(x=>x.id!=='${a.id}');renderWizard()">×</button>
+        </div>`).join('')+'</div>'
+        :'<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">No accounts added yet. Go back to add some.</div>'}
+    </div>
+    <div class="wiz-foot">
+      <button class="btn-cancel" onclick="wiz.step=1;renderWizard()">← Back</button>
+      <button class="btn-save" onclick="wiz.step=3;renderWizard()">Next →</button>
+    </div>`;
+  } else if(wiz.step===3){
+    box.innerHTML=`<div class="wiz-head">
+      <div class="wiz-step">Step 3 of 3</div>
+      <div class="wiz-title">You're ready</div>
+      <div class="wiz-sub">Your accounts are set up. Now create categories and buckets to start budgeting. Allocate money from Ready to Spend into buckets each month.</div>
+      <div class="wiz-progress">${pips}</div>
+    </div>
+    <div class="wiz-body">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Your workflow</div>
+        ${['1. Log income transactions → fills Ready to Spend','2. Allocate money to buckets each month','3. Log expense transactions → buckets draw down','4. Goal: Ready to Spend = $0. Every dollar has a job.'].map(s=>`<div style="font-size:13px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border)">${s}</div>`).join('')}
+      </div>
+    </div>
+    <div class="wiz-foot">
+      <button class="btn-cancel" onclick="wiz.step=2;renderWizard()">← Back</button>
+      <button class="btn-save" onclick="finishWizard()">Get Started ✓</button>
+    </div>`;
+  }
+}
+
+function wizAddAcct(){
+  const name=document.getElementById('wAcctName').value.trim();
+  const bal=parseFloat(document.getElementById('wAcctBal').value)||0;
+  const type=document.getElementById('wAcctType').value;
+  if(!name)return;
+  wiz.accounts.push({id:'_'+Math.random().toString(36).slice(2,9),name,balance:bal,type,color:ACCT_COLORS[wiz.accounts.length%ACCT_COLORS.length]});
+  document.getElementById('wAcctName').value='';
+  document.getElementById('wAcctBal').value='';
+  renderWizAcctList();
+}
+function renderWizAcctList(){
+  const el=document.getElementById('wizAcctList');if(!el)return;
+  el.innerHTML=wiz.accounts.map(a=>`
+    <div class="wiz-acct-item">
+      <div class="wai-color" style="background:${a.color}"></div>
+      <span class="wai-name">${a.name}</span>
+      <span class="wai-type">${a.type}</span>
+      <span class="wai-bal">${$f(a.balance)}</span>
+      <button class="wai-del" onclick="wiz.accounts=wiz.accounts.filter(x=>x.id!=='${a.id}');renderWizAcctList()">×</button>
+    </div>`).join('');
+}
+function finishWizard(){
+  const today=new Date().toISOString().split('T')[0];
+  wiz.accounts.forEach(a=>{
+    const acct={id:a.id,name:a.name,color:a.color,type:a.type,openingBalance:0};
+    S.accounts.push(acct);
+    if(a.balance!==0){
+      const monthId=dateToMonthId(today);
+      addMonth(new Date().getFullYear(),new Date().getMonth());
+      S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:a.id,toAccountId:null,monthId,bucketId:null,desc:'Opening Balance',amount:a.balance,type:'opening',date:today,recurring:false});
+    }
+  });
+  S.onboarded=true;save();closeWizard();render();populateTxCats();updateTxFormForType();
+}
+function closeWizard(){document.getElementById('wizardOverlay').classList.add('hidden');}
+
+// ═══════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// MODAL — Category + bulk bucket builder + account + single bucket edit
+// ═══════════════════════════════════════════════════════
+
+// M.buckets = array of bucket rows for bulk builder
+// {id(temp), name, type, budget, dueDay, recurring, rollover, goal, goalDate, contrib}
+let M = {
+  tab:'cat',
+  catName:'', catColor:COLORS[0], catEditId:null,
+  // bulk builder state
+  builderCatId:null,   // category id when adding buckets to existing cat
+  buckets:[],          // bucket rows in builder
+  // single bucket edit
+  bktEditId:null, bktCat:'',
+  bktName:'', bktType:'regular', bktBudget:'', bktDueDay:'',
+  bktRecurring:false, bktRollover:false,
+  bktGoal:'', bktDate:'', bktContrib:'monthly',
+  // account
+  acctName:'', acctColor:COLORS[0], acctType:'budget', acctBal:'', acctEditId:null,
+};
+
+function mkBkt(){
+  return {_id:'_r'+Math.random().toString(36).slice(2,7),
+    name:'',type:'regular',budget:'',dueDay:'',
+    recurring:false,rollover:false,goal:'',goalDate:'',contrib:'monthly'};
+}
+
+function openModal(tab, lockedCatId){
+  if(tab==='acct'){
+    M={...M,tab:'acct',acctName:'',acctColor:COLORS[0],acctType:'budget',acctBal:'',acctEditId:null};
+  } else if(tab==='bkt' && lockedCatId){
+    // Bulk builder for specific category
+    M={...M,tab:'builder',builderCatId:lockedCatId,buckets:[mkBkt()],bktEditId:null};
+  } else if(tab==='bkt'){
+    // Single bucket, user picks category
+    M={...M,tab:'bkt',bktEditId:null,bktName:'',bktCat:'',bktType:'regular',
+       bktBudget:'',bktDueDay:'',bktRecurring:false,bktRollover:false,
+       bktGoal:'',bktDate:'',bktContrib:'monthly'};
+  } else {
+    // Category tab (default or no cats yet)
+    M={...M,tab:'cat',catName:'',catColor:COLORS[0],catEditId:null,buckets:[mkBkt()],builderCatId:null};
+  }
+  renderModal();
+}
+
+function editCat(id){
+  const cat=getCat(id);if(!cat)return;
+  // Load existing buckets as editable rows
+  const existingRows = sortedBuckets(id).map(b=>({
+    _id:b.id, name:b.name, type:b.type,
+    budget:String(b.defaultBudget||''), dueDay:b.dueDay||'',
+    recurring:!!b.recurring, rollover:!!b.rollover,
+    goal:String(b.targetAmount||''), goalDate:b.targetDate||'',
+    contrib:b.contribFreq||'monthly'
+  }));
+  M={...M,tab:'cat',catName:cat.name,catColor:cat.color||COLORS[0],
+     catEditId:id,buckets:existingRows.length?existingRows:[mkBkt()],
+     builderCatId:id,bktEditId:null};
+  renderModal();
+}
+
+function editBucket(id){
+  const b=getBucket(id);if(!b)return;
+  M={...M,tab:'bkt',bktEditId:id,bktCat:b.catId,bktName:b.name,bktType:b.type,
+     bktBudget:String(b.defaultBudget||''),bktDueDay:b.dueDay||'',
+     bktRecurring:!!b.recurring,bktRollover:!!b.rollover,
+     bktGoal:String(b.targetAmount||''),bktDate:b.targetDate||'',bktContrib:b.contribFreq||'monthly',
+     catEditId:null};
+  renderModal();
+}
+
+function editAcct(id){const a=getAcct(id);if(!a)return;M={...M,tab:'acct',acctName:a.name,acctColor:a.color||COLORS[0],acctType:a.type,acctBal:'',acctEditId:id};renderModal();}
+
+// Snapshot live field values back into M before any re-render
+function MsnapBuilder(){
+  // Snapshot category name
+  const cn=document.getElementById('mCatName');
+  if(cn)M.catName=cn.value;
+  // Snapshot each bucket row
+  if(!M.buckets)return;
+  M.buckets.forEach((row,i)=>{
+    const n=document.getElementById(`br_name_${i}`);   if(n)row.name=n.value;
+    const t=document.getElementById(`br_type_${i}`);   if(t)row.type=t.value;
+    const b=document.getElementById(`br_budget_${i}`); if(b)row.budget=b.value;
+    const d=document.getElementById(`br_due_${i}`);    if(d)row.dueDay=d.value;
+    const g=document.getElementById(`br_goal_${i}`);   if(g)row.goal=g.value;
+    const gd=document.getElementById(`br_gdate_${i}`); if(gd)row.goalDate=gd.value;
+    const c=document.getElementById(`br_contrib_${i}`);if(c)row.contrib=c.value;
+  });
+}
+function MsnapAcct(){
+  const n=document.getElementById('mAcctName');if(n)M.acctName=n.value;
+  const b=document.getElementById('mAcctBal');if(b)M.acctBal=b.value;
+}
+function MsnapBkt(){
+  const n=document.getElementById('mBktName');if(n)M.bktName=n.value;
+  const t=document.getElementById('mBktType');if(t)M.bktType=t.value;
+  const b=document.getElementById('mBktBudget');if(b)M.bktBudget=b.value;
+  const d=document.getElementById('mBktDue');if(d)M.bktDueDay=d.value;
+  const g=document.getElementById('mBktGoal');if(g)M.bktGoal=g.value;
+  const gd=document.getElementById('mBktDate');if(gd)M.bktDate=gd.value;
+  const c=document.getElementById('mBktContrib');if(c)M.bktContrib=c.value;
+}
+
+function MpickColor(c){M.catColor=c;if(M.tab==='acct')M.acctColor=c;MsnapBuilder();renderModal();}
+
+function MaddRow(){
+  MsnapBuilder();
+  M.buckets.push(mkBkt());
+  renderModal();
+  // Focus the new row's name field
+  setTimeout(()=>{
+    const idx=M.buckets.length-1;
+    document.getElementById(`br_name_${idx}`)?.focus();
+  },40);
+}
+
+function MremoveRow(i){
+  MsnapBuilder();
+  M.buckets.splice(i,1);
+  if(!M.buckets.length)M.buckets.push(mkBkt());
+  renderModal();
+}
+
+function MtoggleRecurring(i){
+  MsnapBuilder();
+  M.buckets[i].recurring=!M.buckets[i].recurring;
+  renderModal();
+}
+function MtoggleRollover(i){
+  MsnapBuilder();
+  M.buckets[i].rollover=!M.buckets[i].rollover;
+  renderModal();
+}
+function MrowTypeChange(i,v){
+  MsnapBuilder();
+  M.buckets[i].type=v;
+  renderModal();
+}
+
+// Contrib tip for a sinking row
+function contribTip(row){
+  const m=parseFloat(row.budget)||0;
+  if(!m)return'';
+  const per=row.contrib==='weekly'?+(m/4.33).toFixed(2):row.contrib==='biweekly'?+(m/2).toFixed(2):m;
+  return `<div class="contrib-tip">💡 Put aside <strong>${$f(per)}</strong> per ${row.contrib==='weekly'?'week':row.contrib==='biweekly'?'paycheck':'month'}</div>`;
+}
+
+function dueOptsHtml(selected){
+  let h='<option value="">No due date</option>';
+  for(let i=1;i<=31;i++){
+    const lbl=i===1?'1st':i===2?'2nd':i===3?'3rd':`${i}th`;
+    h+=`<option value="${i}"${String(selected)===String(i)?' selected':''}>${lbl}</option>`;
+  }
+  h+=`<option value="eom"${selected==='eom'?' selected':''}>End of month</option>`;
+  return h;
+}
+
+function renderModal(){
+  const isAcct=M.tab==='acct';
+  const isBkt=M.tab==='bkt';     // single bucket edit
+  const isCat=M.tab==='cat';     // category + builder
+  const isBuilder=M.tab==='builder'; // adding buckets to existing cat
+  const isEdit=!!(M.catEditId||M.bktEditId||M.acctEditId);
+
+  const swatches=COLORS.map(c=>`<div class="cswatch${c===M.catColor?' sel':''}" style="background:${c}" onclick="MpickColor('${c}')"></div>`).join('');
+
+  let title='', body='', tabs='', wideModal=false;
+
+  if(isAcct){
+    title=M.acctEditId?'Edit Account':'Add Account';
+    tabs=`<div class="modal-tabs"><button class="modal-tab active">Account</button></div>`;
+    body=`
+      <div class="fg"><label class="fl">Account Name</label><input class="fi" id="mAcctName" value="${esc(M.acctName)}" placeholder="e.g. Chase Checking, HYSA..." /></div>
+      <div class="fg"><label class="fl">Type</label>
+        <div class="tog-row" style="display:grid;grid-template-columns:1fr 1fr">
+          <button class="togbtn${M.acctType==='budget'?' on':''}" onclick="M.acctType='budget';MsnapAcct();renderModal()">Budget account<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">feeds Ready to Spend</div></button>
+          <button class="togbtn${M.acctType==='savings'?' on':''}" onclick="M.acctType='savings';MsnapAcct();renderModal()">Savings account<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">net worth only</div></button>
+        </div></div>
+      ${!M.acctEditId?`<div class="fg"><label class="fl">Current Balance</label><input class="fi mono" id="mAcctBal" type="number" value="${M.acctBal}" placeholder="0.00" /><div class="hint">Posted as an opening balance transaction.</div></div>`:''}
+      <div class="fg"><label class="fl">Color</label><div class="color-row">${swatches}</div></div>`;
+
+  } else if(isBkt){
+    // Single bucket edit (existing bucket)
+    title=M.bktEditId?'Edit Bucket':'Add Bucket';
+    tabs=`<div class="modal-tabs">
+      <button class="modal-tab" onclick="openModal('cat')">Category</button>
+      <button class="modal-tab active">Bucket</button>
+    </div>`;
+    const isSink=M.bktType==='sinking';
+    let catOpts=S.cats.length?'<option value="">Select category...</option>':'<option value="">Create a category first</option>';
+    sortedCats().forEach(c=>catOpts+=`<option value="${c.id}"${c.id===M.bktCat?' selected':''}>${c.name}</option>`);
+    let contribPreview='';
+    if(isSink&&M.bktBudget){const mn=parseFloat(M.bktBudget)||0;const per=M.bktContrib==='weekly'?+(mn/4.33).toFixed(2):M.bktContrib==='biweekly'?+(mn/2).toFixed(2):mn;contribPreview=`<div class="contrib-preview">💡 Put aside <strong>${$f(per)}</strong> per ${M.bktContrib==='weekly'?'week':M.bktContrib==='biweekly'?'paycheck':'month'}</div>`;}
+    body=`
+      <div class="fg"><label class="fl">Bucket Name</label><input class="fi" id="mBktName" value="${esc(M.bktName)}" placeholder="e.g. Rent, Groceries..." /></div>
+      <div class="fg"><label class="fl">Category</label><select class="fi" id="mBktCat" onchange="M.bktCat=this.value">${catOpts}</select></div>
+      <div class="fg"><label class="fl">Type</label><select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()"><option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option><option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — savings goal</option></select></div>
+      <div class="fi-row">
+        <div class="fg"><label class="fl">${isSink?'Monthly Target':'Budget Target'}</label><input class="fi" id="mBktBudget" type="number" value="${M.bktBudget}" placeholder="0.00" /></div>
+        <div class="fg"><label class="fl">Due Day</label><select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select></div>
+      </div>
+      <div class="fi-row">
+        <div class="fg"><label class="fl">Recurring</label><div class="tog-row"><button class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button></div></div>
+        <div class="fg"><label class="fl">Roll Over</label><div class="tog-row"><button class="togbtn${M.bktRollover?' on':''}" onclick="M.bktRollover=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRollover?' on':''}" onclick="M.bktRollover=false;MsnapBkt();renderModal()">No</button></div></div>
+      </div>
+      ${isSink?`<div class="fi-row"><div class="fg"><label class="fl">Goal Amount</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>
+      <div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}`;
+
+  } else {
+    // Category + bulk bucket builder (isCat or isBuilder)
+    wideModal=true;
+    const catId=M.builderCatId||M.catEditId;
+    const catLabel=catId?(getCat(catId)?.name||'Category'):'';
+    if(isCat){
+      title=M.catEditId?`Edit: ${M.catName||catLabel}`:'New Category';
+    } else {
+      title=`Add Buckets → ${catLabel}`;
+    }
+    tabs=`<div class="modal-tabs">
+      <button class="modal-tab${isCat?' active':''}" onclick="MsnapBuilder();M.tab='cat';M.catName=M.catName||'';renderModal()">Category</button>
+      <button class="modal-tab${isBuilder?' active':''}" ${catId?`onclick="MsnapBuilder();M.tab='builder';renderModal()"`:''} style="${!catId?'opacity:.4;cursor:not-allowed':''}">Buckets${M.buckets?.length?` (${M.buckets.length})`:'s'}</button>
+    </div>`;
+
+    // Category fields
+    const catSection=isCat?`
+      <div class="fg"><label class="fl">Category Name</label><input class="fi" id="mCatName" value="${esc(M.catName)}" placeholder="e.g. Housing, Food, Savings..." /></div>
+      <div class="fg"><label class="fl">Color</label><div class="color-row">${swatches}</div></div>
+      <div style="margin-top:12px;padding:10px 14px;background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);font-size:12px;color:var(--blue);">
+        💡 After saving the category name and color, switch to the <strong>Buckets</strong> tab to add buckets in bulk.
+      </div>
+    `:'';
+
+    // Bucket builder rows
+    const builderSection=(isCat&&M.catEditId)||isBuilder?`
+      <div class="brow-hdrs">
+        <div class="brow-col-hdr">Bucket Name</div>
+        <div class="brow-col-hdr">Type</div>
+        <div class="brow-col-hdr">Budget</div>
+        <div class="brow-col-hdr">Due Day</div>
+        <div class="brow-col-hdr" style="text-align:center">↻</div>
+        <div class="brow-col-hdr" style="text-align:center">Roll</div>
+        <div></div>
+      </div>
+      <div class="bbuilder" id="builderList">
+        ${(M.buckets||[]).map((row,i)=>{
+          const isSink=row.type==='sinking';
+          const contribTipHtml=isSink&&row.budget?contribTip(row):'';
+          return `<div class="brow-builder">
+            <div class="brow-main">
+              <input class="brow-input" id="br_name_${i}" value="${esc(row.name)}" placeholder="Bucket name..." />
+              <select class="brow-select" id="br_type_${i}" onchange="MrowTypeChange(${i},this.value)">
+                <option value="regular"${row.type==='regular'?' selected':''}>Regular</option>
+                <option value="sinking"${row.type==='sinking'?' selected':''}>Sinking</option>
+              </select>
+              <input class="brow-input mono" id="br_budget_${i}" type="number" value="${row.budget}" placeholder="0.00" min="0" step="1" />
+              <select class="brow-select" id="br_due_${i}">${dueOptsHtml(row.dueDay)}</select>
+              <div class="brow-toggle" onclick="MtoggleRecurring(${i})">
+                <div class="brow-toggle-btn${row.recurring?' on':''}"></div>
+              </div>
+              <div class="brow-toggle" onclick="MtoggleRollover(${i})">
+                <div class="brow-toggle-btn${row.rollover?' on':''}"></div>
+              </div>
+              <button class="brow-del" onclick="MremoveRow(${i})" title="Remove">×</button>
+            </div>
+            <div class="brow-sink-drawer${isSink?'':' hidden'}">
+              <div class="brow-field">
+                <span class="brow-field-label">Goal Amount</span>
+                <input class="brow-input mono" id="br_goal_${i}" type="number" value="${row.goal}" placeholder="0.00" />
+              </div>
+              <div class="brow-field">
+                <span class="brow-field-label">Target Date</span>
+                <input class="brow-input" id="br_gdate_${i}" type="month" value="${row.goalDate}" />
+              </div>
+              <div class="brow-field">
+                <span class="brow-field-label">Frequency</span>
+                <select class="brow-select" id="br_contrib_${i}" onchange="MsnapBuilder();M.buckets[${i}].contrib=this.value;renderModal()">
+                  <option value="monthly"${row.contrib==='monthly'?' selected':''}>Monthly</option>
+                  <option value="biweekly"${row.contrib==='biweekly'?' selected':''}>Per paycheck</option>
+                  <option value="weekly"${row.contrib==='weekly'?' selected':''}>Weekly</option>
+                </select>
+              </div>
+              ${contribTipHtml}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <button class="add-bkt-btn" onclick="MaddRow()">+ Add another bucket</button>
+    `:isCat&&!M.catEditId?'':'';
+
+    body = catSection + (catSection&&builderSection?'<div style="height:16px"></div>':'') + builderSection;
+  }
+
+  const modal=document.getElementById('modalBox');
+  modal.className=wideModal?'modal wide':'modal';
+  modal.innerHTML=`
+    <div class="modal-head"><div class="modal-title">${title}</div><button class="modal-x" onclick="closeModal()">&#x2715;</button></div>
+    ${tabs}
+    <div class="modal-body">${body}</div>
+    <div class="modal-foot">
+      ${isEdit&&!isBuilder?`<button class="btn-del" onclick="Mdelete()">Delete</button>`:''}
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveModal()">${(isCat&&!M.catEditId&&!M.builderCatId)?'Save & Add Buckets':(isBuilder||((isCat)&&M.buckets?.some(r=>r.name.trim())))?'Save All':'Save'}</button>
+    </div>`;
+  document.getElementById('overlay').classList.remove('hidden');
+  setTimeout(()=>{
+    if(isAcct)document.getElementById('mAcctName')?.focus();
+    else if(isBkt)document.getElementById('mBktName')?.focus();
+    else if(isCat&&!M.catEditId)document.getElementById('mCatName')?.focus();
+    else if(M.buckets?.length)document.getElementById('br_name_0')?.focus();
+  },40);
+}
+
+function saveModal(){
+  MsnapBuilder();
+  if(M.tab==='acct'){
+    MsnapAcct();
+    const name=M.acctName.trim();if(!name){document.getElementById('mAcctName')?.focus();return;}
+    if(M.acctEditId){
+      const a=getAcct(M.acctEditId);if(a){a.name=name;a.color=M.acctColor;a.type=M.acctType;}
+    } else {
+      const id='_'+Math.random().toString(36).slice(2,9);
+      S.accounts.push({id,name,color:M.acctColor,type:M.acctType,openingBalance:0});
+      const bal=parseFloat(M.acctBal)||0;
+      if(bal!==0){
+        const today=new Date().toISOString().split('T')[0];
+        addMonth(new Date().getFullYear(),new Date().getMonth());
+        S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:id,toAccountId:null,monthId:dateToMonthId(today),bucketId:null,desc:'Opening Balance',amount:bal,type:'opening',date:today,recurring:false});
+      }
+    }
+    save();closeModal();render();updateTxFormForType();
+
+  } else if(M.tab==='bkt'){
+    // Single bucket edit/create
+    MsnapBkt();
+    const name=M.bktName.trim();
+    const catId=M.bktCat;
+    if(!name){document.getElementById('mBktName')?.focus();return;}
+    if(!catId){alert('Please select a category.');return;}
+    const type=M.bktType;
+    const budget=parseFloat(M.bktBudget)||0;
+    const dueDay=M.bktDueDay||null;
+    const goal=type==='sinking'?parseFloat(M.bktGoal)||null:null;
+    const tDate=type==='sinking'?M.bktDate||null:null;
+    const contrib=type==='sinking'?M.bktContrib:'monthly';
+    if(M.bktEditId){
+      const b=getBucket(M.bktEditId);
+      if(b){b.name=name;b.catId=catId;b.type=type;b.defaultBudget=budget;b.dueDay=dueDay;b.recurring=M.bktRecurring;b.rollover=M.bktRollover;b.targetAmount=goal;b.targetDate=tDate;b.contribFreq=contrib;}
+      S.months.forEach(m=>{if(!m.budgets)m.budgets={};if(m.budgets[M.bktEditId]===undefined)m.budgets[M.bktEditId]=budget;});
+    } else {
+      const id='_'+Math.random().toString(36).slice(2,9);
+      const cnt=S.buckets.filter(b=>b.catId===catId).length;
+      S.buckets.push({id,catId,name,type,defaultBudget:budget,dueDay,recurring:M.bktRecurring,rollover:M.bktRollover,archived:false,targetAmount:goal,targetDate:tDate,contribFreq:contrib,order:cnt});
+      S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[id]=budget;if(!m.allocations)m.allocations={};m.allocations[id]=0;});
+    }
+    save();closeModal();render();populateTxCats();
+
+  } else {
+    // Category + bulk buckets (isCat or isBuilder)
+    const isCat=M.tab==='cat';
+
+    // If on cat tab and category hasn't been saved/named yet, save it first
+    let catId=M.catEditId||M.builderCatId;
+    if(isCat){
+      const name=M.catName.trim();
+      if(!name){document.getElementById('mCatName')?.focus();return;}
+      if(M.catEditId){
+        const c=getCat(M.catEditId);if(c){c.name=name;c.color=M.catColor;}
+        catId=M.catEditId;
+      } else {
+        // Create new category
+        const newCat={id:'_'+Math.random().toString(36).slice(2,9),name,color:M.catColor,order:S.cats.length};
+        S.cats.push(newCat);ensureMonth();
+        catId=newCat.id;
+        M.catEditId=catId;
+        M.builderCatId=catId;
+      }
+    }
+
+    // If no buckets with names, and it's just category save, close
+    const namedBuckets=(M.buckets||[]).filter(r=>r.name.trim());
+    if(!namedBuckets.length){
+      save();closeModal();render();populateTxCats();return;
+    }
+
+    if(!catId){save();closeModal();render();populateTxCats();return;}
+
+    // Save all bucket rows that have names
+    namedBuckets.forEach((row,idx)=>{
+      const type=row.type;
+      const budget=parseFloat(row.budget)||0;
+      const dueDay=row.dueDay||null;
+      const goal=type==='sinking'?parseFloat(row.goal)||null:null;
+      const tDate=type==='sinking'?row.goalDate||null:null;
+      const contrib=type==='sinking'?row.contrib:'monthly';
+
+      // If row has a real bucket id (editing existing), update it
+      if(row._id&&S.buckets.find(b=>b.id===row._id)){
+        const b=getBucket(row._id);
+        if(b){b.name=row.name.trim();b.type=type;b.defaultBudget=budget;b.dueDay=dueDay;b.recurring=row.recurring;b.rollover=row.rollover;b.targetAmount=goal;b.targetDate=tDate;b.contribFreq=contrib;}
+        S.months.forEach(m=>{if(!m.budgets)m.budgets={};if(m.budgets[row._id]===undefined)m.budgets[row._id]=budget;});
+      } else {
+        // New bucket
+        const id='_'+Math.random().toString(36).slice(2,9);
+        const cnt=S.buckets.filter(b=>b.catId===catId).length;
+        S.buckets.push({id,catId,name:row.name.trim(),type,defaultBudget:budget,dueDay,recurring:row.recurring,rollover:row.rollover,archived:false,targetAmount:goal,targetDate:tDate,contribFreq:contrib,order:cnt});
+        S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[id]=budget;if(!m.allocations)m.allocations={};m.allocations[id]=0;});
+      }
+    });
+
+    save();closeModal();render();populateTxCats();
+  }
+}
+
+function Mdelete(){
+  if(M.tab==='acct'&&M.acctEditId){
+    if(!confirm('Delete this account? All its transactions will be removed.'))return;
+    S.txs=S.txs.filter(t=>t.accountId!==M.acctEditId&&t.toAccountId!==M.acctEditId);
+    S.accounts=S.accounts.filter(a=>a.id!==M.acctEditId);
+    if(S.activeAccount===M.acctEditId)S.activeAccount=null;
+  } else if(M.tab==='cat'&&M.catEditId){
+    if(!confirm('Delete this category and everything inside it?'))return;
+    S.buckets.filter(b=>b.catId===M.catEditId).forEach(b=>{S.txs=S.txs.filter(t=>t.bucketId!==b.id);});
+    S.buckets=S.buckets.filter(b=>b.catId!==M.catEditId);
+    S.cats=S.cats.filter(c=>c.id!==M.catEditId);
+    if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
+  } else if(M.tab==='bkt'&&M.bktEditId){
+    closeModal();archiveOrDelete(M.bktEditId);return;
+  }
+  save();closeModal();render();populateTxCats();updateTxFormForType();
+}
+
+function closeModal(){document.getElementById('overlay').classList.add('hidden');document.getElementById('modalBox').innerHTML='';}
+
+function delCat(id){
+  if(!confirm('Delete this category and all its buckets and transactions?'))return;
+  S.buckets.filter(b=>b.catId===id).forEach(b=>{S.txs=S.txs.filter(t=>t.bucketId!==b.id);});
+  S.buckets=S.buckets.filter(b=>b.catId!==id);S.cats=S.cats.filter(c=>c.id!==id);
+  if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
+  save();render();populateTxCats();
+}
+
+
+// ═══════════════════════════════════════════════════════
+// REORDER
+// ═══════════════════════════════════════════════════════
+function normalizeCatOrder(){
+  // Ensure every cat has a numeric order field
+  S.cats.forEach((c,i)=>{if(c.order===undefined)c.order=i;});
+}
+function normalizeBktOrder(){
+  // Ensure every bucket has a numeric order field within its category
+  S.cats.forEach(cat=>{
+    const bkts=S.buckets.filter(b=>b.catId===cat.id);
+    bkts.forEach((b,i)=>{if(b.order===undefined)b.order=i;});
+  });
+}
+
+function sortedCats(){
+  normalizeCatOrder();
+  return [...S.cats].sort((a,b)=>a.order-b.order);
+}
+function sortedBuckets(catId){
+  normalizeBktOrder();
+  return S.buckets.filter(b=>b.catId===catId&&!b.archived).sort((a,b)=>a.order-b.order);
+}
+
+function moveCat(id,dir){
+  normalizeCatOrder();
+  const sorted=[...S.cats].sort((a,b)=>a.order-b.order);
+  const idx=sorted.findIndex(c=>c.id===id);
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=sorted.length)return;
+  const tmp=sorted[idx].order;
+  sorted[idx].order=sorted[swapIdx].order;
+  sorted[swapIdx].order=tmp;
+  save();renderSidebar();renderMain();
+}
+
+function moveBkt(id,dir){
+  normalizeBktOrder();
+  const b=getBucket(id);if(!b)return;
+  const sorted=S.buckets.filter(bk=>bk.catId===b.catId&&!bk.archived).sort((a,b)=>a.order-b.order);
+  const idx=sorted.findIndex(bk=>bk.id===id);
+  const swapIdx=idx+dir;
+  if(swapIdx<0||swapIdx>=sorted.length)return;
+  const tmp=sorted[idx].order;
+  sorted[idx].order=sorted[swapIdx].order;
+  sorted[swapIdx].order=tmp;
+  save();renderSidebar();renderMain();
+}
+
+// ═══════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();closeWizard();}
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();addTx();}
+});
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+load();
+ensureMonth();
+if(!S.activeMonth)S.activeMonth=currentMonthId();
+render();
+populateTxCats();
+updateTxFormForType();
+document.getElementById('txDate').value=new Date().toISOString().split('T')[0];
+// Show wizard if brand new user
+if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+</script>
+</body>
+</html>
