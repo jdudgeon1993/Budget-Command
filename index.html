@@ -2532,31 +2532,48 @@ load();
 ensureMonth();
 if(!S.activeMonth)S.activeMonth=currentMonthId();
 
-// Init correct layout based on screen size
-if(isMobile()){
-  // Mobile: init mobile system
-  mInit();
-} else {
-  // Desktop: init desktop system
+// Track which layout is currently active
+let _layoutIsMobile=isMobile();
+let _resizeTimer=null;
+
+function initDesktop(){
+  const shell=document.getElementById('mShell');
+  if(shell)shell.style.display='none';
   render();
   populateTxCats();
   updateTxFormForType();
-  document.getElementById('txDate').value=new Date().toISOString().split('T')[0];
+  const txDate=document.getElementById('txDate');
+  if(txDate)txDate.value=new Date().toISOString().split('T')[0];
   wireFormKeys();
 }
 
-// Show wizard if brand new user (both layouts)
-if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
-
-// Handle resize between mobile/desktop
-window.addEventListener('resize',()=>{
+function initMobile(){
   const shell=document.getElementById('mShell');
+  if(!shell)return; // DOM not ready yet
+  shell.style.cssText='display:flex;flex-direction:column;height:100vh;height:100dvh;';
+  mInit();
+}
+
+// Defer init until DOM is fully ready
+document.addEventListener('DOMContentLoaded',()=>{
   if(isMobile()){
-    shell.style.display='flex';
-    shell.style.flexDirection='column';
+    initMobile();
   } else {
-    shell.style.display='none';
+    initDesktop();
   }
+  // Show wizard if brand new user
+  if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+  // Resize handler
+  window.addEventListener('resize',()=>{
+    clearTimeout(_resizeTimer);
+    _resizeTimer=setTimeout(()=>{
+      const nowMobile=isMobile();
+      if(nowMobile===_layoutIsMobile)return;
+      _layoutIsMobile=nowMobile;
+      if(nowMobile){initMobile();}
+      else{initDesktop();}
+    },150);
+  });
 });
 
 // ═══════════════════════════════════════════════════════
@@ -2573,16 +2590,22 @@ let mStickyLog={           // persist between submissions
 };
 
 // ── Init mobile ──────────────────────────────────────────────────────────────
+let _mInitialized=false;
 function mInit(){
   if(!isMobile())return;
-  document.getElementById('mShell').style.display='flex';
-  document.getElementById('mShell').style.flexDirection='column';
+  // Reset to dashboard when reinitializing (e.g. resize from desktop)
+  mTab='dash';
+  mSubview=null;
   mRenderAll();
-  // Android back button / swipe
-  window.addEventListener('popstate',()=>{
-    if(mSubview){mCloseSubview();}
-    else{mGoTab('dash');}
-  });
+  // Wire Android back button once only
+  if(!_mInitialized){
+    window.addEventListener('popstate',()=>{
+      if(!isMobile())return;
+      if(mSubview){mCloseSubview();}
+      else if(mTab!=='dash'){mGoTab('dash');}
+    });
+    _mInitialized=true;
+  }
   history.pushState({},'','');
 }
 
