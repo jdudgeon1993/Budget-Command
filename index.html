@@ -868,7 +868,7 @@ async function authInit(){
       document.getElementById('authScreen').classList.add('hidden');
       updateAuthBtn();
       if(!_appInitialized){
-        // First load — pull latest data then render the UI
+        _appInitialized=true; // Set NOW before any await — prevents race with getSession() path
         setSyncStatus('syncing','Syncing…');
         const loaded=await loadFromSupabase();
         if(loaded){
@@ -876,7 +876,6 @@ async function authInit(){
           if(!S.activeMonth)S.activeMonth=currentMonthId();
           normalizeCatOrder();normalizeBktOrder();
         }
-        _appInitialized=true;
         setSyncStatus('synced','Synced');
         if(isMobile()){initMobile();}else{initDesktop();}
         if(!S.accounts.length){startWizard();}
@@ -904,6 +903,7 @@ async function authInit(){
     _supaUser=session.user;
     updateAuthBtn();
     if(!_appInitialized){
+      _appInitialized=true; // Set NOW before any await — prevents race with onAuthStateChange
       setSyncStatus('syncing','Syncing…');
       const loaded=await loadFromSupabase();
       if(loaded){
@@ -911,7 +911,6 @@ async function authInit(){
         if(!S.activeMonth)S.activeMonth=currentMonthId();
         normalizeCatOrder();normalizeBktOrder();
       }
-      _appInitialized=true;
       setSyncStatus('synced','Synced');
       if(isMobile()){initMobile();}else{initDesktop();}
       if(!S.accounts.length){startWizard();}
@@ -1085,16 +1084,22 @@ async function supabase_push(){
   if(!supaReady()||!_supaUser)return;
   const client=supaClient();
   const now=new Date().toISOString();
-  const {error}=await client
+  const {data, error}=await client
     .from('bcc_budget_state')
     .upsert({user_id:_supaUser.id, data:S, updated_at:now},
-            {onConflict:'user_id'});
-  if(!error){
-    _pendingSync=false;
-    // Stamp localStorage so we know when we last synced
-    localStorage.setItem(KEY+'_saved_at', String(new Date(now).getTime()));
+            {onConflict:'user_id'})
+    .select('updated_at'); // Verify the row was actually written
+  if(error){
+    console.warn('Supabase push error:',error.message,'(code:'+error.code+')');
+    setSyncStatus('error','Sync error — '+error.message);
+  } else if(!data||data.length===0){
+    // upsert returned no rows — RLS is silently blocking writes
+    console.warn('Supabase push: write blocked. Enable RLS policies or disable RLS on bcc_budget_state.');
+    setSyncStatus('error','Sync blocked — run SQL fix (see console)');
   } else {
-    console.warn('Supabase push error:',error.message);
+    _pendingSync=false;
+    localStorage.setItem(KEY+'_saved_at', String(new Date(now).getTime()));
+    console.log('Supabase sync OK');
   }
 }
 
