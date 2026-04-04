@@ -879,7 +879,7 @@ async function authInit(){
         _appInitialized=true;
         setSyncStatus('synced','Synced');
         if(isMobile()){initMobile();}else{initDesktop();}
-        if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+        if(!S.accounts.length){startWizard();}
       } else if(event==='TOKEN_REFRESHED'){
         // Session silently renewed — push any pending offline changes
         if(_pendingSync){
@@ -914,7 +914,7 @@ async function authInit(){
       _appInitialized=true;
       setSyncStatus('synced','Synced');
       if(isMobile()){initMobile();}else{initDesktop();}
-      if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+      if(!S.accounts.length){startWizard();}
     }
   } else {
     // No session — show auth screen
@@ -1008,14 +1008,12 @@ function skipAuth(){
   document.getElementById('authScreen').classList.add('hidden');
   setSyncStatus('offline','Offline mode');
   if(isMobile()){initMobile();}else{initDesktop();}
-  if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+  if(!S.accounts.length){startWizard();}
 }
 
 async function signOut(){
-  if(!supaReady()||!_supaUser)return;
-  setSyncStatus('syncing','Signing out…');
-  await supaClient().auth.signOut();
-  // onAuthStateChange SIGNED_OUT handles the rest, but also do it here for reliability
+  // Clear local state immediately — never block the UI on a network call
+  const client=supaReady()?supaClient():null;
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
@@ -1023,6 +1021,8 @@ async function signOut(){
   setSyncStatus('offline','Not signed in');
   showAuthSignIn();
   document.getElementById('authScreen').classList.remove('hidden');
+  // Tell Supabase in the background — if it fails the local session is still cleared
+  if(client) client.auth.signOut().catch(err=>console.warn('SignOut error:',err.message));
 }
 
 function authAction(){
@@ -2955,7 +2955,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     // No Supabase config yet — run locally, no auth screen
     if(isMobile()){initMobile();}
     else{initDesktop();}
-    if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+    if(!S.accounts.length){startWizard();}
   }
 });
 
