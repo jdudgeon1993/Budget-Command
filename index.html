@@ -1044,17 +1044,20 @@ function authAction(){
 }
 
 function updateAuthBtn(){
-  const btn=document.getElementById('authBtn');
-  if(!btn||!supaReady())return;
-  btn.style.display='';
-  if(_supaUser){
-    btn.textContent=_supaUser.email?.split('@')[0]||'Account';
-    btn.title='Signed in as '+_supaUser.email+' — click to sign out';
-    btn.onclick=authAction;
-  } else {
-    btn.textContent='Sign in';
-    btn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
-  }
+  if(!supaReady())return;
+  const btns=[document.getElementById('authBtn'),document.getElementById('mAuthBtn')];
+  btns.forEach(btn=>{
+    if(!btn)return;
+    btn.style.display='';
+    if(_supaUser){
+      btn.textContent=_supaUser.email?.split('@')[0]||'Account';
+      btn.title='Signed in as '+_supaUser.email;
+      btn.onclick=authAction;
+    } else {
+      btn.textContent='Sign in';
+      btn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3049,6 +3052,7 @@ function mRenderTopbar(){
   if(!chip)return;
   chip.textContent=$f(Math.abs(rts))+(rts<0?' over':'');
   chip.className=rts>0?'pos':rts<0?'neg':'zero';
+  updateAuthBtn();
 }
 
 // ── Month selector ───────────────────────────────────────────────────────────
@@ -3823,6 +3827,7 @@ function mAcctOptions(selectedId){
     <div id="mTopbar-title"><div id="mTopbar-dot"></div>Budget/CC</div>
     <div id="mTopbar-right">
       <div id="mRtsChip" class="zero">—</div>
+      <button id="mAuthBtn" class="tbtn" onclick="authAction()" style="padding:5px 10px;font-size:12px;border-radius:6px;display:none"></button>
       <button class="tbtn" onclick="openModal('new')" style="padding:5px 10px;font-size:12px;border-radius:6px">+ New</button>
     </div>
   </div>
