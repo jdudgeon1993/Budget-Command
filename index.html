@@ -826,7 +826,15 @@ let _appInitialized = false;
 function supaClient(){
   try{
     if(!_supa && typeof supabase !== 'undefined' && supabase.createClient){
-      _supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+      _supa = supabase.createClient(SUPA_URL, SUPA_KEY, {
+        auth: {
+          // Isolate this app's auth session from other apps on the same Supabase project.
+          // Without this, sharing a project causes both apps to share one auth token in
+          // localStorage — logging out of one logs out of both, and session changes in
+          // one app corrupt the other's mid-request.
+          storageKey: 'bcc-auth'
+        }
+      });
     }
   }catch(e){console.warn('Supabase client error:',e.message);}
   return _supa;
@@ -1166,10 +1174,13 @@ async function loadFromSupabase(){
     return true;
   }
 
-  // We have remote data — compare timestamps with localStorage
+  // We have remote data — compare timestamps with localStorage.
+  // Normalize the Supabase timestamp ("2026-04-04 13:31:59.556+00") to ISO 8601
+  // before parsing — iOS Safari rejects the space-separator and bare "+00" offset.
   const localRaw=localStorage.getItem(KEY);
   const localTime=parseInt(localStorage.getItem(KEY+'_saved_at')||'0');
-  const remoteTime=new Date(data.updated_at).getTime();
+  const remoteIso=(data.updated_at||'').replace(' ','T').replace(/\+00$/,'+00:00');
+  const remoteTime=new Date(remoteIso).getTime()||0;
 
   if(localRaw&&localTime>remoteTime){
     // Local is newer — keep it and push to Supabase
@@ -1192,7 +1203,7 @@ async function loadFromSupabase(){
     if(remoteHasData||!localHasData){
       S=data.data;
       localStorage.setItem(KEY,JSON.stringify(S));
-      localStorage.setItem(KEY+'_saved_at',String(remoteTime));
+      localStorage.setItem(KEY+'_saved_at',String(remoteTime||Date.now()));
       console.log('Loaded from Supabase (newer by '+(remoteTime-localTime)+'ms)');
     } else {
       console.log('Remote is empty but local has data — keeping local, pushing up');
