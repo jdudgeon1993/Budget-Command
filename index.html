@@ -1231,12 +1231,19 @@ async function supabase_push(){
   const client=supaClient();
   const now=new Date().toISOString();
 
+  // Abort if takes longer than 20 seconds
+  const abortTimer=setTimeout(()=>{
+    _pendingSync=false;
+    setSyncStatus('offline','Sync timed out');
+  },20000);
+
   // Step 1: write
   const {error}=await client
     .from('bcc_budget_state')
     .upsert({user_id:_supaUser.id, data:S, updated_at:now},{onConflict:'user_id'});
 
   if(error){
+    clearTimeout(abortTimer);
     console.warn('Supabase push error:',error.message,'(code:'+error.code+')');
     setSyncStatus('error','Sync error — see console');
     return;
@@ -1249,12 +1256,13 @@ async function supabase_push(){
     .eq('user_id',_supaUser.id)
     .maybeSingle();
 
+  clearTimeout(abortTimer);
+
   if(verErr){
     console.warn('Supabase verify error:',verErr.message);
     setSyncStatus('error','Sync unverified — see console');
   } else if(!verify){
-    console.warn('Supabase write blocked — row not found after upsert.',
-      'Check RLS policies on bcc_budget_state table.');
+    console.warn('Supabase write blocked — row not found after upsert. Check RLS policies.');
     setSyncStatus('error','Sync blocked — check RLS (see console)');
   } else {
     _pendingSync=false;
@@ -1554,7 +1562,7 @@ function renderTopbar(){
     const bal=acctBalance(a.id);
     const isActive=S.activeAccount===a.id;
     h+=`<div class="acct-chip${isActive?' active':''}" onclick="setActiveAccount('${a.id}')">
-      <div class="ac-name"><div class="ac-dot" style="background:${a.color}"></div>${a.name}<span class="ac-type">${a.type==='savings'?'savings':''}</span></div>
+      <div class="ac-name"><div class="ac-dot" style="background:${a.color}"></div>${esc(a.name)}<span class="ac-type">${a.type==='savings'?'savings':''}</span></div>
       <div class="ac-bal ${bal>=0?'pos':'neg'}">${$f(bal)}</div>
     </div>`;
   });
@@ -1601,7 +1609,7 @@ function renderSidebar(){
       const bal=acctBalance(a.id);
       h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')">
         <span class="sb-link-icon"><div style="width:8px;height:8px;border-radius:50%;background:${a.color};display:inline-block"></div></span>
-        <span style="flex:1">${a.name}</span>
+        <span style="flex:1">${esc(a.name)}</span>
         <span style="font-family:var(--mono);font-size:11px;color:${bal>=0?'var(--text3)':'var(--red)'}">${$f(bal)}</span>
         <button class="ib" style="opacity:0.5" onclick="event.stopPropagation();editAcct('${a.id}')">✎</button>
       </div>`;
@@ -1619,7 +1627,7 @@ function renderSidebar(){
       const isLastCat=catIdx===sCats.length-1;
       h+=`<div class="cat-block"><div class="cat-row">
         <div class="cat-color" style="background:${cat.color||COLORS[0]}"></div>
-        <span class="cat-label">${cat.name}</span>
+        <span class="cat-label">${esc(cat.name)}</span>
         <div class="cat-acts">
           <button class="ib" onclick="event.stopPropagation();moveCat('${cat.id}',-1)" title="Move up" ${isFirstCat?'disabled style="opacity:.3"':''}>↑</button>
           <button class="ib" onclick="event.stopPropagation();moveCat('${cat.id}',1)" title="Move down" ${isLastCat?'disabled style="opacity:.3"':''}>↓</button>
@@ -1641,7 +1649,7 @@ function renderSidebar(){
         h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')" tabindex="0" role="button" aria-label="${b.name}" onkeydown="if(event.key==='Enter'||event.key===' ')setBucket('${b.id}')">
           <div class="bni-line" style="background:${cat.color||COLORS[0]}"></div>
           <div class="bni-dot ${dotCls}"></div>
-          <span class="bni-name">${b.name}</span>
+          <span class="bni-name">${esc(b.name)}</span>
           <span class="bni-val">${alloc>0?$f(alloc):''}</span>
           <div class="bni-acts">
             <button class="ib" onclick="event.stopPropagation();moveBkt('${b.id}',-1)" title="Move up" ${isFirstBkt?'disabled style="opacity:.3"':''}>↑</button>
@@ -1782,7 +1790,7 @@ function renderMain(){
     h+=`<div class="cat-sec">
       <div class="cat-sec-hdr">
         <div class="csh-color" style="background:${color}"></div>
-        <span class="csh-name">${cat.name}</span>
+        <span class="csh-name">${esc(cat.name)}</span>
         <span class="csh-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
         ${!past?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund all</button>`:''}
       </div>
@@ -1828,7 +1836,7 @@ function renderMain(){
       h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter')setBucket('${b.id}')">
         <td class="td-accent"><div class="accent-bar" style="background:${color}"></div></td>
         <td class="td-name">
-          <div class="bn">${b.name}</div>
+          <div class="bn">${esc(b.name)}</div>
           <div class="bt">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>
         </td>
         <td class="td-alloc" onclick="event.stopPropagation()">
@@ -1988,7 +1996,7 @@ function renderAccountView(el,mid){
   let h=`<button class="back-btn" onclick="clearActive()">← Overview</button>
   <div class="acct-hdr">
     <div style="width:12px;height:12px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
-    <div class="acct-hdr-name">${a.name}</div>
+    <div class="acct-hdr-name">${esc(a.name)}</div>
     <span class="chip ${a.type==='savings'?'chip-future':'chip-present'}">${a.type}</span>
     <button class="tbtn" style="margin-left:auto" onclick="editAcct('${a.id}')">Edit account</button>
   </div>
@@ -2006,9 +2014,9 @@ function renderAccountView(el,mid){
       const isXfrIn=tx.type==='xfr'&&tx.toAccountId===a.id;
       const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
       const color=cat?.color||'var(--text3)';
-      const typeLabel=tx.type==='xfr'?(isXfrIn?`← from ${getAcct(tx.accountId)?.name||''}`:`→ to ${getAcct(tx.toAccountId)?.name||''}`):'';
+      const typeLabel=tx.type==='xfr'?(isXfrIn?`← from ${esc(getAcct(tx.accountId)?.name||'')}`:`→ to ${esc(getAcct(tx.toAccountId)?.name||'')}`):'';
       h+=`<div class="det-row">
-        <span class="det-row-label">${tx.desc}<span style="font-size:11px;color:var(--text3);margin-left:6px">${ld(tx.date)}</span>${typeLabel?`<span style="font-size:11px;color:var(--purple);margin-left:6px">${typeLabel}</span>`:''}</span>
+        <span class="det-row-label">${esc(tx.desc)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${ld(tx.date)}</span>${typeLabel?`<span style="font-size:11px;color:var(--purple);margin-left:6px">${typeLabel}</span>`:''}</span>
         <span class="det-row-val" style="color:${tx.type==='xfr'?'var(--purple)':isXfrIn||tx.type==='in'?'var(--green)':'var(--red)'}">${isXfrIn||tx.type==='in'?'+':'-'}${$f(tx.amount)}</span>
       </div>`;
     });
@@ -2029,9 +2037,9 @@ function renderBucketDetail(mid,past,m){
   const days=daysUntilDue(b,m?.year,m?.month);
 
   let h=`<button class="back-btn" onclick="setBucket(null)">← Overview</button>
-  <div class="det-name">${b.name}</div>
+  <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
-    <span style="color:${color}">${cat?.name||''}</span><span class="det-sep">·</span>
+    <span style="color:${color}">${esc(cat?.name||'')}</span><span class="det-sep">·</span>
     <span>${b.type}</span>
     ${b.recurring?`<span class="det-sep">·</span><span>↻ Recurring</span>`:''}
     ${b.rollover?`<span class="det-sep">·</span><span>Rolls over</span>`:''}
@@ -2075,7 +2083,7 @@ function renderBucketDetail(mid,past,m){
 
   if(!past){
     h+=`<div class="alloc-edit-row">
-      <span class="aer-label">Allocate to ${b.name}</span>
+      <span class="aer-label">Allocate to ${esc(b.name)}</span>
       <input class="aer-input" id="aerAlloc" type="number" value="${alloc||''}" placeholder="0.00"
         onkeydown="if(event.key==='Enter')commitAlloc('${mid}','${b.id}')" />
       <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="commitAlloc('${mid}','${b.id}')">Set</button>
@@ -2148,15 +2156,15 @@ function renderTxList(){
       const indColor=tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':isOpening?'var(--blue)':'var(--red)';
       // Meta line: account > category > bucket
       let metaLine='';
-      if(acct)metaLine+=`<span class="tx-meta-acct">${acct.name}</span>`;
-      if(cat){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-cat" style="color:${color}">${cat.name}</span>`;}
-      if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${b.name}</span>`;}
-      if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span style="color:var(--purple)">→ ${toAcct.name}</span>`;}
+      if(acct)metaLine+=`<span class="tx-meta-acct">${esc(acct.name)}</span>`;
+      if(cat){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`;}
+      if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${esc(b.name)}</span>`;}
+      if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span style="color:var(--purple)">→ ${esc(toAcct.name)}</span>`;}
       if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span style="color:var(--accent)">↻</span>`;
       h+=`<div class="tx-row">
         <div class="tx-indicator" style="background:${indColor}"></div>
         <div class="tx-l">
-          <div class="tx-name">${tx.desc}</div>
+          <div class="tx-name">${esc(tx.desc)}</div>
           <div class="tx-meta">${metaLine||'<span style="color:var(--text3)">—</span>'}</div>
         </div>
         <div class="tx-r">
@@ -2245,13 +2253,13 @@ function updateTxFormForType(){
   const asel=document.getElementById('txAcct');if(!asel)return;
   const prevA=asel.value;
   asel.innerHTML='<option value="">Account...</option>';
-  S.accounts.forEach(a=>asel.innerHTML+=`<option value="${a.id}">${a.name}</option>`);
+  S.accounts.forEach(a=>asel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
   if(prevA)asel.value=prevA;
   // Transfer-to accounts
   const tsel=document.getElementById('txXfrTo');if(!tsel)return;
   const prevT=tsel.value;
   tsel.innerHTML='<option value="">To account...</option>';
-  S.accounts.forEach(a=>tsel.innerHTML+=`<option value="${a.id}">${a.name}</option>`);
+  S.accounts.forEach(a=>tsel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
   if(prevT)tsel.value=prevT;
 }
 function onTxTypeOrAcctChange(){updateTxFormForType();}
@@ -2259,7 +2267,7 @@ function populateTxCats(){
   const sel=document.getElementById('txCat');if(!sel)return;
   const prev=sel.value;
   sel.innerHTML='<option value="">Category...</option>';
-  sortedCats().forEach(c=>sel.innerHTML+=`<option value="${c.id}">${c.name}</option>`);
+  sortedCats().forEach(c=>sel.innerHTML+=`<option value="${c.id}">${esc(c.name)}</option>`);
   if(prev)sel.value=prev;
   syncTxBuckets();
 }
@@ -2268,7 +2276,7 @@ function syncTxBuckets(){
   const bsel=document.getElementById('txBkt');if(!bsel)return;
   const prev=bsel.value;
   bsel.innerHTML='<option value="">Bucket...</option>';
-  sortedBuckets(catId).forEach(b=>bsel.innerHTML+=`<option value="${b.id}">${b.name}</option>`);
+  sortedBuckets(catId).forEach(b=>bsel.innerHTML+=`<option value="${b.id}">${esc(b.name)}</option>`);
   if(prev)bsel.value=prev;
 }
 function addTx(){
@@ -2741,7 +2749,7 @@ function renderWizard(){
       ${wiz.accounts.length?'<div class="wiz-acct-list">'+wiz.accounts.map(a=>`
         <div class="wiz-acct-item">
           <div class="wai-color" style="background:${a.color}"></div>
-          <span class="wai-name">${a.name}</span>
+          <span class="wai-name">${esc(a.name)}</span>
           <span class="wai-type">${a.type}</span>
           <span class="wai-bal">${$f(a.balance)}</span>
           <button class="wai-del" onclick="wiz.accounts=wiz.accounts.filter(x=>x.id!=='${a.id}');renderWizard()">×</button>
@@ -2787,7 +2795,7 @@ function renderWizAcctList(){
   el.innerHTML=wiz.accounts.map(a=>`
     <div class="wiz-acct-item">
       <div class="wai-color" style="background:${a.color}"></div>
-      <span class="wai-name">${a.name}</span>
+      <span class="wai-name">${esc(a.name)}</span>
       <span class="wai-type">${a.type}</span>
       <span class="wai-bal">${$f(a.balance)}</span>
       <button class="wai-del" onclick="wiz.accounts=wiz.accounts.filter(x=>x.id!=='${a.id}');renderWizAcctList()">×</button>
@@ -3012,7 +3020,7 @@ function renderModal(){
     </div>`;
     const isSink=M.bktType==='sinking';
     let catOpts=S.cats.length?'<option value="">Select category...</option>':'<option value="">Create a category first</option>';
-    sortedCats().forEach(c=>catOpts+=`<option value="${c.id}"${c.id===M.bktCat?' selected':''}>${c.name}</option>`);
+    sortedCats().forEach(c=>catOpts+=`<option value="${c.id}"${c.id===M.bktCat?' selected':''}>${esc(c.name)}</option>`);
     let contribPreview='';
     if(isSink&&M.bktBudget){const mn=parseFloat(M.bktBudget)||0;const per=M.bktContrib==='weekly'?+(mn/4.33).toFixed(2):M.bktContrib==='biweekly'?+(mn/2).toFixed(2):mn;contribPreview=`<div class="contrib-preview">💡 Put aside <strong>${$f(per)}</strong> per ${M.bktContrib==='weekly'?'week':M.bktContrib==='biweekly'?'paycheck':'month'}</div>`;}
     body=`
@@ -3747,7 +3755,7 @@ function mRenderDash(){
     const bal=acctBalance(a.id);
     const color=a.color||COLORS[0];
     h+=`<div class="m-acct-chip" onclick="mOpenAcct('${a.id}')">
-      <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${a.name}<span class="m-acct-chip-type">${a.type==='savings'?'savings':''}</span></div>
+      <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">${a.type==='savings'?'savings':''}</span></div>
       <div class="m-acct-chip-bal" style="color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</div>
     </div>`;
   });
@@ -3870,7 +3878,7 @@ function mRenderBuckets(){
     h+=`<div class="m-cat-sec">
       <div class="m-cat-hdr">
         <div class="m-cat-color" style="background:${color}"></div>
-        <span class="m-cat-name">${cat.name}</span>
+        <span class="m-cat-name">${esc(cat.name)}</span>
         <span class="m-cat-totals">${$f(catAlloc)} / ${$f(catTarget)}</span>
         <button class="m-cat-add-btn" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>
       </div>`;
@@ -3910,7 +3918,7 @@ function mRenderBuckets(){
       h+=`<div class="m-bucket-item" onclick="mOpenBucket('${b.id}')">
         <div style="width:4px;border-radius:2px;align-self:stretch;min-height:40px;background:${color};flex-shrink:0"></div>
         <div class="m-bkt-left">
-          <div class="m-bkt-name">${b.name}</div>
+          <div class="m-bkt-name">${esc(b.name)}</div>
           <div class="m-bkt-sub">
             ${dueStr?`<span style="color:${days<=0?'var(--red)':days<=3?'var(--amber)':'var(--text3)'}">${dueStr}</span><span>·</span>`:''}
             <span>${$f(spent)} spent</span>
@@ -4172,15 +4180,15 @@ function mTxRowHtml(tx,tappable){
   const amtPfx=isOpening||tx.type==='in'?'+':'-';
   const indColor=tx.type==='in'||isOpening?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
   const metaParts=[];
-  if(acct)metaParts.push(acct.name);
-  if(cat)metaParts.push(cat.name);
-  if(b)metaParts.push(b.name);
-  if(tx.type==='xfr')metaParts.push('→ '+(getAcct(tx.toAccountId)?.name||''));
+  if(acct)metaParts.push(esc(acct.name));
+  if(cat)metaParts.push(esc(cat.name));
+  if(b)metaParts.push(esc(b.name));
+  if(tx.type==='xfr')metaParts.push('→ '+esc(getAcct(tx.toAccountId)?.name||''));
   const onclick=tappable?`onclick="mEditTxSheet('${tx.id}')"`:'' ;
   return `<div class="m-tx-row" ${onclick}>
     <div class="m-tx-ind" style="background:${indColor}"></div>
     <div class="m-tx-l">
-      <div class="m-tx-name">${tx.desc}</div>
+      <div class="m-tx-name">${esc(tx.desc)}</div>
       <div class="m-tx-meta" style="color:${color}">${metaParts.join(' · ')}</div>
     </div>
     <div class="m-tx-amt ${amtCls}">${amtPfx}${$f(tx.amount)}</div>
@@ -4241,9 +4249,9 @@ function mRenderBucketDetail(bid){
   const days=daysUntilDue(b,m?.year,m?.month);
 
   let h=`<div class="m-det-hero" style="border-left:4px solid ${color}">
-    <div class="m-det-name">${b.name}</div>
+    <div class="m-det-name">${esc(b.name)}</div>
     <div class="m-det-meta">
-      <span style="color:${color}">${cat?.name||''}</span>
+      <span style="color:${color}">${esc(cat?.name||'')}</span>
       ${days!==null?`<span>·</span><span style="color:${days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">Due ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}</span>`:''}
       ${b.rollover?'<span>·</span><span>Rolls over</span>':''}
     </div>
@@ -4327,7 +4335,7 @@ function mRenderAcctDetail(aid){
   const txs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date));
   let h=`<div class="m-det-hero">
     <div class="m-det-name">${$f(bal)}</div>
-    <div class="m-det-meta"><span style="color:${a.color}">${a.name}</span><span>·</span><span>${a.type}</span></div>
+    <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span></div>
   </div>
   <div class="m-section-label">Transactions</div>`;
   if(txs.length)txs.forEach(tx=>h+=mTxRowHtml(tx,false));
@@ -4352,7 +4360,7 @@ function mEditTxSheet(id){
   body.innerHTML=`
     <div>
       <div class="m-field-label" style="margin-bottom:6px">Description</div>
-      <input class="m-input" id="sDesc" value="${tx.desc}" />
+      <input class="m-input" id="sDesc" value="${esc(tx.desc)}" />
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div><div class="m-field-label" style="margin-bottom:6px">Amount</div>
@@ -4380,7 +4388,7 @@ function mSheetCatChange(catId){
   const bsel=document.getElementById('sBkt');
   if(!bsel)return;
   bsel.innerHTML='<option value="">Bucket...</option>';
-  sortedBuckets(catId).forEach(b=>bsel.innerHTML+=`<option value="${b.id}">${b.name}</option>`);
+  sortedBuckets(catId).forEach(b=>bsel.innerHTML+=`<option value="${b.id}">${esc(b.name)}</option>`);
 }
 
 function mSaveTxSheet(id,type){
@@ -4428,17 +4436,17 @@ function mShowToast(type,text,amt){
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function mCatOptions(selectedCatId){
   let h='<option value="">Category...</option>';
-  sortedCats().forEach(c=>h+=`<option value="${c.id}"${c.id===selectedCatId?' selected':''}>${c.name}</option>`);
+  sortedCats().forEach(c=>h+=`<option value="${c.id}"${c.id===selectedCatId?' selected':''}>${esc(c.name)}</option>`);
   return h;
 }
 function mBktOptions(catId,selectedBktId){
   let h='<option value="">Bucket...</option>';
-  if(catId)sortedBuckets(catId).forEach(b=>h+=`<option value="${b.id}"${b.id===selectedBktId?' selected':''}>${b.name}</option>`);
+  if(catId)sortedBuckets(catId).forEach(b=>h+=`<option value="${b.id}"${b.id===selectedBktId?' selected':''}>${esc(b.name)}</option>`);
   return h;
 }
 function mAcctOptions(selectedId){
   let h='<option value="">Account...</option>';
-  S.accounts.forEach(a=>h+=`<option value="${a.id}"${a.id===selectedId?' selected':''}>${a.name}</option>`);
+  S.accounts.forEach(a=>h+=`<option value="${a.id}"${a.id===selectedId?' selected':''}>${esc(a.name)}</option>`);
   return h;
 }
 
