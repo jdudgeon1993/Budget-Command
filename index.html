@@ -1153,22 +1153,19 @@ function skipAuth(){
 
 async function signOut(){
   const client=supaReady()?supaClient():null;
-  // Wipe all budget data from memory and localStorage — no data accessible after sign out
-  localStorage.removeItem(KEY);
-  localStorage.removeItem(KEY+'_saved_at');
+  // Clear in-memory state only — localStorage stays as backup for next login
+  // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
      activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
      wiOpen:false,txFilter:'all',onboarded:false};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
-  // Close WI if open
   document.getElementById('wiOverlay')?.classList.add('hidden');
   document.getElementById('wiStrip')?.classList.add('hidden');
   updateAuthBtn();
   setSyncStatus('offline','Not signed in');
   showAuthSignIn();
-  // Auth screen is visible by default — just ensure it's shown
   document.getElementById('authScreen').classList.remove('hidden');
   if(client) client.auth.signOut().catch(err=>console.warn('SignOut error:',err.message));
 }
@@ -1299,7 +1296,8 @@ async function loadFromSupabase(){
   // and push it up to Supabase to back it up
   if(!data){
     console.log('No Supabase data yet — pushing existing local data up');
-    // S is already populated from load() — just push it
+    S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+    if(!S.scenarios)S.scenarios=[];
     if(S.accounts?.length||S.cats?.length||S.txs?.length){
       await supabase_push();
     }
@@ -1344,6 +1342,8 @@ async function loadFromSupabase(){
       console.log('Loaded from Supabase (newer by '+(remoteTime-localTime)+'ms)');
     } else {
       console.log('Remote is empty but local has data — keeping local, pushing up');
+      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+      if(!S.scenarios)S.scenarios=[];
       await supabase_push();
     }
   }
