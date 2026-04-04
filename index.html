@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Budget Command Center</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -448,6 +448,224 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bni:focus{outline:2px solid var(--accent);outline-offset:-2px;}
 .btable tr.brow:focus{outline:2px solid var(--accent);outline-offset:-2px;}
 .alloc-inp:focus{outline:none;} /* handled by parent .alloc-wrap:focus-within */
+
+/* ════════════════════════════════════════════════════════
+   MOBILE — Android native feel, < 768px
+   Desktop layout hidden, mobile shell takes over
+════════════════════════════════════════════════════════ */
+@media(max-width:767px){
+  /* Hide entire desktop layout */
+  .topbar,.app,.strip,.wi-panel{display:none!important;}
+
+  /* Mobile shell */
+  #mShell{display:flex;flex-direction:column;height:100vh;height:100dvh;background:var(--bg);overflow:hidden;}
+  #mTopbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  #mTopbar-title{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);letter-spacing:-.3px;display:flex;align-items:center;gap:7px;}
+  #mTopbar-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  #mTopbar-right{display:flex;align-items:center;gap:8px;}
+  #mRtsChip{font-family:var(--mono);font-size:13px;font-weight:500;padding:4px 10px;border-radius:20px;background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
+  #mRtsChip.neg{background:var(--rbg);color:var(--red);border-color:var(--rb);}
+  #mRtsChip.zero{background:var(--bg3);color:var(--text3);border-color:var(--border2);}
+
+  /* Screen container */
+  #mScreens{flex:1;overflow:hidden;position:relative;}
+  .mScreen{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);background:var(--bg);}
+  .mScreen.active{transform:translateX(0);}
+  .mScreen.slide-left{transform:translateX(-30%);}
+
+  /* Subview screen (detail pages) */
+  .mSubview{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:10;}
+  .mSubview.active{transform:translateX(0);}
+
+  /* Mobile nav bar */
+  #mNav{background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom);}
+  .mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px 8px;background:none;border:none;cursor:pointer;gap:3px;transition:color .12s;color:var(--text3);font-family:var(--sans);}
+  .mnav-btn.active{color:var(--accent);}
+  .mnav-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .mnav-label{font-size:10px;font-weight:600;letter-spacing:.3px;}
+  .mnav-pip{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:0;transition:opacity .12s;}
+  .mnav-btn.active .mnav-pip{opacity:1;}
+
+  /* Shared mobile components */
+  .mhdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
+  .mhdr-back{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);display:flex;align-items:center;gap:4px;padding:0;white-space:nowrap;}
+  .mhdr-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;text-align:center;}
+  .mhdr-action{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;white-space:nowrap;}
+
+  .mscroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .mscroll::-webkit-scrollbar{display:none;}
+
+  /* Month picker */
+  .m-month-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
+  .m-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:7px 12px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
+  .m-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
+  .m-month-arrow:active{background:var(--surface);}
+
+  /* Dashboard cards */
+  .m-pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 14px 0;overflow:hidden;}
+  .m-pool-cell{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 12px;overflow:hidden;min-width:0;}
+  .m-pool-cell.hero{grid-column:1/-1;background:var(--surface2);border-color:var(--border2);}
+  .m-pool-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;}
+  .m-pool-val{font-family:var(--mono);font-size:18px;font-weight:500;letter-spacing:-.5px;word-break:break-all;overflow:hidden;}
+  .m-pool-val.lg{font-size:24px;}
+  .m-pool-val.green{color:var(--green);}
+  .m-pool-val.red{color:var(--red);}
+  .m-pool-val.dim{color:var(--text2);}
+  .m-pool-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+
+  /* Account chips horizontal scroll */
+  .m-accounts{display:flex;gap:8px;padding:12px 14px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;}
+  .m-accounts::-webkit-scrollbar{display:none;}
+  .m-acct-chip{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:10px 14px;flex-shrink:0;min-width:120px;cursor:pointer;transition:border-color .12s;}
+  .m-acct-chip:active{border-color:var(--accent);}
+  .m-acct-chip-name{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:5px;}
+  .m-acct-chip-dot{width:5px;height:5px;border-radius:50%;}
+  .m-acct-chip-bal{font-family:var(--mono);font-size:16px;font-weight:500;}
+  .m-acct-chip-type{font-size:10px;color:var(--text3);}
+
+  /* Urgency list */
+  .m-section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:14px 16px 6px;}
+  .m-urgency-item{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;cursor:pointer;background:var(--bg2);}
+  .m-urgency-item:active{background:var(--surface);}
+  .m-urgency-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .m-urgency-name{flex:1;font-size:14px;}
+  .m-urgency-sub{font-size:12px;color:var(--text3);}
+  .m-urgency-amt{font-family:var(--mono);font-size:13px;font-weight:500;text-align:right;}
+
+  /* Bucket list */
+  .m-cat-sec{margin-bottom:4px;}
+  .m-cat-hdr{display:flex;align-items:center;gap:8px;padding:10px 16px 6px;background:var(--bg);}
+  .m-cat-color{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+  .m-cat-name{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);flex:1;}
+  .m-cat-totals{font-family:var(--mono);font-size:11px;color:var(--text3);}
+  .m-bucket-item{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);background:var(--bg2);gap:12px;cursor:pointer;transition:background .1s;}
+  .m-bucket-item:active{background:var(--surface);}
+  .m-bkt-left{flex:1;min-width:0;}
+  .m-bkt-name{font-size:15px;font-weight:400;color:var(--text);}
+  .m-bkt-sub{font-size:12px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:6px;}
+  .m-bkt-right{text-align:right;flex-shrink:0;}
+  .m-bkt-alloc{font-family:var(--mono);font-size:15px;font-weight:500;}
+  .m-bkt-pill{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;margin-top:3px;display:inline-block;}
+  .m-bkt-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:4px;overflow:hidden;width:60px;}
+  .m-bkt-bar-fill{height:100%;border-radius:2px;}
+  .m-chevron{color:var(--text3);font-size:18px;flex-shrink:0;}
+
+  /* Log form */
+  .m-log-form{display:flex;flex-direction:column;gap:0;flex:1;overflow-y:auto;}
+  .m-type-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin:14px 16px 0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+  .m-type-btn{padding:11px 0;background:var(--surface2);border:none;font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text3);cursor:pointer;transition:all .12s;text-align:center;}
+  .m-type-btn.sel-out{background:var(--rbg);color:var(--red);}
+  .m-type-btn.sel-in{background:var(--gbg);color:var(--green);}
+  .m-type-btn.sel-xfr{background:var(--pbg);color:var(--purple);}
+  .m-field{padding:0 16px;margin-top:14px;}
+  .m-field-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;}
+  .m-input{width:100%;padding:13px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:16px;font-family:var(--sans);color:var(--text);transition:border-color .12s;}
+  .m-input:focus{outline:none;border-color:var(--accent);background:var(--surface);}
+  .m-input::placeholder{color:var(--text3);}
+  .m-input.mono{font-family:var(--mono);}
+  .m-select{width:100%;padding:13px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:16px;font-family:var(--sans);color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;}
+  .m-select:focus{outline:none;border-color:var(--accent);}
+  .m-select option{background:var(--surface2);}
+  .m-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .m-rec-row{display:flex;align-items:center;gap:10px;padding:14px 16px 0;}
+  .m-rec-toggle{width:44px;height:26px;border-radius:13px;background:var(--border2);border:none;cursor:pointer;position:relative;transition:background .15s;flex-shrink:0;}
+  .m-rec-toggle.on{background:var(--accent);}
+  .m-rec-toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s;}
+  .m-rec-toggle.on::after{transform:translateX(18px);}
+  .m-rec-label{font-size:14px;color:var(--text2);}
+  .m-submit-wrap{padding:16px 16px calc(16px + env(safe-area-inset-bottom));margin-top:auto;flex-shrink:0;}
+  .m-submit{width:100%;padding:15px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:16px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;}
+  .m-submit:active{background:var(--accent2);}
+
+  /* Toast */
+  #mToast{position:fixed;bottom:calc(70px + env(safe-area-inset-bottom));left:16px;right:16px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:13px 16px;display:flex;align-items:center;gap:10px;z-index:999;transform:translateY(20px);opacity:0;transition:transform .2s,opacity .2s;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+  #mToast.show{transform:translateY(0);opacity:1;}
+  #mToast-icon{font-size:18px;flex-shrink:0;}
+  #mToast-text{flex:1;font-size:13px;line-height:1.4;}
+  #mToast-amt{font-family:var(--mono);font-size:14px;font-weight:500;flex-shrink:0;}
+
+  /* Bucket detail */
+  .m-det-hero{padding:20px 16px 16px;background:var(--bg2);border-bottom:1px solid var(--border);}
+  .m-det-name{font-size:22px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px;}
+  .m-det-meta{font-size:12px;color:var(--text3);display:flex;gap:8px;align-items:center;}
+  .m-det-nums{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);}
+  .m-det-num-cell{background:var(--surface);padding:12px 14px;}
+  .m-det-num-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
+  .m-det-num-val{font-family:var(--mono);font-size:16px;font-weight:500;}
+  .m-prog-wrap{padding:16px;}
+  .m-prog-track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:6px;}
+  .m-prog-fill{height:100%;border-radius:4px;transition:width .3s;}
+  .m-prog-note{display:flex;justify-content:space-between;font-size:12px;font-family:var(--mono);color:var(--text3);}
+  .m-alloc-block{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px;}
+  .m-alloc-block-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
+  .m-alloc-inp-row{display:flex;align-items:center;gap:10px;}
+  .m-alloc-big{flex:1;padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);font-family:var(--mono);font-size:22px;font-weight:500;color:var(--text);text-align:right;}
+  .m-alloc-big:focus{outline:none;border-color:var(--accent);}
+  .m-alloc-set-btn{padding:13px 18px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-family:var(--sans);font-weight:600;cursor:pointer;white-space:nowrap;}
+  .m-alloc-set-btn:active{background:var(--accent2);}
+
+  /* Ledger */
+  .m-ledger-head{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;}
+  .m-filter-chips{display:flex;gap:6px;margin-bottom:8px;}
+  .m-chip-btn{padding:6px 14px;background:none;border:1px solid var(--border);border-radius:20px;font-size:12px;font-family:var(--sans);font-weight:500;color:var(--text3);cursor:pointer;transition:all .12s;white-space:nowrap;}
+  .m-chip-btn.active{background:var(--surface);color:var(--text);border-color:var(--border2);}
+  .m-search{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:16px;font-family:var(--sans);color:var(--text);}
+  .m-search:focus{outline:none;border-color:var(--accent);}
+  .m-search::placeholder{color:var(--text3);}
+
+  /* Tx rows mobile */
+  .m-tx-date-hdr{padding:6px 16px 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;}
+  .m-tx-row{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;background:var(--bg2);cursor:pointer;}
+  .m-tx-row:active{background:var(--surface);}
+  .m-tx-ind{width:4px;border-radius:2px;align-self:stretch;min-height:36px;flex-shrink:0;}
+  .m-tx-l{flex:1;min-width:0;}
+  .m-tx-name{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .m-tx-meta{font-size:12px;color:var(--text3);margin-top:2px;}
+  .m-tx-amt{font-family:var(--mono);font-size:16px;font-weight:500;text-align:right;}
+  .m-tx-amt.out{color:var(--red);}
+  .m-tx-amt.in{color:var(--green);}
+  .m-tx-amt.xfr{color:var(--purple);}
+
+  /* Edit bottom sheet */
+  .m-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .m-sheet-overlay.show{opacity:1;pointer-events:all;}
+  .m-sheet{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:var(--rl) var(--rl) 0 0;border:1px solid var(--border2);z-index:201;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);max-height:90vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom);}
+  .m-sheet.show{transform:translateY(0);}
+  .m-sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--border2);margin:12px auto 8px;}
+  .m-sheet-title{font-size:16px;font-weight:600;padding:0 16px 14px;border-bottom:1px solid var(--border);}
+  .m-sheet-body{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;flex:1;}
+  .m-sheet-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
+
+  /* Sinking stats mobile */
+  .m-sink-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 16px 16px;}
+  .m-sink-cell{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;}
+  .m-sink-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
+  .m-sink-val{font-family:var(--mono);font-size:16px;font-weight:500;}
+
+  /* Bulk entry mobile */
+  .m-bulk-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin:0 16px 10px;display:flex;flex-direction:column;gap:8px;}
+  .m-bulk-row-top{display:flex;gap:8px;align-items:center;}
+  .m-bulk-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0;line-height:1;flex-shrink:0;}
+  .m-bulk-del:active{color:var(--red);}
+}
+
+/* Tablet: 768–1199px */
+@media(min-width:768px) and (max-width:1199px){
+  #mShell{display:none;}
+  .app{grid-template-columns:64px 1fr 300px;}
+  .sidebar{overflow:visible;}
+  .sb-link span:last-child,.cat-label,.cat-row .cat-acts,.bni-name,.bni-val,.bni-acts,.sb-sec-label,.sb-sec .sb-add{display:none;}
+  .sb-link{justify-content:center;padding:10px 0;}
+  .sb-link-icon{font-size:18px;width:auto;}
+  .bni{padding:8px;justify-content:center;}
+  .bni-dot{margin:0;}
+}
+
+/* Desktop: hide mobile shell AND mobile-only DOM elements */
+@media(min-width:768px){
+  #mShell{display:none!important;}
+  #mToast,#mSheetOverlay,#mSheet{display:none!important;}
+}
 </style>
 </head>
 <body>
@@ -561,6 +779,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 // ═══════════════════════════════════════════════════════
 // PALETTE & KEY
 // ═══════════════════════════════════════════════════════
+const isMobile=()=>window.innerWidth<768;
 const COLORS=['#2a7c6f','#3b82c4','#7c3b82','#c45c3b','#3b8248','#c4a43b','#c43b6a','#6a3bc4','#3b9ea6','#a6753b','#5c6bc0','#e57373','#4db6ac','#81c784','#ffb74d','#f06292'];
 const KEY='bcc_v6';
 
@@ -750,8 +969,9 @@ function render(){
   renderTopbar();renderSidebar();renderMain();renderTxList();
   if(S.wiOpen)renderWI();
   wireFormKeys();
-  // Slight delay so alloc inputs are in DOM
   setTimeout(wireAllocKeys, 50);
+  // Keep mobile in sync when render is called from desktop actions
+  if(isMobile())setTimeout(mRenderAll, 0);
 }
 
 function renderTopbar(){
@@ -2311,13 +2531,963 @@ Escape — Close modal / back`;
 load();
 ensureMonth();
 if(!S.activeMonth)S.activeMonth=currentMonthId();
-render();
-populateTxCats();
-updateTxFormForType();
-document.getElementById('txDate').value=new Date().toISOString().split('T')[0];
-wireFormKeys();
-// Show wizard if brand new user
+
+// Init correct layout based on screen size
+if(isMobile()){
+  // Mobile: init mobile system
+  mInit();
+} else {
+  // Desktop: init desktop system
+  render();
+  populateTxCats();
+  updateTxFormForType();
+  document.getElementById('txDate').value=new Date().toISOString().split('T')[0];
+  wireFormKeys();
+}
+
+// Show wizard if brand new user (both layouts)
 if(!S.onboarded&&!S.accounts.length&&!S.cats.length){startWizard();}
+
+// Handle resize between mobile/desktop
+window.addEventListener('resize',()=>{
+  const shell=document.getElementById('mShell');
+  if(isMobile()){
+    shell.style.display='flex';
+    shell.style.flexDirection='column';
+  } else {
+    shell.style.display='none';
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// MOBILE SYSTEM
+// ═══════════════════════════════════════════════════════
+// Mobile state
+let mTab='dash';           // current bottom nav tab
+let mSubview=null;         // {type:'bucket'|'account', id}
+let mLedgerFilter='all';
+let mBulkMode=false;
+let mBulkRows=[];          // [{desc,amt,type,acctId,catId,bktId,toAcctId,date}]
+let mStickyLog={           // persist between submissions
+  type:'out', acctId:'', catId:'', bktId:'', toAcctId:''
+};
+
+// ── Init mobile ──────────────────────────────────────────────────────────────
+function mInit(){
+  if(!isMobile())return;
+  document.getElementById('mShell').style.display='flex';
+  document.getElementById('mShell').style.flexDirection='column';
+  mRenderAll();
+  // Android back button / swipe
+  window.addEventListener('popstate',()=>{
+    if(mSubview){mCloseSubview();}
+    else{mGoTab('dash');}
+  });
+  history.pushState({},'','');
+}
+
+function mRenderAll(){
+  if(!isMobile())return;
+  mRenderTopbar();
+  mPopulateMonthSel();
+  if(mTab==='dash')mRenderDash();
+  else if(mTab==='buckets')mRenderBuckets();
+  else if(mTab==='log')mRenderLog();
+  else if(mTab==='ledger')mRenderLedger();
+  if(mSubview)mRenderSubview();
+}
+
+// ── Topbar ───────────────────────────────────────────────────────────────────
+function mRenderTopbar(){
+  const mid=S.activeMonth;
+  const rts=mid?readyToSpend(mid):0;
+  const chip=document.getElementById('mRtsChip');
+  if(!chip)return;
+  chip.textContent=$f(Math.abs(rts))+(rts<0?' over':'');
+  chip.className=rts>0?'pos':rts<0?'neg':'zero';
+}
+
+// ── Month selector ───────────────────────────────────────────────────────────
+function mPopulateMonthSel(){
+  const sel=document.getElementById('mMonthSel');
+  if(!sel)return;
+  sel.innerHTML='';
+  S.months.forEach(m=>{
+    const opt=document.createElement('option');
+    opt.value=m.id;
+    opt.textContent=m.label+(monthStatus(m.id)==='present'?' ●':'');
+    opt.selected=m.id===S.activeMonth;
+    sel.appendChild(opt);
+  });
+}
+
+function mSetMonthFromSel(id){
+  S.activeMonth=id;S.activeBucket=null;save();
+  mRenderDash();mRenderTopbar();
+  if(mTab==='buckets')mRenderBuckets();
+}
+
+function mPrevMonth(){
+  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+  if(idx>0){S.activeMonth=S.months[idx-1].id;S.activeBucket=null;save();mPopulateMonthSel();mRenderDash();mRenderTopbar();}
+}
+function mNextMonth(){
+  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+  if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();mPopulateMonthSel();mRenderDash();mRenderTopbar();}
+  else{addNextMonth();mPopulateMonthSel();}
+}
+
+// ── Tab navigation ───────────────────────────────────────────────────────────
+function mGoTab(tab){
+  // Animate out current
+  const cur=document.getElementById('ms'+capitalize(mTab));
+  cur?.classList.add('slide-left');
+  setTimeout(()=>cur?.classList.remove('slide-left'),300);
+
+  mTab=tab;
+  // Update nav buttons
+  ['dash','buckets','log','ledger'].forEach(t=>{
+    const btn=document.getElementById('mn'+capitalize(t));
+    btn?.classList.toggle('active',t===tab);
+  });
+  // Activate screen
+  document.querySelectorAll('.mScreen').forEach(s=>s.classList.remove('active'));
+  const next=document.getElementById('ms'+capitalize(tab));
+  next?.classList.add('active');
+
+  // Render content
+  if(tab==='dash')mRenderDash();
+  else if(tab==='buckets')mRenderBuckets();
+  else if(tab==='log')mRenderLog();
+  else if(tab==='ledger')mRenderLedger();
+}
+
+function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+function mRenderDash(){
+  const el=document.getElementById('mDashScroll');
+  if(!el)return;
+  const mid=S.activeMonth;
+  if(!mid){el.innerHTML='<div style="padding:40px 16px;text-align:center;color:var(--text3)">No month selected</div>';return;}
+
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const income=monthIncome(mid);
+  const alloc=totalAllocated(mid);
+  const rts=readyToSpend(mid);
+  const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+
+  let h='';
+
+  // Account chips
+  h+=`<div class="m-accounts">`;
+  S.accounts.forEach(a=>{
+    const bal=acctBalance(a.id);
+    const color=a.color||COLORS[0];
+    h+=`<div class="m-acct-chip" onclick="mOpenAcct('${a.id}')">
+      <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${a.name}<span class="m-acct-chip-type">${a.type==='savings'?'savings':''}</span></div>
+      <div class="m-acct-chip-bal" style="color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</div>
+    </div>`;
+  });
+  if(!S.accounts.length)h+=`<div style="padding:10px;color:var(--text3);font-size:13px;">No accounts yet</div>`;
+  h+=`</div>`;
+
+  // Pool numbers
+  h+=`<div class="m-pool-grid">
+    <div class="m-pool-cell hero">
+      <div class="m-pool-label">Ready to Spend</div>
+      <div class="m-pool-val lg ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div>
+      <div class="m-pool-sub">${rts>0?'unallocated':rts<0?'over-allocated':'fully allocated ✓'}</div>
+    </div>
+    <div class="m-pool-cell">
+      <div class="m-pool-label">Income</div>
+      <div class="m-pool-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div>
+      <div class="m-pool-sub">this month</div>
+    </div>
+    <div class="m-pool-cell">
+      <div class="m-pool-label">Spent</div>
+      <div class="m-pool-val dim">${spent>0?$f(spent):'—'}</div>
+      <div class="m-pool-sub">from buckets</div>
+    </div>
+    <div class="m-pool-cell">
+      <div class="m-pool-label">Allocated</div>
+      <div class="m-pool-val dim">${alloc>0?$f(alloc):'—'}</div>
+      <div class="m-pool-sub">to buckets</div>
+    </div>
+    <div class="m-pool-cell">
+      <div class="m-pool-label">Total Cash</div>
+      <div class="m-pool-val dim">${$f(totalCash())}</div>
+      <div class="m-pool-sub">all accounts</div>
+    </div>
+  </div>`;
+
+  // Urgency items
+  const urgency=[];
+  const m=getMonth(mid);
+  if(m){
+    S.buckets.filter(b=>!b.archived).forEach(b=>{
+      const days=daysUntilDue(b,m.year,m.month);
+      const alloc=bAlloc(mid,b.id);
+      const spent=bSpent(mid,b.id);
+      const avail=alloc+rolloverBal(b.id,mid)-spent;
+      if(avail<0)urgency.push({type:'over',b,avail,days,priority:0});
+      else if(days!==null&&days<=0&&alloc===0)urgency.push({type:'overdue',b,avail,days,priority:1});
+      else if(days!==null&&days<=3&&alloc===0)urgency.push({type:'due-soon',b,avail,days,priority:2});
+      else if(alloc===0&&bBudget(mid,b.id)>0)urgency.push({type:'unfunded',b,avail,days,priority:3});
+    });
+    urgency.sort((a,b)=>a.priority-b.priority||((a.days??999)-(b.days??999)));
+  }
+
+  if(urgency.length){
+    h+=`<div class="m-section-label">Needs Attention</div>`;
+    urgency.slice(0,8).forEach(u=>{
+      const cat=getCat(u.b.catId);
+      const color=cat?.color||COLORS[0];
+      let dotColor='var(--red)',sub='';
+      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
+      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
+      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
+      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
+      h+=`<div class="m-urgency-item" onclick="mOpenBucket('${u.b.id}')">
+        <div class="m-urgency-dot" style="background:${dotColor}"></div>
+        <div style="flex:1">
+          <div class="m-urgency-name">${u.b.name}</div>
+          <div class="m-urgency-sub" style="color:${color}">${cat?.name||''} · ${sub}</div>
+        </div>
+        <span style="color:var(--text3);font-size:18px">›</span>
+      </div>`;
+    });
+  } else if(alloc>0){
+    h+=`<div style="padding:20px 16px;text-align:center;color:var(--green);font-size:14px">✓ Everything looks good</div>`;
+  }
+
+  // Recent transactions preview
+  const recent=S.txs.filter(t=>t.monthId===mid).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
+  if(recent.length){
+    h+=`<div class="m-section-label">Recent</div>`;
+    recent.forEach(tx=>h+=mTxRowHtml(tx));
+  }
+
+  h+=`<div style="height:16px"></div>`;
+  el.innerHTML=h;
+}
+
+// ── Buckets ───────────────────────────────────────────────────────────────────
+function mRenderBuckets(){
+  const el=document.getElementById('mBucketsScroll');
+  if(!el)return;
+  const mid=S.activeMonth;
+
+  if(!S.cats.length){
+    el.innerHTML=`<div style="padding:40px 16px;text-align:center">
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px">No categories yet</div>
+      <div style="color:var(--text3);font-size:14px;margin-bottom:20px">Create a category to get started</div>
+      <button class="m-submit" style="width:auto;padding:12px 24px" onclick="openModal('cat')">+ Create Category</button>
+    </div>`;return;
+  }
+
+  let h='';
+  sortedCats().forEach(cat=>{
+    const catBuckets=sortedBuckets(cat.id);
+    if(!catBuckets.length)return;
+    const color=cat.color||COLORS[0];
+    const catAlloc=catBuckets.reduce((s,b)=>s+bAlloc(mid,b.id),0);
+    const catTarget=catBuckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
+
+    h+=`<div class="m-cat-sec">
+      <div class="m-cat-hdr">
+        <div class="m-cat-color" style="background:${color}"></div>
+        <span class="m-cat-name">${cat.name}</span>
+        <span class="m-cat-totals">${$f(catAlloc)} / ${$f(catTarget)}</span>
+      </div>`;
+
+    const m=getMonth(mid);
+    const sorted=[...catBuckets].sort((a,b)=>{
+      const da=daysUntilDue(a,m?.year,m?.month);
+      const db=daysUntilDue(b,m?.year,m?.month);
+      if(da!==null&&da<=0&&(db===null||db>0))return -1;
+      if(db!==null&&db<=0&&(da===null||da>0))return 1;
+      return (a.order??0)-(b.order??0);
+    });
+
+    sorted.forEach(b=>{
+      const alloc=bAlloc(mid,b.id);
+      const target=bBudget(mid,b.id);
+      const roll=rolloverBal(b.id,mid);
+      const eff=alloc+roll;
+      const spent=bSpent(mid,b.id);
+      const avail=eff-spent;
+      const pctRaw=eff>0?spent/eff:0;
+      const pct=Math.min(pctRaw,1);
+      const days=daysUntilDue(b,m?.year,m?.month);
+      let pillCls='pill-empty',pillTxt='Unfunded';
+      if(avail<0){pillCls='pill-over';pillTxt='Over';}
+      else if(spent>=eff&&eff>0){pillCls='pill-done';pillTxt='Done';}
+      else if(alloc>=target&&target>0){pillCls='pill-funded';pillTxt='Funded';}
+      else if(alloc>0){pillCls='pill-partial';pillTxt=Math.round(pctRaw*100)+'%';}
+      let dueStr='';
+      if(days!==null){dueStr=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':days<=7?`due ${days}d`:'';}
+      const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
+
+      h+=`<div class="m-bucket-item" onclick="mOpenBucket('${b.id}')">
+        <div style="width:4px;border-radius:2px;align-self:stretch;min-height:40px;background:${color};flex-shrink:0"></div>
+        <div class="m-bkt-left">
+          <div class="m-bkt-name">${b.name}</div>
+          <div class="m-bkt-sub">
+            ${dueStr?`<span style="color:${days<=0?'var(--red)':days<=3?'var(--amber)':'var(--text3)'}">${dueStr}</span><span>·</span>`:''}
+            <span>${$f(spent)} spent</span>
+          </div>
+          <div class="m-bkt-bar"><div class="m-bkt-bar-fill" style="width:${Math.round(pct*100)}%;background:${fillColor}"></div></div>
+        </div>
+        <div class="m-bkt-right">
+          <div class="m-bkt-alloc" style="color:${alloc>=target&&target>0?'var(--green)':alloc>0?'var(--text)':'var(--text3)'}">${alloc>0?$f(alloc):'—'}</div>
+          <div class="m-bkt-pill ${pillCls}">${pillTxt}</div>
+        </div>
+        <div class="m-chevron">›</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`<div style="height:16px"></div>`;
+  el.innerHTML=h;
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function mRenderLog(){
+  const el=document.getElementById('mLogScroll');
+  if(!el)return;
+  document.getElementById('mBulkToggle').textContent=mBulkMode?'Single':'Bulk';
+  document.getElementById('mLogTitle').textContent=mBulkMode?'Bulk Entry':'Log Transaction';
+
+  if(mBulkMode){mRenderBulkLog(el);return;}
+
+  const t=mStickyLog.type||'out';
+  const catOpts=mCatOptions(mStickyLog.catId);
+  const bktOpts=mBktOptions(mStickyLog.catId,mStickyLog.bktId);
+  const acctOpts=mAcctOptions(mStickyLog.acctId);
+  const toAcctOpts=mAcctOptions(mStickyLog.toAcctId);
+  const today=new Date().toISOString().split('T')[0];
+
+  el.innerHTML=`
+    <div class="m-log-form">
+      <div class="m-type-row">
+        <button class="m-type-btn${t==='out'?' sel-out':''}" onclick="mSetLogType('out')">↑ Out</button>
+        <button class="m-type-btn${t==='in'?' sel-in':''}" onclick="mSetLogType('in')">↓ In</button>
+        <button class="m-type-btn${t==='xfr'?' sel-xfr':''}" onclick="mSetLogType('xfr')">⇄ Transfer</button>
+      </div>
+      <div class="m-field">
+        <div class="m-field-label">Description</div>
+        <input class="m-input" id="mLogDesc" placeholder="What was this for?" />
+      </div>
+      <div class="m-field">
+        <div class="m-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div class="m-field-label">Amount</div>
+            <input class="m-input mono" id="mLogAmt" type="number" placeholder="0.00" inputmode="decimal" min="0" step="0.01" />
+          </div>
+          <div>
+            <div class="m-field-label">Date</div>
+            <input class="m-input" id="mLogDate" type="date" value="${today}" />
+          </div>
+        </div>
+      </div>
+      <div class="m-field">
+        <div class="m-field-label">Account</div>
+        <select class="m-select" id="mLogAcct" onchange="mStickyLog.acctId=this.value">${acctOpts}</select>
+      </div>
+      ${t==='out'?`
+      <div class="m-field">
+        <div class="m-field-label">Category</div>
+        <select class="m-select" id="mLogCat" onchange="mStickyLog.catId=this.value;mRenderLog()">${catOpts}</select>
+      </div>
+      <div class="m-field">
+        <div class="m-field-label">Bucket</div>
+        <select class="m-select" id="mLogBkt" onchange="mStickyLog.bktId=this.value">${bktOpts}</select>
+      </div>`:''}
+      ${t==='xfr'?`
+      <div class="m-field">
+        <div class="m-field-label">To Account</div>
+        <select class="m-select" id="mLogXfrTo" onchange="mStickyLog.toAcctId=this.value">${toAcctOpts}</select>
+      </div>`:''}
+      <div class="m-rec-row">
+        <button class="m-rec-toggle" id="mRecToggle" onclick="this.classList.toggle('on')"></button>
+        <span class="m-rec-label">Recurring monthly</span>
+      </div>
+      <div class="m-submit-wrap">
+        <button class="m-submit" onclick="mAddTx()">Add Transaction</button>
+      </div>
+    </div>`;
+}
+
+function mSetLogType(t){mStickyLog.type=t;mRenderLog();}
+function mToggleBulk(){mBulkMode=!mBulkMode;if(mBulkMode&&!mBulkRows.length)mAddBulkRow();mRenderLog();}
+
+function mRenderBulkLog(el){
+  if(!mBulkRows.length)mAddBulkRow();
+  let h='<div style="padding:12px 16px 0">';
+  mBulkRows.forEach((row,i)=>{
+    const catOpts=mCatOptions(row.catId);
+    const bktOpts=mBktOptions(row.catId,row.bktId);
+    const acctOpts=mAcctOptions(row.acctId);
+    h+=`<div class="m-bulk-row">
+      <div class="m-bulk-row-top">
+        <input class="m-input" style="flex:1" placeholder="Description..." value="${row.desc||''}"
+          oninput="mBulkRows[${i}].desc=this.value" />
+        <input class="m-input mono" style="width:90px;flex:0 0 90px;text-align:right" type="number"
+          placeholder="0.00" inputmode="decimal" value="${row.amt||''}"
+          oninput="mBulkRows[${i}].amt=this.value" />
+        <button class="m-bulk-del" onclick="mBulkRows.splice(${i},1);if(!mBulkRows.length)mAddBulkRow();mRenderLog()">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <select class="m-select" style="font-size:14px;padding:9px 10px"
+          onchange="mBulkRows[${i}].acctId=this.value">${acctOpts}</select>
+        <div class="m-type-row" style="margin:0">
+          <button class="m-type-btn${(row.type||'out')==='out'?' sel-out':''}" style="font-size:11px;padding:9px 0"
+            onclick="mBulkRows[${i}].type='out';mRenderLog()">↑ Out</button>
+          <button class="m-type-btn${(row.type||'out')==='in'?' sel-in':''}" style="font-size:11px;padding:9px 0"
+            onclick="mBulkRows[${i}].type='in';mRenderLog()">↓ In</button>
+          <button class="m-type-btn${(row.type||'out')==='xfr'?' sel-xfr':''}" style="font-size:11px;padding:9px 0"
+            onclick="mBulkRows[${i}].type='xfr';mRenderLog()">⇄</button>
+        </div>
+      </div>
+      ${(row.type||'out')==='out'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <select class="m-select" style="font-size:14px;padding:9px 10px"
+          onchange="mBulkRows[${i}].catId=this.value;mRenderLog()">${catOpts}</select>
+        <select class="m-select" style="font-size:14px;padding:9px 10px"
+          onchange="mBulkRows[${i}].bktId=this.value">${bktOpts}</select>
+      </div>`:''}
+    </div>`;
+  });
+  h+=`</div>
+  <div style="padding:0 16px 8px">
+    <button class="m-submit" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)"
+      onclick="mAddBulkRow()">+ Add Row</button>
+  </div>
+  <div class="m-submit-wrap">
+    <button class="m-submit" onclick="mSaveAllBulk()">Save All (${mBulkRows.length})</button>
+  </div>`;
+  el.innerHTML=h;
+}
+
+function mAddBulkRow(){
+  mBulkRows.push({desc:'',amt:'',type:mStickyLog.type||'out',acctId:mStickyLog.acctId,catId:mStickyLog.catId,bktId:mStickyLog.bktId,toAcctId:''});
+}
+
+function mSaveAllBulk(){
+  const today=new Date().toISOString().split('T')[0];
+  let saved=0;
+  mBulkRows.forEach(row=>{
+    const desc=(row.desc||'').trim();
+    const amt=parseFloat(row.amt)||0;
+    if(!desc||!amt||!row.acctId)return;
+    if((row.type||'out')==='out'&&!row.bktId)return;
+    const monthId=dateToMonthId(today);
+    const d=new Date(today+'T12:00:00');
+    addMonth(d.getFullYear(),d.getMonth());
+    S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:row.acctId,toAccountId:row.toAcctId||null,monthId,bucketId:row.bktId||null,desc,amount:amt,type:row.type||'out',date:today,recurring:false});
+    saved++;
+  });
+  if(!saved){alert('Please fill in at least one complete row.');return;}
+  save();mBulkRows=[];mBulkMode=false;
+  mRenderAll();mShowToast('check','Saved '+saved+' transaction'+(saved!==1?'s':''),'');
+}
+
+// ── Add single tx from mobile ─────────────────────────────────────────────────
+function mAddTx(){
+  const desc=document.getElementById('mLogDesc')?.value.trim();
+  const amt=parseFloat(document.getElementById('mLogAmt')?.value);
+  const date=document.getElementById('mLogDate')?.value;
+  const acctId=document.getElementById('mLogAcct')?.value;
+  const t=mStickyLog.type||'out';
+  const bkt=t==='out'?document.getElementById('mLogBkt')?.value:null;
+  const toAcct=t==='xfr'?document.getElementById('mLogXfrTo')?.value:null;
+  const rec=document.getElementById('mRecToggle')?.classList.contains('on')||false;
+
+  if(!desc){document.getElementById('mLogDesc')?.focus();mShakeInput('mLogDesc');return;}
+  if(!amt||amt<=0){mShakeInput('mLogAmt');return;}
+  if(!acctId){mShakeInput('mLogAcct');return;}
+  if(t==='out'&&!bkt){mShakeInput('mLogBkt');return;}
+  if(t==='xfr'&&!toAcct){mShakeInput('mLogXfrTo');return;}
+
+  // Persist sticky fields
+  mStickyLog.acctId=acctId;
+  if(bkt){mStickyLog.bktId=bkt;}
+  if(document.getElementById('mLogCat'))mStickyLog.catId=document.getElementById('mLogCat').value;
+
+  const monthId=dateToMonthId(date);
+  const d=new Date(date+'T12:00:00');
+  addMonth(d.getFullYear(),d.getMonth());
+
+  S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:acctId,toAccountId:toAcct||null,monthId,bucketId:bkt||null,desc,amount:amt,type:t,date,recurring:rec});
+  save();
+
+  // Get bucket name for toast
+  const bktName=getBucket(bkt)?.name||'';
+  const amtStr=(t==='in'?'+':t==='xfr'?'⇄':'-')+$f(amt);
+  mShowToast(t==='in'?'in':t==='xfr'?'xfr':'out', desc, amtStr+(bktName?' · '+bktName:''));
+
+  // Re-render log (sticky fields preserved, desc+amt cleared)
+  mRenderLog();
+  // Update other screens
+  mRenderTopbar();
+  if(mTab==='dash')mRenderDash();
+  else if(mTab==='ledger')mRenderLedger();
+  // Refocus description for quick next entry
+  setTimeout(()=>document.getElementById('mLogDesc')?.focus(),100);
+}
+
+function mShakeInput(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.style.borderColor='var(--red)';
+  el.focus();
+  setTimeout(()=>el.style.borderColor='',1500);
+}
+
+// ── Ledger ────────────────────────────────────────────────────────────────────
+function mSetLedgerFilter(f,btn){
+  mLedgerFilter=f;
+  document.querySelectorAll('#mLedgerFilters .m-chip-btn').forEach(b=>b.classList.remove('active'));
+  btn?.classList.add('active');
+  mRenderLedger();
+}
+
+function mRenderLedger(){
+  const el=document.getElementById('mLedgerScroll');
+  if(!el)return;
+  const mid=S.activeMonth;
+  let txs=S.txs.filter(t=>t.monthId===mid);
+
+  if(mLedgerFilter==='in')txs=txs.filter(t=>t.type==='in');
+  else if(mLedgerFilter==='out')txs=txs.filter(t=>t.type==='out');
+  else if(mLedgerFilter==='xfr')txs=txs.filter(t=>t.type==='xfr');
+
+  const search=(document.getElementById('mLedgerSearch')?.value||'').toLowerCase();
+  if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
+
+  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  if(!txs.length){
+    el.innerHTML=`<div style="padding:40px 16px;text-align:center;color:var(--text3)">No transactions${search?' matching "'+search+'"':''}.</div>`;
+    return;
+  }
+
+  const groups={};
+  txs.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+
+  let h='';
+  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
+    h+=`<div class="m-tx-date-hdr">${ld(date)}</div>`;
+    groups[date].forEach(tx=>h+=mTxRowHtml(tx,true));
+  });
+  h+=`<div style="height:16px"></div>`;
+  el.innerHTML=h;
+}
+
+function mTxRowHtml(tx,tappable){
+  const b=getBucket(tx.bucketId);
+  const cat=b?getCat(b.catId):null;
+  const acct=getAcct(tx.accountId);
+  const color=cat?.color||'var(--text3)';
+  const isOpening=tx.type==='opening';
+  const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
+  const amtPfx=isOpening||tx.type==='in'?'+':'-';
+  const indColor=tx.type==='in'||isOpening?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+  const metaParts=[];
+  if(acct)metaParts.push(acct.name);
+  if(cat)metaParts.push(cat.name);
+  if(b)metaParts.push(b.name);
+  if(tx.type==='xfr')metaParts.push('→ '+(getAcct(tx.toAccountId)?.name||''));
+  const onclick=tappable?`onclick="mEditTxSheet('${tx.id}')"`:'' ;
+  return `<div class="m-tx-row" ${onclick}>
+    <div class="m-tx-ind" style="background:${indColor}"></div>
+    <div class="m-tx-l">
+      <div class="m-tx-name">${tx.desc}</div>
+      <div class="m-tx-meta" style="color:${color}">${metaParts.join(' · ')}</div>
+    </div>
+    <div class="m-tx-amt ${amtCls}">${amtPfx}${$f(tx.amount)}</div>
+  </div>`;
+}
+
+// ── Subviews ─────────────────────────────────────────────────────────────────
+function mOpenBucket(id){
+  mSubview={type:'bucket',id};
+  history.pushState({},'','');
+  document.getElementById('mSubBucket').classList.add('active');
+  mRenderSubview();
+}
+
+function mOpenAcct(id){
+  mSubview={type:'account',id};
+  history.pushState({},'','');
+  document.getElementById('mSubAccount').classList.add('active');
+  mRenderSubview();
+}
+
+function mCloseSubview(){
+  if(!mSubview)return;
+  const el=mSubview.type==='bucket'?document.getElementById('mSubBucket'):document.getElementById('mSubAccount');
+  el?.classList.remove('active');
+  mSubview=null;
+}
+
+function mEditActiveBucket(){if(mSubview?.type==='bucket')editBucket(mSubview.id);}
+function mEditActiveAcct(){if(mSubview?.type==='account')editAcct(mSubview.id);}
+
+function mRenderSubview(){
+  if(!mSubview)return;
+  if(mSubview.type==='bucket')mRenderBucketDetail(mSubview.id);
+  else if(mSubview.type==='account')mRenderAcctDetail(mSubview.id);
+}
+
+function mRenderBucketDetail(bid){
+  const b=getBucket(bid);if(!b)return;
+  const el=document.getElementById('mSubBucketScroll');
+  const title=document.getElementById('mSubBucketTitle');
+  if(!el||!title)return;
+  title.textContent=b.name;
+  const cat=getCat(b.catId);const color=cat?.color||COLORS[0];
+  const mid=S.activeMonth;
+  const alloc=bAlloc(mid,bid);
+  const target=bBudget(mid,bid);
+  const roll=rolloverBal(bid,mid);
+  const eff=alloc+roll;
+  const spent=bSpent(mid,bid);
+  const avail=eff-spent;
+  const pctRaw=eff>0?spent/eff:0;
+  const pct=Math.min(pctRaw,1);
+  const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
+  const isSink=b.type==='sinking';
+  const past=monthStatus(mid)==='past';
+  const m=getMonth(mid);
+  const days=daysUntilDue(b,m?.year,m?.month);
+
+  let h=`<div class="m-det-hero" style="border-left:4px solid ${color}">
+    <div class="m-det-name">${b.name}</div>
+    <div class="m-det-meta">
+      <span style="color:${color}">${cat?.name||''}</span>
+      ${days!==null?`<span>·</span><span style="color:${days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">Due ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}</span>`:''}
+      ${b.rollover?'<span>·</span><span>Rolls over</span>':''}
+    </div>
+  </div>
+  <div class="m-det-nums">
+    <div class="m-det-num-cell"><div class="m-det-num-label">Allocated</div><div class="m-det-num-val" style="color:${alloc>=target&&target>0?'var(--green)':'var(--text)'}">${$f(alloc)}</div></div>
+    <div class="m-det-num-cell"><div class="m-det-num-label">Spent</div><div class="m-det-num-val" style="color:var(--text2)">${$f(spent)}</div></div>
+    <div class="m-det-num-cell"><div class="m-det-num-label">Available</div><div class="m-det-num-val" style="color:${avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)'}">${$f(avail)}</div></div>
+  </div>
+  <div class="m-prog-wrap">
+    <div class="m-prog-track"><div class="m-prog-fill" style="width:${Math.round(pct*100)}%;background:${fillColor}"></div></div>
+    <div class="m-prog-note"><span>${Math.round(pctRaw*100)}% used</span><span>${pctRaw>1?'⚠ over by '+$f(spent-eff):$f(Math.max(eff-spent,0))+' remaining'}</span></div>
+  </div>`;
+
+  if(isSink){
+    const saved=sinkingSaved(bid);const tgt=b.targetAmount||0;
+    const now=new Date();const td=b.targetDate?new Date(b.targetDate+'-01'):null;
+    const mLeft=td?Math.max((td.getFullYear()-now.getFullYear())*12+(td.getMonth()-now.getMonth()),0):0;
+    const mNeed=mLeft>0?Math.ceil((tgt-saved)/mLeft):0;
+    const contrib=contribAmt(b);
+    h+=`<div class="m-sink-grid">
+      <div class="m-sink-cell"><div class="m-sink-label">Saved</div><div class="m-sink-val" style="color:var(--green)">${$f(saved)}</div></div>
+      <div class="m-sink-cell"><div class="m-sink-label">Goal</div><div class="m-sink-val">${$f(tgt)}</div></div>
+      <div class="m-sink-cell"><div class="m-sink-label">Months Left</div><div class="m-sink-val">${mLeft||'—'}</div></div>
+      <div class="m-sink-cell"><div class="m-sink-label">Per Contrib</div><div class="m-sink-val" style="color:var(--accent)">${$f(contrib)}</div></div>
+    </div>`;
+  }
+
+  if(!past){
+    h+=`<div class="m-alloc-block">
+      <div class="m-alloc-block-label">Allocate this month <span style="color:var(--text3);font-size:11px">target: ${$f(target)}</span></div>
+      <div class="m-alloc-inp-row">
+        <input class="m-alloc-big" id="mAllocInp" type="number" inputmode="decimal" value="${alloc||''}" placeholder="0.00"
+          onkeydown="if(event.key==='Enter')mSetAlloc('${bid}')" />
+        <button class="m-alloc-set-btn" onclick="mSetAlloc('${bid}')">Set</button>
+      </div>
+      ${target>0&&alloc<target?`<button style="margin-top:10px;width:100%;padding:11px;background:var(--gbg);color:var(--green);border:1px solid var(--gb);border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer"
+        onclick="mFundBucket('${bid}')">Fund at target (${$f(target)})</button>`:''}
+    </div>`;
+  }
+
+  // Bucket transactions
+  const txs=S.txs.filter(t=>t.monthId===mid&&t.bucketId===bid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(txs.length){
+    h+=`<div class="m-section-label">Transactions</div>`;
+    txs.forEach(tx=>h+=mTxRowHtml(tx,!past));
+  }
+  h+=`<div style="height:16px"></div>`;
+  el.innerHTML=h;
+  // Focus allocation input
+  setTimeout(()=>{
+    if(!past)document.getElementById('mAllocInp')?.focus();
+  },200);
+}
+
+function mSetAlloc(bid){
+  const val=parseFloat(document.getElementById('mAllocInp')?.value)||0;
+  const m=getMonth(S.activeMonth);if(!m)return;
+  if(!m.allocations)m.allocations={};
+  m.allocations[bid]=val;
+  save();mRenderTopbar();mRenderSubview();
+  mShowToast('alloc',getBucket(bid)?.name+' allocated',$f(val));
+}
+
+function mFundBucket(bid){
+  const target=bBudget(S.activeMonth,bid);
+  const m=getMonth(S.activeMonth);if(!m)return;
+  if(!m.allocations)m.allocations={};
+  m.allocations[bid]=target;
+  save();mRenderTopbar();mRenderSubview();
+  mShowToast('alloc',getBucket(bid)?.name+' funded',$f(target));
+}
+
+function mRenderAcctDetail(aid){
+  const a=getAcct(aid);if(!a)return;
+  const el=document.getElementById('mSubAcctScroll');
+  const title=document.getElementById('mSubAcctTitle');
+  if(!el||!title)return;
+  title.textContent=a.name;
+  const bal=acctBalance(aid);
+  const txs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  let h=`<div class="m-det-hero">
+    <div class="m-det-name">${$f(bal)}</div>
+    <div class="m-det-meta"><span style="color:${a.color}">${a.name}</span><span>·</span><span>${a.type}</span></div>
+  </div>
+  <div class="m-section-label">Transactions</div>`;
+  if(txs.length)txs.forEach(tx=>h+=mTxRowHtml(tx,false));
+  else h+=`<div style="padding:20px 16px;text-align:center;color:var(--text3)">No transactions yet</div>`;
+  h+=`<div style="height:16px"></div>`;
+  el.innerHTML=h;
+}
+
+// ── Edit sheet ────────────────────────────────────────────────────────────────
+function mEditTxSheet(id){
+  const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
+  const acct=getAcct(tx.accountId);
+  const body=document.getElementById('mSheetBody');
+  const foot=document.getElementById('mSheetFoot');
+  document.getElementById('mSheetTitle').textContent='Edit Transaction';
+
+  const catOpts=mCatOptions(b?.catId||'');
+  const bktOpts=mBktOptions(b?.catId||'',tx.bucketId||'');
+  const acctOpts=mAcctOptions(tx.accountId);
+
+  body.innerHTML=`
+    <div>
+      <div class="m-field-label" style="margin-bottom:6px">Description</div>
+      <input class="m-input" id="sDesc" value="${tx.desc}" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div class="m-field-label" style="margin-bottom:6px">Amount</div>
+        <input class="m-input mono" id="sAmt" type="number" value="${tx.amount}" inputmode="decimal" /></div>
+      <div><div class="m-field-label" style="margin-bottom:6px">Date</div>
+        <input class="m-input" id="sDate" type="date" value="${tx.date}" /></div>
+    </div>
+    <div><div class="m-field-label" style="margin-bottom:6px">Account</div>
+      <select class="m-select" id="sAcct">${acctOpts}</select></div>
+    ${tx.type==='out'?`
+    <div><div class="m-field-label" style="margin-bottom:6px">Category</div>
+      <select class="m-select" id="sCat" onchange="mSheetCatChange(this.value)">${catOpts}</select></div>
+    <div><div class="m-field-label" style="margin-bottom:6px">Bucket</div>
+      <select class="m-select" id="sBkt">${bktOpts}</select></div>`:''}`;
+
+  foot.innerHTML=`
+    <button style="flex:1;padding:12px;background:var(--rbg);color:var(--red);border:1px solid var(--rb);border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer" onclick="mDeleteTxSheet('${id}')">Delete</button>
+    <button style="flex:2;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer" onclick="mSaveTxSheet('${id}','${tx.type}')">Save</button>`;
+
+  document.getElementById('mSheetOverlay').classList.add('show');
+  document.getElementById('mSheet').classList.add('show');
+}
+
+function mSheetCatChange(catId){
+  const bsel=document.getElementById('sBkt');
+  if(!bsel)return;
+  bsel.innerHTML='<option value="">Bucket...</option>';
+  sortedBuckets(catId).forEach(b=>bsel.innerHTML+=`<option value="${b.id}">${b.name}</option>`);
+}
+
+function mSaveTxSheet(id,type){
+  const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  tx.desc=document.getElementById('sDesc')?.value||tx.desc;
+  tx.amount=parseFloat(document.getElementById('sAmt')?.value)||tx.amount;
+  tx.date=document.getElementById('sDate')?.value||tx.date;
+  tx.accountId=document.getElementById('sAcct')?.value||tx.accountId;
+  tx.monthId=dateToMonthId(tx.date);
+  if(type==='out'){
+    tx.bucketId=document.getElementById('sBkt')?.value||tx.bucketId;
+  }
+  save();mCloseSheet();mRenderAll();
+}
+
+function mDeleteTxSheet(id){
+  if(!confirm('Delete this transaction?'))return;
+  S.txs=S.txs.filter(t=>t.id!==id);
+  save();mCloseSheet();mRenderAll();
+}
+
+function mCloseSheet(){
+  document.getElementById('mSheetOverlay').classList.remove('show');
+  document.getElementById('mSheet').classList.remove('show');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let mToastTimer=null;
+function mShowToast(type,text,amt){
+  const toast=document.getElementById('mToast');
+  const icon=document.getElementById('mToast-icon');
+  const textEl=document.getElementById('mToast-text');
+  const amtEl=document.getElementById('mToast-amt');
+  if(!toast)return;
+  icon.textContent=type==='in'?'↓':type==='out'?'↑':type==='xfr'?'⇄':type==='alloc'?'◎':'✓';
+  icon.style.color=type==='in'?'var(--green)':type==='out'?'var(--red)':type==='xfr'?'var(--purple)':type==='alloc'?'var(--accent)':'var(--green)';
+  textEl.textContent=text;
+  amtEl.textContent=amt;
+  amtEl.style.color=type==='in'?'var(--green)':type==='out'?'var(--red)':'var(--text2)';
+  toast.classList.add('show');
+  if(mToastTimer)clearTimeout(mToastTimer);
+  mToastTimer=setTimeout(()=>toast.classList.remove('show'),2500);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function mCatOptions(selectedCatId){
+  let h='<option value="">Category...</option>';
+  sortedCats().forEach(c=>h+=`<option value="${c.id}"${c.id===selectedCatId?' selected':''}>${c.name}</option>`);
+  return h;
+}
+function mBktOptions(catId,selectedBktId){
+  let h='<option value="">Bucket...</option>';
+  if(catId)sortedBuckets(catId).forEach(b=>h+=`<option value="${b.id}"${b.id===selectedBktId?' selected':''}>${b.name}</option>`);
+  return h;
+}
+function mAcctOptions(selectedId){
+  let h='<option value="">Account...</option>';
+  S.accounts.forEach(a=>h+=`<option value="${a.id}"${a.id===selectedId?' selected':''}>${a.name}</option>`);
+  return h;
+}
+
+// Mobile rendering is handled inside the main render() function above
 </script>
+
+<!-- ════ MOBILE SHELL ════ -->
+<div id="mShell" style="display:none">
+  <!-- Top bar -->
+  <div id="mTopbar">
+    <div id="mTopbar-title"><div id="mTopbar-dot"></div>Budget/CC</div>
+    <div id="mTopbar-right">
+      <div id="mRtsChip" class="zero">—</div>
+      <button class="tbtn" onclick="openModal('new')" style="padding:5px 10px;font-size:12px;border-radius:6px">+ New</button>
+    </div>
+  </div>
+
+  <!-- Screens container -->
+  <div id="mScreens">
+
+    <!-- DASHBOARD -->
+    <div class="mScreen active" id="msDash">
+      <div class="m-month-bar">
+        <button class="m-month-arrow" onclick="mPrevMonth()">&#8249;</button>
+        <select class="m-month-sel" id="mMonthSel" onchange="mSetMonthFromSel(this.value)"></select>
+        <button class="m-month-arrow" onclick="mNextMonth()">&#8250;</button>
+      </div>
+      <div class="mscroll" id="mDashScroll"></div>
+    </div>
+
+    <!-- BUCKETS -->
+    <div class="mScreen" id="msBuckets">
+      <div class="mhdr">
+        <div class="mhdr-title">Buckets</div>
+        <button class="mhdr-action" onclick="openModal('cat')">+ Category</button>
+      </div>
+      <div class="mscroll" id="mBucketsScroll"></div>
+    </div>
+
+    <!-- LOG -->
+    <div class="mScreen" id="msLog">
+      <div class="mhdr">
+        <div class="mhdr-title" id="mLogTitle">Log Transaction</div>
+        <button class="mhdr-action" id="mBulkToggle" onclick="mToggleBulk()">Bulk</button>
+      </div>
+      <div class="mscroll" id="mLogScroll"></div>
+    </div>
+
+    <!-- LEDGER -->
+    <div class="mScreen" id="msLedger">
+      <div class="mhdr">
+        <div class="mhdr-title">Ledger</div>
+      </div>
+      <div class="m-ledger-head">
+        <div class="m-filter-chips" id="mLedgerFilters">
+          <button class="m-chip-btn active" onclick="mSetLedgerFilter('all',this)">All</button>
+          <button class="m-chip-btn" onclick="mSetLedgerFilter('in',this)">↓ Income</button>
+          <button class="m-chip-btn" onclick="mSetLedgerFilter('out',this)">↑ Expenses</button>
+          <button class="m-chip-btn" onclick="mSetLedgerFilter('xfr',this)">⇄ Transfer</button>
+        </div>
+        <input class="m-search" id="mLedgerSearch" placeholder="Search transactions..." oninput="mRenderLedger()" />
+      </div>
+      <div class="mscroll" id="mLedgerScroll"></div>
+    </div>
+
+    <!-- BUCKET DETAIL subview -->
+    <div class="mSubview" id="mSubBucket">
+      <div class="mhdr">
+        <button class="mhdr-back" onclick="mCloseSubview()">&#8592; Back</button>
+        <div class="mhdr-title" id="mSubBucketTitle"></div>
+        <button class="mhdr-action" onclick="mEditActiveBucket()">Edit</button>
+      </div>
+      <div class="mscroll" id="mSubBucketScroll"></div>
+    </div>
+
+    <!-- ACCOUNT DETAIL subview -->
+    <div class="mSubview" id="mSubAccount">
+      <div class="mhdr">
+        <button class="mhdr-back" onclick="mCloseSubview()">&#8592; Back</button>
+        <div class="mhdr-title" id="mSubAcctTitle"></div>
+        <button class="mhdr-action" onclick="mEditActiveAcct()">Edit</button>
+      </div>
+      <div class="mscroll" id="mSubAcctScroll"></div>
+    </div>
+
+  </div><!-- /mScreens -->
+
+  <!-- Bottom nav -->
+  <nav id="mNav">
+    <button class="mnav-btn active" id="mnDash" onclick="mGoTab('dash')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="mnav-label">Dashboard</span>
+      <div class="mnav-pip"></div>
+    </button>
+    <button class="mnav-btn" id="mnBuckets" onclick="mGoTab('buckets')">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span class="mnav-label">Buckets</span>
+      <div class="mnav-pip"></div>
+    </button>
+    <button class="mnav-btn" id="mnLog" onclick="mGoTab('log')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span class="mnav-label">Log</span>
+      <div class="mnav-pip"></div>
+    </button>
+    <button class="mnav-btn" id="mnLedger" onclick="mGoTab('ledger')">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span class="mnav-label">Ledger</span>
+      <div class="mnav-pip"></div>
+    </button>
+  </nav>
+
+</div><!-- /mShell -->
+
+<!-- Toast -->
+<div id="mToast">
+  <div id="mToast-icon">✓</div>
+  <div id="mToast-text"></div>
+  <div id="mToast-amt"></div>
+</div>
+
+<!-- Edit bottom sheet -->
+<div class="m-sheet-overlay" id="mSheetOverlay" onclick="mCloseSheet()"></div>
+<div class="m-sheet" id="mSheet">
+  <div class="m-sheet-handle"></div>
+  <div class="m-sheet-title" id="mSheetTitle">Edit Transaction</div>
+  <div class="m-sheet-body" id="mSheetBody"></div>
+  <div class="m-sheet-foot" id="mSheetFoot"></div>
+</div>
 </body>
 </html>
