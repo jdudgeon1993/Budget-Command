@@ -674,6 +674,95 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   #mToast,#mSheetOverlay,#mSheet{display:none!important;}
 }
 
+/* ═══ BUDGET HEALTH BAR ═══ */
+.bh-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.bh-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);white-space:nowrap;}
+.bh-income-wrap{display:flex;align-items:center;gap:6px;}
+.bh-income-val{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--text);cursor:pointer;border-bottom:1px dashed var(--border2);transition:border-color .12s;}
+.bh-income-val:hover{border-bottom-color:var(--accent);}
+.bh-income-inp{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--text);background:var(--surface2);border:1px solid var(--accent);border-radius:5px;padding:2px 6px;width:110px;outline:none;}
+.bh-set-prompt{font-size:12px;color:var(--text3);cursor:pointer;border-bottom:1px dashed var(--border2);transition:color .12s;}
+.bh-set-prompt:hover{color:var(--text2);}
+.bh-divider{width:1px;height:30px;background:var(--border);flex-shrink:0;}
+.bh-stat{display:flex;flex-direction:column;gap:1px;}
+.bh-stat-val{font-family:var(--mono);font-size:15px;font-weight:500;}
+.bh-bar-wrap{flex:1;min-width:120px;}
+.bh-bar-track{height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin-bottom:3px;}
+.bh-bar-fill{height:100%;border-radius:3px;transition:width .3s;}
+.bh-bar-note{font-size:10px;font-family:var(--mono);color:var(--text3);}
+
+/* ═══ WI 2.0 ═══ */
+.wi-panel{background:var(--bg2);border-top:1px solid var(--border);padding:0;flex-shrink:0;max-height:380px;overflow-y:auto;}
+.wi-panel.hidden{display:none;}
+.wi-hdr{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--abg);}
+.wi-name-inp{background:none;border:none;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--amber);flex:1;outline:none;border-bottom:1px dashed var(--ab);padding:1px 2px;}
+.wi-chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:2px 8px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;}
+.wi-chip:hover{border-color:var(--accent);color:var(--accent);}
+.wi-chip-x{color:var(--text3);font-size:12px;line-height:1;padding:0 1px;cursor:pointer;}
+.wi-chip-x:hover{color:var(--red);}
+.wi-body{display:grid;grid-template-columns:auto 1fr;gap:0;}
+.wi-left{padding:12px 16px;border-right:1px solid var(--border);min-width:260px;}
+.wi-right{overflow-x:auto;}
+.wi-income-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.wi-s-inp{padding:4px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:13px;color:var(--text);text-align:right;width:96px;outline:none;}
+.wi-s-inp:focus{border-color:var(--amber);}
+.wi-cat-hdr{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:6px 0 4px;cursor:pointer;display:flex;align-items:center;gap:5px;}
+.wi-cat-arrow{font-size:10px;transition:transform .15s;}
+.wi-cat-arrow.open{transform:rotate(90deg);}
+.wi-bkt-row{display:flex;align-items:center;gap:8px;padding:3px 0;}
+.wi-bkt-label{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wi-diff{font-size:10px;font-family:var(--mono);padding:1px 4px;border-radius:3px;flex-shrink:0;}
+.wi-diff.pos{background:var(--gbg);color:var(--green);}
+.wi-diff.neg{background:var(--rbg);color:var(--red);}
+.wi-proj-table{width:100%;border-collapse:collapse;font-size:12px;min-width:480px;}
+.wi-proj-table th{padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+.wi-proj-table td{padding:7px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+.wi-proj-table tr.surplus td{color:var(--green);}
+.wi-proj-table tr.deficit td{color:var(--red);}
+.wi-proj-table td:first-child{font-family:var(--sans);color:var(--text2);}
+.wi-proj-inp{background:var(--surface2);border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--text);padding:2px 5px;width:82px;outline:none;}
+.wi-proj-inp:focus{border-color:var(--amber);}
+
+/* ═══ SETTINGS MODAL ═══ */
+.settings-section{margin-bottom:20px;}
+.settings-section:last-child{margin-bottom:0;}
+.settings-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
+.acct-order-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;}
+.acct-order-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.acct-order-name{flex:1;font-size:14px;}
+.theme-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.theme-card{padding:12px 10px;background:var(--surface);border:2px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:center;transition:all .12s;}
+.theme-card:hover{border-color:var(--border2);}
+.theme-card.active{border-color:var(--accent);}
+.theme-card-swatch{width:32px;height:32px;border-radius:50%;margin:0 auto 6px;border:2px solid rgba(255,255,255,.15);}
+.theme-card-name{font-size:12px;font-weight:600;color:var(--text2);}
+.theme-card.active .theme-card-name{color:var(--accent);}
+
+/* ═══ LIGHT THEME ═══ */
+[data-theme="light"]{
+  --bg:#f5f5f7;--bg2:#ffffff;--bg3:#ebebed;
+  --surface:#ebebed;--surface2:#e0e0e3;
+  --border:#d1d1d6;--border2:#c7c7cc;
+  --text:#1c1c1e;--text2:#3a3a3c;--text3:#8e8e93;
+  --accent:#147a6e;--accent2:#0f6055;
+  --green:#1a9b73;--gbg:#e5f5ef;--gb:#a0d9c2;
+  --red:#d4394b;--rbg:#fce8eb;--rb:#f0a0a8;
+  --amber:#b87800;--abg:#fdf3e0;--ab:#e8c97a;
+  --blue:#0066bb;--bbg:#e0edf8;--bb:#7ab0dd;
+}
+/* ═══ MIDNIGHT THEME ═══ */
+[data-theme="midnight"]{
+  --bg:#000000;--bg2:#0a0a0a;--bg3:#111111;
+  --surface:#141414;--surface2:#1a1a1a;
+  --border:#2a2a2a;--border2:#333333;
+  --text:#f0f0f0;--text2:#cccccc;--text3:#666666;
+  --accent:#00d4b8;--accent2:#00b89e;
+  --green:#00d4b8;--gbg:#001a18;--gb:#004d44;
+  --red:#ff4d4d;--rbg:#1a0000;--rb:#4d0000;
+  --amber:#ffb347;--abg:#1a1200;--ab:#4d3800;
+  --blue:#4a9edd;--bbg:#0a1520;--bb:#1a3a5c;
+}
+
 /* ═══ AUTH SCREEN ═══ */
 #authScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
 #authScreen.hidden{display:none;}
@@ -722,6 +811,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <button class="tbtn" onclick="openModal('acct')">+ Account</button>
     <button class="tbtn primary" onclick="openModal('new')">+ New</button>
     <button class="tbtn" onclick="showShortcuts()" title="Keyboard shortcuts" style="padding:5px 8px;font-size:14px;">⌨</button>
+    <button class="tbtn" onclick="openSettings()" title="Settings" style="padding:5px 8px;font-size:14px;">⚙</button>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
   </div>
 </div>
@@ -1081,13 +1171,15 @@ let S={
   accounts:[],  // {id,name,color,type:'budget'|'savings',openingBalance}
   cats:[],       // {id,name,color}
   buckets:[],    // {id,catId,name,type,dueDay,recurring,rollover,archived,defaultBudget,targetAmount,targetDate,contribFreq}
-  months:[],     // {id,label,year,month,budgets:{},allocations:{}}
+  months:[],     // {id,label,year,month,budgets:{},allocations:{},projectedIncome?}
   txs:[],        // {id,accountId,toAccountId?,monthId,bucketId?,desc,amount,type:'in'|'out'|'xfr'|'opening',date,recurring}
   activeMonth:null,
   activeBucket:null,
   activeAccount:null,
   scenario:false,
   scenarioBudgets:{},
+  scenarios:[],
+  wiScenario:null,
   wiOpen:false,
   txFilter:'all',
   onboarded:false,
@@ -1286,12 +1378,22 @@ function dateToMonthId(dateStr){
   return mId(d.getFullYear(),d.getMonth());
 }
 
+function _inheritProjectedIncome(){
+  // Find the most recent month that has projectedIncome set
+  const sorted=[...S.months].sort((a,b)=>a.year!==b.year?b.year-a.year:b.month-a.month);
+  for(const m of sorted){if(m.projectedIncome!=null)return m.projectedIncome;}
+  return null;
+}
+
 function ensureMonth(){
   const id=currentMonthId();
   if(!S.months.find(m=>m.id===id)){
     const budgets={},allocations={};
     S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=b.defaultBudget||0;allocations[b.id]=0;});
-    S.months.push({id,label:mLabel(nowY(),nowM()),year:nowY(),month:nowM(),budgets,allocations});
+    const pi=_inheritProjectedIncome();
+    const nm={id,label:mLabel(nowY(),nowM()),year:nowY(),month:nowM(),budgets,allocations};
+    if(pi!=null)nm.projectedIncome=pi;
+    S.months.push(nm);
     S.months.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
   }
 }
@@ -1303,9 +1405,26 @@ function addNextMonth(){
   const id=mId(y,m);if(S.months.find(mo=>mo.id===id)){render();return;}
   const budgets={},allocations={};
   S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=b.defaultBudget||0;allocations[b.id]=0;});
-  S.months.push({id,label:mLabel(y,m),year:y,month:m,budgets,allocations});
+  const pi=_inheritProjectedIncome();
+  const nm={id,label:mLabel(y,m),year:y,month:m,budgets,allocations};
+  if(pi!=null)nm.projectedIncome=pi;
+  S.months.push(nm);
   S.months.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
   save();render();
+}
+
+function _ensureMonthForWI(y,m){
+  const id=mId(y,m);
+  if(!S.months.find(mo=>mo.id===id)){
+    const budgets={},allocations={};
+    S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=b.defaultBudget||0;allocations[b.id]=0;});
+    const pi=_inheritProjectedIncome();
+    const nm={id,label:mLabel(y,m),year:y,month:m,budgets,allocations};
+    if(pi!=null)nm.projectedIncome=pi;
+    S.months.push(nm);
+    S.months.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
+  }
+  return id;
 }
 
 function monthStatus(id){
@@ -1357,8 +1476,14 @@ function monthIncome(mid){
 
 function bAlloc(mid,bid){const m=getMonth(mid);return m?(m.allocations[bid]||0):0;}
 function bBudget(mid,bid){
-  if(S.scenario&&S.scenarioBudgets[bid]!==undefined)return S.scenarioBudgets[bid];
+  if(S.scenario&&S.wiScenario?.budgets[bid]!==undefined)return S.wiScenario.budgets[bid];
   const m=getMonth(mid);return m?(m.budgets[bid]||0):0;
+}
+function monthProjectedIncome(mid){const m=getMonth(mid);return m?.projectedIncome??null;}
+function setProjectedIncome(mid,val){
+  const m=getMonth(mid);if(!m)return;
+  m.projectedIncome=val>0?val:null;
+  save();render();if(isMobile())mRenderAll();
 }
 const bSpent=(mid,bid)=>mTxs(mid).filter(t=>t.bucketId===bid&&t.type==='out').reduce((s,t)=>s+t.amount,0);
 const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAlloc(mid,b.id),0);
@@ -1570,6 +1695,9 @@ function renderMain(){
 
   if(S.activeBucket){h+=renderBucketDetail(mid,past,m);el.innerHTML=h;return;}
 
+  // Budget health bar
+  h+=renderBudgetHealth(mid);
+
   // Pool strip
   const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
   h+=`<div class="pool-strip">
@@ -1704,6 +1832,117 @@ function renderMain(){
     h+=`</tbody></table></div>`;
   });
   el.innerHTML=h;
+}
+
+function renderBudgetHealth(mid){
+  const pi=monthProjectedIncome(mid);
+  const alloc=totalAllocated(mid);
+  if(pi===null){
+    return `<div class="bh-wrap">
+      <span class="bh-label">Projected Income</span>
+      <span class="bh-set-prompt" onclick="bhStartEdit('${mid}')">Set projected income →</span>
+    </div>`;
+  }
+  const surplus=pi-alloc;
+  const pct=pi>0?Math.min(alloc/pi,1):0;
+  const ratio=pi>0?alloc/pi:0;
+  const barColor=surplus<0?'var(--red)':ratio>=0.95?'var(--amber)':'var(--green)';
+  const surplusColor=surplus>0?'var(--green)':surplus<0?'var(--red)':'var(--text3)';
+  return `<div class="bh-wrap">
+    <span class="bh-label">Projected Income</span>
+    <div class="bh-income-wrap">
+      <span class="bh-income-val" id="bhVal_${mid}" onclick="bhStartEdit('${mid}')">${$f(pi)}</span>
+    </div>
+    <div class="bh-divider"></div>
+    <div class="bh-stat">
+      <span class="bh-label">Allocated</span>
+      <span class="bh-stat-val">${$f(alloc)}</span>
+    </div>
+    <div class="bh-divider"></div>
+    <div class="bh-stat">
+      <span class="bh-label">Surplus / Deficit</span>
+      <span class="bh-stat-val" style="color:${surplusColor}">${surplus>=0?'+':''}${$f(surplus)}</span>
+    </div>
+    <div class="bh-bar-wrap">
+      <div class="bh-bar-track"><div class="bh-bar-fill" style="width:${Math.round(pct*100)}%;background:${barColor}"></div></div>
+      <div class="bh-bar-note">${Math.round(pct*100)}% of income allocated${surplus<0?' — over budget':ratio>=0.95?' — nearly full':' — on track'}</div>
+    </div>
+  </div>`;
+}
+
+function bhStartEdit(mid){
+  const pi=monthProjectedIncome(mid);
+  const wrap=document.querySelector(`.bh-wrap`);
+  if(!wrap)return;
+  const valEl=document.getElementById(`bhVal_${mid}`);
+  const promptEl=wrap.querySelector('.bh-set-prompt');
+  const target=valEl||promptEl;
+  if(!target)return;
+  const inp=document.createElement('input');
+  inp.className='bh-income-inp';
+  inp.type='number';
+  inp.value=pi||'';
+  inp.placeholder='Enter income...';
+  inp.min='0';
+  inp.step='1';
+  target.replaceWith(inp);
+  inp.focus();inp.select();
+  const commit=()=>{const v=parseFloat(inp.value)||0;setProjectedIncome(mid,v);};
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}if(e.key==='Escape'){inp.blur();}});
+}
+
+function mRenderBudgetHealth(mid){
+  const pi=monthProjectedIncome(mid);
+  const alloc=totalAllocated(mid);
+  if(pi===null){
+    return `<div style="padding:10px 14px 0">
+      <div class="bh-wrap" style="margin-bottom:0">
+        <span class="bh-label">Projected Income</span>
+        <span class="bh-set-prompt" onclick="mBhStartEdit('${mid}')">Set projected income →</span>
+      </div>
+    </div>`;
+  }
+  const surplus=pi-alloc;
+  const pct=pi>0?Math.min(alloc/pi,1):0;
+  const ratio=pi>0?alloc/pi:0;
+  const barColor=surplus<0?'var(--red)':ratio>=0.95?'var(--amber)':'var(--green)';
+  const surplusColor=surplus>0?'var(--green)':surplus<0?'var(--red)':'var(--text3)';
+  return `<div style="padding:10px 14px 0">
+    <div class="bh-wrap" style="margin-bottom:0">
+      <span class="bh-label">Proj. Income</span>
+      <div class="bh-income-wrap">
+        <span class="bh-income-val" id="mbhVal_${mid}" onclick="mBhStartEdit('${mid}')">${$f(pi)}</span>
+      </div>
+      <div class="bh-stat" style="margin-left:8px">
+        <span class="bh-label">Surplus</span>
+        <span class="bh-stat-val" style="color:${surplusColor};font-size:13px">${surplus>=0?'+':''}${$f(surplus)}</span>
+      </div>
+      <div class="bh-bar-wrap">
+        <div class="bh-bar-track"><div class="bh-bar-fill" style="width:${Math.round(pct*100)}%;background:${barColor}"></div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function mBhStartEdit(mid){
+  const pi=monthProjectedIncome(mid);
+  const inp=document.createElement('input');
+  inp.className='bh-income-inp';
+  inp.type='number';
+  inp.value=pi||'';
+  inp.placeholder='Income...';
+  inp.min='0';
+  inp.step='1';
+  const valEl=document.getElementById(`mbhVal_${mid}`);
+  const promptEl=document.querySelector('#mDashScroll .bh-set-prompt');
+  const target=valEl||promptEl;
+  if(!target)return;
+  target.replaceWith(inp);
+  inp.focus();inp.select();
+  const commit=()=>{const v=parseFloat(inp.value)||0;setProjectedIncome(mid,v);};
+  inp.addEventListener('blur',commit);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}});
 }
 
 function renderAccountView(el,mid){
@@ -2073,51 +2312,326 @@ function delTx(id){
 }
 
 // ═══════════════════════════════════════════════════════
-// WHAT IF
+// WHAT IF 2.0
 // ═══════════════════════════════════════════════════════
+function uid(){return '_'+Math.random().toString(36).slice(2,9);}
+
 function toggleWI(){
-  S.wiOpen=!S.wiOpen;
-  if(S.wiOpen){
-    S.scenario=true;S.scenarioBudgets={};
-    const mid=S.activeMonth;
-    S.buckets.filter(b=>!b.archived).forEach(b=>{S.scenarioBudgets[b.id]=bBudget(mid,b.id);});
+  if(S.wiOpen){exitWI();return;}
+  S.wiOpen=true;S.scenario=true;
+  const mid=S.activeMonth;
+  const budgets={};
+  S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=bBudget(mid,b.id);});
+  S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
+  if(isMobile()){
+    openModal('__wi__');
+  } else {
     document.getElementById('wiStrip').classList.remove('hidden');
     document.getElementById('wiPanel').classList.remove('hidden');
     document.getElementById('wiBtnTop').className='tbtn wi-on';
     renderWI();
-  } else exitWI();
+  }
 }
+
 function renderWI(){
-  const mid=S.activeMonth;
   const panel=document.getElementById('wiPanel');
-  let h=`<div style="display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--amber)">⚡ What If Scenario</span>
-    <span style="font-size:12px;color:var(--text3)">Adjust targets — see impact without changing real data</span>
-  </div><div class="wi-grid">`;
-  sortedCats().forEach(cat=>{sortedBuckets(cat.id).forEach(b=>{
-    const val=S.scenarioBudgets[b.id]!==undefined?S.scenarioBudgets[b.id]:bBudget(mid,b.id);
-    h+=`<div class="wi-row"><span class="wi-label">${b.name}</span>
-      <input class="wi-inp" type="number" value="${val}" min="0" step="10"
-        onchange="S.scenarioBudgets['${b.id}']=parseFloat(this.value)||0;renderTopbar();renderMain();" /></div>`;
-  });});
-  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(S.scenarioBudgets[b.id]??bBudget(mid,b.id)),0);
-  const scRts=monthIncome(mid)-scAlloc;const realRts=readyToSpend(mid);const diff=scRts-realRts;
-  h+=`</div><div class="wi-foot">Scenario ready to spend: <strong style="color:${scRts>=0?'var(--green)':'var(--red)'}">${$f(scRts)}</strong>&nbsp;·&nbsp;vs current: <strong style="color:${diff>=0?'var(--green)':'var(--red)'}">${diff>=0?'+':''}${$f(diff)}</strong></div>`;
-  panel.innerHTML=h;
+  if(!panel)return;
+  panel.innerHTML=_wiPanelHTML();
 }
+
+function _wiPanelHTML(){
+  const mid=S.activeMonth;
+  const sc=S.wiScenario;
+  if(!sc)return'';
+  // Income row
+  const piReal=monthProjectedIncome(mid)||0;
+  const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
+  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(mid,b.id)),0);
+  const scSurplus=piSc-scAlloc;
+  const surplusColor=scSurplus>0?'var(--green)':scSurplus<0?'var(--red)':'var(--text3)';
+
+  // Saved scenario chips
+  const chips=(S.scenarios||[]).map(s=>`<span class="wi-chip" onclick="loadScenario('${s.id}')">${esc(s.name)}<span class="wi-chip-x" onclick="event.stopPropagation();deleteScenario('${s.id}')">×</span></span>`).join('');
+
+  let h=`<div class="wi-hdr">
+    <input class="wi-name-inp" id="wiNameInp" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
+    <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
+    ${chips}
+    <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto" onclick="exitWI()">Exit</button>
+  </div>
+  <div class="wi-body">
+    <div class="wi-left">
+      <div class="wi-income-row">
+        <span style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;flex:1">Proj. Income</span>
+        <input class="wi-s-inp" type="number" value="${piSc||''}" placeholder="0"
+          onchange="S.wiScenario.incomeOverrides['${mid}']=parseFloat(this.value)||0;renderWI();renderMain();" />
+      </div>
+      <div style="display:flex;gap:12px;font-size:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        <span style="color:var(--text3)">Allocated: <strong style="color:var(--text)">${$f(scAlloc)}</strong></span>
+        <span style="color:${surplusColor}">${scSurplus>=0?'Surplus +':'Deficit '}${$f(Math.abs(scSurplus))}</span>
+      </div>`;
+
+  // Bucket adjustments grouped by category
+  sortedCats().forEach(cat=>{
+    const bkts=sortedBuckets(cat.id);
+    if(!bkts.length)return;
+    const catId=cat.id;
+    h+=`<div class="wi-cat-hdr" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.wi-cat-arrow').classList.toggle('open')">
+      <span class="wi-cat-arrow open">▶</span>${esc(cat.name)}
+    </div><div>`;
+    bkts.forEach(b=>{
+      const real=getMonth(mid)?.budgets[b.id]||0;
+      const val=sc.budgets[b.id]!==undefined?sc.budgets[b.id]:real;
+      const diff=val-real;
+      const diffHtml=diff!==0?`<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${$f(diff)}</span>`:'';
+      h+=`<div class="wi-bkt-row">
+        <span class="wi-bkt-label">${esc(b.name)}</span>
+        ${diffHtml}
+        <input class="wi-s-inp" type="number" value="${val||''}" placeholder="0" style="width:80px"
+          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;renderWI();renderMain();" />
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+
+  h+=`</div>
+    <div class="wi-right">
+      <table class="wi-proj-table">
+        <thead><tr>
+          <th>Month</th><th>Proj. Income</th><th>Allocated</th><th>Surplus</th><th>Cumulative</th>
+        </tr></thead><tbody>`;
+
+  // 6-month projection
+  const now2=new Date();let cy=now2.getFullYear(),cm=now2.getMonth();
+  let cumulative=0;
+  for(let i=0;i<6;i++){
+    const projMid=_ensureMonthForWI(cy,cm);
+    const projM=getMonth(projMid);
+    const projLabel=projM?.label||mLabel(cy,cm);
+    const piRow=sc.incomeOverrides[projMid]!==undefined?sc.incomeOverrides[projMid]:(projM?.projectedIncome||0);
+    const overridden=sc.incomeOverrides[projMid]!==undefined;
+    const allocRow=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(projMid,b.id)),0);
+    const surpRow=piRow-allocRow;
+    cumulative+=surpRow;
+    const rowCls=surpRow>=0?'surplus':'deficit';
+    h+=`<tr class="${rowCls}">
+      <td>${projLabel}</td>
+      <td><input class="wi-proj-inp" type="number" value="${piRow||''}" placeholder="0"
+        onchange="S.wiScenario.incomeOverrides['${projMid}']=parseFloat(this.value)||0;renderWI();" />
+        ${overridden?'<span style="color:var(--amber);font-size:10px">*</span>':''}
+      </td>
+      <td>${$f(allocRow)}</td>
+      <td>${surpRow>=0?'+':''}${$f(surpRow)}</td>
+      <td>${cumulative>=0?'+':''}${$f(cumulative)}</td>
+    </tr>`;
+    cm++;if(cm>11){cm=0;cy++;}
+  }
+
+  h+=`</tbody></table>
+      <div style="padding:8px 12px;display:flex;gap:10px;border-top:1px solid var(--border)">
+        <button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="promoteScenario()">Promote to real budgets</button>
+      </div>
+    </div>
+  </div>`;
+  return h;
+}
+
+function _wiMobileHTML(){
+  const mid=S.activeMonth;
+  const sc=S.wiScenario;
+  if(!sc)return'<div style="padding:20px;color:var(--text3)">No active scenario</div>';
+  const piReal=monthProjectedIncome(mid)||0;
+  const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
+  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(mid,b.id)),0);
+  const scSurplus=piSc-scAlloc;
+  const surplusColor=scSurplus>0?'var(--green)':scSurplus<0?'var(--red)':'var(--text3)';
+  const chips=(S.scenarios||[]).map(s=>`<span class="wi-chip" onclick="loadScenario('${s.id}')">${esc(s.name)}<span class="wi-chip-x" onclick="event.stopPropagation();deleteScenario('${s.id}')">×</span></span>`).join('');
+
+  let h=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--abg)">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <input class="wi-name-inp" style="flex:1;min-width:120px" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
+      <button class="tbtn" style="font-size:12px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
+      ${chips}
+    </div>
+  </div>
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Proj. Income</div>
+        <input class="wi-s-inp" type="number" value="${piSc||''}" placeholder="0"
+          onchange="S.wiScenario.incomeOverrides['${mid}']=parseFloat(this.value)||0;openModal('__wi__');" />
+      </div>
+      <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Allocated</div>
+        <span style="font-family:var(--mono);font-size:15px">${$f(scAlloc)}</span>
+      </div>
+      <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Surplus/Deficit</div>
+        <span style="font-family:var(--mono);font-size:15px;color:${surplusColor}">${scSurplus>=0?'+':''}${$f(scSurplus)}</span>
+      </div>
+    </div>
+  </div>`;
+
+  // Bucket adjustments (flat list for mobile)
+  h+=`<div style="padding:8px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px">Bucket Targets</div>`;
+  sortedCats().forEach(cat=>{
+    sortedBuckets(cat.id).forEach(b=>{
+      const real=getMonth(mid)?.budgets[b.id]||0;
+      const val=sc.budgets[b.id]!==undefined?sc.budgets[b.id]:real;
+      const diff=val-real;
+      const diffHtml=diff!==0?`<span class="wi-diff ${diff>0?'pos':'neg'}" style="margin-left:4px">${diff>0?'+':''}${$f(diff)}</span>`:'';
+      h+=`<div class="wi-bkt-row" style="padding:6px 16px;border-bottom:1px solid var(--border)">
+        <span class="wi-bkt-label">${esc(b.name)}${diffHtml}</span>
+        <input class="wi-s-inp" type="number" value="${val||''}" placeholder="0"
+          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');mRenderDash();" />
+      </div>`;
+    });
+  });
+
+  // 6-month projection table
+  h+=`<div style="padding:8px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px">6-Month Projection</div>
+  <div style="overflow-x:auto;padding:0 8px 8px">
+  <table class="wi-proj-table">
+    <thead><tr><th>Month</th><th>Income</th><th>Allocated</th><th>Surplus</th><th>Cumul.</th></tr></thead><tbody>`;
+  const now3=new Date();let cy2=now3.getFullYear(),cm2=now3.getMonth();
+  let cum2=0;
+  for(let i=0;i<6;i++){
+    const pMid=_ensureMonthForWI(cy2,cm2);
+    const pM=getMonth(pMid);
+    const pLabel=pM?.label||mLabel(cy2,cm2);
+    const piR=sc.incomeOverrides[pMid]!==undefined?sc.incomeOverrides[pMid]:(pM?.projectedIncome||0);
+    const ov=sc.incomeOverrides[pMid]!==undefined;
+    const aR=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(pMid,b.id)),0);
+    const sR=piR-aR;cum2+=sR;
+    const rCls=sR>=0?'surplus':'deficit';
+    h+=`<tr class="${rCls}">
+      <td>${pLabel}</td>
+      <td><input class="wi-proj-inp" type="number" value="${piR||''}" placeholder="0"
+        onchange="S.wiScenario.incomeOverrides['${pMid}']=parseFloat(this.value)||0;openModal('__wi__');" />
+        ${ov?'<span style="color:var(--amber);font-size:10px">*</span>':''}
+      </td>
+      <td>${$f(aR)}</td>
+      <td>${sR>=0?'+':''}${$f(sR)}</td>
+      <td>${cum2>=0?'+':''}${$f(cum2)}</td>
+    </tr>`;
+    cm2++;if(cm2>11){cm2=0;cy2++;}
+  }
+  h+=`</tbody></table></div>
+  <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn-save" onclick="promoteScenario()">Promote to real budgets</button>
+    <button class="btn-cancel" onclick="exitWI()">Exit What If</button>
+  </div>`;
+  return h;
+}
+
 function exitWI(){
-  S.scenario=false;S.scenarioBudgets={};S.wiOpen=false;
-  document.getElementById('wiStrip').classList.add('hidden');
-  document.getElementById('wiPanel').classList.add('hidden');
-  document.getElementById('wiBtnTop').className='tbtn';
+  S.scenario=false;S.wiScenario=null;S.wiOpen=false;
+  document.getElementById('wiStrip')?.classList.add('hidden');
+  document.getElementById('wiPanel')?.classList.add('hidden');
+  const btn=document.getElementById('wiBtnTop');if(btn)btn.className='tbtn';
+  const mBtn=document.getElementById('mWiBtn');if(mBtn){mBtn.style.borderColor='';mBtn.style.color='';}
+  closeModal();
   render();
 }
+
+function saveScenario(){
+  if(!S.wiScenario)return;
+  if(!S.scenarios)S.scenarios=[];
+  // Update name from input
+  const inp=document.getElementById('wiNameInp');
+  if(inp)S.wiScenario.name=inp.value||S.wiScenario.name;
+  // Remove duplicate
+  S.scenarios=S.scenarios.filter(s=>s.id!==S.wiScenario.id);
+  S.scenarios.push({...S.wiScenario});
+  // Max 3
+  if(S.scenarios.length>3)S.scenarios=S.scenarios.slice(-3);
+  save();
+  if(isMobile())openModal('__wi__');else renderWI();
+}
+
+function loadScenario(id){
+  const sc=S.scenarios?.find(s=>s.id===id);
+  if(!sc)return;
+  S.wiScenario=JSON.parse(JSON.stringify(sc));
+  S.scenario=true;
+  if(isMobile())openModal('__wi__');else renderWI();renderMain();
+}
+
+function deleteScenario(id){
+  S.scenarios=S.scenarios?.filter(s=>s.id!==id)||[];
+  save();
+  if(isMobile())openModal('__wi__');else renderWI();
+}
+
 function promoteScenario(){
+  if(!S.wiScenario)return;
   if(!confirm('Apply scenario targets to current and future months?'))return;
   const now=new Date();
-  S.months.forEach(m=>{if(m.year>now.getFullYear()||(m.year===now.getFullYear()&&m.month>=now.getMonth())){Object.keys(S.scenarioBudgets).forEach(bid=>{m.budgets[bid]=S.scenarioBudgets[bid];});}});
-  S.buckets.forEach(b=>{if(S.scenarioBudgets[b.id]!==undefined)b.defaultBudget=S.scenarioBudgets[b.id];});
+  S.months.forEach(m=>{
+    if(m.year>now.getFullYear()||(m.year===now.getFullYear()&&m.month>=now.getMonth())){
+      Object.keys(S.wiScenario.budgets).forEach(bid=>{m.budgets[bid]=S.wiScenario.budgets[bid];});
+      if(S.wiScenario.incomeOverrides[m.id]!==undefined)m.projectedIncome=S.wiScenario.incomeOverrides[m.id];
+    }
+  });
+  S.buckets.forEach(b=>{if(S.wiScenario.budgets[b.id]!==undefined)b.defaultBudget=S.wiScenario.budgets[b.id];});
   exitWI();save();render();
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function applyTheme(name){
+  document.documentElement.setAttribute('data-theme',name||'dark');
+}
+
+function setTheme(name){
+  localStorage.setItem('bcc_theme',name);
+  applyTheme(name);
+  openSettings();
+}
+
+function moveAcct(id,dir){
+  const idx=S.accounts.findIndex(a=>a.id===id);
+  const swap=idx+dir;
+  if(swap<0||swap>=S.accounts.length)return;
+  const tmp=S.accounts[idx];S.accounts[idx]=S.accounts[swap];S.accounts[swap]=tmp;
+  save();openSettings();renderTopbar();
+}
+
+function openSettings(){
+  const curTheme=localStorage.getItem('bcc_theme')||'dark';
+  const themes=[
+    {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
+    {name:'light',label:'Light',bg:'#f5f5f7',fg:'#1c1c1e',accent:'#147a6e'},
+    {name:'midnight',label:'Midnight',bg:'#000000',fg:'#f0f0f0',accent:'#00d4b8'},
+  ];
+  const themeCards=themes.map(t=>`
+    <div class="theme-card${t.name===curTheme?' active':''}" onclick="setTheme('${t.name}')">
+      <div class="theme-card-swatch" style="background:${t.bg};border:2px solid ${t.accent}"></div>
+      <div class="theme-card-name">${t.label}</div>
+    </div>`).join('');
+
+  const acctItems=S.accounts.map((a,i)=>`
+    <div class="acct-order-item">
+      <div class="acct-order-dot" style="background:${a.color}"></div>
+      <span class="acct-order-name">${esc(a.name)}</span>
+      <button class="ib" onclick="moveAcct('${a.id}',-1)" ${i===0?'disabled style="opacity:.3"':''}>↑</button>
+      <button class="ib" onclick="moveAcct('${a.id}',1)" ${i===S.accounts.length-1?'disabled style="opacity:.3"':''}>↓</button>
+    </div>`).join('');
+
+  const body=`<div class="settings-section">
+    <div class="settings-section-title">Account Order</div>
+    ${acctItems||'<div style="color:var(--text3);font-size:13px">No accounts yet</div>'}
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Theme</div>
+    <div class="theme-cards">${themeCards}</div>
+  </div>`;
+
+  const modal=document.getElementById('modalBox');
+  modal.className='modal';
+  modal.innerHTML=`
+    <div class="modal-head"><div class="modal-title">Settings</div><button class="modal-x" onclick="closeModal()">&#x2715;</button></div>
+    <div class="modal-body">${body}</div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  document.getElementById('overlay').classList.remove('hidden');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2126,7 +2640,7 @@ function promoteScenario(){
 function confirmFreshStart(){
   if(!confirm('⚠ Fresh Start will erase ALL data — accounts, categories, buckets, and transactions. This cannot be undone.\n\nAre you sure?'))return;
   localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},wiOpen:false,txFilter:'all',onboarded:false};
+  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false};
   closeModal();ensureMonth();S.activeMonth=currentMonthId();
   startWizard();
 }
@@ -2280,6 +2794,16 @@ function mkBkt(){
 }
 
 function openModal(tab, lockedCatId){
+  if(tab==='__wi__'){
+    // Mobile / shared What If modal
+    const modal=document.getElementById('modalBox');
+    modal.className='modal wide';
+    modal.innerHTML=`
+      <div class="modal-head"><div class="modal-title">⚡ What If</div><button class="modal-x" onclick="exitWI()">&#x2715;</button></div>
+      <div class="modal-body" style="padding:0;overflow-y:auto">${_wiMobileHTML()}</div>`;
+    document.getElementById('overlay').classList.remove('hidden');
+    return;
+  }
   if(tab==='acct'){
     M={...M,tab:'acct',acctName:'',acctColor:COLORS[0],acctType:'budget',acctBal:'',acctEditId:null};
   } else if(tab==='bkt' && lockedCatId){
@@ -2794,7 +3318,7 @@ function importData(event){
       S=Object.assign({
         accounts:[],cats:[],buckets:[],months:[],txs:[],
         activeMonth:null,activeBucket:null,activeAccount:null,
-        scenario:false,scenarioBudgets:{},wiOpen:false,txFilter:'all',onboarded:true,
+        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,
       },imported);
       S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
       normalizeCatOrder();normalizeBktOrder();
@@ -2981,6 +3505,9 @@ function initMobile(){
 
 // Defer init until DOM is fully ready
 document.addEventListener('DOMContentLoaded',()=>{
+  // Apply saved theme immediately
+  applyTheme(localStorage.getItem('bcc_theme')||'dark');
+
   // On mobile, reveal the shell immediately so the page isn't blank during async auth.
   // The CSS media query shows it on mobile but the old inline style blocked it.
   if(isMobile()){
@@ -3161,6 +3688,9 @@ function mRenderDash(){
   if(!S.accounts.length)h+=`<div style="padding:10px;color:var(--text3);font-size:13px;">No accounts yet</div>`;
   h+=`</div>`;
 
+  // Budget health bar
+  h+=mRenderBudgetHealth(mid);
+
   // Pool numbers
   h+=`<div class="m-pool-grid">
     <div class="m-pool-cell hero">
@@ -3239,8 +3769,9 @@ function mRenderDash(){
 
   // Settings row
   h+=`<div class="m-settings-row">
-    <button class="m-settings-btn" onclick="exportData()">&#x2193; Export Backup</button>
-    <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">&#x2191; Import Backup</button>
+    <button class="m-settings-btn" onclick="openSettings()">&#x2699; Settings</button>
+    <button class="m-settings-btn" onclick="exportData()">&#x2193; Export</button>
+    <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">&#x2191; Import</button>
     <button class="m-settings-btn" style="color:var(--red)" onclick="confirmFreshStart()">&#x21BA; Fresh Start</button>
   </div>
   <input type="file" id="importFileMobile" accept=".json" style="display:none" onchange="importData(event)" />`;
@@ -3874,6 +4405,7 @@ function mAcctOptions(selectedId){
         <button class="m-month-arrow" onclick="mPrevMonth()">&#8249;</button>
         <select class="m-month-sel" id="mMonthSel" onchange="mSetMonthFromSel(this.value)"></select>
         <button class="m-month-arrow" onclick="mNextMonth()">&#8250;</button>
+        <button class="m-month-arrow" onclick="toggleWI()" id="mWiBtn" style="font-size:13px;padding:6px 10px;border-color:var(--border2);">⚡</button>
       </div>
       <div class="mscroll" id="mDashScroll"></div>
     </div>
