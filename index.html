@@ -123,8 +123,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* ═══ MAIN ═══ */
 .main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
 .main-scroll{flex:1;overflow-y:auto;padding:24px 28px;}
-.wi-panel{background:var(--bg2);border-top:1px solid var(--border);padding:14px 28px 16px;flex-shrink:0;max-height:240px;overflow-y:auto;}
-.wi-panel.hidden{display:none;}
+.wi-panel{display:none!important;}
 .wi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px;margin-top:10px;}
 .wi-row{display:flex;align-items:center;gap:8px;}
 .wi-label{flex:1;font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -692,8 +691,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bh-bar-note{font-size:10px;font-family:var(--mono);color:var(--text3);}
 
 /* ═══ WI 2.0 ═══ */
-.wi-panel{background:var(--bg2);border-top:1px solid var(--border);padding:0;flex-shrink:0;max-height:380px;overflow-y:auto;}
-.wi-panel.hidden{display:none;}
+.wi-panel{display:none!important;}
+.wi-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
+.wi-overlay.hidden{display:none;}
+.wi-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);width:100%;max-width:1100px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,0.6);display:flex;flex-direction:column;}
+.wi-modal-inner{padding:24px;display:flex;flex-direction:column;gap:20px;}
+.wi-two-col{display:grid;grid-template-columns:1fr;gap:20px;}
+@media(min-width:768px){.wi-two-col{grid-template-columns:55fr 45fr;}}
+@media(max-width:767px){.wi-overlay{padding:0;}.wi-modal{max-width:100%;max-height:100vh;border-radius:0;}}
 .wi-hdr{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--abg);}
 .wi-name-inp{background:none;border:none;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--amber);flex:1;outline:none;border-bottom:1px dashed var(--ab);padding:1px 2px;}
 .wi-chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:2px 8px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;}
@@ -849,7 +854,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       </div>
       <!-- Row 3: amount + date -->
       <div class="rpf-row">
-        <input class="tfi mono" id="txAmt" type="number" placeholder="Amount" min="0" step=".01" style="flex:1" />
+        <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" />
         <input class="tfi" id="txDate" type="date" style="flex:1" />
       </div>
       <!-- Row 4: account -->
@@ -893,6 +898,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 <!-- MODAL -->
 <div class="overlay hidden" id="overlay">
   <div class="modal" id="modalBox"></div>
+</div>
+
+<!-- WI OVERLAY -->
+<div id="wiOverlay" class="wi-overlay hidden">
+  <div class="wi-modal">
+    <div class="wi-modal-inner" id="wiModalInner"></div>
+  </div>
 </div>
 
 <!-- ONBOARDING WIZARD -->
@@ -1513,6 +1525,26 @@ const ld=d=>{if(!d)return'';return new Date(d+'T12:00:00').toLocaleDateString('e
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
 // ═══════════════════════════════════════════════════════
+// EXPRESSION EVALUATOR
+// ═══════════════════════════════════════════════════════
+function evalMoneyExpr(expr,currentVal,refVal){
+  if(typeof expr!=='string')return currentVal;
+  expr=expr.trim();
+  if(!expr)return currentVal;
+  if(/^[+\-]/.test(expr)){const delta=parseFloat(expr);return isNaN(delta)?currentVal:Math.round((currentVal+delta)*100)/100;}
+  if(/^\*/.test(expr)){const factor=parseFloat(expr.slice(1));return isNaN(factor)?currentVal:Math.round(currentVal*factor*100)/100;}
+  if(/^\//.test(expr)){const divisor=parseFloat(expr.slice(1));return(!divisor||isNaN(divisor))?currentVal:Math.round(currentVal/divisor*100)/100;}
+  if(expr.endsWith('%')){const pct=parseFloat(expr)/100;if(isNaN(pct))return currentVal;const base=(refVal!=null&&refVal>0)?refVal:currentVal;return Math.round(base*pct*100)/100;}
+  if(expr.startsWith('=')){const formula=expr.slice(1);if(!/^[\d\s\+\-\*\/\.\(\)]+$/.test(formula))return currentVal;try{const result=Function('"use strict";return('+formula+')')();return(typeof result==='number'&&!isNaN(result))?Math.round(result*100)/100:currentVal;}catch(e){return currentVal;}}
+  const val=parseFloat(expr);return isNaN(val)?currentVal:val;
+}
+
+function getPrevMonthId(mid){
+  const idx=S.months.findIndex(m=>m.id===mid);
+  return idx>0?S.months[idx-1].id:null;
+}
+
+// ═══════════════════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════════════════
 function render(){
@@ -1813,9 +1845,9 @@ function renderMain(){
           ${past?`<span class="tv dim">${$f(alloc)}</span>`:`
           <div class="alloc-wrap">
             <span class="alloc-pfx">$</span>
-            <input class="alloc-inp ${allocCls}" type="number" min="0" step="1"
-              value="${alloc||''}" placeholder="0" title="Allocate to ${b.name}"
-              onchange="setAlloc('${mid}','${b.id}',this.value)"
+            <input class="alloc-inp ${allocCls}" type="text" inputmode="decimal"
+              value="${alloc||''}" placeholder="0" title="Math: +50, -20, *1.05, 5% of income, =100+50"
+              onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
               onkeydown="if(event.key==='Enter')this.blur()"
               onfocus="this.select()" />
           </div>`}
@@ -1880,14 +1912,20 @@ function bhStartEdit(mid){
   if(!target)return;
   const inp=document.createElement('input');
   inp.className='bh-income-inp';
-  inp.type='number';
+  inp.type='text';
+  inp.inputMode='decimal';
   inp.value=pi||'';
   inp.placeholder='Enter income...';
-  inp.min='0';
-  inp.step='1';
+  inp.title='Math: +50, -20, *1.05, 5% of prev income, =100+50';
   target.replaceWith(inp);
   inp.focus();inp.select();
-  const commit=()=>{const v=parseFloat(inp.value)||0;setProjectedIncome(mid,v);};
+  const commit=()=>{
+    const current=monthProjectedIncome(mid)||0;
+    const prevMid=getPrevMonthId(mid);
+    const ref=prevMid?(monthProjectedIncome(prevMid)||0):null;
+    const v=evalMoneyExpr(inp.value,current,ref);
+    setProjectedIncome(mid,v);
+  };
   inp.addEventListener('blur',commit);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}if(e.key==='Escape'){inp.blur();}});
 }
@@ -1929,18 +1967,24 @@ function mBhStartEdit(mid){
   const pi=monthProjectedIncome(mid);
   const inp=document.createElement('input');
   inp.className='bh-income-inp';
-  inp.type='number';
+  inp.type='text';
+  inp.inputMode='decimal';
   inp.value=pi||'';
   inp.placeholder='Income...';
-  inp.min='0';
-  inp.step='1';
+  inp.title='Math: +50, -20, *1.05, 5%, =100+50';
   const valEl=document.getElementById(`mbhVal_${mid}`);
   const promptEl=document.querySelector('#mDashScroll .bh-set-prompt');
   const target=valEl||promptEl;
   if(!target)return;
   target.replaceWith(inp);
   inp.focus();inp.select();
-  const commit=()=>{const v=parseFloat(inp.value)||0;setProjectedIncome(mid,v);};
+  const commit=()=>{
+    const current=monthProjectedIncome(mid)||0;
+    const prevMid=getPrevMonthId(mid);
+    const ref=prevMid?(monthProjectedIncome(prevMid)||0):null;
+    const v=evalMoneyExpr(inp.value,current,ref);
+    setProjectedIncome(mid,v);
+  };
   inp.addEventListener('blur',commit);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}});
 }
@@ -2238,7 +2282,12 @@ function syncTxBuckets(){
 }
 function addTx(){
   const desc=document.getElementById('txDesc').value.trim();
-  const amt=parseFloat(document.getElementById('txAmt').value);
+  const txAmtEl=document.getElementById('txAmt');
+  const txAmtRaw=txAmtEl.value;
+  const txAmtCurrent=parseFloat(txAmtRaw)||0;
+  const txAmtRef=monthProjectedIncome(S.activeMonth);
+  const amt=evalMoneyExpr(txAmtRaw,txAmtCurrent,txAmtRef);
+  txAmtEl.value=amt||'';
   const date=document.getElementById('txDate').value;
   const rec=document.getElementById('txRec').checked;
   const acctId=document.getElementById('txAcct').value;
@@ -2327,55 +2376,55 @@ function toggleWI(){
     openModal('__wi__');
   } else {
     document.getElementById('wiStrip').classList.remove('hidden');
-    document.getElementById('wiPanel').classList.remove('hidden');
+    document.getElementById('wiOverlay').classList.remove('hidden');
     document.getElementById('wiBtnTop').className='tbtn wi-on';
     renderWI();
   }
 }
 
 function renderWI(){
-  const panel=document.getElementById('wiPanel');
-  if(!panel)return;
-  panel.innerHTML=_wiPanelHTML();
+  const inner=document.getElementById('wiModalInner');
+  if(!inner)return;
+  inner.innerHTML=_wiPanelHTML();
 }
 
 function _wiPanelHTML(){
   const mid=S.activeMonth;
   const sc=S.wiScenario;
   if(!sc)return'';
-  // Income row
   const piReal=monthProjectedIncome(mid)||0;
   const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
   const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(mid,b.id)),0);
   const scSurplus=piSc-scAlloc;
   const surplusColor=scSurplus>0?'var(--green)':scSurplus<0?'var(--red)':'var(--text3)';
-
-  // Saved scenario chips
   const chips=(S.scenarios||[]).map(s=>`<span class="wi-chip" onclick="loadScenario('${s.id}')">${esc(s.name)}<span class="wi-chip-x" onclick="event.stopPropagation();deleteScenario('${s.id}')">×</span></span>`).join('');
 
+  // Header
   let h=`<div class="wi-hdr">
     <input class="wi-name-inp" id="wiNameInp" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
     <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
     ${chips}
-    <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto" onclick="exitWI()">Exit</button>
+    <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto" onclick="exitWI()">× Exit</button>
   </div>
-  <div class="wi-body">
-    <div class="wi-left">
-      <div class="wi-income-row">
-        <span style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;flex:1">Proj. Income</span>
-        <input class="wi-s-inp" type="number" value="${piSc||''}" placeholder="0"
-          onchange="S.wiScenario.incomeOverrides['${mid}']=parseFloat(this.value)||0;renderWI();renderMain();" />
-      </div>
-      <div style="display:flex;gap:12px;font-size:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
-        <span style="color:var(--text3)">Allocated: <strong style="color:var(--text)">${$f(scAlloc)}</strong></span>
-        <span style="color:${surplusColor}">${scSurplus>=0?'Surplus +':'Deficit '}${$f(Math.abs(scSurplus))}</span>
-      </div>`;
+  <div class="wi-two-col">
+    <div>`;
 
-  // Bucket adjustments grouped by category
+  // Left col: income + summary + bucket adjustments
+  h+=`<div class="wi-income-row">
+    <span style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;flex:1">Proj. Income (${getMonth(mid)?.label||''})</span>
+    <input class="wi-s-inp" type="text" inputmode="decimal" value="${piSc||''}" placeholder="0"
+      title="Math: +50, -20, *1.05, 5% of income, =100+50"
+      onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${mid}']??${piReal};var val=evalMoneyExpr(inp.value,cur,cur);inp.value=val;S.wiScenario.incomeOverrides['${mid}']=val;renderWI();renderMain();})(this)"
+      onkeydown="if(event.key==='Enter')this.blur()" />
+  </div>
+  <div style="display:flex;gap:12px;font-size:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+    <span style="color:var(--text3)">Allocated: <strong style="color:var(--text)">${$f(scAlloc)}</strong></span>
+    <span style="color:${surplusColor}">${scSurplus>=0?'Surplus +':'Deficit '}${$f(Math.abs(scSurplus))}</span>
+  </div>`;
+
   sortedCats().forEach(cat=>{
     const bkts=sortedBuckets(cat.id);
     if(!bkts.length)return;
-    const catId=cat.id;
     h+=`<div class="wi-cat-hdr" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.wi-cat-arrow').classList.toggle('open')">
       <span class="wi-cat-arrow open">▶</span>${esc(cat.name)}
     </div><div>`;
@@ -2387,21 +2436,24 @@ function _wiPanelHTML(){
       h+=`<div class="wi-bkt-row">
         <span class="wi-bkt-label">${esc(b.name)}</span>
         ${diffHtml}
-        <input class="wi-s-inp" type="number" value="${val||''}" placeholder="0" style="width:80px"
-          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;renderWI();renderMain();" />
+        <input class="wi-s-inp" type="text" inputmode="decimal" value="${val||''}" placeholder="0" style="width:80px"
+          title="Math: +50, -20, *1.05, 5% of income, =100+50"
+          onchange="(function(inp){var cur=S.wiScenario.budgets['${b.id}']??${real};var ref=S.wiScenario.incomeOverrides['${mid}']??${piReal};var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;S.wiScenario.budgets['${b.id}']=v;renderWI();renderMain();})(this)"
+          onkeydown="if(event.key==='Enter')this.blur()" />
       </div>`;
     });
     h+=`</div>`;
   });
 
   h+=`</div>
-    <div class="wi-right">
-      <table class="wi-proj-table">
-        <thead><tr>
-          <th>Month</th><th>Proj. Income</th><th>Allocated</th><th>Surplus</th><th>Cumulative</th>
-        </tr></thead><tbody>`;
+    <div>`;
 
-  // 6-month projection
+  // Right col: 6-month projection table
+  h+=`<table class="wi-proj-table">
+    <thead><tr>
+      <th>Month</th><th>Proj. Income</th><th>Allocated</th><th>Surplus</th><th>Cumulative</th>
+    </tr></thead><tbody>`;
+
   const now2=new Date();let cy=now2.getFullYear(),cm=now2.getMonth();
   let cumulative=0;
   for(let i=0;i<6;i++){
@@ -2416,8 +2468,10 @@ function _wiPanelHTML(){
     const rowCls=surpRow>=0?'surplus':'deficit';
     h+=`<tr class="${rowCls}">
       <td>${projLabel}</td>
-      <td><input class="wi-proj-inp" type="number" value="${piRow||''}" placeholder="0"
-        onchange="S.wiScenario.incomeOverrides['${projMid}']=parseFloat(this.value)||0;renderWI();" />
+      <td><input class="wi-proj-inp" type="text" inputmode="decimal" value="${piRow||''}" placeholder="0"
+        title="Math: +50, -20, *1.05, 5% of income, =100+50"
+        onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${projMid}']??${piRow};var v=evalMoneyExpr(inp.value,cur,cur);inp.value=v;S.wiScenario.incomeOverrides['${projMid}']=v;renderWI();})(this)"
+        onkeydown="if(event.key==='Enter')this.blur()" />
         ${overridden?'<span style="color:var(--amber);font-size:10px">*</span>':''}
       </td>
       <td>${$f(allocRow)}</td>
@@ -2428,10 +2482,10 @@ function _wiPanelHTML(){
   }
 
   h+=`</tbody></table>
-      <div style="padding:8px 12px;display:flex;gap:10px;border-top:1px solid var(--border)">
-        <button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="promoteScenario()">Promote to real budgets</button>
-      </div>
+    <div style="padding:8px 0 0;display:flex;gap:10px;">
+      <button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="promoteScenario()">Promote to real budgets</button>
     </div>
+  </div>
   </div>`;
   return h;
 }
@@ -2524,7 +2578,7 @@ function _wiMobileHTML(){
 function exitWI(){
   S.scenario=false;S.wiScenario=null;S.wiOpen=false;
   document.getElementById('wiStrip')?.classList.add('hidden');
-  document.getElementById('wiPanel')?.classList.add('hidden');
+  document.getElementById('wiOverlay')?.classList.add('hidden');
   const btn=document.getElementById('wiBtnTop');if(btn)btn.className='tbtn';
   const mBtn=document.getElementById('mWiBtn');if(mBtn){mBtn.style.borderColor='';mBtn.style.color='';}
   closeModal();
@@ -3362,7 +3416,9 @@ document.addEventListener('keydown', e => {
   const wizOpen   = !document.getElementById('wizardOverlay').classList.contains('hidden');
 
   // ── Always available ──────────────────────────────
+  const wiOpen2=S.wiOpen&&!document.getElementById('wiOverlay')?.classList.contains('hidden');
   if(e.key==='Escape'){
+    if(wiOpen2&&!isMobile()){exitWI();return;}
     if(modalOpen){closeModal();return;}
     if(wizOpen){closeWizard();return;}
     // Escape from bucket detail → back to overview
@@ -3444,6 +3500,18 @@ function wireFormKeys(){
       if(!found)addTx();
     });
   });
+  // Evaluate expression in txAmt on blur
+  const txAmtEl=document.getElementById('txAmt');
+  if(txAmtEl){
+    txAmtEl.addEventListener('blur',()=>{
+      const raw=txAmtEl.value;
+      if(!raw)return;
+      const cur=parseFloat(raw)||0;
+      const ref=monthProjectedIncome(S.activeMonth);
+      const v=evalMoneyExpr(raw,cur,ref);
+      if(String(v)!==raw)txAmtEl.value=v||'';
+    });
+  }
 }
 
 // Wire allocation input Enter to commit and move to next bucket
