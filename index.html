@@ -515,7 +515,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-pool-sub{font-size:11px;color:var(--text3);margin-top:2px;}
 
   /* Account chips horizontal scroll */
+  .m-accounts-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 0;}
   .m-accounts{display:flex;gap:8px;padding:12px 14px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;}
+  .m-settings-row{display:flex;gap:8px;padding:12px 16px;flex-wrap:wrap;}
+  .m-settings-btn{flex:1;min-width:90px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 8px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;font-family:var(--sans);}
+  .m-settings-btn:active{background:var(--bg);}
   .m-accounts::-webkit-scrollbar{display:none;}
   .m-acct-chip{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:10px 14px;flex-shrink:0;min-width:120px;cursor:pointer;transition:border-color .12s;}
   .m-acct-chip:active{border-color:var(--accent);}
@@ -539,6 +543,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-cat-color{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
   .m-cat-name{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);flex:1;}
   .m-cat-totals{font-family:var(--mono);font-size:11px;color:var(--text3);}
+  .m-cat-add-btn{border:none;background:none;color:var(--accent);font-size:11px;font-weight:600;padding:4px 6px;cursor:pointer;border-radius:4px;white-space:nowrap;flex-shrink:0;}
+  .m-cat-add-btn:active{background:var(--surface);}
   .m-bucket-item{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);background:var(--bg2);gap:12px;cursor:pointer;transition:background .1s;}
   .m-bucket-item:active{background:var(--surface);}
   .m-bkt-left{flex:1;min-width:0;}
@@ -3139,6 +3145,10 @@ function mRenderDash(){
   let h='';
 
   // Account chips
+  h+=`<div class="m-accounts-hdr">
+    <span class="m-section-label" style="margin:0">Accounts</span>
+    <button class="m-cat-add-btn" onclick="openModal('acct')">+ Account</button>
+  </div>`;
   h+=`<div class="m-accounts">`;
   S.accounts.forEach(a=>{
     const bal=acctBalance(a.id);
@@ -3227,6 +3237,14 @@ function mRenderDash(){
     recent.forEach(tx=>h+=mTxRowHtml(tx));
   }
 
+  // Settings row
+  h+=`<div class="m-settings-row">
+    <button class="m-settings-btn" onclick="exportData()">&#x2193; Export Backup</button>
+    <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">&#x2191; Import Backup</button>
+    <button class="m-settings-btn" style="color:var(--red)" onclick="confirmFreshStart()">&#x21BA; Fresh Start</button>
+  </div>
+  <input type="file" id="importFileMobile" accept=".json" style="display:none" onchange="importData(event)" />`;
+
   h+=`<div style="height:16px"></div>`;
   el.innerHTML=h;
 }
@@ -3248,7 +3266,6 @@ function mRenderBuckets(){
   let h='';
   sortedCats().forEach(cat=>{
     const catBuckets=sortedBuckets(cat.id);
-    if(!catBuckets.length)return;
     const color=cat.color||COLORS[0];
     const catAlloc=catBuckets.reduce((s,b)=>s+bAlloc(mid,b.id),0);
     const catTarget=catBuckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
@@ -3258,7 +3275,12 @@ function mRenderBuckets(){
         <div class="m-cat-color" style="background:${color}"></div>
         <span class="m-cat-name">${cat.name}</span>
         <span class="m-cat-totals">${$f(catAlloc)} / ${$f(catTarget)}</span>
+        <button class="m-cat-add-btn" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>
       </div>`;
+
+    if(!catBuckets.length){
+      h+=`<div style="padding:12px 16px;color:var(--text3);font-size:13px;font-style:italic">No buckets yet — tap + Bucket to add one</div>`;
+    }
 
     const m=getMonth(mid);
     const sorted=[...catBuckets].sort((a,b)=>{
@@ -3861,6 +3883,7 @@ function mAcctOptions(selectedId){
       <div class="mhdr">
         <div class="mhdr-title">Buckets</div>
         <button class="mhdr-action" onclick="openModal('cat')">+ Category</button>
+        <button class="mhdr-action" onclick="openModal('bkt')">+ Bucket</button>
       </div>
       <div class="mscroll" id="mBucketsScroll"></div>
     </div>
