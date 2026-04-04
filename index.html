@@ -861,31 +861,39 @@ async function authInit(){
 
   const client=supaClient();
 
-  // Listen for auth state changes (sign-in, token refresh, sign-out)
+  // Listen for auth state changes
   client.auth.onAuthStateChange(async(event, session)=>{
-    if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'){
+    if(event==='SIGNED_IN'||event==='INITIAL_SESSION'){
+      if(!session){
+        // INITIAL_SESSION with no session — user is not logged in
+        document.getElementById('authScreen').classList.remove('hidden');
+        setSyncStatus('offline','Not signed in');
+        return;
+      }
       _supaUser=session.user;
       document.getElementById('authScreen').classList.add('hidden');
       updateAuthBtn();
       if(!_appInitialized){
-        _appInitialized=true; // Set NOW before any await — prevents race with getSession() path
+        _appInitialized=true; // Set BEFORE any await — prevents race with getSession() path
         setSyncStatus('syncing','Syncing…');
         const loaded=await loadFromSupabase();
         if(loaded){
           ensureMonth();
-          if(!S.activeMonth)S.activeMonth=currentMonthId();
+          // Validate activeMonth — Supabase data might reference a month not in S.months
+          if(!S.activeMonth||!S.months.find(m=>m.id===S.activeMonth)){
+            S.activeMonth=currentMonthId();
+          }
           normalizeCatOrder();normalizeBktOrder();
         }
         setSyncStatus('synced','Synced');
         if(isMobile()){initMobile();}else{initDesktop();}
         if(!S.accounts.length){startWizard();}
-      } else if(event==='TOKEN_REFRESHED'){
-        // Session silently renewed — push any pending offline changes
-        if(_pendingSync){
-          setSyncStatus('syncing','Syncing…');
-          await supabase_push();
-          setSyncStatus('synced','Synced');
-        }
+      }
+    } else if(event==='TOKEN_REFRESHED'){
+      // Session silently renewed — push any pending offline changes
+      if(_supaUser&&_pendingSync){
+        setSyncStatus('syncing','Syncing…');
+        await supabase_push();
       }
     } else if(event==='SIGNED_OUT'){
       _supaUser=null;
@@ -903,12 +911,15 @@ async function authInit(){
     _supaUser=session.user;
     updateAuthBtn();
     if(!_appInitialized){
-      _appInitialized=true; // Set NOW before any await — prevents race with onAuthStateChange
+      _appInitialized=true; // Set BEFORE any await — prevents race with onAuthStateChange
       setSyncStatus('syncing','Syncing…');
       const loaded=await loadFromSupabase();
       if(loaded){
         ensureMonth();
-        if(!S.activeMonth)S.activeMonth=currentMonthId();
+        // Validate activeMonth — Supabase data might reference a month not in S.months
+        if(!S.activeMonth||!S.months.find(m=>m.id===S.activeMonth)){
+          S.activeMonth=currentMonthId();
+        }
         normalizeCatOrder();normalizeBktOrder();
       }
       setSyncStatus('synced','Synced');
@@ -1067,16 +1078,10 @@ let S={
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
   localStorage.setItem(KEY, JSON.stringify(S));
-  if(supaReady() && _supaUser){
+  if(supaReady()&&_supaUser){
     _pendingSync=true;
     setSyncStatus('syncing','Syncing…');
-    supabase_push().then(()=>{
-      setSyncStatus('synced','Synced ✓');
-      setTimeout(()=>setSyncStatus('synced','Synced'),2000);
-    }).catch(err=>{
-      console.warn('Sync failed:',err.message);
-      setSyncStatus('error','Sync failed');
-    });
+    supabase_push().catch(err=>console.warn('Sync failed:',err.message));
   }
 }
 
@@ -1084,22 +1089,37 @@ async function supabase_push(){
   if(!supaReady()||!_supaUser)return;
   const client=supaClient();
   const now=new Date().toISOString();
-  const {data, error}=await client
+
+  // Step 1: write
+  const {error}=await client
     .from('bcc_budget_state')
-    .upsert({user_id:_supaUser.id, data:S, updated_at:now},
-            {onConflict:'user_id'})
-    .select('updated_at'); // Verify the row was actually written
+    .upsert({user_id:_supaUser.id, data:S, updated_at:now},{onConflict:'user_id'});
+
   if(error){
     console.warn('Supabase push error:',error.message,'(code:'+error.code+')');
-    setSyncStatus('error','Sync error — '+error.message);
-  } else if(!data||data.length===0){
-    // upsert returned no rows — RLS is silently blocking writes
-    console.warn('Supabase push: write blocked. Enable RLS policies or disable RLS on bcc_budget_state.');
-    setSyncStatus('error','Sync blocked — run SQL fix (see console)');
+    setSyncStatus('error','Sync error — see console');
+    return;
+  }
+
+  // Step 2: verify the write landed (catches silent RLS blocks)
+  const {data:verify,error:verErr}=await client
+    .from('bcc_budget_state')
+    .select('updated_at')
+    .eq('user_id',_supaUser.id)
+    .maybeSingle();
+
+  if(verErr){
+    console.warn('Supabase verify error:',verErr.message);
+    setSyncStatus('error','Sync unverified — see console');
+  } else if(!verify){
+    console.warn('Supabase write blocked — row not found after upsert.',
+      'Check RLS policies on bcc_budget_state table.');
+    setSyncStatus('error','Sync blocked — check RLS (see console)');
   } else {
     _pendingSync=false;
     localStorage.setItem(KEY+'_saved_at', String(new Date(now).getTime()));
-    console.log('Supabase sync OK');
+    setSyncStatus('synced','Synced ✓');
+    setTimeout(()=>setSyncStatus('synced','Synced'),2000);
   }
 }
 
@@ -2941,6 +2961,13 @@ function initMobile(){
 
 // Defer init until DOM is fully ready
 document.addEventListener('DOMContentLoaded',()=>{
+  // On mobile, reveal the shell immediately so the page isn't blank during async auth.
+  // The CSS media query shows it on mobile but the old inline style blocked it.
+  if(isMobile()){
+    const shell=document.getElementById('mShell');
+    if(shell)shell.style.cssText='display:flex;flex-direction:column;height:100vh;height:100dvh;';
+  }
+
   // Resize handler — always active
   window.addEventListener('resize',()=>{
     clearTimeout(_resizeTimer);
@@ -2955,9 +2982,15 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   if(supaReady()){
     // Supabase configured — auth flow handles app init
-    authInit();
+    authInit().catch(err=>{
+      // If auth setup throws for any reason, fall back to a usable offline state
+      console.error('authInit failed, falling back to offline mode:',err);
+      setSyncStatus('error','Auth error — running offline');
+      if(isMobile()){initMobile();}else{initDesktop();}
+      if(!S.accounts.length){startWizard();}
+    });
   } else {
-    // No Supabase config yet — run locally, no auth screen
+    // No Supabase config — run locally
     if(isMobile()){initMobile();}
     else{initDesktop();}
     if(!S.accounts.length){startWizard();}
@@ -3784,7 +3817,7 @@ function mAcctOptions(selectedId){
 </script>
 
 <!-- ════ MOBILE SHELL ════ -->
-<div id="mShell" style="display:none">
+<div id="mShell">
   <!-- Top bar -->
   <div id="mTopbar">
     <div id="mTopbar-title"><div id="mTopbar-dot"></div>Budget/CC</div>
