@@ -3742,6 +3742,8 @@ function promptAllocationRules(incomeAmt,monthId){
 let _pendingRules=[];
 function showRuleApplyModal(suggestions,monthId){
   _pendingRules=suggestions.map(s=>({...s}));
+  // Dismiss mobile keyboard so the modal is fully visible
+  document.activeElement?.blur();
   const modal=document.getElementById('modalBox');
   modal.className='modal';
   modal.innerHTML=ruleApplyHtml(monthId);
@@ -3750,7 +3752,7 @@ function showRuleApplyModal(suggestions,monthId){
 function ruleApplyHtml(monthId){
   const total=_pendingRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
   const rows=_pendingRules.map((r,i)=>`
-    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('ruleApplyModal').innerHTML=ruleApplyHtml('${monthId}')">
+    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('modalBox').innerHTML=ruleApplyHtml('${monthId}')">
       <div class="rule-apply-check">${r.on?'✓':''}</div>
       <div class="rule-apply-main">
         <div class="rule-apply-name">${esc(r.name)}</div>
@@ -3784,8 +3786,15 @@ function applyAllocationRules(monthId){
     const current=mo.allocations[r.bucketId]||0;
     mo.allocations[r.bucketId]=Math.round((current+r.suggestedAmt)*100)/100;
   });
-  save();closeModal();render();
-  showToast(`Applied ${_pendingRules.filter(r=>r.on).length} allocation rules`,'save');
+  const count=_pendingRules.filter(r=>r.on).length;
+  save();closeModal();
+  if(isMobile()){
+    mRenderAll();
+    mShowToast('alloc',`${count} allocation rule${count!==1?'s':''} applied`,'');
+  }else{
+    render();
+    showToast(`Applied ${count} allocation rule${count!==1?'s':''}`, 'save');
+  }
 }
 
 // FRESH START
