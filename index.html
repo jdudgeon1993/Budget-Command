@@ -793,9 +793,16 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 #updateBanner button{background:rgba(255,255,255,.25);border:none;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);}
 #updateBanner button:hover{background:rgba(255,255,255,.4);}
 @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
-/* Expression hint badge */
-.expr-hint{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--accent);opacity:0;transition:opacity .15s;pointer-events:none;letter-spacing:.3px;font-family:var(--mono);}
-.alloc-wrap:focus-within .expr-hint{opacity:1;}
+/* Expression fx button & popover menu */
+.expr-fx-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--accent);opacity:0;transition:opacity .15s;letter-spacing:.3px;font-family:var(--mono);background:none;border:none;cursor:pointer;padding:2px 3px;border-radius:3px;line-height:1;}
+.alloc-wrap:focus-within .expr-fx-btn,.expr-fx-btn:hover{opacity:1;}
+.expr-fx-btn:hover{background:var(--surface3);}
+.expr-menu{position:absolute;top:calc(100% + 4px);right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:300;box-shadow:0 6px 24px rgba(0,0,0,.45);min-width:176px;}
+.expr-menu-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;cursor:pointer;background:none;border:none;width:100%;text-align:left;color:var(--text1);font-family:var(--sans);}
+.expr-menu-item:hover{background:var(--hover);}
+.emi-sym{font-family:var(--mono);font-weight:700;color:var(--accent);font-size:14px;min-width:18px;text-align:center;}
+.emi-label{font-size:12px;flex:1;}
+.emi-hint{font-family:var(--mono);font-size:11px;color:var(--text3);}
 /* Sync indicator in topbar */
 #syncStatus{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;padding:3px 8px;border-radius:10px;transition:all .3s;}
 #syncStatus.synced{background:var(--gbg);color:var(--green);}
@@ -1534,6 +1541,8 @@ function evalMoneyExpr(expr,currentVal,refVal){
   if(/^\//.test(expr)){const divisor=parseFloat(expr.slice(1));return(!divisor||isNaN(divisor))?currentVal:Math.round(currentVal/divisor*100)/100;}
   if(expr.endsWith('%')){const pct=parseFloat(expr)/100;if(isNaN(pct))return currentVal;const base=(refVal!=null&&refVal>0)?refVal:currentVal;return Math.round(base*pct*100)/100;}
   if(expr.startsWith('=')){const formula=expr.slice(1);if(!/^[\d\s\+\-\*\/\.\(\)]+$/.test(formula))return currentVal;try{const result=Function('"use strict";return('+formula+')')();return(typeof result==='number'&&!isNaN(result))?Math.round(result*100)/100:currentVal;}catch(e){return currentVal;}}
+  // Inline math: 50+50, 100-20, 300*1.1, etc. (starts with digit/paren, has an operator)
+  if(/^[\d\(]/.test(expr)&&/[\+\-\*\/]/.test(expr)&&/^[\d\s\.\(\)\+\-\*\/]+$/.test(expr)){try{const r=Function('"use strict";return('+expr+')')();if(typeof r==='number'&&!isNaN(r))return Math.round(r*100)/100;}catch(e){}}
   const val=parseFloat(expr);return isNaN(val)?currentVal:val;
 }
 
@@ -1833,7 +1842,7 @@ function renderMain(){
 
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
 
-      h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter')setBucket('${b.id}')">
+      h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
         <td class="td-accent"><div class="accent-bar" style="background:${color}"></div></td>
         <td class="td-name">
           <div class="bn">${esc(b.name)}</div>
@@ -1844,11 +1853,11 @@ function renderMain(){
           <div class="alloc-wrap">
             <span class="alloc-pfx">$</span>
             <input class="alloc-inp ${allocCls}" type="text" inputmode="decimal"
-              value="${alloc||''}" placeholder="0" title="Math: +50, -20, *1.05, 5% of income, =100+50"
+              value="${alloc||''}" placeholder="0"
               onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
-              onkeydown="if(event.key==='Enter')this.blur()"
+              onkeydown="if(event.key==='Enter'){event.stopPropagation();event.preventDefault();this.dispatchEvent(new Event('change'));var _a=[...document.querySelectorAll('.alloc-inp')];var _i=_a.indexOf(this);if(_i>-1&&_i<_a.length-1)_a[_i+1].focus();else this.blur();}"
               onfocus="this.select()" />
-            <span class="expr-hint">𝑓x</span>
+            <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
           </div>`}
         </td>
         <td class="td-bar">
@@ -3514,19 +3523,46 @@ function wireFormKeys(){
   }
 }
 
-// Wire allocation input Enter to commit and move to next bucket
+// Expression fx popover — YNAB-style clickable operator menu
+function toggleExprMenu(btn){
+  document.querySelectorAll('.expr-menu').forEach(m=>m.remove());
+  const wrap=btn.closest('.alloc-wrap');
+  const inp=wrap?.querySelector('.alloc-inp');
+  if(!inp)return;
+  const menu=document.createElement('div');
+  menu.className='expr-menu';
+  const opts=[
+    {sym:'+',label:'Add amount',hint:'+50',insert:'+'},
+    {sym:'−',label:'Subtract',hint:'−20',insert:'-'},
+    {sym:'×',label:'Multiply',hint:'×1.5',insert:'*'},
+    {sym:'÷',label:'Divide',hint:'÷2',insert:'/'},
+    {sym:'%',label:'% of income',hint:'25%',insert:'25%',sel:[0,2]},
+  ];
+  opts.forEach(o=>{
+    const b=document.createElement('button');
+    b.type='button';b.className='expr-menu-item';
+    b.innerHTML=`<span class="emi-sym">${o.sym}</span><span class="emi-label">${o.label}</span><span class="emi-hint">${o.hint}</span>`;
+    b.onmousedown=e=>{
+      e.preventDefault();
+      inp.value=o.insert;
+      inp.focus();
+      const pos=o.sel?o.sel[1]:o.insert.length;
+      inp.setSelectionRange(o.sel?o.sel[0]:o.insert.length,pos);
+      menu.remove();
+    };
+    menu.appendChild(b);
+  });
+  wrap.appendChild(menu);
+  const close=e=>{if(!wrap.contains(e.target)){menu.remove();document.removeEventListener('mousedown',close);}};
+  setTimeout(()=>document.addEventListener('mousedown',close),0);
+}
+
+// Wire allocation inputs — stopPropagation so Enter/Space don't bubble to <tr> row handler
 function wireAllocKeys(){
   document.querySelectorAll('.alloc-inp').forEach(inp=>{
-    inp.addEventListener('keydown',e=>{
-      if(e.key!=='Enter'&&e.key!=='Tab')return;
-      if(e.key==='Tab')return; // let browser handle tab
-      e.preventDefault();
-      inp.dispatchEvent(new Event('change'));
-      // Move focus to next alloc input
-      const all=[...document.querySelectorAll('.alloc-inp')];
-      const idx=all.indexOf(inp);
-      if(idx>-1&&idx<all.length-1)all[idx+1].focus();
-    });
+    if(inp._spWired)return;
+    inp._spWired=true;
+    inp.addEventListener('keydown',e=>{e.stopPropagation();});
   });
 }
 
