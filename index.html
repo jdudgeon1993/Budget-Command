@@ -228,7 +228,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
 
 /* ═══ BUCKET DETAIL ═══ */
-.det-notes{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;}
+.det-notes{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;word-break:break-word;}
 .back-btn{background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);display:flex;align-items:center;gap:5px;padding:0;margin-bottom:14px;font-family:var(--sans);transition:color .12s;}
 .back-btn:hover{color:var(--text2);}
 .det-name{font-size:23px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px;}
@@ -1684,7 +1684,7 @@ function renderSidebar(){
         else if(alloc>0)dotCls='partial';
         const isFirstBkt=bIdx===0;
         const isLastBkt=bIdx===catBuckets.length-1;
-        h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')" tabindex="0" role="button" aria-label="${b.name}" onkeydown="if(event.key==='Enter'||event.key===' ')setBucket('${b.id}')">
+        h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')" tabindex="0" role="button" aria-label="${esc(b.name)}" onkeydown="if(event.key==='Enter'||event.key===' ')setBucket('${b.id}')">
           <div class="bni-line" style="background:${cat.color||COLORS[0]}"></div>
           <div class="bni-dot ${dotCls}"></div>
           <span class="bni-name">${esc(b.name)}</span>
@@ -1891,7 +1891,6 @@ function renderMain(){
         </td>
         <td class="td-bar">
           <div class="bbar"><div class="bbar-fill ${eff>0?fillCls:'bf-ok'}" style="width:${eff>0?Math.round(pct*100):0}%"></div></div>
-          <div class="bbar-sub">${eff>0?Math.round(pctRaw*100)+'%':''}</div>
         </td>
         <td class="td-spent"><span class="tv ${spent>0?'dim':'muted'}">${spent>0?$f(spent):'—'}</span>${target>0?`<div class="tv-sub">of ${$f(target)}</div>`:''}</td>
         <td class="td-avail"><span class="tv ${avail>0?'green':avail<0?'red':'muted'}">${eff>0||spent>0?$f(avail):'—'}</span></td>
@@ -2151,7 +2150,7 @@ function calcAccountRunningBal(aid){
   // Posted: walk backwards from current cleared balance
   const posted=S.txs.filter(t=>
     (t.accountId===aid||t.toAccountId===aid)&&t.type!=='opening'&&!isScheduled(t)
-  ).sort((a,b)=>new Date(b.date)-new Date(a.date)||(b.id>a.id?1:-1));
+  ).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let bal=cleared;
   posted.forEach(t=>{
     balMap.set(t.id,bal);
@@ -2231,7 +2230,7 @@ function renderTxList(){
 
   txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
   const list=document.getElementById('txList');
-  if(!txs.length){list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${search}"`:''}.<br>${past?'Month is closed.':'Log one above.'}</div>`;return;}
+  if(!txs.length){list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${esc(search)}"`:''}.<br>${past?'Month is closed.':'Log one above.'}</div>`;return;}
 
   // Split into scheduled (future) and posted (today or earlier)
   const today=todayStr();
@@ -3059,6 +3058,15 @@ function MsnapBkt(){
   const gd=document.getElementById('mBktDate');if(gd)M.bktDate=gd.value;
   const c=document.getElementById('mBktContrib');if(c)M.bktContrib=c.value;
 }
+function MsyncSplitTotal(){
+  const a1=parseFloat(document.getElementById('mBktAmt1')?.value)||0;
+  const a2=parseFloat(document.getElementById('mBktAmt2')?.value)||0;
+  const total=Math.round((a1+a2)*100)/100;
+  const budgetEl=document.getElementById('mBktBudget');
+  const msgEl=document.getElementById('splitTotalMsg');
+  if(budgetEl&&total>0){budgetEl.value=total;M.bktBudget=String(total);}
+  if(msgEl){msgEl.textContent=total>0?'Total: '+$f(total)+' → synced to budget target':'';}
+}
 
 function MpickColor(c){M.catColor=c;if(M.tab==='acct')M.acctColor=c;MsnapBuilder();renderModal();}
 
@@ -3162,12 +3170,13 @@ function renderModal(){
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:8px">Split Payment Schedule</div>
         <div class="fi-row" style="margin-bottom:8px">
           <div class="fg"><label class="fl">1st Due Day</label><select class="fi" id="mBktDue" style="margin:0">${dueOptsHtml(M.bktDueDay)}</select></div>
-          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt1" type="number" value="${M.bktDueAmount}" placeholder="0.00" style="margin:0" /></div>
+          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt1" type="number" value="${M.bktDueAmount}" placeholder="0.00" style="margin:0" oninput="MsyncSplitTotal()" /></div>
         </div>
-        <div class="fi-row">
+        <div class="fi-row" style="margin-bottom:8px">
           <div class="fg"><label class="fl">2nd Due Day</label><select class="fi" id="mBktDue2" style="margin:0">${dueOptsHtml(M.bktDueDay2)}</select></div>
-          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt2" type="number" value="${M.bktDueAmount2}" placeholder="0.00" style="margin:0" /></div>
+          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt2" type="number" value="${M.bktDueAmount2}" placeholder="0.00" style="margin:0" oninput="MsyncSplitTotal()" /></div>
         </div>
+        <div id="splitTotalMsg" style="font-size:12px;color:var(--green);font-family:var(--mono);padding:2px 0 0">${(parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0)>0?'Total: '+$f((parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0))+' → synced to budget target':''}</div>
       </div>`:''}
       <div class="fi-row">
         <div class="fg"><label class="fl">Recurring</label><div class="tog-row"><button class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button></div></div>
@@ -3995,8 +4004,8 @@ function mRenderDash(){
       h+=`<div class="m-urgency-item" onclick="mOpenBucket('${u.b.id}')">
         <div class="m-urgency-dot" style="background:${dotColor}"></div>
         <div style="flex:1">
-          <div class="m-urgency-name">${u.b.name}</div>
-          <div class="m-urgency-sub" style="color:${color}">${cat?.name||''} · ${sub}</div>
+          <div class="m-urgency-name">${esc(u.b.name)}</div>
+          <div class="m-urgency-sub" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div>
         </div>
         <span style="color:var(--text3);font-size:18px">›</span>
       </div>`;
@@ -4325,7 +4334,7 @@ function mRenderLedger(){
   txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
 
   if(!txs.length){
-    el.innerHTML=`<div style="padding:40px 16px;text-align:center;color:var(--text3)">No transactions${search?' matching "'+search+'"':''}.</div>`;
+    el.innerHTML=`<div style="padding:40px 16px;text-align:center;color:var(--text3)">No transactions${search?' matching "'+esc(search)+'"':''}.</div>`;
     return;
   }
 
