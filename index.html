@@ -440,6 +440,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tx-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;align-self:center;flex-shrink:0;}
 .tx-row:hover .tx-acts{opacity:1;}
 .tx-empty{padding:32px 14px;text-align:center;font-size:13px;color:var(--text3);line-height:1.8;}
+/* Scheduled (future-dated) transactions */
+.tx-scheduled-hdr{padding:6px 12px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--amber);background:var(--abg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;}
+.tx-sched{opacity:.7;background:var(--abg);}
+.tx-sched:hover{background:color-mix(in srgb,var(--abg) 80%,var(--bg3) 20%);}
+.tx-sched-badge{font-size:10px;font-weight:700;color:var(--amber);font-family:var(--mono);letter-spacing:.3px;flex-shrink:0;}
 
 /* ═══ ACCESSIBILITY — focus rings for keyboard navigation ═══ */
 *:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
@@ -623,6 +628,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-tx-date-hdr{padding:6px 16px 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;}
   .m-tx-row{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;background:var(--bg2);cursor:pointer;}
   .m-tx-row:active{background:var(--surface);}
+  .m-tx-sched{opacity:.75;background:var(--abg);}
+  .m-tx-sched:active{background:var(--abg);}
   .m-tx-ind{width:4px;border-radius:2px;align-self:stretch;min-height:36px;flex-shrink:0;}
   .m-tx-l{flex:1;min-width:0;}
   .m-tx-name{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1467,9 +1474,10 @@ function acctBalance(aid){
   // Sum all opening transactions for this account (should only be one, but defensive)
   const openingTotal=S.txs.filter(t=>t.accountId===aid&&t.type==='opening').reduce((s,t)=>s+t.amount,0);
   let bal=openingTotal>0?openingTotal:(acct.openingBalance||0);
-  // Apply all subsequent regular transactions
+  // Apply all subsequent regular transactions (skip future-dated/scheduled ones)
   S.txs.forEach(t=>{
     if(t.type==='opening')return;
+    if(isScheduled(t))return; // not cleared yet — doesn't affect current balance
     if(t.accountId===aid&&t.type==='in')bal+=t.amount;
     if(t.accountId===aid&&t.type==='out')bal-=t.amount;
     if(t.accountId===aid&&t.type==='xfr')bal-=t.amount;
@@ -1502,7 +1510,10 @@ function setProjectedIncome(mid,val){
   m.projectedIncome=val>0?val:null;
   save();render();if(isMobile())mRenderAll();
 }
-const bSpent=(mid,bid)=>mTxs(mid).filter(t=>t.bucketId===bid&&t.type==='out').reduce((s,t)=>s+t.amount,0);
+// Future-dated transactions are "scheduled" — shown in ledger but excluded from all balance/spend math
+const todayStr=()=>new Date().toISOString().split('T')[0];
+const isScheduled=tx=>tx.date>todayStr();
+const bSpent=(mid,bid)=>mTxs(mid).filter(t=>t.bucketId===bid&&t.type==='out'&&!isScheduled(t)).reduce((s,t)=>s+t.amount,0);
 const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAlloc(mid,b.id),0);
 // Ready to Spend = sum of all budget account balances minus total allocated
 // This reflects real cash on hand, not just this month's income
@@ -1519,7 +1530,7 @@ function rolloverBal(bid,mid){
   const prior=S.months.filter(mo=>mo.year<m.year||(mo.year===m.year&&mo.month<m.month));
   return prior.reduce((s,mo)=>{const a=mo.allocations?mo.allocations[bid]||0:0;return s+(a-bSpent(mo.id,bid));},0);
 }
-const sinkingSaved=bid=>S.txs.filter(t=>t.bucketId===bid&&t.type==='out').reduce((s,t)=>s+t.amount,0);
+const sinkingSaved=bid=>S.txs.filter(t=>t.bucketId===bid&&t.type==='out'&&!isScheduled(t)).reduce((s,t)=>s+t.amount,0);
 function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m/4.33).toFixed(2);if(b.contribFreq==='biweekly')return+(m/2).toFixed(2);return m;}
 
 // ═══════════════════════════════════════════════════════
@@ -2147,45 +2158,62 @@ function renderTxList(){
   const list=document.getElementById('txList');
   if(!txs.length){list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${search}"`:''}.<br>${past?'Month is closed.':'Log one above.'}</div>`;return;}
 
+  // Split into scheduled (future) and posted (today or earlier)
+  const today=todayStr();
+  const scheduled=txs.filter(t=>t.date>today);
+  const posted=txs.filter(t=>t.date<=today);
+
   const groups={};
-  txs.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+  posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
   let h='';
-  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
-    h+=`<div class="tx-date-hdr">${ld(date)}</div>`;
-    groups[date].forEach(tx=>{
-      const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
-      const color=cat?.color||'var(--text3)';
-      const acct=getAcct(tx.accountId);
-      const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
-      const isXfrIn=tx.type==='xfr'&&tx.toAccountId===S.activeAccount;
-      const isOpening=tx.type==='opening';
-      const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
-      const amtPfx=isOpening||tx.type==='in'||isXfrIn?'+':'-';
-      // Color indicator bar by type
-      const indColor=tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':isOpening?'var(--blue)':'var(--red)';
-      // Meta line: account > category > bucket
-      let metaLine='';
-      if(acct)metaLine+=`<span class="tx-meta-acct">${esc(acct.name)}</span>`;
-      if(cat){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`;}
-      if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${esc(b.name)}</span>`;}
-      if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span style="color:var(--purple)">→ ${esc(toAcct.name)}</span>`;}
-      if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span style="color:var(--accent)">↻</span>`;
-      h+=`<div class="tx-row">
-        <div class="tx-indicator" style="background:${indColor}"></div>
-        <div class="tx-l">
-          <div class="tx-name">${esc(tx.desc)}</div>
-          <div class="tx-meta">${metaLine||'<span style="color:var(--text3)">—</span>'}</div>
-        </div>
-        <div class="tx-r">
-          <div class="tx-amt ${amtCls}">${amtPfx}${$f(tx.amount)}</div>
-        </div>
-        <div class="tx-acts">
-          ${!past?`<button class="ib" onclick="editTx('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:''}
-        </div>
-      </div>`;
+
+  // Scheduled section at the top
+  if(scheduled.length){
+    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
+    scheduled.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(tx=>{
+      h+=txRowHtml(tx,past,true);
     });
+    if(posted.length)h+=`<div class="tx-date-hdr" style="margin-top:6px">Posted</div>`;
+  }
+
+  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
+    if(scheduled.length)h+=`<div class="tx-date-hdr" style="font-size:10px;padding:4px 10px 2px;opacity:.7">${ld(date)}</div>`;
+    else h+=`<div class="tx-date-hdr">${ld(date)}</div>`;
+    groups[date].forEach(tx=>{h+=txRowHtml(tx,past,false);});
   });
   list.innerHTML=h;
+}
+
+function txRowHtml(tx,past,sched){
+  const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
+  const color=cat?.color||'var(--text3)';
+  const acct=getAcct(tx.accountId);
+  const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
+  const isXfrIn=tx.type==='xfr'&&tx.toAccountId===S.activeAccount;
+  const isOpening=tx.type==='opening';
+  const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
+  const amtPfx=isOpening||tx.type==='in'||isXfrIn?'+':'-';
+  const indColor=tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':isOpening?'var(--blue)':'var(--red)';
+  let metaLine='';
+  if(sched)metaLine+=`<span class="tx-sched-badge">${ld(tx.date)}</span><span class="tx-dot2"></span>`;
+  if(acct)metaLine+=`<span class="tx-meta-acct">${esc(acct.name)}</span>`;
+  if(cat){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`;}
+  if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${esc(b.name)}</span>`;}
+  if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span style="color:var(--purple)">→ ${esc(toAcct.name)}</span>`;}
+  if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span style="color:var(--accent)">↻</span>`;
+  return `<div class="tx-row${sched?' tx-sched':''}">
+    <div class="tx-indicator" style="background:${sched?'var(--border2)':indColor}"></div>
+    <div class="tx-l">
+      <div class="tx-name">${esc(tx.desc)}</div>
+      <div class="tx-meta">${metaLine||'<span style="color:var(--text3)">—</span>'}</div>
+    </div>
+    <div class="tx-r">
+      <div class="tx-amt ${sched?'muted':amtCls}">${amtPfx}${$f(tx.amount)}</div>
+    </div>
+    <div class="tx-acts">
+      ${!past?`<button class="ib" onclick="editTx('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:''}
+    </div>
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4196,10 +4224,17 @@ function mRenderLedger(){
     return;
   }
 
+  const today=todayStr();
+  const scheduled=txs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const posted=txs.filter(t=>t.date<=today);
   const groups={};
-  txs.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+  posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
 
   let h='';
+  if(scheduled.length){
+    h+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
+    scheduled.forEach(tx=>h+=mTxRowHtml(tx,true));
+  }
   Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
     h+=`<div class="m-tx-date-hdr">${ld(date)}</div>`;
     groups[date].forEach(tx=>h+=mTxRowHtml(tx,true));
@@ -4214,22 +4249,24 @@ function mTxRowHtml(tx,tappable){
   const acct=getAcct(tx.accountId);
   const color=cat?.color||'var(--text3)';
   const isOpening=tx.type==='opening';
+  const sched=isScheduled(tx);
   const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
   const amtPfx=isOpening||tx.type==='in'?'+':'-';
-  const indColor=tx.type==='in'||isOpening?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+  const indColor=sched?'var(--amber)':tx.type==='in'||isOpening?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
   const metaParts=[];
+  if(sched)metaParts.push(`⏱ ${ld(tx.date)}`);
   if(acct)metaParts.push(esc(acct.name));
   if(cat)metaParts.push(esc(cat.name));
   if(b)metaParts.push(esc(b.name));
   if(tx.type==='xfr')metaParts.push('→ '+esc(getAcct(tx.toAccountId)?.name||''));
   const onclick=tappable?`onclick="mEditTxSheet('${tx.id}')"`:'' ;
-  return `<div class="m-tx-row" ${onclick}>
+  return `<div class="m-tx-row${sched?' m-tx-sched':''}" ${onclick}>
     <div class="m-tx-ind" style="background:${indColor}"></div>
     <div class="m-tx-l">
       <div class="m-tx-name">${esc(tx.desc)}</div>
-      <div class="m-tx-meta" style="color:${color}">${metaParts.join(' · ')}</div>
+      <div class="m-tx-meta" style="color:${sched?'var(--amber)':color}">${metaParts.join(' · ')}</div>
     </div>
-    <div class="m-tx-amt ${amtCls}">${amtPfx}${$f(tx.amount)}</div>
+    <div class="m-tx-amt ${sched?'':amtCls}" style="${sched?'color:var(--text3)':''}">${amtPfx}${$f(tx.amount)}</div>
   </div>`;
 }
 
