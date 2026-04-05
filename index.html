@@ -458,6 +458,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* Scheduled (future-dated) transactions */
 .tx-scheduled-hdr{padding:6px 12px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--amber);background:var(--abg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;}
 .tx-sched{opacity:.7;background:var(--abg);}
+.tx-highlight{animation:txFlash .4s ease 3;}
+@keyframes txFlash{0%,100%{background:transparent;}50%{background:var(--abg);}}
 .tx-sched:hover{background:color-mix(in srgb,var(--abg) 80%,var(--bg3) 20%);}
 .tx-sched-badge{font-size:10px;font-weight:700;color:var(--amber);font-family:var(--mono);letter-spacing:.3px;flex-shrink:0;}
 
@@ -849,6 +851,94 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 #syncStatus.syncing{background:var(--abg);color:var(--amber);}
 #syncStatus.offline{background:var(--bg3);color:var(--text3);}
 #syncStatus.error{background:var(--rbg);color:var(--red);}
+/* ── Payee autocomplete ── */
+.payee-dropdown{background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden;max-height:280px;overflow-y:auto;}
+.payee-drop-item{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:background .1s;}
+.payee-drop-item:hover,.payee-drop-item.hi{background:var(--surface2);}
+.pdi-name{flex:1;font-size:13px;color:var(--text);}
+.pdi-bkt{font-size:11px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:8px;}
+/* Payee settings */
+.payee-settings-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.payee-settings-row:last-child{border-bottom:none;}
+.payee-settings-name{flex:1;font-size:13px;color:var(--text);}
+.payee-settings-bkt{font-size:11px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:8px;}
+/* ── Global search ── */
+.gsearch-modal{max-width:600px;width:95vw;}
+.gsearch-input-wrap{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);}
+.gsearch-inp{flex:1;background:none;border:none;font-size:16px;color:var(--text);outline:none;font-family:var(--sans);}
+.gsearch-filters{display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);}
+.gsearch-fbtn{padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:none;font-size:11px;color:var(--text3);cursor:pointer;transition:all .12s;}
+.gsearch-fbtn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.gsearch-results{padding:8px 0;max-height:400px;overflow-y:auto;}
+.gsearch-empty{padding:32px 16px;text-align:center;color:var(--text3);font-size:13px;}
+.gsr-row{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background .1s;}
+.gsr-row:hover{background:var(--surface2);}
+.gsr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.gsr-main{flex:1;min-width:0;}
+.gsr-desc{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gsr-meta{font-size:11px;color:var(--text3);margin-top:1px;}
+.gsr-right{text-align:right;flex-shrink:0;}
+.gsr-amt{font-family:var(--mono);font-size:13px;font-weight:600;}
+.gsr-amt.in{color:var(--green);}
+.gsr-amt.out{color:var(--red);}
+.gsr-amt.xfr{color:var(--purple);}
+.gsr-month{font-size:10px;color:var(--text3);margin-top:1px;}
+/* ── Reconciliation ── */
+.recon-modal{max-width:560px;width:95vw;}
+.recon-stat-bar{display:flex;gap:12px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.recon-stat{flex:1;text-align:center;}
+.recon-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
+.recon-stat-val{font-family:var(--mono);font-size:16px;font-weight:700;margin-top:2px;}
+.recon-tx-list{max-height:340px;overflow-y:auto;padding:8px 0;}
+.recon-tx-row{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background .1s;}
+.recon-tx-row:hover{background:var(--surface2);}
+.recon-tx-row.checked{background:var(--gbg);}
+.recon-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:var(--green);background:transparent;transition:all .12s;}
+.recon-tx-row.checked .recon-check{border-color:var(--green);background:var(--gbg);}
+.recon-tx-main{flex:1;min-width:0;}
+.recon-tx-desc{font-size:13px;color:var(--text);}
+.recon-tx-meta{font-size:11px;color:var(--text3);}
+.recon-tx-amt{font-family:var(--mono);font-size:13px;font-weight:600;}
+.recon-diff-ok{color:var(--green);}
+.recon-diff-bad{color:var(--red);}
+/* ── Spending trend chart ── */
+.trend-section{margin-top:18px;}
+.trend-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
+.trend-chart{display:flex;align-items:flex-end;gap:6px;height:80px;}
+.trend-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.trend-bar-outer{width:100%;flex:1;display:flex;align-items:flex-end;position:relative;}
+.trend-bar{width:100%;border-radius:3px 3px 0 0;transition:height .3s;min-height:2px;}
+.trend-bar.ok{background:var(--green);}
+.trend-bar.warn{background:var(--amber);}
+.trend-bar.over{background:var(--red);}
+.trend-bar.empty{background:var(--border);}
+.trend-budget-line{position:absolute;width:100%;height:2px;background:var(--accent);opacity:.5;bottom:0;}
+.trend-label{font-size:9px;color:var(--text3);text-align:center;white-space:nowrap;}
+.trend-val{font-size:9px;font-family:var(--mono);color:var(--text3);text-align:center;}
+/* ── Net worth ── */
+.nw-modal{max-width:640px;width:95vw;}
+.nw-summary{display:flex;gap:12px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.nw-summary-cell{flex:1;text-align:center;}
+.nw-summary-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
+.nw-summary-val{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:4px;}
+.nw-history{overflow-x:auto;padding:0 16px 16px;}
+.nw-table{width:100%;border-collapse:collapse;font-size:12px;}
+.nw-table th{text-align:right;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;}
+.nw-table th:first-child{text-align:left;}
+.nw-table td{text-align:right;padding:6px 8px;font-family:var(--mono);border-bottom:1px solid var(--border);white-space:nowrap;}
+.nw-table td:first-child{text-align:left;font-family:var(--sans);color:var(--text2);}
+.nw-table tr:last-child td{font-weight:700;border-top:2px solid var(--border2);}
+/* ── Monthly report ── */
+.report-modal{max-width:600px;width:95vw;}
+.report-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.report-table th{padding:6px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:2px solid var(--border2);}
+.report-table th:first-child{text-align:left;}
+.report-table td{padding:6px 10px;text-align:right;font-family:var(--mono);border-bottom:1px solid var(--border);}
+.report-table td:first-child{text-align:left;font-family:var(--sans);font-size:12px;color:var(--text2);}
+.report-table .report-cat-row td{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2);font-family:var(--sans);}
+.report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
+.report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
+.report-copy-btn:hover{background:var(--surface);color:var(--text);}
 </style>
 </head>
 <body>
@@ -868,10 +958,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <div class="tb-months" id="tbMonths"></div>
   <div class="tb-actions">
     <span id="syncStatus" class="offline" style="display:none"></span>
+    <button class="tbtn" onclick="openGlobalSearch()" title="Search all transactions" style="padding:5px 8px;font-size:14px;">🔍</button>
     <button class="tbtn" id="wiBtnTop" onclick="toggleWI()">⚡ What If</button>
     <button class="tbtn" onclick="openModal('acct')">+ Account</button>
     <button class="tbtn primary" onclick="openModal('new')">+ New</button>
     <button class="tbtn" onclick="showShortcuts()" title="Keyboard shortcuts" style="padding:5px 8px;font-size:14px;">⌨</button>
+    <button class="tbtn" onclick="openNetWorth()" title="Net Worth">Net Worth</button>
     <button class="tbtn" onclick="openSettings()" title="Settings" style="padding:5px 8px;font-size:14px;">⚙</button>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
   </div>
@@ -1262,6 +1354,7 @@ let S={
   wiOpen:false,
   txFilter:'all',
   onboarded:false,
+  payees:[],  // {id,name,defaultBucketId?} — saved from transaction descriptions
 };
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
@@ -1395,6 +1488,7 @@ function load(){
   ensureMonth();
   if(!S.activeMonth&&S.months.length)S.activeMonth=currentMonthId();
   if(!S.txFilter)S.txFilter='all';
+  if(!S.payees)S.payees=[];
   normalizeCatOrder();
   normalizeBktOrder();
 }
@@ -1604,6 +1698,7 @@ function render(){
   if(S.wiOpen)renderWI();
   wireFormKeys();
   setTimeout(wireAllocKeys, 50);
+  setTimeout(wireDesktopPayee, 0);
   // Keep mobile in sync when render is called from desktop actions
   if(isMobile())setTimeout(mRenderAll, 0);
 }
@@ -1774,7 +1869,7 @@ function renderMain(){
 
   let h='';
   const chipTxt=st==='past'?'Closed':st==='present'?'Current':'Upcoming';
-  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span></div>`;
+  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="openMonthReport('${mid}')">📊 Report</button></div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
 
   if(S.activeBucket){h+=renderBucketDetail(mid,past,m);el.innerHTML=h;return;}
@@ -2052,6 +2147,7 @@ function renderAccountView(el,mid){
     <div class="acct-hdr-name">${esc(a.name)}</div>
     <span class="chip ${a.type==='savings'?'chip-future':'chip-present'}">${a.type}</span>
     <button class="tbtn" style="margin-left:auto" onclick="editAcct('${a.id}')">Edit account</button>
+    <button class="tbtn" onclick="openReconcile('${a.id}')" title="Reconcile against bank statement">✓ Reconcile</button>
   </div>
   <div class="acct-balance-block">
     <div class="ps-cell"><div class="ps-label">Current Balance</div><div class="ps-val ${bal>=0?'green':'red'}">${$f(bal)}</div></div>
@@ -2151,6 +2247,34 @@ function renderBucketDetail(mid,past,m){
         onkeydown="if(event.key==='Enter')updateBudget('${b.id}')" />
       <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="updateBudget('${b.id}')">Set</button>
       <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="editBucket('${b.id}')">Edit</button>
+    </div>`;
+  }
+  // Spending trend — last 6 completed months
+  const trendMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-6);
+  if(trendMonths.length>=2){
+    const trendData=trendMonths.map(mo=>({
+      label:mo.label.slice(0,3),
+      spent:bSpent(mo.id,b.id),
+      budget:bBudget(mo.id,b.id)
+    }));
+    const maxVal=Math.max(...trendData.map(d=>Math.max(d.spent,d.budget)),1);
+    let bars='';
+    trendData.forEach(d=>{
+      const h=Math.round((d.spent/maxVal)*100);
+      const bh=Math.round((d.budget/maxVal)*100);
+      const cls=d.spent===0?'empty':d.spent>d.budget&&d.budget>0?'over':d.spent>d.budget*0.8?'warn':'ok';
+      bars+=`<div class="trend-bar-wrap">
+        <div class="trend-bar-outer">
+          <div class="trend-bar ${cls}" style="height:${h}%"></div>
+          ${d.budget>0?`<div class="trend-budget-line" style="bottom:${bh}%"></div>`:''}
+        </div>
+        <div class="trend-label">${d.label}</div>
+        <div class="trend-val">${d.spent>0?'$'+Math.round(d.spent):''}</div>
+      </div>`;
+    });
+    h+=`<div class="trend-section">
+      <div class="trend-title">Spending History <span style="font-weight:400;color:var(--accent)">— bar = teal line</span></div>
+      <div class="trend-chart">${bars}</div>
     </div>`;
   }
   return h;
@@ -2299,7 +2423,7 @@ function txRowHtml(tx,past,sched,runBal=null){
   const balLine=runBal!==null
     ?`<div class="tx-run-bal${sched?' proj':runBal<0?' neg':''}">${sched?'~':''}${$f(runBal)}</div>`
     :'';
-  return `<div class="tx-row${sched?' tx-sched':''}">
+  return `<div class="tx-row${sched?' tx-sched':''}" data-txid="${tx.id}">
     <div class="tx-indicator" style="background:${sched?'var(--border2)':indColor}"></div>
     <div class="tx-l">
       <div class="tx-name">${esc(tx.desc)}</div>
@@ -2310,8 +2434,8 @@ function txRowHtml(tx,past,sched,runBal=null){
       ${balLine}
     </div>
     <div class="tx-acts">
-      ${!past?`<button class="ib" onclick="editTx('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:''}
-    </div>
+      ${tx.reconciled?'<span title="Reconciled" style="font-size:10px;color:var(--green);padding:0 4px">✓</span>':''}
+      ${!past&&!tx.reconciled?`<button class="ib" onclick="editTx('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:(!past&&tx.reconciled?`<button class="ib" onclick="editTx('${tx.id}')">✎</button>`:'')}</div>
   </div>`;
 }
 
@@ -2407,6 +2531,89 @@ function populateTxCats(){
   if(prev)sel.value=prev;
   syncTxBuckets();
 }
+// ═══════════════════════════════════════════════════════
+// PAYEES
+// ═══════════════════════════════════════════════════════
+function upsertPayee(desc,bucketId){
+  if(!desc||!desc.trim())return;
+  const name=desc.trim();
+  const key=name.toLowerCase();
+  const existing=S.payees.find(p=>p.name.toLowerCase()===key);
+  if(existing){
+    if(bucketId&&existing.defaultBucketId!==bucketId)existing.defaultBucketId=bucketId;
+  } else {
+    if(!S.payees)S.payees=[];
+    S.payees.push({id:'_py'+Math.random().toString(36).slice(2,9),name,defaultBucketId:bucketId||null});
+  }
+}
+function payeeSuggestions(prefix){
+  if(!prefix||prefix.length<1)return[];
+  if(!S.payees)return[];
+  const lower=prefix.toLowerCase();
+  return S.payees.filter(p=>p.name.toLowerCase().includes(lower)).slice(0,7);
+}
+function deletePayee(id){
+  S.payees=S.payees.filter(p=>p.id!==id);save();openSettings();
+}
+function renamePayee(id,newName){
+  const p=S.payees.find(x=>x.id===id);if(!p||!newName.trim())return;
+  p.name=newName.trim();save();openSettings();
+}
+
+// Autocomplete UI — used by both desktop #txDesc and mobile #mLogDesc
+function setupPayeeAutocomplete(inputId,onSelect){
+  const inp=document.getElementById(inputId);if(!inp)return;
+  if(inp._payeeWired)return;
+  inp._payeeWired=true;
+  let dropdown=null;
+  function removeDropdown(){if(dropdown){dropdown.remove();dropdown=null;}}
+  function showDropdown(items){
+    removeDropdown();
+    if(!items.length)return;
+    const rect=inp.getBoundingClientRect();
+    dropdown=document.createElement('div');
+    dropdown.className='payee-dropdown';
+    dropdown.style.cssText=`position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${rect.width}px;z-index:9100;`;
+    items.forEach(p=>{
+      const row=document.createElement('div');
+      row.className='payee-drop-item';
+      const bkt=getBucket(p.defaultBucketId);
+      row.innerHTML=`<span class="pdi-name">${esc(p.name)}</span>${bkt?`<span class="pdi-bkt">${esc(bkt.name)}</span>`:''}`;
+      row.onmousedown=e=>{e.preventDefault();removeDropdown();onSelect(p);};
+      dropdown.appendChild(row);
+    });
+    document.body.appendChild(dropdown);
+  }
+  inp.addEventListener('input',()=>{
+    const val=inp.value;
+    const suggestions=payeeSuggestions(val);
+    if(suggestions.length&&val)showDropdown(suggestions);else removeDropdown();
+  });
+  inp.addEventListener('blur',()=>setTimeout(removeDropdown,150));
+  inp.addEventListener('keydown',e=>{
+    if(!dropdown)return;
+    const items=dropdown.querySelectorAll('.payee-drop-item');
+    const active=dropdown.querySelector('.payee-drop-item.hi');
+    if(e.key==='ArrowDown'){e.preventDefault();const next=active?active.nextSibling:items[0];if(next){active?.classList.remove('hi');next.classList.add('hi');}return;}
+    if(e.key==='ArrowUp'){e.preventDefault();const prev=active?active.previousSibling:items[items.length-1];if(prev){active?.classList.remove('hi');prev.classList.add('hi');}return;}
+    if(e.key==='Enter'&&active){e.preventDefault();active.onmousedown(e);return;}
+    if(e.key==='Escape'){removeDropdown();return;}
+  });
+}
+function wireDesktopPayee(){
+  setupPayeeAutocomplete('txDesc',p=>{
+    const inp=document.getElementById('txDesc');if(inp)inp.value=p.name;
+    if(p.defaultBucketId){
+      const b=getBucket(p.defaultBucketId);
+      if(b){
+        const catSel=document.getElementById('txCat');
+        if(catSel){catSel.value=b.catId;syncTxBuckets();}
+        setTimeout(()=>{const bSel=document.getElementById('txBkt');if(bSel)bSel.value=p.defaultBucketId;},0);
+      }
+    }
+  });
+}
+
 function syncTxBuckets(){
   const catId=document.getElementById('txCat')?.value;
   const bsel=document.getElementById('txBkt');if(!bsel)return;
@@ -2462,6 +2669,7 @@ function addTx(){
   } else {
     S.txs.push(tx);
   }
+  upsertPayee(desc, bkt);
   save();
   const sched=tx.date>todayStr();
   const typeLabel=txType==='in'?'Income':txType==='xfr'?'Transfer':'Expense';
@@ -2812,6 +3020,16 @@ function openSettings(){
       <button class="ib" onclick="moveAcct('${a.id}',1)" ${i===S.accounts.length-1?'disabled style="opacity:.3"':''}>↓</button>
     </div>`).join('');
 
+  const payeeItems=(S.payees||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
+    const bkt=getBucket(p.defaultBucketId);
+    return `<div class="payee-settings-row">
+      <span class="payee-settings-name">${esc(p.name)}</span>
+      ${bkt?`<span class="payee-settings-bkt">${esc(bkt.name)}</span>`:'<span class="payee-settings-bkt muted">no default bucket</span>'}
+      <button class="ib" onclick="(()=>{const n=prompt('Rename payee:','${esc(p.name).replace(/'/g,"\\'")}');if(n)renamePayee('${p.id}',n);})()" title="Rename">✎</button>
+      <button class="ib del" onclick="if(confirm('Remove payee &quot;${esc(p.name).replace(/"/g,'&quot;')}&quot;?'))deletePayee('${p.id}')" title="Delete">×</button>
+    </div>`;
+  }).join('');
+
   const body=`<div class="settings-section">
     <div class="settings-section-title">Account Order</div>
     ${acctItems||'<div style="color:var(--text3);font-size:13px">No accounts yet</div>'}
@@ -2819,6 +3037,10 @@ function openSettings(){
   <div class="settings-section">
     <div class="settings-section-title">Theme</div>
     <div class="theme-cards">${themeCards}</div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Saved Payees <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.payees||[]).length} saved</span></div>
+    ${payeeItems||'<div style="color:var(--text3);font-size:13px">No payees saved yet — descriptions are saved automatically when you log transactions.</div>'}
   </div>`;
 
   const modal=document.getElementById('modalBox');
@@ -2831,12 +3053,377 @@ function openSettings(){
 }
 
 // ═══════════════════════════════════════════════════════
+// GLOBAL SEARCH
+// ═══════════════════════════════════════════════════════
+let _gsFilter='all';
+function openGlobalSearch(){
+  _gsFilter='all';
+  const modal=document.getElementById('modalBox');
+  modal.className='modal gsearch-modal';
+  modal.innerHTML=`
+    <div class="modal-head">
+      <div class="modal-title">Search All Transactions</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="gsearch-input-wrap">
+      <span style="font-size:16px;color:var(--text3)">🔍</span>
+      <input class="gsearch-inp" id="gsInput" placeholder="Search by description, payee, or amount..." autofocus oninput="gsRender()" />
+    </div>
+    <div class="gsearch-filters">
+      <button class="gsearch-fbtn active" onclick="gsSetFilter('all',this)">All</button>
+      <button class="gsearch-fbtn" onclick="gsSetFilter('in',this)">↓ Income</button>
+      <button class="gsearch-fbtn" onclick="gsSetFilter('out',this)">↑ Expenses</button>
+      <button class="gsearch-fbtn" onclick="gsSetFilter('xfr',this)">⇄ Transfers</button>
+    </div>
+    <div class="gsearch-results" id="gsResults"><div class="gsearch-empty">Start typing to search across all months…</div></div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  document.getElementById('overlay').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('gsInput')?.focus(),50);
+}
+function gsSetFilter(f,btn){
+  _gsFilter=f;
+  document.querySelectorAll('.gsearch-fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  gsRender();
+}
+function gsRender(){
+  const q=(document.getElementById('gsInput')?.value||'').trim().toLowerCase();
+  const el=document.getElementById('gsResults');if(!el)return;
+  if(!q){el.innerHTML='<div class="gsearch-empty">Start typing to search across all months…</div>';return;}
+  let txs=S.txs.filter(t=>t.type!=='opening');
+  if(_gsFilter!=='all')txs=txs.filter(t=>t.type===_gsFilter);
+  // Search: desc, bucket name, account name, amount
+  txs=txs.filter(t=>{
+    if(t.desc&&t.desc.toLowerCase().includes(q))return true;
+    if((getBucket(t.bucketId)?.name||'').toLowerCase().includes(q))return true;
+    if((getAcct(t.accountId)?.name||'').toLowerCase().includes(q))return true;
+    if(String(t.amount).includes(q))return true;
+    return false;
+  });
+  txs.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!txs.length){el.innerHTML=`<div class="gsearch-empty">No transactions matching "${esc(q)}"</div>`;return;}
+  let h='';
+  const shown=txs.slice(0,100);
+  shown.forEach(tx=>{
+    const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
+    const color=cat?.color||'var(--text3)';
+    const acct=getAcct(tx.accountId);const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
+    const mo=S.months.find(m=>m.id===tx.monthId);
+    const isXfrIn=tx.type==='xfr'&&tx.toAccountId;
+    const amtCls=tx.type==='in'?'in':tx.type==='xfr'?'xfr':'out';
+    const amtPfx=tx.type==='in'?'+':tx.type==='xfr'?'⇄':'-';
+    const metaParts=[];
+    if(acct)metaParts.push(esc(acct.name));
+    if(b)metaParts.push(`<span style="color:${color}">${esc(b.name)}</span>`);
+    if(toAcct)metaParts.push('→ '+esc(toAcct.name));
+    h+=`<div class="gsr-row" onclick="gsNavigate('${tx.monthId}','${tx.id}')">
+      <div class="gsr-dot" style="background:${color}"></div>
+      <div class="gsr-main">
+        <div class="gsr-desc">${esc(tx.desc)}</div>
+        <div class="gsr-meta">${ld(tx.date)}${metaParts.length?' · '+metaParts.join(' · '):''}</div>
+      </div>
+      <div class="gsr-right">
+        <div class="gsr-amt ${amtCls}">${amtPfx}${$f(tx.amount)}</div>
+        <div class="gsr-month">${mo?.label||''}</div>
+      </div>
+    </div>`;
+  });
+  if(txs.length>100)h+=`<div class="gsearch-empty" style="padding:12px">Showing 100 of ${txs.length} results — refine your search</div>`;
+  el.innerHTML=h;
+}
+function gsNavigate(monthId,txId){
+  closeModal();
+  setMonth(monthId);
+  // Highlight the transaction after render
+  setTimeout(()=>{
+    const el=document.querySelector(`[data-txid="${txId}"]`);
+    if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.classList.add('tx-highlight');setTimeout(()=>el.classList.remove('tx-highlight'),2000);}
+  },200);
+}
+
+// ═══════════════════════════════════════════════════════
+// RECONCILIATION
+// ═══════════════════════════════════════════════════════
+let _reconChecked=new Set();
+function openReconcile(acctId){
+  _reconChecked=new Set();
+  const a=getAcct(acctId);if(!a)return;
+  const modal=document.getElementById('modalBox');
+  modal.className='modal recon-modal';
+  modal.innerHTML=reconHtml(acctId);
+  document.getElementById('overlay').classList.remove('hidden');
+}
+function reconHtml(acctId){
+  const a=getAcct(acctId);
+  const clearedBal=acctBalance(acctId);
+  const stmtBal=parseFloat(document.getElementById('reconStmtBal')?.value)||0;
+  // Unreconciled posted txs for this account
+  const txs=S.txs.filter(t=>
+    (t.accountId===acctId||t.toAccountId===acctId)&&
+    t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+  ).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  // Reconciled cleared balance
+  const reconBal=S.txs.filter(t=>
+    (t.accountId===acctId||t.toAccountId===acctId)&&
+    t.type!=='opening'&&t.reconciled
+  ).reduce((sum,t)=>{
+    if(t.accountId===acctId){return t.type==='in'?sum+t.amount:t.type==='out'||t.type==='xfr'?sum-t.amount:sum;}
+    if(t.toAccountId===acctId&&t.type==='xfr')return sum+t.amount;
+    return sum;
+  },0);
+  // Checked sum
+  let checkedSum=0;
+  _reconChecked.forEach(id=>{
+    const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+    if(tx.accountId===acctId){if(tx.type==='in')checkedSum+=tx.amount;else if(tx.type==='out'||tx.type==='xfr')checkedSum-=tx.amount;}
+    else if(tx.toAccountId===acctId&&tx.type==='xfr')checkedSum+=tx.amount;
+  });
+  const workingBal=reconBal+checkedSum;
+  const stmtVal=parseFloat(document.getElementById('reconStmtBal')?.value)||0;
+  const diff=stmtVal-workingBal;
+  const diffCls=Math.abs(diff)<0.005?'recon-diff-ok':'recon-diff-bad';
+
+  let txRows='';
+  txs.forEach(tx=>{
+    const isXfrIn=tx.type==='xfr'&&tx.toAccountId===acctId;
+    const amtPfx=tx.type==='in'||isXfrIn?'+':'-';
+    const amtCls=tx.type==='in'||isXfrIn?'green':'red';
+    const b=getBucket(tx.bucketId);
+    const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
+    const meta=b?esc(b.name):toAcct?'→ '+esc(toAcct.name):'';
+    const chk=_reconChecked.has(tx.id);
+    txRows+=`<div class="recon-tx-row${chk?' checked':''}" onclick="reconToggle('${tx.id}','${acctId}')">
+      <div class="recon-check">${chk?'✓':''}</div>
+      <div class="recon-tx-main">
+        <div class="recon-tx-desc">${esc(tx.desc)}</div>
+        <div class="recon-tx-meta">${ld(tx.date)}${meta?' · '+meta:''}</div>
+      </div>
+      <div class="recon-tx-amt" style="color:var(--${amtCls})">${amtPfx}${$f(tx.amount)}</div>
+    </div>`;
+  });
+
+  return `
+    <div class="modal-head">
+      <div class="modal-title">Reconcile — ${esc(a.name)}</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <label style="font-size:12px;color:var(--text3);flex-shrink:0">Statement balance:</label>
+      <input id="reconStmtBal" class="fi mono" type="number" step="0.01" placeholder="0.00"
+        style="width:140px;margin:0" oninput="reconRefresh('${acctId}')" />
+    </div>
+    <div class="recon-stat-bar">
+      <div class="recon-stat">
+        <div class="recon-stat-label">Reconciled</div>
+        <div class="recon-stat-val" style="color:var(--green)">${$f(reconBal)}</div>
+      </div>
+      <div class="recon-stat">
+        <div class="recon-stat-label">+ Checked</div>
+        <div class="recon-stat-val" style="color:var(--accent)">${$f(checkedSum)}</div>
+      </div>
+      <div class="recon-stat">
+        <div class="recon-stat-label">Working Balance</div>
+        <div class="recon-stat-val">${$f(workingBal)}</div>
+      </div>
+      <div class="recon-stat">
+        <div class="recon-stat-label">Difference</div>
+        <div class="recon-stat-val ${diffCls}" id="reconDiff">${stmtVal?$f(diff):'—'}</div>
+      </div>
+    </div>
+    <div style="padding:8px 16px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border)">
+      Check off each transaction that appears on your bank statement. When the difference reaches $0.00, you're balanced.
+    </div>
+    <div class="recon-tx-list">${txRows||'<div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:13px">All transactions are already reconciled.</div>'}</div>
+    <div class="modal-foot" style="gap:8px">
+      <span id="reconStatus" style="flex:1;font-size:12px;color:var(--text3)">${_reconChecked.size} checked</span>
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="reconFinish('${acctId}')" ${_reconChecked.size===0?'disabled':''}>Mark Reconciled (${_reconChecked.size})</button>
+    </div>`;
+}
+function reconToggle(txId,acctId){
+  if(_reconChecked.has(txId))_reconChecked.delete(txId);else _reconChecked.add(txId);
+  reconRefresh(acctId);
+}
+function reconRefresh(acctId){
+  const modal=document.getElementById('modalBox');if(!modal)return;
+  const prevBal=document.getElementById('reconStmtBal')?.value||'';
+  modal.innerHTML=reconHtml(acctId);
+  const inp=document.getElementById('reconStmtBal');if(inp)inp.value=prevBal;
+}
+function reconFinish(acctId){
+  if(!_reconChecked.size)return;
+  const stmtBal=parseFloat(document.getElementById('reconStmtBal')?.value)||0;
+  _reconChecked.forEach(id=>{
+    const tx=S.txs.find(t=>t.id===id);if(tx)tx.reconciled=true;
+  });
+  _reconChecked.clear();
+  save();
+  closeModal();
+  renderTxList();
+  showToast('Transactions reconciled','save');
+}
+
+// ═══════════════════════════════════════════════════════
+// NET WORTH
+// ═══════════════════════════════════════════════════════
+function openNetWorth(){
+  const modal=document.getElementById('modalBox');
+  modal.className='modal nw-modal';
+  // Current balances
+  const totalAssets=S.accounts.filter(a=>acctBalance(a.id)>0).reduce((s,a)=>s+acctBalance(a.id),0);
+  const totalLiab=S.accounts.filter(a=>acctBalance(a.id)<0).reduce((s,a)=>s+acctBalance(a.id),0);
+  const netWorth=totalAssets+totalLiab;
+  // Current accounts summary
+  const acctRows=S.accounts.map(a=>{
+    const bal=acctBalance(a.id);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
+      <span style="flex:1;font-size:13px">${esc(a.name)}</span>
+      <span style="font-family:var(--mono);font-size:13px;color:${bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</span>
+    </div>`;
+  }).join('');
+  // Historical: end-of-month balance per account per past month
+  const pastMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-12);
+  let histTable='';
+  if(pastMonths.length){
+    // For each month, compute each account's balance at end of that month
+    // We derive this from txs: sum all txs up to and including last day of the month
+    function balAtEndOfMonth(acctId, moYear, moMonth){
+      const lastDay=new Date(moYear,moMonth+1,0).toISOString().split('T')[0];
+      // Opening balance
+      const openTx=S.txs.find(t=>t.accountId===acctId&&t.type==='opening');
+      let bal=openTx?openTx.amount:0;
+      S.txs.forEach(t=>{
+        if(t.type==='opening')return;
+        if(t.date>lastDay)return;
+        if(t.accountId===acctId){
+          if(t.type==='in')bal+=t.amount;
+          else if(t.type==='out')bal-=t.amount;
+          else if(t.type==='xfr')bal-=t.amount;
+        }
+        if(t.toAccountId===acctId&&t.type==='xfr')bal+=t.amount;
+      });
+      return Math.round(bal*100)/100;
+    }
+    const cols=S.accounts.map(a=>`<th>${esc(a.name)}</th>`).join('');
+    const rows=pastMonths.map(mo=>{
+      const bals=S.accounts.map(a=>balAtEndOfMonth(a.id,mo.year,mo.month));
+      const total=bals.reduce((s,b)=>s+b,0);
+      const cells=bals.map((b,i)=>`<td style="color:${b>=0?'var(--text)':'var(--red)'}">${$f(b)}</td>`).join('');
+      return `<tr><td>${mo.label}</td>${cells}<td style="color:${total>=0?'var(--green)':'var(--red)'};font-weight:700">${$f(total)}</td></tr>`;
+    }).join('');
+    histTable=`<div class="nw-history">
+      <table class="nw-table">
+        <thead><tr><th>Month</th>${cols}<th>Net Worth</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  modal.innerHTML=`
+    <div class="modal-head">
+      <div class="modal-title">Net Worth</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="nw-summary">
+      <div class="nw-summary-cell">
+        <div class="nw-summary-label">Total Assets</div>
+        <div class="nw-summary-val" style="color:var(--green)">${$f(totalAssets)}</div>
+      </div>
+      <div class="nw-summary-cell">
+        <div class="nw-summary-label">Total Liabilities</div>
+        <div class="nw-summary-val" style="color:${totalLiab<0?'var(--red)':'var(--text3)'}">${$f(totalLiab)}</div>
+      </div>
+      <div class="nw-summary-cell">
+        <div class="nw-summary-label">Net Worth</div>
+        <div class="nw-summary-val" style="color:${netWorth>=0?'var(--green)':'var(--red)'}">${$f(netWorth)}</div>
+      </div>
+    </div>
+    <div style="padding:12px 16px 0">${acctRows}</div>
+    ${pastMonths.length?`<div style="padding:10px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">Historical</div>${histTable}`:''}
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════════════
+// MONTHLY REPORT
+// ═══════════════════════════════════════════════════════
+function openMonthReport(mid){
+  mid=mid||S.activeMonth;
+  const mo=S.months.find(m=>m.id===mid);if(!mo)return;
+  const modal=document.getElementById('modalBox');
+  modal.className='modal report-modal';
+  const sCats=sortedCats();
+  let totalBudget=0,totalAlloc=0,totalSpent=0,totalAvail=0;
+  let tableRows='';
+  sCats.forEach(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    if(!bkts.length)return;
+    let catBudget=0,catAlloc=0,catSpent=0,catAvail=0;
+    const bktRows=bkts.map(b=>{
+      const alloc=bAlloc(mid,b.id);
+      const budget=bBudget(mid,b.id);
+      const roll=rolloverBal(b.id,mid);
+      const eff=alloc+roll;
+      const spent=bSpent(mid,b.id);
+      const avail=eff-spent;
+      catBudget+=budget;catAlloc+=alloc;catSpent+=spent;catAvail+=avail;
+      const availColor=avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)';
+      return `<tr>
+        <td>${esc(b.name)}${roll>0?` <span style="color:var(--accent);font-size:10px">(+${$f(roll)} rolled)</span>`:''}</td>
+        <td>${budget?$f(budget):'—'}</td>
+        <td>${alloc?$f(alloc):'—'}</td>
+        <td>${spent?$f(spent):'—'}</td>
+        <td style="color:${availColor}">${$f(avail)}</td>
+      </tr>`;
+    }).join('');
+    totalBudget+=catBudget;totalAlloc+=catAlloc;totalSpent+=catSpent;totalAvail+=catAvail;
+    tableRows+=`<tr class="report-cat-row"><td colspan="5" style="color:${cat.color||'var(--text3)'}">${esc(cat.name)}</td></tr>${bktRows}`;
+  });
+  tableRows+=`<tr class="report-total-row">
+    <td>Total</td>
+    <td>${$f(totalBudget)}</td>
+    <td>${$f(totalAlloc)}</td>
+    <td>${$f(totalSpent)}</td>
+    <td style="color:${totalAvail>=0?'var(--green)':'var(--red)'}">${$f(totalAvail)}</td>
+  </tr>`;
+
+  // Plain text for copy
+  const copyText=sCats.flatMap(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    if(!bkts.length)return[];
+    return[`\n${cat.name}`,...bkts.map(b=>{
+      const alloc=bAlloc(mid,b.id),spent=bSpent(mid,b.id),avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-spent;
+      return`  ${b.name.padEnd(24)} budget:${$f(bBudget(mid,b.id)).padStart(9)}  alloc:${$f(alloc).padStart(9)}  spent:${$f(spent).padStart(9)}  avail:${$f(avail).padStart(9)}`;
+    })];
+  }).join('\n');
+
+  modal.innerHTML=`
+    <div class="modal-head">
+      <div class="modal-title">Monthly Report — ${esc(mo.label)}</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+      <span style="font-size:12px;color:var(--text3)">Ready to Spend: <strong style="color:${readyToSpend(mid)>=0?'var(--green)':'var(--red)'}">${$f(readyToSpend(mid))}</strong></span>
+      <button class="report-copy-btn" style="margin-left:auto" onclick="navigator.clipboard.writeText(${JSON.stringify(mo.label+'\n'+copyText)}).then(()=>showToast('Copied to clipboard','save'))">⎘ Copy</button>
+    </div>
+    <div style="padding:0 16px 16px;overflow-x:auto">
+      <table class="report-table">
+        <thead><tr><th style="text-align:left">Bucket</th><th>Budget</th><th>Allocated</th><th>Spent</th><th>Available</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════════════════
 // FRESH START
 // ═══════════════════════════════════════════════════════
 function confirmFreshStart(){
   if(!confirm('⚠ Fresh Start will erase ALL data — accounts, categories, buckets, and transactions. This cannot be undone.\n\nAre you sure?'))return;
   localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false};
+  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[]};
   closeModal();ensureMonth();S.activeMonth=currentMonthId();
   startWizard();
 }
@@ -3872,7 +4459,7 @@ function mRenderAll(){
   mPopulateMonthSel();
   if(mTab==='dash')mRenderDash();
   else if(mTab==='buckets')mRenderBuckets();
-  else if(mTab==='log')mRenderLog();
+  else if(mTab==='log'){mRenderLog();setTimeout(wireMobilePayee,0);}
   else if(mTab==='ledger')mRenderLedger();
   if(mSubview)mRenderSubview();
 }
@@ -4220,7 +4807,21 @@ function mRenderLog(){
     </div>`;
 }
 
-function mSetLogType(t){mStickyLog.type=t;mRenderLog();}
+function mSetLogType(t){mStickyLog.type=t;mRenderLog();setTimeout(wireMobilePayee,0);}
+function wireMobilePayee(){
+  setupPayeeAutocomplete('mLogDesc',p=>{
+    const inp=document.getElementById('mLogDesc');if(inp)inp.value=p.name;
+    if(p.defaultBucketId){
+      const b=getBucket(p.defaultBucketId);
+      if(b){
+        mStickyLog.catId=b.catId;
+        mStickyLog.bktId=p.defaultBucketId;
+        mRenderLog();
+        setTimeout(wireMobilePayee,0);
+      }
+    }
+  });
+}
 function mToggleBulk(){mBulkMode=!mBulkMode;if(mBulkMode&&!mBulkRows.length)mAddBulkRow();mRenderLog();}
 
 function mRenderBulkLog(el){
@@ -4320,6 +4921,7 @@ function mAddTx(){
   addMonth(d.getFullYear(),d.getMonth());
 
   S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:acctId,toAccountId:toAcct||null,monthId,bucketId:bkt||null,desc,amount:amt,type:t,date,recurring:rec});
+  upsertPayee(desc, bkt);
   save();
 
   // Get bucket name for toast
