@@ -544,10 +544,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-accounts::-webkit-scrollbar{display:none;}
   .m-acct-chip{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:10px 14px;flex-shrink:0;min-width:120px;cursor:pointer;transition:border-color .12s;}
   .m-acct-chip:active{border-color:var(--accent);}
+  .m-acct-chip.debt{border-color:var(--rb);background:var(--rbg);}
+  .m-acct-chip.debt:active{border-color:var(--red);}
   .m-acct-chip-name{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:5px;}
   .m-acct-chip-dot{width:5px;height:5px;border-radius:50%;}
   .m-acct-chip-bal{font-family:var(--mono);font-size:16px;font-weight:500;}
   .m-acct-chip-type{font-size:10px;color:var(--text3);}
+  .m-acct-chip-apr{font-size:10px;color:var(--red);margin-top:2px;}
+  .m-acct-group-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);padding:0 14px 4px;}
 
   /* Urgency list */
   .m-section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:14px 16px 6px;}
@@ -1798,15 +1802,33 @@ function renderSidebar(){
     h+=`<div class="sb-sep"></div>
     <div class="sb-sec"><span class="sb-sec-label">Accounts</span>
       <button class="sb-add" onclick="openModal('acct')">+</button></div>`;
-    S.accounts.forEach(a=>{
-      const bal=acctBalance(a.id);
-      h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')">
-        <span class="sb-link-icon"><div style="width:8px;height:8px;border-radius:50%;background:${a.color};display:inline-block"></div></span>
-        <span style="flex:1">${esc(a.name)}</span>
-        <span style="font-family:var(--mono);font-size:11px;color:${bal>=0?'var(--text3)':'var(--red)'}">${$f(bal)}</span>
-        <button class="ib" style="opacity:0.5" onclick="event.stopPropagation();editAcct('${a.id}')">✎</button>
-      </div>`;
-    });
+    const sbCash=S.accounts.filter(a=>a.type!=='debt');
+    const sbDebt=S.accounts.filter(a=>a.type==='debt');
+    if(sbCash.length){
+      h+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);padding:4px 16px 2px">Cash & Savings</div>`;
+      sbCash.forEach(a=>{
+        const bal=acctBalance(a.id);
+        h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')">
+          <span class="sb-link-icon"><div style="width:8px;height:8px;border-radius:50%;background:${a.color};display:inline-block"></div></span>
+          <span style="flex:1">${esc(a.name)}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:${bal>=0?'var(--text3)':'var(--red)'}">${$f(bal)}</span>
+          <button class="ib" style="opacity:0.5" onclick="event.stopPropagation();editAcct('${a.id}')">✎</button>
+        </div>`;
+      });
+    }
+    if(sbDebt.length){
+      const totalDebt=sbDebt.reduce((s,a)=>s+Math.abs(acctBalance(a.id)),0);
+      h+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--red);padding:6px 16px 2px">Debt · ${$f(totalDebt)}</div>`;
+      sbDebt.forEach(a=>{
+        const bal=Math.abs(acctBalance(a.id));
+        h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')" style="border-left:2px solid var(--rb)">
+          <span class="sb-link-icon">💳</span>
+          <span style="flex:1">${esc(a.name)}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--red)">${$f(bal)}</span>
+          <button class="ib" style="opacity:0.5" onclick="event.stopPropagation();editAcct('${a.id}')">✎</button>
+        </div>`;
+      });
+    }
   }
 
   if(S.cats.length){
@@ -4905,22 +4927,42 @@ function mRenderDash(){
 
   let h='';
 
-  // Account chips
+  // Account chips — split cash vs debt
+  const cashAccts=S.accounts.filter(a=>a.type!=='debt');
+  const debtAccts=S.accounts.filter(a=>a.type==='debt');
   h+=`<div class="m-accounts-hdr">
     <span class="m-section-label" style="margin:0">Accounts</span>
     <button class="m-cat-add-btn" onclick="openModal('acct')">+ Account</button>
   </div>`;
-  h+=`<div class="m-accounts">`;
-  S.accounts.forEach(a=>{
-    const bal=acctBalance(a.id);
-    const color=a.color||COLORS[0];
-    h+=`<div class="m-acct-chip" onclick="mOpenAcct('${a.id}')">
-      <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">${a.type==='savings'?'savings':''}</span></div>
-      <div class="m-acct-chip-bal" style="color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</div>
-    </div>`;
-  });
-  if(!S.accounts.length)h+=`<div style="padding:10px;color:var(--text3);font-size:13px;">No accounts yet</div>`;
-  h+=`</div>`;
+  if(cashAccts.length){
+    h+=`<div class="m-acct-group-label">Cash & Savings</div>`;
+    h+=`<div class="m-accounts">`;
+    cashAccts.forEach(a=>{
+      const bal=acctBalance(a.id);
+      const color=a.color||COLORS[0];
+      h+=`<div class="m-acct-chip" onclick="mOpenAcct('${a.id}')">
+        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">${a.type==='savings'?'savings':''}</span></div>
+        <div class="m-acct-chip-bal" style="color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  if(debtAccts.length){
+    const totalDebt=debtAccts.reduce((s,a)=>s+Math.abs(acctBalance(a.id)),0);
+    h+=`<div class="m-acct-group-label" style="color:var(--red)">Debt · ${$f(totalDebt)} total</div>`;
+    h+=`<div class="m-accounts">`;
+    debtAccts.forEach(a=>{
+      const bal=Math.abs(acctBalance(a.id));
+      const color=a.color||COLORS[0];
+      h+=`<div class="m-acct-chip debt" onclick="mOpenAcct('${a.id}')">
+        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">💳</span></div>
+        <div class="m-acct-chip-bal" style="color:var(--red)">${$f(bal)}</div>
+        ${a.debtAPR?`<div class="m-acct-chip-apr">${a.debtAPR}% APR</div>`:''}
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  if(!S.accounts.length)h+=`<div style="padding:10px 16px;color:var(--text3);font-size:13px;">No accounts yet</div>`;
 
   // Budget health bar
   h+=mRenderBudgetHealth(mid);
