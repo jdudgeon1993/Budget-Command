@@ -2495,8 +2495,11 @@ function editTx(id){
   document.getElementById('txDesc').focus();
 }
 function delTx(id){
+  const tx=S.txs.find(t=>t.id===id);
   if(!confirm('Delete this transaction?'))return;
-  S.txs=S.txs.filter(t=>t.id!==id);save();render();
+  S.txs=S.txs.filter(t=>t.id!==id);
+  save();render();
+  if(tx)showToast('Deleted: '+tx.desc,'out');
 }
 
 // ═══════════════════════════════════════════════════════
