@@ -1297,7 +1297,7 @@ async function signOut(){
   // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
      activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
-     wiOpen:false,txFilter:'all',onboarded:false};
+     wiOpen:false,txFilter:'all',onboarded:false,payees:[]};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
@@ -4134,7 +4134,7 @@ function importData(event){
       S=Object.assign({
         accounts:[],cats:[],buckets:[],months:[],txs:[],
         activeMonth:null,activeBucket:null,activeAccount:null,
-        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,
+        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],
       },imported);
       S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
       normalizeCatOrder();normalizeBktOrder();
@@ -4643,6 +4643,12 @@ function mRenderDash(){
     recent.forEach(tx=>h+=mTxRowHtml(tx));
   }
 
+  // Quick actions row
+  h+=`<div class="m-settings-row">
+    <button class="m-settings-btn" onclick="openNetWorth()">◈ Net Worth</button>
+    <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
+    <button class="m-settings-btn" onclick="openMonthReport('${mid}')">📊 Report</button>
+  </div>`;
   // Settings row
   h+=`<div class="m-settings-row">
     <button class="m-settings-btn" onclick="openSettings()">&#x2699; Settings</button>
@@ -5021,6 +5027,7 @@ function mTxRowHtml(tx,tappable,runBal=null){
     </div>
     <div class="m-tx-r">
       <div class="m-tx-amt ${sched?'':amtCls}" style="${sched?'color:var(--text3)':''}">${amtPfx}${$f(tx.amount)}</div>
+      ${tx.reconciled?'<div style="font-size:9px;color:var(--green);text-align:right">✓ reconciled</div>':''}
       ${balLine}
     </div>
   </div>`;
@@ -5127,6 +5134,20 @@ function mRenderBucketDetail(bid){
     </div>`;
   }
 
+  // Spending trend chart (mobile)
+  const mTrendMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-6);
+  if(mTrendMonths.length>=2){
+    const mTrendData=mTrendMonths.map(mo=>({label:mo.label.slice(0,3),spent:bSpent(mo.id,bid),budget:bBudget(mo.id,bid)}));
+    const mMaxVal=Math.max(...mTrendData.map(d=>Math.max(d.spent,d.budget)),1);
+    let mbars='';
+    mTrendData.forEach(d=>{
+      const bh=Math.round((d.spent/mMaxVal)*100);
+      const bbh=Math.round((d.budget/mMaxVal)*100);
+      const mcls=d.spent===0?'empty':d.spent>d.budget&&d.budget>0?'over':d.spent>d.budget*0.8?'warn':'ok';
+      mbars+=`<div class="trend-bar-wrap"><div class="trend-bar-outer"><div class="trend-bar ${mcls}" style="height:${bh}%"></div>${d.budget>0?`<div class="trend-budget-line" style="bottom:${bbh}%"></div>`:''}</div><div class="trend-label">${d.label}</div></div>`;
+    });
+    h+=`<div style="padding:0 16px 8px"><div class="trend-title" style="padding-top:12px">Spending History</div><div class="trend-chart">${mbars}</div></div>`;
+  }
   // Bucket transactions
   const txs=S.txs.filter(t=>t.monthId===mid&&t.bucketId===bid).sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(txs.length){
@@ -5179,6 +5200,7 @@ function mRenderAcctDetail(aid){
   let h=`<div class="m-det-hero">
     <div class="m-det-name">${$f(bal)}</div>
     <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span></div>
+    <button class="m-chip-btn" style="margin-top:8px;font-size:12px;padding:5px 14px" onclick="openReconcile('${aid}')">✓ Reconcile</button>
   </div>`;
 
   if(scheduled.length){
