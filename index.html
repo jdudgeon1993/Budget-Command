@@ -2899,12 +2899,12 @@ function _wiPanelHTML(){
       h+=`<div class="wi-debt-row">
         <div class="wi-debt-name">${esc(a.name)}</div>
         <div>
-          <div class="wi-debt-amt">$${$f(bal)} owed</div>
-          ${apr?`<div style="font-size:10px;color:var(--text3)">Payoff: ${payoffStr}${interest!==Infinity?' · $'+$f(interest)+' interest':''}</div>`:'<div style="font-size:10px;color:var(--amber)">Set APR to project</div>'}
+          <div class="wi-debt-amt">${$f(bal)} owed</div>
+          ${apr?`<div style="font-size:10px;color:var(--text3)">Payoff: ${payoffStr}${interest!==Infinity?' · '+$f(interest)+' interest':''}</div>`:'<div style="font-size:10px;color:var(--amber)">Set APR to project</div>'}
         </div>
         <div class="wi-debt-freed">
           <div style="font-size:10px;color:var(--text3)">Pay it off →</div>
-          <div style="font-size:11px;font-weight:600">+$${$f(avgPay||a.debtMinPayment||0)}/mo freed</div>
+          <div style="font-size:11px;font-weight:600">+${$f(avgPay||a.debtMinPayment||0)}/mo freed</div>
         </div>
       </div>`;
     });
@@ -3488,15 +3488,15 @@ function renderDebtTracker(a){
     <div class="debt-stat-grid">
       <div class="debt-stat">
         <div class="debt-stat-label">Balance Owed</div>
-        <div class="debt-stat-val" style="color:var(--red)">$${$f(balance)}</div>
+        <div class="debt-stat-val" style="color:var(--red)">${$f(balance)}</div>
       </div>
       <div class="debt-stat">
         <div class="debt-stat-label">Monthly Interest</div>
-        <div class="debt-stat-val" style="color:var(--amber)">${apr?'$'+$f(monthlyInterest):'—'}</div>
+        <div class="debt-stat-val" style="color:var(--amber)">${apr?$f(monthlyInterest):'—'}</div>
       </div>
       <div class="debt-stat">
         <div class="debt-stat-label">Avg Net Payment</div>
-        <div class="debt-stat-val" style="color:${avgPayment>monthlyInterest?'var(--green)':'var(--red)'}">${avgPayment?'$'+$f(avgPayment):'—'}</div>
+        <div class="debt-stat-val" style="color:${avgPayment>monthlyInterest?'var(--green)':'var(--red)'}">${avgPayment?$f(avgPayment):'—'}</div>
       </div>
     </div>
     ${pctPaid>0?`<div style="padding:8px 16px 0">
@@ -3505,7 +3505,7 @@ function renderDebtTracker(a){
     </div>`:''}
     ${apr&&effectivePayment>0?`<div style="padding:8px 16px;font-size:12px;color:var(--text3)">
       At current pace — payoff: <strong style="color:${months===Infinity?'var(--red)':'var(--text)'}">${payoffStr}</strong>
-      ${totalInterest!==Infinity?` · total interest: <strong style="color:var(--amber)">$${$f(totalInterest)}</strong>`:''}
+      ${totalInterest!==Infinity?` · total interest: <strong style="color:var(--amber)">${$f(totalInterest)}</strong>`:''}
     </div>`:''}
 
     <div class="debt-wi-section">
@@ -3520,12 +3520,12 @@ function renderDebtTracker(a){
 
       <div class="debt-wi-row" style="margin-top:12px">
         <span class="debt-wi-label">What if I paid it off today?</span>
-        <span style="font-size:12px;color:var(--green);font-family:var(--mono)">$${$f(balance)} frees ${apr?'$'+$f(monthlyInterest)+'/mo in interest':' monthly budget'}</span>
+        <span style="font-size:12px;color:var(--green);font-family:var(--mono)">${$f(balance)} frees ${apr?$f(monthlyInterest)+'/mo in interest':' monthly budget'}</span>
       </div>
       ${apr?`<div class="debt-result">
-        <div class="debt-result-row"><span class="debt-result-label">Interest saved (yearly)</span><span class="debt-result-val" style="color:var(--green)">$${$f(Math.round(balance*apr/100*100)/100)}</span></div>
-        <div class="debt-result-row"><span class="debt-result-label">Freed monthly cash</span><span class="debt-result-val" style="color:var(--green)">+$${$f(effectivePayment)}</span></div>
-        <div class="debt-result-row"><span class="debt-result-label">That money invested 10yr @7%</span><span class="debt-result-val" style="color:var(--accent)">$${$f(Math.round(effectivePayment*((Math.pow(1.07/12+1,120)-1)/(0.07/12))*100)/100)}</span></div>
+        <div class="debt-result-row"><span class="debt-result-label">Interest saved (yearly)</span><span class="debt-result-val" style="color:var(--green)">${$f(Math.round(balance*apr/100*100)/100)}</span></div>
+        <div class="debt-result-row"><span class="debt-result-label">Freed monthly cash</span><span class="debt-result-val" style="color:var(--green)">+${$f(effectivePayment)}</span></div>
+        <div class="debt-result-row"><span class="debt-result-label">That money invested 10yr @7%</span><span class="debt-result-val" style="color:var(--accent)">${$f(Math.round(effectivePayment*((Math.pow(0.07/12+1,120)-1)/(0.07/12))*100)/100)}</span></div>
       </div>`:'<div style="font-size:11px;color:var(--text3);padding:4px 0">Set APR above to see interest savings.</div>'}
     </div>
   </div>`;
@@ -3540,7 +3540,7 @@ function renderDebtWI(acctId,balance,monthlyRate,currentPayment,monthlyInterest)
   const newInterest=debtTotalInterest(balance,monthlyRate,newPayment);
   const oldInterest=debtTotalInterest(balance,monthlyRate,currentPayment);
   const savedMonths=oldMonths===Infinity?'∞':Math.max(0,oldMonths-newMonths);
-  const savedInterest=oldInterest===Infinity?'—':('$'+$f(Math.max(0,oldInterest-newInterest)));
+  const savedInterest=oldInterest===Infinity?'—':$f(Math.max(0,oldInterest-newInterest));
   const newDate=newMonths===Infinity?'Never':new Date(Date.now()+newMonths*30.44*24*3600*1000).toLocaleString('default',{month:'short',year:'numeric'});
   el.innerHTML=`<div class="debt-result">
     <div class="debt-result-row"><span class="debt-result-label">New payoff date</span><span class="debt-result-val" style="color:var(--green)">${newDate}</span></div>
