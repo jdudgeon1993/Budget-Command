@@ -228,6 +228,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
 
 /* ═══ BUCKET DETAIL ═══ */
+.det-notes{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;}
 .back-btn{background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);display:flex;align-items:center;gap:5px;padding:0;margin-bottom:14px;font-family:var(--sans);transition:color .12s;}
 .back-btn:hover{color:var(--text2);}
 .det-name{font-size:23px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px;}
@@ -609,7 +610,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   /* Bucket detail */
   .m-det-hero{padding:20px 16px 16px;background:var(--bg2);border-bottom:1px solid var(--border);}
   .m-det-name{font-size:22px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px;}
-  .m-det-meta{font-size:12px;color:var(--text3);display:flex;gap:8px;align-items:center;}
+  .m-det-meta{font-size:12px;color:var(--text3);display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .m-bkt-notes{font-size:12px;color:var(--text2);margin-top:8px;line-height:1.6;white-space:pre-wrap;}
   .m-det-nums{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);}
   .m-det-num-cell{background:var(--surface);padding:12px 14px;}
   .m-det-num-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
@@ -645,10 +647,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-tx-l{flex:1;min-width:0;}
   .m-tx-name{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .m-tx-meta{font-size:12px;color:var(--text3);margin-top:2px;}
+  .m-tx-r{text-align:right;flex-shrink:0;}
   .m-tx-amt{font-family:var(--mono);font-size:16px;font-weight:500;text-align:right;}
   .m-tx-amt.out{color:var(--red);}
   .m-tx-amt.in{color:var(--green);}
   .m-tx-amt.xfr{color:var(--purple);}
+  .m-tx-run-bal{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px;text-align:right;}
+  .m-tx-run-bal.proj{color:var(--amber);}
+  .m-tx-run-bal.neg{color:var(--red);}
 
   /* Edit bottom sheet */
   .m-sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;}
@@ -2068,6 +2074,7 @@ function renderBucketDetail(mid,past,m){
   const isSink=b.type==='sinking';
   const days=daysUntilDue(b,m?.year,m?.month);
 
+  const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
   let h=`<button class="back-btn" onclick="setBucket(null)">← Overview</button>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
@@ -2075,8 +2082,11 @@ function renderBucketDetail(mid,past,m){
     <span>${b.type}</span>
     ${b.recurring?`<span class="det-sep">·</span><span>↻ Recurring</span>`:''}
     ${b.rollover?`<span class="det-sep">·</span><span>Rolls over</span>`:''}
-    ${days!==null?`<span class="det-sep">·</span><span style="color:${days<0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">Due ${days<0?`${Math.abs(days)}d ago`:days===0?'today':`in ${days}d`}</span>`:''}
+    ${days!==null?`<span class="det-sep">·</span><span style="color:${days<0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">1st due ${days<0?`${Math.abs(days)}d ago`:days===0?'today':`in ${days}d`}${b.dueAmount?` (${$f(b.dueAmount)})`:''}</span>`:''}
+    ${days2!==null?`<span class="det-sep">·</span><span style="color:${days2<0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">2nd due ${days2<0?`${Math.abs(days2)}d ago`:days2===0?'today':`in ${days2}d`}${b.dueAmount2?` (${$f(b.dueAmount2)})`:''}</span>`:''}
   </div>
+  ${b.notes?`<div class="det-notes">${esc(b.notes)}</div>`:''}
+
   <div class="det-nums">
     <div class="dn"><div class="dn-label">Allocated</div><div class="dn-val ${alloc>=target&&target>0?'':'dim'}" style="${alloc>=target&&target>0?'color:var(--green)':''}">${$f(alloc)}</div><div class="dn-sub">of ${$f(target)} target</div></div>
     <div class="dn"><div class="dn-label">Spent</div><div class="dn-val" style="color:var(--text2)">${$f(spent)}</div><div class="dn-sub">from transactions</div></div>
@@ -2945,6 +2955,8 @@ let M = {
   // single bucket edit
   bktEditId:null, bktCat:'',
   bktName:'', bktType:'regular', bktBudget:'', bktDueDay:'',
+  bktSplit:false, bktDueDay2:'', bktDueAmount:'', bktDueAmount2:'',
+  bktNotes:'',
   bktRecurring:false, bktRollover:false,
   bktGoal:'', bktDate:'', bktContrib:'monthly',
   // account
@@ -2976,7 +2988,7 @@ function openModal(tab, lockedCatId){
   } else if(tab==='bkt'){
     // Single bucket, user picks category
     M={...M,tab:'bkt',bktEditId:null,bktName:'',bktCat:'',bktType:'regular',
-       bktBudget:'',bktDueDay:'',bktRecurring:false,bktRollover:false,
+       bktBudget:'',bktDueDay:'',bktSplit:false,bktDueDay2:'',bktDueAmount:'',bktDueAmount2:'',bktNotes:'',bktRecurring:false,bktRollover:false,
        bktGoal:'',bktDate:'',bktContrib:'monthly'};
   } else {
     // Category tab (default or no cats yet)
@@ -3004,7 +3016,7 @@ function editCat(id){
 function editBucket(id){
   const b=getBucket(id);if(!b)return;
   M={...M,tab:'bkt',bktEditId:id,bktCat:b.catId,bktName:b.name,bktType:b.type,
-     bktBudget:String(b.defaultBudget||''),bktDueDay:b.dueDay||'',
+     bktBudget:String(b.defaultBudget||''),bktDueDay:b.dueDay||'',bktSplit:!!(b.dueDay2),bktDueDay2:b.dueDay2||'',bktDueAmount:String(b.dueAmount||''),bktDueAmount2:String(b.dueAmount2||''),bktNotes:b.notes||'',
      bktRecurring:!!b.recurring,bktRollover:!!b.rollover,
      bktGoal:String(b.targetAmount||''),bktDate:b.targetDate||'',bktContrib:b.contribFreq||'monthly',
      catEditId:null};
@@ -3039,6 +3051,10 @@ function MsnapBkt(){
   const t=document.getElementById('mBktType');if(t)M.bktType=t.value;
   const b=document.getElementById('mBktBudget');if(b)M.bktBudget=b.value;
   const d=document.getElementById('mBktDue');if(d)M.bktDueDay=d.value;
+  const d2=document.getElementById('mBktDue2');if(d2)M.bktDueDay2=d2.value;
+  const a1=document.getElementById('mBktAmt1');if(a1)M.bktDueAmount=a1.value;
+  const a2=document.getElementById('mBktAmt2');if(a2)M.bktDueAmount2=a2.value;
+  const nt=document.getElementById('mBktNotes');if(nt)M.bktNotes=nt.value;
   const g=document.getElementById('mBktGoal');if(g)M.bktGoal=g.value;
   const gd=document.getElementById('mBktDate');if(gd)M.bktDate=gd.value;
   const c=document.getElementById('mBktContrib');if(c)M.bktContrib=c.value;
@@ -3140,15 +3156,26 @@ function renderModal(){
       <div class="fg"><label class="fl">Type</label><select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()"><option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option><option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — savings goal</option></select></div>
       <div class="fi-row">
         <div class="fg"><label class="fl">${isSink?'Monthly Target':'Budget Target'}</label><input class="fi" id="mBktBudget" type="number" value="${M.bktBudget}" placeholder="0.00" /></div>
-        <div class="fg"><label class="fl">Due Day</label><select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select></div>
+        <div class="fg"><label class="fl">Due Day <button type="button" style="font-size:10px;background:none;border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer;color:${M.bktSplit?'var(--accent)':'var(--text3)'};margin-left:4px" onclick="M.bktSplit=!M.bktSplit;MsnapBkt();renderModal()">${M.bktSplit?'Split ✓':'Split'}</button></label><select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select></div>
       </div>
+      ${M.bktSplit?`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:8px">Split Payment Schedule</div>
+        <div class="fi-row" style="margin-bottom:8px">
+          <div class="fg"><label class="fl">1st Due Day</label><select class="fi" id="mBktDue" style="margin:0">${dueOptsHtml(M.bktDueDay)}</select></div>
+          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt1" type="number" value="${M.bktDueAmount}" placeholder="0.00" style="margin:0" /></div>
+        </div>
+        <div class="fi-row">
+          <div class="fg"><label class="fl">2nd Due Day</label><select class="fi" id="mBktDue2" style="margin:0">${dueOptsHtml(M.bktDueDay2)}</select></div>
+          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt2" type="number" value="${M.bktDueAmount2}" placeholder="0.00" style="margin:0" /></div>
+        </div>
+      </div>`:''}
       <div class="fi-row">
         <div class="fg"><label class="fl">Recurring</label><div class="tog-row"><button class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button></div></div>
         <div class="fg"><label class="fl">Roll Over</label><div class="tog-row"><button class="togbtn${M.bktRollover?' on':''}" onclick="M.bktRollover=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRollover?' on':''}" onclick="M.bktRollover=false;MsnapBkt();renderModal()">No</button></div></div>
       </div>
       ${isSink?`<div class="fi-row"><div class="fg"><label class="fl">Goal Amount</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>
-      <div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}`;
-
+      <div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}
+      <div class="fg"><label class="fl">Notes <span style="font-weight:400;color:var(--text3)">(optional)</span></label><textarea class="fi" id="mBktNotes" rows="2" placeholder="Remind yourself of anything useful..." style="resize:vertical;min-height:56px;font-family:var(--sans)">${esc(M.bktNotes)}</textarea></div>`;
   } else {
     // Category + bulk bucket builder (isCat or isBuilder)
     wideModal=true;
@@ -3282,17 +3309,21 @@ function saveModal(){
     const type=M.bktType;
     const budget=parseFloat(M.bktBudget)||0;
     const dueDay=M.bktDueDay||null;
+    const dueDay2=M.bktSplit?M.bktDueDay2||null:null;
+    const dueAmount=M.bktSplit?parseFloat(M.bktDueAmount)||null:null;
+    const dueAmount2=M.bktSplit?parseFloat(M.bktDueAmount2)||null:null;
+    const notes=M.bktNotes.trim()||null;
     const goal=type==='sinking'?parseFloat(M.bktGoal)||null:null;
     const tDate=type==='sinking'?M.bktDate||null:null;
     const contrib=type==='sinking'?M.bktContrib:'monthly';
     if(M.bktEditId){
       const b=getBucket(M.bktEditId);
-      if(b){b.name=name;b.catId=catId;b.type=type;b.defaultBudget=budget;b.dueDay=dueDay;b.recurring=M.bktRecurring;b.rollover=M.bktRollover;b.targetAmount=goal;b.targetDate=tDate;b.contribFreq=contrib;}
+      if(b){b.name=name;b.catId=catId;b.type=type;b.defaultBudget=budget;b.dueDay=dueDay;b.dueDay2=dueDay2;b.dueAmount=dueAmount;b.dueAmount2=dueAmount2;b.notes=notes;b.recurring=M.bktRecurring;b.rollover=M.bktRollover;b.targetAmount=goal;b.targetDate=tDate;b.contribFreq=contrib;}
       S.months.forEach(m=>{if(!m.budgets)m.budgets={};if(m.budgets[M.bktEditId]===undefined)m.budgets[M.bktEditId]=budget;});
     } else {
       const id='_'+Math.random().toString(36).slice(2,9);
       const cnt=S.buckets.filter(b=>b.catId===catId).length;
-      S.buckets.push({id,catId,name,type,defaultBudget:budget,dueDay,recurring:M.bktRecurring,rollover:M.bktRollover,archived:false,targetAmount:goal,targetDate:tDate,contribFreq:contrib,order:cnt});
+      S.buckets.push({id,catId,name,type,defaultBudget:budget,dueDay,dueDay2,dueAmount,dueAmount2,notes,recurring:M.bktRecurring,rollover:M.bktRollover,archived:false,targetAmount:goal,targetDate:tDate,contribFreq:contrib,order:cnt});
       S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[id]=budget;if(!m.allocations)m.allocations={};m.allocations[id]=0;});
     }
     save();closeModal();render();populateTxCats();
@@ -4317,7 +4348,7 @@ function mRenderLedger(){
   el.innerHTML=h;
 }
 
-function mTxRowHtml(tx,tappable){
+function mTxRowHtml(tx,tappable,runBal=null){
   const b=getBucket(tx.bucketId);
   const cat=b?getCat(b.catId):null;
   const acct=getAcct(tx.accountId);
@@ -4333,6 +4364,8 @@ function mTxRowHtml(tx,tappable){
   if(cat)metaParts.push(esc(cat.name));
   if(b)metaParts.push(esc(b.name));
   if(tx.type==='xfr')metaParts.push('→ '+esc(getAcct(tx.toAccountId)?.name||''));
+  const balLine=runBal!==null
+    ?`<div class="m-tx-run-bal${sched?' proj':runBal<0?' neg':''}">${sched?'~':''}${$f(runBal)}</div>`:'';
   const onclick=tappable?`onclick="mEditTxSheet('${tx.id}')"`:'' ;
   return `<div class="m-tx-row${sched?' m-tx-sched':''}" ${onclick}>
     <div class="m-tx-ind" style="background:${indColor}"></div>
@@ -4340,7 +4373,10 @@ function mTxRowHtml(tx,tappable){
       <div class="m-tx-name">${esc(tx.desc)}</div>
       <div class="m-tx-meta" style="color:${sched?'var(--amber)':color}">${metaParts.join(' · ')}</div>
     </div>
-    <div class="m-tx-amt ${sched?'':amtCls}" style="${sched?'color:var(--text3)':''}">${amtPfx}${$f(tx.amount)}</div>
+    <div class="m-tx-r">
+      <div class="m-tx-amt ${sched?'':amtCls}" style="${sched?'color:var(--text3)':''}">${amtPfx}${$f(tx.amount)}</div>
+      ${balLine}
+    </div>
   </div>`;
 }
 
@@ -4397,13 +4433,16 @@ function mRenderBucketDetail(bid){
   const m=getMonth(mid);
   const days=daysUntilDue(b,m?.year,m?.month);
 
+  const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
   let h=`<div class="m-det-hero" style="border-left:4px solid ${color}">
     <div class="m-det-name">${esc(b.name)}</div>
     <div class="m-det-meta">
       <span style="color:${color}">${esc(cat?.name||'')}</span>
-      ${days!==null?`<span>·</span><span style="color:${days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">Due ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}</span>`:''}
+      ${days!==null?`<span>·</span><span style="color:${days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">1st: ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}${b.dueAmount?' ('+$f(b.dueAmount)+')':''}</span>`:''}
+      ${days2!==null?`<span>·</span><span style="color:${days2<=0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">2nd: ${days2<0?Math.abs(days2)+'d ago':days2===0?'today':'in '+days2+'d'}${b.dueAmount2?' ('+$f(b.dueAmount2)+')':''}</span>`:''}
       ${b.rollover?'<span>·</span><span>Rolls over</span>':''}
     </div>
+    ${b.notes?`<div class="m-bkt-notes">${esc(b.notes)}</div>`:''}
   </div>
   <div class="m-det-nums">
     <div class="m-det-num-cell"><div class="m-det-num-label">Allocated</div><div class="m-det-num-val" style="color:${alloc>=target&&target>0?'var(--green)':'var(--text)'}">${$f(alloc)}</div></div>
@@ -4485,14 +4524,26 @@ function mRenderAcctDetail(aid){
   if(!el||!title)return;
   title.textContent=a.name;
   const bal=acctBalance(aid);
-  const txs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const {balMap,schedMap}=calcAccountRunningBal(aid);
+  const today=todayStr();
+  const allTxs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const scheduled=allTxs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const posted=allTxs.filter(t=>t.date<=today);
+
   let h=`<div class="m-det-hero">
     <div class="m-det-name">${$f(bal)}</div>
     <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span></div>
-  </div>
-  <div class="m-section-label">Transactions</div>`;
-  if(txs.length)txs.forEach(tx=>h+=mTxRowHtml(tx,false));
-  else h+=`<div style="padding:20px 16px;text-align:center;color:var(--text3)">No transactions yet</div>`;
+  </div>`;
+
+  if(scheduled.length){
+    h+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
+    scheduled.forEach(tx=>h+=mTxRowHtml(tx,false,schedMap.has(tx.id)?schedMap.get(tx.id):null));
+  }
+  if(posted.length){
+    h+=`<div class="m-section-label">Posted</div>`;
+    posted.forEach(tx=>h+=mTxRowHtml(tx,false,balMap.has(tx.id)?balMap.get(tx.id):null));
+  }
+  if(!allTxs.length)h+=`<div style="padding:20px 16px;text-align:center;color:var(--text3)">No transactions yet</div>`;
   h+=`<div style="height:16px"></div>`;
   el.innerHTML=h;
 }
