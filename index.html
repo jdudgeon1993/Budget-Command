@@ -939,6 +939,48 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
 .report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
 .report-copy-btn:hover{background:var(--surface);color:var(--text);}
+/* ── Income allocation rules ── */
+.alloc-rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.alloc-rule-row:last-child{border-bottom:none;}
+.alloc-rule-name{flex:1;font-size:13px;color:var(--text);}
+.alloc-rule-badge{font-size:11px;font-family:var(--mono);background:var(--gbg);color:var(--green);padding:2px 7px;border-radius:8px;}
+.alloc-rule-bkt{font-size:11px;color:var(--text3);background:var(--bg3);padding:1px 6px;border-radius:8px;}
+/* Rule apply modal */
+.rule-apply-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);}
+.rule-apply-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all .12s;}
+.rule-apply-row.on .rule-apply-check{border-color:var(--green);background:var(--gbg);color:var(--green);}
+.rule-apply-main{flex:1;}
+.rule-apply-name{font-size:13px;color:var(--text);}
+.rule-apply-detail{font-size:11px;color:var(--text3);margin-top:1px;}
+.rule-apply-amt{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--green);}
+/* ── Debt tracker ── */
+.debt-tracker{margin-top:0;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.debt-tracker-hdr{padding:10px 16px;background:var(--rbg);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.debt-tracker-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--red);}
+.debt-stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);}
+.debt-stat{background:var(--surface);padding:10px 12px;text-align:center;}
+.debt-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.debt-stat-val{font-family:var(--mono);font-size:15px;font-weight:700;margin-top:3px;}
+.debt-wi-section{padding:12px 16px;}
+.debt-wi-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
+.debt-wi-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.debt-wi-label{font-size:12px;color:var(--text2);flex:1;}
+.debt-wi-inp{width:100px;background:var(--surface);border:1px solid var(--border2);border-radius:5px;padding:5px 8px;font-family:var(--mono);font-size:13px;color:var(--text);text-align:right;}
+.debt-wi-inp:focus{outline:none;border-color:var(--accent);}
+.debt-result{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-top:8px;font-size:12px;}
+.debt-result-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);}
+.debt-result-row:last-child{border-bottom:none;font-weight:700;}
+.debt-result-label{color:var(--text3);}
+.debt-result-val{font-family:var(--mono);font-weight:600;}
+.debt-payoff-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0;}
+.debt-payoff-fill{height:100%;background:var(--green);border-radius:4px;transition:width .4s;}
+/* WI debt section */
+.wi-debt-section{border-top:2px solid var(--border2);margin-top:10px;padding-top:10px;}
+.wi-debt-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.wi-debt-row:last-child{border-bottom:none;}
+.wi-debt-name{flex:1;font-size:12px;color:var(--text2);}
+.wi-debt-amt{font-family:var(--mono);font-size:12px;color:var(--red);}
+.wi-debt-freed{font-size:11px;color:var(--green);}
 </style>
 </head>
 <body>
@@ -1297,7 +1339,7 @@ async function signOut(){
   // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
      activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
-     wiOpen:false,txFilter:'all',onboarded:false,payees:[]};
+     wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[]};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
@@ -1355,6 +1397,7 @@ let S={
   txFilter:'all',
   onboarded:false,
   payees:[],  // {id,name,defaultBucketId?} — saved from transaction descriptions
+  allocationRules:[], // {id,name,bucketId,type:'pct'|'fixed',value,active}
 };
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
@@ -1489,6 +1532,7 @@ function load(){
   if(!S.activeMonth&&S.months.length)S.activeMonth=currentMonthId();
   if(!S.txFilter)S.txFilter='all';
   if(!S.payees)S.payees=[];
+  if(!S.allocationRules)S.allocationRules=[];
   normalizeCatOrder();
   normalizeBktOrder();
 }
@@ -2145,10 +2189,11 @@ function renderAccountView(el,mid){
   <div class="acct-hdr">
     <div style="width:12px;height:12px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
     <div class="acct-hdr-name">${esc(a.name)}</div>
-    <span class="chip ${a.type==='savings'?'chip-future':'chip-present'}">${a.type}</span>
+    <span class="chip ${a.type==='debt'?'chip-future':a.type==='savings'?'chip-future':'chip-present'}">${a.type}</span>
     <button class="tbtn" style="margin-left:auto" onclick="editAcct('${a.id}')">Edit account</button>
     <button class="tbtn" onclick="openReconcile('${a.id}')" title="Reconcile against bank statement">✓ Reconcile</button>
   </div>
+  ${a.type==='debt'?renderDebtTracker(a):''}
   <div class="acct-balance-block">
     <div class="ps-cell"><div class="ps-label">Current Balance</div><div class="ps-val ${bal>=0?'green':'red'}">${$f(bal)}</div></div>
     <div class="ps-cell"><div class="ps-label">Total In</div><div class="ps-val dim">${$f(txs.filter(t=>t.accountId===a.id&&(t.type==='in'||t.toAccountId===a.id)).reduce((s,t)=>s+t.amount,0))}</div></div>
@@ -2678,6 +2723,8 @@ function addTx(){
   document.getElementById('txAmt').value='';
   document.getElementById('txRec').checked=false;
   render();
+  // Prompt allocation rules on new income
+  if(!isEdit&&txType==='in'&&!sched)setTimeout(()=>promptAllocationRules(amt,monthId),400);
 }
 
 function addMonth(y,m){
@@ -2834,8 +2881,37 @@ function _wiPanelHTML(){
   h+=`</tbody></table>
     <div style="padding:8px 0 0;display:flex;gap:10px;">
       <button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="promoteScenario()">Promote to real budgets</button>
-    </div>
-  </div>
+    </div>`;
+
+  // Debt payoff section in WI
+  const debtAccts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)<0);
+  if(debtAccts.length){
+    h+=`<div class="wi-debt-section">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--red);margin-bottom:8px">💳 Debt Payoff — What If?</div>`;
+    debtAccts.forEach(a=>{
+      const bal=Math.abs(acctBalance(a.id));
+      const apr=a.debtAPR||0;
+      const monthlyRate=apr/(100*12);
+      const avgPay=avgMonthlyNetPayment(a.id);
+      const months=debtPayoffMonths(bal,monthlyRate,avgPay);
+      const interest=debtTotalInterest(bal,monthlyRate,avgPay);
+      const payoffStr=months===Infinity?'Never':new Date(Date.now()+months*30.44*24*3600*1000).toLocaleString('default',{month:'short',year:'numeric'});
+      h+=`<div class="wi-debt-row">
+        <div class="wi-debt-name">${esc(a.name)}</div>
+        <div>
+          <div class="wi-debt-amt">$${$f(bal)} owed</div>
+          ${apr?`<div style="font-size:10px;color:var(--text3)">Payoff: ${payoffStr}${interest!==Infinity?' · $'+$f(interest)+' interest':''}</div>`:'<div style="font-size:10px;color:var(--amber)">Set APR to project</div>'}
+        </div>
+        <div class="wi-debt-freed">
+          <div style="font-size:10px;color:var(--text3)">Pay it off →</div>
+          <div style="font-size:11px;font-weight:600">+$${$f(avgPay||a.debtMinPayment||0)}/mo freed</div>
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+
+  h+=`</div>
   </div>`;
   return h;
 }
@@ -3041,6 +3117,11 @@ function openSettings(){
   <div class="settings-section">
     <div class="settings-section-title">Saved Payees <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.payees||[]).length} saved</span></div>
     ${payeeItems||'<div style="color:var(--text3);font-size:13px">No payees saved yet — descriptions are saved automatically when you log transactions.</div>'}
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Income Allocation Rules <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Auto-suggest bucket allocations when you log income.</div>
+    <button class="tbtn" onclick="openAllocationRules()">Manage Rules</button>
   </div>`;
 
   const modal=document.getElementById('modalBox');
@@ -3346,6 +3427,128 @@ function openNetWorth(){
 }
 
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// DEBT PAYOFF TRACKER (Phase 8)
+// ═══════════════════════════════════════════════════════
+// Compute debt payoff projection given balance (positive), monthly rate, monthly net payment
+function debtPayoffMonths(balance,monthlyRate,netPayment){
+  if(netPayment<=0)return Infinity;
+  if(monthlyRate<=0)return Math.ceil(balance/netPayment);
+  // Standard amortization: n = -log(1 - r*B/P) / log(1+r)
+  const r=monthlyRate;
+  if(netPayment<=balance*r)return Infinity; // payment doesn't beat interest
+  return Math.ceil(-Math.log(1-(r*balance)/netPayment)/Math.log(1+r));
+}
+function debtTotalInterest(balance,monthlyRate,netPayment){
+  if(netPayment<=0||netPayment<=balance*monthlyRate)return Infinity;
+  const months=debtPayoffMonths(balance,monthlyRate,netPayment);
+  return Math.max(0,Math.round((netPayment*months-balance)*100)/100);
+}
+function avgMonthlyNetPayment(acctId){
+  // Average net payment over the last 3 months of actual transactions
+  const now=new Date();
+  const months=[];
+  for(let i=1;i<=3;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push(mId(d.getFullYear(),d.getMonth()));
+  }
+  const payments=months.map(mid=>{
+    // Payments IN to the account (reduce debt) minus charges OUT (increase debt)
+    const txs=S.txs.filter(t=>t.accountId===acctId&&t.monthId===mid&&t.type!=='opening');
+    const inAmt=txs.filter(t=>t.type==='in'||t.type==='xfr').reduce((s,t)=>s+t.amount,0);
+    const outAmt=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+    return inAmt-outAmt; // positive = net reducing debt
+  }).filter(p=>p!==0);
+  if(!payments.length)return 0;
+  return Math.round(payments.reduce((s,p)=>s+p,0)/payments.length*100)/100;
+}
+function renderDebtTracker(a){
+  const balance=Math.abs(acctBalance(a.id)); // positive = amount owed
+  const apr=a.debtAPR||0;
+  const monthlyRate=apr/(100*12);
+  const monthlyInterest=Math.round(balance*monthlyRate*100)/100;
+  const minPayment=a.debtMinPayment||0;
+  const avgPayment=avgMonthlyNetPayment(a.id);
+  const effectivePayment=Math.max(avgPayment,minPayment);
+  const months=debtPayoffMonths(balance,monthlyRate,effectivePayment);
+  const totalInterest=debtTotalInterest(balance,monthlyRate,effectivePayment);
+  const payoffDate=months===Infinity?null:new Date(Date.now()+months*30.44*24*3600*1000);
+  const payoffStr=months===Infinity?'Never (payment < interest)':payoffDate.toLocaleString('default',{month:'short',year:'numeric'});
+  // Progress: assume original balance = balance + total payments made (rough)
+  const totalPaid=S.txs.filter(t=>t.accountId===a.id&&t.type==='in'&&!isScheduled(t)).reduce((s,t)=>s+t.amount,0);
+  const origBalance=balance+totalPaid;
+  const pctPaid=origBalance>0?Math.min(Math.round((totalPaid/origBalance)*100),100):0;
+
+  return `<div class="debt-tracker">
+    <div class="debt-tracker-hdr">
+      <span class="debt-tracker-title">💳 Debt Tracker</span>
+      ${apr?`<span style="font-size:11px;color:var(--text3)">APR: ${apr}%</span>`:'<span style="font-size:11px;color:var(--amber)">Set APR for projections →</span>'}
+      <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="editAcct('${a.id}')">Edit</button>
+    </div>
+    <div class="debt-stat-grid">
+      <div class="debt-stat">
+        <div class="debt-stat-label">Balance Owed</div>
+        <div class="debt-stat-val" style="color:var(--red)">$${$f(balance)}</div>
+      </div>
+      <div class="debt-stat">
+        <div class="debt-stat-label">Monthly Interest</div>
+        <div class="debt-stat-val" style="color:var(--amber)">${apr?'$'+$f(monthlyInterest):'—'}</div>
+      </div>
+      <div class="debt-stat">
+        <div class="debt-stat-label">Avg Net Payment</div>
+        <div class="debt-stat-val" style="color:${avgPayment>monthlyInterest?'var(--green)':'var(--red)'}">${avgPayment?'$'+$f(avgPayment):'—'}</div>
+      </div>
+    </div>
+    ${pctPaid>0?`<div style="padding:8px 16px 0">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px">${pctPaid}% paid off</div>
+      <div class="debt-payoff-bar"><div class="debt-payoff-fill" style="width:${pctPaid}%"></div></div>
+    </div>`:''}
+    ${apr&&effectivePayment>0?`<div style="padding:8px 16px;font-size:12px;color:var(--text3)">
+      At current pace — payoff: <strong style="color:${months===Infinity?'var(--red)':'var(--text)'}">${payoffStr}</strong>
+      ${totalInterest!==Infinity?` · total interest: <strong style="color:var(--amber)">$${$f(totalInterest)}</strong>`:''}
+    </div>`:''}
+
+    <div class="debt-wi-section">
+      <div class="debt-wi-title">What If Calculator</div>
+
+      <div class="debt-wi-row">
+        <span class="debt-wi-label">What if I pay $X/month extra?</span>
+        <input class="debt-wi-inp" id="debtExtra_${a.id}" type="number" min="0" step="10" placeholder="0"
+          oninput="renderDebtWI('${a.id}',${balance},${monthlyRate},${effectivePayment},${monthlyInterest})" />
+      </div>
+      <div id="debtWIResult_${a.id}"></div>
+
+      <div class="debt-wi-row" style="margin-top:12px">
+        <span class="debt-wi-label">What if I paid it off today?</span>
+        <span style="font-size:12px;color:var(--green);font-family:var(--mono)">$${$f(balance)} frees ${apr?'$'+$f(monthlyInterest)+'/mo in interest':' monthly budget'}</span>
+      </div>
+      ${apr?`<div class="debt-result">
+        <div class="debt-result-row"><span class="debt-result-label">Interest saved (yearly)</span><span class="debt-result-val" style="color:var(--green)">$${$f(Math.round(balance*apr/100*100)/100)}</span></div>
+        <div class="debt-result-row"><span class="debt-result-label">Freed monthly cash</span><span class="debt-result-val" style="color:var(--green)">+$${$f(effectivePayment)}</span></div>
+        <div class="debt-result-row"><span class="debt-result-label">That money invested 10yr @7%</span><span class="debt-result-val" style="color:var(--accent)">$${$f(Math.round(effectivePayment*((Math.pow(1.07/12+1,120)-1)/(0.07/12))*100)/100)}</span></div>
+      </div>`:'<div style="font-size:11px;color:var(--text3);padding:4px 0">Set APR above to see interest savings.</div>'}
+    </div>
+  </div>`;
+}
+function renderDebtWI(acctId,balance,monthlyRate,currentPayment,monthlyInterest){
+  const extra=parseFloat(document.getElementById('debtExtra_'+acctId)?.value)||0;
+  const el=document.getElementById('debtWIResult_'+acctId);if(!el)return;
+  if(!extra){el.innerHTML='';return;}
+  const newPayment=currentPayment+extra;
+  const newMonths=debtPayoffMonths(balance,monthlyRate,newPayment);
+  const oldMonths=debtPayoffMonths(balance,monthlyRate,currentPayment);
+  const newInterest=debtTotalInterest(balance,monthlyRate,newPayment);
+  const oldInterest=debtTotalInterest(balance,monthlyRate,currentPayment);
+  const savedMonths=oldMonths===Infinity?'∞':Math.max(0,oldMonths-newMonths);
+  const savedInterest=oldInterest===Infinity?'—':('$'+$f(Math.max(0,oldInterest-newInterest)));
+  const newDate=newMonths===Infinity?'Never':new Date(Date.now()+newMonths*30.44*24*3600*1000).toLocaleString('default',{month:'short',year:'numeric'});
+  el.innerHTML=`<div class="debt-result">
+    <div class="debt-result-row"><span class="debt-result-label">New payoff date</span><span class="debt-result-val" style="color:var(--green)">${newDate}</span></div>
+    <div class="debt-result-row"><span class="debt-result-label">Months saved</span><span class="debt-result-val" style="color:var(--green)">${savedMonths} months sooner</span></div>
+    <div class="debt-result-row"><span class="debt-result-label">Interest saved</span><span class="debt-result-val" style="color:var(--green)">${savedInterest}</span></div>
+  </div>`;
+}
+
 // MONTHLY REPORT
 // ═══════════════════════════════════════════════════════
 function openMonthReport(mid){
@@ -3418,12 +3621,157 @@ function openMonthReport(mid){
 }
 
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// INCOME ALLOCATION RULES (Phase 7)
+// ═══════════════════════════════════════════════════════
+function openAllocationRules(){
+  const modal=document.getElementById('modalBox');
+  modal.className='modal';
+  modal.innerHTML=allocationRulesHtml();
+  document.getElementById('overlay').classList.remove('hidden');
+}
+function allocationRulesHtml(){
+  const rules=S.allocationRules||[];
+  let bktOpts='<option value="">— select bucket —</option>';
+  sortedCats().forEach(cat=>{
+    sortedBuckets(cat.id).forEach(b=>{
+      bktOpts+=`<option value="${b.id}">[${esc(cat.name)}] ${esc(b.name)}</option>`;
+    });
+  });
+  const rows=rules.map(r=>{
+    const b=getBucket(r.bucketId);
+    return `<div class="alloc-rule-row">
+      <span class="alloc-rule-name">${esc(r.name||'Unnamed')}</span>
+      <span class="alloc-rule-badge">${r.type==='pct'?r.value+'%':'$'+$f(r.value)}</span>
+      ${b?`<span class="alloc-rule-bkt">${esc(b.name)}</span>`:'<span class="alloc-rule-bkt" style="color:var(--red)">missing bucket</span>'}
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer">
+        <input type="checkbox" ${r.active!==false?'checked':''} onchange="toggleAllocationRule('${r.id}',this.checked)" /> On
+      </label>
+      <button class="ib del" onclick="deleteAllocationRule('${r.id}')">×</button>
+    </div>`;
+  }).join('');
+  return `
+    <div class="modal-head">
+      <div class="modal-title">Income Allocation Rules</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        When you log income, these rules suggest how to split it across your buckets. You confirm before anything is applied.
+      </div>
+      ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No rules yet. Add one below.</div>'}
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">Add Rule</div>
+        <div class="fi-row" style="margin-bottom:8px">
+          <div class="fg"><label class="fl">Rule Name</label><input class="fi" id="newRuleName" placeholder="e.g. 5% to Savings" /></div>
+        </div>
+        <div class="fi-row" style="margin-bottom:8px">
+          <div class="fg"><label class="fl">Bucket</label><select class="fi" id="newRuleBkt">${bktOpts}</select></div>
+        </div>
+        <div class="fi-row" style="margin-bottom:10px">
+          <div class="fg"><label class="fl">Type</label>
+            <select class="fi" id="newRuleType">
+              <option value="pct">% of income</option>
+              <option value="fixed">Fixed amount $</option>
+            </select>
+          </div>
+          <div class="fg"><label class="fl">Value</label><input class="fi mono" id="newRuleVal" type="number" placeholder="5" /></div>
+        </div>
+        <button class="btn-primary" onclick="addAllocationRule()">Add Rule</button>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+}
+function addAllocationRule(){
+  const name=document.getElementById('newRuleName')?.value.trim();
+  const bucketId=document.getElementById('newRuleBkt')?.value;
+  const type=document.getElementById('newRuleType')?.value||'pct';
+  const value=parseFloat(document.getElementById('newRuleVal')?.value);
+  if(!bucketId){alert('Please select a bucket.');return;}
+  if(!value||value<=0){alert('Please enter a valid value.');return;}
+  if(!S.allocationRules)S.allocationRules=[];
+  S.allocationRules.push({id:'_ar'+Math.random().toString(36).slice(2,9),name:name||'Rule',bucketId,type,value,active:true});
+  save();
+  const modal=document.getElementById('modalBox');
+  if(modal)modal.innerHTML=allocationRulesHtml();
+}
+function deleteAllocationRule(id){
+  S.allocationRules=(S.allocationRules||[]).filter(r=>r.id!==id);
+  save();
+  const modal=document.getElementById('modalBox');
+  if(modal)modal.innerHTML=allocationRulesHtml();
+}
+function toggleAllocationRule(id,active){
+  const r=(S.allocationRules||[]).find(x=>x.id===id);
+  if(r)r.active=active;
+  save();
+}
+// Called after income is saved — shows apply-rules modal if active rules exist
+function promptAllocationRules(incomeAmt,monthId){
+  const rules=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId));
+  if(!rules.length)return;
+  const suggestions=rules.map(r=>{
+    const amt=r.type==='pct'?Math.round(incomeAmt*(r.value/100)*100)/100:r.value;
+    const b=getBucket(r.bucketId);
+    return {...r,suggestedAmt:amt,bucketName:b?.name||'',on:true};
+  });
+  showRuleApplyModal(suggestions,monthId);
+}
+let _pendingRules=[];
+function showRuleApplyModal(suggestions,monthId){
+  _pendingRules=suggestions.map(s=>({...s}));
+  const modal=document.getElementById('modalBox');
+  modal.className='modal';
+  modal.innerHTML=ruleApplyHtml(monthId);
+  document.getElementById('overlay').classList.remove('hidden');
+}
+function ruleApplyHtml(monthId){
+  const total=_pendingRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
+  const rows=_pendingRules.map((r,i)=>`
+    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('ruleApplyModal').innerHTML=ruleApplyHtml('${monthId}')">
+      <div class="rule-apply-check">${r.on?'✓':''}</div>
+      <div class="rule-apply-main">
+        <div class="rule-apply-name">${esc(r.name)}</div>
+        <div class="rule-apply-detail">${esc(r.bucketName)} · ${r.type==='pct'?r.value+'% of income':'fixed amount'}</div>
+      </div>
+      <div class="rule-apply-amt">+${$f(r.suggestedAmt)}</div>
+    </div>`).join('');
+  return `
+    <div class="modal-head">
+      <div class="modal-title">Apply Allocation Rules?</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div id="ruleApplyModal">
+      <div style="padding:10px 16px;font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)">
+        Income logged. These rules suggest the following allocations — click to toggle each.
+      </div>
+      ${rows}
+      <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
+        <span style="font-size:13px;color:var(--text3)">Total: <strong style="color:var(--green)">${$f(total)}</strong></span>
+      </div>
+    </div>
+    <div class="modal-foot" style="gap:8px">
+      <button class="btn-cancel" onclick="closeModal()">Skip</button>
+      <button class="btn-primary" onclick="applyAllocationRules('${monthId}')">Apply ${_pendingRules.filter(r=>r.on).length} Rules</button>
+    </div>`;
+}
+function applyAllocationRules(monthId){
+  const mo=S.months.find(m=>m.id===monthId);if(!mo)return;
+  if(!mo.allocations)mo.allocations={};
+  _pendingRules.filter(r=>r.on).forEach(r=>{
+    const current=mo.allocations[r.bucketId]||0;
+    mo.allocations[r.bucketId]=Math.round((current+r.suggestedAmt)*100)/100;
+  });
+  save();closeModal();render();
+  showToast(`Applied ${_pendingRules.filter(r=>r.on).length} allocation rules`,'save');
+}
+
 // FRESH START
 // ═══════════════════════════════════════════════════════
 function confirmFreshStart(){
   if(!confirm('⚠ Fresh Start will erase ALL data — accounts, categories, buckets, and transactions. This cannot be undone.\n\nAre you sure?'))return;
   localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[]};
+  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[]};
   closeModal();ensureMonth();S.activeMonth=currentMonthId();
   startWizard();
 }
@@ -3569,7 +3917,7 @@ let M = {
   bktRecurring:false, bktRollover:false,
   bktGoal:'', bktDate:'', bktContrib:'monthly',
   // account
-  acctName:'', acctColor:COLORS[0], acctType:'budget', acctBal:'', acctEditId:null,
+  acctName:'', acctColor:COLORS[0], acctType:'budget', acctBal:'', acctEditId:null, acctAPR:'', acctMinPay:'',
 };
 
 function mkBkt(){
@@ -3632,7 +3980,7 @@ function editBucket(id){
   renderModal();
 }
 
-function editAcct(id){const a=getAcct(id);if(!a)return;M={...M,tab:'acct',acctName:a.name,acctColor:a.color||COLORS[0],acctType:a.type,acctBal:'',acctEditId:id};renderModal();}
+function editAcct(id){const a=getAcct(id);if(!a)return;M={...M,tab:'acct',acctName:a.name,acctColor:a.color||COLORS[0],acctType:a.type||'budget',acctBal:'',acctEditId:id,acctAPR:String(a.debtAPR||''),acctMinPay:String(a.debtMinPayment||'')};renderModal();}
 
 // Snapshot live field values back into M before any re-render
 function MsnapBuilder(){
@@ -3654,6 +4002,8 @@ function MsnapBuilder(){
 function MsnapAcct(){
   const n=document.getElementById('mAcctName');if(n)M.acctName=n.value;
   const b=document.getElementById('mAcctBal');if(b)M.acctBal=b.value;
+  const apr=document.getElementById('mAcctAPR');if(apr)M.acctAPR=apr.value;
+  const mp=document.getElementById('mAcctMinPay');if(mp)M.acctMinPay=mp.value;
 }
 function MsnapBkt(){
   const n=document.getElementById('mBktName');if(n)M.bktName=n.value;
@@ -3749,10 +4099,16 @@ function renderModal(){
     body=`
       <div class="fg"><label class="fl">Account Name</label><input class="fi" id="mAcctName" value="${esc(M.acctName)}" placeholder="e.g. Chase Checking, HYSA..." /></div>
       <div class="fg"><label class="fl">Type</label>
-        <div class="tog-row" style="display:grid;grid-template-columns:1fr 1fr">
-          <button class="togbtn${M.acctType==='budget'?' on':''}" onclick="M.acctType='budget';MsnapAcct();renderModal()">Budget account<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">feeds Ready to Spend</div></button>
-          <button class="togbtn${M.acctType==='savings'?' on':''}" onclick="M.acctType='savings';MsnapAcct();renderModal()">Savings account<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">net worth only</div></button>
+        <div class="tog-row" style="display:grid;grid-template-columns:1fr 1fr 1fr">
+          <button class="togbtn${M.acctType==='budget'?' on':''}" onclick="M.acctType='budget';MsnapAcct();renderModal()">Budget<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">feeds RTS</div></button>
+          <button class="togbtn${M.acctType==='savings'?' on':''}" onclick="M.acctType='savings';MsnapAcct();renderModal()">Savings<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">net worth only</div></button>
+          <button class="togbtn${M.acctType==='debt'?' on':''}" onclick="M.acctType='debt';MsnapAcct();renderModal()">Debt<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">credit card / loan</div></button>
         </div></div>
+      ${M.acctType==='debt'?`
+      <div class="fi-row">
+        <div class="fg"><label class="fl">APR (%)</label><input class="fi mono" id="mAcctAPR" type="number" step="0.01" value="${M.acctAPR||''}" placeholder="e.g. 22.99" /></div>
+        <div class="fg"><label class="fl">Min. Payment</label><input class="fi mono" id="mAcctMinPay" type="number" step="0.01" value="${M.acctMinPay||''}" placeholder="e.g. 25.00" /></div>
+      </div>`:''}
       ${!M.acctEditId?`<div class="fg"><label class="fl">Current Balance</label><input class="fi mono" id="mAcctBal" type="number" value="${M.acctBal}" placeholder="0.00" /><div class="hint">Posted as an opening balance transaction.</div></div>`:''}
       <div class="fg"><label class="fl">Color</label><div class="color-row">${swatches}</div></div>`;
 
@@ -3904,11 +4260,13 @@ function saveModal(){
   if(M.tab==='acct'){
     MsnapAcct();
     const name=M.acctName.trim();if(!name){document.getElementById('mAcctName')?.focus();return;}
+    const debtAPR=M.acctType==='debt'?(parseFloat(M.acctAPR)||null):null;
+    const debtMinPayment=M.acctType==='debt'?(parseFloat(M.acctMinPay)||null):null;
     if(M.acctEditId){
-      const a=getAcct(M.acctEditId);if(a){a.name=name;a.color=M.acctColor;a.type=M.acctType;}
+      const a=getAcct(M.acctEditId);if(a){a.name=name;a.color=M.acctColor;a.type=M.acctType;a.debtAPR=debtAPR;a.debtMinPayment=debtMinPayment;}
     } else {
       const id='_'+Math.random().toString(36).slice(2,9);
-      S.accounts.push({id,name,color:M.acctColor,type:M.acctType,openingBalance:0});
+      S.accounts.push({id,name,color:M.acctColor,type:M.acctType,openingBalance:0,debtAPR,debtMinPayment});
       const bal=parseFloat(M.acctBal)||0;
       if(bal!==0){
         const today=new Date().toISOString().split('T')[0];
@@ -4134,7 +4492,7 @@ function importData(event){
       S=Object.assign({
         accounts:[],cats:[],buckets:[],months:[],txs:[],
         activeMonth:null,activeBucket:null,activeAccount:null,
-        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],
+        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],
       },imported);
       S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
       normalizeCatOrder();normalizeBktOrder();
@@ -4935,6 +5293,9 @@ function mAddTx(){
   const amtStr=(t==='in'?'+':t==='xfr'?'⇄':'-')+$f(amt);
   mShowToast(t==='in'?'in':t==='xfr'?'xfr':'out', desc, amtStr+(bktName?' · '+bktName:''));
 
+  // Prompt allocation rules on new income
+  if(t==='in')setTimeout(()=>promptAllocationRules(amt,monthId),400);
+
   // Re-render log (sticky fields preserved, desc+amt cleared)
   mRenderLog();
   // Update other screens
@@ -5198,10 +5559,12 @@ function mRenderAcctDetail(aid){
   const posted=allTxs.filter(t=>t.date<=today);
 
   let h=`<div class="m-det-hero">
-    <div class="m-det-name">${$f(bal)}</div>
+    <div class="m-det-name" style="color:${a.type==='debt'?'var(--red)':bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</div>
     <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span></div>
     <button class="m-chip-btn" style="margin-top:8px;font-size:12px;padding:5px 14px" onclick="openReconcile('${aid}')">✓ Reconcile</button>
-  </div>`;
+  </div>
+  ${a.type==='debt'?`<div style="padding:0 16px 12px">${renderDebtTracker(a)}</div>`:''}
+  `;
 
   if(scheduled.length){
     h+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
