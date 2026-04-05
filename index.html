@@ -444,6 +444,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tx-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;align-self:center;flex-shrink:0;}
 .tx-row:hover .tx-acts{opacity:1;}
 .tx-empty{padding:32px 14px;text-align:center;font-size:13px;color:var(--text3);line-height:1.8;}
+/* Running balance line (account view only) */
+.tx-run-bal{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;text-align:right;}
+.tx-run-bal.proj{color:var(--amber);}
+.tx-run-bal.neg{color:var(--red);}
+/* Account balance badge in ledger header */
+.rp-bal-badge{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green);background:var(--gbg);padding:2px 7px;border-radius:10px;letter-spacing:-.3px;}
+.rp-bal-badge.neg{color:var(--red);background:var(--rbg);}
 /* Scheduled (future-dated) transactions */
 .tx-scheduled-hdr{padding:6px 12px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--amber);background:var(--abg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;}
 .tx-sched{opacity:.7;background:var(--abg);}
@@ -908,6 +915,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="rp-ledger-head">
       <div class="rpf-row" style="margin-bottom:6px;padding:0">
         <span class="rp-title" id="rpTitle" style="flex:1">Ledger</span>
+        <span class="rp-bal-badge" id="rpBalBadge" style="display:none"></span>
         <div class="rp-filters" style="gap:3px">
           <button class="rfbtn active" id="fAll" onclick="setFilter('all')">All</button>
           <button class="rfbtn" id="fIn"  onclick="setFilter('in')">↓ In</button>
@@ -2123,6 +2131,45 @@ function renderBucketDetail(mid,past,m){
   return h;
 }
 
+// Running account balance for each tx — only used in account view
+// Returns {balMap: Map(txId→balAfter), schedMap: Map(txId→projBalAfter)}
+function calcAccountRunningBal(aid){
+  const cleared=acctBalance(aid);
+  const balMap=new Map();
+  const schedMap=new Map();
+
+  // Posted: walk backwards from current cleared balance
+  const posted=S.txs.filter(t=>
+    (t.accountId===aid||t.toAccountId===aid)&&t.type!=='opening'&&!isScheduled(t)
+  ).sort((a,b)=>new Date(b.date)-new Date(a.date)||(b.id>a.id?1:-1));
+  let bal=cleared;
+  posted.forEach(t=>{
+    balMap.set(t.id,bal);
+    if(t.accountId===aid){
+      if(t.type==='in')bal-=t.amount;
+      if(t.type==='out')bal+=t.amount;
+      if(t.type==='xfr')bal+=t.amount;
+    }
+    if(t.toAccountId===aid&&t.type==='xfr')bal-=t.amount;
+  });
+
+  // Scheduled: project forward from cleared balance
+  let proj=cleared;
+  S.txs.filter(t=>
+    (t.accountId===aid||t.toAccountId===aid)&&isScheduled(t)
+  ).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t=>{
+    if(t.accountId===aid){
+      if(t.type==='in')proj+=t.amount;
+      if(t.type==='out')proj-=t.amount;
+      if(t.type==='xfr')proj-=t.amount;
+    }
+    if(t.toAccountId===aid&&t.type==='xfr')proj+=t.amount;
+    schedMap.set(t.id,proj);
+  });
+
+  return {balMap,schedMap};
+}
+
 function renderTxList(){
   const mid=S.activeMonth;
   const past=monthStatus(mid)==='past';
@@ -2133,6 +2180,9 @@ function renderTxList(){
     if(S.activeAccount)return t.accountId===S.activeAccount||t.toAccountId===S.activeAccount;
     return t.monthId===mid;
   });
+
+  // Running balance maps — only computed when viewing a single account
+  const runBals=S.activeAccount?calcAccountRunningBal(S.activeAccount):{balMap:new Map(),schedMap:new Map()};
 
   const filter=S.txFilter||'all';
   if(filter==='in')txs=txs.filter(t=>t.type==='in');
@@ -2148,7 +2198,18 @@ function renderTxList(){
   let title='Transactions';
   if(S.activeBucket)title=getBucket(S.activeBucket)?.name||'Transactions';
   else if(S.activeAccount)title=getAcct(S.activeAccount)?.name||'Transactions';
-  document.getElementById('rpTitle').textContent=title;
+  const titleEl=document.getElementById('rpTitle');
+  titleEl.textContent=title;
+  // Show current account balance next to title in account view
+  const balBadge=document.getElementById('rpBalBadge');
+  if(S.activeAccount&&balBadge){
+    const b=acctBalance(S.activeAccount);
+    balBadge.textContent=$f(b);
+    balBadge.className='rp-bal-badge'+(b<0?' neg':'');
+    balBadge.style.display='';
+  } else if(balBadge){
+    balBadge.style.display='none';
+  }
 
   // Pre-fill form bucket
   if(S.activeBucket){
@@ -2175,7 +2236,8 @@ function renderTxList(){
   if(scheduled.length){
     h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
     scheduled.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(tx=>{
-      h+=txRowHtml(tx,past,true);
+      const projBal=runBals.schedMap.has(tx.id)?runBals.schedMap.get(tx.id):null;
+      h+=txRowHtml(tx,past,true,projBal);
     });
     if(posted.length)h+=`<div class="tx-date-hdr" style="margin-top:6px">Posted</div>`;
   }
@@ -2183,12 +2245,15 @@ function renderTxList(){
   Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
     if(scheduled.length)h+=`<div class="tx-date-hdr" style="font-size:10px;padding:4px 10px 2px;opacity:.7">${ld(date)}</div>`;
     else h+=`<div class="tx-date-hdr">${ld(date)}</div>`;
-    groups[date].forEach(tx=>{h+=txRowHtml(tx,past,false);});
+    groups[date].forEach(tx=>{
+      const rb=runBals.balMap.has(tx.id)?runBals.balMap.get(tx.id):null;
+      h+=txRowHtml(tx,past,false,rb);
+    });
   });
   list.innerHTML=h;
 }
 
-function txRowHtml(tx,past,sched){
+function txRowHtml(tx,past,sched,runBal=null){
   const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
   const color=cat?.color||'var(--text3)';
   const acct=getAcct(tx.accountId);
@@ -2205,6 +2270,10 @@ function txRowHtml(tx,past,sched){
   if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${esc(b.name)}</span>`;}
   if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span style="color:var(--purple)">→ ${esc(toAcct.name)}</span>`;}
   if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span style="color:var(--accent)">↻</span>`;
+  // Running balance line — only shown in account view (runBal !== null)
+  const balLine=runBal!==null
+    ?`<div class="tx-run-bal${sched?' proj':runBal<0?' neg':''}">${sched?'~':''}${$f(runBal)}</div>`
+    :'';
   return `<div class="tx-row${sched?' tx-sched':''}">
     <div class="tx-indicator" style="background:${sched?'var(--border2)':indColor}"></div>
     <div class="tx-l">
@@ -2213,6 +2282,7 @@ function txRowHtml(tx,past,sched){
     </div>
     <div class="tx-r">
       <div class="tx-amt ${sched?'muted':amtCls}">${amtPfx}${$f(tx.amount)}</div>
+      ${balLine}
     </div>
     <div class="tx-acts">
       ${!past?`<button class="ib" onclick="editTx('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:''}
