@@ -228,6 +228,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .pill-empty{background:var(--bg3);color:var(--text3);}
 .pill-over{background:var(--rbg);color:var(--red);}
 .pill-done{background:var(--gbg);color:var(--green);}
+.pill-pending{background:var(--abg);color:var(--amber);}
+/* Pending dot: unfunded but has scheduled activity coming */
+.bni-dot.has-pending{background:var(--amber);opacity:.45;}
+/* Recurring bill row in modal */
+.rb-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.rb-row-name{flex:1;font-size:13px;}
+.rb-row-amt{font-family:var(--mono);font-size:12px;color:var(--text2);min-width:60px;text-align:right;}
+.rb-row-day{font-size:11px;color:var(--text3);}
+.m-bkt-pill.pill-pending{background:var(--abg);color:var(--amber);}
 .pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
 
 /* ═══ BUCKET DETAIL ═══ */
@@ -1343,7 +1352,7 @@ async function signOut(){
   // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
      activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
-     wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[]};
+     wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
@@ -1402,6 +1411,7 @@ let S={
   onboarded:false,
   payees:[],  // {id,name,defaultBucketId?} — saved from transaction descriptions
   allocationRules:[], // {id,name,bucketId,type:'pct'|'fixed',value,active}
+  recurringBills:[], // {id,desc,amount,bucketId,accountId,type:'out'|'in',dayOfMonth,active}
 };
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
@@ -1516,6 +1526,11 @@ async function loadFromSupabase(){
   if(!S.buckets)S.buckets=[];
   if(!S.txs)S.txs=[];
   if(!S.txFilter)S.txFilter='all';
+  if(!S.payees)S.payees=[];
+  if(!S.allocationRules)S.allocationRules=[];
+  if(!S.recurringBills)S.recurringBills=[];
+  cleanupRecurringTxs();
+  generateRecurringTxs();
 
   return true;
 }
@@ -1537,8 +1552,11 @@ function load(){
   if(!S.txFilter)S.txFilter='all';
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
+  if(!S.recurringBills)S.recurringBills=[];
   normalizeCatOrder();
   normalizeBktOrder();
+  cleanupRecurringTxs();
+  generateRecurringTxs();
 }
 
 function migrateV5(raw){
@@ -1835,6 +1853,7 @@ function renderSidebar(){
   if(S.cats.length){
     h+=`<div class="sb-sep"></div>
     <div class="sb-sec"><span class="sb-sec-label">Buckets</span>
+      <button class="sb-add" title="Recurring Bills" onclick="openRecurringBills()" style="font-size:10px;padding:1px 5px;margin-right:2px">⏱</button>
       <button class="sb-add" onclick="openModal('cat')">+</button></div>`;
     const sCats=sortedCats();
     sCats.forEach((cat,catIdx)=>{
@@ -1856,17 +1875,19 @@ function renderSidebar(){
         const alloc=bAlloc(mid,b.id);
         const target=bBudget(mid,b.id);
         const avail=alloc+rolloverBal(b.id,mid)-bSpent(mid,b.id);
+        const pend=bucketPendingAmt(b.id,mid);
         let dotCls='empty';
         if(avail<0)dotCls='over';
         else if(alloc>=target&&target>0)dotCls='funded';
         else if(alloc>0)dotCls='partial';
+        const dotExtra=(pend>0&&dotCls!=='over'&&dotCls!=='funded')?' has-pending':'';
         const isFirstBkt=bIdx===0;
         const isLastBkt=bIdx===catBuckets.length-1;
         h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')" tabindex="0" role="button" aria-label="${esc(b.name)}" onkeydown="if(event.key==='Enter'||event.key===' ')setBucket('${b.id}')">
           <div class="bni-line" style="background:${cat.color||COLORS[0]}"></div>
-          <div class="bni-dot ${dotCls}"></div>
-          <span class="bni-name">${esc(b.name)}</span>
-          <span class="bni-val">${alloc>0?$f(alloc):''}</span>
+          <div class="bni-dot ${dotCls}${dotExtra}"></div>
+          <span class="bni-name">${esc(b.name)}${pend>0?'<span style="font-size:9px;color:var(--amber);margin-left:3px">⏱</span>':''}</span>
+          <span class="bni-val">${alloc>0?$f(alloc):pend>0?`<span style="color:var(--amber);opacity:.7">${$f(pend)}</span>`:''}</span>
           <div class="bni-acts">
             <button class="ib" onclick="event.stopPropagation();moveBkt('${b.id}',-1)" title="Move up" ${isFirstBkt?'disabled style="opacity:.3"':''}>↑</button>
             <button class="ib" onclick="event.stopPropagation();moveBkt('${b.id}',1)" title="Move down" ${isLastBkt?'disabled style="opacity:.3"':''}>↓</button>
@@ -2039,8 +2060,10 @@ function renderMain(){
       if(b.recurring)tags.push('↻');
       if(roll>0)tags.push(`+${$f(roll)} rolled`);
 
+      const pend=bucketPendingAmt(b.id,mid);
       let pillHtml='';
       if(past&&spent===0&&alloc>0)pillHtml=`<span class="pill pill-missed">Missed</span>`;
+      else if(alloc===0&&pend>0)pillHtml=`<span class="pill pill-pending" title="${$f(pend)} scheduled">⏱ ${$f(pend)}</span>`;
       else if(alloc===0)pillHtml=`<span class="pill pill-empty">Unfunded</span>`;
       else if(avail<0)pillHtml=`<span class="pill pill-over">Over</span>`;
       else if(spent>=eff&&eff>0)pillHtml=`<span class="pill pill-done">Done</span>`;
@@ -2358,7 +2381,7 @@ function calcAccountRunningBal(aid){
   // Posted: walk backwards from current cleared balance
   const posted=S.txs.filter(t=>
     (t.accountId===aid||t.toAccountId===aid)&&t.type!=='opening'&&!isScheduled(t)
-  ).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
+  ).sort((a,b)=>new Date(b.date)-new Date(a.date));
   let bal=cleared;
   posted.forEach(t=>{
     balMap.set(t.id,bal);
@@ -3806,12 +3829,163 @@ function applyAllocationRules(monthId){
   }
 }
 
+// ═══════════════════════════════════════════════════════
+// RECURRING BILLS
+// ═══════════════════════════════════════════════════════
+// Pending = auto-generated scheduled tx exists for this bucket in this month
+const bucketPendingAmt=(bid,mid)=>
+  S.txs.filter(t=>t.bucketId===bid&&t.monthId===mid&&t.autoGenerated&&isScheduled(t)&&t.type!=='opening')
+    .reduce((s,t)=>s+t.amount,0);
+
+// Remove auto-generated txs whose date has passed — user handles these manually
+function cleanupRecurringTxs(){
+  const today=todayStr();
+  const before=S.txs.length;
+  S.txs=S.txs.filter(t=>!(t.autoGenerated&&t.date<=today));
+  return S.txs.length!==before; // returns true if anything was removed
+}
+
+// Project each active recurring bill into current+next month as future-dated txs
+function generateRecurringTxs(){
+  if(!(S.recurringBills||[]).length)return;
+  const today=new Date();
+  const monthsToCheck=[];
+  for(let i=0;i<=1;i++){
+    const d=new Date(today.getFullYear(),today.getMonth()+i,1);
+    monthsToCheck.push({year:d.getFullYear(),month:d.getMonth()});
+  }
+  let added=false;
+  S.recurringBills.filter(b=>b.active!==false).forEach(bill=>{
+    if(!getAcct(bill.accountId))return; // skip if account deleted
+    monthsToCheck.forEach(({year,month})=>{
+      const maxDay=new Date(year,month+1,0).getDate();
+      const day=Math.min(bill.dayOfMonth,maxDay);
+      const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      if(dateStr<=todayStr())return; // only future dates
+      const mid=mId(year,month);
+      // Skip if any tx (auto or manual) already links to this bill in this month
+      if(S.txs.some(t=>t.recurringBillId===bill.id&&t.monthId===mid))return;
+      addMonth(year,month);
+      S.txs.push({
+        id:'_rg'+Math.random().toString(36).slice(2,9),
+        accountId:bill.accountId,toAccountId:null,
+        monthId:mid,bucketId:bill.bucketId,
+        desc:bill.desc,amount:bill.amount,type:bill.type,
+        date:dateStr,recurring:true,
+        recurringBillId:bill.id,autoGenerated:true,
+      });
+      added=true;
+    });
+  });
+  if(added)save();
+}
+
+// Called when a bill is edited — regenerate its auto-txs
+function refreshRecurringBill(id){
+  S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));
+  generateRecurringTxs();
+}
+
+function openRecurringBills(){
+  const modal=document.getElementById('modalBox');
+  modal.className='modal';
+  modal.innerHTML=recurringBillsHtml();
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function recurringBillsHtml(){
+  const bills=S.recurringBills||[];
+  let bktOpts='<option value="">— select bucket —</option>';
+  sortedCats().forEach(cat=>sortedBuckets(cat.id).forEach(b=>{
+    bktOpts+=`<option value="${b.id}">[${esc(cat.name)}] ${esc(b.name)}</option>`;
+  }));
+  let acctOpts='<option value="">— select account —</option>';
+  S.accounts.forEach(a=>{acctOpts+=`<option value="${a.id}">${esc(a.name)}</option>`;});
+  const rows=bills.map(r=>{
+    const b=getBucket(r.bucketId);const a=getAcct(r.accountId);
+    return `<div class="rb-row">
+      <div class="rb-row-name"><strong>${esc(r.desc)}</strong><div class="rb-row-day">Day ${r.dayOfMonth} · ${b?esc(b.name):'?'} · ${a?esc(a.name):'?'}</div></div>
+      <div class="rb-row-amt">${$f(r.amount)}</div>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer">
+        <input type="checkbox" ${r.active!==false?'checked':''} onchange="toggleRecurringBill('${r.id}',this.checked)" /> On
+      </label>
+      <button class="ib del" onclick="deleteRecurringBill('${r.id}')">×</button>
+    </div>`;
+  }).join('');
+  return `
+    <div class="modal-head">
+      <div class="modal-title">⏱ Recurring Bills</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Bills auto-appear as scheduled transactions so buckets show ⏱ before the date arrives. When the date passes, log the real transaction — the placeholder clears automatically.
+      </div>
+      ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No recurring bills yet. Add one below.</div>'}
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">Add Bill</div>
+        <div class="fi-row" style="margin-bottom:8px">
+          <div class="fg"><label class="fl">Description</label><input class="fi" id="rbDesc" placeholder="e.g. Netflix" /></div>
+        </div>
+        <div class="fi-row" style="margin-bottom:8px;gap:8px">
+          <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="rbAmt" type="number" min="0" step="0.01" placeholder="0.00" /></div>
+          <div class="fg"><label class="fl">Day of Month</label><input class="fi mono" id="rbDay" type="number" min="1" max="31" placeholder="15" /></div>
+        </div>
+        <div class="fi-row" style="margin-bottom:8px">
+          <div class="fg"><label class="fl">Account</label><select class="fi" id="rbAcct">${acctOpts}</select></div>
+        </div>
+        <div class="fi-row" style="margin-bottom:10px">
+          <div class="fg"><label class="fl">Bucket</label><select class="fi" id="rbBkt">${bktOpts}</select></div>
+        </div>
+        <button class="btn-primary" onclick="addRecurringBill()">Add Bill</button>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+}
+
+function addRecurringBill(){
+  const desc=document.getElementById('rbDesc')?.value.trim();
+  const amt=parseFloat(document.getElementById('rbAmt')?.value);
+  const day=parseInt(document.getElementById('rbDay')?.value);
+  const accountId=document.getElementById('rbAcct')?.value;
+  const bucketId=document.getElementById('rbBkt')?.value;
+  if(!desc){alert('Please enter a description.');return;}
+  if(!amt||amt<=0){alert('Please enter a valid amount.');return;}
+  if(!day||day<1||day>31){alert('Please enter a day of month (1–31).');return;}
+  if(!accountId){alert('Please select an account.');return;}
+  if(!bucketId){alert('Please select a bucket.');return;}
+  if(!S.recurringBills)S.recurringBills=[];
+  S.recurringBills.push({id:'_rb'+Math.random().toString(36).slice(2,9),desc,amount:amt,dayOfMonth:day,accountId,bucketId,type:'out',active:true});
+  generateRecurringTxs();
+  const modal=document.getElementById('modalBox');
+  if(modal)modal.innerHTML=recurringBillsHtml();
+  render();if(isMobile())mRenderAll();
+}
+
+function deleteRecurringBill(id){
+  S.recurringBills=(S.recurringBills||[]).filter(r=>r.id!==id);
+  S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));
+  save();render();if(isMobile())mRenderAll();
+  const modal=document.getElementById('modalBox');
+  if(modal&&!document.getElementById('overlay').classList.contains('hidden'))
+    modal.innerHTML=recurringBillsHtml();
+}
+
+function toggleRecurringBill(id,active){
+  const r=(S.recurringBills||[]).find(x=>x.id===id);
+  if(!r)return;
+  r.active=active;
+  if(!active){S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));}
+  else refreshRecurringBill(id);
+  save();render();if(isMobile())mRenderAll();
+}
+
 // FRESH START
 // ═══════════════════════════════════════════════════════
 function confirmFreshStart(){
   if(!confirm('⚠ Fresh Start will erase ALL data — accounts, categories, buckets, and transactions. This cannot be undone.\n\nAre you sure?'))return;
   localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[]};
+  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
   closeModal();ensureMonth();S.activeMonth=currentMonthId();
   save(); // Push empty state to Supabase so old data doesn't restore on next login
   startWizard();
@@ -4533,7 +4707,7 @@ function importData(event){
       S=Object.assign({
         accounts:[],cats:[],buckets:[],months:[],txs:[],
         activeMonth:null,activeBucket:null,activeAccount:null,
-        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],
+        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],recurringBills:[],
       },imported);
       S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
       normalizeCatOrder();normalizeBktOrder();
@@ -5071,6 +5245,7 @@ function mRenderDash(){
     <button class="m-settings-btn" onclick="openNetWorth()">◈ Net Worth</button>
     <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
     <button class="m-settings-btn" onclick="openMonthReport('${mid}')">📊 Report</button>
+    <button class="m-settings-btn" onclick="openRecurringBills()">⏱ Recurring</button>
   </div>`;
   // Settings row
   h+=`<div class="m-settings-row">
@@ -5137,11 +5312,13 @@ function mRenderBuckets(){
       const pctRaw=eff>0?spent/eff:0;
       const pct=Math.min(pctRaw,1);
       const days=daysUntilDue(b,m?.year,m?.month);
+      const pend=bucketPendingAmt(b.id,mid);
       let pillCls='pill-empty',pillTxt='Unfunded';
       if(avail<0){pillCls='pill-over';pillTxt='Over';}
       else if(spent>=eff&&eff>0){pillCls='pill-done';pillTxt='Done';}
       else if(alloc>=target&&target>0){pillCls='pill-funded';pillTxt='Funded';}
       else if(alloc>0){pillCls='pill-partial';pillTxt=Math.round(pctRaw*100)+'%';}
+      else if(pend>0){pillCls='pill-pending';pillTxt='⏱ '+$f(pend);}
       let dueStr='';
       if(days!==null){dueStr=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':days<=7?`due ${days}d`:'';}
       const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
