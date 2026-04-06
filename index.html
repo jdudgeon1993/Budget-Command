@@ -1867,8 +1867,12 @@ function renderTopbar(){
   const rts=mid?readyToSpend(mid):0;
   const rEl=document.getElementById('tbRTS');
   if(!mid||(!S.accounts.some(a=>a.type==='budget'))){rEl.className='tb-rts-val zero';rEl.textContent='—';return;}
+  const scheduledOutCl=S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.type!=='in'&&getAcct(t.accountId)?.type!=='debt').reduce((s,t)=>s+t.amount,0);
   rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
   rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' over':'');
+  rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} in scheduled outflows pending — After scheduled: ${$f(rts-scheduledOutCl)}`:'Ready to spend from unallocated budget account balance';
+  const rtsLabel=document.querySelector('.tb-rts-label');
+  if(rtsLabel)rtsLabel.innerHTML=scheduledOutCl>0?`Ready to Spend <span style="font-size:9px;color:var(--amber);font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
 
   // Month tabs
   const tEl=document.getElementById('tbMonths');
@@ -3536,16 +3540,16 @@ function reconFinish(acctId){
 function openNetWorth(){
   const modal=document.getElementById('modalBox');
   modal.className='modal nw-modal';
-  // Compute each balance once
-  const _bals=S.accounts.map(a=>({a,bal:acctBalance(a.id)}));
-  const totalAssets=_bals.filter(x=>x.bal>0).reduce((s,x)=>s+x.bal,0);
-  const totalLiab=_bals.filter(x=>x.bal<0).reduce((s,x)=>s+x.bal,0);
+  // Compute each balance once — debt accounts always negative for net worth
+  const _bals=S.accounts.map(a=>({a,bal:acctBalance(a.id),nwBal:a.type==='debt'?-Math.abs(acctBalance(a.id)):acctBalance(a.id)}));
+  const totalAssets=_bals.filter(x=>x.nwBal>0).reduce((s,x)=>s+x.nwBal,0);
+  const totalLiab=_bals.filter(x=>x.nwBal<0).reduce((s,x)=>s+x.nwBal,0);
   const netWorth=totalAssets+totalLiab;
-  // Current accounts summary (reuse pre-computed balances)
-  const acctRows=_bals.map(({a,bal})=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+  // Current accounts summary
+  const acctRows=_bals.map(({a,bal,nwBal})=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
       <span style="flex:1;font-size:13px">${esc(a.name)}<span style="font-size:10px;color:var(--text3);margin-left:6px">${a.type}</span></span>
-      <span style="font-family:var(--mono);font-size:13px;color:${bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</span>
+      <span style="font-family:var(--mono);font-size:13px;color:${nwBal>=0?'var(--green)':'var(--red)'}">${a.type==='debt'?'-':''} ${$f(Math.abs(bal))}</span>
     </div>`).join('');
   // Historical: end-of-month balance per account per past month
   const pastMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-12);
@@ -6196,9 +6200,14 @@ function ndRenderHeader(){
   const alloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAlloc(mid,b.id),0);
   const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
   const rts=readyToSpend(mid);
+  // Scheduled outflows from budget accounts (future-dated, not yet posted)
+  const scheduledOut=S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.type!=='in'&&getAcct(t.accountId)?.type!=='debt').reduce((s,t)=>s+t.amount,0);
   const rtsColor=rts>0?'var(--green)':rts<0?'var(--red)':'var(--text3)';
+  const rtsAfter=rts-scheduledOut;
+  const rtsAfterColor=rtsAfter>0?'var(--green)':rtsAfter<0?'var(--red)':'var(--text3)';
   const syncEl=document.getElementById('syncStatus');
   const syncHtml=syncEl&&syncEl.style.display!=='none'?`<span class="${syncEl.className}" style="font-size:11px;padding:2px 8px;border-radius:10px">${syncEl.textContent}</span>`:'';
+  const schedWarn=scheduledOut>0?`<div style="font-size:10px;color:var(--amber)">⏱ ${$f(scheduledOut)} scheduled</div>`:'';
   el.innerHTML=`
     <div class="nd-month-nav">
       <button class="nd-month-btn" onclick="ndNavMonth(-1)">‹</button>
@@ -6209,7 +6218,16 @@ function ndRenderHeader(){
       <div class="nd-hstat"><div class="nd-hstat-label">Income</div><div class="nd-hstat-val">${$f(income)}</div></div>
       <div class="nd-hstat"><div class="nd-hstat-label">Budgeted</div><div class="nd-hstat-val">${$f(alloc)}</div></div>
       <div class="nd-hstat"><div class="nd-hstat-label">Spent</div><div class="nd-hstat-val">${$f(spent)}</div></div>
-      <div class="nd-hstat"><div class="nd-hstat-label" style="color:${rtsColor}">Ready</div><div class="nd-hstat-val" style="color:${rtsColor}">${$f(rts)}</div></div>
+      <div class="nd-hstat" title="Ready to spend from unallocated budget account balance${scheduledOut>0?' · '+$f(scheduledOut)+' in scheduled outflows pending':''}">
+        <div class="nd-hstat-label" style="color:${rtsColor}">Ready Now</div>
+        <div class="nd-hstat-val" style="color:${rtsColor}">${$f(rts)}</div>
+        ${schedWarn}
+      </div>
+      ${scheduledOut>0?`<div class="nd-hstat">
+        <div class="nd-hstat-label" style="color:${rtsAfterColor}">After Scheduled</div>
+        <div class="nd-hstat-val" style="color:${rtsAfterColor}">${$f(rtsAfter)}</div>
+        <div style="font-size:10px;color:var(--text3)">once bills clear</div>
+      </div>`:''}
     </div>
     <div class="nd-header-actions">
       ${syncHtml}
@@ -6480,11 +6498,13 @@ function ndAcctDetailHtml(aid){
     const sched=tx.date>today;
     const incoming=tx.toAccountId===aid&&tx.type==='xfr';
     const sign=incoming||tx.type==='in'?'+':'-';
-    const amtColor=sched?'var(--text3)':incoming||tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+    const amtColor=sched?'var(--amber)':incoming||tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+    const indColor=sched?'var(--amber)':incoming||tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
     const bkt=getBucket(tx.bucketId);const toA=getAcct(tx.toAccountId);
     const balCell=rb!=null?`<td style="padding:7px 8px;font-family:var(--mono);font-size:12px;color:${rb<0?'var(--red)':'var(--text3)'};text-align:right">${$f(rb)}</td>`:'<td></td>';
-    return `<tr style="${sched?'opacity:.55':''}">
-      <td style="padding:7px 10px;font-size:12px;color:var(--text3);white-space:nowrap">${tx.date}</td>
+    return `<tr style="${sched?'background:var(--abg)':''}">
+      <td style="padding:0;width:3px"><div style="width:3px;height:100%;min-height:36px;background:${indColor};border-radius:2px"></div></td>
+      <td style="padding:7px 10px;font-size:12px;color:${sched?'var(--amber)':'var(--text3)'};white-space:nowrap">${sched?'⏱ ':''} ${tx.date}</td>
       <td style="padding:7px 10px;font-size:13px">${esc(tx.desc)}</td>
       <td style="padding:7px 10px;font-size:11px;color:var(--text3)">${bkt?esc(bkt.name):''}${toA&&tx.type==='xfr'?'→ '+esc(toA.name):''}</td>
       <td style="padding:7px 10px;font-family:var(--mono);font-size:13px;font-weight:600;color:${amtColor};text-align:right">${tx.type==='xfr'&&!incoming?'':sign}${$f(tx.amount)}</td>
@@ -6551,9 +6571,11 @@ function ndTransactionsHtml(){
     const acct=getAcct(tx.accountId);const bkt=getBucket(tx.bucketId);
     const sched=isScheduled(tx);
     const sign=tx.type==='in'?'+':'-';
-    const color=sched?'var(--text3)':tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
-    return `<tr style="${sched?'opacity:.6':''}">
-      <td style="padding:7px 10px;font-size:12px;color:var(--text3)">${tx.date}</td>
+    const color=sched?'var(--amber)':tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+    const ind=sched?'var(--amber)':tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+    return `<tr style="${sched?'background:var(--abg)':''}">
+      <td style="padding:0;width:3px"><div style="width:3px;min-height:36px;background:${ind};border-radius:2px"></div></td>
+      <td style="padding:7px 10px;font-size:12px;color:${sched?'var(--amber)':'var(--text3)'}">${sched?'⏱ ':''} ${tx.date}</td>
       <td style="padding:7px 10px;font-size:13px">${esc(tx.desc)}</td>
       <td style="padding:7px 10px;font-size:11px;color:var(--text3)">${acct?esc(acct.name):''}</td>
       <td style="padding:7px 10px;font-size:11px;color:var(--text3)">${bkt?esc(bkt.name):''}</td>
@@ -6594,8 +6616,15 @@ function ndWireTxForm(){
   if(txDate&&!txDate.value)txDate.value=todayStr();
 }
 
+function ndNetWorth(){
+  // Debt accounts: balance stored positive = amount owed, must subtract from net worth
+  return S.accounts.reduce((s,a)=>{
+    const bal=acctBalance(a.id);
+    return s+(a.type==='debt'?-Math.abs(bal):bal);
+  },0);
+}
 function ndReportsHtml(){
-  const nw=S.accounts.reduce((s,a)=>s+acctBalance(a.id),0);
+  const nw=ndNetWorth();
   return `<div class="nd-stat-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
     <div class="nd-stat" style="cursor:pointer" onclick="openNetWorth()">
       <div class="nd-stat-label">Net Worth</div>
