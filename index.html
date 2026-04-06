@@ -1739,17 +1739,18 @@ const getAcct=id=>S.accounts.find(a=>a.id===id);
 
 function acctBalance(aid){
   const acct=getAcct(aid);if(!acct)return 0;
-  // Sum all opening transactions for this account (should only be one, but defensive)
+  // For debt accounts: balance = amount owed (positive). Payments reduce it, charges increase it.
+  // mult=-1 flips the sign of each transaction relative to regular account logic.
+  const mult=acct.type==='debt'?-1:1;
   const openingTotal=S.txs.filter(t=>t.accountId===aid&&t.type==='opening').reduce((s,t)=>s+t.amount,0);
   let bal=openingTotal>0?openingTotal:(acct.openingBalance||0);
-  // Apply all subsequent regular transactions (skip future-dated/scheduled ones)
   S.txs.forEach(t=>{
     if(t.type==='opening')return;
-    if(isScheduled(t))return; // not cleared yet — doesn't affect current balance
-    if(t.accountId===aid&&t.type==='in')bal+=t.amount;
-    if(t.accountId===aid&&t.type==='out')bal-=t.amount;
-    if(t.accountId===aid&&t.type==='xfr')bal-=t.amount;
-    if(t.toAccountId===aid&&t.type==='xfr')bal+=t.amount;
+    if(isScheduled(t))return;
+    if(t.accountId===aid&&t.type==='in')bal+=mult*t.amount;
+    if(t.accountId===aid&&t.type==='out')bal-=mult*t.amount;
+    if(t.accountId===aid&&t.type==='xfr')bal-=mult*t.amount;
+    if(t.toAccountId===aid&&t.type==='xfr')bal+=mult*t.amount;
   });
   return bal;
 }
@@ -1915,10 +1916,10 @@ function renderSidebar(){
       });
     }
     if(sbDebt.length){
-      const totalDebt=sbDebt.reduce((s,a)=>s+Math.abs(acctBalance(a.id)),0);
+      const totalDebt=sbDebt.reduce((s,a)=>s+acctBalance(a.id),0);
       h+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--red);padding:6px 16px 2px">Debt · ${$f(totalDebt)}</div>`;
       sbDebt.forEach(a=>{
-        const bal=Math.abs(acctBalance(a.id));
+        const bal=acctBalance(a.id);
         h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')" style="border-left:2px solid var(--rb)">
           <span class="sb-link-icon">💳</span>
           <span style="flex:1">${esc(a.name)}</span>
@@ -2453,6 +2454,8 @@ function renderBucketDetail(mid,past,m){
 // Running account balance for each tx — only used in account view
 // Returns {balMap: Map(txId→balAfter), schedMap: Map(txId→projBalAfter)}
 function calcAccountRunningBal(aid){
+  const acct=getAcct(aid);
+  const mult=(acct&&acct.type==='debt')?-1:1;
   const cleared=acctBalance(aid);
   const balMap=new Map();
   const schedMap=new Map();
@@ -2465,11 +2468,11 @@ function calcAccountRunningBal(aid){
   posted.forEach(t=>{
     balMap.set(t.id,bal);
     if(t.accountId===aid){
-      if(t.type==='in')bal-=t.amount;
-      if(t.type==='out')bal+=t.amount;
-      if(t.type==='xfr')bal+=t.amount;
+      if(t.type==='in')bal-=mult*t.amount;
+      if(t.type==='out')bal+=mult*t.amount;
+      if(t.type==='xfr')bal+=mult*t.amount;
     }
-    if(t.toAccountId===aid&&t.type==='xfr')bal-=t.amount;
+    if(t.toAccountId===aid&&t.type==='xfr')bal-=mult*t.amount;
   });
 
   // Scheduled: project forward from cleared balance
@@ -2478,11 +2481,11 @@ function calcAccountRunningBal(aid){
     (t.accountId===aid||t.toAccountId===aid)&&isScheduled(t)
   ).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t=>{
     if(t.accountId===aid){
-      if(t.type==='in')proj+=t.amount;
-      if(t.type==='out')proj-=t.amount;
-      if(t.type==='xfr')proj-=t.amount;
+      if(t.type==='in')proj+=mult*t.amount;
+      if(t.type==='out')proj-=mult*t.amount;
+      if(t.type==='xfr')proj-=mult*t.amount;
     }
-    if(t.toAccountId===aid&&t.type==='xfr')proj+=t.amount;
+    if(t.toAccountId===aid&&t.type==='xfr')proj+=mult*t.amount;
     schedMap.set(t.id,proj);
   });
 
@@ -2985,6 +2988,7 @@ function _wiPanelHTML(){
     <input class="wi-name-inp" id="wiNameInp" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
     <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
     ${chips}
+    <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--accent);color:var(--accent)" onclick="wiShowProjector()">📅 Paycheck Projector</button>
     <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto" onclick="exitWI()">× Exit</button>
   </div>
   <div class="wi-two-col">
@@ -3068,12 +3072,12 @@ function _wiPanelHTML(){
     </div>`;
 
   // Debt payoff section in WI
-  const debtAccts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)<0);
+  const debtAccts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0);
   if(debtAccts.length){
     h+=`<div class="wi-debt-section">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--red);margin-bottom:8px">💳 Debt Payoff — What If?</div>`;
     debtAccts.forEach(a=>{
-      const bal=Math.abs(acctBalance(a.id));
+      const bal=acctBalance(a.id);
       const apr=a.debtAPR||0;
       const monthlyRate=apr/(100*12);
       const avgPay=avgMonthlyNetPayment(a.id);
@@ -3222,6 +3226,187 @@ function deleteScenario(id){
   S.scenarios=S.scenarios?.filter(s=>s.id!==id)||[];
   save();
   if(isMobile())openModal('__wi__');else renderWI();
+}
+
+// ── Paycheck Projector ────────────────────────────────────────────────────────
+function wiShowProjector(){
+  const modal=document.getElementById('modalBox');
+  modal.className='modal';
+  modal.innerHTML=wiProjectorHtml();
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function wiProjectorHtml(result){
+  let acctOpts='<option value="">— all budget accounts —</option>';
+  S.accounts.filter(a=>a.type!=='debt').forEach(a=>acctOpts+=`<option value="${a.id}">${esc(a.name)}</option>`);
+  const formHtml=`
+    <div class="modal-head">
+      <div class="modal-title">📅 Paycheck Projector</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
+        Enter your paycheck schedule to see a week-by-week cash flow using your recurring bills and scheduled transactions.
+      </div>
+      <div class="fi-row" style="gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <div class="fg"><label class="fl">First Paycheck Date</label><input class="fi" id="projStart" type="date" value="${todayStr()}" /></div>
+        <div class="fg"><label class="fl">Pay Frequency</label>
+          <select class="fi" id="projFreq">
+            <option value="7">Weekly</option>
+            <option value="14" selected>Bi-weekly</option>
+            <option value="15">Semi-monthly (1st & 15th)</option>
+            <option value="30">Monthly</option>
+          </select></div>
+        <div class="fg"><label class="fl">Paycheck Amount</label><input class="fi mono" id="projAmt" type="number" step="0.01" placeholder="0.00" /></div>
+      </div>
+      <div class="fi-row" style="gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="fg"><label class="fl">Account to Track</label><select class="fi" id="projAcct">${acctOpts}</select></div>
+        <div class="fg"><label class="fl">Project Forward</label>
+          <select class="fi" id="projMonths">
+            <option value="1">1 month</option>
+            <option value="2" selected>2 months</option>
+            <option value="3">3 months</option>
+            <option value="6">6 months</option>
+          </select></div>
+      </div>
+      <button class="btn-primary" onclick="wiRunProjector()">Generate Projection</button>
+      ${result||''}
+    </div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  return formHtml;
+}
+
+function wiRunProjector(){
+  const startVal=document.getElementById('projStart')?.value;
+  const freq=parseInt(document.getElementById('projFreq')?.value||'14');
+  const amt=parseFloat(document.getElementById('projAmt')?.value||'0');
+  const acctId=document.getElementById('projAcct')?.value||null;
+  const months=parseInt(document.getElementById('projMonths')?.value||'2');
+
+  if(!startVal){alert('Please enter a start date.');return;}
+  if(!amt||amt<=0){alert('Please enter a paycheck amount.');return;}
+
+  const startDate=new Date(startVal+'T12:00:00');
+  const endDate=new Date(startDate);
+  endDate.setMonth(endDate.getMonth()+months);
+  const endStr=endDate.toISOString().split('T')[0];
+
+  // Build paycheck dates
+  const paychecks=[];
+  if(freq===15){
+    // Semi-monthly: 1st and 15th of each month
+    const d=new Date(startDate);
+    while(d<=endDate){
+      const ds=d.toISOString().split('T')[0];
+      if(ds>=startVal&&ds<=endStr)paychecks.push(ds);
+      // Next semi-monthly date
+      if(d.getDate()<15){d.setDate(15);}
+      else{d.setMonth(d.getMonth()+1);d.setDate(1);}
+    }
+  } else {
+    const d=new Date(startDate);
+    while(d<=endDate){
+      paychecks.push(d.toISOString().split('T')[0]);
+      d.setDate(d.getDate()+freq);
+    }
+  }
+
+  // Collect all outflows in the window: recurring bills + scheduled txs + future posted txs
+  const outflows=[];
+  // From recurring bills (generate projected dates)
+  (S.recurringBills||[]).filter(b=>b.active!==false).forEach(bill=>{
+    const acct=getAcct(bill.accountId);
+    if(!acct||acct.type==='debt')return;
+    if(acctId&&bill.accountId!==acctId)return;
+    let d=new Date(startDate);
+    d.setDate(1);
+    while(d<=endDate){
+      const maxDay=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+      const day=Math.min(bill.dayOfMonth,maxDay);
+      const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      if(ds>=startVal&&ds<=endStr){
+        outflows.push({date:ds,desc:bill.desc,amount:bill.amount,type:'bill',acctId:bill.accountId});
+      }
+      d.setMonth(d.getMonth()+1);
+    }
+  });
+  // From existing scheduled transactions
+  S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.date>=startVal&&t.date<=endStr).forEach(t=>{
+    if(acctId&&t.accountId!==acctId)return;
+    if(t.type==='out'||t.type==='xfr'){
+      outflows.push({date:t.date,desc:t.desc,amount:t.amount,type:t.type,acctId:t.accountId});
+    }
+  });
+  outflows.sort((a,b)=>a.date.localeCompare(b.date));
+
+  // Build week-by-week timeline
+  const startBal=acctId?acctBalance(acctId):S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
+  let running=startBal;
+  let html=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:10px">
+      Projection — Starting balance: <span style="font-family:var(--mono);color:var(--text)">${$f(startBal)}</span>
+    </div>`;
+
+  // Merge paychecks and outflows into a timeline, grouped by week
+  const allEvents=[];
+  paychecks.forEach(d=>allEvents.push({date:d,kind:'pay',desc:'Paycheck',amount:amt}));
+  outflows.forEach(o=>allEvents.push({date:o.date,kind:'out',desc:o.desc,amount:o.amount}));
+  allEvents.sort((a,b)=>a.date.localeCompare(b.date)||( a.kind==='pay'?-1:1));
+
+  // Group by week (week starting from the paycheck date pattern)
+  // Just iterate day by day and emit rows
+  let i=0;
+  const periodDays=freq===15?16:freq===30?31:freq;
+  let periodStart=new Date(startDate);
+  while(periodStart<=endDate&&i<allEvents.length){
+    const periodEnd=new Date(periodStart);
+    if(freq===15){
+      if(periodStart.getDate()===1){periodEnd.setDate(14);}
+      else{periodEnd.setMonth(periodEnd.getMonth()+1);periodEnd.setDate(0);}
+    } else {
+      periodEnd.setDate(periodEnd.getDate()+periodDays-1);
+    }
+    const pStartStr=periodStart.toISOString().split('T')[0];
+    const pEndStr=periodEnd.toISOString().split('T')[0];
+
+    const periodEvents=allEvents.filter(e=>e.date>=pStartStr&&e.date<=pEndStr);
+    if(!periodEvents.length){
+      if(freq===15){if(periodStart.getDate()===1)periodStart.setDate(15);else{periodStart.setMonth(periodStart.getMonth()+1);periodStart.setDate(1);}}
+      else periodStart.setDate(periodStart.getDate()+periodDays);
+      i++;continue;
+    }
+
+    let periodIn=0,periodOut=0;
+    const rows=periodEvents.map(ev=>{
+      if(ev.kind==='pay'){running+=ev.amount;periodIn+=ev.amount;return `<div style="display:flex;gap:8px;padding:4px 0;align-items:center"><span style="width:70px;font-size:11px;color:var(--text3)">${ev.date.slice(5)}</span><span style="flex:1;font-size:12px">💰 ${esc(ev.desc)}</span><span style="font-family:var(--mono);font-size:12px;color:var(--green);min-width:70px;text-align:right">+${$f(ev.amount)}</span><span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'};min-width:70px;text-align:right">${$f(running)}</span></div>`;}
+      else{running-=ev.amount;periodOut+=ev.amount;return `<div style="display:flex;gap:8px;padding:4px 0;align-items:center"><span style="width:70px;font-size:11px;color:var(--text3)">${ev.date.slice(5)}</span><span style="flex:1;font-size:12px">${esc(ev.desc)}</span><span style="font-family:var(--mono);font-size:12px;color:var(--red);min-width:70px;text-align:right">-${$f(ev.amount)}</span><span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'};min-width:70px;text-align:right">${$f(running)}</span></div>`;}
+    }).join('');
+
+    const netColor=periodIn-periodOut>=0?'var(--green)':'var(--red)';
+    html+=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:700;color:var(--text)">${pStartStr.slice(5)} – ${pEndStr.slice(5)}</span>
+        <span style="font-size:11px;color:var(--green);margin-left:auto">+${$f(periodIn)}</span>
+        <span style="font-size:11px;color:var(--red)">-${$f(periodOut)}</span>
+        <span style="font-size:11px;font-weight:700;color:${netColor}">Net: ${$f(periodIn-periodOut)}</span>
+      </div>
+      <div style="padding:6px 12px">${rows}</div>
+    </div>`;
+
+    if(freq===15){if(periodStart.getDate()===1)periodStart.setDate(15);else{periodStart.setMonth(periodStart.getMonth()+1);periodStart.setDate(1);}}
+    else periodStart.setDate(periodStart.getDate()+periodDays);
+    i++;
+  }
+
+  const endColor=running>=startBal?'var(--green)':'var(--red)';
+  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:10px 0;font-size:13px;border-top:1px solid var(--border);margin-top:4px">
+    <span style="color:var(--text3)">Projected balance after ${months} month${months!==1?'s':''}:</span>
+    <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor}">${$f(running)}</span>
+    <span style="font-size:11px;color:${endColor}">(${running>=startBal?'+':'-'}${$f(Math.abs(running-startBal))})</span>
+  </div></div>`;
+
+  const modal=document.getElementById('modalBox');
+  if(modal)modal.innerHTML=wiProjectorHtml(html);
 }
 
 function promoteScenario(){
@@ -3541,7 +3726,7 @@ function openNetWorth(){
   const modal=document.getElementById('modalBox');
   modal.className='modal nw-modal';
   // Compute each balance once — debt accounts always negative for net worth
-  const _bals=S.accounts.map(a=>({a,bal:acctBalance(a.id),nwBal:a.type==='debt'?-Math.abs(acctBalance(a.id)):acctBalance(a.id)}));
+  const _bals=S.accounts.map(a=>({a,bal:acctBalance(a.id),nwBal:a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)}));
   const totalAssets=_bals.filter(x=>x.nwBal>0).reduce((s,x)=>s+x.nwBal,0);
   const totalLiab=_bals.filter(x=>x.nwBal<0).reduce((s,x)=>s+x.nwBal,0);
   const netWorth=totalAssets+totalLiab;
@@ -3660,7 +3845,7 @@ function avgMonthlyNetPayment(acctId){
   return Math.round(payments.reduce((s,p)=>s+p,0)/payments.length*100)/100;
 }
 function renderDebtTracker(a){
-  const balance=Math.abs(acctBalance(a.id)); // positive = amount owed
+  const balance=acctBalance(a.id); // positive = amount owed (debt acctBalance always returns positive)
   const apr=a.debtAPR||0;
   const monthlyRate=apr/(100*12);
   const monthlyInterest=Math.round(balance*monthlyRate*100)/100;
@@ -5336,11 +5521,11 @@ function mRenderDash(){
     h+=`</div>`;
   }
   if(debtAccts.length){
-    const totalDebt=debtAccts.reduce((s,a)=>s+Math.abs(acctBalance(a.id)),0);
+    const totalDebt=debtAccts.reduce((s,a)=>s+acctBalance(a.id),0);
     h+=`<div class="m-acct-group-label" style="color:var(--red)">Debt · ${$f(totalDebt)} total</div>`;
     h+=`<div class="m-accounts">`;
     debtAccts.forEach(a=>{
-      const bal=Math.abs(acctBalance(a.id));
+      const bal=acctBalance(a.id);
       const color=a.color||COLORS[0];
       h+=`<div class="m-acct-chip debt" onclick="mOpenAcct('${a.id}')">
         <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">💳</span></div>
@@ -6258,27 +6443,33 @@ function ndDashboardHtml(){
   const funded=activeBkts.filter(b=>bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
   const rtsColor=rts>0?'var(--green)':rts<0?'var(--red)':'var(--text3)';
   const spentPct=alloc>0?Math.min(100,Math.round(spent/alloc*100)):0;
+  const nw=ndNetWorth();
+  const nwColor=nw>=0?'var(--green)':'var(--red)';
+  const totalDebt=S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+acctBalance(a.id),0);
+  const savingsRate=income>0?Math.round((income-spent)/income*100):null;
+  const ageOfMoney=calcAgeOfMoney();
 
+  // Dashboard shows UNIQUE info — topbar already has Income/Budgeted/Spent/Ready
   const stats=`<div class="nd-stat-row">
-    <div class="nd-stat">
-      <div class="nd-stat-label">Income</div>
-      <div class="nd-stat-val">${$f(income)}</div>
-      <div class="nd-stat-sub">projected this month</div>
+    <div class="nd-stat" style="cursor:pointer;border-color:${nwColor}" onclick="openNetWorth()">
+      <div class="nd-stat-label">Net Worth</div>
+      <div class="nd-stat-val" style="color:${nwColor}">${$f(nw)}</div>
+      <div class="nd-stat-sub">${totalDebt>0?$f(totalDebt)+' in debt':'No debt · click for detail'}</div>
     </div>
     <div class="nd-stat">
-      <div class="nd-stat-label">Budgeted</div>
-      <div class="nd-stat-val">${$f(alloc)}</div>
-      <div class="nd-stat-sub">${activeBkts.length?funded+'/'+activeBkts.length+' buckets funded':''}</div>
+      <div class="nd-stat-label">Savings Rate</div>
+      <div class="nd-stat-val" style="color:${savingsRate===null?'var(--text3)':savingsRate>=20?'var(--green)':savingsRate>=10?'var(--amber)':'var(--red)'}">${savingsRate!==null?savingsRate+'%':'—'}</div>
+      <div class="nd-stat-sub">${savingsRate===null?'log income to track':savingsRate>=20?'great savings pace':savingsRate>=10?'decent — aim for 20%':'low — look for cuts'}</div>
     </div>
     <div class="nd-stat">
-      <div class="nd-stat-label">Spent</div>
-      <div class="nd-stat-val">${$f(spent)}</div>
-      <div class="nd-stat-sub">${alloc>0?spentPct+'% of budget':''}</div>
+      <div class="nd-stat-label">Budget Progress</div>
+      <div class="nd-stat-val">${activeBkts.length?funded+'/'+activeBkts.length:'—'}</div>
+      <div class="nd-stat-sub">${activeBkts.length?'buckets funded this month':'no targets set'}</div>
     </div>
-    <div class="nd-stat" style="border-color:${rts<0?'var(--rb)':rts>0?'var(--gb)':'var(--border)'}">
-      <div class="nd-stat-label" style="color:${rtsColor}">Ready to Spend</div>
-      <div class="nd-stat-val" style="color:${rtsColor}">${$f(rts)}</div>
-      <div class="nd-stat-sub">${rts<0?'Over-allocated':'Available to allocate'}</div>
+    <div class="nd-stat" title="Average days between earning and spending — higher = more financially stable">
+      <div class="nd-stat-label">Age of Money</div>
+      <div class="nd-stat-val" style="color:${ageOfMoney===null?'var(--text3)':ageOfMoney>=30?'var(--green)':ageOfMoney>=15?'var(--amber)':'var(--red)'}">${ageOfMoney!==null?ageOfMoney+' days':'—'}</div>
+      <div class="nd-stat-sub">${ageOfMoney===null?'need more transactions':ageOfMoney>=30?'living ahead of income':ageOfMoney>=15?'building stability':'spending income quickly'}</div>
     </div>
   </div>`;
 
@@ -6307,7 +6498,7 @@ function ndDashboardHtml(){
   const debtAccts=S.accounts.filter(a=>a.type==='debt');
   const acctCard=a=>{
     const bal=acctBalance(a.id);
-    const color=a.type==='debt'?(bal<0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
+    const color=a.type==='debt'?(bal>0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
     return `<div class="nd-acct-card" onclick="ndGoAcct('${a.id}')">
       <div class="nd-acct-name"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${a.color};margin-right:5px;flex-shrink:0"></span>${esc(a.name)}</div>
       <div class="nd-acct-bal" style="color:${color}">${$f(bal)}</div>
@@ -6461,7 +6652,7 @@ function ndAccountsHtml(){
   const debtAccts=S.accounts.filter(a=>a.type==='debt');
   const chip=a=>{
     const bal=acctBalance(a.id);
-    const color=a.type==='debt'?(bal<0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
+    const color=a.type==='debt'?(bal>0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
     return `<div class="nd-acct-card${_ndSelectedAcct===a.id?' active':''}" onclick="ndSelectAcct('${a.id}')">
       <div class="nd-acct-name"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${a.color};margin-right:5px"></span>${esc(a.name)}</div>
       <div class="nd-acct-bal" style="color:${color}">${$f(bal)}</div>
@@ -6513,7 +6704,7 @@ function ndAcctDetailHtml(aid){
     </tr>`;
   };
   const rows=[...scheduled.map(tx=>row(tx,schedMap.get(tx.id)??null)),...posted.map(tx=>row(tx,balMap.get(tx.id)??null))].join('');
-  const balColor=a.type==='debt'?(bal<0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
+  const balColor=a.type==='debt'?(bal>0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
   return `<div class="nd-panel">
     <div class="nd-panel-head">
       <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${a.color};margin-right:6px"></span>${esc(a.name)}
@@ -6617,11 +6808,30 @@ function ndWireTxForm(){
 }
 
 function ndNetWorth(){
-  // Debt accounts: balance stored positive = amount owed, must subtract from net worth
-  return S.accounts.reduce((s,a)=>{
-    const bal=acctBalance(a.id);
-    return s+(a.type==='debt'?-Math.abs(bal):bal);
-  },0);
+  return S.accounts.reduce((s,a)=>s+(a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)),0);
+}
+
+function calcAgeOfMoney(){
+  // FIFO-match last 10 expenses to income; return average days between income receipt and spending
+  const expenses=S.txs.filter(t=>t.type==='out'&&!isScheduled(t))
+    .sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  if(!expenses.length)return null;
+  const income=S.txs.filter(t=>t.type==='in'&&!isScheduled(t))
+    .sort((a,b)=>b.date.localeCompare(a.date)).map(t=>({...t}));
+  let totalDays=0,totalWeight=0;
+  for(const exp of expenses){
+    let rem=exp.amount;
+    const expMs=new Date(exp.date+'T12:00:00').getTime();
+    while(rem>0.01&&income.length){
+      const inc=income[0];
+      const days=Math.max(0,Math.round((expMs-new Date(inc.date+'T12:00:00').getTime())/86400000));
+      const used=Math.min(rem,inc.amount);
+      totalDays+=days*used; totalWeight+=used; rem-=used;
+      if(used>=inc.amount-0.01)income.shift();
+      else{income[0]={...income[0],amount:income[0].amount-used};break;}
+    }
+  }
+  return totalWeight>0?Math.round(totalDays/totalWeight):null;
 }
 function ndReportsHtml(){
   const nw=ndNetWorth();
