@@ -1662,7 +1662,8 @@ function acctBalance(aid){
   return bal;
 }
 
-function totalCash(){return S.accounts.reduce((s,a)=>s+acctBalance(a.id),0);}
+// Total liquid cash = budget + savings accounts only (excludes debt balances)
+function totalCash(){return S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);}
 
 const mTxs=mid=>S.txs.filter(t=>t.monthId===mid);
 
@@ -2218,8 +2219,8 @@ function renderAccountView(el,mid){
   ${a.type==='debt'?renderDebtTracker(a):''}
   <div class="acct-balance-block">
     <div class="ps-cell"><div class="ps-label">Current Balance</div><div class="ps-val ${bal>=0?'green':'red'}">${$f(bal)}</div></div>
-    <div class="ps-cell"><div class="ps-label">Total In</div><div class="ps-val dim">${$f(txs.filter(t=>t.accountId===a.id&&(t.type==='in'||t.toAccountId===a.id)).reduce((s,t)=>s+t.amount,0))}</div></div>
-    <div class="ps-cell"><div class="ps-label">Total Out</div><div class="ps-val dim">${$f(txs.filter(t=>t.accountId===a.id&&t.type==='out').reduce((s,t)=>s+t.amount,0))}</div></div>
+    <div class="ps-cell"><div class="ps-label">Total In</div><div class="ps-val dim">${$f(txs.filter(t=>!isScheduled(t)&&t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0))}</div></div>
+    <div class="ps-cell"><div class="ps-label">Total Out</div><div class="ps-val dim">${$f(txs.filter(t=>!isScheduled(t)&&t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0))}</div></div>
   </div>
   <div class="det-block">
     <div class="det-block-title">All Transactions</div>`;
@@ -3372,19 +3373,17 @@ function reconFinish(acctId){
 function openNetWorth(){
   const modal=document.getElementById('modalBox');
   modal.className='modal nw-modal';
-  // Current balances
-  const totalAssets=S.accounts.filter(a=>acctBalance(a.id)>0).reduce((s,a)=>s+acctBalance(a.id),0);
-  const totalLiab=S.accounts.filter(a=>acctBalance(a.id)<0).reduce((s,a)=>s+acctBalance(a.id),0);
+  // Compute each balance once
+  const _bals=S.accounts.map(a=>({a,bal:acctBalance(a.id)}));
+  const totalAssets=_bals.filter(x=>x.bal>0).reduce((s,x)=>s+x.bal,0);
+  const totalLiab=_bals.filter(x=>x.bal<0).reduce((s,x)=>s+x.bal,0);
   const netWorth=totalAssets+totalLiab;
-  // Current accounts summary
-  const acctRows=S.accounts.map(a=>{
-    const bal=acctBalance(a.id);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+  // Current accounts summary (reuse pre-computed balances)
+  const acctRows=_bals.map(({a,bal})=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
-      <span style="flex:1;font-size:13px">${esc(a.name)}</span>
+      <span style="flex:1;font-size:13px">${esc(a.name)}<span style="font-size:10px;color:var(--text3);margin-left:6px">${a.type}</span></span>
       <span style="font-family:var(--mono);font-size:13px;color:${bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</span>
-    </div>`;
-  }).join('');
+    </div>`).join('');
   // Historical: end-of-month balance per account per past month
   const pastMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-12);
   let histTable='';
@@ -3467,20 +3466,29 @@ function debtTotalInterest(balance,monthlyRate,netPayment){
   return Math.max(0,Math.round((netPayment*months-balance)*100)/100);
 }
 function avgMonthlyNetPayment(acctId){
-  // Average net payment over the last 3 months of actual transactions
+  // Average net payment over the last 3 months — single pass through transactions
   const now=new Date();
-  const months=[];
+  const monthIds=[];
   for(let i=1;i<=3;i++){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    months.push(mId(d.getFullYear(),d.getMonth()));
+    monthIds.push(mId(d.getFullYear(),d.getMonth()));
   }
-  const payments=months.map(mid=>{
-    // Payments IN to the account (reduce debt) minus charges OUT (increase debt)
-    const txs=S.txs.filter(t=>t.accountId===acctId&&t.monthId===mid&&t.type!=='opening');
-    const inAmt=txs.filter(t=>t.type==='in'||t.type==='xfr').reduce((s,t)=>s+t.amount,0);
-    const outAmt=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
-    return inAmt-outAmt; // positive = net reducing debt
-  }).filter(p=>p!==0);
+  const monthSet=new Set(monthIds);
+  // Bucket amounts by month in one pass
+  const inByMonth={},outByMonth={};
+  S.txs.forEach(t=>{
+    if(t.type==='opening'||isScheduled(t))return;
+    if(!monthSet.has(t.monthId))return;
+    // Payments IN (reduce debt) or XFR received (toAccountId = this debt acct)
+    if(t.accountId===acctId&&(t.type==='in'||t.type==='xfr'))
+      inByMonth[t.monthId]=(inByMonth[t.monthId]||0)+t.amount;
+    if(t.toAccountId===acctId&&t.type==='xfr')
+      inByMonth[t.monthId]=(inByMonth[t.monthId]||0)+t.amount;
+    // Charges OUT (increase debt)
+    if(t.accountId===acctId&&t.type==='out')
+      outByMonth[t.monthId]=(outByMonth[t.monthId]||0)+t.amount;
+  });
+  const payments=monthIds.map(mid=>(inByMonth[mid]||0)-(outByMonth[mid]||0)).filter(p=>p!==0);
   if(!payments.length)return 0;
   return Math.round(payments.reduce((s,p)=>s+p,0)/payments.length*100)/100;
 }
@@ -3496,8 +3504,9 @@ function renderDebtTracker(a){
   const totalInterest=debtTotalInterest(balance,monthlyRate,effectivePayment);
   const payoffDate=months===Infinity?null:new Date(Date.now()+months*30.44*24*3600*1000);
   const payoffStr=months===Infinity?'Never (payment < interest)':payoffDate.toLocaleString('default',{month:'short',year:'numeric'});
-  // Progress: assume original balance = balance + total payments made (rough)
-  const totalPaid=S.txs.filter(t=>t.accountId===a.id&&t.type==='in'&&!isScheduled(t)).reduce((s,t)=>s+t.amount,0);
+  // Progress: payments in (type=in) + transfers to this account (XFR payments) minus charges out
+  const totalPaid=S.txs.filter(t=>!isScheduled(t)&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0)
+    -S.txs.filter(t=>!isScheduled(t)&&t.accountId===a.id&&t.type==='out').reduce((s,t)=>s+t.amount,0);
   const origBalance=balance+totalPaid;
   const pctPaid=origBalance>0?Math.min(Math.round((totalPaid/origBalance)*100),100):0;
 
@@ -3742,6 +3751,8 @@ function promptAllocationRules(incomeAmt,monthId){
 let _pendingRules=[];
 function showRuleApplyModal(suggestions,monthId){
   _pendingRules=suggestions.map(s=>({...s}));
+  // Dismiss mobile keyboard so the modal is fully visible
+  document.activeElement?.blur();
   const modal=document.getElementById('modalBox');
   modal.className='modal';
   modal.innerHTML=ruleApplyHtml(monthId);
@@ -3750,7 +3761,7 @@ function showRuleApplyModal(suggestions,monthId){
 function ruleApplyHtml(monthId){
   const total=_pendingRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
   const rows=_pendingRules.map((r,i)=>`
-    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('ruleApplyModal').innerHTML=ruleApplyHtml('${monthId}')">
+    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('modalBox').innerHTML=ruleApplyHtml('${monthId}')">
       <div class="rule-apply-check">${r.on?'✓':''}</div>
       <div class="rule-apply-main">
         <div class="rule-apply-name">${esc(r.name)}</div>
@@ -3784,8 +3795,15 @@ function applyAllocationRules(monthId){
     const current=mo.allocations[r.bucketId]||0;
     mo.allocations[r.bucketId]=Math.round((current+r.suggestedAmt)*100)/100;
   });
-  save();closeModal();render();
-  showToast(`Applied ${_pendingRules.filter(r=>r.on).length} allocation rules`,'save');
+  const count=_pendingRules.filter(r=>r.on).length;
+  save();closeModal();
+  if(isMobile()){
+    mRenderAll();
+    mShowToast('alloc',`${count} allocation rule${count!==1?'s':''} applied`,'');
+  }else{
+    render();
+    showToast(`Applied ${count} allocation rule${count!==1?'s':''}`, 'save');
+  }
 }
 
 // FRESH START
@@ -3795,6 +3813,7 @@ function confirmFreshStart(){
   localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[]};
   closeModal();ensureMonth();S.activeMonth=currentMonthId();
+  save(); // Push empty state to Supabase so old data doesn't restore on next login
   startWizard();
 }
 
@@ -4518,9 +4537,13 @@ function importData(event){
       },imported);
       S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
       normalizeCatOrder();normalizeBktOrder();
+      // Ensure missing fields from older exports don't break things
+      if(!S.scenarioBudgets)S.scenarioBudgets={};
+      if(!S.payees)S.payees=[];
+      if(!S.allocationRules)S.allocationRules=[];
       save();ensureMonth();
       if(!S.activeMonth)S.activeMonth=currentMonthId();
-      render();populateTxCats();updateTxFormForType();wireFormKeys();
+      if(isMobile()){mRenderAll();}else{render();populateTxCats();updateTxFormForType();wireFormKeys();}
       event.target.value='';
       alert('Backup imported successfully!');
     }catch(err){
@@ -4992,7 +5015,7 @@ function mRenderDash(){
     <div class="m-pool-cell">
       <div class="m-pool-label">Total Cash</div>
       <div class="m-pool-val dim">${$f(totalCash())}</div>
-      <div class="m-pool-sub">all accounts</div>
+      <div class="m-pool-sub">liquid only</div>
     </div>
   </div>`;
 
