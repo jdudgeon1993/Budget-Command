@@ -716,6 +716,63 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   #mToast,#mSheetOverlay,#mSheet{display:none!important;}
 }
 
+/* ═══ NEW DESKTOP LAYOUT (Option A) ═══ */
+#ndApp{position:fixed;inset:0;z-index:5;display:flex;background:var(--bg);overflow:hidden;}
+.nd-rail{width:190px;min-width:190px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.nd-rail-logo{padding:15px 18px 14px;font-size:15px;font-weight:700;letter-spacing:.3px;border-bottom:1px solid var(--border);color:var(--text);}
+.nd-rail-logo span{color:var(--text3);margin:0 1px;}
+.nd-nav{flex:1;padding:8px 6px;display:flex;flex-direction:column;gap:1px;overflow-y:auto;}
+.nd-nav-btn{display:flex;align-items:center;gap:9px;padding:9px 12px;border:none;background:none;color:var(--text2);font-size:13px;font-family:var(--sans);cursor:pointer;border-radius:7px;text-align:left;width:100%;transition:background .1s,color .1s;}
+.nd-nav-btn:hover{background:var(--surface);color:var(--text);}
+.nd-nav-btn.active{background:var(--abg);color:var(--accent);font-weight:600;}
+.nd-nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
+.nd-rail-foot{padding:8px 6px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:1px;}
+.nd-body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.nd-topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
+.nd-month-nav{display:flex;align-items:center;gap:3px;}
+.nd-month-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:3px 9px;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--sans);}
+.nd-month-btn:hover{border-color:var(--accent);color:var(--accent);}
+.nd-month-label{font-size:13px;font-weight:600;color:var(--text);min-width:88px;text-align:center;}
+.nd-header-stats{display:flex;gap:0;align-items:center;margin-left:4px;}
+.nd-hstat{text-align:center;padding:0 14px;border-right:1px solid var(--border);}
+.nd-hstat:last-child{border-right:none;}
+.nd-hstat-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);}
+.nd-hstat-val{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text);margin-top:1px;}
+.nd-header-actions{display:flex;gap:6px;align-items:center;margin-left:auto;}
+.nd-content{flex:1;overflow-y:auto;padding:20px 24px;}
+.nd-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.nd-stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;}
+.nd-stat-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px;}
+.nd-stat-val{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text);}
+.nd-stat-sub{font-size:11px;color:var(--text3);margin-top:3px;}
+.nd-two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.nd-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:16px;}
+.nd-panel:last-child{margin-bottom:0;}
+.nd-panel-head{padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);display:flex;align-items:center;justify-content:space-between;}
+.nd-bh-row{display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:1px solid var(--border);}
+.nd-bh-row:last-child{border-bottom:none;}
+.nd-bh-name{flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nd-bh-bar-wrap{width:72px;height:4px;background:var(--surface);border-radius:2px;flex-shrink:0;}
+.nd-bh-bar{height:4px;border-radius:2px;background:var(--accent);}
+.nd-bh-bar.over{background:var(--red);}
+.nd-acct-grid{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;}
+.nd-acct-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:120px;cursor:pointer;transition:border-color .1s;}
+.nd-acct-card:hover{border-color:var(--accent);}
+.nd-acct-card.active{border-color:var(--accent);background:var(--abg);}
+.nd-acct-name{font-size:12px;font-weight:600;color:var(--text);}
+.nd-acct-bal{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:2px;}
+.nd-tbl{width:100%;border-collapse:collapse;}
+.nd-tbl thead th{padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left;border-bottom:2px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:1;}
+.nd-tbl-cat{background:var(--surface)!important;}
+.nd-tbl-cat td{padding:7px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
+.nd-tbl-row{border-bottom:1px solid var(--border);cursor:pointer;}
+.nd-tbl-row:hover{background:var(--surface);}
+.nd-tbl-row td{padding:8px 10px;font-size:13px;vertical-align:middle;}
+.nd-alloc-inp{width:82px;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:4px 7px;font-family:var(--mono);font-size:12px;color:var(--text);text-align:right;}
+.nd-alloc-inp:focus{outline:none;border-color:var(--accent);background:var(--surface);}
+.nd-wi-bar{background:var(--amber);color:#000;font-size:12px;font-weight:600;padding:6px 20px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.nd-try-btn{position:fixed;bottom:16px;right:16px;background:var(--accent);color:#fff;border:none;border-radius:20px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);box-shadow:0 2px 8px rgba(0,0,0,.3);z-index:3;}
+
 /* ═══ BUDGET HEALTH BAR ═══ */
 .bh-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
 .bh-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);white-space:nowrap;}
@@ -1116,6 +1173,22 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 <div class="wizard-overlay hidden" id="wizardOverlay">
   <div class="wizard" id="wizardBox"></div>
 </div>
+
+<!-- NEW DESKTOP LAYOUT (Option A) -->
+<div id="ndApp" style="display:none">
+  <div class="nd-rail" id="ndRail"></div>
+  <div class="nd-body">
+    <div id="ndWiBar" class="nd-wi-bar" style="display:none">⚡ Scenario mode — adjustments won't affect real data
+      <button class="tbtn" style="font-size:11px;padding:2px 8px;margin-left:8px" onclick="promoteScenario()">Promote</button>
+      <button class="tbtn" style="font-size:11px;padding:2px 8px" onclick="exitWI()">Exit</button>
+    </div>
+    <div class="nd-topbar" id="ndTopbar"></div>
+    <div class="nd-content" id="ndContent"></div>
+  </div>
+</div>
+
+<!-- Try new look button (shown on classic desktop) -->
+<button class="nd-try-btn" id="ndTryBtn" onclick="toggleNewDesktop()" style="display:none">✦ Try New Layout</button>
 
 <script>
 // ═══════════════════════════════════════════════════════
@@ -1762,6 +1835,7 @@ function getPrevMonthId(mid){
 // RENDER
 // ═══════════════════════════════════════════════════════
 function render(){
+  if(isNewDesktop()){ndRender();return;}
   renderTopbar();renderSidebar();renderMain();renderTxList();
   if(S.wiOpen)renderWI();
   wireFormKeys();
@@ -3228,7 +3302,13 @@ function openSettings(){
     <div class="settings-section-title">Income Allocation Rules <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Auto-suggest bucket allocations when you log income.</div>
     <button class="tbtn" onclick="openAllocationRules()">Manage Rules</button>
-  </div>`;
+  </div>
+  ${!isMobile()?`<div class="settings-section">
+    <div class="settings-section-title">Desktop Layout</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Try a focused, navigation-rail layout inspired by mobile. Switch back any time.</div>
+    <button class="tbtn" style="background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600" onclick="toggleNewDesktop()">✦ ${localStorage.getItem('bcc_nd_look')==='1'?'Switch to Classic Layout':'Try New Layout'}</button>
+  </div>`:''}
+  `;
 
   const modal=document.getElementById('modalBox');
   modal.className='modal';
@@ -5035,6 +5115,15 @@ function initDesktop(){
   document.getElementById('authScreen')?.classList.add('hidden');
   const shell=document.getElementById('mShell');
   if(shell)shell.style.display='none';
+  if(isNewDesktop()){
+    document.getElementById('ndApp').style.display='flex';
+    document.getElementById('ndTryBtn').style.display='none';
+    ndRender();
+    return;
+  }
+  // Show "Try New Layout" floating button on classic desktop
+  const tryBtn=document.getElementById('ndTryBtn');
+  if(tryBtn)tryBtn.style.display='block';
   render();
   populateTxCats();
   updateTxFormForType();
@@ -6026,6 +6115,526 @@ function mAcctOptions(selectedId){
 }
 
 // Mobile rendering is handled inside the main render() function above
+
+// ═══════════════════════════════════════════════════════
+// NEW DESKTOP LAYOUT — Option A (Nav Rail)
+// ═══════════════════════════════════════════════════════
+const ND_KEY='bcc_nd_look';
+let _ndView=localStorage.getItem('bcc_nd_view')||'dashboard';
+let _ndSelectedAcct=null;
+
+function isNewDesktop(){return !isMobile()&&localStorage.getItem(ND_KEY)==='1';}
+
+function toggleNewDesktop(){
+  const on=localStorage.getItem(ND_KEY)==='1';
+  localStorage.setItem(ND_KEY,on?'0':'1');
+  closeModal();
+  if(on){
+    document.getElementById('ndApp').style.display='none';
+    document.getElementById('ndTryBtn').style.display='block';
+    initDesktop();
+  } else {
+    document.getElementById('ndApp').style.display='flex';
+    document.getElementById('ndTryBtn').style.display='none';
+    ndRender();
+  }
+}
+
+function ndRender(){
+  const app=document.getElementById('ndApp');
+  if(!app)return;
+  ndRenderRail();
+  ndRenderHeader();
+  ndRenderContent();
+  // WI bar
+  const wi=document.getElementById('ndWiBar');
+  if(wi)wi.style.display=S.wiOpen?'flex':'none';
+}
+
+function ndNavMonth(dir){
+  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+  const next=S.months[idx+dir];
+  if(next){S.activeMonth=next.id;S.activeBucket=null;save();ndRender();}
+}
+
+function ndSetView(v){
+  _ndView=v;
+  localStorage.setItem('bcc_nd_view',v);
+  ndRenderRail();
+  ndRenderContent();
+}
+
+function ndRenderRail(){
+  const el=document.getElementById('ndRail');
+  if(!el)return;
+  const nav=[
+    {v:'dashboard',icon:'◈',label:'Dashboard'},
+    {v:'budget',icon:'◩',label:'Budget'},
+    {v:'accounts',icon:'◑',label:'Accounts'},
+    {v:'transactions',icon:'≡',label:'Transactions'},
+    {v:'reports',icon:'↗',label:'Reports'},
+  ];
+  el.innerHTML=`
+    <div class="nd-rail-logo">Budget<span>/</span>CC</div>
+    <nav class="nd-nav">
+      ${nav.map(n=>`<button class="nd-nav-btn${_ndView===n.v?' active':''}" onclick="ndSetView('${n.v}')"><span class="nd-nav-icon">${n.icon}</span>${n.label}</button>`).join('')}
+    </nav>
+    <div class="nd-rail-foot">
+      <button class="nd-nav-btn" onclick="openRecurringBills()"><span class="nd-nav-icon">⏱</span>Recurring</button>
+      <button class="nd-nav-btn" onclick="openAllocationRules()"><span class="nd-nav-icon">🎯</span>Rules</button>
+      <button class="nd-nav-btn" onclick="openSettings()"><span class="nd-nav-icon">⚙</span>Settings</button>
+      <button class="nd-nav-btn" onclick="toggleNewDesktop()" style="color:var(--text3);font-size:11px"><span class="nd-nav-icon">←</span>Classic</button>
+    </div>`;
+}
+
+function ndRenderHeader(){
+  const el=document.getElementById('ndTopbar');
+  if(!el)return;
+  const mid=S.activeMonth;
+  const m=getMonth(mid);
+  const income=monthProjectedIncome(mid)||0;
+  const alloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAlloc(mid,b.id),0);
+  const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const rts=readyToSpend(mid);
+  const rtsColor=rts>0?'var(--green)':rts<0?'var(--red)':'var(--text3)';
+  const syncEl=document.getElementById('syncStatus');
+  const syncHtml=syncEl&&syncEl.style.display!=='none'?`<span class="${syncEl.className}" style="font-size:11px;padding:2px 8px;border-radius:10px">${syncEl.textContent}</span>`:'';
+  el.innerHTML=`
+    <div class="nd-month-nav">
+      <button class="nd-month-btn" onclick="ndNavMonth(-1)">‹</button>
+      <span class="nd-month-label">${m?m.label:''}</span>
+      <button class="nd-month-btn" onclick="ndNavMonth(1)">›</button>
+    </div>
+    <div class="nd-header-stats">
+      <div class="nd-hstat"><div class="nd-hstat-label">Income</div><div class="nd-hstat-val">${$f(income)}</div></div>
+      <div class="nd-hstat"><div class="nd-hstat-label">Budgeted</div><div class="nd-hstat-val">${$f(alloc)}</div></div>
+      <div class="nd-hstat"><div class="nd-hstat-label">Spent</div><div class="nd-hstat-val">${$f(spent)}</div></div>
+      <div class="nd-hstat"><div class="nd-hstat-label" style="color:${rtsColor}">Ready</div><div class="nd-hstat-val" style="color:${rtsColor}">${$f(rts)}</div></div>
+    </div>
+    <div class="nd-header-actions">
+      ${syncHtml}
+      <button class="tbtn" onclick="openGlobalSearch()" style="padding:5px 8px;font-size:14px" title="Search">🔍</button>
+      <button class="tbtn${S.wiOpen?' wi-on':''}" onclick="toggleWI()">⚡ What If</button>
+      <button class="tbtn" onclick="openModal('acct')">+ Account</button>
+      <button class="tbtn primary" onclick="openModal('new')">+ New</button>
+    </div>`;
+}
+
+function ndRenderContent(){
+  const el=document.getElementById('ndContent');
+  if(!el)return;
+  if(_ndView==='dashboard')el.innerHTML=ndDashboardHtml();
+  else if(_ndView==='budget'){el.innerHTML=ndBudgetHtml();ndWireBudget();}
+  else if(_ndView==='accounts'){el.innerHTML=ndAccountsHtml();}
+  else if(_ndView==='transactions'){el.innerHTML=ndTransactionsHtml();ndWireTxForm();}
+  else if(_ndView==='reports')el.innerHTML=ndReportsHtml();
+}
+
+function ndDashboardHtml(){
+  const mid=S.activeMonth;
+  const income=monthProjectedIncome(mid)||0;
+  const alloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAlloc(mid,b.id),0);
+  const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const rts=readyToSpend(mid);
+  const activeBkts=S.buckets.filter(b=>!b.archived&&bBudget(mid,b.id)>0);
+  const funded=activeBkts.filter(b=>bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
+  const rtsColor=rts>0?'var(--green)':rts<0?'var(--red)':'var(--text3)';
+  const spentPct=alloc>0?Math.min(100,Math.round(spent/alloc*100)):0;
+
+  const stats=`<div class="nd-stat-row">
+    <div class="nd-stat">
+      <div class="nd-stat-label">Income</div>
+      <div class="nd-stat-val">${$f(income)}</div>
+      <div class="nd-stat-sub">projected this month</div>
+    </div>
+    <div class="nd-stat">
+      <div class="nd-stat-label">Budgeted</div>
+      <div class="nd-stat-val">${$f(alloc)}</div>
+      <div class="nd-stat-sub">${activeBkts.length?funded+'/'+activeBkts.length+' buckets funded':''}</div>
+    </div>
+    <div class="nd-stat">
+      <div class="nd-stat-label">Spent</div>
+      <div class="nd-stat-val">${$f(spent)}</div>
+      <div class="nd-stat-sub">${alloc>0?spentPct+'% of budget':''}</div>
+    </div>
+    <div class="nd-stat" style="border-color:${rts<0?'var(--rb)':rts>0?'var(--gb)':'var(--border)'}">
+      <div class="nd-stat-label" style="color:${rtsColor}">Ready to Spend</div>
+      <div class="nd-stat-val" style="color:${rtsColor}">${$f(rts)}</div>
+      <div class="nd-stat-sub">${rts<0?'Over-allocated':'Available to allocate'}</div>
+    </div>
+  </div>`;
+
+  // Budget health rows
+  const bktRows=[];
+  sortedCats().forEach(cat=>sortedBuckets(cat.id).filter(b=>!b.archived).forEach(b=>{
+    const target=bBudget(mid,b.id);
+    const al=bAlloc(mid,b.id);
+    const sp=bSpent(mid,b.id);
+    const avail=al-sp;
+    const pct=target>0?Math.min(100,Math.round(al/target*100)):al>0?100:0;
+    const over=al>0&&sp>al;
+    const pillCls=over?'pill pill-over':al>=target&&target>0?'pill pill-done':al>0?'pill pill-partial':'pill pill-empty';
+    const pillTxt=over?'Over':al>=target&&target>0?'✓':al>0?'~':'—';
+    const availColor=avail<0?'var(--red)':avail>0?'var(--green)':'var(--text3)';
+    bktRows.push(`<div class="nd-bh-row" onclick="ndSetView('budget')" style="cursor:pointer" title="${esc(cat.name)} · ${esc(b.name)}">
+      <div class="nd-bh-name">${esc(b.name)}</div>
+      <div class="nd-bh-bar-wrap"><div class="nd-bh-bar${over?' over':''}" style="width:${pct}%"></div></div>
+      <span class="${pillCls}" style="font-size:10px;padding:1px 5px;min-width:20px;text-align:center">${pillTxt}</span>
+      <span style="font-family:var(--mono);font-size:12px;color:${availColor};min-width:60px;text-align:right">${$f(avail)}</span>
+    </div>`);
+  }));
+
+  // Account cards
+  const cashAccts=S.accounts.filter(a=>a.type!=='debt');
+  const debtAccts=S.accounts.filter(a=>a.type==='debt');
+  const acctCard=a=>{
+    const bal=acctBalance(a.id);
+    const color=a.type==='debt'?(bal<0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
+    return `<div class="nd-acct-card" onclick="ndGoAcct('${a.id}')">
+      <div class="nd-acct-name"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${a.color};margin-right:5px;flex-shrink:0"></span>${esc(a.name)}</div>
+      <div class="nd-acct-bal" style="color:${color}">${$f(bal)}</div>
+    </div>`;
+  };
+
+  const twoCol=`<div class="nd-two-col">
+    <div class="nd-panel">
+      <div class="nd-panel-head">Budget Health <span style="font-weight:400;color:var(--text2)">${funded}/${activeBkts.length} funded</span>
+        <button class="tbtn" style="font-size:10px;padding:2px 7px" onclick="ndSetView('budget')">View all →</button>
+      </div>
+      <div style="max-height:260px;overflow-y:auto">
+        ${bktRows.join('')||'<div style="padding:14px;color:var(--text3);font-size:13px">No buckets yet.</div>'}
+      </div>
+    </div>
+    <div class="nd-panel">
+      <div class="nd-panel-head">Accounts
+        <button class="tbtn" style="font-size:10px;padding:2px 7px" onclick="ndSetView('accounts')">View all →</button>
+      </div>
+      ${cashAccts.length?`<div style="padding:4px 14px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">Cash &amp; Savings</div><div class="nd-acct-grid">${cashAccts.map(acctCard).join('')}</div>`:''}
+      ${debtAccts.length?`<div style="padding:4px 14px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--red)">Debt</div><div class="nd-acct-grid">${debtAccts.map(acctCard).join('')}</div>`:''}
+      ${!S.accounts.length?'<div style="padding:14px;color:var(--text3);font-size:13px">No accounts yet.</div>':''}
+    </div>
+  </div>`;
+
+  const recent=S.txs.filter(t=>!isScheduled(t)&&t.type!=='opening').sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  const recentRows=recent.map(tx=>{
+    const acct=getAcct(tx.accountId);const bkt=getBucket(tx.bucketId);
+    const sign=tx.type==='in'?'+':'-';
+    const color=tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+    return `<div class="nd-bh-row">
+      <div style="font-size:11px;color:var(--text3);flex-shrink:0;min-width:55px">${tx.date.slice(5)}</div>
+      <div class="nd-bh-name">${esc(tx.desc)}</div>
+      <div style="font-size:11px;color:var(--text3);flex-shrink:0;min-width:100px">${acct?esc(acct.name):''}${bkt?' · '+esc(bkt.name):''}</div>
+      <div style="font-family:var(--mono);font-size:13px;font-weight:600;color:${color};min-width:65px;text-align:right">${tx.type==='xfr'?'':sign}${$f(tx.amount)}</div>
+    </div>`;
+  }).join('');
+
+  const recentPanel=`<div class="nd-panel">
+    <div class="nd-panel-head">Recent Transactions
+      <button class="tbtn" style="font-size:10px;padding:2px 7px" onclick="ndSetView('transactions')">View all →</button>
+    </div>
+    ${recentRows||'<div style="padding:14px;color:var(--text3);font-size:13px">No transactions yet.</div>'}
+  </div>`;
+
+  return stats+twoCol+recentPanel;
+}
+
+function ndGoAcct(aid){_ndSelectedAcct=aid;ndSetView('accounts');}
+
+function ndBudgetHtml(){
+  const mid=S.activeMonth;
+  const past=monthStatus(mid)==='past';
+  let h=past?`<div class="notice" style="margin-bottom:14px">🔒 Closed month — read only.</div>`:'';
+  h+=`<div style="overflow-x:auto"><table class="nd-tbl" id="ndBgtTbl">
+    <thead><tr>
+      <th style="min-width:170px">Bucket</th>
+      <th style="text-align:right">Target</th>
+      <th style="text-align:right;min-width:110px">Allocated</th>
+      <th style="text-align:right">Spent</th>
+      <th style="text-align:right">Available</th>
+      <th style="text-align:right">Status</th>
+      ${!past?'<th></th>':''}
+    </tr></thead><tbody>`;
+  sortedCats().forEach(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    if(!bkts.length)return;
+    const cAlloc=bkts.reduce((s,b)=>s+bAlloc(mid,b.id),0);
+    const cSpent=bkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+    h+=`<tr class="nd-tbl-cat">
+      <td><strong>${esc(cat.name)}</strong> <span style="font-weight:400;font-size:11px;color:var(--text3)">${bkts.length} bucket${bkts.length!==1?'s':''}</span></td>
+      <td></td>
+      <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${$f(cAlloc)}</td>
+      <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${$f(cSpent)}</td>
+      <td></td><td></td>
+      ${!past?`<td style="text-align:right"><button class="tbtn" style="font-size:10px;padding:2px 7px" onclick="fundCategory('${cat.id}','${mid}')">Fund all</button></td>`:''}
+    </tr>`;
+    bkts.forEach(b=>{
+      const target=bBudget(mid,b.id);
+      const al=bAlloc(mid,b.id);
+      const sp=bSpent(mid,b.id);
+      const avail=al-sp;
+      const pend=bucketPendingAmt(b.id,mid);
+      const over=sp>al&&al>0;
+      const pillCls=over?'pill pill-over':al>=target&&target>0?'pill pill-done':al>0?'pill pill-partial':pend>0?'pill pill-pending':'pill pill-empty';
+      const pillTxt=over?'Over':al>=target&&target>0?'✓ Funded':al>0?'Partial':pend>0?`⏱ ${$f(pend)}`:'Unfunded';
+      const availColor=avail<0?'var(--red)':avail>0?'var(--green)':'var(--text3)';
+      const allocCell=past?`<span style="font-family:var(--mono);font-size:12px">${$f(al)}</span>`
+        :`<input class="nd-alloc-inp" type="text" inputmode="decimal" value="${al||''}" placeholder="0"
+            onclick="event.stopPropagation()"
+            onchange="event.stopPropagation();ndSetBktAlloc('${b.id}','${mid}',this.value)"
+            onkeydown="if(event.key==='Enter'){event.stopPropagation();this.blur();}">`;
+      h+=`<tr class="nd-tbl-row" onclick="openBucketDetail('${b.id}')">
+        <td style="font-weight:500;padding-left:20px">${esc(b.name)}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${target>0?$f(target):'—'}</td>
+        <td style="text-align:right">${allocCell}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:12px">${$f(sp)}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:12px;font-weight:600;color:${availColor}">${$f(avail)}</td>
+        <td style="text-align:right"><span class="${pillCls}">${pillTxt}</span></td>
+        ${!past?`<td style="text-align:right;padding-right:6px"><button class="ib del" onclick="event.stopPropagation();ndDelBkt('${b.id}')" title="Delete">×</button></td>`:''}
+      </tr>`;
+    });
+  });
+  h+=`</tbody></table></div>`;
+  if(!S.cats.length)h=`<div style="padding:30px;text-align:center;color:var(--text3)">No categories yet. <button class="tbtn" onclick="openModal('cat')">Add Category</button></div>`;
+  return h;
+}
+
+function ndWireBudget(){/* allocation inputs wired via onchange inline */}
+
+function ndSetBktAlloc(bid,mid,val){
+  const cur=bAlloc(mid,bid);
+  const ref=monthProjectedIncome(mid);
+  const v=Math.max(evalMoneyExpr(val,cur,ref),0);
+  const m=getMonth(mid);if(!m)return;
+  if(!m.allocations)m.allocations={};
+  m.allocations[bid]=v;
+  save();ndRenderHeader();
+  const inp=document.querySelector(`input.nd-alloc-inp[onchange*="'${bid}'"]`);
+  if(inp)inp.value=v||'';
+}
+
+function ndDelBkt(bid){
+  const b=getBucket(bid);if(!b)return;
+  if(!confirm(`Delete bucket "${b.name}"?`))return;
+  S.buckets=S.buckets.filter(x=>x.id!==bid);
+  S.txs.forEach(t=>{if(t.bucketId===bid)t.bucketId=null;});
+  S.months.forEach(m=>{if(m.budgets)delete m.budgets[bid];if(m.allocations)delete m.allocations[bid];});
+  save();ndRender();
+}
+
+function openBucketDetail(bid){
+  const mid=S.activeMonth;
+  const past=monthStatus(mid)==='past';
+  const m=getMonth(mid);
+  const b=getBucket(bid);if(!b)return;
+  S.activeBucket=bid;
+  const modal=document.getElementById('modalBox');
+  modal.className='modal';
+  modal.innerHTML=`
+    <div class="modal-head">
+      <div class="modal-title">${esc(b.name)}</div>
+      <button class="modal-x" onclick="closeModal();S.activeBucket=null;">&#x2715;</button>
+    </div>
+    <div class="modal-body" style="padding:0">${renderBucketDetail(mid,past,m)}</div>`;
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function ndAccountsHtml(){
+  const cashAccts=S.accounts.filter(a=>a.type!=='debt');
+  const debtAccts=S.accounts.filter(a=>a.type==='debt');
+  const chip=a=>{
+    const bal=acctBalance(a.id);
+    const color=a.type==='debt'?(bal<0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
+    return `<div class="nd-acct-card${_ndSelectedAcct===a.id?' active':''}" onclick="ndSelectAcct('${a.id}')">
+      <div class="nd-acct-name"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${a.color};margin-right:5px"></span>${esc(a.name)}</div>
+      <div class="nd-acct-bal" style="color:${color}">${$f(bal)}</div>
+    </div>`;
+  };
+  const detail=_ndSelectedAcct?ndAcctDetailHtml(_ndSelectedAcct):`<div style="padding:24px;color:var(--text3);font-size:13px;text-align:center">Select an account above to view transactions.</div>`;
+  return `<div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:16px;align-items:flex-start">
+    ${cashAccts.length?`<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:6px">Cash &amp; Savings</div><div style="display:flex;flex-wrap:wrap;gap:8px">${cashAccts.map(chip).join('')}</div></div>`:''}
+    ${debtAccts.length?`<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--red);margin-bottom:6px">Debt</div><div style="display:flex;flex-wrap:wrap;gap:8px">${debtAccts.map(chip).join('')}</div></div>`:''}
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:flex-end;padding-bottom:2px">
+      <button class="tbtn" onclick="openModal('acct')">+ Account</button>
+      ${_ndSelectedAcct?`<button class="tbtn" onclick="openReconcile('${_ndSelectedAcct}')">✓ Reconcile</button>`:''}
+    </div>
+  </div>
+  <div id="ndAcctDetail">${detail}</div>`;
+}
+
+function ndSelectAcct(aid){
+  _ndSelectedAcct=aid;
+  document.querySelectorAll('.nd-acct-card').forEach(c=>c.classList.toggle('active',c.getAttribute('onclick')===`ndSelectAcct('${aid}')`));
+  const el=document.getElementById('ndAcctDetail');
+  if(el)el.innerHTML=ndAcctDetailHtml(aid);
+}
+
+function ndAcctDetailHtml(aid){
+  const a=getAcct(aid);if(!a)return '';
+  const bal=acctBalance(aid);
+  const {balMap,schedMap}=calcAccountRunningBal(aid);
+  const today=todayStr();
+  const allTxs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const scheduled=allTxs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const posted=allTxs.filter(t=>t.date<=today);
+  const row=(tx,rb)=>{
+    const sched=tx.date>today;
+    const incoming=tx.toAccountId===aid&&tx.type==='xfr';
+    const sign=incoming||tx.type==='in'?'+':'-';
+    const amtColor=sched?'var(--text3)':incoming||tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+    const bkt=getBucket(tx.bucketId);const toA=getAcct(tx.toAccountId);
+    const balCell=rb!=null?`<td style="padding:7px 8px;font-family:var(--mono);font-size:12px;color:${rb<0?'var(--red)':'var(--text3)'};text-align:right">${$f(rb)}</td>`:'<td></td>';
+    return `<tr style="${sched?'opacity:.55':''}">
+      <td style="padding:7px 10px;font-size:12px;color:var(--text3);white-space:nowrap">${tx.date}</td>
+      <td style="padding:7px 10px;font-size:13px">${esc(tx.desc)}</td>
+      <td style="padding:7px 10px;font-size:11px;color:var(--text3)">${bkt?esc(bkt.name):''}${toA&&tx.type==='xfr'?'→ '+esc(toA.name):''}</td>
+      <td style="padding:7px 10px;font-family:var(--mono);font-size:13px;font-weight:600;color:${amtColor};text-align:right">${tx.type==='xfr'&&!incoming?'':sign}${$f(tx.amount)}</td>
+      ${balCell}
+      <td style="padding:4px 6px;text-align:right;white-space:nowrap">${!tx.autoGenerated?`<button class="ib" onclick="openTxEditModal('${tx.id}')">✎</button>${!tx.reconciled?`<button class="ib del" onclick="delTx('${tx.id}');ndSelectAcct('${aid}')">×</button>`:''}`:''}</td>
+    </tr>`;
+  };
+  const rows=[...scheduled.map(tx=>row(tx,schedMap.get(tx.id)??null)),...posted.map(tx=>row(tx,balMap.get(tx.id)??null))].join('');
+  const balColor=a.type==='debt'?(bal<0?'var(--red)':'var(--green)'):bal>=0?'var(--green)':'var(--red)';
+  return `<div class="nd-panel">
+    <div class="nd-panel-head">
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${a.color};margin-right:6px"></span>${esc(a.name)}
+        <span style="font-family:var(--mono);font-size:14px;color:${balColor};margin-left:8px;font-weight:700">${$f(bal)}</span>
+      </span>
+      <span style="font-weight:400;color:var(--text3)">${a.type}</span>
+    </div>
+    ${a.type==='debt'?`<div style="padding:0 14px">${renderDebtTracker(a)}</div>`:''}
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:2px solid var(--border)">
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left">Date</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left">Description</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left">Bucket / Transfer</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:right">Amount</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:right">Balance</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows||`<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No transactions yet.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function ndTransactionsHtml(){
+  const mid=S.activeMonth;
+  const past=monthStatus(mid)==='past';
+  let acctOpts='<option value="">Account...</option>';
+  S.accounts.forEach(a=>acctOpts+=`<option value="${a.id}">${esc(a.name)}</option>`);
+  let catOpts='<option value="">Category...</option>';
+  sortedCats().forEach(c=>catOpts+=`<option value="${c.id}">${esc(c.name)}</option>`);
+  const formHtml=!past?`<div class="nd-panel" style="margin-bottom:16px">
+    <div class="nd-panel-head">Add Transaction</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div><div class="fl" style="margin-bottom:4px">Type</div>
+          <div class="type-tog"><button class="ttbtn sel-out" id="ttOut" onclick="setTxType('out')">↑ Out</button><button class="ttbtn" id="ttIn" onclick="setTxType('in')">↓ In</button><button class="ttbtn" id="ttXfr" onclick="setTxType('xfr')">⇄ Xfr</button></div></div>
+        <div style="flex:2;min-width:140px"><div class="fl" style="margin-bottom:4px">Description</div><input class="fi" id="txDesc" placeholder="Description..." /></div>
+        <div style="flex:1;min-width:90px"><div class="fl" style="margin-bottom:4px">Amount</div><input class="fi mono" id="txAmt" type="text" inputmode="decimal" placeholder="0.00" /></div>
+        <div style="flex:1;min-width:110px"><div class="fl" style="margin-bottom:4px">Date</div><input class="fi" id="txDate" type="date" value="${todayStr()}" /></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:120px"><div class="fl" style="margin-bottom:4px">Account</div><select class="fi" id="txAcct" onchange="onTxTypeOrAcctChange()">${acctOpts}</select></div>
+        <div id="txBktRow" style="flex:1;min-width:120px"><div class="fl" style="margin-bottom:4px">Category</div><select class="fi" id="txCat" onchange="syncTxBuckets()">${catOpts}</select></div>
+        <div id="txBktRow2" style="flex:1;min-width:120px"><div class="fl" style="margin-bottom:4px">Bucket</div><select class="fi" id="txBkt"><option value="">Bucket...</option></select></div>
+        <div id="txXfrRow" style="display:none;flex:1;min-width:120px"><div class="fl" style="margin-bottom:4px">To Account</div><select class="fi" id="txXfrTo"><option value="">To account...</option></select></div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <label class="rec-chk"><input type="checkbox" id="txRec"> ↻ Recurring</label>
+          <button class="txf-submit" id="txSubmitBtn" onclick="addTx()">Add</button>
+        </div>
+      </div>
+    </div>
+  </div>`:'';
+
+  const txs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening').sort((a,b)=>b.date.localeCompare(a.date));
+  const rows=txs.map(tx=>{
+    const acct=getAcct(tx.accountId);const bkt=getBucket(tx.bucketId);
+    const sched=isScheduled(tx);
+    const sign=tx.type==='in'?'+':'-';
+    const color=sched?'var(--text3)':tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+    return `<tr style="${sched?'opacity:.6':''}">
+      <td style="padding:7px 10px;font-size:12px;color:var(--text3)">${tx.date}</td>
+      <td style="padding:7px 10px;font-size:13px">${esc(tx.desc)}</td>
+      <td style="padding:7px 10px;font-size:11px;color:var(--text3)">${acct?esc(acct.name):''}</td>
+      <td style="padding:7px 10px;font-size:11px;color:var(--text3)">${bkt?esc(bkt.name):''}</td>
+      <td style="padding:7px 10px;font-family:var(--mono);font-size:13px;font-weight:600;color:${color};text-align:right">${tx.type==='xfr'?'':sign}${$f(tx.amount)}</td>
+      <td style="padding:4px 6px;text-align:right">${!tx.autoGenerated?`<button class="ib" onclick="${past?'openTxEditModal':'editTx'}('${tx.id}')">✎</button>${!tx.reconciled?`<button class="ib del" onclick="delTx('${tx.id}');ndRenderContent()">×</button>`:''}`:''}</td>
+    </tr>`;
+  }).join('');
+
+  return formHtml+`<div class="nd-panel">
+    <div class="nd-panel-head">Transactions — ${getMonth(mid)?.label||''}
+      <div style="display:flex;gap:6px">
+        <input style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;font-size:12px;color:var(--text);width:180px" placeholder="Search..." oninput="ndFilterTxs(this.value)" />
+      </div>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:2px solid var(--border)">
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left">Date</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left">Description</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left">Account</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:left">Bucket</th>
+        <th style="padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);text-align:right">Amount</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="ndTxBody">${rows||`<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text3)">No transactions this month.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function ndFilterTxs(q){
+  const rows=document.querySelectorAll('#ndTxBody tr');
+  rows.forEach(r=>r.style.display=(!q||r.textContent.toLowerCase().includes(q.toLowerCase()))?'':'none');
+}
+
+function ndWireTxForm(){
+  populateTxCats();
+  updateTxFormForType();
+  const txDate=document.getElementById('txDate');
+  if(txDate&&!txDate.value)txDate.value=todayStr();
+}
+
+function ndReportsHtml(){
+  const nw=S.accounts.reduce((s,a)=>s+acctBalance(a.id),0);
+  return `<div class="nd-stat-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+    <div class="nd-stat" style="cursor:pointer" onclick="openNetWorth()">
+      <div class="nd-stat-label">Net Worth</div>
+      <div class="nd-stat-val" style="color:${nw>=0?'var(--green)':'var(--red)'}">${$f(nw)}</div>
+      <div class="nd-stat-sub">Click to view full breakdown →</div>
+    </div>
+    <div class="nd-stat" style="cursor:pointer" onclick="openMonthReport('${S.activeMonth}')">
+      <div class="nd-stat-label">Month Report</div>
+      <div class="nd-stat-val">${getMonth(S.activeMonth)?.label||''}</div>
+      <div class="nd-stat-sub">Spending breakdown →</div>
+    </div>
+    <div class="nd-stat">
+      <div class="nd-stat-label">History</div>
+      <div class="nd-stat-val">${S.months.filter(m=>monthStatus(m.id)==='past').length} months</div>
+      <div class="nd-stat-sub">of tracked data</div>
+    </div>
+  </div>
+  <div class="nd-two-col">
+    <div class="nd-panel">
+      <div class="nd-panel-head">Tools</div>
+      <div style="padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+        <button class="tbtn" style="text-align:left;padding:9px 12px" onclick="openRecurringBills()">⏱ Recurring Bills</button>
+        <button class="tbtn" style="text-align:left;padding:9px 12px" onclick="openAllocationRules()">🎯 Allocation Rules</button>
+        <button class="tbtn" style="text-align:left;padding:9px 12px" onclick="openNetWorth()">◈ Net Worth</button>
+        <button class="tbtn" style="text-align:left;padding:9px 12px" onclick="openMonthReport('${S.activeMonth}')">📊 Month Report</button>
+        <button class="tbtn" style="text-align:left;padding:9px 12px" onclick="openGlobalSearch()">🔍 Search All</button>
+      </div>
+    </div>
+    <div class="nd-panel">
+      <div class="nd-panel-head">Data</div>
+      <div style="padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+        <button class="tbtn" style="text-align:left;padding:9px 12px" onclick="exportData()">↓ Export Backup</button>
+        <button class="tbtn" style="text-align:left;padding:9px 12px" onclick="document.getElementById('importFile')?.click()">↑ Import Backup</button>
+        <button class="tbtn" style="text-align:left;padding:9px 12px;color:var(--red);border-color:var(--rb)" onclick="confirmFreshStart()">⚠ Fresh Start</button>
+        <button class="tbtn" style="text-align:left;padding:9px 12px;color:var(--text3)" onclick="toggleNewDesktop()">← Switch to Classic Layout</button>
+      </div>
+    </div>
+  </div>`;
+}
 
 // ═══════════════════════════════════════════════════════
 // AUTH & SYNC
