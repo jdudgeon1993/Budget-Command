@@ -3314,7 +3314,7 @@ function wiRunProjector(){
   // Resolve scenario for bucket amounts
   const scenarioId=document.getElementById('projScenario')?.value||'';
   const scenario=(S.scenarios||[]).find(s=>s.id===scenarioId)||null;
-  const bktAmt=b=>scenario?(scenario.budgets[b.id]??b.defaultBudget||0):(b.defaultBudget||0);
+  const bktAmt=b=>scenario?(scenario.budgets[b.id]??(b.defaultBudget||0)):(b.defaultBudget||0);
 
   // Parse up to 3 paycheck sources
   const sources=[];
