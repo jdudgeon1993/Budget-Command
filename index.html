@@ -3358,9 +3358,8 @@ function wiRunProjector(){
   });
   payEvents.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // ── Build all outflows ────────────────────────────────────────────────────
+  // ── Build all outflows (budget only — no scheduled txs to avoid duplicates) ──
   const outflows=[];
-  // Include buckets that have a budget in either actual or the selected scenario
   const activeBkts=S.buckets.filter(b=>!b.archived&&bktAmt(b)>0);
   let wY=startDate.getFullYear(),wM=startDate.getMonth();
   const endY=endDate.getFullYear(),endMM=endDate.getMonth();
@@ -3369,22 +3368,35 @@ function wiRunProjector(){
     activeBkts.forEach(b=>{
       const bAmt=bktAmt(b);
       if(b.dueDay){
-        const day=Math.min(b.dueDay,monthMax);
-        const ds=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket'});
         if(b.dueDay2){
+          // Split payment: derive each portion correctly
+          const pay2=b.dueAmount2||bAmt/2;
+          const pay1=b.dueAmount||(bAmt-pay2);
+          const day1=Math.min(b.dueDay,monthMax);
+          const ds1=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day1).padStart(2,'0')}`;
+          if(ds1>=startStr&&ds1<=endStr)
+            outflows.push({date:ds1,desc:b.name+' (1/2)',amount:pay1,src:'bucket'});
           const day2=Math.min(b.dueDay2,monthMax);
           const ds2=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day2).padStart(2,'0')}`;
-          if(ds2>=startStr&&ds2<=endStr&&ds2!==ds)
-            outflows.push({date:ds2,desc:b.name+' (2nd)',amount:b.dueAmount2||bAmt/2,src:'bucket'});
+          if(ds2>=startStr&&ds2<=endStr)
+            outflows.push({date:ds2,desc:b.name+' (2/2)',amount:pay2,src:'bucket'});
+        } else {
+          // Single due-date bucket
+          const day=Math.min(b.dueDay,monthMax);
+          const ds=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          if(ds>=startStr&&ds<=endStr)
+            outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket'});
         }
       } else {
+        // No due date — discretionary, place on 1st of month
         const ds=`${wY}-${String(wM+1).padStart(2,'0')}-01`;
-        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary'});
+        if(ds>=startStr&&ds<=endStr)
+          outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary'});
       }
     });
     wM++;if(wM>11){wM=0;wY++;}
   }
+  // Recurring bills not already covered by a bucket name
   const bktNames=new Set(activeBkts.map(b=>b.name.toLowerCase()));
   (S.recurringBills||[]).filter(b=>b.active!==false).forEach(bill=>{
     if(bktNames.has((bill.desc||'').toLowerCase()))return;
@@ -3396,10 +3408,6 @@ function wiRunProjector(){
       if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:bill.desc,amount:bill.amount,src:'bill'});
       d.setMonth(d.getMonth()+1);
     }
-  });
-  S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.date>=startStr&&t.date<=endStr).forEach(t=>{
-    if(t.type==='out'||t.type==='xfr')
-      outflows.push({date:t.date,desc:t.desc,amount:t.amount,src:'scheduled'});
   });
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
@@ -3464,8 +3472,7 @@ function wiRunProjector(){
         </div>`;
       } else {
         running-=ev.amount;weekOut+=ev.amount;
-        const badge=ev.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">var</span>`:
-          ev.src==='scheduled'?`<span style="font-size:9px;color:var(--amber);border:1px solid var(--amber);border-radius:3px;padding:0 3px;margin-left:3px">sched</span>`:'';
+        const badge=ev.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">variable</span>`:'';
         return `<div style="display:flex;gap:6px;padding:3px 0;align-items:center;border-bottom:1px solid var(--border2)">
           <span style="font-size:11px;color:var(--text3);width:48px;flex-shrink:0">${ev.date.slice(5)}</span>
           <span style="flex:1;font-size:12px">${esc(ev.desc)}${badge}</span>
