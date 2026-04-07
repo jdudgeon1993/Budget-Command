@@ -3292,6 +3292,8 @@ function wiProjectorHtml(result,standalone){
           <option value="2" selected>2 months</option>
           <option value="3">3 months</option>
           <option value="6">6 months</option>
+          <option value="12">12 months</option>
+          <option value="eoy">To year-end</option>
         </select></div>
       <div><label class="fl">Budget to Simulate</label>
         <select class="fi" id="projScenario">${scOpts}</select>
@@ -3307,7 +3309,7 @@ function wiProjectorHtml(result,standalone){
 }
 
 function wiRunProjector(){
-  const months=parseInt(document.getElementById('projMonths')?.value||'2');
+  const monthsRaw=document.getElementById('projMonths')?.value||'2';
   const balInput=document.getElementById('projBal')?.value;
   const startBal=balInput!==''&&balInput!=null?parseFloat(balInput)||0:S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
 
@@ -3331,7 +3333,13 @@ function wiRunProjector(){
   const startStr=sources.map(s=>s.date).sort()[0];
   const startDate=new Date(startStr+'T12:00:00');
   const endDate=new Date(startDate);
-  endDate.setMonth(endDate.getMonth()+months);
+  if(monthsRaw==='eoy'){
+    endDate.setFullYear(endDate.getFullYear());
+    endDate.setMonth(11);endDate.setDate(31);
+  } else {
+    endDate.setMonth(endDate.getMonth()+parseInt(monthsRaw)||2);
+  }
+  const months=Math.round((endDate-startDate)/(1000*60*60*24*30.5));
   const endStr=endDate.toISOString().split('T')[0];
 
   // ── Generate all paycheck events ──────────────────────────────────────────
@@ -3411,6 +3419,25 @@ function wiRunProjector(){
   });
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
+  // ── Collect no-due-date buckets for warning ───────────────────────────────
+  const undatedBkts=S.buckets.filter(b=>!b.archived&&bktAmt(b)>0&&!b.dueDay);
+
+  // ── Build 3-paycheck-month map (per source, per calendar month) ───────────
+  // normalPayPerMonth: weekly→4, biweekly→2, semi-monthly→2, monthly→1
+  const normalPerMonth={7:4,14:2,15:2,30:1};
+  const bonusMonths=new Set(); // 'YYYY-MM' strings of months with a bonus paycheck
+  sources.forEach(src=>{
+    const expected=normalPerMonth[src.freq]??2;
+    const countByMonth={};
+    payEvents.filter(e=>e.desc===src.label).forEach(e=>{
+      const ym=e.date.slice(0,7);
+      countByMonth[ym]=(countByMonth[ym]||0)+1;
+    });
+    Object.entries(countByMonth).forEach(([ym,cnt])=>{
+      if(cnt>expected)bonusMonths.add(ym+':'+src.label);
+    });
+  });
+
   // ── Group into 7-day calendar weeks ──────────────────────────────────────
   // Weeks always start on the same weekday as the first pay date
   const weeks=[];
@@ -3433,15 +3460,24 @@ function wiRunProjector(){
   const incomeDesc=sources.map(s=>`${s.label}: ${$f(s.amt)} ${s.freq===7?'wkly':s.freq===14?'bi-wkly':s.freq===15?'semi-mo':'mo'}`).join(' · ');
 
   const scenarioBanner=scenario
-    ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:10px;font-size:12px;display:flex;align-items:center;gap:8px">
+    ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px">
         <span style="color:var(--accent);font-weight:700">⚡ What If:</span>
         <span style="color:var(--text)">${esc(scenario.name)}</span>
         <span style="color:var(--text3);font-size:11px">— bucket amounts from this scenario</span>
       </div>`
     :'';
 
+  const undatedWarning=undatedBkts.length
+    ?`<div style="background:var(--abg2,var(--surface));border:1px solid var(--amber);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12px">
+        <span style="color:var(--amber);font-weight:700">⚠ ${undatedBkts.length} bucket${undatedBkts.length!==1?'s':''} have no due date</span>
+        <span style="color:var(--text3)"> — shown on the 1st of each month as an estimate: </span>
+        <span style="color:var(--text)">${undatedBkts.map(b=>esc(b.name)).join(', ')}</span>
+        <span style="color:var(--text3);display:block;margin-top:3px;font-size:11px">Set due dates in the Bucket Editor for accurate week placement.</span>
+      </div>`
+    :'';
+
   let html=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
-    ${scenarioBanner}
+    ${scenarioBanner}${undatedWarning}
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap">
       <span>Starting cash: <strong style="font-family:var(--mono);color:${startBal>=0?'var(--green)':'var(--red)'}">${$f(startBal)}</strong></span>
       <span>${incomeDesc}</span>
@@ -3485,9 +3521,16 @@ function wiRunProjector(){
     const shortfall=running<0;
     if(shortfall)shortfallCount++;
     const netColor=running>=0?'var(--green)':'var(--red)';
+    // Detect bonus paycheck: any source has a pay event in this week that
+    // pushes that source's month total above the normal count
+    const wYM=w.start.slice(0,7);
+    const bonusInWeek=sources.some(src=>
+      wPay.some(e=>e.desc===src.label)&&bonusMonths.has(wYM+':'+src.label)
+    );
     html+=`<div style="background:var(--bg2);border:1px solid ${shortfall?'var(--red)':'var(--border)'};border-radius:8px;margin-bottom:8px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:${shortfall?'var(--rbg)':'var(--surface)'};border-bottom:1px solid var(--border);flex-wrap:wrap">
         <span style="font-size:11px;font-weight:700;color:var(--text)">Week of ${w.start.slice(5)} – ${w.end.slice(5)}</span>
+        ${bonusInWeek?`<span style="font-size:10px;font-weight:700;color:var(--green);background:rgba(0,200,100,.12);border:1px solid var(--green);border-radius:4px;padding:1px 5px">⭐ Bonus paycheck month</span>`:''}
         ${weekIn?`<span style="font-size:11px;color:var(--green)">+${$f(weekIn)}</span>`:''}
         ${weekOut?`<span style="font-size:11px;color:var(--red)">-${$f(weekOut)}</span>`:''}
         <span style="font-size:12px;font-weight:700;color:${netColor};margin-left:auto">${$f(running)}</span>
