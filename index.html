@@ -3209,8 +3209,8 @@ function saveScenario(){
   // Remove duplicate
   S.scenarios=S.scenarios.filter(s=>s.id!==S.wiScenario.id);
   S.scenarios.push({...S.wiScenario});
-  // Max 3
-  if(S.scenarios.length>3)S.scenarios=S.scenarios.slice(-3);
+  // Max 6
+  if(S.scenarios.length>6)S.scenarios=S.scenarios.slice(-6);
   save();
   if(isMobile())openModal('__wi__');else renderWI();
 }
@@ -3274,12 +3274,17 @@ function wiProjectorHtml(result,standalone){
       </div>
     </div>`;
 
+  // Build scenario options
+  const savedScenarios=S.scenarios||[];
+  const scOpts=`<option value="">Actual Budget (default)</option>`
+    +savedScenarios.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+
   return `${headTitle}${bodyWrap}
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
       Projects week-by-week cash flow using your budget bucket due dates, recurring bills, and scheduled transactions. Add up to 3 income sources.
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
       <div><label class="fl">Starting Cash Balance</label><input class="fi mono" id="projBal" type="number" step="0.01" value="${cashBal.toFixed(2)}" /></div>
       <div><label class="fl">Project Forward</label>
         <select class="fi" id="projMonths">
@@ -3288,6 +3293,10 @@ function wiProjectorHtml(result,standalone){
           <option value="3">3 months</option>
           <option value="6">6 months</option>
         </select></div>
+      <div><label class="fl">Budget to Simulate</label>
+        <select class="fi" id="projScenario">${scOpts}</select>
+        ${!savedScenarios.length?`<div style="font-size:10px;color:var(--text3);margin-top:3px">Save a What If scenario to use here</div>`:''}
+      </div>
     </div>
 
     ${pcRow(1,true)}${pcRow(2,false)}${pcRow(3,false)}
@@ -3301,6 +3310,11 @@ function wiRunProjector(){
   const months=parseInt(document.getElementById('projMonths')?.value||'2');
   const balInput=document.getElementById('projBal')?.value;
   const startBal=balInput!==''&&balInput!=null?parseFloat(balInput)||0:S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
+
+  // Resolve scenario for bucket amounts
+  const scenarioId=document.getElementById('projScenario')?.value||'';
+  const scenario=(S.scenarios||[]).find(s=>s.id===scenarioId)||null;
+  const bktAmt=b=>scenario?(scenario.budgets[b.id]??b.defaultBudget||0):(b.defaultBudget||0);
 
   // Parse up to 3 paycheck sources
   const sources=[];
@@ -3346,13 +3360,14 @@ function wiRunProjector(){
 
   // ── Build all outflows ────────────────────────────────────────────────────
   const outflows=[];
-  const activeBkts=S.buckets.filter(b=>!b.archived&&(b.defaultBudget||0)>0);
+  // Include buckets that have a budget in either actual or the selected scenario
+  const activeBkts=S.buckets.filter(b=>!b.archived&&bktAmt(b)>0);
   let wY=startDate.getFullYear(),wM=startDate.getMonth();
   const endY=endDate.getFullYear(),endMM=endDate.getMonth();
   while(wY<endY||(wY===endY&&wM<=endMM)){
     const monthMax=new Date(wY,wM+1,0).getDate();
     activeBkts.forEach(b=>{
-      const bAmt=b.defaultBudget;
+      const bAmt=bktAmt(b);
       if(b.dueDay){
         const day=Math.min(b.dueDay,monthMax);
         const ds=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -3409,7 +3424,16 @@ function wiRunProjector(){
   const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
   const incomeDesc=sources.map(s=>`${s.label}: ${$f(s.amt)} ${s.freq===7?'wkly':s.freq===14?'bi-wkly':s.freq===15?'semi-mo':'mo'}`).join(' · ');
 
+  const scenarioBanner=scenario
+    ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:10px;font-size:12px;display:flex;align-items:center;gap:8px">
+        <span style="color:var(--accent);font-weight:700">⚡ What If:</span>
+        <span style="color:var(--text)">${esc(scenario.name)}</span>
+        <span style="color:var(--text3);font-size:11px">— bucket amounts from this scenario</span>
+      </div>`
+    :'';
+
   let html=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+    ${scenarioBanner}
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap">
       <span>Starting cash: <strong style="font-family:var(--mono);color:${startBal>=0?'var(--green)':'var(--red)'}">${$f(startBal)}</strong></span>
       <span>${incomeDesc}</span>
