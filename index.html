@@ -3231,9 +3231,8 @@ function deleteScenario(id){
 
 // ── Paycheck Projector ────────────────────────────────────────────────────────
 function wiShowProjector(){
-  // Try WI panel first (desktop), then regular modal (standalone/mobile)
   const inner=document.getElementById('wiModalInner');
-  if(inner&&!inner.classList.contains('hidden')&&document.getElementById('wiOverlay')&&!document.getElementById('wiOverlay').classList.contains('hidden')){
+  if(inner&&document.getElementById('wiOverlay')&&!document.getElementById('wiOverlay').classList.contains('hidden')){
     inner.innerHTML=wiProjectorHtml(null,false);
   } else {
     const modal=document.getElementById('modalBox');
@@ -3251,218 +3250,234 @@ function wiProjectorHtml(result,standalone){
   const headTitle=standalone
     ?`<div class="modal-head"><div class="modal-title">📅 Paycheck Projector</div>${backBtn}</div>`
     :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div style="font-size:13px;font-weight:700;color:var(--text)">📅 Paycheck Projector</div><div></div></div>`;
-  const bodyWrap=standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:70vh">`;
-  const footHtml=standalone?`<div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`:'';
+  const bodyWrap=standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
+  const footHtml=standalone?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
   const cashBal=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
-  return `${headTitle}${bodyWrap}
-      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
-        Projects your cash flow pay-period by pay-period using your budget buckets (due dates), recurring bills, and scheduled transactions.
+
+  // Paycheck row builder
+  const pcRow=(n,req)=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:8px">
+        💰 Paycheck ${n}${req?'':' <span style="font-weight:400">(optional)</span>'}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
-        <div><label class="fl">First Paycheck Date</label><input class="fi" id="projStart" type="date" value="${todayStr()}" /></div>
-        <div><label class="fl">Pay Frequency</label>
-          <select class="fi" id="projFreq">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
+        <div><label class="fl">Label</label><input class="fi" id="pc${n}Label" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
+        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pc${n}Amt" type="number" step="0.01" placeholder="0.00" /></div>
+        <div><label class="fl">Next Pay Date</label><input class="fi" id="pc${n}Date" type="date" ${req?`value="${todayStr()}"`:`placeholder="leave blank to skip"`} /></div>
+        <div><label class="fl">Frequency</label>
+          <select class="fi" id="pc${n}Freq">
             <option value="7">Weekly</option>
             <option value="14" selected>Bi-weekly</option>
-            <option value="15">Semi-monthly (1st &amp; 15th)</option>
+            <option value="15">Semi-monthly</option>
             <option value="30">Monthly</option>
           </select></div>
-        <div><label class="fl">Paycheck Amount ($)</label><input class="fi mono" id="projAmt" type="number" step="0.01" placeholder="0.00" /></div>
-        <div><label class="fl">Starting Balance</label><input class="fi mono" id="projBal" type="number" step="0.01" placeholder="${cashBal.toFixed(2)}" value="${cashBal.toFixed(2)}" /></div>
-        <div><label class="fl">Project Forward</label>
-          <select class="fi" id="projMonths">
-            <option value="1">1 month</option>
-            <option value="2" selected>2 months</option>
-            <option value="3">3 months</option>
-            <option value="6">6 months</option>
-          </select></div>
       </div>
-      <button class="btn-primary" onclick="wiRunProjector()">Generate Projection</button>
-      ${result||''}
-    </div>${footHtml}`;
+    </div>`;
+
+  return `${headTitle}${bodyWrap}
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+      Projects week-by-week cash flow using your budget bucket due dates, recurring bills, and scheduled transactions. Add up to 3 income sources.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div><label class="fl">Starting Cash Balance</label><input class="fi mono" id="projBal" type="number" step="0.01" value="${cashBal.toFixed(2)}" /></div>
+      <div><label class="fl">Project Forward</label>
+        <select class="fi" id="projMonths">
+          <option value="1">1 month</option>
+          <option value="2" selected>2 months</option>
+          <option value="3">3 months</option>
+          <option value="6">6 months</option>
+        </select></div>
+    </div>
+
+    ${pcRow(1,true)}${pcRow(2,false)}${pcRow(3,false)}
+
+    <button class="btn-primary" style="width:100%;margin-top:4px" onclick="wiRunProjector()">Generate Week-by-Week Projection</button>
+    ${result||''}
+  </div>${footHtml}`;
 }
 
 function wiRunProjector(){
-  const startVal=document.getElementById('projStart')?.value;
-  const freq=parseInt(document.getElementById('projFreq')?.value||'14');
-  const amt=parseFloat(document.getElementById('projAmt')?.value||'0');
   const months=parseInt(document.getElementById('projMonths')?.value||'2');
   const balInput=document.getElementById('projBal')?.value;
   const startBal=balInput!==''&&balInput!=null?parseFloat(balInput)||0:S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
 
-  if(!startVal){alert('Please enter a start date.');return;}
-  if(!amt||amt<=0){alert('Please enter a paycheck amount.');return;}
+  // Parse up to 3 paycheck sources
+  const sources=[];
+  for(let n=1;n<=3;n++){
+    const dateVal=document.getElementById(`pc${n}Date`)?.value;
+    const amtVal=parseFloat(document.getElementById(`pc${n}Amt`)?.value||'0');
+    const freq=parseInt(document.getElementById(`pc${n}Freq`)?.value||'14');
+    const label=document.getElementById(`pc${n}Label`)?.value||(n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income');
+    if(dateVal&&amtVal>0)sources.push({date:dateVal,amt:amtVal,freq,label});
+  }
+  if(!sources.length){alert('Enter at least one paycheck (date + amount).');return;}
 
-  const startDate=new Date(startVal+'T12:00:00');
+  // Projection window: start from earliest paycheck date
+  const startStr=sources.map(s=>s.date).sort()[0];
+  const startDate=new Date(startStr+'T12:00:00');
   const endDate=new Date(startDate);
   endDate.setMonth(endDate.getMonth()+months);
-  const startStr=startVal;
   const endStr=endDate.toISOString().split('T')[0];
 
-  // ── Build pay period boundaries ─────────────────────────────────────────
-  const periods=[];
-  if(freq===15){
-    // Semi-monthly: alternating 1st→14th and 15th→end-of-month
-    let d=new Date(startDate);
-    while(d<=endDate){
-      const pStart=new Date(d);
-      const pEnd=new Date(d);
-      if(d.getDate()<=14){
-        pEnd.setDate(14);
-        const next=new Date(d);next.setDate(15);
-        periods.push({start:pStart,end:pEnd,paydate:pStart.toISOString().split('T')[0]});
-        d=next;
-      } else {
-        pEnd.setMonth(pEnd.getMonth()+1);pEnd.setDate(0);// last day of month
-        const next=new Date(d);next.setMonth(next.getMonth()+1);next.setDate(1);
-        periods.push({start:pStart,end:pEnd,paydate:pStart.toISOString().split('T')[0]});
-        d=next;
+  // ── Generate all paycheck events ──────────────────────────────────────────
+  const payEvents=[];
+  sources.forEach(src=>{
+    const d0=new Date(src.date+'T12:00:00');
+    if(src.freq===15){
+      // Semi-monthly: alternate starting from given date
+      let d=new Date(d0);
+      while(d<=endDate){
+        const ds=d.toISOString().split('T')[0];
+        if(ds>=startStr&&ds<=endStr)payEvents.push({date:ds,desc:src.label,amount:src.amt,kind:'pay'});
+        if(d.getDate()<15){d=new Date(d.getFullYear(),d.getMonth(),15);}
+        else{d=new Date(d.getFullYear(),d.getMonth()+1,1);}
+      }
+    } else {
+      let d=new Date(d0);
+      while(d<=endDate){
+        const ds=d.toISOString().split('T')[0];
+        if(ds>=startStr&&ds<=endStr)payEvents.push({date:ds,desc:src.label,amount:src.amt,kind:'pay'});
+        d.setDate(d.getDate()+src.freq);
       }
     }
-  } else {
-    let d=new Date(startDate);
-    while(d<=endDate){
-      const pStart=new Date(d);
-      const pEnd=new Date(d);
-      pEnd.setDate(pEnd.getDate()+freq-1);
-      periods.push({start:pStart,end:pEnd,paydate:pStart.toISOString().split('T')[0]});
-      d.setDate(d.getDate()+freq);
-    }
-  }
-  if(!periods.length){alert('No pay periods in the selected range.');return;}
+  });
+  payEvents.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // ── Build all outflows ───────────────────────────────────────────────────
-  // We iterate month-by-month across the window and collect every bill
+  // ── Build all outflows ────────────────────────────────────────────────────
   const outflows=[];
-
-  // 1. Budget buckets with defaultBudget > 0, projected across future months
   const activeBkts=S.buckets.filter(b=>!b.archived&&(b.defaultBudget||0)>0);
-  // Walk each calendar month in the window
   let wY=startDate.getFullYear(),wM=startDate.getMonth();
   const endY=endDate.getFullYear(),endMM=endDate.getMonth();
   while(wY<endY||(wY===endY&&wM<=endMM)){
     const monthMax=new Date(wY,wM+1,0).getDate();
     activeBkts.forEach(b=>{
-      const amt2=b.defaultBudget;
+      const bAmt=b.defaultBudget;
       if(b.dueDay){
-        // Has a specific due date
         const day=Math.min(b.dueDay,monthMax);
         const ds=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        if(ds>=startStr&&ds<=endStr){
-          outflows.push({date:ds,desc:esc(b.name),amount:amt2,src:'bucket'});
-        }
-        // If bucket has a second due date
+        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket'});
         if(b.dueDay2){
           const day2=Math.min(b.dueDay2,monthMax);
           const ds2=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day2).padStart(2,'0')}`;
-          if(ds2>=startStr&&ds2<=endStr&&ds2!==ds){
-            outflows.push({date:ds2,desc:esc(b.name)+' (2nd)',amount:b.dueAmount2||amt2/2,src:'bucket'});
-          }
+          if(ds2>=startStr&&ds2<=endStr&&ds2!==ds)
+            outflows.push({date:ds2,desc:b.name+' (2nd)',amount:b.dueAmount2||bAmt/2,src:'bucket'});
         }
       } else {
-        // No due date — schedule on the 1st of the month as discretionary
         const ds=`${wY}-${String(wM+1).padStart(2,'0')}-01`;
-        if(ds>=startStr&&ds<=endStr){
-          outflows.push({date:ds,desc:esc(b.name),amount:amt2,src:'discretionary'});
-        }
+        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary'});
       }
     });
     wM++;if(wM>11){wM=0;wY++;}
   }
-
-  // 2. Recurring bills (may not have a bucket — e.g. subscriptions logged via bills)
   const bktNames=new Set(activeBkts.map(b=>b.name.toLowerCase()));
   (S.recurringBills||[]).filter(b=>b.active!==false).forEach(bill=>{
-    // Skip if a matching bucket already covers this (avoid double-counting)
     if(bktNames.has((bill.desc||'').toLowerCase()))return;
     let d=new Date(startDate);d.setDate(1);
     while(d<=endDate){
       const maxDay=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
       const day=Math.min(bill.dayOfMonth||1,maxDay);
       const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      if(ds>=startStr&&ds<=endStr){
-        outflows.push({date:ds,desc:esc(bill.desc),amount:bill.amount,src:'bill'});
-      }
+      if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:bill.desc,amount:bill.amount,src:'bill'});
       d.setMonth(d.getMonth()+1);
     }
   });
-
-  // 3. Scheduled (future-dated) transactions already in the system
   S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.date>=startStr&&t.date<=endStr).forEach(t=>{
-    if(t.type==='out'||t.type==='xfr'){
-      outflows.push({date:t.date,desc:esc(t.desc),amount:t.amount,src:'scheduled'});
-    }
+    if(t.type==='out'||t.type==='xfr')
+      outflows.push({date:t.date,desc:t.desc,amount:t.amount,src:'scheduled'});
   });
-
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // ── Build period-by-period HTML ─────────────────────────────────────────
+  // ── Group into 7-day calendar weeks ──────────────────────────────────────
+  // Weeks always start on the same weekday as the first pay date
+  const weeks=[];
+  let wStart=new Date(startDate);
+  while(wStart<=endDate){
+    const wEnd=new Date(wStart);
+    wEnd.setDate(wEnd.getDate()+6);
+    weeks.push({
+      start:wStart.toISOString().split('T')[0],
+      end:wEnd.toISOString().split('T')[0]
+    });
+    wStart=new Date(wEnd);
+    wStart.setDate(wStart.getDate()+1);
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   let running=startBal;
+  const totalIncome=payEvents.reduce((s,p)=>s+p.amount,0);
+  const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
+  const incomeDesc=sources.map(s=>`${s.label}: ${$f(s.amt)} ${s.freq===7?'wkly':s.freq===14?'bi-wkly':s.freq===15?'semi-mo':'mo'}`).join(' · ');
+
   let html=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:12px">
-      Projection — Starting cash: <span style="font-family:var(--mono);color:${startBal>=0?'var(--green)':'var(--red)'}">${$f(startBal)}</span>
-      · Paycheck: <span style="font-family:var(--mono);color:var(--text)">${$f(amt)}</span>
-      · ${periods.length} pay periods
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap">
+      <span>Starting cash: <strong style="font-family:var(--mono);color:${startBal>=0?'var(--green)':'var(--red)'}">${$f(startBal)}</strong></span>
+      <span>${incomeDesc}</span>
+      <span>${weeks.length} weeks · ${months} months</span>
     </div>`;
 
-  periods.forEach(p=>{
-    const pStartStr=p.start.toISOString().split('T')[0];
-    const pEndStr=p.end.toISOString().split('T')[0];
+  let shortfallCount=0;
+  weeks.forEach(w=>{
+    const wPay=payEvents.filter(e=>e.date>=w.start&&e.date<=w.end);
+    const wOut=outflows.filter(o=>o.date>=w.start&&o.date<=w.end);
+    if(!wPay.length&&!wOut.length)return; // skip truly empty weeks
 
-    // Paycheck lands on first day of period
-    running+=amt;
-    const afterPay=running;
+    // Merge and sort all events chronologically within the week
+    const allWk=[
+      ...wPay.map(e=>({...e,kind:'pay'})),
+      ...wOut.map(e=>({...e,kind:'out'}))
+    ].sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='pay'?-1:1));
 
-    // Outflows in this period
-    const periodOut=outflows.filter(o=>o.date>=pStartStr&&o.date<=pEndStr);
-    let periodSpend=0;
-    const outRows=periodOut.map(o=>{
-      running-=o.amount;periodSpend+=o.amount;
-      const srcBadge=o.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:4px">variable</span>`:
-        o.src==='scheduled'?`<span style="font-size:9px;color:var(--amber);border:1px solid var(--amber);border-radius:3px;padding:0 3px;margin-left:4px">sched</span>`:'';
-      return `<div style="display:flex;gap:6px;padding:3px 0;align-items:center;border-bottom:1px solid var(--border2)">
-        <span style="font-size:11px;color:var(--text3);width:50px;flex-shrink:0">${o.date.slice(5)}</span>
-        <span style="flex:1;font-size:12px">${o.desc}${srcBadge}</span>
-        <span style="font-family:var(--mono);font-size:12px;color:var(--red);min-width:70px;text-align:right">-${$f(o.amount)}</span>
-        <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'};min-width:70px;text-align:right">${$f(running)}</span>
-      </div>`;
+    let weekIn=0,weekOut=0;
+    const rows=allWk.map(ev=>{
+      if(ev.kind==='pay'){
+        running+=ev.amount;weekIn+=ev.amount;
+        return `<div style="display:flex;gap:6px;padding:3px 0;align-items:center;border-bottom:1px solid var(--border2)">
+          <span style="font-size:11px;color:var(--text3);width:48px;flex-shrink:0">${ev.date.slice(5)}</span>
+          <span style="flex:1;font-size:12px;font-weight:600">💰 ${esc(ev.desc)}</span>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--green);min-width:68px;text-align:right">+${$f(ev.amount)}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'};min-width:68px;text-align:right">${$f(running)}</span>
+        </div>`;
+      } else {
+        running-=ev.amount;weekOut+=ev.amount;
+        const badge=ev.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">var</span>`:
+          ev.src==='scheduled'?`<span style="font-size:9px;color:var(--amber);border:1px solid var(--amber);border-radius:3px;padding:0 3px;margin-left:3px">sched</span>`:'';
+        return `<div style="display:flex;gap:6px;padding:3px 0;align-items:center;border-bottom:1px solid var(--border2)">
+          <span style="font-size:11px;color:var(--text3);width:48px;flex-shrink:0">${ev.date.slice(5)}</span>
+          <span style="flex:1;font-size:12px">${esc(ev.desc)}${badge}</span>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--red);min-width:68px;text-align:right">-${$f(ev.amount)}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'};min-width:68px;text-align:right">${$f(running)}</span>
+        </div>`;
+      }
     }).join('');
 
-    const netColor=running>=0?'var(--green)':'var(--red)';
     const shortfall=running<0;
-    html+=`<div style="background:var(--bg2);border:1px solid ${shortfall?'var(--red)':'var(--border)'};border-radius:8px;margin-bottom:10px;overflow:hidden">
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${shortfall?'var(--rbg)':'var(--surface)'};border-bottom:1px solid var(--border)">
-        <span style="font-size:11px;font-weight:700;color:var(--text)">${pStartStr.slice(5)} – ${pEndStr.slice(5)}</span>
-        <span style="font-size:11px;color:var(--green);margin-left:auto">+${$f(amt)}</span>
-        <span style="font-size:11px;color:var(--red)">-${$f(periodSpend)}</span>
-        <span style="font-size:12px;font-weight:700;color:${netColor}">${$f(running)} left</span>
-        ${shortfall?`<span style="font-size:11px;color:var(--red);font-weight:700">⚠ SHORTFALL</span>`:''}
+    if(shortfall)shortfallCount++;
+    const netColor=running>=0?'var(--green)':'var(--red)';
+    html+=`<div style="background:var(--bg2);border:1px solid ${shortfall?'var(--red)':'var(--border)'};border-radius:8px;margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:${shortfall?'var(--rbg)':'var(--surface)'};border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:var(--text)">Week of ${w.start.slice(5)} – ${w.end.slice(5)}</span>
+        ${weekIn?`<span style="font-size:11px;color:var(--green)">+${$f(weekIn)}</span>`:''}
+        ${weekOut?`<span style="font-size:11px;color:var(--red)">-${$f(weekOut)}</span>`:''}
+        <span style="font-size:12px;font-weight:700;color:${netColor};margin-left:auto">${$f(running)}</span>
+        ${shortfall?`<span style="font-size:11px;font-weight:700;color:var(--red)">⚠ SHORTFALL</span>`:''}
       </div>
-      <div style="padding:6px 12px">
-        <div style="display:flex;gap:6px;padding:3px 0;align-items:center;border-bottom:1px solid var(--border2)">
-          <span style="font-size:11px;color:var(--text3);width:50px;flex-shrink:0">${p.paydate.slice(5)}</span>
-          <span style="flex:1;font-size:12px;font-weight:600">💰 Paycheck</span>
-          <span style="font-family:var(--mono);font-size:12px;color:var(--green);min-width:70px;text-align:right">+${$f(amt)}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:var(--text3);min-width:70px;text-align:right">${$f(afterPay)}</span>
-        </div>
-        ${outRows||`<div style="padding:6px 0;font-size:12px;color:var(--text3)">No expenses due this period.</div>`}
-      </div>
+      <div style="padding:4px 12px">${rows}</div>
     </div>`;
   });
 
   const endColor=running>=startBal?'var(--green)':'var(--red)';
-  const totalPay=periods.length*amt;
-  const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
-  html+=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:2px solid var(--border);margin-top:4px;flex-wrap:wrap">
-    <span style="color:var(--text3)">Total paychecks: <strong style="color:var(--green)">${$f(totalPay)}</strong></span>
-    <span style="color:var(--text3)">Total expenses: <strong style="color:var(--red)">${$f(totalSpend)}</strong></span>
-    <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor}">End balance: ${$f(running)}</span>
+  html+=`<div style="display:flex;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:2px solid var(--border);margin-top:4px;flex-wrap:wrap">
+    <span style="color:var(--text3)">Total in: <strong style="color:var(--green)">${$f(totalIncome)}</strong></span>
+    <span style="color:var(--text3)">Total out: <strong style="color:var(--red)">${$f(totalSpend)}</strong></span>
+    ${shortfallCount?`<span style="color:var(--red);font-weight:700">⚠ ${shortfallCount} shortfall week${shortfallCount!==1?'s':''}</span>`:'<span style="color:var(--green)">✓ No shortfalls</span>'}
+    <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End balance: ${$f(running)}</span>
   </div></div>`;
 
-  // Inject result into the right container
+  // Inject into the right container
   const inner=document.getElementById('wiModalInner');
   const modal=document.getElementById('modalBox');
-  const isStandalone=modal&&modal.innerHTML&&modal.innerHTML.includes('projStart');
+  const isStandalone=modal&&modal.innerHTML&&modal.innerHTML.includes('pc1Date');
   if(isStandalone){
     modal.innerHTML=wiProjectorHtml(html,true);
   } else if(inner){
