@@ -88,7 +88,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .app{display:grid;grid-template-columns:232px 1fr 316px;flex:1;overflow:hidden;min-height:0;}
 
 /* ═══ SIDEBAR ═══ */
-.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:12px 0 32px;}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:0 0 32px;}
 .sb-link{display:flex;align-items:center;padding:8px 16px;cursor:pointer;color:var(--text2);font-size:13px;gap:9px;transition:background .1s,color .1s;}
 .sb-link:hover,.sb-link.active{background:var(--bg3);color:var(--text);}
 .sb-link-icon{font-size:13px;color:var(--text3);width:14px;text-align:center;}
@@ -159,6 +159,43 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .hint-bar.info{background:var(--bbg);border:1px solid var(--bb);color:var(--blue);}
 .hint-bar.warn{background:var(--rbg);border:1px solid var(--rb);color:var(--red);}
 .hint-bar.success{background:var(--gbg);border:1px solid var(--gb);color:var(--green);}
+
+/* ═══ SIDEBAR MONTH NAV ═══ */
+.sb-monnav{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sb-monnav-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:8px 10px;transition:color .12s;line-height:1;flex-shrink:0;}
+.sb-monnav-btn:hover{color:var(--text);}
+.sb-monnav-label{flex:1;font-size:12px;font-weight:600;text-align:center;color:var(--text2);letter-spacing:-.2px;cursor:pointer;padding:8px 2px;}
+.sb-monnav-label:hover{color:var(--text);}
+.sb-monnav-wi{background:none;border:none;cursor:pointer;font-size:12px;padding:8px 10px;border-left:1px solid var(--border);color:var(--text3);font-family:var(--sans);font-weight:500;transition:all .12s;flex-shrink:0;white-space:nowrap;}
+.sb-monnav-wi:hover{color:var(--amber);}
+.sb-monnav-wi.on{color:var(--amber);background:var(--abg);}
+
+/* ═══ SIDEBAR ACTIONS ═══ */
+.sb-actions{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sb-act-btn{flex:1;background:none;border:1px solid var(--border2);color:var(--text2);padding:6px 8px;border-radius:var(--r);font-size:12px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .12s;text-align:center;}
+.sb-act-btn:hover{border-color:var(--accent);color:var(--text);background:var(--bg3);}
+.sb-act-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.sb-act-btn.primary:hover{background:var(--accent2);}
+
+/* ═══ REPORTS DROPDOWN ═══ */
+.reports-drop-wrap{position:relative;display:inline-block;}
+.reports-drop-menu{position:absolute;top:calc(100% + 4px);right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);z-index:200;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,.4);display:none;}
+.reports-drop-menu.open{display:block;}
+.reports-drop-item{display:block;width:100%;background:none;border:none;padding:9px 14px;font-size:13px;font-family:var(--sans);color:var(--text2);cursor:pointer;text-align:left;transition:background .1s,color .1s;}
+.reports-drop-item:hover{background:var(--bg3);color:var(--text);}
+.reports-drop-item:first-child{border-radius:var(--r) var(--r) 0 0;}
+.reports-drop-item:last-child{border-radius:0 0 var(--r) var(--r);}
+
+/* ═══ RPANEL SUMMARY ═══ */
+.rp-summary{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border);flex-shrink:0;}
+.rps-cell{background:var(--surface);padding:9px 12px;}
+.rps-cell.hi{background:var(--surface2);}
+.rps-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin-bottom:2px;}
+.rps-val{font-family:var(--mono);font-size:14px;font-weight:500;letter-spacing:-.4px;}
+.rps-val.green{color:var(--green);}
+.rps-val.red{color:var(--red);}
+.rps-val.dim{color:var(--text2);}
+.rps-sub{font-size:9px;color:var(--text3);margin-top:1px;}
 
 /* ═══ CATEGORY + BUCKET TABLE ═══ */
 .cat-sec{margin-bottom:14px;}
@@ -1002,7 +1039,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium<span style="color:var(--text3);margin:0 2px"> </span>Fisci</div>
-  <div class="tb-accounts" id="tbAccounts"></div>
   <div class="tb-total">
     <div class="tb-total-label">Total Cash</div>
     <div class="tb-total-val" id="tbTotal">—</div>
@@ -1011,16 +1047,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="tb-rts-label">Ready to Spend</div>
     <div class="tb-rts-val zero" id="tbRTS">—</div>
   </div>
-  <div class="tb-months" id="tbMonths"></div>
+  <div style="flex:1"></div>
   <div class="tb-actions">
     <span id="syncStatus" class="offline" style="display:none"></span>
-    <button class="tbtn" onclick="openGlobalSearch()" title="Search all transactions" style="padding:5px 8px;font-size:14px;">🔍</button>
-    <button class="tbtn" id="wiBtnTop" onclick="toggleWI()">⚡ What If</button>
-    <button class="tbtn" onclick="openModal('acct')">+ Account</button>
-    <button class="tbtn primary" onclick="openModal('new')">+ New</button>
-    <button class="tbtn" onclick="showShortcuts()" title="Keyboard shortcuts" style="padding:5px 8px;font-size:14px;">⌨</button>
-    <button class="tbtn" onclick="openNetWorth()" title="Net Worth">Net Worth</button>
-    <button class="tbtn" onclick="openSettings()" title="Settings" style="padding:5px 8px;font-size:14px;">⚙</button>
+    <button class="tbtn" onclick="openSettings()" title="Settings" style="padding:5px 10px;font-size:13px;">⚙ Settings</button>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
   </div>
 </div>
@@ -1040,6 +1070,9 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="wi-panel hidden" id="wiPanel"></div>
   </div>
   <div class="rpanel">
+
+    <!-- ── SUMMARY STRIP ── -->
+    <div class="rp-summary" id="rpSummary"></div>
 
     <!-- ── TX FORM (compact, fixed height) ── -->
     <div class="rp-form" id="txForm">
@@ -1824,7 +1857,7 @@ function getPrevMonthId(mid){
 // RENDER
 // ═══════════════════════════════════════════════════════
 function render(){
-  renderTopbar();renderSidebar();renderMain();renderTxList();
+  renderTopbar();renderSidebar();renderMain();renderTxList();renderRpSummary();
   if(S.wiOpen)renderWI();
   wireFormKeys();
   setTimeout(wireAllocKeys, 50);
@@ -1833,20 +1866,42 @@ function render(){
   if(isMobile())setTimeout(mRenderAll, 0);
 }
 
-function renderTopbar(){
-  // Account chips
-  const el=document.getElementById('tbAccounts');
-  let h='';
-  S.accounts.forEach(a=>{
-    const bal=acctBalance(a.id);
-    const isActive=S.activeAccount===a.id;
-    h+=`<div class="acct-chip${isActive?' active':''}" onclick="setActiveAccount('${a.id}')">
-      <div class="ac-name"><div class="ac-dot" style="background:${a.color}"></div>${esc(a.name)}<span class="ac-type">${a.type==='savings'?'savings':''}</span></div>
-      <div class="ac-bal ${bal>=0?'pos':'neg'}">${$f(bal)}</div>
-    </div>`;
-  });
-  el.innerHTML=h;
+function renderRpSummary(){
+  const el=document.getElementById('rpSummary');
+  if(!el)return;
+  const mid=S.activeMonth;
+  if(!mid||!S.accounts.some(a=>a.type==='budget')){el.innerHTML='';return;}
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const alloc=totalAllocated(mid);
+  const rts=readyToSpend(mid);
+  const totalSpent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+  el.innerHTML=`
+    <div class="rps-cell"><div class="rps-label">Budget Balance</div><div class="rps-val green">${$f(budgetBal)}</div><div class="rps-sub">in budget accounts</div></div>
+    <div class="rps-cell"><div class="rps-label">Allocated</div><div class="rps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="rps-sub">assigned this month</div></div>
+    <div class="rps-cell hi"><div class="rps-label">Ready to Spend</div><div class="rps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="rps-sub">${rts>0?'unallocated':rts<0?'⚠ over-allocated':'fully allocated ✓'}</div></div>
+    <div class="rps-cell"><div class="rps-label">Spent</div><div class="rps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="rps-sub">from transactions</div></div>`;
+}
 
+function sidebarNavMonth(dir){
+  const mid=S.activeMonth;
+  const idx=mid?S.months.findIndex(m=>m.id===mid):-1;
+  const target=S.months[idx+dir];
+  if(target){setMonth(target.id);}
+  else if(dir>0){addNextMonth();}
+}
+
+function toggleReportsMenu(mid,btn){
+  const menu=document.getElementById('reportsMenu_'+mid);
+  if(!menu)return;
+  const isOpen=menu.classList.contains('open');
+  closeReportsMenu();
+  if(!isOpen){menu.classList.add('open');setTimeout(()=>document.addEventListener('click',closeReportsMenu,{once:true}),0);}
+}
+function closeReportsMenu(){
+  document.querySelectorAll('.reports-drop-menu.open').forEach(m=>m.classList.remove('open'));
+}
+
+function renderTopbar(){
   // Total cash
   document.getElementById('tbTotal').textContent=$f(totalCash());
 
@@ -1861,27 +1916,33 @@ function renderTopbar(){
   rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} in scheduled outflows pending — After scheduled: ${$f(rts-scheduledOutCl)}`:'Ready to spend from unallocated budget account balance';
   const rtsLabel=document.querySelector('.tb-rts-label');
   if(rtsLabel)rtsLabel.innerHTML=scheduledOutCl>0?`Ready to Spend <span style="font-size:9px;color:var(--amber);font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
-
-  // Month tabs
-  const tEl=document.getElementById('tbMonths');
-  let th='';
-  S.months.forEach(m=>{
-    const st=monthStatus(m.id);
-    const mRts=readyToSpend(m.id);
-    const mAlloc=totalAllocated(m.id);
-    // Show allocation status dot: green=fully allocated, amber=partial, none=nothing allocated
-    const allocDot=mAlloc>0?(mRts===0?' style="background:var(--green)"':mRts<0?' style="background:var(--red)"':' style="background:var(--amber)"'):'';
-    th+=`<div class="mtab ${st}${m.id===S.activeMonth?' active':''}" onclick="setMonth('${m.id}')" title="${m.label} — ${mAlloc>0?'RTS: '+$f(Math.abs(mRts))+(mRts<0?' over':''):'Nothing allocated yet'}">
-      <div class="mtab-pip"${allocDot}></div>${m.label}
-    </div>`;
-  });
-  th+=`<div class="mtab-add" onclick="addNextMonth()">+</div>`;
-  tEl.innerHTML=th;
 }
 
 function renderSidebar(){
   const el=document.getElementById('sidebar');
-  let h=`<div class="sb-link${!S.activeBucket&&!S.activeAccount?' active':''}" onclick="clearActive()">
+
+  // Month nav + WI toggle
+  const mid=S.activeMonth;
+  const midIdx=mid?S.months.findIndex(m=>m.id===mid):-1;
+  const prevM=midIdx>0?S.months[midIdx-1]:null;
+  const nextM=midIdx>=0&&midIdx<S.months.length-1?S.months[midIdx+1]:null;
+  const curLabel=mid?(S.months[midIdx]?.label||mid):'No Month';
+  const wiOn=S.wiScenario?.id;
+  let h=`<div class="sb-monnav">
+    <button class="sb-monnav-btn" onclick="sidebarNavMonth(-1)" title="${prevM?prevM.label:'No previous month'}" ${!prevM?'disabled style="opacity:.3"':''}>‹</button>
+    <span class="sb-monnav-label">${curLabel}</span>
+    <button class="sb-monnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
+    <button class="sb-monnav-wi${wiOn?' on':''}" onclick="toggleWI()" id="wiBtnTop" title="What If scenario mode">⚡ What If</button>
+  </div>`;
+
+  // Action buttons
+  h+=`<div class="sb-actions">
+    <button class="sb-act-btn primary" onclick="openModal('new')">+ New</button>
+    <button class="sb-act-btn" onclick="openModal('acct')">+ Account</button>
+    <button class="sb-act-btn" onclick="openGlobalSearch()" title="Search transactions">🔍</button>
+  </div>`;
+
+  h+=`<div class="sb-link${!S.activeBucket&&!S.activeAccount?' active':''}" onclick="clearActive()">
     <span class="sb-link-icon">▣</span><span>Overview</span></div>`;
 
   if(S.accounts.length){
@@ -2024,38 +2085,22 @@ function renderMain(){
 
   let h='';
   const chipTxt=st==='past'?'Closed':st==='present'?'Current':'Upcoming';
-  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="openMonthReport('${mid}')">📊 Report</button></div>`;
+  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span>
+    <div class="reports-drop-wrap" style="margin-left:auto">
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="toggleReportsMenu('${mid}',this)">📊 Reports ▾</button>
+      <div class="reports-drop-menu" id="reportsMenu_${mid}">
+        <button class="reports-drop-item" onclick="openMonthReport('${mid}');closeReportsMenu()">📅 Month Report</button>
+        <button class="reports-drop-item" onclick="openNetWorth();closeReportsMenu()">◈ Net Worth</button>
+        <button class="reports-drop-item" onclick="wiShowProjector();closeReportsMenu()">📅 Paycheck Projector</button>
+      </div>
+    </div>
+  </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
 
   if(S.activeBucket){h+=renderBucketDetail(mid,past,m);el.innerHTML=h;return;}
 
   // Budget health bar
   h+=renderBudgetHealth(mid);
-
-  // Pool strip
-  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
-  h+=`<div class="pool-strip">
-    <div class="ps-cell">
-      <div class="ps-label">Budget Account Balances</div>
-      <div class="ps-val green">${$f(budgetBal)}</div>
-      <div class="ps-sub">actual cash in budget accounts</div>
-    </div>
-    <div class="ps-cell">
-      <div class="ps-label">Allocated to Buckets</div>
-      <div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div>
-      <div class="ps-sub">assigned this month</div>
-    </div>
-    <div class="ps-cell hi">
-      <div class="ps-label">Ready to Spend</div>
-      <div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div>
-      <div class="ps-sub">${rts>0?'unallocated cash':rts<0?'⚠ over-allocated':'fully allocated ✓'}</div>
-    </div>
-    <div class="ps-cell">
-      <div class="ps-label">Spent</div>
-      <div class="ps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div>
-      <div class="ps-sub">from transactions</div>
-    </div>
-  </div>`;
 
   // Hints
   if(!past&&income>0&&unalloc>0&&rts>0)
@@ -2948,7 +2993,7 @@ function toggleWI(){
   } else {
     document.getElementById('wiStrip').classList.remove('hidden');
     document.getElementById('wiOverlay').classList.remove('hidden');
-    document.getElementById('wiBtnTop').className='tbtn wi-on';
+    const wiBtn=document.getElementById('wiBtnTop');if(wiBtn)wiBtn.classList.add('on');
     renderWI();
   }
 }
@@ -3220,7 +3265,7 @@ function exitWI(){
   S.scenario=false;S.wiScenario=null;S.wiOpen=false;
   document.getElementById('wiStrip')?.classList.add('hidden');
   document.getElementById('wiOverlay')?.classList.add('hidden');
-  const btn=document.getElementById('wiBtnTop');if(btn)btn.className='tbtn';
+  const btn=document.getElementById('wiBtnTop');if(btn)btn.classList.remove('on');
   const mBtn=document.getElementById('mWiBtn');if(mBtn){mBtn.style.borderColor='';mBtn.style.color='';}
   closeModal();
   render();
@@ -3618,27 +3663,70 @@ function wiRunProjector(){
     <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End balance: ${$f(running)}</span>
   </div></div>`;
 
-  // ── Savings Growth Table (Paycheck 1.1) ────────────────────────────────────
-  const savingsBkts=S.buckets.filter(b=>!b.archived&&b.rollover);
+  // ── Savings Growth Table (Paycheck 1.0 enhanced) ──────────────────────────
+  // Include rollover buckets AND any bucket that has an allocation rule (even if not rollover)
+  const rulesActive=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived);
+  const rulesBktIds=new Set(rulesActive.map(r=>r.bucketId));
+  const savingsBkts=S.buckets.filter(b=>!b.archived&&(b.rollover||rulesBktIds.has(b.id)));
   if(savingsBkts.length){
     const projMths=[];
     let py=startDate.getFullYear(),pm2=startDate.getMonth();
     const eY=endDate.getFullYear(),eM=endDate.getMonth();
     while(py<eY||(py===eY&&pm2<=eM)){projMths.push({id:mId(py,pm2),label:mLabel(py,pm2)});pm2++;if(pm2>11){pm2=0;py++;}}
+
     const thCells=projMths.map(m=>`<th style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${m.label}</th>`).join('');
+
     const rows=savingsBkts.map(b=>{
       const curBal=rolloverBal(b.id,S.activeMonth);
       let runBal=curBal;
+      const bRules=rulesActive.filter(r=>r.bucketId===b.id);
+      const tgt=b.targetAmount||0;
+      const goalReached={month:null};
+
       const cells=projMths.map(pm=>{
-        const contrib=isWIBucketActiveForMonth(b.id,pm.id,scenario)?bktAmt(b):0;
+        if(!isWIBucketActiveForMonth(b.id,pm.id,scenario)){
+          return `<td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)">—</td>`;
+        }
+        let contrib=0;
+        if(bRules.length){
+          // Apply each allocation rule against every paycheck event in this month
+          const ymStr=`${pm.id.split('_')[1]}-${String(parseInt(pm.id.split('_')[2])+1).padStart(2,'0')}`;
+          const eventsInMonth=payEvents.filter(e=>e.kind==='pay'&&e.date.slice(0,7)===ymStr);
+          eventsInMonth.forEach(ev=>{
+            bRules.forEach(r=>{
+              contrib+=r.type==='pct'?ev.amount*(r.value/100):r.value;
+            });
+          });
+          // If no paycheck events fell in this month, fall back to monthly bucket amount
+          if(!eventsInMonth.length)contrib=bktAmt(b);
+        } else {
+          contrib=bktAmt(b);
+        }
         runBal+=contrib;
-        return `<td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;color:${runBal>curBal?'var(--green)':'var(--text)'};border-bottom:1px solid var(--border)">${$f(runBal)}</td>`;
+        if(tgt>0&&!goalReached.month&&runBal>=tgt)goalReached.month=pm.label;
+        const goalHit=tgt>0&&runBal>=tgt;
+        const cellColor=goalHit?'var(--green)':runBal>curBal?'var(--blue)':'var(--text)';
+        const goalIcon=goalHit&&goalReached.month===pm.label?' 🎯':'';
+        return `<td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;color:${cellColor};border-bottom:1px solid var(--border);white-space:nowrap">${$f(runBal)}${goalIcon}</td>`;
       }).join('');
-      return `<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(b.name)}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells}</tr>`;
+
+      // Goal progress label
+      let goalLabel='';
+      if(tgt>0){
+        const pct=Math.min(100,Math.round((curBal/tgt)*100));
+        const hitTxt=goalReached.month?`<span style="color:var(--green);font-weight:600"> · goal reached ${goalReached.month}</span>`:`<span style="color:var(--text3)"> · goal: ${$f(tgt)}</span>`;
+        goalLabel=`<div style="font-size:10px;color:var(--text3);margin-top:1px">${pct}% of goal${hitTxt}</div>`;
+      } else if(bRules.length){
+        const ruleDesc=bRules.map(r=>r.type==='pct'?`${r.value}% of pay`:`${$f(r.value)}/pay`).join(', ');
+        goalLabel=`<div style="font-size:10px;color:var(--text3);margin-top:1px">Rule: ${ruleDesc}</div>`;
+      }
+      const typeTag=b.rollover?`<span style="font-size:9px;background:var(--bbg);color:var(--blue);border:1px solid var(--bb);border-radius:3px;padding:1px 4px;margin-left:4px">rollover</span>`:`<span style="font-size:9px;background:var(--pbg);color:var(--purple);border:1px solid var(--pb);border-radius:3px;padding:1px 4px;margin-left:4px">rule</span>`;
+      return `<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(b.name)}${typeTag}${goalLabel}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells}</tr>`;
     }).join('');
+
     html+=`<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:6px">📈 Savings Growth — Rollover Buckets</div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Projected running balance per rollover bucket based on planned monthly contributions.</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:6px">📈 Savings Growth — Rollover & Rule Buckets</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Contributions calculated per paycheck event using allocation rules. 🎯 marks the month a goal is reached.</div>
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:300px">
         <thead><tr>
           <th style="text-align:left;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg)">Bucket</th>
