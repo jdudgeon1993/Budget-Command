@@ -1414,6 +1414,7 @@ let S={
   payees:[],  // {id,name,defaultBucketId?} — saved from transaction descriptions
   allocationRules:[], // {id,name,bucketId,type:'pct'|'fixed',value,active}
   recurringBills:[], // {id,desc,amount,bucketId,accountId,type:'out'|'in',dayOfMonth,active}
+  paychecks:[],      // {id,label,amount,freq,anchorDate} — saved income sources, shared app-wide
 };
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
@@ -1702,7 +1703,66 @@ function bBudget(mid,bid){
   if(S.scenario&&S.wiScenario?.budgets?.[bid]!==undefined)return S.wiScenario.budgets[bid];
   const m=getMonth(mid);return m?(m.budgets[bid]||0):0;
 }
-function monthProjectedIncome(mid){const m=getMonth(mid);return m?.projectedIncome??null;}
+// ── Paycheck helpers ──────────────────────────────────────────────────────────
+// Generate all pay events from anchorStr forward that fall in [startStr, endStr]
+function paycheckEventsInRange(anchorStr,freq,amount,startStr,endStr){
+  const events=[];
+  const end=new Date(endStr+'T12:00:00');
+  if(freq===15){
+    let d=new Date(anchorStr+'T12:00:00');
+    while(d<=end){
+      const ds=d.toISOString().split('T')[0];
+      if(ds>=startStr&&ds<=endStr)events.push({date:ds,amount});
+      if(d.getDate()<15)d=new Date(d.getFullYear(),d.getMonth(),15);
+      else d=new Date(d.getFullYear(),d.getMonth()+1,1);
+    }
+  } else {
+    let d=new Date(anchorStr+'T12:00:00');
+    while(d<=end){
+      const ds=d.toISOString().split('T')[0];
+      if(ds>=startStr&&ds<=endStr)events.push({date:ds,amount});
+      d.setDate(d.getDate()+freq);
+    }
+  }
+  return events;
+}
+// Sum all saved paycheck income that falls in the given month
+function calcMonthlyPaychecks(mid){
+  const pcs=S.paychecks||[];if(!pcs.length)return null;
+  const m=getMonth(mid);if(!m)return null;
+  const startStr=`${m.year}-${String(m.month+1).padStart(2,'0')}-01`;
+  const endStr=`${m.year}-${String(m.month+1).padStart(2,'0')}-${String(lastDay(m.year,m.month)).padStart(2,'0')}`;
+  let total=0;
+  pcs.forEach(pc=>{
+    if(!pc.anchorDate||!pc.amount)return;
+    paycheckEventsInRange(pc.anchorDate,pc.freq||14,pc.amount,startStr,endStr).forEach(e=>total+=e.amount);
+  });
+  return total>0?total:null;
+}
+// Compare two month IDs ('m_YYYY_M') — returns negative/zero/positive
+function compareMid(a,b){
+  const pa=a.split('_'),pb=b.split('_');
+  const ay=+pa[1],am=+pa[2],by=+pb[1],bm=+pb[2];
+  return ay!==by?ay-by:am-bm;
+}
+// Is a bucket scheduled active in the current WI scenario for a given month?
+function isWIBucketActive(bucketId,monthId){
+  if(!S.scenario||!S.wiScenario?.bucketSchedule?.[bucketId])return true;
+  const s=S.wiScenario.bucketSchedule[bucketId];
+  return(!s.onFrom||compareMid(monthId,s.onFrom)>=0)&&(!s.offFrom||compareMid(monthId,s.offFrom)<0);
+}
+// Same check but against an explicit scenario object (used in projector)
+function isWIBucketActiveForMonth(bucketId,monthId,scenario){
+  if(!scenario?.bucketSchedule?.[bucketId])return true;
+  const s=scenario.bucketSchedule[bucketId];
+  return(!s.onFrom||compareMid(monthId,s.onFrom)>=0)&&(!s.offFrom||compareMid(monthId,s.offFrom)<0);
+}
+// Projected income: manual override wins; otherwise auto-calc from saved paychecks
+function monthProjectedIncome(mid){
+  const m=getMonth(mid);
+  if(m?.projectedIncome!=null)return m.projectedIncome;
+  return calcMonthlyPaychecks(mid);
+}
 function setProjectedIncome(mid,val){
   const m=getMonth(mid);if(!m)return;
   m.projectedIncome=val>0?val:null;
@@ -1811,7 +1871,7 @@ function renderTopbar(){
     const mAlloc=totalAllocated(m.id);
     // Show allocation status dot: green=fully allocated, amber=partial, none=nothing allocated
     const allocDot=mAlloc>0?(mRts===0?' style="background:var(--green)"':mRts<0?' style="background:var(--red)"':' style="background:var(--amber)"'):'';
-    th+=`<div class="mtab ${st}${m.id===S.activeMonth?' active':''}" onclick="setMonth('${m.id}')" title="${m.label} — ${mAlloc>0?'RTS: $'+Math.abs(mRts).toFixed(2)+(mRts<0?' over':''):'Nothing allocated yet'}">
+    th+=`<div class="mtab ${st}${m.id===S.activeMonth?' active':''}" onclick="setMonth('${m.id}')" title="${m.label} — ${mAlloc>0?'RTS: '+$f(Math.abs(mRts))+(mRts<0?' over':''):'Nothing allocated yet'}">
       <div class="mtab-pip"${allocDot}></div>${m.label}
     </div>`;
   });
@@ -2905,15 +2965,23 @@ function _wiPanelHTML(){
   if(!sc)return'';
   const piReal=monthProjectedIncome(mid)||0;
   const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
-  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(mid,b.id)),0);
+  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
+    if(!isWIBucketActive(b.id,mid))return s;
+    return s+(sc.budgets[b.id]??bBudget(mid,b.id));
+  },0);
   const scSurplus=piSc-scAlloc;
   const surplusColor=scSurplus>0?'var(--green)':scSurplus<0?'var(--red)':'var(--text3)';
   const chips=(S.scenarios||[]).map(s=>`<span class="wi-chip" onclick="loadScenario('${s.id}')">${esc(s.name)}<span class="wi-chip-x" onclick="event.stopPropagation();deleteScenario('${s.id}')">×</span></span>`).join('');
+  // Next 13 months for schedule selects
+  const nextMonths=[];
+  {const d=new Date();let ny=d.getFullYear(),nm=d.getMonth();
+   for(let i=0;i<13;i++){nextMonths.push({id:mId(ny,nm),label:mLabel(ny,nm)});nm++;if(nm>11){nm=0;ny++;}}}
 
   // Header
   let h=`<div class="wi-hdr">
     <input class="wi-name-inp" id="wiNameInp" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
     <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
+    <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--green);color:var(--green)" onclick="newWIScenario()" title="Branch into a new separate scenario">+ New</button>
     ${chips}
     <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--accent);color:var(--accent)" onclick="wiShowProjector()">📅 Paycheck Projector</button>
     <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto" onclick="exitWI()">× Exit</button>
@@ -2945,13 +3013,21 @@ function _wiPanelHTML(){
       const val=sc.budgets[b.id]!==undefined?sc.budgets[b.id]:real;
       const diff=val-real;
       const diffHtml=diff!==0?`<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${$f(diff)}</span>`:'';
-      h+=`<div class="wi-bkt-row">
+      const sched=sc.bucketSchedule?.[b.id]||{};
+      const onFromSel=`<select style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px;color:var(--text2)" onchange="setWIBktSchedule('${b.id}','onFrom',this.value)"><option value="">Always on</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
+      const offFromSel=`<select style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px;color:var(--text2)" onchange="setWIBktSchedule('${b.id}','offFrom',this.value)"><option value="">Never off</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
+      const isActive=isWIBucketActive(b.id,mid);
+      h+=`<div class="wi-bkt-row" style="${isActive?'':'opacity:.45'}">
         <span class="wi-bkt-label">${esc(b.name)}</span>
         ${diffHtml}
         <input class="wi-s-inp" type="text" inputmode="decimal" value="${val||''}" placeholder="0" style="width:80px"
           title="Math: +50, -20, *1.05, 5% of income, =100+50"
           onchange="(function(inp){var cur=S.wiScenario.budgets['${b.id}']??${real};var ref=S.wiScenario.incomeOverrides['${mid}']??${piReal};var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;S.wiScenario.budgets['${b.id}']=v;renderWI();renderMain();})(this)"
           onkeydown="if(event.key==='Enter')this.blur()" />
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;padding:2px 0 6px 4px;border-bottom:1px solid var(--border2)">
+        <span style="font-size:10px;color:var(--text3)">On from:</span>${onFromSel}
+        <span style="font-size:10px;color:var(--text3);margin-left:4px">Off from:</span>${offFromSel}
       </div>`;
     });
     h+=`</div>`;
@@ -2972,9 +3048,9 @@ function _wiPanelHTML(){
     const projMid=_ensureMonthForWI(cy,cm);
     const projM=getMonth(projMid);
     const projLabel=projM?.label||mLabel(cy,cm);
-    const piRow=sc.incomeOverrides[projMid]!==undefined?sc.incomeOverrides[projMid]:(projM?.projectedIncome||0);
+    const piRow=sc.incomeOverrides[projMid]!==undefined?sc.incomeOverrides[projMid]:(monthProjectedIncome(projMid)||0);
     const overridden=sc.incomeOverrides[projMid]!==undefined;
-    const allocRow=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(projMid,b.id)),0);
+    const allocRow=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{if(!isWIBucketActive(b.id,projMid))return s;return s+(sc.budgets[b.id]??bBudget(projMid,b.id));},0);
     const surpRow=piRow-allocRow;
     cumulative+=surpRow;
     const rowCls=surpRow>=0?'surplus':'deficit';
@@ -3037,15 +3113,23 @@ function _wiMobileHTML(){
   if(!sc)return'<div style="padding:20px;color:var(--text3)">No active scenario</div>';
   const piReal=monthProjectedIncome(mid)||0;
   const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
-  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(mid,b.id)),0);
+  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
+    if(!isWIBucketActive(b.id,mid))return s;
+    return s+(sc.budgets[b.id]??bBudget(mid,b.id));
+  },0);
   const scSurplus=piSc-scAlloc;
   const surplusColor=scSurplus>0?'var(--green)':scSurplus<0?'var(--red)':'var(--text3)';
   const chips=(S.scenarios||[]).map(s=>`<span class="wi-chip" onclick="loadScenario('${s.id}')">${esc(s.name)}<span class="wi-chip-x" onclick="event.stopPropagation();deleteScenario('${s.id}')">×</span></span>`).join('');
+  // Next 13 months for schedule selects
+  const nextMonths=[];
+  {const d=new Date();let ny=d.getFullYear(),nm=d.getMonth();
+   for(let i=0;i<13;i++){nextMonths.push({id:mId(ny,nm),label:mLabel(ny,nm)});nm++;if(nm>11){nm=0;ny++;}}}
 
   let h=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--abg)">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <input class="wi-name-inp" style="flex:1;min-width:120px" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
       <button class="tbtn" style="font-size:12px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
+      <button class="tbtn" style="font-size:12px;border-color:var(--green);color:var(--green)" onclick="newWIScenario()" title="Branch into a new scenario">+ New</button>
       ${chips}
     </div>
   </div>
@@ -3072,10 +3156,25 @@ function _wiMobileHTML(){
       const val=sc.budgets[b.id]!==undefined?sc.budgets[b.id]:real;
       const diff=val-real;
       const diffHtml=diff!==0?`<span class="wi-diff ${diff>0?'pos':'neg'}" style="margin-left:4px">${diff>0?'+':''}${$f(diff)}</span>`:'';
-      h+=`<div class="wi-bkt-row" style="padding:6px 16px;border-bottom:1px solid var(--border)">
+      const sched=sc.bucketSchedule?.[b.id]||{};
+      const isActive=isWIBucketActive(b.id,mid);
+      const mOpts=nextMonths.map(m=>`<option value="${m.id}">`+m.label+'</option>').join('');
+      h+=`<div class="wi-bkt-row" style="padding:6px 16px;border-bottom:1px solid var(--border);${isActive?'':'opacity:.45'}">
         <span class="wi-bkt-label">${esc(b.name)}${diffHtml}</span>
         <input class="wi-s-inp" type="number" value="${val||''}" placeholder="0"
           onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');mRenderDash();" />
+      </div>
+      <div style="display:flex;gap:5px;align-items:center;padding:3px 16px 5px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <span style="font-size:10px;color:var(--text3)">On from:</span>
+        <select style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px;color:var(--text)" onchange="setWIBktSchedule('${b.id}','onFrom',this.value);openModal('__wi__')">
+          <option value=""${!sched.onFrom?' selected':''}>Always</option>
+          ${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
+        </select>
+        <span style="font-size:10px;color:var(--text3)">Off from:</span>
+        <select style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px;color:var(--text)" onchange="setWIBktSchedule('${b.id}','offFrom',this.value);openModal('__wi__')">
+          <option value=""${!sched.offFrom?' selected':''}>Never</option>
+          ${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
+        </select>
       </div>`;
     });
   });
@@ -3091,9 +3190,9 @@ function _wiMobileHTML(){
     const pMid=_ensureMonthForWI(cy2,cm2);
     const pM=getMonth(pMid);
     const pLabel=pM?.label||mLabel(cy2,cm2);
-    const piR=sc.incomeOverrides[pMid]!==undefined?sc.incomeOverrides[pMid]:(pM?.projectedIncome||0);
+    const piR=sc.incomeOverrides[pMid]!==undefined?sc.incomeOverrides[pMid]:(monthProjectedIncome(pMid)||0);
     const ov=sc.incomeOverrides[pMid]!==undefined;
-    const aR=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(sc.budgets[b.id]??bBudget(pMid,b.id)),0);
+    const aR=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{if(!isWIBucketActive(b.id,pMid))return s;return s+(sc.budgets[b.id]??bBudget(pMid,b.id));},0);
     const sR=piR-aR;cum2+=sR;
     const rCls=sR>=0?'surplus':'deficit';
     h+=`<tr class="${rCls}">
@@ -3156,6 +3255,44 @@ function deleteScenario(id){
   if(isMobile())openModal('__wi__');else renderWI();
 }
 
+// Branch current WI state into a fresh scenario with a new ID (Design 2.0)
+function newWIScenario(){
+  if(!S.wiScenario)return;
+  S.wiScenario={
+    id:uid(),
+    name:'New Scenario',
+    incomeOverrides:{...S.wiScenario.incomeOverrides},
+    budgets:{...S.wiScenario.budgets},
+    bucketSchedule:{...S.wiScenario.bucketSchedule||{}},
+    createdAt:Date.now()
+  };
+  if(isMobile())openModal('__wi__');else renderWI();
+}
+// Set bucket on/off schedule in WI scenario (Paycheck 1.0)
+function setWIBktSchedule(bucketId,field,val){
+  if(!S.wiScenario)return;
+  if(!S.wiScenario.bucketSchedule)S.wiScenario.bucketSchedule={};
+  if(!S.wiScenario.bucketSchedule[bucketId])S.wiScenario.bucketSchedule[bucketId]={};
+  S.wiScenario.bucketSchedule[bucketId][field]=val||null;
+  if(isMobile())openModal('__wi__');else{renderWI();renderMain();}
+}
+// Save paycheck sources from Settings form (Paycheck 1.2)
+function savePaycheckSettings(){
+  const pcs=[];
+  for(let n=1;n<=3;n++){
+    const label=document.getElementById(`pcs${n}Label`)?.value?.trim()||'';
+    const amount=parseFloat(document.getElementById(`pcs${n}Amt`)?.value||0);
+    const anchorDate=document.getElementById(`pcs${n}Date`)?.value||'';
+    const freq=parseInt(document.getElementById(`pcs${n}Freq`)?.value||14);
+    if(amount>0&&anchorDate)pcs.push({id:uid(),label:label||(n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'),amount,freq,anchorDate});
+  }
+  S.paychecks=pcs;
+  save();
+  const btn=document.querySelector('[onclick="savePaycheckSettings()"]');
+  if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';btn.disabled=true;setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1500);}
+  render();if(isMobile())mRenderAll();
+}
+
 // ── Paycheck Projector ────────────────────────────────────────────────────────
 function wiShowProjector(){
   const inner=document.getElementById('wiModalInner');
@@ -3181,25 +3318,28 @@ function wiProjectorHtml(result,standalone){
   const footHtml=standalone?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
   const cashBal=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
 
-  // Paycheck row builder
-  const pcRow=(n,req)=>`
+  // Paycheck row builder — pre-fills from saved S.paychecks if available
+  const pcRow=(n,req)=>{
+    const pc=(S.paychecks||[])[n-1]||{};
+    return `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:8px">
         💰 Paycheck ${n}${req?'':' <span style="font-weight:400">(optional)</span>'}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
-        <div><label class="fl">Label</label><input class="fi" id="pc${n}Label" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
-        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pc${n}Amt" type="number" step="0.01" placeholder="0.00" /></div>
-        <div><label class="fl">Next Pay Date</label><input class="fi" id="pc${n}Date" type="date" ${req?`value="${todayStr()}"`:`placeholder="leave blank to skip"`} /></div>
+        <div><label class="fl">Label</label><input class="fi" id="pc${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
+        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pc${n}Amt" type="number" step="0.01" value="${pc.amount||''}" placeholder="0.00" /></div>
+        <div><label class="fl">Anchor / Pay Date</label><input class="fi" id="pc${n}Date" type="date" value="${pc.anchorDate||''}" ${!pc.anchorDate&&req?`placeholder=""`:`placeholder="leave blank to skip"`} /></div>
         <div><label class="fl">Frequency</label>
           <select class="fi" id="pc${n}Freq">
-            <option value="7">Weekly</option>
-            <option value="14" selected>Bi-weekly</option>
-            <option value="15">Semi-monthly</option>
-            <option value="30">Monthly</option>
+            <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
+            <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
+            <option value="15"${pc.freq===15?' selected':''}>Semi-monthly</option>
+            <option value="30"${pc.freq===30?' selected':''}>Monthly</option>
           </select></div>
       </div>
     </div>`;
+  };
 
   // Build scenario options
   const savedScenarios=S.scenarios||[];
@@ -3210,6 +3350,7 @@ function wiProjectorHtml(result,standalone){
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
       Projects week-by-week cash flow using your budget bucket due dates, recurring bills, and scheduled transactions. Add up to 3 income sources.
     </div>
+    ${(S.paychecks||[]).length?`<div style="font-size:11px;color:var(--accent);background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;margin-bottom:10px">💰 Pre-filled from your saved Income Sources — edit below to override for this run.</div>`:''}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
       <div><label class="fl">Starting Cash Balance</label><input class="fi mono" id="projBal" type="number" step="0.01" value="${cashBal.toFixed(2)}" /></div>
@@ -3299,8 +3440,10 @@ function wiRunProjector(){
   let wY=startDate.getFullYear(),wM=startDate.getMonth();
   const endY=endDate.getFullYear(),endMM=endDate.getMonth();
   while(wY<endY||(wY===endY&&wM<=endMM)){
+    const loopMid=mId(wY,wM);
     const monthMax=new Date(wY,wM+1,0).getDate();
     activeBkts.forEach(b=>{
+      if(!isWIBucketActiveForMonth(b.id,loopMid,scenario))return;
       const bAmt=bktAmt(b);
       if(b.dueDay){
         if(b.dueDay2){
@@ -3475,6 +3618,38 @@ function wiRunProjector(){
     <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End balance: ${$f(running)}</span>
   </div></div>`;
 
+  // ── Savings Growth Table (Paycheck 1.1) ────────────────────────────────────
+  const savingsBkts=S.buckets.filter(b=>!b.archived&&b.rollover);
+  if(savingsBkts.length){
+    const projMths=[];
+    let py=startDate.getFullYear(),pm2=startDate.getMonth();
+    const eY=endDate.getFullYear(),eM=endDate.getMonth();
+    while(py<eY||(py===eY&&pm2<=eM)){projMths.push({id:mId(py,pm2),label:mLabel(py,pm2)});pm2++;if(pm2>11){pm2=0;py++;}}
+    const thCells=projMths.map(m=>`<th style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${m.label}</th>`).join('');
+    const rows=savingsBkts.map(b=>{
+      const curBal=rolloverBal(b.id,S.activeMonth);
+      let runBal=curBal;
+      const cells=projMths.map(pm=>{
+        const contrib=isWIBucketActiveForMonth(b.id,pm.id,scenario)?bktAmt(b):0;
+        runBal+=contrib;
+        return `<td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;color:${runBal>curBal?'var(--green)':'var(--text)'};border-bottom:1px solid var(--border)">${$f(runBal)}</td>`;
+      }).join('');
+      return `<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(b.name)}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells}</tr>`;
+    }).join('');
+    html+=`<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:6px">📈 Savings Growth — Rollover Buckets</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Projected running balance per rollover bucket based on planned monthly contributions.</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:300px">
+        <thead><tr>
+          <th style="text-align:left;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg)">Bucket</th>
+          <th style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg)">Current</th>
+          ${thCells}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }
+
   // Inject into the right container
   const inner=document.getElementById('wiModalInner');
   const modal=document.getElementById('modalBox');
@@ -3568,6 +3743,31 @@ function openSettings(){
     <div class="settings-section-title">Income Allocation Rules <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Auto-suggest bucket allocations when you log income.</div>
     <button class="tbtn" onclick="openAllocationRules()">Manage Rules</button>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Income Sources <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.paychecks||[]).length} saved</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Your regular paychecks. Auto-calculates projected monthly income app-wide and pre-fills the Paycheck Projector.</div>
+    ${[1,2,3].map(n=>{
+      const pc=(S.paychecks||[])[n-1]||{};
+      const req=n===1;
+      return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:7px">
+          💰 Income ${n}${req?' (required)':' <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>'}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
+          <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
+          <div><label class="fl">Amount ($)</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
+          <div><label class="fl">Anchor Date <span style="font-weight:400;color:var(--text3)">(a known pay date)</span></label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
+          <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
+            <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
+            <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
+            <option value="15"${pc.freq===15?' selected':''}>Semi-monthly</option>
+            <option value="30"${pc.freq===30?' selected':''}>Monthly</option>
+          </select></div>
+        </div>
+      </div>`;
+    }).join('')}
+    <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
   </div>
   `;
 
