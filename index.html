@@ -1124,7 +1124,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 // ═══════════════════════════════════════════════════════
 const isMobile=()=>window.innerWidth<768;
 const COLORS=['#2a7c6f','#3b82c4','#7c3b82','#c45c3b','#3b8248','#c4a43b','#c43b6a','#6a3bc4','#3b9ea6','#a6753b','#5c6bc0','#e57373','#4db6ac','#81c784','#ffb74d','#f06292'];
-const KEY='if_v6';
+const KEY='bcc_v6';
 const APP_VERSION='20260405-1';
 
 // ═══════════════════════════════════════════════════════
@@ -1147,7 +1147,7 @@ function supaClient(){
           // Without this, sharing a project causes both apps to share one auth token in
           // localStorage — logging out of one logs out of both, and session changes in
           // one app corrupt the other's mid-request.
-          storageKey: 'if-auth'
+          storageKey: 'bcc-auth'
         }
       });
     }
@@ -1439,7 +1439,7 @@ async function supabase_push(){
 
   // Step 1: write
   const {error}=await client
-    .from('if_budget_state')
+    .from('bcc_budget_state')
     .upsert({user_id:_supaUser.id, data:S, updated_at:now},{onConflict:'user_id'});
 
   if(error){
@@ -1451,7 +1451,7 @@ async function supabase_push(){
 
   // Step 2: verify the write landed (catches silent RLS blocks)
   const {data:verify,error:verErr}=await client
-    .from('if_budget_state')
+    .from('bcc_budget_state')
     .select('updated_at')
     .eq('user_id',_supaUser.id)
     .maybeSingle();
@@ -1482,7 +1482,7 @@ async function loadFromSupabase(){
   _supaUser=sessionData.session.user;
 
   const {data,error}=await client
-    .from('if_budget_state')
+    .from('bcc_budget_state')
     .select('data, updated_at')
     .eq('user_id',_supaUser.id)
     .maybeSingle();
@@ -1907,7 +1907,7 @@ function renderSidebar(){
   }
 
     // Settings at bottom
-  const lastExp=localStorage.getItem('if_last_export');
+  const lastExp=localStorage.getItem('bcc_last_export');
   const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'never';
   const expCheck=lastExp?'done':'';
   h+=`<div style="flex:1"></div>
@@ -3508,7 +3508,7 @@ function applyTheme(name){
 }
 
 function setTheme(name){
-  localStorage.setItem('if_theme',name);
+  localStorage.setItem('bcc_theme',name);
   applyTheme(name);
   openSettings();
 }
@@ -3522,7 +3522,7 @@ function moveAcct(id,dir){
 }
 
 function openSettings(){
-  const curTheme=localStorage.getItem('if_theme')||'dark';
+  const curTheme=localStorage.getItem('bcc_theme')||'dark';
   const themes=[
     {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
     {name:'light',label:'Light',bg:'#f5f5f7',fg:'#1c1c1e',accent:'#147a6e'},
@@ -5116,7 +5116,7 @@ function exportData(){
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   // Record last export time
-  localStorage.setItem('if_last_export', Date.now().toString());
+  localStorage.setItem('bcc_last_export', Date.now().toString());
   renderSidebar();
   // Brief confirmation
   const btn=event?.currentTarget;
@@ -5396,14 +5396,14 @@ function initMobile(){
 // Defer init until DOM is fully ready
 document.addEventListener('DOMContentLoaded',()=>{
   // Apply saved theme immediately
-  applyTheme(localStorage.getItem('if_theme')||'dark');
+  applyTheme(localStorage.getItem('bcc_theme')||'dark');
 
   // Show update banner if app version changed since last visit
-  const lastVersion=localStorage.getItem('if_app_version');
+  const lastVersion=localStorage.getItem('bcc_app_version');
   if(lastVersion&&lastVersion!==APP_VERSION){
     document.getElementById('updateBanner')?.classList.remove('hidden');
   }
-  localStorage.setItem('if_app_version',APP_VERSION);
+  localStorage.setItem('bcc_app_version',APP_VERSION);
 
   // Resize handler — only re-init if app is already initialized (auth complete)
   window.addEventListener('resize',()=>{
