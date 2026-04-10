@@ -1806,13 +1806,18 @@ const todayStr=()=>new Date().toISOString().split('T')[0];
 const isScheduled=tx=>tx.date>todayStr();
 const bSpent=(mid,bid)=>mTxs(mid).filter(t=>t.bucketId===bid&&t.type==='out'&&!isScheduled(t)).reduce((s,t)=>s+t.amount,0);
 const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAlloc(mid,b.id),0);
-// Ready to Spend = sum of all budget account balances minus total allocated
-// This reflects real cash on hand, not just this month's income
+// Ready to Spend = budget cash minus UNFULFILLED obligations only.
+// Paying a budgeted bill reduces budgetBal AND the unfulfilled amount equally,
+// so RTS stays stable when spending is on-plan.
+// Over-spent buckets are capped at 0 (overage already left via budgetBal).
 function readyToSpend(mid){
   const budgetBal=S.accounts
     .filter(a=>a.type==='budget')
     .reduce((s,a)=>s+acctBalance(a.id),0);
-  return budgetBal-totalAllocated(mid);
+  const unfulfilled=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
+    return s+Math.max(0,bAlloc(mid,b.id)-bSpent(mid,b.id));
+  },0);
+  return budgetBal-unfulfilled;
 }
 
 function rolloverBal(bid,mid){
@@ -1878,7 +1883,7 @@ function renderRpSummary(){
   el.innerHTML=`
     <div class="rps-cell"><div class="rps-label">Budget Balance</div><div class="rps-val green">${$f(budgetBal)}</div><div class="rps-sub">in budget accounts</div></div>
     <div class="rps-cell"><div class="rps-label">Allocated</div><div class="rps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="rps-sub">assigned this month</div></div>
-    <div class="rps-cell hi"><div class="rps-label">Ready to Spend</div><div class="rps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="rps-sub">${rts>0?'unallocated':rts<0?'⚠ over-allocated':'fully allocated ✓'}</div></div>
+    <div class="rps-cell hi"><div class="rps-label">Ready to Spend</div><div class="rps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="rps-sub">${rts>0?'ready to allocate':rts<0?'⚠ budget short':'balanced ✓'}</div></div>
     <div class="rps-cell"><div class="rps-label">Spent</div><div class="rps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="rps-sub">from transactions</div></div>`;
 }
 
@@ -1912,8 +1917,8 @@ function renderTopbar(){
   if(!mid||(!S.accounts.some(a=>a.type==='budget'))){rEl.className='tb-rts-val zero';rEl.textContent='—';return;}
   const scheduledOutCl=S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.type!=='in'&&getAcct(t.accountId)?.type!=='debt').reduce((s,t)=>s+t.amount,0);
   rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
-  rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' over':'');
-  rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} in scheduled outflows pending — After scheduled: ${$f(rts-scheduledOutCl)}`:'Ready to spend from unallocated budget account balance';
+  rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
+  rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} in scheduled outflows pending — After scheduled: ${$f(rts-scheduledOutCl)}`:'Budget cash minus remaining unfulfilled obligations';
   const rtsLabel=document.querySelector('.tb-rts-label');
   if(rtsLabel)rtsLabel.innerHTML=scheduledOutCl>0?`Ready to Spend <span style="font-size:9px;color:var(--amber);font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
 }
@@ -2103,12 +2108,12 @@ function renderMain(){
   h+=renderBudgetHealth(mid);
 
   // Hints
-  if(!past&&income>0&&unalloc>0&&rts>0)
-    h+=`<div class="hint-bar info">💡 ${$f(rts)} unallocated — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
+  if(!past&&unalloc>0&&rts>0)
+    h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
   else if(!past&&rts<0)
-    h+=`<div class="hint-bar warn">⚠ Over-allocated by ${$f(Math.abs(rts))} — reduce bucket allocations until Ready to Spend reaches $0.</div>`;
+    h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
   else if(!past&&rts===0&&alloc>0)
-    h+=`<div class="hint-bar success">✓ Every dollar has a job. You're fully allocated.</div>`;
+    h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
 
   // No buckets
   if(!S.buckets.filter(b=>!b.archived).length){
@@ -5896,7 +5901,7 @@ function mRenderDash(){
     <div class="m-pool-cell hero">
       <div class="m-pool-label">Ready to Spend</div>
       <div class="m-pool-val lg ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div>
-      <div class="m-pool-sub">${rts>0?'unallocated':rts<0?'over-allocated':'fully allocated ✓'}</div>
+      <div class="m-pool-sub">${rts>0?'ready to allocate':rts<0?'⚠ budget short':'balanced ✓'}</div>
     </div>
     <div class="m-pool-cell">
       <div class="m-pool-label">Income</div>
