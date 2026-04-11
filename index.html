@@ -1892,6 +1892,9 @@ function computeBucketMetrics(bid,mid){
   const m=getMonth(mid);
   const days=daysUntilDue(b,m?.year,m?.month);
   const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
+  // Paid detection: if dueAmount set, check spent covers it; otherwise past-due + any spend = assume paid
+  const due1Paid=days!==null&&(b.dueAmount>0?spent>=b.dueAmount:(days<0&&spent>0));
+  const due2Paid=days2!==null&&(b.dueAmount2>0?spent>=(b.dueAmount||0)+b.dueAmount2:(days2<0&&spent>0));
   const barNote=Math.round(pctRaw*100)+'% spent';
   const remainNote=pctRaw>1?'⚠ over by '+$f(spent-eff):$f(Math.max(eff-spent,0))+' remaining';
   let sinkData=null;
@@ -1905,7 +1908,7 @@ function computeBucketMetrics(bid,mid){
     const contrib=contribAmt(b);
     sinkData={saved,tgt,mLeft,mNeed,contrib};
   }
-  return {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,fillColor,isSink,m,days,days2,barNote,remainNote,sinkData};
+  return {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,fillColor,isSink,m,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData};
 }
 
 // Data lookups and derived values for a single transaction row.
@@ -2286,25 +2289,25 @@ function renderOverviewTab(el,mid){
   </div>`;
 
   // ── Two-column widgets ─────────────────────────────────────────────────────
-  // Left: Upcoming bills (buckets with dueDay within next 14 days, sorted by days)
-  const today14=new Date();today14.setHours(0,0,0,0);
-  const upcoming=activeBkts.filter(b=>b.dueDay).map(b=>{
+  // Left: Upcoming bills — next 14 days + any overdue-unpaid from this month
+  const billEntries=activeBkts.filter(b=>b.dueDay).map(b=>{
     const d=daysUntilDue(b,m.year,m.month);
-    return {b,d};
-  }).filter(({d})=>d!==null&&d>=0&&d<=14).sort((a,b)=>a.d-b.d);
+    const bm2=computeBucketMetrics(b.id,mid);
+    const paid=bm2?bm2.due1Paid:false;
+    return {b,d,paid};
+  }).filter(({d,paid})=>d!==null&&(paid?d>=0&&d<=14:d<=14)).sort((a,b)=>a.d-b.d);
   let billsHtml='';
-  if(!upcoming.length){
+  if(!billEntries.length){
     billsHtml=`<div class="ov-widget-empty">No bills due in next 14 days</div>`;
   } else {
-    upcoming.forEach(({b,d})=>{
+    billEntries.forEach(({b,d,paid})=>{
       const amt=b.dueAmount?$f(b.dueAmount):'';
-      const urgCls=d===0?'red':d<=3?'amber':'';
-      const avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id);
-      const covered=avail>=(b.dueAmount||0);
+      const urgCls=paid?'green':d<0?'red':d===0?'red':d<=3?'amber':'';
+      const label=paid?'✓ paid':d<0?`${Math.abs(d)}d overdue`:d===0?'today':`${d}d`;
       billsHtml+=`<div class="ov-widget-row">
         <span class="ov-widget-row-name">${esc(b.name)}</span>
-        <span class="ov-widget-row-meta" style="color:var(--${urgCls||'text3'})">${d===0?'today':d+'d'}</span>
-        ${amt?`<span class="ov-widget-row-val" style="color:var(--${covered?'green':'red'})">${amt}</span>`:''}
+        <span class="ov-widget-row-meta" style="color:var(--${urgCls||'text3'})">${label}</span>
+        ${amt?`<span class="ov-widget-row-val" style="color:var(--${paid?'green':'red'})">${amt}</span>`:''}
       </div>`;
     });
   }
@@ -2851,7 +2854,7 @@ function renderAccountView(el,mid){
 
 function renderBucketDetail(mid,past,m){
   const bm=computeBucketMetrics(S.activeBucket,mid);if(!bm)return'';
-  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,days,days2,barNote,remainNote,sinkData}=bm;
+  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData}=bm;
   let h=`<button class="back-btn" onclick="setBucket(null)">← Buckets</button>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
@@ -2859,8 +2862,8 @@ function renderBucketDetail(mid,past,m){
     <span>${b.type}</span>
     ${b.recurring?`<span class="det-sep">·</span><span>↻ Recurring</span>`:''}
     ${b.rollover?`<span class="det-sep">·</span><span>Rolls over</span>`:''}
-    ${days!==null?`<span class="det-sep">·</span><span style="color:${days<0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">1st due ${days<0?`${Math.abs(days)}d ago`:days===0?'today':`in ${days}d`}${b.dueAmount?` (${$f(b.dueAmount)})`:''}</span>`:''}
-    ${days2!==null?`<span class="det-sep">·</span><span style="color:${days2<0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">2nd due ${days2<0?`${Math.abs(days2)}d ago`:days2===0?'today':`in ${days2}d`}${b.dueAmount2?` (${$f(b.dueAmount2)})`:''}</span>`:''}
+    ${days!==null?`<span class="det-sep">·</span><span style="color:${due1Paid?'var(--green)':days<0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">${due1Paid?'✓ paid':`1st due ${days<0?`${Math.abs(days)}d ago`:days===0?'today':`in ${days}d`}${b.dueAmount?` (${$f(b.dueAmount)})`:''}` }</span>`:''}
+    ${days2!==null?`<span class="det-sep">·</span><span style="color:${due2Paid?'var(--green)':days2<0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">${due2Paid?'✓ paid (2nd)':`2nd due ${days2<0?`${Math.abs(days2)}d ago`:days2===0?'today':`in ${days2}d`}${b.dueAmount2?` (${$f(b.dueAmount2)})`:''}` }</span>`:''}
   </div>
   ${b.notes?`<div class="det-notes">${esc(b.notes)}</div>`:''}
 
@@ -6860,15 +6863,15 @@ function mRenderBucketDetail(bid){
   if(!el||!title)return;
   const mid=S.activeMonth;
   const bm=computeBucketMetrics(bid,mid);if(!bm)return;
-  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillColor,isSink,days,days2,barNote,remainNote,sinkData}=bm;
+  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillColor,isSink,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData}=bm;
   const past=monthStatus(mid)==='past';
   title.textContent=b.name;
   let h=`<div class="m-det-hero" style="border-left:4px solid ${color}">
     <div class="m-det-name">${esc(b.name)}</div>
     <div class="m-det-meta">
       <span style="color:${color}">${esc(cat?.name||'')}</span>
-      ${days!==null?`<span>·</span><span style="color:${days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">1st: ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}${b.dueAmount?' ('+$f(b.dueAmount)+')':''}</span>`:''}
-      ${days2!==null?`<span>·</span><span style="color:${days2<=0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">2nd: ${days2<0?Math.abs(days2)+'d ago':days2===0?'today':'in '+days2+'d'}${b.dueAmount2?' ('+$f(b.dueAmount2)+')':''}</span>`:''}
+      ${days!==null?`<span>·</span><span style="color:${due1Paid?'var(--green)':days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">${due1Paid?'✓ paid':`1st: ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}${b.dueAmount?' ('+$f(b.dueAmount)+')':''}`}</span>`:''}
+      ${days2!==null?`<span>·</span><span style="color:${due2Paid?'var(--green)':days2<=0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">${due2Paid?'✓ paid (2nd)':`2nd: ${days2<0?Math.abs(days2)+'d ago':days2===0?'today':'in '+days2+'d'}${b.dueAmount2?' ('+$f(b.dueAmount2)+')':''}`}</span>`:''}
       ${b.rollover?'<span>·</span><span>Rolls over</span>':''}
     </div>
     ${b.notes?`<div class="m-bkt-notes">${esc(b.notes)}</div>`:''}
