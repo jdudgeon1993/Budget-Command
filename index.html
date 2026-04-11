@@ -192,7 +192,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ledger-search::placeholder{color:var(--text3);}
 
 /* Accounts tab */
-.acct-tab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;}
+.acct-pane-wrap{padding:0 28px 24px;}
+.acct-group-hdr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin:16px 0 8px;}
+.acct-group-hdr:first-child{margin-top:0;}
+.acct-tab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:8px;}
 .acct-tab-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;cursor:pointer;transition:border-color .12s;}
 .acct-tab-card:hover{border-color:var(--accent);}
 .acct-tab-card-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
@@ -332,6 +335,35 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .pill-over{background:var(--rbg);color:var(--red);}
 .pill-done{background:var(--gbg);color:var(--green);}
 .pill-pending{background:var(--abg);color:var(--amber);}
+.pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
+
+/* ═══ UNIFIED BUCKET ROWS ═══ */
+.bkt-cat{border-bottom:2px solid var(--border2);margin-bottom:8px;}
+.bkt-cat-hdr{display:flex;align-items:center;gap:8px;padding:10px 16px 8px;background:var(--bg);}
+.bkt-cat-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.bkt-cat-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text2);flex:1;}
+.bkt-cat-totals{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.bkt-col-hdr{display:flex;align-items:center;padding:4px 16px;border-bottom:1px solid var(--border);background:var(--bg3);}
+.bkt-col-hdr span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);}
+.bkt-row{display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--bg2);gap:8px;transition:background .1s;min-height:44px;}
+.bkt-row:hover{background:var(--surface);}
+.bkt-row.act{background:var(--surface2);}
+.bkt-accent{width:3px;align-self:stretch;border-radius:2px;flex-shrink:0;min-height:32px;opacity:.5;transition:opacity .12s;}
+.bkt-row:hover .bkt-accent,.bkt-row.act .bkt-accent{opacity:1;}
+.bkt-name-col{flex:1;min-width:0;}
+.bkt-row-label{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bkt-row-sub{display:flex;align-items:center;gap:5px;margin-top:2px;}
+.bkt-alloc-col{width:108px;flex-shrink:0;}
+.bkt-bar-col{width:58px;flex-shrink:0;}
+.bkt-spent-col{width:72px;flex-shrink:0;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text2);}
+.bkt-avail-col{width:72px;flex-shrink:0;text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;}
+.bkt-pill-col{width:58px;flex-shrink:0;text-align:right;}
+.bkt-compact{display:none;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
+.bkt-compact-alloc{font-family:var(--mono);font-size:14px;font-weight:600;}
+.bkt-mini-bar{height:2px;background:var(--border2);border-radius:2px;overflow:hidden;margin-top:5px;width:100%;}
+.bkt-mini-fill{height:100%;border-radius:2px;}
+.bkt-chevron{color:var(--text3);font-size:16px;flex-shrink:0;display:none;}
+
 /* Pending dot: unfunded but has scheduled activity coming */
 .bni-dot.has-pending{background:var(--amber);opacity:.45;}
 /* Recurring bill row in modal */
@@ -341,7 +373,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .rb-row-amt{font-family:var(--mono);font-size:12px;color:var(--text2);min-width:60px;text-align:right;}
 .rb-row-day{font-size:11px;color:var(--text3);}
 .m-bkt-pill.pill-pending{background:var(--abg);color:var(--amber);}
-.pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
 
 /* ═══ BUCKET DETAIL ═══ */
 .det-notes{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;word-break:break-word;}
@@ -585,55 +616,73 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 /* ════════════════════════════════════════════════════════
    MOBILE — Android native feel, < 768px
-   Desktop layout hidden, mobile shell takes over
+   Responsive layout — single shell, CSS adapts
 ════════════════════════════════════════════════════════ */
+
+/* ═══ UNIFIED SHELL ═══ */
+.app-nav{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;padding:0;flex-shrink:0;}
+.app-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);position:relative;}
+.tab-pane{display:none;flex:1;flex-direction:column;overflow-y:auto;padding:24px 28px;}
+.tab-pane.active{display:flex;}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:11px 16px;background:none;border:none;border-left:3px solid transparent;cursor:pointer;font-family:var(--sans);font-size:13px;color:var(--text3);text-align:left;width:100%;transition:color .12s,background .12s;}
+.nav-btn:hover:not(.active){color:var(--text);background:var(--bg3);}
+.nav-btn.active{color:var(--accent);border-left-color:var(--accent);background:var(--gbg);}
+.nav-icon-txt{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.nav-svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:none;}
+.nav-label{flex:1;}
+.nav-pip{display:none;}
+.pane-hdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
+.pane-hdr-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;}
+.pane-hdr-action{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;}
+.pane-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.pane-scroll::-webkit-scrollbar{display:none;}
+.detail-panel{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:10;}
+.detail-panel.active{transform:translateX(0);}
+.detail-hdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
+.detail-back{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);display:flex;align-items:center;gap:4px;padding:0;white-space:nowrap;}
+.detail-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;text-align:center;}
+.detail-act{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;white-space:nowrap;}
+.detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.detail-scroll::-webkit-scrollbar{display:none;}
+.tb-month-nav{display:none;}
+.tb-new-btn{display:none !important;}
+
 @media(max-width:767px){
-  /* Hide entire desktop layout */
-  .topbar,.app,.strip,.wi-panel{display:none!important;}
-
-  /* Mobile shell */
-  #mShell{display:flex;flex-direction:column;height:100vh;height:100dvh;background:var(--bg);overflow:hidden;}
-  #mTopbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-  #mTopbar-title{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);letter-spacing:-.3px;display:flex;align-items:center;gap:7px;}
-  #mTopbar-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
-  #mTopbar-right{display:flex;align-items:center;gap:8px;}
-  #mRtsChip{font-family:var(--mono);font-size:13px;font-weight:500;padding:4px 10px;border-radius:20px;background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
-  #mRtsChip.neg{background:var(--rbg);color:var(--red);border-color:var(--rb);}
-  #mRtsChip.zero{background:var(--bg3);color:var(--text3);border-color:var(--border2);}
-
-  /* Screen container */
-  #mScreens{flex:1;overflow:hidden;position:relative;}
-  .mScreen{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);background:var(--bg);}
-  .mScreen.active{transform:translateX(0);}
-  .mScreen.slide-left{transform:translateX(-30%);}
-
-  /* Subview screen (detail pages) */
-  .mSubview{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:10;}
-  .mSubview.active{transform:translateX(0);}
-
-  /* Mobile nav bar */
-  #mNav{background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom);}
-  .mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 8px 8px;min-height:44px;background:none;border:none;cursor:pointer;gap:3px;transition:color .12s;color:var(--text3);font-family:var(--sans);}
-  .mnav-btn.active{color:var(--accent);}
-  .mnav-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-  .mnav-label{font-size:11px;font-weight:600;letter-spacing:.3px;}
-  .mnav-pip{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:0;transition:opacity .12s;}
-  .mnav-btn.active .mnav-pip{opacity:1;}
-
-  /* Shared mobile components */
-  .mhdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
-  .mhdr-back{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);display:flex;align-items:center;gap:4px;padding:0;white-space:nowrap;}
-  .mhdr-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;text-align:center;}
-  .mhdr-action{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;white-space:nowrap;}
-
+  /* App: single column, nav at bottom */
+  .app{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+  .app-nav{grid-row:2;display:flex;flex-direction:row;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);}
+  .app-main{grid-row:1;position:relative;overflow:hidden;}
+  /* Nav buttons: bottom bar style */
+  .nav-desktop{display:none !important;}
+  .nav-btn{flex:1;flex-direction:column;justify-content:center;align-items:center;padding:10px 8px 8px;border-left:none;border-top:2px solid transparent;gap:3px;min-height:44px;}
+  .nav-btn.active{border-left-color:transparent;border-top-color:var(--accent);background:none;}
+  .nav-icon-txt{display:none;}
+  .nav-svg{display:block !important;width:22px;height:22px;}
+  .nav-pip{display:block !important;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:0;transition:opacity .12s;}
+  .nav-btn.active .nav-pip{opacity:1;}
+  .nav-label{font-size:11px;letter-spacing:.3px;}
+  /* Tab panes: full screen, slide animation */
+  .tab-pane{position:absolute;inset:0;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);padding:0;overflow-y:auto;}
+  .tab-pane.active{transform:translateX(0);}
+  .tab-pane.slide-left{transform:translateX(-30%);}
+  /* Topbar: show month nav, hide desktop elements */
+  .tb-month-nav{display:flex !important;align-items:center;gap:4px;flex:1;margin:0 4px;}
+  .tb-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:6px 8px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
+  .tb-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
+  .tb-month-arrow:active{background:var(--surface);}
+  .tb-total,.tb-wi{display:none !important;}
+  .tb-rts-label{display:none;}
+  .tb-rts-val{font-size:13px;padding:4px 10px;border-radius:20px;background:var(--gbg);border:1px solid var(--gb);}
+  .tb-rts-val.neg{background:var(--rbg);border-color:var(--rb);}
+  .tb-rts-val.zero{background:var(--bg3);border-color:var(--border2);}
+  .tb-new-btn{display:inline-flex !important;}
+  .tb-sync{display:none;}
+  /* Ledger: hide form column (use Log tab instead) */
+  .ledger-layout{grid-template-columns:1fr;}
+  .ledger-form-col{display:none;}
+  /* Legacy mobile scroll containers — still used by content functions */
   .mscroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .mscroll::-webkit-scrollbar{display:none;}
-
-  /* Month picker */
-  .m-month-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
-  .m-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:7px 12px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
-  .m-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
-  .m-month-arrow:active{background:var(--surface);}
 
   /* Dashboard cards */
   .m-pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:12px 12px 0;overflow:hidden;}
@@ -798,22 +847,55 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-bulk-row-top{display:flex;gap:8px;align-items:center;}
   .m-bulk-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0;line-height:1;flex-shrink:0;}
   .m-bulk-del:active{color:var(--red);}
+
+  /* ── Unified overview: mobile adaptations ── */
+  .ov-desktop-only{display:none!important;}
+  .ov-month-hdr{display:none!important;} /* topbar handles month nav on mobile */
+  .pool-strip{flex-wrap:wrap;}
+  .ps-cell{flex:1 1 calc(50% - 1px);border-right:none;border-bottom:1px solid var(--border);}
+  .ps-cell:nth-child(odd){border-right:1px solid var(--border);}
+  .ov-stats-row{flex-wrap:wrap;padding:8px 12px;}
+  .ov-stat{flex:1 1 calc(33% - 8px);padding:10px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin:4px;}
+  .ov-widgets{grid-template-columns:1fr;gap:0;}
+  .ov-widget{border:none;border-radius:0;border-top:1px solid var(--border);padding:12px 16px;}
+  .ov-widget-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px;}
+  .als{padding:10px 12px;gap:6px;}
+  .als-cell{flex-shrink:0;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);}
+  .hint-bar{margin:0;border-radius:0;border-left:none;border-right:none;}
+  .bh-wrap{margin:0 12px 10px;}
+
+  /* ── Accounts tab: mobile layout ── */
+  .acct-pane-wrap{padding:12px 14px 24px;}
+  .acct-tab-grid{grid-template-columns:1fr;}
+  .acct-tab-card-bal{font-size:18px;}
+
+  /* ── Ledger: touch-friendly filter bar ── */
+  .ledger-list-head{flex-wrap:wrap;height:auto;padding:8px 12px;gap:6px;}
+  .ledger-filters{flex:1;gap:4px;}
+  .rfbtn{min-height:36px;padding:6px 8px;font-size:12px;}
+  .ledger-search{padding:10px 12px;font-size:16px;border-top:1px solid var(--border);}
+
+  /* ── Unified bucket rows: mobile adaptations ── */
+  .bkt-col-hdr{display:none;}
+  .bkt-alloc-col,.bkt-bar-col,.bkt-spent-col,.bkt-avail-col,.bkt-pill-col{display:none;}
+  .bkt-compact{display:flex;}
+  .bkt-chevron{display:block;}
+  .bkt-row{padding:11px 14px;}
+  .bkt-cat-hdr{padding:8px 14px 6px;}
 }
 
-/* Tablet: 768–1199px */
+/* Tablet: 768–1199px — icon-only sidebar */
 @media(min-width:768px) and (max-width:1099px){
-  #mShell{display:none;}
   .app{grid-template-columns:56px 1fr;}
-  .nav-btn span:not(.nav-btn-icon){display:none;}
+  .nav-btn .nav-label,.nav-btn .nav-icon-txt{display:none;}
   .nav-btn{padding:14px 0;justify-content:center;}
-  .nav-new-btn span:last-child{display:none;}
-  .nav-new-btn{padding:12px 0;justify-content:center;}
 }
 
-/* Desktop: hide mobile shell AND mobile-only DOM elements */
+/* Desktop: keep month nav hidden, hide mobile-only DOM */
 @media(min-width:768px){
-  #mShell{display:none!important;}
+  .tb-month-nav{display:none !important;}
   #mToast,#mSheetOverlay,#mSheet{display:none!important;}
+  .ov-mobile-only{display:none!important;}
 }
 
 /* ═══ BUDGET HEALTH BAR ═══ */
@@ -1100,8 +1182,16 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 <body>
 
 <!-- TOPBAR -->
-<div class="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium<span style="color:var(--text3);margin:0 3px"> </span>Fisci</div>
+<header class="topbar" id="topbar">
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget<span style="color:var(--text3);margin:0 3px"> </span>Command</div>
+  <!-- Month navigation — visible in topbar on mobile -->
+  <div class="tb-month-nav" id="tbMonthNav">
+    <button class="tb-month-arrow" onclick="prevMonth()">&#8249;</button>
+    <select class="tb-month-sel" id="tbMonthSel" onchange="setMonthFromSel(this.value)"></select>
+    <button class="tb-month-arrow" onclick="nextMonth()">&#8250;</button>
+    <button class="tb-month-arrow" style="font-size:13px;padding:6px 10px;border-color:var(--border2)" onclick="toggleWI()" id="tbWiMobile">⚡</button>
+  </div>
+  <!-- Desktop stats -->
   <div class="tb-total">
     <div class="tb-total-label">Total Cash</div>
     <div class="tb-total-val" id="tbTotal">—</div>
@@ -1116,8 +1206,9 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <div class="tb-right">
     <div class="tb-sync" id="tbSyncStatus"><div class="tb-sync-dot off" id="tbSyncDot"></div><span id="tbSyncLabel">Offline</span></div>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
+    <button class="tbtn tb-new-btn" onclick="openModal('new')" id="tbNewBtn">+ New</button>
   </div>
-</div>
+</header>
 
 <!-- WI STRIP -->
 <div class="strip wi hidden" id="wiStrip">
@@ -1127,74 +1218,77 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 </div>
 
 <!-- APP -->
-<div class="app">
-  <div class="sidebar" id="sidebar"></div>
-  <div class="main">
-    <div class="main-scroll" id="mainScroll"></div>
+<div class="app" id="app">
+
+  <!-- UNIFIED NAV: sidebar on desktop, bottom bar on mobile -->
+  <nav class="app-nav" id="appNav">
+    <button class="nav-btn active" data-tab="overview" onclick="setTab('overview')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="nav-icon-txt">◈</span>
+      <span class="nav-label">Overview</span>
+      <div class="nav-pip"></div>
+    </button>
+    <button class="nav-btn" data-tab="buckets" onclick="setTab('buckets')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span class="nav-icon-txt">▣</span>
+      <span class="nav-label">Buckets</span>
+      <div class="nav-pip"></div>
+    </button>
+    <button class="nav-btn" data-tab="log" onclick="setTab('log')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span class="nav-icon-txt">✚</span>
+      <span class="nav-label">Log</span>
+      <div class="nav-pip"></div>
+    </button>
+    <button class="nav-btn" data-tab="ledger" onclick="setTab('ledger')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span class="nav-icon-txt">≡</span>
+      <span class="nav-label">Ledger</span>
+      <div class="nav-pip"></div>
+    </button>
+    <!-- Desktop-only nav items -->
+    <button class="nav-btn nav-desktop" data-tab="accounts" onclick="setTab('accounts')">
+      <span class="nav-icon-txt">⬡</span>
+      <span class="nav-label">Accounts</span>
+    </button>
+    <button class="nav-btn nav-desktop" data-tab="settings" onclick="setTab('settings')">
+      <span class="nav-icon-txt">⚙</span>
+      <span class="nav-label">Settings</span>
+    </button>
+    <button class="nav-btn nav-desktop" data-tab="export" onclick="setTab('export')">
+      <span class="nav-icon-txt">↕</span>
+      <span class="nav-label">Export / Import</span>
+    </button>
+  </nav>
+
+  <!-- MAIN: unified tab panes -->
+  <main class="app-main" id="appMain">
+    <div class="tab-pane active" id="paneOverview"></div>
+    <div class="tab-pane" id="paneBuckets"></div>
+    <div class="tab-pane" id="paneLog">
+      <div class="pane-hdr" id="logPaneHdr">
+        <div class="pane-hdr-title" id="logTitle">Log Transaction</div>
+        <button class="pane-hdr-action" id="bulkToggle" onclick="toggleBulk()">Bulk</button>
+      </div>
+      <div class="pane-scroll" id="logScroll"></div>
+    </div>
+    <div class="tab-pane" id="paneLedger"></div>
+    <div class="tab-pane" id="paneAccounts"></div>
+    <div class="tab-pane" id="paneSettings"></div>
+    <div class="tab-pane" id="paneExport"></div>
     <div class="wi-panel hidden" id="wiPanel"></div>
-  </div>
-  <div class="rpanel">
+  </main>
 
-    <!-- ── SUMMARY STRIP ── -->
-    <div class="rp-summary" id="rpSummary"></div>
-
-    <!-- ── TX FORM (compact, fixed height) ── -->
-    <div class="rp-form" id="txForm">
-      <!-- Row 1: type toggle -->
-      <div class="rpf-row rpf-type-row">
-        <span class="rpf-label">Type</span>
-        <div class="type-tog" style="flex:1">
-          <button class="ttbtn sel-out" id="ttOut" onclick="setTxType('out')">↑ Out</button>
-          <button class="ttbtn" id="ttIn"  onclick="setTxType('in')">↓ In</button>
-          <button class="ttbtn" id="ttXfr" onclick="setTxType('xfr')">⇄ Xfr</button>
-        </div>
-      </div>
-      <!-- Row 2: description -->
-      <div class="rpf-row">
-        <input class="tfi" id="txDesc" placeholder="Description..." style="flex:1" />
-      </div>
-      <!-- Row 3: amount + date -->
-      <div class="rpf-row">
-        <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" />
-        <input class="tfi" id="txDate" type="date" style="flex:1" />
-      </div>
-      <!-- Row 4: account -->
-      <div class="rpf-row">
-        <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
-      </div>
-      <!-- Row 5: category + bucket (out only) -->
-      <div class="rpf-row" id="txBktRow">
-        <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1"><option value="">Category...</option></select>
-        <select class="tfi-sel" id="txBkt" style="flex:1"><option value="">Bucket...</option></select>
-      </div>
-      <!-- Row 6: transfer to (xfr only) -->
-      <div class="rpf-row" id="txXfrRow" style="display:none">
-        <select class="tfi-sel" id="txXfrTo" style="flex:1"><option value="">To account...</option></select>
-      </div>
-      <!-- Row 7: recurring + submit -->
-      <div class="rpf-row rpf-submit-row">
-        <label class="rec-chk" style="flex:1"><input type="checkbox" id="txRec"> ↻ Recurring</label>
-        <button class="txf-submit" id="txSubmitBtn" onclick="addTx()" style="flex:2">Add Transaction</button>
-      </div>
+  <!-- DETAIL PANEL: bucket or account detail, slides over main -->
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-hdr">
+      <button class="detail-back" onclick="closeDetail()">&#8592; Back</button>
+      <div class="detail-title" id="detailTitle"></div>
+      <button class="detail-act" id="detailAct"></button>
     </div>
-
-    <!-- ── LEDGER ── -->
-    <div class="rp-ledger-head">
-      <div class="rpf-row" style="margin-bottom:6px;padding:0">
-        <span class="rp-title" id="rpTitle" style="flex:1">Ledger</span>
-        <span class="rp-bal-badge" id="rpBalBadge" style="display:none"></span>
-        <div class="rp-filters" style="gap:3px">
-          <button class="rfbtn active" id="fAll" onclick="setFilter('all')">All</button>
-          <button class="rfbtn" id="fIn"  onclick="setFilter('in')">↓ In</button>
-          <button class="rfbtn" id="fOut" onclick="setFilter('out')">↑ Out</button>
-          <button class="rfbtn" id="fXfr" onclick="setFilter('xfr')">⇄</button>
-        </div>
-      </div>
-      <input class="rp-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" />
-    </div>
-    <div class="tx-list" id="txList"></div>
-
+    <div class="detail-scroll" id="detailScroll"></div>
   </div>
+
 </div>
 
 <!-- MODAL -->
@@ -1329,7 +1423,7 @@ async function authInit(){
         S.wiOpen=false;S.scenario=false;S.wiScenario=null;
         if(!S.scenarios)S.scenarios=[];
         setSyncStatus('synced','Synced');
-        if(isMobile()){initMobile();}else{initDesktop();}
+        init();
         if(!S.accounts.length){startWizard();}
       }
     } else if(event==='TOKEN_REFRESHED'){
@@ -1368,7 +1462,7 @@ async function authInit(){
       S.wiOpen=false;S.scenario=false;S.wiScenario=null;
       if(!S.scenarios)S.scenarios=[];
       setSyncStatus('synced','Synced');
-      if(isMobile()){initMobile();}else{initDesktop();}
+      init();
       if(!S.accounts.length){startWizard();}
     }
   } else {
@@ -1462,7 +1556,7 @@ function skipAuth(){
   _appInitialized=true; // Allow init/resize to proceed in offline mode
   document.getElementById('authScreen').classList.add('hidden');
   setSyncStatus('offline','Offline mode');
-  if(isMobile()){initMobile();}else{initDesktop();}
+  init();
   if(!S.accounts.length){startWizard();}
 }
 
@@ -1837,7 +1931,7 @@ function ageOfMoney(){
 // ═══════════════════════════════════════════════════════
 
 // All key budget stats for the current month.
-// Used by renderOverviewTab (desktop) and mRenderDash (mobile).
+// Used by renderOverviewTab (unified overview — all breakpoints).
 function computePoolStats(mid){
   const rts=readyToSpend(mid);
   const alloc=totalAllocated(mid);
@@ -1858,7 +1952,7 @@ function computePoolStats(mid){
 
 // Projected income vs. allocation health for a month.
 // Returns null when no projected income is set.
-// Used by renderBudgetHealth (desktop) and mRenderBudgetHealth (mobile).
+// Used by renderBudgetHealth.
 function computeBudgetHealth(mid){
   const pi=monthProjectedIncome(mid);
   if(pi===null)return null;
@@ -1873,7 +1967,7 @@ function computeBudgetHealth(mid){
 }
 
 // All numbers for a bucket in a given month.
-// Used by renderBucketDetail (desktop) and mRenderBucketDetail (mobile).
+// Used by renderBucketDetail.
 function computeBucketMetrics(bid,mid){
   const b=getBucket(bid);if(!b)return null;
   const cat=getCat(b.catId);
@@ -2009,7 +2103,7 @@ function monthProjectedIncome(mid){
 function setProjectedIncome(mid,val){
   const m=getMonth(mid);if(!m)return;
   m.projectedIncome=val>0?val:null;
-  save();render();if(isMobile())mRenderAll();
+  save();render();
 }
 // Future-dated transactions are "scheduled" — shown in ledger but excluded from all balance/spend math
 const todayStr=()=>new Date().toISOString().split('T')[0];
@@ -2072,12 +2166,12 @@ function getPrevMonthId(mid){
 // RENDER
 // ═══════════════════════════════════════════════════════
 function render(){
-  renderTopbar();renderSidebar();renderMain();
+  renderTopbar();
+  renderNav();
+  renderActivePane();
   if(S.wiOpen)renderWI();
   wireFormKeys();
   setTimeout(wireDesktopPayee, 0);
-  // Keep mobile in sync when render is called from desktop actions
-  if(isMobile())setTimeout(mRenderAll, 0);
 }
 
 function renderRpSummary(){
@@ -2149,57 +2243,149 @@ function renderTopbar(){
 
   // Auth button
   updateAuthBtn();
+  // Month selector
+  populateMonthSel();
 }
 
-function renderSidebar(){
-  const el=document.getElementById('sidebar');
-  if(!el)return;
-  const navItems=[
-    {id:'overview',label:'Overview',icon:'◈'},
-    {id:'ledger',label:'Ledger',icon:'≡'},
-    {id:'accounts',label:'Accounts',icon:'⬡'},
-    {id:'buckets',label:'Buckets',icon:'▣'},
-    {id:'settings',label:'Settings',icon:'⚙'},
-    {id:'export',label:'Export / Import',icon:'↕'},
-  ];
-  let h='';
-  navItems.forEach(item=>{
-    const active=desktopTab===item.id;
-    h+=`<button class="nav-btn${active?' active':''}" onclick="setDesktopTab('${item.id}')">
-      <span class="nav-btn-icon">${item.icon}</span>
-      <span>${item.label}</span>
-    </button>`;
+// ── Unified nav + tab routing ─────────────────────────────────────────────────
+let activeTab='overview';
+
+function renderNav(){
+  document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.tab===activeTab);
   });
-  el.innerHTML=h;
 }
 
-function renderMain(){
-  const el=document.getElementById('mainScroll');
-  if(!el)return;
+function setTab(tab){
+  // Animate out current pane
+  const curPane=document.getElementById('pane'+capitalize(activeTab));
+  curPane?.classList.add('slide-left');
+  setTimeout(()=>curPane?.classList.remove('slide-left'),300);
+  // Close any open detail
+  closeDetail(true);
+  activeTab=tab;
+  // Clear state on tab change
+  if(tab==='ledger'||tab==='log'){S.activeAccount=null;S.activeBucket=null;}
+  // Update nav
+  renderNav();
+  // Swap panes
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  const newPane=document.getElementById('pane'+capitalize(tab));
+  if(newPane)newPane.classList.add('active');
+  // Render content
+  renderActivePane();
+  save();
+}
+
+function renderActivePane(){
   const mid=S.activeMonth;
-  el.style.padding='';
-  el.style.overflowY='';
-  if(desktopTab==='overview'){renderOverviewTab(el,mid);return;}
-  if(desktopTab==='ledger'){renderLedgerTab(el,mid);return;}
-  if(desktopTab==='accounts'){renderAccountsTab(el,mid);return;}
-  if(desktopTab==='buckets'){renderBucketsTab(el,mid);return;}
-  if(desktopTab==='settings'){renderSettingsTab(el);return;}
-  if(desktopTab==='export'){renderExportTab(el);return;}
-  el.innerHTML='';
+  if(activeTab==='overview'){
+    const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);
+  } else if(activeTab==='buckets'){
+    const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);
+  } else if(activeTab==='log'){
+    renderLogPane();
+  } else if(activeTab==='ledger'){
+    const p=document.getElementById('paneLedger');if(p)renderLedgerTab(p,mid);
+  } else if(activeTab==='accounts'){
+    const p=document.getElementById('paneAccounts');if(p)renderAccountsTab(p,mid);
+  } else if(activeTab==='settings'){
+    const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
+  } else if(activeTab==='export'){
+    const p=document.getElementById('paneExport');if(p)renderExportTab(p);
+  }
 }
 
-function setDesktopTab(tab){
-  desktopTab=tab;
-  if(tab==='ledger'){S.activeAccount=null;S.activeBucket=null;}
-  renderSidebar();
-  renderMain();
+// Keep renderMain as a shim — many save/render call sites still use it
+function renderMain(){renderActivePane();}
+// Keep setDesktopTab as a shim
+function setDesktopTab(tab){setTab(tab);}
+// Keep renderSidebar as a shim
+function renderSidebar(){renderNav();}
+
+// ── Detail panel ─────────────────────────��─────────────────────��──────────────
+function openDetail(type,id){
+  const panel=document.getElementById('detailPanel');
+  const scroll=document.getElementById('detailScroll');
+  const title=document.getElementById('detailTitle');
+  const act=document.getElementById('detailAct');
+  if(type==='bucket'){
+    const b=getBucket(id);if(!b)return;
+    S.activeBucket=id;S.activeAccount=null;
+    title.textContent=b.name;
+    act.textContent='Edit';act.onclick=()=>editBucket(id);
+    const mid=S.activeMonth;const past=monthStatus(mid)==='past';
+    scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
+    scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));
+  } else if(type==='account'){
+    const a=getAcct(id);if(!a)return;
+    S.activeAccount=id;S.activeBucket=null;
+    title.textContent=a.name;
+    act.textContent='Edit';act.onclick=()=>editAcct(id);
+    scroll.style.cssText='flex:1;overflow-y:auto;padding:0;';
+    renderAccountView(scroll,S.activeMonth);
+  }
+  panel.classList.add('active');
+  history.pushState({},'','');
+}
+
+function closeDetail(silent){
+  const panel=document.getElementById('detailPanel');
+  if(!panel||!panel.classList.contains('active'))return;
+  panel.classList.remove('active');
+  if(!silent){
+    S.activeBucket=null;S.activeAccount=null;
+    save();
+    renderActivePane();
+  }
+}
+
+// ── Month navigation ─────────────────────────────────────────────────────────
+function populateMonthSel(){
+  const sel=document.getElementById('tbMonthSel');
+  if(!sel)return;
+  sel.innerHTML='';
+  S.months.forEach(m=>{
+    const opt=document.createElement('option');
+    opt.value=m.id;
+    opt.textContent=m.label+(monthStatus(m.id)==='present'?' ●':'');
+    opt.selected=m.id===S.activeMonth;
+    sel.appendChild(opt);
+  });
+}
+
+function setMonthFromSel(id){
+  S.activeMonth=id;S.activeBucket=null;save();
+  renderTopbar();renderActivePane();
+}
+
+function prevMonth(){
+  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+  if(idx>0){S.activeMonth=S.months[idx-1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
+}
+
+function nextMonth(){
+  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+  if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
+  else{addNextMonth();populateMonthSel();}
+}
+
+function renderLogPane(){
+  mRenderLog();
+  setTimeout(wireMobilePayee,0);
+}
+
+function toggleBulk(){
+  mBulkMode=!mBulkMode;
+  if(mBulkMode&&!mBulkRows.length)mAddBulkRow();
+  mRenderLog();
 }
 
 function renderOverviewTab(el,mid){
   if(!S.accounts.length&&!S.cats.length){
     el.innerHTML=`<div class="empty-wrap">
       <div class="empty-icon">⬡</div>
-      <div class="empty-title">Imperium Fisci</div>
+      <div class="empty-title">Budget Command</div>
       <div class="empty-sub">Start by adding your accounts and their current balances, then create budget categories and buckets.</div>
       <button class="empty-btn" onclick="startWizard()">Get Started</button>
     </div>`;return;
@@ -2207,25 +2393,25 @@ function renderOverviewTab(el,mid){
   const midIdx=mid?S.months.findIndex(m=>m.id===mid):-1;
   const prevM=midIdx>0?S.months[midIdx-1]:null;
   const nextM=midIdx>=0&&midIdx<S.months.length-1?S.months[midIdx+1]:null;
-  const curLabel=mid?(S.months[midIdx]?.label||mid):'No Month';
   if(!mid){
-    el.innerHTML=`<div class="month-hdr">
+    el.innerHTML=`<div class="month-hdr ov-month-hdr">
       <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" disabled>‹</button>
-      <span class="month-title" style="margin:0 10px">${curLabel}</span>
+      <span class="month-title" style="margin:0 10px">No Month</span>
       <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)">›</button>
     </div>`;return;
   }
   const m=getMonth(mid);
   const st=monthStatus(mid);
   const past=st==='past';
-  const {rts,alloc,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
+  const {rts,alloc,income,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
   const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
-  // Single unified header: nav arrows + month title + chip + Reports
-  let h=`<div class="month-hdr" style="margin-bottom:20px">
+
+  // ── Month header (desktop; mobile topbar handles navigation) ──────────────
+  let h=`<div class="month-hdr ov-month-hdr" style="margin-bottom:20px">
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''} title="${prevM?prevM.label:'No previous month'}">‹</button>
     <span class="month-title" style="margin:0 10px">${m.label}</span>
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
-    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" title="Add next month" style="margin-left:4px">+</button>`:''}
+    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" style="margin-left:4px">+</button>`:''}
     <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
     <div class="reports-drop-wrap" style="margin-left:auto">
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="toggleReportsMenu('${mid}',this)">📊 Reports ▾</button>
@@ -2237,44 +2423,48 @@ function renderOverviewTab(el,mid){
     </div>
   </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
-  h+=`<div class="pool-strip" style="margin-bottom:16px">
-    <div class="ps-cell"><div class="ps-label">Budget Balance</div><div class="ps-val ${budgetBal>=0?'green':'red'}">${$f(budgetBal)}</div><div class="ps-sub">in budget accounts</div></div>
-    <div class="ps-cell"><div class="ps-label">Allocated</div><div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="ps-sub">assigned this month</div></div>
-    <div class="ps-cell hi"><div class="ps-label">Ready to Spend</div><div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="ps-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
-    <div class="ps-cell"><div class="ps-label">Spent</div><div class="ps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="ps-sub">from transactions</div></div>
-  </div>`;
-  // ── Per-account liquidity strip ────────────────────────────────────────────
-  // Shows the physical balance of every non-debt account so the user can see
-  // per-account spending ceilings even though RTS is a pooled budget metric.
-  const nonDebtAccts=S.accounts.filter(a=>a.type!=='debt');
-  if(nonDebtAccts.length>0){
+
+  // ── Account liquidity strip (horizontal scroll on mobile) ─────────────────
+  if(S.accounts.length){
     h+=`<div class="als">`;
-    nonDebtAccts.forEach(a=>{
+    S.accounts.forEach(a=>{
       const ab=acctBalance(a.id);
-      const typeTag=a.type==='savings'?'savings':a.type==='budget'?'budget':'';
+      const typeTag=a.type==='savings'?'savings':a.type==='budget'?'budget':a.type==='debt'?'debt':'';
       h+=`<div class="als-cell" onclick="setActiveAccount('${a.id}')" title="View ${esc(a.name)} transactions">
-        <div class="als-dot" style="background:${a.color}"></div>
+        <div class="als-dot" style="background:${a.color||COLORS[0]}"></div>
         <span class="als-name">${esc(a.name)}</span>
         ${typeTag?`<span class="als-type">${typeTag}</span>`:''}
-        <span class="als-bal" style="color:${ab>=0?'var(--green)':'var(--red)'}">${$f(ab)}</span>
+        <span class="als-bal" style="color:${a.type==='debt'?'var(--red)':ab>=0?'var(--green)':'var(--red)'}">${$f(ab)}</span>
       </div>`;
     });
     h+=`</div>`;
   }
+
+  // ── Budget health bar ─────────────────────────────────────────────────────
   h+=renderBudgetHealth(mid);
+
+  // ── Pool stats strip ──────────────────────────────────────────────────────
+  h+=`<div class="pool-strip" style="margin-bottom:16px">
+    <div class="ps-cell hi"><div class="ps-label">Ready to Spend</div><div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="ps-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
+    <div class="ps-cell"><div class="ps-label">Income</div><div class="ps-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div><div class="ps-sub">this month</div></div>
+    <div class="ps-cell"><div class="ps-label">Allocated</div><div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="ps-sub">to buckets</div></div>
+    <div class="ps-cell"><div class="ps-label">Spent</div><div class="ps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="ps-sub">from buckets</div></div>
+  </div>`;
+
+  // ── Hint bar (desktop) — urgent items list is mobile equivalent ────────────
   if(!past&&unfundedCnt>0&&rts>0)
-    h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setDesktopTab('buckets')">Go to Buckets →</button></div>`;
+    h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
   else if(!past&&rts<0)
-    h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
+    h+=`<div class="hint-bar warn ov-desktop-only">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance.</div>`;
   else if(!past&&rts===0&&alloc>0)
-    h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
+    h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
 
   // ── Secondary stats row ───────────────────────────────────────────────────
   h+=`<div class="ov-stats-row">
     <div class="ov-stat">
       <div class="ov-stat-label">Net Worth</div>
       <div class="ov-stat-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
-      <div class="ov-stat-sub">all accounts combined</div>
+      <div class="ov-stat-sub">all accounts</div>
     </div>
     <div class="ov-stat">
       <div class="ov-stat-label">Age of Money</div>
@@ -2286,10 +2476,48 @@ function renderOverviewTab(el,mid){
       <div class="ov-stat-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
       <div class="ov-stat-sub">${fundedCnt} funded · ${partialCnt} partial · ${unfundedCnt} unfunded</div>
     </div>
+    <div class="ov-stat">
+      <div class="ov-stat-label">Budget Cash</div>
+      <div class="ov-stat-val dim">${$f(budgetBal)}</div>
+      <div class="ov-stat-sub">spending pool</div>
+    </div>
   </div>`;
 
-  // ── Two-column widgets ─────────────────────────────────────────────────────
-  // Left: Upcoming bills — next 14 days + any overdue-unpaid from this month
+  // ── Needs Attention (mobile primary; desktop shows hint bars instead) ──────
+  const urgency=[];
+  if(m){
+    S.buckets.filter(b=>!b.archived).forEach(b=>{
+      const days=daysUntilDue(b,m.year,m.month);
+      const balloc=bAlloc(mid,b.id);const bspent=bSpent(mid,b.id);
+      const avail=balloc+rolloverBal(b.id,mid)-bspent;
+      if(avail<0)urgency.push({type:'over',b,avail,days,priority:0});
+      else if(days!==null&&days<=0&&balloc===0)urgency.push({type:'overdue',b,avail,days,priority:1});
+      else if(days!==null&&days<=3&&balloc===0)urgency.push({type:'due-soon',b,avail,days,priority:2});
+      else if(balloc===0&&bBudget(mid,b.id)>0)urgency.push({type:'unfunded',b,avail,days,priority:3});
+    });
+    urgency.sort((a,b)=>a.priority-b.priority||((a.days??999)-(b.days??999)));
+  }
+  if(urgency.length){
+    h+=`<div class="m-section-label ov-mobile-only">Needs Attention</div>`;
+    urgency.slice(0,6).forEach(u=>{
+      const cat=getCat(u.b.catId);const color=cat?.color||COLORS[0];
+      let dotColor='var(--red)',sub='';
+      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
+      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
+      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
+      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
+      h+=`<div class="m-urgency-item ov-mobile-only" onclick="openDetail('bucket','${u.b.id}')">
+        <div class="m-urgency-dot" style="background:${dotColor}"></div>
+        <div style="flex:1"><div class="m-urgency-name">${esc(u.b.name)}</div>
+          <div class="m-urgency-sub" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div></div>
+        <span style="color:var(--text3);font-size:18px">›</span>
+      </div>`;
+    });
+  } else if(alloc>0){
+    h+=`<div class="ov-mobile-only" style="padding:16px;text-align:center;color:var(--green);font-size:14px">✓ Everything looks good</div>`;
+  }
+
+  // ── Widgets: Upcoming Bills + Recent Transactions ─────────────────────────
   const billEntries=activeBkts.filter(b=>b.dueDay).map(b=>{
     const d=daysUntilDue(b,m.year,m.month);
     const bm2=computeBucketMetrics(b.id,mid);
@@ -2311,8 +2539,6 @@ function renderOverviewTab(el,mid){
       </div>`;
     });
   }
-
-  // Right: Recent transactions (last 5 posted non-opening txs, across all accounts in this month)
   const recentTxs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening'&&!isScheduled(t))
     .sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
   let recentHtml='';
@@ -2324,7 +2550,7 @@ function renderOverviewTab(el,mid){
       const valCls=isIn?'green':isXfr?'':'red';
       const pfx=isIn?'+':isXfr?'':'-';
       const acctName=getAcct(t.accountId)?.name||'';
-      recentHtml+=`<div class="ov-widget-row">
+      recentHtml+=`<div class="ov-widget-row" onclick="mEditTxSheet('${t.id}')" style="cursor:pointer">
         <div style="flex:1;overflow:hidden">
           <div class="ov-widget-row-name">${esc(t.desc)}</div>
           <div class="ov-widget-row-meta">${esc(acctName)} · ${ld(t.date)}</div>
@@ -2333,16 +2559,31 @@ function renderOverviewTab(el,mid){
       </div>`;
     });
   }
-
   h+=`<div class="ov-widgets">
     <div class="ov-widget">
-      <div class="ov-widget-title">Upcoming Bills (14 days)</div>
-      ${billsHtml}
+      <div class="ov-widget-title">Upcoming Bills (14 days)</div>${billsHtml}
     </div>
     <div class="ov-widget">
-      <div class="ov-widget-title">Recent Transactions</div>
-      ${recentHtml}
+      <div class="ov-widget-title">Recent Transactions</div>${recentHtml}
     </div>
+  </div>`;
+
+  // ── Quick actions (mobile only — desktop uses sidebar nav) ────────────────
+  h+=`<div class="ov-mobile-only">
+    <div class="m-settings-row">
+      <button class="m-settings-btn" onclick="openNetWorth()">◈ Net Worth</button>
+      <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
+      <button class="m-settings-btn" onclick="openMonthReport('${mid}')">📊 Report</button>
+      <button class="m-settings-btn" onclick="openRecurringBills()">⏱ Recurring</button>
+    </div>
+    <div class="m-settings-row">
+      <button class="m-settings-btn" onclick="setTab('settings')">⚙ Settings</button>
+      <button class="m-settings-btn" onclick="exportData()">↓ Export</button>
+      <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">↑ Import</button>
+      <button class="m-settings-btn" style="color:var(--red)" onclick="confirmFreshStart()">↺ Fresh Start</button>
+    </div>
+    <input type="file" id="importFileMobile" accept=".json" style="display:none" onchange="importData(event)" />
+    <div style="height:24px"></div>
   </div>`;
 
   el.innerHTML=h;
@@ -2408,7 +2649,6 @@ function renderLedgerTab(el,mid){
 }
 
 function renderAccountsTab(el,mid){
-  if(S.activeAccount){renderAccountView(el,mid);return;}
   if(!S.accounts.length){
     el.innerHTML=`<div class="empty-wrap">
       <div class="empty-icon">⬡</div>
@@ -2419,11 +2659,12 @@ function renderAccountsTab(el,mid){
   }
   const cash=S.accounts.filter(a=>a.type!=='debt');
   const debt=S.accounts.filter(a=>a.type==='debt');
-  let h=`<div class="month-hdr"><div class="month-title">Accounts</div>
+  let h=`<div class="month-hdr ov-desktop-only"><div class="month-title">Accounts</div>
     <button class="tbtn" style="margin-left:auto" onclick="openModal('acct')">+ Add Account</button>
-  </div>`;
+  </div>
+  <div class="acct-pane-wrap">`;
   if(cash.length){
-    h+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin-bottom:8px">Cash &amp; Savings</div>
+    h+=`<div class="acct-group-hdr">Cash &amp; Savings</div>
     <div class="acct-tab-grid">`;
     cash.forEach(a=>{
       const bal=acctBalance(a.id);
@@ -2436,7 +2677,7 @@ function renderAccountsTab(el,mid){
   }
   if(debt.length){
     const totalDebt=debt.reduce((s,a)=>s+acctBalance(a.id),0);
-    h+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--red);margin:16px 0 8px">Debt · ${$f(totalDebt)}</div>
+    h+=`<div class="acct-group-hdr" style="color:var(--red)">Debt · ${$f(totalDebt)}</div>
     <div class="acct-tab-grid">`;
     debt.forEach(a=>{
       const bal=acctBalance(a.id);
@@ -2447,6 +2688,8 @@ function renderAccountsTab(el,mid){
     });
     h+=`</div>`;
   }
+  h+=`<button class="ov-mobile-only m-settings-btn" style="width:100%;margin-top:16px" onclick="openModal('acct')">+ Add Account</button>`;
+  h+=`</div>`;
   el.innerHTML=h;
 }
 
@@ -2478,7 +2721,7 @@ function renderBucketsTab(el,mid){
   const bMidIdx=S.months.findIndex(mn=>mn.id===mid);
   const bPrevM=bMidIdx>0?S.months[bMidIdx-1]:null;
   const bNextM=bMidIdx>=0&&bMidIdx<S.months.length-1?S.months[bMidIdx+1]:null;
-  let h=`<div class="month-hdr" style="margin-bottom:20px">
+  let h=`<div class="month-hdr ov-desktop-only" style="margin-bottom:20px">
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!bPrevM?'disabled':''} title="${bPrevM?bPrevM.label:'No previous month'}">‹</button>
     <span class="month-title" style="margin:0 10px">${m.label}</span>
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${bNextM?bNextM.label:'Add next month'}">›</button>
@@ -2490,7 +2733,6 @@ function renderBucketsTab(el,mid){
     </div>
   </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
-  if(S.activeBucket){h+=renderBucketDetail(mid,past,m);el.innerHTML=h;return;}
   if(!past&&unalloc>0&&rts>0)
     h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
   else if(!past&&rts<0)
@@ -2504,40 +2746,37 @@ function renderBucketsTab(el,mid){
       <button class="empty-btn" onclick="openModal('bkt')">Add a bucket</button>
     </div>`;el.innerHTML=h;return;
   }
-  // Category sections
+  // Category sections — div-based, works on all breakpoints
   sortedCats().forEach(cat=>{
     const catBuckets=sortedBuckets(cat.id);
     if(!catBuckets.length)return;
     const color=cat.color||COLORS[0];
     const catAlloc=catBuckets.reduce((s,b)=>s+bAlloc(mid,b.id),0);
     const catTarget=catBuckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
-    // Sort by due date urgency within the user's preferred order
     const sorted=[...catBuckets].sort((a,b)=>{
       const da=daysUntilDue(a,m.year,m.month);
       const db=daysUntilDue(b,m.year,m.month);
-      // Overdue/urgent float to top, rest keep user order
       if(da!==null&&da<=0&&(db===null||db>0))return -1;
       if(db!==null&&db<=0&&(da===null||da>0))return 1;
       return (a.order??0)-(b.order??0);
     });
 
-    h+=`<div class="cat-sec">
-      <div class="cat-sec-hdr">
-        <div class="csh-color" style="background:${color}"></div>
-        <span class="csh-name">${esc(cat.name)}</span>
-        <span class="csh-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
+    h+=`<div class="bkt-cat">
+      <div class="bkt-cat-hdr">
+        <div class="bkt-cat-dot" style="background:${color}"></div>
+        <span class="bkt-cat-name">${esc(cat.name)}</span>
+        <span class="bkt-cat-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
         ${!past?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund all</button>`:''}
       </div>
-      <table class="btable">
-      <thead><tr>
-        <th style="width:3px;padding:0"></th>
-        <th>Bucket</th>
-        <th style="width:104px">Allocated</th>
-        <th style="width:56px">Progress</th>
-        <th style="width:74px;text-align:right">Spent</th>
-        <th style="width:74px;text-align:right">Available</th>
-        <th style="width:54px;text-align:right"></th>
-      </tr></thead><tbody>`;
+      <div class="bkt-col-hdr">
+        <div style="width:3px;flex-shrink:0"></div>
+        <span style="flex:1">Bucket</span>
+        <span style="width:108px">Allocated</span>
+        <span style="width:58px">Progress</span>
+        <span style="width:72px;text-align:right">Spent</span>
+        <span style="width:72px;text-align:right">Available</span>
+        <span style="width:58px;text-align:right"></span>
+      </div>`;
 
     sorted.forEach(b=>{
       const alloc=bAlloc(mid,b.id);
@@ -2549,6 +2788,7 @@ function renderBucketsTab(el,mid){
       const pctRaw=eff>0?spent/eff:0;
       const pct=Math.min(pctRaw,1);
       const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
+      const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
       const days=daysUntilDue(b,m.year,m.month);
       let dueHtml='';
       if(days!==null){const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
@@ -2568,14 +2808,15 @@ function renderBucketsTab(el,mid){
       else pillHtml=`<span class="pill pill-partial">Partial</span>`;
 
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
+      const availCls=avail>0?'green':avail<0?'red':'muted';
 
-      h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
-        <td class="td-accent"><div class="accent-bar" style="background:${color}"></div></td>
-        <td class="td-name">
-          <div class="bn">${esc(b.name)}</div>
-          <div class="bt">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>
-        </td>
-        <td class="td-alloc" onclick="event.stopPropagation()">
+      h+=`<div class="bkt-row${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
+        <div class="bkt-accent" style="background:${color}"></div>
+        <div class="bkt-name-col">
+          <div class="bkt-row-label">${esc(b.name)}</div>
+          <div class="bkt-row-sub">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>
+        </div>
+        <div class="bkt-alloc-col" onclick="event.stopPropagation()">
           ${past?`<span class="tv dim">${$f(alloc)}</span>`:`
           <div class="alloc-wrap">
             <span class="alloc-pfx">$</span>
@@ -2586,16 +2827,22 @@ function renderBucketsTab(el,mid){
               onfocus="this.select()" />
             <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
           </div>`}
-        </td>
-        <td class="td-bar">
+        </div>
+        <div class="bkt-bar-col">
           <div class="bbar"><div class="bbar-fill ${eff>0?fillCls:'bf-ok'}" style="width:${eff>0?Math.round(pct*100):0}%"></div></div>
-        </td>
-        <td class="td-spent"><span class="tv ${spent>0?'dim':'muted'}">${spent>0?$f(spent):'—'}</span>${target>0?`<div class="tv-sub">of ${$f(target)}</div>`:''}</td>
-        <td class="td-avail"><span class="tv ${avail>0?'green':avail<0?'red':'muted'}">${eff>0||spent>0?$f(avail):'—'}</span></td>
-        <td class="td-pill">${pillHtml}</td>
-      </tr>`;
+        </div>
+        <div class="bkt-spent-col">${spent>0?$f(spent):'—'}${target>0?`<div class="tv-sub" style="font-size:10px">of ${$f(target)}</div>`:''}</div>
+        <div class="bkt-avail-col"><span class="tv ${availCls}">${eff>0||spent>0?$f(avail):'—'}</span></div>
+        <div class="bkt-pill-col">${pillHtml}</div>
+        <div class="bkt-compact">
+          <div class="bkt-compact-alloc" style="color:${availCls==='green'?'var(--green)':availCls==='red'?'var(--red)':'var(--text)'}">${eff>0||spent>0?$f(avail):'—'}</div>
+          <div>${pillHtml}</div>
+          <div class="bkt-mini-bar" style="width:56px"><div class="bkt-mini-fill" style="width:${eff>0?Math.round(pct*100):0}%;background:${fillColor}"></div></div>
+        </div>
+        <div class="bkt-chevron">›</div>
+      </div>`;
     });
-    h+=`</tbody></table></div>`;
+    h+=`</div>`;
   });
   el.innerHTML=h;
   setTimeout(wireAllocKeys,50);
@@ -2747,53 +2994,6 @@ function bhStartEdit(mid){
   };
   inp.addEventListener('blur',commit);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}if(e.key==='Escape'){inp.blur();}});
-}
-
-function mRenderBudgetHealth(mid){
-  const bh=computeBudgetHealth(mid);
-  if(!bh)return`<div style="padding:10px 14px 0"><div class="bh-wrap" style="margin-bottom:0"><span class="bh-label">Projected Income</span><span class="bh-set-prompt" onclick="mBhStartEdit('${mid}')">Set projected income →</span></div></div>`;
-  const {pi,surplus,pct,barColor,surplusColor}=bh;
-  return `<div style="padding:10px 14px 0">
-    <div class="bh-wrap" style="margin-bottom:0">
-      <span class="bh-label">Proj. Income</span>
-      <div class="bh-income-wrap">
-        <span class="bh-income-val" id="mbhVal_${mid}" onclick="mBhStartEdit('${mid}')">${$f(pi)}</span>
-      </div>
-      <div class="bh-stat" style="margin-left:8px">
-        <span class="bh-label">Surplus</span>
-        <span class="bh-stat-val" style="color:${surplusColor};font-size:13px">${surplus>=0?'+':''}${$f(surplus)}</span>
-      </div>
-      <div class="bh-bar-wrap">
-        <div class="bh-bar-track"><div class="bh-bar-fill" style="width:${Math.round(pct*100)}%;background:${barColor}"></div></div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function mBhStartEdit(mid){
-  const pi=monthProjectedIncome(mid);
-  const inp=document.createElement('input');
-  inp.className='bh-income-inp';
-  inp.type='text';
-  inp.inputMode='decimal';
-  inp.value=pi||'';
-  inp.placeholder='Income...';
-  inp.title='Math: +50, -20, *1.05, 5%, =100+50';
-  const valEl=document.getElementById(`mbhVal_${mid}`);
-  const promptEl=document.querySelector('#mDashScroll .bh-set-prompt');
-  const target=valEl||promptEl;
-  if(!target)return;
-  target.replaceWith(inp);
-  inp.focus();inp.select();
-  const commit=()=>{
-    const current=monthProjectedIncome(mid)||0;
-    const prevMid=getPrevMonthId(mid);
-    const ref=prevMid?(monthProjectedIncome(prevMid)||0):null;
-    const v=evalMoneyExpr(inp.value,current,ref);
-    setProjectedIncome(mid,v);
-  };
-  inp.addEventListener('blur',commit);
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}});
 }
 
 function renderAccountView(el,mid){
@@ -3135,9 +3335,15 @@ function fundCategory(catId,mid){
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
 function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
-function setBucket(id){S.activeBucket=id||null;S.activeAccount=null;if(!isMobile()&&id)desktopTab='buckets';save();renderSidebar();renderMain();}
-function setActiveAccount(id){S.activeAccount=id;S.activeBucket=null;if(!isMobile())desktopTab='accounts';save();renderSidebar();renderMain();}
-function clearActive(){S.activeBucket=null;S.activeAccount=null;save();renderSidebar();renderMain();}
+function setBucket(id){
+  if(id){openDetail('bucket',id);}
+  else{closeDetail();S.activeBucket=null;save();}
+}
+function setActiveAccount(id){
+  if(id){openDetail('account',id);}
+  else{closeDetail();S.activeAccount=null;save();}
+}
+function clearActive(){closeDetail();S.activeBucket=null;S.activeAccount=null;save();}
 function setFilter(f){
   S.txFilter=f;
   ['All','In','Out','Xfr'].forEach(x=>{const el=document.getElementById('f'+x);if(el)el.className='rfbtn'+(f===x.toLowerCase()?' active':'');});
@@ -3423,7 +3629,7 @@ function saveTxEditModal(id,type){
   tx.accountId=document.getElementById('etAcct')?.value||tx.accountId;
   if(type==='out')tx.bucketId=document.getElementById('etBkt')?.value||null;
   if(type==='xfr')tx.toAccountId=document.getElementById('etXfrTo')?.value||null;
-  save();closeModal();render();if(isMobile())mRenderAll();
+  save();closeModal();render();
   showToast('Updated: '+tx.desc,'save');
 }
 function delTx(id){
@@ -3665,7 +3871,7 @@ function _wiMobileHTML(){
       h+=`<div class="wi-bkt-row" style="padding:6px 16px;border-bottom:1px solid var(--border);${isActive?'':'opacity:.45'}">
         <span class="wi-bkt-label">${esc(b.name)}${diffHtml}</span>
         <input class="wi-s-inp" type="number" value="${val||''}" placeholder="0"
-          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');mRenderDash();" />
+          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');renderActivePane();" />
       </div>
       <div style="display:flex;gap:5px;align-items:center;padding:3px 16px 5px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap">
         <span style="font-size:10px;color:var(--text3)">On from:</span>
@@ -3793,7 +3999,7 @@ function savePaycheckSettings(){
   save();
   const btn=document.querySelector('[onclick="savePaycheckSettings()"]');
   if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';btn.disabled=true;setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1500);}
-  render();if(isMobile())mRenderAll();
+  render();
 }
 
 // ── Paycheck Projector ────────────────────────────────────────────────────────
@@ -4985,13 +5191,9 @@ function applyAllocationRules(monthId){
   });
   const count=_pendingRules.filter(r=>r.on).length;
   save();closeModal();
-  if(isMobile()){
-    mRenderAll();
-    mShowToast('alloc',`${count} allocation rule${count!==1?'s':''} applied`,'');
-  }else{
-    render();
-    showToast(`Applied ${count} allocation rule${count!==1?'s':''}`, 'save');
-  }
+  render();
+  showToast(`Applied ${count} allocation rule${count!==1?'s':''}`, 'save');
+  mShowToast('alloc',`${count} allocation rule${count!==1?'s':''} applied`,'');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5142,7 +5344,7 @@ function saveRecurringBill(){
   }
   const modal=document.getElementById('modalBox');
   if(modal)modal.innerHTML=recurringBillsHtml();
-  render();if(isMobile())mRenderAll();
+  render();
 }
 // keep old name as alias for any inline onclick references
 function addRecurringBill(){saveRecurringBill();}
@@ -5150,7 +5352,7 @@ function addRecurringBill(){saveRecurringBill();}
 function deleteRecurringBill(id){
   S.recurringBills=(S.recurringBills||[]).filter(r=>r.id!==id);
   S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));
-  save();render();if(isMobile())mRenderAll();
+  save();render();
   const modal=document.getElementById('modalBox');
   if(modal&&!document.getElementById('overlay').classList.contains('hidden'))
     modal.innerHTML=recurringBillsHtml();
@@ -5162,7 +5364,7 @@ function toggleRecurringBill(id,active){
   r.active=active;
   if(!active){S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));}
   else refreshRecurringBill(id);
-  save();render();if(isMobile())mRenderAll();
+  save();render();
 }
 
 // FRESH START
@@ -5902,7 +6104,7 @@ function importData(event){
       if(!S.allocationRules)S.allocationRules=[];
       save();ensureMonth();
       if(!S.activeMonth)S.activeMonth=currentMonthId();
-      if(isMobile()){mRenderAll();}else{render();populateTxCats();updateTxFormForType();wireFormKeys();}
+      render();populateTxCats();updateTxFormForType();wireFormKeys();
       event.target.value='';
       alert('Backup imported successfully!');
     }catch(err){
@@ -6117,27 +6319,21 @@ if(!S.activeMonth)S.activeMonth=currentMonthId();
 let _layoutIsMobile=isMobile();
 let _resizeTimer=null;
 
-function initDesktop(){
+function init(){
   if(!_appInitialized)return;
   document.getElementById('authScreen')?.classList.add('hidden');
-  const shell=document.getElementById('mShell');
-  if(shell)shell.style.display='none';
   render();
   populateTxCats();
   updateTxFormForType();
   const txDate=document.getElementById('txDate');
   if(txDate)txDate.value=new Date().toISOString().split('T')[0];
   wireFormKeys();
-}
-
-function initMobile(){
-  if(!_appInitialized)return;
-  const shell=document.getElementById('mShell');
-  if(!shell)return;
-  document.getElementById('authScreen')?.classList.add('hidden');
-  shell.style.cssText='display:flex;flex-direction:column;height:100vh;height:100dvh;';
   mInit();
 }
+
+// Shims for any remaining call sites
+function initDesktop(){init();}
+function initMobile(){init();}
 
 // Defer init until DOM is fully ready
 document.addEventListener('DOMContentLoaded',()=>{
@@ -6151,16 +6347,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   localStorage.setItem('bcc_app_version',APP_VERSION);
 
-  // Resize handler — only re-init if app is already initialized (auth complete)
+  // Resize handler — just re-render nav (layout is CSS-driven now)
   window.addEventListener('resize',()=>{
     clearTimeout(_resizeTimer);
     _resizeTimer=setTimeout(()=>{
-      if(!_appInitialized)return; // Never re-init before auth completes
-      const nowMobile=isMobile();
-      if(nowMobile===_layoutIsMobile)return;
-      _layoutIsMobile=nowMobile;
-      if(nowMobile){initMobile();}
-      else{initDesktop();}
+      if(!_appInitialized)return;
+      renderNav();
     },150);
   });
 
@@ -6170,14 +6362,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       console.error('authInit failed, falling back to offline mode:',err);
       _appInitialized=true;
       setSyncStatus('error','Auth error — running offline');
-      if(isMobile()){initMobile();}else{initDesktop();}
+      init();
       if(!S.accounts.length){startWizard();}
     });
   } else {
     // No Supabase config — run locally without auth gate
     _appInitialized=true;
-    if(isMobile()){initMobile();}
-    else{initDesktop();}
+    init();
     if(!S.accounts.length){startWizard();}
   }
 });
@@ -6186,10 +6377,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 // MOBILE SYSTEM
 // ═══════════════════════════════════════════════════════
 // Mobile state
-let desktopTab='overview'; // current desktop nav tab: overview|ledger|accounts|buckets|settings|export
-let mTab='dash';           // current bottom nav tab
-let mSubview=null;         // {type:'bucket'|'account', id}
-let mLedgerFilter='all';
 let mBulkMode=false;
 let mBulkRows=[];          // [{desc,amt,type,acctId,catId,bktId,toAcctId,date}]
 let mStickyLog={           // persist between submissions
@@ -6199,356 +6386,28 @@ let mStickyLog={           // persist between submissions
 // ── Init mobile ──────────────────────────────────────────────────────────────
 let _mInitialized=false;
 function mInit(){
-  if(!isMobile())return;
-  // Reset to dashboard when reinitializing (e.g. resize from desktop)
-  mTab='dash';
-  mSubview=null;
-  mRenderAll();
-  // Wire Android back button once only
+  // Wire back button once only
   if(!_mInitialized){
     window.addEventListener('popstate',()=>{
-      if(!isMobile())return;
-      if(mSubview){mCloseSubview();}
-      else if(mTab!=='dash'){mGoTab('dash');}
+      const panel=document.getElementById('detailPanel');
+      if(panel?.classList.contains('active')){closeDetail();}
+      else if(activeTab!=='overview'){setTab('overview');}
     });
     _mInitialized=true;
   }
   history.pushState({},'','');
 }
 
-function mRenderAll(){
-  if(!isMobile())return;
-  mRenderTopbar();
-  mPopulateMonthSel();
-  if(mTab==='dash')mRenderDash();
-  else if(mTab==='buckets')mRenderBuckets();
-  else if(mTab==='log'){mRenderLog();setTimeout(wireMobilePayee,0);}
-  else if(mTab==='ledger')mRenderLedger();
-  if(mSubview)mRenderSubview();
-}
-
-// ── Topbar ───────────────────────────────────────────────────────────────────
-function mRenderTopbar(){
-  const mid=S.activeMonth;
-  const rts=mid?readyToSpend(mid):0;
-  const chip=document.getElementById('mRtsChip');
-  if(!chip)return;
-  chip.textContent=$f(Math.abs(rts))+(rts<0?' over':'');
-  chip.className=rts>0?'pos':rts<0?'neg':'zero';
-  updateAuthBtn();
-}
-
-// ── Month selector ───────────────────────────────────────────────────────────
-function mPopulateMonthSel(){
-  const sel=document.getElementById('mMonthSel');
-  if(!sel)return;
-  sel.innerHTML='';
-  S.months.forEach(m=>{
-    const opt=document.createElement('option');
-    opt.value=m.id;
-    opt.textContent=m.label+(monthStatus(m.id)==='present'?' ●':'');
-    opt.selected=m.id===S.activeMonth;
-    sel.appendChild(opt);
-  });
-}
-
-function mSetMonthFromSel(id){
-  S.activeMonth=id;S.activeBucket=null;save();
-  mRenderDash();mRenderTopbar();
-  if(mTab==='buckets')mRenderBuckets();
-}
-
-function mPrevMonth(){
-  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
-  if(idx>0){S.activeMonth=S.months[idx-1].id;S.activeBucket=null;save();mPopulateMonthSel();mRenderDash();mRenderTopbar();}
-}
-function mNextMonth(){
-  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
-  if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();mPopulateMonthSel();mRenderDash();mRenderTopbar();}
-  else{addNextMonth();mPopulateMonthSel();}
-}
-
-// ── Tab navigation ───────────────────────────────────────────────────────────
-function mGoTab(tab){
-  // Animate out current
-  const cur=document.getElementById('ms'+capitalize(mTab));
-  cur?.classList.add('slide-left');
-  setTimeout(()=>cur?.classList.remove('slide-left'),300);
-
-  mTab=tab;
-  // Update nav buttons
-  ['dash','buckets','log','ledger'].forEach(t=>{
-    const btn=document.getElementById('mn'+capitalize(t));
-    btn?.classList.toggle('active',t===tab);
-  });
-  // Activate screen
-  document.querySelectorAll('.mScreen').forEach(s=>s.classList.remove('active'));
-  const next=document.getElementById('ms'+capitalize(tab));
-  next?.classList.add('active');
-
-  // Render content
-  if(tab==='dash')mRenderDash();
-  else if(tab==='buckets')mRenderBuckets();
-  else if(tab==='log')mRenderLog();
-  else if(tab==='ledger')mRenderLedger();
-}
-
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
-
-// ── Dashboard ────────────────────────────────────────────────────────────────
-function mRenderDash(){
-  const el=document.getElementById('mDashScroll');
-  if(!el)return;
-  const mid=S.activeMonth;
-  if(!mid){el.innerHTML='<div style="padding:40px 16px;text-align:center;color:var(--text3)">No month selected</div>';return;}
-
-  const {rts,alloc,income,totalSpent:spent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
-
-  let h='';
-
-  // Account chips — split cash vs debt
-  const cashAccts=S.accounts.filter(a=>a.type!=='debt');
-  const debtAccts=S.accounts.filter(a=>a.type==='debt');
-  h+=`<div class="m-accounts-hdr">
-    <span class="m-section-label" style="margin:0">Accounts</span>
-    <button class="m-cat-add-btn" onclick="openModal('acct')">+ Account</button>
-  </div>`;
-  if(cashAccts.length){
-    h+=`<div class="m-acct-group-label">Cash & Savings</div>`;
-    h+=`<div class="m-accounts">`;
-    cashAccts.forEach(a=>{
-      const bal=acctBalance(a.id);
-      const color=a.color||COLORS[0];
-      h+=`<div class="m-acct-chip" onclick="mOpenAcct('${a.id}')">
-        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">${a.type}</span></div>
-        <div class="m-acct-chip-bal" style="color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</div>
-      </div>`;
-    });
-    h+=`</div>`;
-  }
-  if(debtAccts.length){
-    const totalDebt=debtAccts.reduce((s,a)=>s+acctBalance(a.id),0);
-    h+=`<div class="m-acct-group-label" style="color:var(--red)">Debt · ${$f(totalDebt)} total</div>`;
-    h+=`<div class="m-accounts">`;
-    debtAccts.forEach(a=>{
-      const bal=acctBalance(a.id);
-      const color=a.color||COLORS[0];
-      h+=`<div class="m-acct-chip debt" onclick="mOpenAcct('${a.id}')">
-        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">💳</span></div>
-        <div class="m-acct-chip-bal" style="color:var(--red)">${$f(bal)}</div>
-        ${a.debtAPR?`<div class="m-acct-chip-apr">${a.debtAPR}% APR</div>`:''}
-      </div>`;
-    });
-    h+=`</div>`;
-  }
-  if(!S.accounts.length)h+=`<div style="padding:10px 16px;color:var(--text3);font-size:13px;">No accounts yet</div>`;
-
-  // Budget health bar
-  h+=mRenderBudgetHealth(mid);
-
-  // Pool numbers — all from computePoolStats called above
-  h+=`<div class="m-pool-grid">
-    <div class="m-pool-cell hero">
-      <div class="m-pool-label">Ready to Spend</div>
-      <div class="m-pool-val lg ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div>
-      <div class="m-pool-sub">${rts>0?'ready to allocate':rts<0?'⚠ budget short':'balanced ✓'}</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Income</div>
-      <div class="m-pool-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div>
-      <div class="m-pool-sub">this month</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Spent</div>
-      <div class="m-pool-val dim">${spent>0?$f(spent):'—'}</div>
-      <div class="m-pool-sub">from buckets</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Allocated</div>
-      <div class="m-pool-val dim">${alloc>0?$f(alloc):'—'}</div>
-      <div class="m-pool-sub">to buckets</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Net Worth</div>
-      <div class="m-pool-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
-      <div class="m-pool-sub">all accounts</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Age of Money</div>
-      <div class="m-pool-val ${aom===null?'dim':aom>=30?'green':aom>=10?'amber':'red'}">${aom!==null?aom+'d':'—'}</div>
-      <div class="m-pool-sub">${aom===null?'need spend data':aom>=30?'well ahead':aom>=10?'getting close':'paycheck-to-paycheck'}</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Bucket Health</div>
-      <div class="m-pool-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
-      <div class="m-pool-sub">${fundedCnt} funded · ${unfundedCnt} unfunded</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Budget Cash</div>
-      <div class="m-pool-val dim">${$f(budgetBal)}</div>
-      <div class="m-pool-sub">spending pool</div>
-    </div>
-  </div>`;
-
-  // Urgency items
-  const urgency=[];
-  const m=getMonth(mid);
-  if(m){
-    S.buckets.filter(b=>!b.archived).forEach(b=>{
-      const days=daysUntilDue(b,m.year,m.month);
-      const alloc=bAlloc(mid,b.id);
-      const spent=bSpent(mid,b.id);
-      const avail=alloc+rolloverBal(b.id,mid)-spent;
-      if(avail<0)urgency.push({type:'over',b,avail,days,priority:0});
-      else if(days!==null&&days<=0&&alloc===0)urgency.push({type:'overdue',b,avail,days,priority:1});
-      else if(days!==null&&days<=3&&alloc===0)urgency.push({type:'due-soon',b,avail,days,priority:2});
-      else if(alloc===0&&bBudget(mid,b.id)>0)urgency.push({type:'unfunded',b,avail,days,priority:3});
-    });
-    urgency.sort((a,b)=>a.priority-b.priority||((a.days??999)-(b.days??999)));
-  }
-
-  if(urgency.length){
-    h+=`<div class="m-section-label">Needs Attention</div>`;
-    urgency.slice(0,8).forEach(u=>{
-      const cat=getCat(u.b.catId);
-      const color=cat?.color||COLORS[0];
-      let dotColor='var(--red)',sub='';
-      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
-      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
-      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
-      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
-      h+=`<div class="m-urgency-item" onclick="mOpenBucket('${u.b.id}')">
-        <div class="m-urgency-dot" style="background:${dotColor}"></div>
-        <div style="flex:1">
-          <div class="m-urgency-name">${esc(u.b.name)}</div>
-          <div class="m-urgency-sub" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div>
-        </div>
-        <span style="color:var(--text3);font-size:18px">›</span>
-      </div>`;
-    });
-  } else if(alloc>0){
-    h+=`<div style="padding:20px 16px;text-align:center;color:var(--green);font-size:14px">✓ Everything looks good</div>`;
-  }
-
-  // Recent transactions preview
-  const recent=S.txs.filter(t=>t.monthId===mid).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
-  if(recent.length){
-    h+=`<div class="m-section-label">Recent</div>`;
-    recent.forEach(tx=>h+=mTxRowHtml(tx));
-  }
-
-  // Quick actions row
-  h+=`<div class="m-settings-row">
-    <button class="m-settings-btn" onclick="openNetWorth()">◈ Net Worth</button>
-    <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
-    <button class="m-settings-btn" onclick="openMonthReport('${mid}')">📊 Report</button>
-    <button class="m-settings-btn" onclick="openRecurringBills()">⏱ Recurring</button>
-  </div>`;
-  // Settings row
-  h+=`<div class="m-settings-row">
-    <button class="m-settings-btn" onclick="openSettings()">&#x2699; Settings</button>
-    <button class="m-settings-btn" onclick="exportData()">&#x2193; Export</button>
-    <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">&#x2191; Import</button>
-    <button class="m-settings-btn" style="color:var(--red)" onclick="confirmFreshStart()">&#x21BA; Fresh Start</button>
-  </div>
-  <input type="file" id="importFileMobile" accept=".json" style="display:none" onchange="importData(event)" />`;
-
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
-}
-
-// ── Buckets ───────────────────────────────────────────────────────────────────
-function mRenderBuckets(){
-  const el=document.getElementById('mBucketsScroll');
-  if(!el)return;
-  const mid=S.activeMonth;
-
-  if(!S.cats.length){
-    el.innerHTML=`<div style="padding:40px 16px;text-align:center">
-      <div style="font-size:18px;font-weight:600;margin-bottom:8px">No categories yet</div>
-      <div style="color:var(--text3);font-size:14px;margin-bottom:20px">Create a category to get started</div>
-      <button class="m-submit" style="width:auto;padding:12px 24px" onclick="openModal('cat')">+ Create Category</button>
-    </div>`;return;
-  }
-
-  let h='';
-  sortedCats().forEach(cat=>{
-    const catBuckets=sortedBuckets(cat.id);
-    const color=cat.color||COLORS[0];
-    const catAlloc=catBuckets.reduce((s,b)=>s+bAlloc(mid,b.id),0);
-    const catTarget=catBuckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
-
-    h+=`<div class="m-cat-sec">
-      <div class="m-cat-hdr">
-        <div class="m-cat-color" style="background:${color}"></div>
-        <span class="m-cat-name">${esc(cat.name)}</span>
-        <span class="m-cat-totals">${$f(catAlloc)} / ${$f(catTarget)}</span>
-        <button class="m-cat-add-btn" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>
-      </div>`;
-
-    if(!catBuckets.length){
-      h+=`<div style="padding:12px 16px;color:var(--text3);font-size:13px;font-style:italic">No buckets yet — tap + Bucket to add one</div>`;
-    }
-
-    const m=getMonth(mid);
-    const sorted=[...catBuckets].sort((a,b)=>{
-      const da=daysUntilDue(a,m?.year,m?.month);
-      const db=daysUntilDue(b,m?.year,m?.month);
-      if(da!==null&&da<=0&&(db===null||db>0))return -1;
-      if(db!==null&&db<=0&&(da===null||da>0))return 1;
-      return (a.order??0)-(b.order??0);
-    });
-
-    sorted.forEach(b=>{
-      const alloc=bAlloc(mid,b.id);
-      const target=bBudget(mid,b.id);
-      const roll=rolloverBal(b.id,mid);
-      const eff=alloc+roll;
-      const spent=bSpent(mid,b.id);
-      const avail=eff-spent;
-      const pctRaw=eff>0?spent/eff:0;
-      const pct=Math.min(pctRaw,1);
-      const days=daysUntilDue(b,m?.year,m?.month);
-      const pend=bucketPendingAmt(b.id,mid);
-      let pillCls='pill-empty',pillTxt='Unfunded';
-      if(avail<0){pillCls='pill-over';pillTxt='Over';}
-      else if(spent>=eff&&eff>0){pillCls='pill-done';pillTxt='Done';}
-      else if(alloc>=target&&target>0){pillCls='pill-funded';pillTxt='Funded';}
-      else if(alloc>0){pillCls='pill-partial';pillTxt=Math.round(pctRaw*100)+'%';}
-      else if(pend>0){pillCls='pill-pending';pillTxt='⏱ '+$f(pend);}
-      let dueStr='';
-      if(days!==null){dueStr=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':days<=7?`due ${days}d`:'';}
-      const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
-
-      h+=`<div class="m-bucket-item" onclick="mOpenBucket('${b.id}')">
-        <div style="width:4px;border-radius:2px;align-self:stretch;min-height:40px;background:${color};flex-shrink:0"></div>
-        <div class="m-bkt-left">
-          <div class="m-bkt-name">${esc(b.name)}</div>
-          <div class="m-bkt-sub">
-            ${dueStr?`<span style="color:${days<=0?'var(--red)':days<=3?'var(--amber)':'var(--text3)'}">${dueStr}</span><span>·</span>`:''}
-            <span>${$f(spent)} spent</span>
-          </div>
-          <div class="m-bkt-bar"><div class="m-bkt-bar-fill" style="width:${Math.round(pct*100)}%;background:${fillColor}"></div></div>
-        </div>
-        <div class="m-bkt-right">
-          <div class="m-bkt-alloc" style="color:${alloc>=target&&target>0?'var(--green)':alloc>0?'var(--text)':'var(--text3)'}">${alloc>0?$f(alloc):'—'}</div>
-          <div class="m-bkt-pill ${pillCls}">${pillTxt}</div>
-        </div>
-        <div class="m-chevron">›</div>
-      </div>`;
-    });
-    h+=`</div>`;
-  });
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
-}
 
 // ── Log ───────────────────────────────────────────────────────────────────────
 function mRenderLog(){
-  const el=document.getElementById('mLogScroll');
+  const el=document.getElementById('logScroll');
   if(!el)return;
-  document.getElementById('mBulkToggle').textContent=mBulkMode?'Single':'Bulk';
-  document.getElementById('mLogTitle').textContent=mBulkMode?'Bulk Entry':'Log Transaction';
+  const bulkBtn=document.getElementById('bulkToggle');
+  const titleEl=document.getElementById('logTitle');
+  if(bulkBtn)bulkBtn.textContent=mBulkMode?'Single':'Bulk';
+  if(titleEl)titleEl.textContent=mBulkMode?'Bulk Entry':'Log Transaction';
 
   if(mBulkMode){mRenderBulkLog(el);return;}
 
@@ -6625,7 +6484,7 @@ function wireMobilePayee(){
     }
   });
 }
-function mToggleBulk(){mBulkMode=!mBulkMode;if(mBulkMode&&!mBulkRows.length)mAddBulkRow();mRenderLog();}
+function mToggleBulk(){toggleBulk();}
 
 function mRenderBulkLog(el){
   if(!mBulkRows.length)mAddBulkRow();
@@ -6694,7 +6553,7 @@ function mSaveAllBulk(){
   });
   if(!saved){alert('Please fill in at least one complete row.');return;}
   save();mBulkRows=[];mBulkMode=false;
-  mRenderAll();mShowToast('check','Saved '+saved+' transaction'+(saved!==1?'s':''),'');
+  render();mShowToast('check','Saved '+saved+' transaction'+(saved!==1?'s':''),'');
 }
 
 // ── Add single tx from mobile ─────────────────────────────────────────────────
@@ -6737,10 +6596,9 @@ function mAddTx(){
 
   // Re-render log (sticky fields preserved, desc+amt cleared)
   mRenderLog();
-  // Update other screens
-  mRenderTopbar();
-  if(mTab==='dash')mRenderDash();
-  else if(mTab==='ledger')mRenderLedger();
+  // Update topbar and active pane
+  renderTopbar();
+  renderActivePane();
   // Refocus description for quick next entry
   setTimeout(()=>document.getElementById('mLogDesc')?.focus(),100);
 }
@@ -6751,53 +6609,6 @@ function mShakeInput(id){
   el.style.borderColor='var(--red)';
   el.focus();
   setTimeout(()=>el.style.borderColor='',1500);
-}
-
-// ── Ledger ────────────────────────────────────────────────────────────────────
-function mSetLedgerFilter(f,btn){
-  mLedgerFilter=f;
-  document.querySelectorAll('#mLedgerFilters .m-chip-btn').forEach(b=>b.classList.remove('active'));
-  btn?.classList.add('active');
-  mRenderLedger();
-}
-
-function mRenderLedger(){
-  const el=document.getElementById('mLedgerScroll');
-  if(!el)return;
-  const mid=S.activeMonth;
-  let txs=S.txs.filter(t=>t.monthId===mid);
-
-  if(mLedgerFilter==='in')txs=txs.filter(t=>t.type==='in');
-  else if(mLedgerFilter==='out')txs=txs.filter(t=>t.type==='out');
-  else if(mLedgerFilter==='xfr')txs=txs.filter(t=>t.type==='xfr');
-
-  const search=(document.getElementById('mLedgerSearch')?.value||'').toLowerCase();
-  if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
-
-  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
-
-  if(!txs.length){
-    el.innerHTML=`<div style="padding:40px 16px;text-align:center;color:var(--text3)">No transactions${search?' matching "'+esc(search)+'"':''}.</div>`;
-    return;
-  }
-
-  const today=todayStr();
-  const scheduled=txs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const posted=txs.filter(t=>t.date<=today);
-  const groups={};
-  posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
-
-  let h='';
-  if(scheduled.length){
-    h+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
-    scheduled.forEach(tx=>h+=mTxRowHtml(tx,true));
-  }
-  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
-    h+=`<div class="m-tx-date-hdr">${ld(date)}</div>`;
-    groups[date].forEach(tx=>h+=mTxRowHtml(tx,true));
-  });
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
 }
 
 function mTxRowHtml(tx,tappable,runBal=null){
@@ -6824,175 +6635,6 @@ function mTxRowHtml(tx,tappable,runBal=null){
       ${balLine}
     </div>
   </div>`;
-}
-
-// ── Subviews ─────────────────────────────────────────────────────────────────
-function mOpenBucket(id){
-  mSubview={type:'bucket',id};
-  history.pushState({},'','');
-  document.getElementById('mSubBucket').classList.add('active');
-  mRenderSubview();
-}
-
-function mOpenAcct(id){
-  mSubview={type:'account',id};
-  history.pushState({},'','');
-  document.getElementById('mSubAccount').classList.add('active');
-  mRenderSubview();
-}
-
-function mCloseSubview(){
-  if(!mSubview)return;
-  const el=mSubview.type==='bucket'?document.getElementById('mSubBucket'):document.getElementById('mSubAccount');
-  el?.classList.remove('active');
-  mSubview=null;
-}
-
-function mEditActiveBucket(){if(mSubview?.type==='bucket')editBucket(mSubview.id);}
-function mEditActiveAcct(){if(mSubview?.type==='account')editAcct(mSubview.id);}
-
-function mRenderSubview(){
-  if(!mSubview)return;
-  if(mSubview.type==='bucket')mRenderBucketDetail(mSubview.id);
-  else if(mSubview.type==='account')mRenderAcctDetail(mSubview.id);
-}
-
-function mRenderBucketDetail(bid){
-  const el=document.getElementById('mSubBucketScroll');
-  const title=document.getElementById('mSubBucketTitle');
-  if(!el||!title)return;
-  const mid=S.activeMonth;
-  const bm=computeBucketMetrics(bid,mid);if(!bm)return;
-  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillColor,isSink,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData}=bm;
-  const past=monthStatus(mid)==='past';
-  title.textContent=b.name;
-  let h=`<div class="m-det-hero" style="border-left:4px solid ${color}">
-    <div class="m-det-name">${esc(b.name)}</div>
-    <div class="m-det-meta">
-      <span style="color:${color}">${esc(cat?.name||'')}</span>
-      ${days!==null?`<span>·</span><span style="color:${due1Paid?'var(--green)':days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">${due1Paid?'✓ paid':`1st: ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}${b.dueAmount?' ('+$f(b.dueAmount)+')':''}`}</span>`:''}
-      ${days2!==null?`<span>·</span><span style="color:${due2Paid?'var(--green)':days2<=0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">${due2Paid?'✓ paid (2nd)':`2nd: ${days2<0?Math.abs(days2)+'d ago':days2===0?'today':'in '+days2+'d'}${b.dueAmount2?' ('+$f(b.dueAmount2)+')':''}`}</span>`:''}
-      ${b.rollover?'<span>·</span><span>Rolls over</span>':''}
-    </div>
-    ${b.notes?`<div class="m-bkt-notes">${esc(b.notes)}</div>`:''}
-  </div>
-  <div class="m-det-nums">
-    <div class="m-det-num-cell"><div class="m-det-num-label">Allocated</div><div class="m-det-num-val" style="color:${alloc>=target&&target>0?'var(--green)':'var(--text)'}">${$f(alloc)}</div></div>
-    <div class="m-det-num-cell"><div class="m-det-num-label">Spent</div><div class="m-det-num-val" style="color:var(--text2)">${$f(spent)}</div></div>
-    <div class="m-det-num-cell"><div class="m-det-num-label">Available</div><div class="m-det-num-val" style="color:${avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)'}">${$f(avail)}</div></div>
-  </div>
-  <div class="m-prog-wrap">
-    <div class="m-prog-track"><div class="m-prog-fill" style="width:${Math.round(pct*100)}%;background:${fillColor}"></div></div>
-    <div class="m-prog-note"><span>${barNote}</span><span>${remainNote}</span></div>
-  </div>`;
-
-  if(isSink&&sinkData){
-    const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
-    h+=`<div class="m-sink-grid">
-      <div class="m-sink-cell"><div class="m-sink-label">Saved</div><div class="m-sink-val" style="color:var(--green)">${$f(saved)}</div></div>
-      <div class="m-sink-cell"><div class="m-sink-label">Goal</div><div class="m-sink-val">${$f(tgt)}</div></div>
-      <div class="m-sink-cell"><div class="m-sink-label">Months Left</div><div class="m-sink-val">${mLeft||'—'}</div></div>
-      <div class="m-sink-cell"><div class="m-sink-label">Per Contrib</div><div class="m-sink-val" style="color:var(--accent)">${$f(contrib)}</div></div>
-    </div>`;
-  }
-
-  if(!past){
-    h+=`<div class="m-alloc-block">
-      <div class="m-alloc-block-label">Allocate this month <span style="color:var(--text3);font-size:11px">target: ${$f(target)}</span></div>
-      <div class="m-alloc-inp-row">
-        <input class="m-alloc-big" id="mAllocInp" type="text" inputmode="decimal" value="${alloc||''}" placeholder="0.00 or +50 or 5%"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();mSetAlloc('${bid}');}" />
-        <button class="m-alloc-set-btn" onclick="mSetAlloc('${bid}')">Set</button>
-      </div>
-      ${target>0&&alloc<target?`<button style="margin-top:10px;width:100%;padding:11px;background:var(--gbg);color:var(--green);border:1px solid var(--gb);border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer"
-        onclick="mFundBucket('${bid}')">Fund at target (${$f(target)})</button>`:''}
-    </div>`;
-  }
-
-  // Spending trend chart (mobile)
-  const mTrendMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-6);
-  if(mTrendMonths.length>=2){
-    const mTrendData=mTrendMonths.map(mo=>({label:mo.label.slice(0,3),spent:bSpent(mo.id,bid),budget:bBudget(mo.id,bid)}));
-    const mMaxVal=Math.max(...mTrendData.map(d=>Math.max(d.spent,d.budget)),1);
-    let mbars='';
-    mTrendData.forEach(d=>{
-      const bh=Math.round((d.spent/mMaxVal)*100);
-      const bbh=Math.round((d.budget/mMaxVal)*100);
-      const mcls=d.spent===0?'empty':d.spent>d.budget&&d.budget>0?'over':d.spent>d.budget*0.8?'warn':'ok';
-      mbars+=`<div class="trend-bar-wrap"><div class="trend-bar-outer"><div class="trend-bar ${mcls}" style="height:${bh}%"></div>${d.budget>0?`<div class="trend-budget-line" style="bottom:${bbh}%"></div>`:''}</div><div class="trend-label">${d.label}</div></div>`;
-    });
-    h+=`<div style="padding:0 16px 8px"><div class="trend-title" style="padding-top:12px">Spending History</div><div class="trend-chart">${mbars}</div></div>`;
-  }
-  // Bucket transactions
-  const txs=S.txs.filter(t=>t.monthId===mid&&t.bucketId===bid).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(txs.length){
-    h+=`<div class="m-section-label">Transactions</div>`;
-    txs.forEach(tx=>h+=mTxRowHtml(tx,!past));
-  }
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
-  // Focus allocation input
-  setTimeout(()=>{
-    if(!past)document.getElementById('mAllocInp')?.focus();
-  },200);
-}
-
-function mSetAlloc(bid){
-  const inp=document.getElementById('mAllocInp');
-  const cur=bAlloc(S.activeMonth,bid);
-  const ref=monthProjectedIncome(S.activeMonth);
-  const val=evalMoneyExpr(inp?.value||'',cur,ref);
-  if(inp)inp.value=val;
-  const m=getMonth(S.activeMonth);if(!m)return;
-  if(!m.allocations)m.allocations={};
-  m.allocations[bid]=val;
-  save();mRenderTopbar();mRenderSubview();
-  mShowToast('alloc',getBucket(bid)?.name+' allocated',$f(val));
-}
-
-function mFundBucket(bid){
-  const target=bBudget(S.activeMonth,bid);
-  const m=getMonth(S.activeMonth);if(!m)return;
-  if(!m.allocations)m.allocations={};
-  m.allocations[bid]=target;
-  save();mRenderTopbar();mRenderSubview();
-  mShowToast('alloc',getBucket(bid)?.name+' funded',$f(target));
-}
-
-function mRenderAcctDetail(aid){
-  const a=getAcct(aid);if(!a)return;
-  const el=document.getElementById('mSubAcctScroll');
-  const title=document.getElementById('mSubAcctTitle');
-  if(!el||!title)return;
-  title.textContent=a.name;
-  const bal=acctBalance(aid);
-  const {balMap,schedMap}=calcAccountRunningBal(aid);
-  const today=todayStr();
-  // Sort must exactly match calcAccountRunningBal's posted sort so balMap[id] lines up with display row
-  const allTxs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
-  const scheduled=allTxs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const posted=allTxs.filter(t=>t.date<=today);
-
-  const mAcctSubLabel=a.type==='debt'?'amount owed':a.type==='budget'?'your spending ceiling here':a.type==='savings'?'parked — not in RTS pool':'physical balance';
-  let h=`<div class="m-det-hero">
-    <div class="m-det-name" style="color:${a.type==='debt'?'var(--red)':bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</div>
-    <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span><span>·</span><span style="color:var(--text3);font-size:11px">${mAcctSubLabel}</span></div>
-    <button class="m-chip-btn" style="margin-top:8px;font-size:12px;padding:5px 14px" onclick="openReconcile('${aid}')">✓ Reconcile</button>
-  </div>
-  ${a.type==='debt'?`<div style="padding:0 16px 12px">${renderDebtTracker(a)}</div>`:''}
-  `;
-
-  if(scheduled.length){
-    h+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
-    scheduled.forEach(tx=>h+=mTxRowHtml(tx,false,schedMap.has(tx.id)?schedMap.get(tx.id):null));
-  }
-  if(posted.length){
-    if(scheduled.length)h+=`<div class="m-section-label">Posted</div>`;
-    posted.forEach(tx=>h+=mTxRowHtml(tx,!tx.autoGenerated,balMap.has(tx.id)?balMap.get(tx.id):null));
-  }
-  if(!allTxs.length)h+=`<div style="padding:20px 16px;text-align:center;color:var(--text3)">No transactions yet</div>`;
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
 }
 
 // ── Edit sheet ────────────────────────────────────────────────────────────────
@@ -7052,13 +6694,13 @@ function mSaveTxSheet(id,type){
   if(type==='out'){
     tx.bucketId=document.getElementById('sBkt')?.value||tx.bucketId;
   }
-  save();mCloseSheet();mRenderAll();
+  save();mCloseSheet();render();
 }
 
 function mDeleteTxSheet(id){
   if(!confirm('Delete this transaction?'))return;
   S.txs=S.txs.filter(t=>t.id!==id);
-  save();mCloseSheet();mRenderAll();
+  save();mCloseSheet();render();
 }
 
 function mCloseSheet(){
@@ -7108,115 +6750,6 @@ function mAcctOptions(selectedId){
 
 </script>
 
-<!-- ════ MOBILE SHELL ════ -->
-<div id="mShell">
-  <!-- Top bar -->
-  <div id="mTopbar">
-    <div id="mTopbar-title"><div id="mTopbar-dot"></div>Imperium Fisci</div>
-    <div id="mTopbar-right">
-      <div id="mRtsChip" class="zero">—</div>
-      <button id="mAuthBtn" class="tbtn" onclick="authAction()" style="padding:5px 10px;font-size:12px;border-radius:6px;display:none"></button>
-      <button class="tbtn" onclick="openModal('new')" style="padding:5px 10px;font-size:12px;border-radius:6px">+ New</button>
-    </div>
-  </div>
-
-  <!-- Screens container -->
-  <div id="mScreens">
-
-    <!-- DASHBOARD -->
-    <div class="mScreen active" id="msDash">
-      <div class="m-month-bar">
-        <button class="m-month-arrow" onclick="mPrevMonth()">&#8249;</button>
-        <select class="m-month-sel" id="mMonthSel" onchange="mSetMonthFromSel(this.value)"></select>
-        <button class="m-month-arrow" onclick="mNextMonth()">&#8250;</button>
-        <button class="m-month-arrow" onclick="toggleWI()" id="mWiBtn" style="font-size:13px;padding:6px 10px;border-color:var(--border2);">⚡</button>
-      </div>
-      <div class="mscroll" id="mDashScroll"></div>
-    </div>
-
-    <!-- BUCKETS -->
-    <div class="mScreen" id="msBuckets">
-      <div class="mhdr">
-        <div class="mhdr-title">Buckets</div>
-        <button class="mhdr-action" onclick="openModal('cat')">+ Category</button>
-        <button class="mhdr-action" onclick="openModal('bkt')">+ Bucket</button>
-      </div>
-      <div class="mscroll" id="mBucketsScroll"></div>
-    </div>
-
-    <!-- LOG -->
-    <div class="mScreen" id="msLog">
-      <div class="mhdr">
-        <div class="mhdr-title" id="mLogTitle">Log Transaction</div>
-        <button class="mhdr-action" id="mBulkToggle" onclick="mToggleBulk()">Bulk</button>
-      </div>
-      <div class="mscroll" id="mLogScroll"></div>
-    </div>
-
-    <!-- LEDGER -->
-    <div class="mScreen" id="msLedger">
-      <div class="mhdr">
-        <div class="mhdr-title">Ledger</div>
-      </div>
-      <div class="m-ledger-head">
-        <div class="m-filter-chips" id="mLedgerFilters">
-          <button class="m-chip-btn active" onclick="mSetLedgerFilter('all',this)">All</button>
-          <button class="m-chip-btn" onclick="mSetLedgerFilter('in',this)">↓ Income</button>
-          <button class="m-chip-btn" onclick="mSetLedgerFilter('out',this)">↑ Expenses</button>
-          <button class="m-chip-btn" onclick="mSetLedgerFilter('xfr',this)">⇄ Transfer</button>
-        </div>
-        <input class="m-search" id="mLedgerSearch" placeholder="Search transactions..." oninput="mRenderLedger()" />
-      </div>
-      <div class="mscroll" id="mLedgerScroll"></div>
-    </div>
-
-    <!-- BUCKET DETAIL subview -->
-    <div class="mSubview" id="mSubBucket">
-      <div class="mhdr">
-        <button class="mhdr-back" onclick="mCloseSubview()">&#8592; Back</button>
-        <div class="mhdr-title" id="mSubBucketTitle"></div>
-        <button class="mhdr-action" onclick="mEditActiveBucket()">Edit</button>
-      </div>
-      <div class="mscroll" id="mSubBucketScroll"></div>
-    </div>
-
-    <!-- ACCOUNT DETAIL subview -->
-    <div class="mSubview" id="mSubAccount">
-      <div class="mhdr">
-        <button class="mhdr-back" onclick="mCloseSubview()">&#8592; Back</button>
-        <div class="mhdr-title" id="mSubAcctTitle"></div>
-        <button class="mhdr-action" onclick="mEditActiveAcct()">Edit</button>
-      </div>
-      <div class="mscroll" id="mSubAcctScroll"></div>
-    </div>
-
-  </div><!-- /mScreens -->
-
-  <!-- Bottom nav -->
-  <nav id="mNav">
-    <button class="mnav-btn active" id="mnDash" onclick="mGoTab('dash')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      <span class="mnav-label">Dashboard</span>
-      <div class="mnav-pip"></div>
-    </button>
-    <button class="mnav-btn" id="mnBuckets" onclick="mGoTab('buckets')">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      <span class="mnav-label">Buckets</span>
-      <div class="mnav-pip"></div>
-    </button>
-    <button class="mnav-btn" id="mnLog" onclick="mGoTab('log')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      <span class="mnav-label">Log</span>
-      <div class="mnav-pip"></div>
-    </button>
-    <button class="mnav-btn" id="mnLedger" onclick="mGoTab('ledger')">
-      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      <span class="mnav-label">Ledger</span>
-      <div class="mnav-pip"></div>
-    </button>
-  </nav>
-
-</div><!-- /mShell -->
 
 <!-- Toast -->
 <div id="mToast">
