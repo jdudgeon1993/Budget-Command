@@ -199,6 +199,26 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .acct-tab-card-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .acct-tab-card-bal{font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:-.5px;}
 
+/* ═══ OVERVIEW WIDGETS ═══ */
+.ov-stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:16px 0;}
+.ov-stat{background:var(--surface);padding:10px 14px;}
+.ov-stat-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin-bottom:4px;}
+.ov-stat-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.4px;margin-bottom:2px;}
+.ov-stat-val.green{color:var(--green);}
+.ov-stat-val.red{color:var(--red);}
+.ov-stat-val.amber{color:var(--amber);}
+.ov-stat-val.dim{color:var(--text2);}
+.ov-stat-sub{font-size:10px;color:var(--text3);}
+.ov-widgets{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;}
+.ov-widget{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;display:flex;flex-direction:column;}
+.ov-widget-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);padding:10px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.ov-widget-row{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--border);font-size:12px;}
+.ov-widget-row:last-child{border-bottom:none;}
+.ov-widget-row-name{flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ov-widget-row-meta{font-size:10px;color:var(--text3);flex-shrink:0;}
+.ov-widget-row-val{font-family:var(--mono);font-size:12px;flex-shrink:0;}
+.ov-widget-empty{padding:16px 14px;font-size:12px;color:var(--text3);text-align:center;}
+
 /* ═══ SIDEBAR MONTH NAV ═══ */
 .sb-monnav{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;}
 .sb-monnav-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:8px 10px;transition:color .12s;line-height:1;flex-shrink:0;}
@@ -1249,19 +1269,21 @@ function setSyncStatus(state, label){
   if(!dot||!lbl)return;
   if(state==='synced'){
     dot.className='tb-sync-dot';
-    lbl.textContent=_supaUser?.email?.split('@')[0]||label;
+    dot.style.background=''; // clear any amber/red inline override
+    lbl.textContent='Synced';
   } else if(state==='syncing'){
     dot.className='tb-sync-dot';
     dot.style.background='var(--amber)';
-    lbl.textContent=label;
+    lbl.textContent='Syncing…';
   } else if(state==='error'){
     dot.className='tb-sync-dot';
     dot.style.background='var(--red)';
     lbl.textContent=label;
   } else {
+    // offline / not signed in
     dot.className='tb-sync-dot off';
     dot.style.background='';
-    lbl.textContent=label;
+    lbl.textContent='Not signed in';
   }
 }
 
@@ -1775,6 +1797,29 @@ function acctBalance(aid){
 
 // Total liquid cash = budget + savings accounts only (excludes debt balances)
 function totalCash(){return S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);}
+function calcNetWorth(){
+  // All non-debt account balances + debt account balances (debt balances are negative)
+  return S.accounts.reduce((s,a)=>s+acctBalance(a.id),0);
+}
+function ageOfMoney(){
+  // Days = budget balance / avg daily spend over last 30 days
+  // Concept: how many days does your current budget balance represent at your spending rate?
+  // Green ≥30d (a full month ahead), amber 10–29d, red <10d (near paycheck-to-paycheck)
+  const today=new Date();
+  const thirtyDaysAgo=new Date(today-30*24*60*60*1000);
+  const thirtyStr=thirtyDaysAgo.toISOString().split('T')[0];
+  const todStr=todayStr();
+  const recentOut=S.txs.filter(t=>
+    t.type==='out'&&!isScheduled(t)&&
+    t.date>=thirtyStr&&t.date<=todStr&&
+    getAcct(t.accountId)?.type==='budget'
+  ).reduce((s,t)=>s+t.amount,0);
+  const dailyAvg=recentOut/30;
+  if(dailyAvg<=0)return null;
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  if(budgetBal<=0)return 0;
+  return Math.round(budgetBal/dailyAvg);
+}
 
 const mTxs=mid=>S.txs.filter(t=>t.monthId===mid);
 
@@ -1987,7 +2032,7 @@ function renderTopbar(){
   const lbl=document.getElementById('tbSyncLabel');
   const supaOk=supaReady()&&!!_supaUser;
   if(dot){dot.className='tb-sync-dot'+(supaOk?'':' off');}
-  if(lbl)lbl.textContent=supaOk?(_supaUser.email?.split('@')[0]||'Synced'):'Not signed in';
+  if(lbl)lbl.textContent=supaOk?'Synced':'Not signed in';
 
   // WI button state
   const wiBtn=document.getElementById('wiBtnTop');
@@ -2036,6 +2081,7 @@ function renderMain(){
 
 function setDesktopTab(tab){
   desktopTab=tab;
+  if(tab==='ledger'){S.activeAccount=null;S.activeBucket=null;}
   renderSidebar();
   renderMain();
 }
@@ -2099,6 +2145,94 @@ function renderOverviewTab(el,mid){
     h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
   else if(!past&&rts===0&&alloc>0)
     h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
+
+  // ── Secondary stats row ────────────────────────────────────────────────────
+  const nw=calcNetWorth();
+  const aom=ageOfMoney();
+  let aomCls='dim',aomSub='no spend data';
+  if(aom!==null){
+    aomCls=aom>=30?'green':aom>=10?'amber':'red';
+    aomSub=aom>=30?'well ahead':aom>=10?'getting close':'near paycheck-to-paycheck';
+  }
+  const activeBkts=S.buckets.filter(b=>!b.archived);
+  const fundedCnt=activeBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
+  const partialCnt=activeBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
+  const unfundedCnt=activeBkts.filter(b=>bAlloc(mid,b.id)===0).length;
+  h+=`<div class="ov-stats-row">
+    <div class="ov-stat">
+      <div class="ov-stat-label">Net Worth</div>
+      <div class="ov-stat-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
+      <div class="ov-stat-sub">all accounts combined</div>
+    </div>
+    <div class="ov-stat">
+      <div class="ov-stat-label">Age of Money</div>
+      <div class="ov-stat-val ${aomCls}">${aom!==null?aom+'d':'—'}</div>
+      <div class="ov-stat-sub">${aomSub}</div>
+    </div>
+    <div class="ov-stat">
+      <div class="ov-stat-label">Bucket Health</div>
+      <div class="ov-stat-val ${fundedCnt===activeBkts.length?'green':unfundedCnt>partialCnt+fundedCnt?'red':'amber'}">${fundedCnt} / ${activeBkts.length}</div>
+      <div class="ov-stat-sub">${fundedCnt} funded · ${partialCnt} partial · ${unfundedCnt} unfunded</div>
+    </div>
+  </div>`;
+
+  // ── Two-column widgets ─────────────────────────────────────────────────────
+  // Left: Upcoming bills (buckets with dueDay within next 14 days, sorted by days)
+  const today14=new Date();today14.setHours(0,0,0,0);
+  const upcoming=activeBkts.filter(b=>b.dueDay).map(b=>{
+    const d=daysUntilDue(b,m.year,m.month);
+    return {b,d};
+  }).filter(({d})=>d!==null&&d>=0&&d<=14).sort((a,b)=>a.d-b.d);
+  let billsHtml='';
+  if(!upcoming.length){
+    billsHtml=`<div class="ov-widget-empty">No bills due in next 14 days</div>`;
+  } else {
+    upcoming.forEach(({b,d})=>{
+      const amt=b.dueAmount?$f(b.dueAmount):'';
+      const urgCls=d===0?'red':d<=3?'amber':'';
+      const avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id);
+      const covered=avail>=(b.dueAmount||0);
+      billsHtml+=`<div class="ov-widget-row">
+        <span class="ov-widget-row-name">${esc(b.name)}</span>
+        <span class="ov-widget-row-meta" style="color:var(--${urgCls||'text3'})">${d===0?'today':d+'d'}</span>
+        ${amt?`<span class="ov-widget-row-val" style="color:var(--${covered?'green':'red'})">${amt}</span>`:''}
+      </div>`;
+    });
+  }
+
+  // Right: Recent transactions (last 5 posted non-opening txs, across all accounts in this month)
+  const recentTxs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening'&&!isScheduled(t))
+    .sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  let recentHtml='';
+  if(!recentTxs.length){
+    recentHtml=`<div class="ov-widget-empty">No posted transactions this month</div>`;
+  } else {
+    recentTxs.forEach(t=>{
+      const isIn=t.type==='in';const isXfr=t.type==='xfr';
+      const valCls=isIn?'green':isXfr?'':'red';
+      const pfx=isIn?'+':isXfr?'':'-';
+      const acctName=getAcct(t.accountId)?.name||'';
+      recentHtml+=`<div class="ov-widget-row">
+        <div style="flex:1;overflow:hidden">
+          <div class="ov-widget-row-name">${esc(t.desc)}</div>
+          <div class="ov-widget-row-meta">${esc(acctName)} · ${ld(t.date)}</div>
+        </div>
+        <span class="ov-widget-row-val" style="color:var(--${valCls||'text2'})">${pfx}${$f(t.amount)}</span>
+      </div>`;
+    });
+  }
+
+  h+=`<div class="ov-widgets">
+    <div class="ov-widget">
+      <div class="ov-widget-title">Upcoming Bills (14 days)</div>
+      ${billsHtml}
+    </div>
+    <div class="ov-widget">
+      <div class="ov-widget-title">Recent Transactions</div>
+      ${recentHtml}
+    </div>
+  </div>`;
+
   el.innerHTML=h;
 }
 
@@ -2575,7 +2709,16 @@ function mBhStartEdit(mid){
 function renderAccountView(el,mid){
   const a=getAcct(S.activeAccount);if(!a){clearActive();return;}
   const bal=acctBalance(a.id);
-  const txs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const past=mid?monthStatus(mid)==='past':false;
+  // All txs for this account, newest first
+  const allTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id)
+    .sort((x,y)=>new Date(y.date)-new Date(x.date)||y.id.localeCompare(x.id));
+  const posted=allTxs.filter(t=>!isScheduled(t));
+  const scheduled=allTxs.filter(t=>isScheduled(t)).sort((x,y)=>new Date(x.date)-new Date(y.date));
+  const {balMap,schedMap}=calcAccountRunningBal(a.id);
+
+  const totalIn=posted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
+  const totalOut=posted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
 
   let h=`<button class="back-btn" onclick="clearActive()">← Accounts</button>
   <div class="acct-hdr">
@@ -2588,26 +2731,34 @@ function renderAccountView(el,mid){
   ${a.type==='debt'?renderDebtTracker(a):''}
   <div class="acct-balance-block">
     <div class="ps-cell"><div class="ps-label">Current Balance</div><div class="ps-val ${bal>=0?'green':'red'}">${$f(bal)}</div></div>
-    <div class="ps-cell"><div class="ps-label">Total In</div><div class="ps-val dim">${$f(txs.filter(t=>!isScheduled(t)&&t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0))}</div></div>
-    <div class="ps-cell"><div class="ps-label">Total Out</div><div class="ps-val dim">${$f(txs.filter(t=>!isScheduled(t)&&t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0))}</div></div>
-  </div>
-  <div class="det-block">
-    <div class="det-block-title">All Transactions</div>`;
+    <div class="ps-cell"><div class="ps-label">Total In</div><div class="ps-val dim">${$f(totalIn)}</div></div>
+    <div class="ps-cell"><div class="ps-label">Total Out</div><div class="ps-val dim">${$f(totalOut)}</div></div>
+  </div>`;
 
-  if(!txs.length){h+=`<div style="padding:20px 0;text-align:center;font-size:13px;color:var(--text3)">No transactions yet</div>`;}
-  else{
-    txs.slice(0,50).forEach(tx=>{
-      const isXfrIn=tx.type==='xfr'&&tx.toAccountId===a.id;
-      const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
-      const color=cat?.color||'var(--text3)';
-      const typeLabel=tx.type==='xfr'?(isXfrIn?`← from ${esc(getAcct(tx.accountId)?.name||'')}`:`→ to ${esc(getAcct(tx.toAccountId)?.name||'')}`):'';
-      h+=`<div class="det-row">
-        <span class="det-row-label">${esc(tx.desc)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${ld(tx.date)}</span>${typeLabel?`<span style="font-size:11px;color:var(--purple);margin-left:6px">${typeLabel}</span>`:''}</span>
-        <span class="det-row-val" style="color:${tx.type==='xfr'?'var(--purple)':isXfrIn||tx.type==='in'?'var(--green)':'var(--red)'}">${isXfrIn||tx.type==='in'?'+':'-'}${$f(tx.amount)}</span>
-      </div>`;
+  if(scheduled.length){
+    h+=`<div class="det-block">
+    <div class="det-block-title" style="color:var(--accent)">Scheduled / Upcoming</div>
+    <div class="tx-list" style="padding:0">`;
+    scheduled.forEach(tx=>{
+      h+=txRowHtml(tx,past,true,schedMap.get(tx.id)??null);
     });
+    h+=`</div></div>`;
   }
-  h+=`</div>`;
+
+  h+=`<div class="det-block" style="padding:0">
+    <div class="det-block-title" style="padding:10px 14px 8px">All Transactions</div>
+    <div class="tx-list" style="padding:0">`;
+  if(!posted.length){
+    h+=`<div style="padding:20px 0;text-align:center;font-size:13px;color:var(--text3)">No posted transactions yet</div>`;
+  } else {
+    posted.slice(0,100).forEach(tx=>{
+      h+=txRowHtml(tx,past,false,balMap.get(tx.id)??null);
+    });
+    if(posted.length>100){
+      h+=`<div style="padding:12px 14px;font-size:12px;color:var(--text3);text-align:center">Showing 100 of ${posted.length} transactions</div>`;
+    }
+  }
+  h+=`</div></div>`;
   el.innerHTML=h;
 }
 
