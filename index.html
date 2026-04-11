@@ -1828,6 +1828,105 @@ function ageOfMoney(){
   return Math.round(budgetBal/dailyAvg);
 }
 
+// ═══════════════════════════════════════════════════════
+// SHARED COMPUTE FUNCTIONS
+// Single source of truth for all business logic.
+// Both mobile and desktop render paths call these.
+// Never duplicate a calculation inside a render function —
+// add it here so fixing it once fixes it everywhere.
+// ═══════════════════════════════════════════════════════
+
+// All key budget stats for the current month.
+// Used by renderOverviewTab (desktop) and mRenderDash (mobile).
+function computePoolStats(mid){
+  const rts=readyToSpend(mid);
+  const alloc=totalAllocated(mid);
+  const income=monthIncome(mid);
+  const activeBkts=S.buckets.filter(b=>!b.archived);
+  const totalSpent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const nw=calcNetWorth();
+  const aom=ageOfMoney();
+  const aomCls=aom===null?'dim':aom>=30?'green':aom>=10?'amber':'red';
+  const aomSub=aom===null?'no spend data':aom>=30?'well ahead':aom>=10?'getting close':'near paycheck-to-paycheck';
+  const fundedCnt=activeBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
+  const partialCnt=activeBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
+  const unfundedCnt=activeBkts.filter(b=>bAlloc(mid,b.id)===0).length;
+  const bktHealthCls=fundedCnt===activeBkts.length?'green':unfundedCnt>partialCnt+fundedCnt?'red':'amber';
+  return {rts,alloc,income,activeBkts,totalSpent,budgetBal,nw,aom,aomCls,aomSub,fundedCnt,partialCnt,unfundedCnt,bktHealthCls};
+}
+
+// Projected income vs. allocation health for a month.
+// Returns null when no projected income is set.
+// Used by renderBudgetHealth (desktop) and mRenderBudgetHealth (mobile).
+function computeBudgetHealth(mid){
+  const pi=monthProjectedIncome(mid);
+  if(pi===null)return null;
+  const alloc=totalAllocated(mid);
+  const surplus=pi-alloc;
+  const pct=pi>0?Math.min(alloc/pi,1):0;
+  const ratio=pi>0?alloc/pi:0;
+  const barColor=surplus<0?'var(--red)':ratio>=0.95?'var(--amber)':'var(--green)';
+  const surplusColor=surplus>0?'var(--green)':surplus<0?'var(--red)':'var(--text3)';
+  const note=Math.round(pct*100)+'% of income allocated'+(surplus<0?' — over budget':ratio>=0.95?' — nearly full':' — on track');
+  return {pi,alloc,surplus,pct,ratio,barColor,surplusColor,note};
+}
+
+// All numbers for a bucket in a given month.
+// Used by renderBucketDetail (desktop) and mRenderBucketDetail (mobile).
+function computeBucketMetrics(bid,mid){
+  const b=getBucket(bid);if(!b)return null;
+  const cat=getCat(b.catId);
+  const color=cat?.color||COLORS[0];
+  const alloc=bAlloc(mid,bid);
+  const target=bBudget(mid,bid);
+  const roll=rolloverBal(bid,mid);
+  const eff=alloc+roll;
+  const spent=bSpent(mid,bid);
+  const avail=eff-spent;
+  const pctRaw=eff>0?spent/eff:0;
+  const pct=Math.min(pctRaw,1);
+  const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
+  const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
+  const isSink=b.type==='sinking';
+  const m=getMonth(mid);
+  const days=daysUntilDue(b,m?.year,m?.month);
+  const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
+  const barNote=Math.round(pctRaw*100)+'% spent';
+  const remainNote=pctRaw>1?'⚠ over by '+$f(spent-eff):$f(Math.max(eff-spent,0))+' remaining';
+  let sinkData=null;
+  if(isSink){
+    const saved=sinkingSaved(bid);
+    const tgt=b.targetAmount||0;
+    const td=b.targetDate?new Date(b.targetDate+'-01'):null;
+    const now=new Date();
+    const mLeft=td?Math.max((td.getFullYear()-now.getFullYear())*12+(td.getMonth()-now.getMonth()),0):0;
+    const mNeed=mLeft>0?Math.ceil((tgt-saved)/mLeft):0;
+    const contrib=contribAmt(b);
+    sinkData={saved,tgt,mLeft,mNeed,contrib};
+  }
+  return {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,fillColor,isSink,m,days,days2,barNote,remainNote,sinkData};
+}
+
+// Data lookups and derived values for a single transaction row.
+// Used by txRowHtml (desktop) and mTxRowHtml (mobile).
+// activeAccountId: pass S.activeAccount so transfer direction is correct.
+function computeTxMeta(tx,activeAccountId){
+  const b=getBucket(tx.bucketId);
+  const cat=b?getCat(b.catId):null;
+  const acct=getAcct(tx.accountId);
+  const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
+  const color=cat?.color||'var(--text3)';
+  const isOpening=tx.type==='opening';
+  const sched=isScheduled(tx);
+  const isXfrIn=tx.type==='xfr'&&tx.toAccountId===activeAccountId;
+  const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
+  const amtPfx=isOpening||tx.type==='in'||isXfrIn?'+':'-';
+  // Base indicator color — each renderer applies its own scheduled override
+  const indColor=tx.type==='in'||isOpening?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+  return {b,cat,acct,toAcct,color,isOpening,sched,isXfrIn,amtCls,amtPfx,indColor};
+}
+
 const mTxs=mid=>S.txs.filter(t=>t.monthId===mid);
 
 // Income = only explicit type:'in' txs on budget accounts
@@ -2116,11 +2215,7 @@ function renderOverviewTab(el,mid){
   const m=getMonth(mid);
   const st=monthStatus(mid);
   const past=st==='past';
-  const rts=readyToSpend(mid);
-  const alloc=totalAllocated(mid);
-  const totalSpent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
-  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
-  const unalloc=S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0).length;
+  const {rts,alloc,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
   const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
   // Single unified header: nav arrows + month title + chip + Reports
   let h=`<div class="month-hdr" style="margin-bottom:20px">
@@ -2164,25 +2259,14 @@ function renderOverviewTab(el,mid){
     h+=`</div>`;
   }
   h+=renderBudgetHealth(mid);
-  if(!past&&unalloc>0&&rts>0)
-    h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setDesktopTab('buckets')">Go to Buckets →</button></div>`;
+  if(!past&&unfundedCnt>0&&rts>0)
+    h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setDesktopTab('buckets')">Go to Buckets →</button></div>`;
   else if(!past&&rts<0)
     h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
   else if(!past&&rts===0&&alloc>0)
     h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
 
-  // ── Secondary stats row ────────────────────────────────────────────────────
-  const nw=calcNetWorth();
-  const aom=ageOfMoney();
-  let aomCls='dim',aomSub='no spend data';
-  if(aom!==null){
-    aomCls=aom>=30?'green':aom>=10?'amber':'red';
-    aomSub=aom>=30?'well ahead':aom>=10?'getting close':'near paycheck-to-paycheck';
-  }
-  const activeBkts=S.buckets.filter(b=>!b.archived);
-  const fundedCnt=activeBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
-  const partialCnt=activeBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
-  const unfundedCnt=activeBkts.filter(b=>bAlloc(mid,b.id)===0).length;
+  // ── Secondary stats row ───────────────────────────────────────────────────
   h+=`<div class="ov-stats-row">
     <div class="ov-stat">
       <div class="ov-stat-label">Net Worth</div>
@@ -2196,7 +2280,7 @@ function renderOverviewTab(el,mid){
     </div>
     <div class="ov-stat">
       <div class="ov-stat-label">Bucket Health</div>
-      <div class="ov-stat-val ${fundedCnt===activeBkts.length?'green':unfundedCnt>partialCnt+fundedCnt?'red':'amber'}">${fundedCnt} / ${activeBkts.length}</div>
+      <div class="ov-stat-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
       <div class="ov-stat-sub">${fundedCnt} funded · ${partialCnt} partial · ${unfundedCnt} unfunded</div>
     </div>
   </div>`;
@@ -2609,19 +2693,9 @@ function renderExportTab(el){
 }
 
 function renderBudgetHealth(mid){
-  const pi=monthProjectedIncome(mid);
-  const alloc=totalAllocated(mid);
-  if(pi===null){
-    return `<div class="bh-wrap">
-      <span class="bh-label">Projected Income</span>
-      <span class="bh-set-prompt" onclick="bhStartEdit('${mid}')">Set projected income →</span>
-    </div>`;
-  }
-  const surplus=pi-alloc;
-  const pct=pi>0?Math.min(alloc/pi,1):0;
-  const ratio=pi>0?alloc/pi:0;
-  const barColor=surplus<0?'var(--red)':ratio>=0.95?'var(--amber)':'var(--green)';
-  const surplusColor=surplus>0?'var(--green)':surplus<0?'var(--red)':'var(--text3)';
+  const bh=computeBudgetHealth(mid);
+  if(!bh)return`<div class="bh-wrap"><span class="bh-label">Projected Income</span><span class="bh-set-prompt" onclick="bhStartEdit('${mid}')">Set projected income →</span></div>`;
+  const {pi,alloc,surplus,pct,barColor,surplusColor,note}=bh;
   return `<div class="bh-wrap">
     <span class="bh-label">Projected Income</span>
     <div class="bh-income-wrap">
@@ -2639,7 +2713,7 @@ function renderBudgetHealth(mid){
     </div>
     <div class="bh-bar-wrap">
       <div class="bh-bar-track"><div class="bh-bar-fill" style="width:${Math.round(pct*100)}%;background:${barColor}"></div></div>
-      <div class="bh-bar-note">${Math.round(pct*100)}% of income allocated${surplus<0?' — over budget':ratio>=0.95?' — nearly full':' — on track'}</div>
+      <div class="bh-bar-note">${note}</div>
     </div>
   </div>`;
 }
@@ -2673,21 +2747,9 @@ function bhStartEdit(mid){
 }
 
 function mRenderBudgetHealth(mid){
-  const pi=monthProjectedIncome(mid);
-  const alloc=totalAllocated(mid);
-  if(pi===null){
-    return `<div style="padding:10px 14px 0">
-      <div class="bh-wrap" style="margin-bottom:0">
-        <span class="bh-label">Projected Income</span>
-        <span class="bh-set-prompt" onclick="mBhStartEdit('${mid}')">Set projected income →</span>
-      </div>
-    </div>`;
-  }
-  const surplus=pi-alloc;
-  const pct=pi>0?Math.min(alloc/pi,1):0;
-  const ratio=pi>0?alloc/pi:0;
-  const barColor=surplus<0?'var(--red)':ratio>=0.95?'var(--amber)':'var(--green)';
-  const surplusColor=surplus>0?'var(--green)':surplus<0?'var(--red)':'var(--text3)';
+  const bh=computeBudgetHealth(mid);
+  if(!bh)return`<div style="padding:10px 14px 0"><div class="bh-wrap" style="margin-bottom:0"><span class="bh-label">Projected Income</span><span class="bh-set-prompt" onclick="mBhStartEdit('${mid}')">Set projected income →</span></div></div>`;
+  const {pi,surplus,pct,barColor,surplusColor}=bh;
   return `<div style="padding:10px 14px 0">
     <div class="bh-wrap" style="margin-bottom:0">
       <span class="bh-label">Proj. Income</span>
@@ -2788,17 +2850,8 @@ function renderAccountView(el,mid){
 }
 
 function renderBucketDetail(mid,past,m){
-  const b=getBucket(S.activeBucket);if(!b)return'';
-  const cat=getCat(b.catId);const color=cat?.color||COLORS[0];
-  const alloc=bAlloc(mid,b.id);const target=bBudget(mid,b.id);
-  const roll=rolloverBal(b.id,mid);const eff=alloc+roll;
-  const spent=bSpent(mid,b.id);const avail=eff-spent;
-  const pctRaw=eff>0?spent/eff:0;const pct=Math.min(pctRaw,1);
-  const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
-  const isSink=b.type==='sinking';
-  const days=daysUntilDue(b,m?.year,m?.month);
-
-  const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
+  const bm=computeBucketMetrics(S.activeBucket,mid);if(!bm)return'';
+  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,days,days2,barNote,remainNote,sinkData}=bm;
   let h=`<button class="back-btn" onclick="setBucket(null)">← Buckets</button>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
@@ -2818,7 +2871,7 @@ function renderBucketDetail(mid,past,m){
   </div>
   <div class="det-bar">
     <div class="det-bar-track"><div class="det-bar-fill ${fillCls}" style="width:${Math.round(pct*100)}%"></div></div>
-    <div class="det-bar-note"><span>${Math.round(pctRaw*100)}% spent</span><span>${pctRaw>1?'⚠ over by '+$f(spent-eff):$f(Math.max(eff-spent,0))+' remaining'}</span></div>
+    <div class="det-bar-note"><span>${barNote}</span><span>${remainNote}</span></div>
   </div>`;
 
   if(roll>0){
@@ -2829,11 +2882,8 @@ function renderBucketDetail(mid,past,m){
     </div>`;
   }
 
-  if(isSink){
-    const saved=sinkingSaved(b.id);const tgt=b.targetAmount||0;
-    const td=b.targetDate?new Date(b.targetDate+'-01'):null;const now=new Date();
-    const mLeft=td?Math.max((td.getFullYear()-now.getFullYear())*12+(td.getMonth()-now.getMonth()),0):0;
-    const mNeed=mLeft>0?Math.ceil((tgt-saved)/mLeft):0;const contrib=contribAmt(b);
+  if(isSink&&sinkData){
+    const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
     h+=`<div class="sink-stats">
       <div class="ss"><div class="ss-label">Saved</div><div class="ss-val" style="color:var(--green)">${$f(saved)}</div></div>
       <div class="ss"><div class="ss-label">Goal</div><div class="ss-val">${$f(tgt)}</div></div>
@@ -3019,15 +3069,7 @@ function renderTxList(){
 }
 
 function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
-  const b=getBucket(tx.bucketId);const cat=b?getCat(b.catId):null;
-  const color=cat?.color||'var(--text3)';
-  const acct=getAcct(tx.accountId);
-  const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
-  const isXfrIn=tx.type==='xfr'&&tx.toAccountId===S.activeAccount;
-  const isOpening=tx.type==='opening';
-  const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
-  const amtPfx=isOpening||tx.type==='in'||isXfrIn?'+':'-';
-  const indColor=tx.type==='in'?'var(--green)':tx.type==='xfr'?'var(--purple)':isOpening?'var(--blue)':'var(--red)';
+  const {b,cat,color,acct,toAcct,isOpening,isXfrIn,amtCls,amtPfx,indColor}=computeTxMeta(tx,S.activeAccount);
   // forceModal: always use the edit modal (account view has no inline form in DOM)
   const editFn=(past||forceModal)?'openTxEditModal':'editTx';
   let metaLine='';
@@ -6257,11 +6299,7 @@ function mRenderDash(){
   const mid=S.activeMonth;
   if(!mid){el.innerHTML='<div style="padding:40px 16px;text-align:center;color:var(--text3)">No month selected</div>';return;}
 
-  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
-  const income=monthIncome(mid);
-  const alloc=totalAllocated(mid);
-  const rts=readyToSpend(mid);
-  const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const {rts,alloc,income,totalSpent:spent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
 
   let h='';
 
@@ -6305,14 +6343,7 @@ function mRenderDash(){
   // Budget health bar
   h+=mRenderBudgetHealth(mid);
 
-  // Pool numbers
-  const nw=calcNetWorth();
-  const aom=ageOfMoney();
-  const mActiveBkts=S.buckets.filter(b=>!b.archived);
-  const mFundedCnt=mActiveBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
-  const mPartialCnt=mActiveBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
-  const mUnfundedCnt=mActiveBkts.filter(b=>bAlloc(mid,b.id)===0).length;
-  const mBktHealthCls=mFundedCnt===mActiveBkts.length?'green':mUnfundedCnt>mPartialCnt+mFundedCnt?'red':'amber';
+  // Pool numbers — all from computePoolStats called above
   h+=`<div class="m-pool-grid">
     <div class="m-pool-cell hero">
       <div class="m-pool-label">Ready to Spend</div>
@@ -6346,8 +6377,8 @@ function mRenderDash(){
     </div>
     <div class="m-pool-cell">
       <div class="m-pool-label">Bucket Health</div>
-      <div class="m-pool-val ${mBktHealthCls}">${mFundedCnt} / ${mActiveBkts.length}</div>
-      <div class="m-pool-sub">${mFundedCnt} funded · ${mUnfundedCnt} unfunded</div>
+      <div class="m-pool-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
+      <div class="m-pool-sub">${fundedCnt} funded · ${unfundedCnt} unfunded</div>
     </div>
     <div class="m-pool-cell">
       <div class="m-pool-label">Budget Cash</div>
@@ -6767,15 +6798,8 @@ function mRenderLedger(){
 }
 
 function mTxRowHtml(tx,tappable,runBal=null){
-  const b=getBucket(tx.bucketId);
-  const cat=b?getCat(b.catId):null;
-  const acct=getAcct(tx.accountId);
-  const color=cat?.color||'var(--text3)';
-  const isOpening=tx.type==='opening';
-  const sched=isScheduled(tx);
-  const amtCls=isOpening?'in':tx.type==='xfr'?'xfr':tx.type==='in'?'in':'out';
-  const amtPfx=isOpening||tx.type==='in'?'+':'-';
-  const indColor=sched?'var(--amber)':tx.type==='in'||isOpening?'var(--green)':tx.type==='xfr'?'var(--purple)':'var(--red)';
+  const {b,cat,color,acct,isOpening,sched,amtCls,amtPfx,indColor:baseIndColor}=computeTxMeta(tx,null);
+  const indColor=sched?'var(--amber)':baseIndColor;
   const metaParts=[];
   if(sched)metaParts.push(`⏱ ${ld(tx.date)}`);
   if(acct)metaParts.push(esc(acct.name));
@@ -6831,28 +6855,14 @@ function mRenderSubview(){
 }
 
 function mRenderBucketDetail(bid){
-  const b=getBucket(bid);if(!b)return;
   const el=document.getElementById('mSubBucketScroll');
   const title=document.getElementById('mSubBucketTitle');
   if(!el||!title)return;
-  title.textContent=b.name;
-  const cat=getCat(b.catId);const color=cat?.color||COLORS[0];
   const mid=S.activeMonth;
-  const alloc=bAlloc(mid,bid);
-  const target=bBudget(mid,bid);
-  const roll=rolloverBal(bid,mid);
-  const eff=alloc+roll;
-  const spent=bSpent(mid,bid);
-  const avail=eff-spent;
-  const pctRaw=eff>0?spent/eff:0;
-  const pct=Math.min(pctRaw,1);
-  const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
-  const isSink=b.type==='sinking';
+  const bm=computeBucketMetrics(bid,mid);if(!bm)return;
+  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillColor,isSink,days,days2,barNote,remainNote,sinkData}=bm;
   const past=monthStatus(mid)==='past';
-  const m=getMonth(mid);
-  const days=daysUntilDue(b,m?.year,m?.month);
-
-  const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
+  title.textContent=b.name;
   let h=`<div class="m-det-hero" style="border-left:4px solid ${color}">
     <div class="m-det-name">${esc(b.name)}</div>
     <div class="m-det-meta">
@@ -6870,15 +6880,11 @@ function mRenderBucketDetail(bid){
   </div>
   <div class="m-prog-wrap">
     <div class="m-prog-track"><div class="m-prog-fill" style="width:${Math.round(pct*100)}%;background:${fillColor}"></div></div>
-    <div class="m-prog-note"><span>${Math.round(pctRaw*100)}% used</span><span>${pctRaw>1?'⚠ over by '+$f(spent-eff):$f(Math.max(eff-spent,0))+' remaining'}</span></div>
+    <div class="m-prog-note"><span>${barNote}</span><span>${remainNote}</span></div>
   </div>`;
 
-  if(isSink){
-    const saved=sinkingSaved(bid);const tgt=b.targetAmount||0;
-    const now=new Date();const td=b.targetDate?new Date(b.targetDate+'-01'):null;
-    const mLeft=td?Math.max((td.getFullYear()-now.getFullYear())*12+(td.getMonth()-now.getMonth()),0):0;
-    const mNeed=mLeft>0?Math.ceil((tgt-saved)/mLeft):0;
-    const contrib=contribAmt(b);
+  if(isSink&&sinkData){
+    const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
     h+=`<div class="m-sink-grid">
       <div class="m-sink-cell"><div class="m-sink-label">Saved</div><div class="m-sink-val" style="color:var(--green)">${$f(saved)}</div></div>
       <div class="m-sink-cell"><div class="m-sink-label">Goal</div><div class="m-sink-val">${$f(tgt)}</div></div>
