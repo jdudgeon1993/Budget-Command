@@ -6279,7 +6279,7 @@ function mRenderDash(){
       const bal=acctBalance(a.id);
       const color=a.color||COLORS[0];
       h+=`<div class="m-acct-chip" onclick="mOpenAcct('${a.id}')">
-        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">${a.type==='savings'?'savings':''}</span></div>
+        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">${a.type}</span></div>
         <div class="m-acct-chip-bal" style="color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</div>
       </div>`;
     });
@@ -6306,6 +6306,13 @@ function mRenderDash(){
   h+=mRenderBudgetHealth(mid);
 
   // Pool numbers
+  const nw=calcNetWorth();
+  const aom=ageOfMoney();
+  const mActiveBkts=S.buckets.filter(b=>!b.archived);
+  const mFundedCnt=mActiveBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
+  const mPartialCnt=mActiveBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
+  const mUnfundedCnt=mActiveBkts.filter(b=>bAlloc(mid,b.id)===0).length;
+  const mBktHealthCls=mFundedCnt===mActiveBkts.length?'green':mUnfundedCnt>mPartialCnt+mFundedCnt?'red':'amber';
   h+=`<div class="m-pool-grid">
     <div class="m-pool-cell hero">
       <div class="m-pool-label">Ready to Spend</div>
@@ -6328,15 +6335,25 @@ function mRenderDash(){
       <div class="m-pool-sub">to buckets</div>
     </div>
     <div class="m-pool-cell">
-      <div class="m-pool-label">Total Cash</div>
-      <div class="m-pool-val dim">${$f(totalCash())}</div>
-      <div class="m-pool-sub">liquid only</div>
+      <div class="m-pool-label">Net Worth</div>
+      <div class="m-pool-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
+      <div class="m-pool-sub">all accounts</div>
     </div>
-    ${(()=>{const aom=calcAgeOfMoney();return`<div class="m-pool-cell">
+    <div class="m-pool-cell">
       <div class="m-pool-label">Age of Money</div>
-      <div class="m-pool-val ${aom===null?'dim':aom>=30?'green':aom>=15?'':'red'}" style="${aom!==null&&aom>=15&&aom<30?'color:var(--amber)':''}">${aom!==null?aom+' days':'—'}</div>
-      <div class="m-pool-sub">${aom===null?'need more data':aom>=30?'living ahead':'building up'}</div>
-    </div>`})()}
+      <div class="m-pool-val ${aom===null?'dim':aom>=30?'green':aom>=10?'amber':'red'}">${aom!==null?aom+'d':'—'}</div>
+      <div class="m-pool-sub">${aom===null?'need spend data':aom>=30?'well ahead':aom>=10?'getting close':'paycheck-to-paycheck'}</div>
+    </div>
+    <div class="m-pool-cell">
+      <div class="m-pool-label">Bucket Health</div>
+      <div class="m-pool-val ${mBktHealthCls}">${mFundedCnt} / ${mActiveBkts.length}</div>
+      <div class="m-pool-sub">${mFundedCnt} funded · ${mUnfundedCnt} unfunded</div>
+    </div>
+    <div class="m-pool-cell">
+      <div class="m-pool-label">Budget Cash</div>
+      <div class="m-pool-val dim">${$f(budgetBal)}</div>
+      <div class="m-pool-sub">spending pool</div>
+    </div>
   </div>`;
 
   // Urgency items
@@ -6942,13 +6959,15 @@ function mRenderAcctDetail(aid){
   const bal=acctBalance(aid);
   const {balMap,schedMap}=calcAccountRunningBal(aid);
   const today=todayStr();
-  const allTxs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  // Sort must exactly match calcAccountRunningBal's posted sort so balMap[id] lines up with display row
+  const allTxs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   const scheduled=allTxs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const posted=allTxs.filter(t=>t.date<=today);
 
+  const mAcctSubLabel=a.type==='debt'?'amount owed':a.type==='budget'?'your spending ceiling here':a.type==='savings'?'parked — not in RTS pool':'physical balance';
   let h=`<div class="m-det-hero">
     <div class="m-det-name" style="color:${a.type==='debt'?'var(--red)':bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</div>
-    <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span></div>
+    <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span><span>·</span><span style="color:var(--text3);font-size:11px">${mAcctSubLabel}</span></div>
     <button class="m-chip-btn" style="margin-top:8px;font-size:12px;padding:5px 14px" onclick="openReconcile('${aid}')">✓ Reconcile</button>
   </div>
   ${a.type==='debt'?`<div style="padding:0 16px 12px">${renderDebtTracker(a)}</div>`:''}
