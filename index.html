@@ -816,6 +816,22 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-bulk-row-top{display:flex;gap:8px;align-items:center;}
   .m-bulk-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0;line-height:1;flex-shrink:0;}
   .m-bulk-del:active{color:var(--red);}
+
+  /* ── Unified overview: mobile adaptations ── */
+  .ov-desktop-only{display:none!important;}
+  .ov-month-hdr{display:none!important;} /* topbar handles month nav on mobile */
+  .pool-strip{flex-wrap:wrap;}
+  .ps-cell{flex:1 1 calc(50% - 1px);border-right:none;border-bottom:1px solid var(--border);}
+  .ps-cell:nth-child(odd){border-right:1px solid var(--border);}
+  .ov-stats-row{flex-wrap:wrap;padding:8px 12px;}
+  .ov-stat{flex:1 1 calc(33% - 8px);padding:10px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin:4px;}
+  .ov-widgets{grid-template-columns:1fr;gap:0;}
+  .ov-widget{border:none;border-radius:0;border-top:1px solid var(--border);padding:12px 16px;}
+  .ov-widget-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px;}
+  .als{padding:10px 12px;gap:6px;}
+  .als-cell{flex-shrink:0;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);}
+  .hint-bar{margin:0;border-radius:0;border-left:none;border-right:none;}
+  .bh-wrap{margin:0 12px 10px;}
 }
 
 /* Tablet: 768–1199px — icon-only sidebar */
@@ -829,6 +845,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 @media(min-width:768px){
   .tb-month-nav{display:none !important;}
   #mToast,#mSheetOverlay,#mSheet{display:none!important;}
+  .ov-mobile-only{display:none!important;}
 }
 
 /* ═══ BUDGET HEALTH BAR ═══ */
@@ -1864,7 +1881,7 @@ function ageOfMoney(){
 // ═══════════════════════════════════════════════════════
 
 // All key budget stats for the current month.
-// Used by renderOverviewTab (desktop) and mRenderDash (mobile).
+// Used by renderOverviewTab (unified overview — all breakpoints).
 function computePoolStats(mid){
   const rts=readyToSpend(mid);
   const alloc=totalAllocated(mid);
@@ -2213,16 +2230,13 @@ function setTab(tab){
 function renderActivePane(){
   const mid=S.activeMonth;
   if(activeTab==='overview'){
-    if(isMobile()){mRenderDash();}
-    else{const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);}
+    const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);
   } else if(activeTab==='buckets'){
-    if(isMobile()){mRenderBuckets();}
-    else{const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);}
+    if(isMobile()){mRenderBuckets();}else{const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);}
   } else if(activeTab==='log'){
     renderLogPane();
   } else if(activeTab==='ledger'){
-    if(isMobile()){mRenderLedger();}
-    else{const p=document.getElementById('paneLedger');if(p)renderLedgerTab(p,mid);}
+    const p=document.getElementById('paneLedger');if(p){if(isMobile())mRenderLedger();else renderLedgerTab(p,mid);}
   } else if(activeTab==='accounts'){
     const p=document.getElementById('paneAccounts');if(p)renderAccountsTab(p,mid);
   } else if(activeTab==='settings'){
@@ -2321,7 +2335,7 @@ function renderOverviewTab(el,mid){
   if(!S.accounts.length&&!S.cats.length){
     el.innerHTML=`<div class="empty-wrap">
       <div class="empty-icon">⬡</div>
-      <div class="empty-title">Imperium Fisci</div>
+      <div class="empty-title">Budget Command</div>
       <div class="empty-sub">Start by adding your accounts and their current balances, then create budget categories and buckets.</div>
       <button class="empty-btn" onclick="startWizard()">Get Started</button>
     </div>`;return;
@@ -2329,25 +2343,25 @@ function renderOverviewTab(el,mid){
   const midIdx=mid?S.months.findIndex(m=>m.id===mid):-1;
   const prevM=midIdx>0?S.months[midIdx-1]:null;
   const nextM=midIdx>=0&&midIdx<S.months.length-1?S.months[midIdx+1]:null;
-  const curLabel=mid?(S.months[midIdx]?.label||mid):'No Month';
   if(!mid){
-    el.innerHTML=`<div class="month-hdr">
+    el.innerHTML=`<div class="month-hdr ov-month-hdr">
       <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" disabled>‹</button>
-      <span class="month-title" style="margin:0 10px">${curLabel}</span>
+      <span class="month-title" style="margin:0 10px">No Month</span>
       <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)">›</button>
     </div>`;return;
   }
   const m=getMonth(mid);
   const st=monthStatus(mid);
   const past=st==='past';
-  const {rts,alloc,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
+  const {rts,alloc,income,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
   const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
-  // Single unified header: nav arrows + month title + chip + Reports
-  let h=`<div class="month-hdr" style="margin-bottom:20px">
+
+  // ── Month header (desktop; mobile topbar handles navigation) ──────────────
+  let h=`<div class="month-hdr ov-month-hdr" style="margin-bottom:20px">
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''} title="${prevM?prevM.label:'No previous month'}">‹</button>
     <span class="month-title" style="margin:0 10px">${m.label}</span>
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
-    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" title="Add next month" style="margin-left:4px">+</button>`:''}
+    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" style="margin-left:4px">+</button>`:''}
     <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
     <div class="reports-drop-wrap" style="margin-left:auto">
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="toggleReportsMenu('${mid}',this)">📊 Reports ▾</button>
@@ -2359,44 +2373,48 @@ function renderOverviewTab(el,mid){
     </div>
   </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
-  h+=`<div class="pool-strip" style="margin-bottom:16px">
-    <div class="ps-cell"><div class="ps-label">Budget Balance</div><div class="ps-val ${budgetBal>=0?'green':'red'}">${$f(budgetBal)}</div><div class="ps-sub">in budget accounts</div></div>
-    <div class="ps-cell"><div class="ps-label">Allocated</div><div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="ps-sub">assigned this month</div></div>
-    <div class="ps-cell hi"><div class="ps-label">Ready to Spend</div><div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="ps-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
-    <div class="ps-cell"><div class="ps-label">Spent</div><div class="ps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="ps-sub">from transactions</div></div>
-  </div>`;
-  // ── Per-account liquidity strip ────────────────────────────────────────────
-  // Shows the physical balance of every non-debt account so the user can see
-  // per-account spending ceilings even though RTS is a pooled budget metric.
-  const nonDebtAccts=S.accounts.filter(a=>a.type!=='debt');
-  if(nonDebtAccts.length>0){
+
+  // ── Account liquidity strip (horizontal scroll on mobile) ─────────────────
+  if(S.accounts.length){
     h+=`<div class="als">`;
-    nonDebtAccts.forEach(a=>{
+    S.accounts.forEach(a=>{
       const ab=acctBalance(a.id);
-      const typeTag=a.type==='savings'?'savings':a.type==='budget'?'budget':'';
+      const typeTag=a.type==='savings'?'savings':a.type==='budget'?'budget':a.type==='debt'?'debt':'';
       h+=`<div class="als-cell" onclick="setActiveAccount('${a.id}')" title="View ${esc(a.name)} transactions">
-        <div class="als-dot" style="background:${a.color}"></div>
+        <div class="als-dot" style="background:${a.color||COLORS[0]}"></div>
         <span class="als-name">${esc(a.name)}</span>
         ${typeTag?`<span class="als-type">${typeTag}</span>`:''}
-        <span class="als-bal" style="color:${ab>=0?'var(--green)':'var(--red)'}">${$f(ab)}</span>
+        <span class="als-bal" style="color:${a.type==='debt'?'var(--red)':ab>=0?'var(--green)':'var(--red)'}">${$f(ab)}</span>
       </div>`;
     });
     h+=`</div>`;
   }
+
+  // ── Budget health bar ─────────────────────────────────────────────────────
   h+=renderBudgetHealth(mid);
+
+  // ── Pool stats strip ──────────────────────────────────────────────────────
+  h+=`<div class="pool-strip" style="margin-bottom:16px">
+    <div class="ps-cell hi"><div class="ps-label">Ready to Spend</div><div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="ps-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
+    <div class="ps-cell"><div class="ps-label">Income</div><div class="ps-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div><div class="ps-sub">this month</div></div>
+    <div class="ps-cell"><div class="ps-label">Allocated</div><div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="ps-sub">to buckets</div></div>
+    <div class="ps-cell"><div class="ps-label">Spent</div><div class="ps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="ps-sub">from buckets</div></div>
+  </div>`;
+
+  // ── Hint bar (desktop) — urgent items list is mobile equivalent ────────────
   if(!past&&unfundedCnt>0&&rts>0)
-    h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setDesktopTab('buckets')">Go to Buckets →</button></div>`;
+    h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
   else if(!past&&rts<0)
-    h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
+    h+=`<div class="hint-bar warn ov-desktop-only">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance.</div>`;
   else if(!past&&rts===0&&alloc>0)
-    h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
+    h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
 
   // ── Secondary stats row ───────────────────────────────────────────────────
   h+=`<div class="ov-stats-row">
     <div class="ov-stat">
       <div class="ov-stat-label">Net Worth</div>
       <div class="ov-stat-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
-      <div class="ov-stat-sub">all accounts combined</div>
+      <div class="ov-stat-sub">all accounts</div>
     </div>
     <div class="ov-stat">
       <div class="ov-stat-label">Age of Money</div>
@@ -2408,10 +2426,48 @@ function renderOverviewTab(el,mid){
       <div class="ov-stat-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
       <div class="ov-stat-sub">${fundedCnt} funded · ${partialCnt} partial · ${unfundedCnt} unfunded</div>
     </div>
+    <div class="ov-stat">
+      <div class="ov-stat-label">Budget Cash</div>
+      <div class="ov-stat-val dim">${$f(budgetBal)}</div>
+      <div class="ov-stat-sub">spending pool</div>
+    </div>
   </div>`;
 
-  // ── Two-column widgets ─────────────────────────────────────────────────────
-  // Left: Upcoming bills — next 14 days + any overdue-unpaid from this month
+  // ── Needs Attention (mobile primary; desktop shows hint bars instead) ──────
+  const urgency=[];
+  if(m){
+    S.buckets.filter(b=>!b.archived).forEach(b=>{
+      const days=daysUntilDue(b,m.year,m.month);
+      const balloc=bAlloc(mid,b.id);const bspent=bSpent(mid,b.id);
+      const avail=balloc+rolloverBal(b.id,mid)-bspent;
+      if(avail<0)urgency.push({type:'over',b,avail,days,priority:0});
+      else if(days!==null&&days<=0&&balloc===0)urgency.push({type:'overdue',b,avail,days,priority:1});
+      else if(days!==null&&days<=3&&balloc===0)urgency.push({type:'due-soon',b,avail,days,priority:2});
+      else if(balloc===0&&bBudget(mid,b.id)>0)urgency.push({type:'unfunded',b,avail,days,priority:3});
+    });
+    urgency.sort((a,b)=>a.priority-b.priority||((a.days??999)-(b.days??999)));
+  }
+  if(urgency.length){
+    h+=`<div class="m-section-label ov-mobile-only">Needs Attention</div>`;
+    urgency.slice(0,6).forEach(u=>{
+      const cat=getCat(u.b.catId);const color=cat?.color||COLORS[0];
+      let dotColor='var(--red)',sub='';
+      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
+      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
+      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
+      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
+      h+=`<div class="m-urgency-item ov-mobile-only" onclick="openDetail('bucket','${u.b.id}')">
+        <div class="m-urgency-dot" style="background:${dotColor}"></div>
+        <div style="flex:1"><div class="m-urgency-name">${esc(u.b.name)}</div>
+          <div class="m-urgency-sub" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div></div>
+        <span style="color:var(--text3);font-size:18px">›</span>
+      </div>`;
+    });
+  } else if(alloc>0){
+    h+=`<div class="ov-mobile-only" style="padding:16px;text-align:center;color:var(--green);font-size:14px">✓ Everything looks good</div>`;
+  }
+
+  // ── Widgets: Upcoming Bills + Recent Transactions ─────────────────────────
   const billEntries=activeBkts.filter(b=>b.dueDay).map(b=>{
     const d=daysUntilDue(b,m.year,m.month);
     const bm2=computeBucketMetrics(b.id,mid);
@@ -2433,8 +2489,6 @@ function renderOverviewTab(el,mid){
       </div>`;
     });
   }
-
-  // Right: Recent transactions (last 5 posted non-opening txs, across all accounts in this month)
   const recentTxs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening'&&!isScheduled(t))
     .sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
   let recentHtml='';
@@ -2446,7 +2500,7 @@ function renderOverviewTab(el,mid){
       const valCls=isIn?'green':isXfr?'':'red';
       const pfx=isIn?'+':isXfr?'':'-';
       const acctName=getAcct(t.accountId)?.name||'';
-      recentHtml+=`<div class="ov-widget-row">
+      recentHtml+=`<div class="ov-widget-row" onclick="mEditTxSheet('${t.id}')" style="cursor:pointer">
         <div style="flex:1;overflow:hidden">
           <div class="ov-widget-row-name">${esc(t.desc)}</div>
           <div class="ov-widget-row-meta">${esc(acctName)} · ${ld(t.date)}</div>
@@ -2455,16 +2509,31 @@ function renderOverviewTab(el,mid){
       </div>`;
     });
   }
-
   h+=`<div class="ov-widgets">
     <div class="ov-widget">
-      <div class="ov-widget-title">Upcoming Bills (14 days)</div>
-      ${billsHtml}
+      <div class="ov-widget-title">Upcoming Bills (14 days)</div>${billsHtml}
     </div>
     <div class="ov-widget">
-      <div class="ov-widget-title">Recent Transactions</div>
-      ${recentHtml}
+      <div class="ov-widget-title">Recent Transactions</div>${recentHtml}
     </div>
+  </div>`;
+
+  // ── Quick actions (mobile only — desktop uses sidebar nav) ────────────────
+  h+=`<div class="ov-mobile-only">
+    <div class="m-settings-row">
+      <button class="m-settings-btn" onclick="openNetWorth()">◈ Net Worth</button>
+      <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
+      <button class="m-settings-btn" onclick="openMonthReport('${mid}')">📊 Report</button>
+      <button class="m-settings-btn" onclick="openRecurringBills()">⏱ Recurring</button>
+    </div>
+    <div class="m-settings-row">
+      <button class="m-settings-btn" onclick="setTab('settings')">⚙ Settings</button>
+      <button class="m-settings-btn" onclick="exportData()">↓ Export</button>
+      <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">↑ Import</button>
+      <button class="m-settings-btn" style="color:var(--red)" onclick="confirmFreshStart()">↺ Fresh Start</button>
+    </div>
+    <input type="file" id="importFileMobile" accept=".json" style="display:none" onchange="importData(event)" />
+    <div style="height:24px"></div>
   </div>`;
 
   el.innerHTML=h;
@@ -3793,7 +3862,7 @@ function _wiMobileHTML(){
       h+=`<div class="wi-bkt-row" style="padding:6px 16px;border-bottom:1px solid var(--border);${isActive?'':'opacity:.45'}">
         <span class="wi-bkt-label">${esc(b.name)}${diffHtml}</span>
         <input class="wi-s-inp" type="number" value="${val||''}" placeholder="0"
-          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');mRenderDash();" />
+          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');renderActivePane();" />
       </div>
       <div style="display:flex;gap:5px;align-items:center;padding:3px 16px 5px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap">
         <span style="font-size:10px;color:var(--text3)">On from:</span>
