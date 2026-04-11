@@ -192,7 +192,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ledger-search::placeholder{color:var(--text3);}
 
 /* Accounts tab */
-.acct-tab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;}
+.acct-pane-wrap{padding:0 28px 24px;}
+.acct-group-hdr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin:16px 0 8px;}
+.acct-group-hdr:first-child{margin-top:0;}
+.acct-tab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:8px;}
 .acct-tab-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;cursor:pointer;transition:border-color .12s;}
 .acct-tab-card:hover{border-color:var(--accent);}
 .acct-tab-card-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
@@ -860,6 +863,17 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .als-cell{flex-shrink:0;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);}
   .hint-bar{margin:0;border-radius:0;border-left:none;border-right:none;}
   .bh-wrap{margin:0 12px 10px;}
+
+  /* ── Accounts tab: mobile layout ── */
+  .acct-pane-wrap{padding:12px 14px 24px;}
+  .acct-tab-grid{grid-template-columns:1fr;}
+  .acct-tab-card-bal{font-size:18px;}
+
+  /* ── Ledger: touch-friendly filter bar ── */
+  .ledger-list-head{flex-wrap:wrap;height:auto;padding:8px 12px;gap:6px;}
+  .ledger-filters{flex:1;gap:4px;}
+  .rfbtn{min-height:36px;padding:6px 8px;font-size:12px;}
+  .ledger-search{padding:10px 12px;font-size:16px;border-top:1px solid var(--border);}
 
   /* ── Unified bucket rows: mobile adaptations ── */
   .bkt-col-hdr{display:none;}
@@ -2272,7 +2286,7 @@ function renderActivePane(){
   } else if(activeTab==='log'){
     renderLogPane();
   } else if(activeTab==='ledger'){
-    const p=document.getElementById('paneLedger');if(p){if(isMobile())mRenderLedger();else renderLedgerTab(p,mid);}
+    const p=document.getElementById('paneLedger');if(p)renderLedgerTab(p,mid);
   } else if(activeTab==='accounts'){
     const p=document.getElementById('paneAccounts');if(p)renderAccountsTab(p,mid);
   } else if(activeTab==='settings'){
@@ -2635,7 +2649,6 @@ function renderLedgerTab(el,mid){
 }
 
 function renderAccountsTab(el,mid){
-  if(S.activeAccount){renderAccountView(el,mid);return;}
   if(!S.accounts.length){
     el.innerHTML=`<div class="empty-wrap">
       <div class="empty-icon">⬡</div>
@@ -2646,11 +2659,12 @@ function renderAccountsTab(el,mid){
   }
   const cash=S.accounts.filter(a=>a.type!=='debt');
   const debt=S.accounts.filter(a=>a.type==='debt');
-  let h=`<div class="month-hdr"><div class="month-title">Accounts</div>
+  let h=`<div class="month-hdr ov-desktop-only"><div class="month-title">Accounts</div>
     <button class="tbtn" style="margin-left:auto" onclick="openModal('acct')">+ Add Account</button>
-  </div>`;
+  </div>
+  <div class="acct-pane-wrap">`;
   if(cash.length){
-    h+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin-bottom:8px">Cash &amp; Savings</div>
+    h+=`<div class="acct-group-hdr">Cash &amp; Savings</div>
     <div class="acct-tab-grid">`;
     cash.forEach(a=>{
       const bal=acctBalance(a.id);
@@ -2663,7 +2677,7 @@ function renderAccountsTab(el,mid){
   }
   if(debt.length){
     const totalDebt=debt.reduce((s,a)=>s+acctBalance(a.id),0);
-    h+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--red);margin:16px 0 8px">Debt · ${$f(totalDebt)}</div>
+    h+=`<div class="acct-group-hdr" style="color:var(--red)">Debt · ${$f(totalDebt)}</div>
     <div class="acct-tab-grid">`;
     debt.forEach(a=>{
       const bal=acctBalance(a.id);
@@ -2674,6 +2688,8 @@ function renderAccountsTab(el,mid){
     });
     h+=`</div>`;
   }
+  h+=`<button class="ov-mobile-only m-settings-btn" style="width:100%;margin-top:16px" onclick="openModal('acct')">+ Add Account</button>`;
+  h+=`</div>`;
   el.innerHTML=h;
 }
 
