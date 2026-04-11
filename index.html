@@ -332,6 +332,35 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .pill-over{background:var(--rbg);color:var(--red);}
 .pill-done{background:var(--gbg);color:var(--green);}
 .pill-pending{background:var(--abg);color:var(--amber);}
+.pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
+
+/* ═══ UNIFIED BUCKET ROWS ═══ */
+.bkt-cat{border-bottom:2px solid var(--border2);margin-bottom:8px;}
+.bkt-cat-hdr{display:flex;align-items:center;gap:8px;padding:10px 16px 8px;background:var(--bg);}
+.bkt-cat-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.bkt-cat-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text2);flex:1;}
+.bkt-cat-totals{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.bkt-col-hdr{display:flex;align-items:center;padding:4px 16px;border-bottom:1px solid var(--border);background:var(--bg3);}
+.bkt-col-hdr span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);}
+.bkt-row{display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--bg2);gap:8px;transition:background .1s;min-height:44px;}
+.bkt-row:hover{background:var(--surface);}
+.bkt-row.act{background:var(--surface2);}
+.bkt-accent{width:3px;align-self:stretch;border-radius:2px;flex-shrink:0;min-height:32px;opacity:.5;transition:opacity .12s;}
+.bkt-row:hover .bkt-accent,.bkt-row.act .bkt-accent{opacity:1;}
+.bkt-name-col{flex:1;min-width:0;}
+.bkt-row-label{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bkt-row-sub{display:flex;align-items:center;gap:5px;margin-top:2px;}
+.bkt-alloc-col{width:108px;flex-shrink:0;}
+.bkt-bar-col{width:58px;flex-shrink:0;}
+.bkt-spent-col{width:72px;flex-shrink:0;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text2);}
+.bkt-avail-col{width:72px;flex-shrink:0;text-align:right;font-family:var(--mono);font-size:13px;font-weight:500;}
+.bkt-pill-col{width:58px;flex-shrink:0;text-align:right;}
+.bkt-compact{display:none;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
+.bkt-compact-alloc{font-family:var(--mono);font-size:14px;font-weight:600;}
+.bkt-mini-bar{height:2px;background:var(--border2);border-radius:2px;overflow:hidden;margin-top:5px;width:100%;}
+.bkt-mini-fill{height:100%;border-radius:2px;}
+.bkt-chevron{color:var(--text3);font-size:16px;flex-shrink:0;display:none;}
+
 /* Pending dot: unfunded but has scheduled activity coming */
 .bni-dot.has-pending{background:var(--amber);opacity:.45;}
 /* Recurring bill row in modal */
@@ -341,7 +370,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .rb-row-amt{font-family:var(--mono);font-size:12px;color:var(--text2);min-width:60px;text-align:right;}
 .rb-row-day{font-size:11px;color:var(--text3);}
 .m-bkt-pill.pill-pending{background:var(--abg);color:var(--amber);}
-.pill-missed{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
 
 /* ═══ BUCKET DETAIL ═══ */
 .det-notes{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;word-break:break-word;}
@@ -832,6 +860,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .als-cell{flex-shrink:0;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);}
   .hint-bar{margin:0;border-radius:0;border-left:none;border-right:none;}
   .bh-wrap{margin:0 12px 10px;}
+
+  /* ── Unified bucket rows: mobile adaptations ── */
+  .bkt-col-hdr{display:none;}
+  .bkt-alloc-col,.bkt-bar-col,.bkt-spent-col,.bkt-avail-col,.bkt-pill-col{display:none;}
+  .bkt-compact{display:flex;}
+  .bkt-chevron{display:block;}
+  .bkt-row{padding:11px 14px;}
+  .bkt-cat-hdr{padding:8px 14px 6px;}
 }
 
 /* Tablet: 768–1199px — icon-only sidebar */
@@ -2232,7 +2268,7 @@ function renderActivePane(){
   if(activeTab==='overview'){
     const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);
   } else if(activeTab==='buckets'){
-    if(isMobile()){mRenderBuckets();}else{const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);}
+    const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);
   } else if(activeTab==='log'){
     renderLogPane();
   } else if(activeTab==='ledger'){
@@ -2669,7 +2705,7 @@ function renderBucketsTab(el,mid){
   const bMidIdx=S.months.findIndex(mn=>mn.id===mid);
   const bPrevM=bMidIdx>0?S.months[bMidIdx-1]:null;
   const bNextM=bMidIdx>=0&&bMidIdx<S.months.length-1?S.months[bMidIdx+1]:null;
-  let h=`<div class="month-hdr" style="margin-bottom:20px">
+  let h=`<div class="month-hdr ov-desktop-only" style="margin-bottom:20px">
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!bPrevM?'disabled':''} title="${bPrevM?bPrevM.label:'No previous month'}">‹</button>
     <span class="month-title" style="margin:0 10px">${m.label}</span>
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${bNextM?bNextM.label:'Add next month'}">›</button>
@@ -2681,7 +2717,6 @@ function renderBucketsTab(el,mid){
     </div>
   </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
-  if(S.activeBucket){h+=renderBucketDetail(mid,past,m);el.innerHTML=h;return;}
   if(!past&&unalloc>0&&rts>0)
     h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
   else if(!past&&rts<0)
@@ -2695,40 +2730,37 @@ function renderBucketsTab(el,mid){
       <button class="empty-btn" onclick="openModal('bkt')">Add a bucket</button>
     </div>`;el.innerHTML=h;return;
   }
-  // Category sections
+  // Category sections — div-based, works on all breakpoints
   sortedCats().forEach(cat=>{
     const catBuckets=sortedBuckets(cat.id);
     if(!catBuckets.length)return;
     const color=cat.color||COLORS[0];
     const catAlloc=catBuckets.reduce((s,b)=>s+bAlloc(mid,b.id),0);
     const catTarget=catBuckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
-    // Sort by due date urgency within the user's preferred order
     const sorted=[...catBuckets].sort((a,b)=>{
       const da=daysUntilDue(a,m.year,m.month);
       const db=daysUntilDue(b,m.year,m.month);
-      // Overdue/urgent float to top, rest keep user order
       if(da!==null&&da<=0&&(db===null||db>0))return -1;
       if(db!==null&&db<=0&&(da===null||da>0))return 1;
       return (a.order??0)-(b.order??0);
     });
 
-    h+=`<div class="cat-sec">
-      <div class="cat-sec-hdr">
-        <div class="csh-color" style="background:${color}"></div>
-        <span class="csh-name">${esc(cat.name)}</span>
-        <span class="csh-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
+    h+=`<div class="bkt-cat">
+      <div class="bkt-cat-hdr">
+        <div class="bkt-cat-dot" style="background:${color}"></div>
+        <span class="bkt-cat-name">${esc(cat.name)}</span>
+        <span class="bkt-cat-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
         ${!past?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund all</button>`:''}
       </div>
-      <table class="btable">
-      <thead><tr>
-        <th style="width:3px;padding:0"></th>
-        <th>Bucket</th>
-        <th style="width:104px">Allocated</th>
-        <th style="width:56px">Progress</th>
-        <th style="width:74px;text-align:right">Spent</th>
-        <th style="width:74px;text-align:right">Available</th>
-        <th style="width:54px;text-align:right"></th>
-      </tr></thead><tbody>`;
+      <div class="bkt-col-hdr">
+        <div style="width:3px;flex-shrink:0"></div>
+        <span style="flex:1">Bucket</span>
+        <span style="width:108px">Allocated</span>
+        <span style="width:58px">Progress</span>
+        <span style="width:72px;text-align:right">Spent</span>
+        <span style="width:72px;text-align:right">Available</span>
+        <span style="width:58px;text-align:right"></span>
+      </div>`;
 
     sorted.forEach(b=>{
       const alloc=bAlloc(mid,b.id);
@@ -2740,6 +2772,7 @@ function renderBucketsTab(el,mid){
       const pctRaw=eff>0?spent/eff:0;
       const pct=Math.min(pctRaw,1);
       const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
+      const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
       const days=daysUntilDue(b,m.year,m.month);
       let dueHtml='';
       if(days!==null){const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
@@ -2759,14 +2792,15 @@ function renderBucketsTab(el,mid){
       else pillHtml=`<span class="pill pill-partial">Partial</span>`;
 
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
+      const availCls=avail>0?'green':avail<0?'red':'muted';
 
-      h+=`<tr class="brow${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
-        <td class="td-accent"><div class="accent-bar" style="background:${color}"></div></td>
-        <td class="td-name">
-          <div class="bn">${esc(b.name)}</div>
-          <div class="bt">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>
-        </td>
-        <td class="td-alloc" onclick="event.stopPropagation()">
+      h+=`<div class="bkt-row${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
+        <div class="bkt-accent" style="background:${color}"></div>
+        <div class="bkt-name-col">
+          <div class="bkt-row-label">${esc(b.name)}</div>
+          <div class="bkt-row-sub">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>
+        </div>
+        <div class="bkt-alloc-col" onclick="event.stopPropagation()">
           ${past?`<span class="tv dim">${$f(alloc)}</span>`:`
           <div class="alloc-wrap">
             <span class="alloc-pfx">$</span>
@@ -2777,16 +2811,22 @@ function renderBucketsTab(el,mid){
               onfocus="this.select()" />
             <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
           </div>`}
-        </td>
-        <td class="td-bar">
+        </div>
+        <div class="bkt-bar-col">
           <div class="bbar"><div class="bbar-fill ${eff>0?fillCls:'bf-ok'}" style="width:${eff>0?Math.round(pct*100):0}%"></div></div>
-        </td>
-        <td class="td-spent"><span class="tv ${spent>0?'dim':'muted'}">${spent>0?$f(spent):'—'}</span>${target>0?`<div class="tv-sub">of ${$f(target)}</div>`:''}</td>
-        <td class="td-avail"><span class="tv ${avail>0?'green':avail<0?'red':'muted'}">${eff>0||spent>0?$f(avail):'—'}</span></td>
-        <td class="td-pill">${pillHtml}</td>
-      </tr>`;
+        </div>
+        <div class="bkt-spent-col">${spent>0?$f(spent):'—'}${target>0?`<div class="tv-sub" style="font-size:10px">of ${$f(target)}</div>`:''}</div>
+        <div class="bkt-avail-col"><span class="tv ${availCls}">${eff>0||spent>0?$f(avail):'—'}</span></div>
+        <div class="bkt-pill-col">${pillHtml}</div>
+        <div class="bkt-compact">
+          <div class="bkt-compact-alloc" style="color:${availCls==='green'?'var(--green)':availCls==='red'?'var(--red)':'var(--text)'}">${eff>0||spent>0?$f(avail):'—'}</div>
+          <div>${pillHtml}</div>
+          <div class="bkt-mini-bar" style="width:56px"><div class="bkt-mini-fill" style="width:${eff>0?Math.round(pct*100):0}%;background:${fillColor}"></div></div>
+        </div>
+        <div class="bkt-chevron">›</div>
+      </div>`;
     });
-    h+=`</tbody></table></div>`;
+    h+=`</div>`;
   });
   el.innerHTML=h;
   setTimeout(wireAllocKeys,50);
