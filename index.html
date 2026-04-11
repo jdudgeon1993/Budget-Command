@@ -585,55 +585,73 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 /* ════════════════════════════════════════════════════════
    MOBILE — Android native feel, < 768px
-   Desktop layout hidden, mobile shell takes over
+   Responsive layout — single shell, CSS adapts
 ════════════════════════════════════════════════════════ */
+
+/* ═══ UNIFIED SHELL ═══ */
+.app-nav{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;padding:0;flex-shrink:0;}
+.app-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);position:relative;}
+.tab-pane{display:none;flex:1;flex-direction:column;overflow-y:auto;padding:24px 28px;}
+.tab-pane.active{display:flex;}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:11px 16px;background:none;border:none;border-left:3px solid transparent;cursor:pointer;font-family:var(--sans);font-size:13px;color:var(--text3);text-align:left;width:100%;transition:color .12s,background .12s;}
+.nav-btn:hover:not(.active){color:var(--text);background:var(--bg3);}
+.nav-btn.active{color:var(--accent);border-left-color:var(--accent);background:var(--gbg);}
+.nav-icon-txt{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+.nav-svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:none;}
+.nav-label{flex:1;}
+.nav-pip{display:none;}
+.pane-hdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
+.pane-hdr-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;}
+.pane-hdr-action{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;}
+.pane-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.pane-scroll::-webkit-scrollbar{display:none;}
+.detail-panel{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:10;}
+.detail-panel.active{transform:translateX(0);}
+.detail-hdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
+.detail-back{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);display:flex;align-items:center;gap:4px;padding:0;white-space:nowrap;}
+.detail-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;text-align:center;}
+.detail-act{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;white-space:nowrap;}
+.detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.detail-scroll::-webkit-scrollbar{display:none;}
+.tb-month-nav{display:none;}
+.tb-new-btn{display:none !important;}
+
 @media(max-width:767px){
-  /* Hide entire desktop layout */
-  .topbar,.app,.strip,.wi-panel{display:none!important;}
-
-  /* Mobile shell */
-  #mShell{display:flex;flex-direction:column;height:100vh;height:100dvh;background:var(--bg);overflow:hidden;}
-  #mTopbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-  #mTopbar-title{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);letter-spacing:-.3px;display:flex;align-items:center;gap:7px;}
-  #mTopbar-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
-  #mTopbar-right{display:flex;align-items:center;gap:8px;}
-  #mRtsChip{font-family:var(--mono);font-size:13px;font-weight:500;padding:4px 10px;border-radius:20px;background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
-  #mRtsChip.neg{background:var(--rbg);color:var(--red);border-color:var(--rb);}
-  #mRtsChip.zero{background:var(--bg3);color:var(--text3);border-color:var(--border2);}
-
-  /* Screen container */
-  #mScreens{flex:1;overflow:hidden;position:relative;}
-  .mScreen{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);background:var(--bg);}
-  .mScreen.active{transform:translateX(0);}
-  .mScreen.slide-left{transform:translateX(-30%);}
-
-  /* Subview screen (detail pages) */
-  .mSubview{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:10;}
-  .mSubview.active{transform:translateX(0);}
-
-  /* Mobile nav bar */
-  #mNav{background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom);}
-  .mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 8px 8px;min-height:44px;background:none;border:none;cursor:pointer;gap:3px;transition:color .12s;color:var(--text3);font-family:var(--sans);}
-  .mnav-btn.active{color:var(--accent);}
-  .mnav-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-  .mnav-label{font-size:11px;font-weight:600;letter-spacing:.3px;}
-  .mnav-pip{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:0;transition:opacity .12s;}
-  .mnav-btn.active .mnav-pip{opacity:1;}
-
-  /* Shared mobile components */
-  .mhdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
-  .mhdr-back{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);display:flex;align-items:center;gap:4px;padding:0;white-space:nowrap;}
-  .mhdr-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;text-align:center;}
-  .mhdr-action{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;white-space:nowrap;}
-
+  /* App: single column, nav at bottom */
+  .app{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+  .app-nav{grid-row:2;display:flex;flex-direction:row;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);}
+  .app-main{grid-row:1;position:relative;overflow:hidden;}
+  /* Nav buttons: bottom bar style */
+  .nav-desktop{display:none !important;}
+  .nav-btn{flex:1;flex-direction:column;justify-content:center;align-items:center;padding:10px 8px 8px;border-left:none;border-top:2px solid transparent;gap:3px;min-height:44px;}
+  .nav-btn.active{border-left-color:transparent;border-top-color:var(--accent);background:none;}
+  .nav-icon-txt{display:none;}
+  .nav-svg{display:block !important;width:22px;height:22px;}
+  .nav-pip{display:block !important;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:0;transition:opacity .12s;}
+  .nav-btn.active .nav-pip{opacity:1;}
+  .nav-label{font-size:11px;letter-spacing:.3px;}
+  /* Tab panes: full screen, slide animation */
+  .tab-pane{position:absolute;inset:0;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);padding:0;overflow-y:auto;}
+  .tab-pane.active{transform:translateX(0);}
+  .tab-pane.slide-left{transform:translateX(-30%);}
+  /* Topbar: show month nav, hide desktop elements */
+  .tb-month-nav{display:flex !important;align-items:center;gap:4px;flex:1;margin:0 4px;}
+  .tb-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:6px 8px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
+  .tb-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
+  .tb-month-arrow:active{background:var(--surface);}
+  .tb-total,.tb-wi{display:none !important;}
+  .tb-rts-label{display:none;}
+  .tb-rts-val{font-size:13px;padding:4px 10px;border-radius:20px;background:var(--gbg);border:1px solid var(--gb);}
+  .tb-rts-val.neg{background:var(--rbg);border-color:var(--rb);}
+  .tb-rts-val.zero{background:var(--bg3);border-color:var(--border2);}
+  .tb-new-btn{display:inline-flex !important;}
+  .tb-sync{display:none;}
+  /* Ledger: hide form column (use Log tab instead) */
+  .ledger-layout{grid-template-columns:1fr;}
+  .ledger-form-col{display:none;}
+  /* Legacy mobile scroll containers — still used by content functions */
   .mscroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .mscroll::-webkit-scrollbar{display:none;}
-
-  /* Month picker */
-  .m-month-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
-  .m-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:7px 12px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
-  .m-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
-  .m-month-arrow:active{background:var(--surface);}
 
   /* Dashboard cards */
   .m-pool-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:12px 12px 0;overflow:hidden;}
@@ -800,19 +818,16 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-bulk-del:active{color:var(--red);}
 }
 
-/* Tablet: 768–1199px */
+/* Tablet: 768–1199px — icon-only sidebar */
 @media(min-width:768px) and (max-width:1099px){
-  #mShell{display:none;}
   .app{grid-template-columns:56px 1fr;}
-  .nav-btn span:not(.nav-btn-icon){display:none;}
+  .nav-btn .nav-label,.nav-btn .nav-icon-txt{display:none;}
   .nav-btn{padding:14px 0;justify-content:center;}
-  .nav-new-btn span:last-child{display:none;}
-  .nav-new-btn{padding:12px 0;justify-content:center;}
 }
 
-/* Desktop: hide mobile shell AND mobile-only DOM elements */
+/* Desktop: keep month nav hidden, hide mobile-only DOM */
 @media(min-width:768px){
-  #mShell{display:none!important;}
+  .tb-month-nav{display:none !important;}
   #mToast,#mSheetOverlay,#mSheet{display:none!important;}
 }
 
@@ -1100,8 +1115,16 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 <body>
 
 <!-- TOPBAR -->
-<div class="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium<span style="color:var(--text3);margin:0 3px"> </span>Fisci</div>
+<header class="topbar" id="topbar">
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget<span style="color:var(--text3);margin:0 3px"> </span>Command</div>
+  <!-- Month navigation — visible in topbar on mobile -->
+  <div class="tb-month-nav" id="tbMonthNav">
+    <button class="tb-month-arrow" onclick="prevMonth()">&#8249;</button>
+    <select class="tb-month-sel" id="tbMonthSel" onchange="setMonthFromSel(this.value)"></select>
+    <button class="tb-month-arrow" onclick="nextMonth()">&#8250;</button>
+    <button class="tb-month-arrow" style="font-size:13px;padding:6px 10px;border-color:var(--border2)" onclick="toggleWI()" id="tbWiMobile">⚡</button>
+  </div>
+  <!-- Desktop stats -->
   <div class="tb-total">
     <div class="tb-total-label">Total Cash</div>
     <div class="tb-total-val" id="tbTotal">—</div>
@@ -1116,8 +1139,9 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <div class="tb-right">
     <div class="tb-sync" id="tbSyncStatus"><div class="tb-sync-dot off" id="tbSyncDot"></div><span id="tbSyncLabel">Offline</span></div>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
+    <button class="tbtn tb-new-btn" onclick="openModal('new')" id="tbNewBtn">+ New</button>
   </div>
-</div>
+</header>
 
 <!-- WI STRIP -->
 <div class="strip wi hidden" id="wiStrip">
@@ -1127,74 +1151,77 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 </div>
 
 <!-- APP -->
-<div class="app">
-  <div class="sidebar" id="sidebar"></div>
-  <div class="main">
-    <div class="main-scroll" id="mainScroll"></div>
+<div class="app" id="app">
+
+  <!-- UNIFIED NAV: sidebar on desktop, bottom bar on mobile -->
+  <nav class="app-nav" id="appNav">
+    <button class="nav-btn active" data-tab="overview" onclick="setTab('overview')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="nav-icon-txt">◈</span>
+      <span class="nav-label">Overview</span>
+      <div class="nav-pip"></div>
+    </button>
+    <button class="nav-btn" data-tab="buckets" onclick="setTab('buckets')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span class="nav-icon-txt">▣</span>
+      <span class="nav-label">Buckets</span>
+      <div class="nav-pip"></div>
+    </button>
+    <button class="nav-btn" data-tab="log" onclick="setTab('log')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span class="nav-icon-txt">✚</span>
+      <span class="nav-label">Log</span>
+      <div class="nav-pip"></div>
+    </button>
+    <button class="nav-btn" data-tab="ledger" onclick="setTab('ledger')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span class="nav-icon-txt">≡</span>
+      <span class="nav-label">Ledger</span>
+      <div class="nav-pip"></div>
+    </button>
+    <!-- Desktop-only nav items -->
+    <button class="nav-btn nav-desktop" data-tab="accounts" onclick="setTab('accounts')">
+      <span class="nav-icon-txt">⬡</span>
+      <span class="nav-label">Accounts</span>
+    </button>
+    <button class="nav-btn nav-desktop" data-tab="settings" onclick="setTab('settings')">
+      <span class="nav-icon-txt">⚙</span>
+      <span class="nav-label">Settings</span>
+    </button>
+    <button class="nav-btn nav-desktop" data-tab="export" onclick="setTab('export')">
+      <span class="nav-icon-txt">↕</span>
+      <span class="nav-label">Export / Import</span>
+    </button>
+  </nav>
+
+  <!-- MAIN: unified tab panes -->
+  <main class="app-main" id="appMain">
+    <div class="tab-pane active" id="paneOverview"></div>
+    <div class="tab-pane" id="paneBuckets"></div>
+    <div class="tab-pane" id="paneLog">
+      <div class="pane-hdr" id="logPaneHdr">
+        <div class="pane-hdr-title" id="logTitle">Log Transaction</div>
+        <button class="pane-hdr-action" id="bulkToggle" onclick="toggleBulk()">Bulk</button>
+      </div>
+      <div class="pane-scroll" id="logScroll"></div>
+    </div>
+    <div class="tab-pane" id="paneLedger"></div>
+    <div class="tab-pane" id="paneAccounts"></div>
+    <div class="tab-pane" id="paneSettings"></div>
+    <div class="tab-pane" id="paneExport"></div>
     <div class="wi-panel hidden" id="wiPanel"></div>
-  </div>
-  <div class="rpanel">
+  </main>
 
-    <!-- ── SUMMARY STRIP ── -->
-    <div class="rp-summary" id="rpSummary"></div>
-
-    <!-- ── TX FORM (compact, fixed height) ── -->
-    <div class="rp-form" id="txForm">
-      <!-- Row 1: type toggle -->
-      <div class="rpf-row rpf-type-row">
-        <span class="rpf-label">Type</span>
-        <div class="type-tog" style="flex:1">
-          <button class="ttbtn sel-out" id="ttOut" onclick="setTxType('out')">↑ Out</button>
-          <button class="ttbtn" id="ttIn"  onclick="setTxType('in')">↓ In</button>
-          <button class="ttbtn" id="ttXfr" onclick="setTxType('xfr')">⇄ Xfr</button>
-        </div>
-      </div>
-      <!-- Row 2: description -->
-      <div class="rpf-row">
-        <input class="tfi" id="txDesc" placeholder="Description..." style="flex:1" />
-      </div>
-      <!-- Row 3: amount + date -->
-      <div class="rpf-row">
-        <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" />
-        <input class="tfi" id="txDate" type="date" style="flex:1" />
-      </div>
-      <!-- Row 4: account -->
-      <div class="rpf-row">
-        <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
-      </div>
-      <!-- Row 5: category + bucket (out only) -->
-      <div class="rpf-row" id="txBktRow">
-        <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1"><option value="">Category...</option></select>
-        <select class="tfi-sel" id="txBkt" style="flex:1"><option value="">Bucket...</option></select>
-      </div>
-      <!-- Row 6: transfer to (xfr only) -->
-      <div class="rpf-row" id="txXfrRow" style="display:none">
-        <select class="tfi-sel" id="txXfrTo" style="flex:1"><option value="">To account...</option></select>
-      </div>
-      <!-- Row 7: recurring + submit -->
-      <div class="rpf-row rpf-submit-row">
-        <label class="rec-chk" style="flex:1"><input type="checkbox" id="txRec"> ↻ Recurring</label>
-        <button class="txf-submit" id="txSubmitBtn" onclick="addTx()" style="flex:2">Add Transaction</button>
-      </div>
+  <!-- DETAIL PANEL: bucket or account detail, slides over main -->
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-hdr">
+      <button class="detail-back" onclick="closeDetail()">&#8592; Back</button>
+      <div class="detail-title" id="detailTitle"></div>
+      <button class="detail-act" id="detailAct"></button>
     </div>
-
-    <!-- ── LEDGER ── -->
-    <div class="rp-ledger-head">
-      <div class="rpf-row" style="margin-bottom:6px;padding:0">
-        <span class="rp-title" id="rpTitle" style="flex:1">Ledger</span>
-        <span class="rp-bal-badge" id="rpBalBadge" style="display:none"></span>
-        <div class="rp-filters" style="gap:3px">
-          <button class="rfbtn active" id="fAll" onclick="setFilter('all')">All</button>
-          <button class="rfbtn" id="fIn"  onclick="setFilter('in')">↓ In</button>
-          <button class="rfbtn" id="fOut" onclick="setFilter('out')">↑ Out</button>
-          <button class="rfbtn" id="fXfr" onclick="setFilter('xfr')">⇄</button>
-        </div>
-      </div>
-      <input class="rp-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" />
-    </div>
-    <div class="tx-list" id="txList"></div>
-
+    <div class="detail-scroll" id="detailScroll"></div>
   </div>
+
 </div>
 
 <!-- MODAL -->
@@ -1329,7 +1356,7 @@ async function authInit(){
         S.wiOpen=false;S.scenario=false;S.wiScenario=null;
         if(!S.scenarios)S.scenarios=[];
         setSyncStatus('synced','Synced');
-        if(isMobile()){initMobile();}else{initDesktop();}
+        init();
         if(!S.accounts.length){startWizard();}
       }
     } else if(event==='TOKEN_REFRESHED'){
@@ -1368,7 +1395,7 @@ async function authInit(){
       S.wiOpen=false;S.scenario=false;S.wiScenario=null;
       if(!S.scenarios)S.scenarios=[];
       setSyncStatus('synced','Synced');
-      if(isMobile()){initMobile();}else{initDesktop();}
+      init();
       if(!S.accounts.length){startWizard();}
     }
   } else {
@@ -1462,7 +1489,7 @@ function skipAuth(){
   _appInitialized=true; // Allow init/resize to proceed in offline mode
   document.getElementById('authScreen').classList.add('hidden');
   setSyncStatus('offline','Offline mode');
-  if(isMobile()){initMobile();}else{initDesktop();}
+  init();
   if(!S.accounts.length){startWizard();}
 }
 
@@ -2009,7 +2036,7 @@ function monthProjectedIncome(mid){
 function setProjectedIncome(mid,val){
   const m=getMonth(mid);if(!m)return;
   m.projectedIncome=val>0?val:null;
-  save();render();if(isMobile())mRenderAll();
+  save();render();
 }
 // Future-dated transactions are "scheduled" — shown in ledger but excluded from all balance/spend math
 const todayStr=()=>new Date().toISOString().split('T')[0];
@@ -2072,12 +2099,12 @@ function getPrevMonthId(mid){
 // RENDER
 // ═══════════════════════════════════════════════════════
 function render(){
-  renderTopbar();renderSidebar();renderMain();
+  renderTopbar();
+  renderNav();
+  renderActivePane();
   if(S.wiOpen)renderWI();
   wireFormKeys();
   setTimeout(wireDesktopPayee, 0);
-  // Keep mobile in sync when render is called from desktop actions
-  if(isMobile())setTimeout(mRenderAll, 0);
 }
 
 function renderRpSummary(){
@@ -2149,50 +2176,145 @@ function renderTopbar(){
 
   // Auth button
   updateAuthBtn();
+  // Month selector
+  populateMonthSel();
 }
 
-function renderSidebar(){
-  const el=document.getElementById('sidebar');
-  if(!el)return;
-  const navItems=[
-    {id:'overview',label:'Overview',icon:'◈'},
-    {id:'ledger',label:'Ledger',icon:'≡'},
-    {id:'accounts',label:'Accounts',icon:'⬡'},
-    {id:'buckets',label:'Buckets',icon:'▣'},
-    {id:'settings',label:'Settings',icon:'⚙'},
-    {id:'export',label:'Export / Import',icon:'↕'},
-  ];
-  let h='';
-  navItems.forEach(item=>{
-    const active=desktopTab===item.id;
-    h+=`<button class="nav-btn${active?' active':''}" onclick="setDesktopTab('${item.id}')">
-      <span class="nav-btn-icon">${item.icon}</span>
-      <span>${item.label}</span>
-    </button>`;
+// ── Unified nav + tab routing ─────────────────────────────────────────────────
+let activeTab='overview';
+
+function renderNav(){
+  document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.tab===activeTab);
   });
-  el.innerHTML=h;
 }
 
-function renderMain(){
-  const el=document.getElementById('mainScroll');
-  if(!el)return;
+function setTab(tab){
+  // Animate out current pane
+  const curPane=document.getElementById('pane'+capitalize(activeTab));
+  curPane?.classList.add('slide-left');
+  setTimeout(()=>curPane?.classList.remove('slide-left'),300);
+  // Close any open detail
+  closeDetail(true);
+  activeTab=tab;
+  // Clear state on tab change
+  if(tab==='ledger'||tab==='log'){S.activeAccount=null;S.activeBucket=null;}
+  // Update nav
+  renderNav();
+  // Swap panes
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  const newPane=document.getElementById('pane'+capitalize(tab));
+  if(newPane)newPane.classList.add('active');
+  // Render content
+  renderActivePane();
+  save();
+}
+
+function renderActivePane(){
   const mid=S.activeMonth;
-  el.style.padding='';
-  el.style.overflowY='';
-  if(desktopTab==='overview'){renderOverviewTab(el,mid);return;}
-  if(desktopTab==='ledger'){renderLedgerTab(el,mid);return;}
-  if(desktopTab==='accounts'){renderAccountsTab(el,mid);return;}
-  if(desktopTab==='buckets'){renderBucketsTab(el,mid);return;}
-  if(desktopTab==='settings'){renderSettingsTab(el);return;}
-  if(desktopTab==='export'){renderExportTab(el);return;}
-  el.innerHTML='';
+  if(activeTab==='overview'){
+    if(isMobile()){mRenderDash();}
+    else{const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);}
+  } else if(activeTab==='buckets'){
+    if(isMobile()){mRenderBuckets();}
+    else{const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);}
+  } else if(activeTab==='log'){
+    renderLogPane();
+  } else if(activeTab==='ledger'){
+    if(isMobile()){mRenderLedger();}
+    else{const p=document.getElementById('paneLedger');if(p)renderLedgerTab(p,mid);}
+  } else if(activeTab==='accounts'){
+    const p=document.getElementById('paneAccounts');if(p)renderAccountsTab(p,mid);
+  } else if(activeTab==='settings'){
+    const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
+  } else if(activeTab==='export'){
+    const p=document.getElementById('paneExport');if(p)renderExportTab(p);
+  }
 }
 
-function setDesktopTab(tab){
-  desktopTab=tab;
-  if(tab==='ledger'){S.activeAccount=null;S.activeBucket=null;}
-  renderSidebar();
-  renderMain();
+// Keep renderMain as a shim — many save/render call sites still use it
+function renderMain(){renderActivePane();}
+// Keep setDesktopTab as a shim
+function setDesktopTab(tab){setTab(tab);}
+// Keep renderSidebar as a shim
+function renderSidebar(){renderNav();}
+
+// ── Detail panel ─────────────────────────��─────────────────────��──────────────
+function openDetail(type,id){
+  const panel=document.getElementById('detailPanel');
+  const scroll=document.getElementById('detailScroll');
+  const title=document.getElementById('detailTitle');
+  const act=document.getElementById('detailAct');
+  if(type==='bucket'){
+    const b=getBucket(id);if(!b)return;
+    S.activeBucket=id;S.activeAccount=null;
+    title.textContent=b.name;
+    act.textContent='Edit';act.onclick=()=>editBucket(id);
+    const mid=S.activeMonth;const past=monthStatus(mid)==='past';
+    scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
+    scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));
+  } else if(type==='account'){
+    const a=getAcct(id);if(!a)return;
+    S.activeAccount=id;S.activeBucket=null;
+    title.textContent=a.name;
+    act.textContent='Edit';act.onclick=()=>editAcct(id);
+    scroll.style.cssText='flex:1;overflow-y:auto;padding:0;';
+    renderAccountView(scroll,S.activeMonth);
+  }
+  panel.classList.add('active');
+  history.pushState({},'','');
+}
+
+function closeDetail(silent){
+  const panel=document.getElementById('detailPanel');
+  if(!panel||!panel.classList.contains('active'))return;
+  panel.classList.remove('active');
+  if(!silent){
+    S.activeBucket=null;S.activeAccount=null;
+    save();
+    renderActivePane();
+  }
+}
+
+// ── Month navigation (unified, replaces mPrevMonth/mNextMonth) ────────────────
+function populateMonthSel(){
+  const sel=document.getElementById('tbMonthSel');
+  if(!sel)return;
+  sel.innerHTML='';
+  S.months.forEach(m=>{
+    const opt=document.createElement('option');
+    opt.value=m.id;
+    opt.textContent=m.label+(monthStatus(m.id)==='present'?' ●':'');
+    opt.selected=m.id===S.activeMonth;
+    sel.appendChild(opt);
+  });
+}
+
+function setMonthFromSel(id){
+  S.activeMonth=id;S.activeBucket=null;save();
+  renderTopbar();renderActivePane();
+}
+
+function prevMonth(){
+  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+  if(idx>0){S.activeMonth=S.months[idx-1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
+}
+
+function nextMonth(){
+  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
+  if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
+  else{addNextMonth();populateMonthSel();}
+}
+
+function renderLogPane(){
+  mRenderLog();
+  setTimeout(wireMobilePayee,0);
+}
+
+function toggleBulk(){
+  mBulkMode=!mBulkMode;
+  if(mBulkMode&&!mBulkRows.length)mAddBulkRow();
+  mRenderLog();
 }
 
 function renderOverviewTab(el,mid){
@@ -2780,7 +2902,7 @@ function mBhStartEdit(mid){
   inp.placeholder='Income...';
   inp.title='Math: +50, -20, *1.05, 5%, =100+50';
   const valEl=document.getElementById(`mbhVal_${mid}`);
-  const promptEl=document.querySelector('#mDashScroll .bh-set-prompt');
+  const promptEl=document.querySelector('#paneOverview .bh-set-prompt');
   const target=valEl||promptEl;
   if(!target)return;
   target.replaceWith(inp);
@@ -3135,9 +3257,15 @@ function fundCategory(catId,mid){
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
 function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
-function setBucket(id){S.activeBucket=id||null;S.activeAccount=null;if(!isMobile()&&id)desktopTab='buckets';save();renderSidebar();renderMain();}
-function setActiveAccount(id){S.activeAccount=id;S.activeBucket=null;if(!isMobile())desktopTab='accounts';save();renderSidebar();renderMain();}
-function clearActive(){S.activeBucket=null;S.activeAccount=null;save();renderSidebar();renderMain();}
+function setBucket(id){
+  if(id){openDetail('bucket',id);}
+  else{closeDetail();S.activeBucket=null;save();}
+}
+function setActiveAccount(id){
+  if(id){openDetail('account',id);}
+  else{closeDetail();S.activeAccount=null;save();}
+}
+function clearActive(){closeDetail();S.activeBucket=null;S.activeAccount=null;save();}
 function setFilter(f){
   S.txFilter=f;
   ['All','In','Out','Xfr'].forEach(x=>{const el=document.getElementById('f'+x);if(el)el.className='rfbtn'+(f===x.toLowerCase()?' active':'');});
@@ -3423,7 +3551,7 @@ function saveTxEditModal(id,type){
   tx.accountId=document.getElementById('etAcct')?.value||tx.accountId;
   if(type==='out')tx.bucketId=document.getElementById('etBkt')?.value||null;
   if(type==='xfr')tx.toAccountId=document.getElementById('etXfrTo')?.value||null;
-  save();closeModal();render();if(isMobile())mRenderAll();
+  save();closeModal();render();
   showToast('Updated: '+tx.desc,'save');
 }
 function delTx(id){
@@ -3793,7 +3921,7 @@ function savePaycheckSettings(){
   save();
   const btn=document.querySelector('[onclick="savePaycheckSettings()"]');
   if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';btn.disabled=true;setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1500);}
-  render();if(isMobile())mRenderAll();
+  render();
 }
 
 // ── Paycheck Projector ────────────────────────────────────────────────────────
@@ -4985,13 +5113,9 @@ function applyAllocationRules(monthId){
   });
   const count=_pendingRules.filter(r=>r.on).length;
   save();closeModal();
-  if(isMobile()){
-    mRenderAll();
-    mShowToast('alloc',`${count} allocation rule${count!==1?'s':''} applied`,'');
-  }else{
-    render();
-    showToast(`Applied ${count} allocation rule${count!==1?'s':''}`, 'save');
-  }
+  render();
+  showToast(`Applied ${count} allocation rule${count!==1?'s':''}`, 'save');
+  mShowToast('alloc',`${count} allocation rule${count!==1?'s':''} applied`,'');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5142,7 +5266,7 @@ function saveRecurringBill(){
   }
   const modal=document.getElementById('modalBox');
   if(modal)modal.innerHTML=recurringBillsHtml();
-  render();if(isMobile())mRenderAll();
+  render();
 }
 // keep old name as alias for any inline onclick references
 function addRecurringBill(){saveRecurringBill();}
@@ -5150,7 +5274,7 @@ function addRecurringBill(){saveRecurringBill();}
 function deleteRecurringBill(id){
   S.recurringBills=(S.recurringBills||[]).filter(r=>r.id!==id);
   S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));
-  save();render();if(isMobile())mRenderAll();
+  save();render();
   const modal=document.getElementById('modalBox');
   if(modal&&!document.getElementById('overlay').classList.contains('hidden'))
     modal.innerHTML=recurringBillsHtml();
@@ -5162,7 +5286,7 @@ function toggleRecurringBill(id,active){
   r.active=active;
   if(!active){S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));}
   else refreshRecurringBill(id);
-  save();render();if(isMobile())mRenderAll();
+  save();render();
 }
 
 // FRESH START
@@ -5902,7 +6026,7 @@ function importData(event){
       if(!S.allocationRules)S.allocationRules=[];
       save();ensureMonth();
       if(!S.activeMonth)S.activeMonth=currentMonthId();
-      if(isMobile()){mRenderAll();}else{render();populateTxCats();updateTxFormForType();wireFormKeys();}
+      render();populateTxCats();updateTxFormForType();wireFormKeys();
       event.target.value='';
       alert('Backup imported successfully!');
     }catch(err){
@@ -6117,27 +6241,21 @@ if(!S.activeMonth)S.activeMonth=currentMonthId();
 let _layoutIsMobile=isMobile();
 let _resizeTimer=null;
 
-function initDesktop(){
+function init(){
   if(!_appInitialized)return;
   document.getElementById('authScreen')?.classList.add('hidden');
-  const shell=document.getElementById('mShell');
-  if(shell)shell.style.display='none';
   render();
   populateTxCats();
   updateTxFormForType();
   const txDate=document.getElementById('txDate');
   if(txDate)txDate.value=new Date().toISOString().split('T')[0];
   wireFormKeys();
-}
-
-function initMobile(){
-  if(!_appInitialized)return;
-  const shell=document.getElementById('mShell');
-  if(!shell)return;
-  document.getElementById('authScreen')?.classList.add('hidden');
-  shell.style.cssText='display:flex;flex-direction:column;height:100vh;height:100dvh;';
   mInit();
 }
+
+// Shims for any remaining call sites
+function initDesktop(){init();}
+function initMobile(){init();}
 
 // Defer init until DOM is fully ready
 document.addEventListener('DOMContentLoaded',()=>{
@@ -6151,16 +6269,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   localStorage.setItem('bcc_app_version',APP_VERSION);
 
-  // Resize handler — only re-init if app is already initialized (auth complete)
+  // Resize handler — just re-render nav (layout is CSS-driven now)
   window.addEventListener('resize',()=>{
     clearTimeout(_resizeTimer);
     _resizeTimer=setTimeout(()=>{
-      if(!_appInitialized)return; // Never re-init before auth completes
-      const nowMobile=isMobile();
-      if(nowMobile===_layoutIsMobile)return;
-      _layoutIsMobile=nowMobile;
-      if(nowMobile){initMobile();}
-      else{initDesktop();}
+      if(!_appInitialized)return;
+      renderNav();
     },150);
   });
 
@@ -6170,14 +6284,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       console.error('authInit failed, falling back to offline mode:',err);
       _appInitialized=true;
       setSyncStatus('error','Auth error — running offline');
-      if(isMobile()){initMobile();}else{initDesktop();}
+      init();
       if(!S.accounts.length){startWizard();}
     });
   } else {
     // No Supabase config — run locally without auth gate
     _appInitialized=true;
-    if(isMobile()){initMobile();}
-    else{initDesktop();}
+    init();
     if(!S.accounts.length){startWizard();}
   }
 });
@@ -6199,17 +6312,13 @@ let mStickyLog={           // persist between submissions
 // ── Init mobile ──────────────────────────────────────────────────────────────
 let _mInitialized=false;
 function mInit(){
-  if(!isMobile())return;
-  // Reset to dashboard when reinitializing (e.g. resize from desktop)
-  mTab='dash';
   mSubview=null;
-  mRenderAll();
-  // Wire Android back button once only
+  // Wire back button once only
   if(!_mInitialized){
     window.addEventListener('popstate',()=>{
-      if(!isMobile())return;
-      if(mSubview){mCloseSubview();}
-      else if(mTab!=='dash'){mGoTab('dash');}
+      const panel=document.getElementById('detailPanel');
+      if(panel?.classList.contains('active')){closeDetail();}
+      else if(activeTab!=='overview'){setTab('overview');}
     });
     _mInitialized=true;
   }
@@ -6217,14 +6326,7 @@ function mInit(){
 }
 
 function mRenderAll(){
-  if(!isMobile())return;
-  mRenderTopbar();
-  mPopulateMonthSel();
-  if(mTab==='dash')mRenderDash();
-  else if(mTab==='buckets')mRenderBuckets();
-  else if(mTab==='log'){mRenderLog();setTimeout(wireMobilePayee,0);}
-  else if(mTab==='ledger')mRenderLedger();
-  if(mSubview)mRenderSubview();
+  render();
 }
 
 // ── Topbar ───────────────────────────────────────────────────────────────────
@@ -6252,52 +6354,30 @@ function mPopulateMonthSel(){
   });
 }
 
-function mSetMonthFromSel(id){
-  S.activeMonth=id;S.activeBucket=null;save();
-  mRenderDash();mRenderTopbar();
-  if(mTab==='buckets')mRenderBuckets();
-}
+function mSetMonthFromSel(id){setMonthFromSel(id);}
 
 function mPrevMonth(){
   const idx=S.months.findIndex(m=>m.id===S.activeMonth);
-  if(idx>0){S.activeMonth=S.months[idx-1].id;S.activeBucket=null;save();mPopulateMonthSel();mRenderDash();mRenderTopbar();}
+  if(idx>0){S.activeMonth=S.months[idx-1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
 }
 function mNextMonth(){
   const idx=S.months.findIndex(m=>m.id===S.activeMonth);
-  if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();mPopulateMonthSel();mRenderDash();mRenderTopbar();}
-  else{addNextMonth();mPopulateMonthSel();}
+  if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
+  else{addNextMonth();populateMonthSel();}
 }
 
 // ── Tab navigation ───────────────────────────────────────────────────────────
 function mGoTab(tab){
-  // Animate out current
-  const cur=document.getElementById('ms'+capitalize(mTab));
-  cur?.classList.add('slide-left');
-  setTimeout(()=>cur?.classList.remove('slide-left'),300);
-
-  mTab=tab;
-  // Update nav buttons
-  ['dash','buckets','log','ledger'].forEach(t=>{
-    const btn=document.getElementById('mn'+capitalize(t));
-    btn?.classList.toggle('active',t===tab);
-  });
-  // Activate screen
-  document.querySelectorAll('.mScreen').forEach(s=>s.classList.remove('active'));
-  const next=document.getElementById('ms'+capitalize(tab));
-  next?.classList.add('active');
-
-  // Render content
-  if(tab==='dash')mRenderDash();
-  else if(tab==='buckets')mRenderBuckets();
-  else if(tab==='log')mRenderLog();
-  else if(tab==='ledger')mRenderLedger();
+  const tabMap={dash:'overview',buckets:'buckets',log:'log',ledger:'ledger'};
+  setTab(tabMap[tab]||tab);
+  mTab=tab; // keep mTab in sync for any remaining references
 }
 
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 function mRenderDash(){
-  const el=document.getElementById('mDashScroll');
+  const el=document.getElementById('paneOverview');
   if(!el)return;
   const mid=S.activeMonth;
   if(!mid){el.innerHTML='<div style="padding:40px 16px;text-align:center;color:var(--text3)">No month selected</div>';return;}
@@ -6459,7 +6539,7 @@ function mRenderDash(){
 
 // ── Buckets ───────────────────────────────────────────────────────────────────
 function mRenderBuckets(){
-  const el=document.getElementById('mBucketsScroll');
+  const el=document.getElementById('paneBuckets');
   if(!el)return;
   const mid=S.activeMonth;
 
@@ -6545,10 +6625,12 @@ function mRenderBuckets(){
 
 // ── Log ───────────────────────────────────────────────────────────────────────
 function mRenderLog(){
-  const el=document.getElementById('mLogScroll');
+  const el=document.getElementById('logScroll');
   if(!el)return;
-  document.getElementById('mBulkToggle').textContent=mBulkMode?'Single':'Bulk';
-  document.getElementById('mLogTitle').textContent=mBulkMode?'Bulk Entry':'Log Transaction';
+  const bulkBtn=document.getElementById('bulkToggle');
+  const titleEl=document.getElementById('logTitle');
+  if(bulkBtn)bulkBtn.textContent=mBulkMode?'Single':'Bulk';
+  if(titleEl)titleEl.textContent=mBulkMode?'Bulk Entry':'Log Transaction';
 
   if(mBulkMode){mRenderBulkLog(el);return;}
 
@@ -6625,7 +6707,7 @@ function wireMobilePayee(){
     }
   });
 }
-function mToggleBulk(){mBulkMode=!mBulkMode;if(mBulkMode&&!mBulkRows.length)mAddBulkRow();mRenderLog();}
+function mToggleBulk(){toggleBulk();}
 
 function mRenderBulkLog(el){
   if(!mBulkRows.length)mAddBulkRow();
@@ -6694,7 +6776,7 @@ function mSaveAllBulk(){
   });
   if(!saved){alert('Please fill in at least one complete row.');return;}
   save();mBulkRows=[];mBulkMode=false;
-  mRenderAll();mShowToast('check','Saved '+saved+' transaction'+(saved!==1?'s':''),'');
+  render();mShowToast('check','Saved '+saved+' transaction'+(saved!==1?'s':''),'');
 }
 
 // ── Add single tx from mobile ─────────────────────────────────────────────────
@@ -6737,10 +6819,9 @@ function mAddTx(){
 
   // Re-render log (sticky fields preserved, desc+amt cleared)
   mRenderLog();
-  // Update other screens
-  mRenderTopbar();
-  if(mTab==='dash')mRenderDash();
-  else if(mTab==='ledger')mRenderLedger();
+  // Update topbar and active pane
+  renderTopbar();
+  renderActivePane();
   // Refocus description for quick next entry
   setTimeout(()=>document.getElementById('mLogDesc')?.focus(),100);
 }
@@ -6756,30 +6837,25 @@ function mShakeInput(id){
 // ── Ledger ────────────────────────────────────────────────────────────────────
 function mSetLedgerFilter(f,btn){
   mLedgerFilter=f;
-  document.querySelectorAll('#mLedgerFilters .m-chip-btn').forEach(b=>b.classList.remove('active'));
-  btn?.classList.add('active');
   mRenderLedger();
 }
 
 function mRenderLedger(){
-  const el=document.getElementById('mLedgerScroll');
-  if(!el)return;
+  const pane=document.getElementById('paneLedger');
+  if(!pane)return;
   const mid=S.activeMonth;
+  // Preserve search value across re-renders
+  const searchVal=pane.querySelector('#mLedgerSearch')?.value||'';
   let txs=S.txs.filter(t=>t.monthId===mid);
 
   if(mLedgerFilter==='in')txs=txs.filter(t=>t.type==='in');
   else if(mLedgerFilter==='out')txs=txs.filter(t=>t.type==='out');
   else if(mLedgerFilter==='xfr')txs=txs.filter(t=>t.type==='xfr');
 
-  const search=(document.getElementById('mLedgerSearch')?.value||'').toLowerCase();
+  const search=searchVal.toLowerCase();
   if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
 
   txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
-
-  if(!txs.length){
-    el.innerHTML=`<div style="padding:40px 16px;text-align:center;color:var(--text3)">No transactions${search?' matching "'+esc(search)+'"':''}.</div>`;
-    return;
-  }
 
   const today=todayStr();
   const scheduled=txs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
@@ -6787,17 +6863,32 @@ function mRenderLedger(){
   const groups={};
   posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
 
-  let h='';
-  if(scheduled.length){
-    h+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
-    scheduled.forEach(tx=>h+=mTxRowHtml(tx,true));
+  let listHtml='';
+  if(!txs.length){
+    listHtml=`<div style="padding:40px 16px;text-align:center;color:var(--text3)">No transactions${search?' matching "'+esc(search)+'"':''}.</div>`;
+  } else {
+    if(scheduled.length){
+      listHtml+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
+      scheduled.forEach(tx=>listHtml+=mTxRowHtml(tx,true));
+    }
+    Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
+      listHtml+=`<div class="m-tx-date-hdr">${ld(date)}</div>`;
+      groups[date].forEach(tx=>listHtml+=mTxRowHtml(tx,true));
+    });
+    listHtml+=`<div style="height:16px"></div>`;
   }
-  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
-    h+=`<div class="m-tx-date-hdr">${ld(date)}</div>`;
-    groups[date].forEach(tx=>h+=mTxRowHtml(tx,true));
-  });
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
+
+  const mkF=(f,lbl)=>`<button class="m-chip-btn${mLedgerFilter===f?' active':''}" onclick="mSetLedgerFilter('${f}',this)">${lbl}</button>`;
+  pane.innerHTML=`
+    <div class="pane-hdr" style="height:auto;padding:8px 12px;gap:6px;flex-wrap:wrap">
+      <div id="mLedgerFilters" style="display:flex;gap:4px">
+        ${mkF('all','All')}${mkF('in','In')}${mkF('out','Out')}${mkF('xfr','Xfr')}
+      </div>
+      <input class="m-input" id="mLedgerSearch" placeholder="Search..."
+        style="flex:1;min-width:100px;padding:6px 10px;font-size:13px"
+        value="${esc(searchVal)}" oninput="mRenderLedger()">
+    </div>
+    <div class="mscroll">${listHtml}</div>`;
 }
 
 function mTxRowHtml(tx,tappable,runBal=null){
@@ -6827,114 +6918,19 @@ function mTxRowHtml(tx,tappable,runBal=null){
 }
 
 // ── Subviews ─────────────────────────────────────────────────────────────────
-function mOpenBucket(id){
-  mSubview={type:'bucket',id};
-  history.pushState({},'','');
-  document.getElementById('mSubBucket').classList.add('active');
-  mRenderSubview();
-}
-
-function mOpenAcct(id){
-  mSubview={type:'account',id};
-  history.pushState({},'','');
-  document.getElementById('mSubAccount').classList.add('active');
-  mRenderSubview();
-}
-
-function mCloseSubview(){
-  if(!mSubview)return;
-  const el=mSubview.type==='bucket'?document.getElementById('mSubBucket'):document.getElementById('mSubAccount');
-  el?.classList.remove('active');
-  mSubview=null;
-}
-
-function mEditActiveBucket(){if(mSubview?.type==='bucket')editBucket(mSubview.id);}
-function mEditActiveAcct(){if(mSubview?.type==='account')editAcct(mSubview.id);}
-
+function mOpenBucket(id){openDetail('bucket',id);}
+function mOpenAcct(id){openDetail('account',id);}
+function mCloseSubview(){closeDetail();}
+function mEditActiveBucket(){if(S.activeBucket)editBucket(S.activeBucket);}
+function mEditActiveAcct(){if(S.activeAccount)editAcct(S.activeAccount);}
 function mRenderSubview(){
-  if(!mSubview)return;
-  if(mSubview.type==='bucket')mRenderBucketDetail(mSubview.id);
-  else if(mSubview.type==='account')mRenderAcctDetail(mSubview.id);
+  if(S.activeBucket)openDetail('bucket',S.activeBucket);
+  else if(S.activeAccount)openDetail('account',S.activeAccount);
 }
 
 function mRenderBucketDetail(bid){
-  const el=document.getElementById('mSubBucketScroll');
-  const title=document.getElementById('mSubBucketTitle');
-  if(!el||!title)return;
-  const mid=S.activeMonth;
-  const bm=computeBucketMetrics(bid,mid);if(!bm)return;
-  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillColor,isSink,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData}=bm;
-  const past=monthStatus(mid)==='past';
-  title.textContent=b.name;
-  let h=`<div class="m-det-hero" style="border-left:4px solid ${color}">
-    <div class="m-det-name">${esc(b.name)}</div>
-    <div class="m-det-meta">
-      <span style="color:${color}">${esc(cat?.name||'')}</span>
-      ${days!==null?`<span>·</span><span style="color:${due1Paid?'var(--green)':days<=0?'var(--red)':days<=7?'var(--amber)':'var(--text3)'}">${due1Paid?'✓ paid':`1st: ${days<0?Math.abs(days)+'d ago':days===0?'today':'in '+days+'d'}${b.dueAmount?' ('+$f(b.dueAmount)+')':''}`}</span>`:''}
-      ${days2!==null?`<span>·</span><span style="color:${due2Paid?'var(--green)':days2<=0?'var(--red)':days2<=7?'var(--amber)':'var(--text3)'}">${due2Paid?'✓ paid (2nd)':`2nd: ${days2<0?Math.abs(days2)+'d ago':days2===0?'today':'in '+days2+'d'}${b.dueAmount2?' ('+$f(b.dueAmount2)+')':''}`}</span>`:''}
-      ${b.rollover?'<span>·</span><span>Rolls over</span>':''}
-    </div>
-    ${b.notes?`<div class="m-bkt-notes">${esc(b.notes)}</div>`:''}
-  </div>
-  <div class="m-det-nums">
-    <div class="m-det-num-cell"><div class="m-det-num-label">Allocated</div><div class="m-det-num-val" style="color:${alloc>=target&&target>0?'var(--green)':'var(--text)'}">${$f(alloc)}</div></div>
-    <div class="m-det-num-cell"><div class="m-det-num-label">Spent</div><div class="m-det-num-val" style="color:var(--text2)">${$f(spent)}</div></div>
-    <div class="m-det-num-cell"><div class="m-det-num-label">Available</div><div class="m-det-num-val" style="color:${avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)'}">${$f(avail)}</div></div>
-  </div>
-  <div class="m-prog-wrap">
-    <div class="m-prog-track"><div class="m-prog-fill" style="width:${Math.round(pct*100)}%;background:${fillColor}"></div></div>
-    <div class="m-prog-note"><span>${barNote}</span><span>${remainNote}</span></div>
-  </div>`;
-
-  if(isSink&&sinkData){
-    const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
-    h+=`<div class="m-sink-grid">
-      <div class="m-sink-cell"><div class="m-sink-label">Saved</div><div class="m-sink-val" style="color:var(--green)">${$f(saved)}</div></div>
-      <div class="m-sink-cell"><div class="m-sink-label">Goal</div><div class="m-sink-val">${$f(tgt)}</div></div>
-      <div class="m-sink-cell"><div class="m-sink-label">Months Left</div><div class="m-sink-val">${mLeft||'—'}</div></div>
-      <div class="m-sink-cell"><div class="m-sink-label">Per Contrib</div><div class="m-sink-val" style="color:var(--accent)">${$f(contrib)}</div></div>
-    </div>`;
-  }
-
-  if(!past){
-    h+=`<div class="m-alloc-block">
-      <div class="m-alloc-block-label">Allocate this month <span style="color:var(--text3);font-size:11px">target: ${$f(target)}</span></div>
-      <div class="m-alloc-inp-row">
-        <input class="m-alloc-big" id="mAllocInp" type="text" inputmode="decimal" value="${alloc||''}" placeholder="0.00 or +50 or 5%"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();mSetAlloc('${bid}');}" />
-        <button class="m-alloc-set-btn" onclick="mSetAlloc('${bid}')">Set</button>
-      </div>
-      ${target>0&&alloc<target?`<button style="margin-top:10px;width:100%;padding:11px;background:var(--gbg);color:var(--green);border:1px solid var(--gb);border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer"
-        onclick="mFundBucket('${bid}')">Fund at target (${$f(target)})</button>`:''}
-    </div>`;
-  }
-
-  // Spending trend chart (mobile)
-  const mTrendMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-6);
-  if(mTrendMonths.length>=2){
-    const mTrendData=mTrendMonths.map(mo=>({label:mo.label.slice(0,3),spent:bSpent(mo.id,bid),budget:bBudget(mo.id,bid)}));
-    const mMaxVal=Math.max(...mTrendData.map(d=>Math.max(d.spent,d.budget)),1);
-    let mbars='';
-    mTrendData.forEach(d=>{
-      const bh=Math.round((d.spent/mMaxVal)*100);
-      const bbh=Math.round((d.budget/mMaxVal)*100);
-      const mcls=d.spent===0?'empty':d.spent>d.budget&&d.budget>0?'over':d.spent>d.budget*0.8?'warn':'ok';
-      mbars+=`<div class="trend-bar-wrap"><div class="trend-bar-outer"><div class="trend-bar ${mcls}" style="height:${bh}%"></div>${d.budget>0?`<div class="trend-budget-line" style="bottom:${bbh}%"></div>`:''}</div><div class="trend-label">${d.label}</div></div>`;
-    });
-    h+=`<div style="padding:0 16px 8px"><div class="trend-title" style="padding-top:12px">Spending History</div><div class="trend-chart">${mbars}</div></div>`;
-  }
-  // Bucket transactions
-  const txs=S.txs.filter(t=>t.monthId===mid&&t.bucketId===bid).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(txs.length){
-    h+=`<div class="m-section-label">Transactions</div>`;
-    txs.forEach(tx=>h+=mTxRowHtml(tx,!past));
-  }
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
-  // Focus allocation input
-  setTimeout(()=>{
-    if(!past)document.getElementById('mAllocInp')?.focus();
-  },200);
+  // Redirect to unified detail panel
+  openDetail('bucket',bid);
 }
 
 function mSetAlloc(bid){
@@ -6946,7 +6942,10 @@ function mSetAlloc(bid){
   const m=getMonth(S.activeMonth);if(!m)return;
   if(!m.allocations)m.allocations={};
   m.allocations[bid]=val;
-  save();mRenderTopbar();mRenderSubview();
+  save();renderTopbar();
+  // Refresh bucket detail in the open panel
+  const scroll=document.getElementById('detailScroll');
+  if(scroll&&S.activeBucket===bid){const mid=S.activeMonth;const past=monthStatus(mid)==='past';scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));}
   mShowToast('alloc',getBucket(bid)?.name+' allocated',$f(val));
 }
 
@@ -6955,45 +6954,13 @@ function mFundBucket(bid){
   const m=getMonth(S.activeMonth);if(!m)return;
   if(!m.allocations)m.allocations={};
   m.allocations[bid]=target;
-  save();mRenderTopbar();mRenderSubview();
+  save();renderTopbar();
+  const scroll=document.getElementById('detailScroll');
+  if(scroll&&S.activeBucket===bid){const mid=S.activeMonth;const past=monthStatus(mid)==='past';scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));}
   mShowToast('alloc',getBucket(bid)?.name+' funded',$f(target));
 }
 
-function mRenderAcctDetail(aid){
-  const a=getAcct(aid);if(!a)return;
-  const el=document.getElementById('mSubAcctScroll');
-  const title=document.getElementById('mSubAcctTitle');
-  if(!el||!title)return;
-  title.textContent=a.name;
-  const bal=acctBalance(aid);
-  const {balMap,schedMap}=calcAccountRunningBal(aid);
-  const today=todayStr();
-  // Sort must exactly match calcAccountRunningBal's posted sort so balMap[id] lines up with display row
-  const allTxs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
-  const scheduled=allTxs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const posted=allTxs.filter(t=>t.date<=today);
-
-  const mAcctSubLabel=a.type==='debt'?'amount owed':a.type==='budget'?'your spending ceiling here':a.type==='savings'?'parked — not in RTS pool':'physical balance';
-  let h=`<div class="m-det-hero">
-    <div class="m-det-name" style="color:${a.type==='debt'?'var(--red)':bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</div>
-    <div class="m-det-meta"><span style="color:${a.color}">${esc(a.name)}</span><span>·</span><span>${a.type}</span><span>·</span><span style="color:var(--text3);font-size:11px">${mAcctSubLabel}</span></div>
-    <button class="m-chip-btn" style="margin-top:8px;font-size:12px;padding:5px 14px" onclick="openReconcile('${aid}')">✓ Reconcile</button>
-  </div>
-  ${a.type==='debt'?`<div style="padding:0 16px 12px">${renderDebtTracker(a)}</div>`:''}
-  `;
-
-  if(scheduled.length){
-    h+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
-    scheduled.forEach(tx=>h+=mTxRowHtml(tx,false,schedMap.has(tx.id)?schedMap.get(tx.id):null));
-  }
-  if(posted.length){
-    if(scheduled.length)h+=`<div class="m-section-label">Posted</div>`;
-    posted.forEach(tx=>h+=mTxRowHtml(tx,!tx.autoGenerated,balMap.has(tx.id)?balMap.get(tx.id):null));
-  }
-  if(!allTxs.length)h+=`<div style="padding:20px 16px;text-align:center;color:var(--text3)">No transactions yet</div>`;
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
-}
+function mRenderAcctDetail(aid){openDetail('account',aid);}
 
 // ── Edit sheet ────────────────────────────────────────────────────────────────
 function mEditTxSheet(id){
@@ -7052,13 +7019,13 @@ function mSaveTxSheet(id,type){
   if(type==='out'){
     tx.bucketId=document.getElementById('sBkt')?.value||tx.bucketId;
   }
-  save();mCloseSheet();mRenderAll();
+  save();mCloseSheet();render();
 }
 
 function mDeleteTxSheet(id){
   if(!confirm('Delete this transaction?'))return;
   S.txs=S.txs.filter(t=>t.id!==id);
-  save();mCloseSheet();mRenderAll();
+  save();mCloseSheet();render();
 }
 
 function mCloseSheet(){
@@ -7108,115 +7075,6 @@ function mAcctOptions(selectedId){
 
 </script>
 
-<!-- ════ MOBILE SHELL ════ -->
-<div id="mShell">
-  <!-- Top bar -->
-  <div id="mTopbar">
-    <div id="mTopbar-title"><div id="mTopbar-dot"></div>Imperium Fisci</div>
-    <div id="mTopbar-right">
-      <div id="mRtsChip" class="zero">—</div>
-      <button id="mAuthBtn" class="tbtn" onclick="authAction()" style="padding:5px 10px;font-size:12px;border-radius:6px;display:none"></button>
-      <button class="tbtn" onclick="openModal('new')" style="padding:5px 10px;font-size:12px;border-radius:6px">+ New</button>
-    </div>
-  </div>
-
-  <!-- Screens container -->
-  <div id="mScreens">
-
-    <!-- DASHBOARD -->
-    <div class="mScreen active" id="msDash">
-      <div class="m-month-bar">
-        <button class="m-month-arrow" onclick="mPrevMonth()">&#8249;</button>
-        <select class="m-month-sel" id="mMonthSel" onchange="mSetMonthFromSel(this.value)"></select>
-        <button class="m-month-arrow" onclick="mNextMonth()">&#8250;</button>
-        <button class="m-month-arrow" onclick="toggleWI()" id="mWiBtn" style="font-size:13px;padding:6px 10px;border-color:var(--border2);">⚡</button>
-      </div>
-      <div class="mscroll" id="mDashScroll"></div>
-    </div>
-
-    <!-- BUCKETS -->
-    <div class="mScreen" id="msBuckets">
-      <div class="mhdr">
-        <div class="mhdr-title">Buckets</div>
-        <button class="mhdr-action" onclick="openModal('cat')">+ Category</button>
-        <button class="mhdr-action" onclick="openModal('bkt')">+ Bucket</button>
-      </div>
-      <div class="mscroll" id="mBucketsScroll"></div>
-    </div>
-
-    <!-- LOG -->
-    <div class="mScreen" id="msLog">
-      <div class="mhdr">
-        <div class="mhdr-title" id="mLogTitle">Log Transaction</div>
-        <button class="mhdr-action" id="mBulkToggle" onclick="mToggleBulk()">Bulk</button>
-      </div>
-      <div class="mscroll" id="mLogScroll"></div>
-    </div>
-
-    <!-- LEDGER -->
-    <div class="mScreen" id="msLedger">
-      <div class="mhdr">
-        <div class="mhdr-title">Ledger</div>
-      </div>
-      <div class="m-ledger-head">
-        <div class="m-filter-chips" id="mLedgerFilters">
-          <button class="m-chip-btn active" onclick="mSetLedgerFilter('all',this)">All</button>
-          <button class="m-chip-btn" onclick="mSetLedgerFilter('in',this)">↓ Income</button>
-          <button class="m-chip-btn" onclick="mSetLedgerFilter('out',this)">↑ Expenses</button>
-          <button class="m-chip-btn" onclick="mSetLedgerFilter('xfr',this)">⇄ Transfer</button>
-        </div>
-        <input class="m-search" id="mLedgerSearch" placeholder="Search transactions..." oninput="mRenderLedger()" />
-      </div>
-      <div class="mscroll" id="mLedgerScroll"></div>
-    </div>
-
-    <!-- BUCKET DETAIL subview -->
-    <div class="mSubview" id="mSubBucket">
-      <div class="mhdr">
-        <button class="mhdr-back" onclick="mCloseSubview()">&#8592; Back</button>
-        <div class="mhdr-title" id="mSubBucketTitle"></div>
-        <button class="mhdr-action" onclick="mEditActiveBucket()">Edit</button>
-      </div>
-      <div class="mscroll" id="mSubBucketScroll"></div>
-    </div>
-
-    <!-- ACCOUNT DETAIL subview -->
-    <div class="mSubview" id="mSubAccount">
-      <div class="mhdr">
-        <button class="mhdr-back" onclick="mCloseSubview()">&#8592; Back</button>
-        <div class="mhdr-title" id="mSubAcctTitle"></div>
-        <button class="mhdr-action" onclick="mEditActiveAcct()">Edit</button>
-      </div>
-      <div class="mscroll" id="mSubAcctScroll"></div>
-    </div>
-
-  </div><!-- /mScreens -->
-
-  <!-- Bottom nav -->
-  <nav id="mNav">
-    <button class="mnav-btn active" id="mnDash" onclick="mGoTab('dash')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      <span class="mnav-label">Dashboard</span>
-      <div class="mnav-pip"></div>
-    </button>
-    <button class="mnav-btn" id="mnBuckets" onclick="mGoTab('buckets')">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-      <span class="mnav-label">Buckets</span>
-      <div class="mnav-pip"></div>
-    </button>
-    <button class="mnav-btn" id="mnLog" onclick="mGoTab('log')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      <span class="mnav-label">Log</span>
-      <div class="mnav-pip"></div>
-    </button>
-    <button class="mnav-btn" id="mnLedger" onclick="mGoTab('ledger')">
-      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      <span class="mnav-label">Ledger</span>
-      <div class="mnav-pip"></div>
-    </button>
-  </nav>
-
-</div><!-- /mShell -->
 
 <!-- Toast -->
 <div id="mToast">
