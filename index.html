@@ -1952,7 +1952,7 @@ function computePoolStats(mid){
 
 // Projected income vs. allocation health for a month.
 // Returns null when no projected income is set.
-// Used by renderBudgetHealth (desktop) and mRenderBudgetHealth (mobile).
+// Used by renderBudgetHealth.
 function computeBudgetHealth(mid){
   const pi=monthProjectedIncome(mid);
   if(pi===null)return null;
@@ -1967,7 +1967,7 @@ function computeBudgetHealth(mid){
 }
 
 // All numbers for a bucket in a given month.
-// Used by renderBucketDetail (desktop) and mRenderBucketDetail (mobile).
+// Used by renderBucketDetail.
 function computeBucketMetrics(bid,mid){
   const b=getBucket(bid);if(!b)return null;
   const cat=getCat(b.catId);
@@ -2340,7 +2340,7 @@ function closeDetail(silent){
   }
 }
 
-// ── Month navigation (unified, replaces mPrevMonth/mNextMonth) ────────────────
+// ── Month navigation ─────────────────────────────────────────────────────────
 function populateMonthSel(){
   const sel=document.getElementById('tbMonthSel');
   if(!sel)return;
@@ -2994,53 +2994,6 @@ function bhStartEdit(mid){
   };
   inp.addEventListener('blur',commit);
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}if(e.key==='Escape'){inp.blur();}});
-}
-
-function mRenderBudgetHealth(mid){
-  const bh=computeBudgetHealth(mid);
-  if(!bh)return`<div style="padding:10px 14px 0"><div class="bh-wrap" style="margin-bottom:0"><span class="bh-label">Projected Income</span><span class="bh-set-prompt" onclick="mBhStartEdit('${mid}')">Set projected income →</span></div></div>`;
-  const {pi,surplus,pct,barColor,surplusColor}=bh;
-  return `<div style="padding:10px 14px 0">
-    <div class="bh-wrap" style="margin-bottom:0">
-      <span class="bh-label">Proj. Income</span>
-      <div class="bh-income-wrap">
-        <span class="bh-income-val" id="mbhVal_${mid}" onclick="mBhStartEdit('${mid}')">${$f(pi)}</span>
-      </div>
-      <div class="bh-stat" style="margin-left:8px">
-        <span class="bh-label">Surplus</span>
-        <span class="bh-stat-val" style="color:${surplusColor};font-size:13px">${surplus>=0?'+':''}${$f(surplus)}</span>
-      </div>
-      <div class="bh-bar-wrap">
-        <div class="bh-bar-track"><div class="bh-bar-fill" style="width:${Math.round(pct*100)}%;background:${barColor}"></div></div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function mBhStartEdit(mid){
-  const pi=monthProjectedIncome(mid);
-  const inp=document.createElement('input');
-  inp.className='bh-income-inp';
-  inp.type='text';
-  inp.inputMode='decimal';
-  inp.value=pi||'';
-  inp.placeholder='Income...';
-  inp.title='Math: +50, -20, *1.05, 5%, =100+50';
-  const valEl=document.getElementById(`mbhVal_${mid}`);
-  const promptEl=document.querySelector('#paneOverview .bh-set-prompt');
-  const target=valEl||promptEl;
-  if(!target)return;
-  target.replaceWith(inp);
-  inp.focus();inp.select();
-  const commit=()=>{
-    const current=monthProjectedIncome(mid)||0;
-    const prevMid=getPrevMonthId(mid);
-    const ref=prevMid?(monthProjectedIncome(prevMid)||0):null;
-    const v=evalMoneyExpr(inp.value,current,ref);
-    setProjectedIncome(mid,v);
-  };
-  inp.addEventListener('blur',commit);
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();}});
 }
 
 function renderAccountView(el,mid){
@@ -6424,10 +6377,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 // MOBILE SYSTEM
 // ═══════════════════════════════════════════════════════
 // Mobile state
-let desktopTab='overview'; // current desktop nav tab: overview|ledger|accounts|buckets|settings|export
-let mTab='dash';           // current bottom nav tab
-let mSubview=null;         // {type:'bucket'|'account', id}
-let mLedgerFilter='all';
 let mBulkMode=false;
 let mBulkRows=[];          // [{desc,amt,type,acctId,catId,bktId,toAcctId,date}]
 let mStickyLog={           // persist between submissions
@@ -6437,7 +6386,6 @@ let mStickyLog={           // persist between submissions
 // ── Init mobile ──────────────────────────────────────────────────────────────
 let _mInitialized=false;
 function mInit(){
-  mSubview=null;
   // Wire back button once only
   if(!_mInitialized){
     window.addEventListener('popstate',()=>{
@@ -6450,303 +6398,7 @@ function mInit(){
   history.pushState({},'','');
 }
 
-function mRenderAll(){
-  render();
-}
-
-// ── Topbar ───────────────────────────────────────────────────────────────────
-function mRenderTopbar(){
-  const mid=S.activeMonth;
-  const rts=mid?readyToSpend(mid):0;
-  const chip=document.getElementById('mRtsChip');
-  if(!chip)return;
-  chip.textContent=$f(Math.abs(rts))+(rts<0?' over':'');
-  chip.className=rts>0?'pos':rts<0?'neg':'zero';
-  updateAuthBtn();
-}
-
-// ── Month selector ───────────────────────────────────────────────────────────
-function mPopulateMonthSel(){
-  const sel=document.getElementById('mMonthSel');
-  if(!sel)return;
-  sel.innerHTML='';
-  S.months.forEach(m=>{
-    const opt=document.createElement('option');
-    opt.value=m.id;
-    opt.textContent=m.label+(monthStatus(m.id)==='present'?' ●':'');
-    opt.selected=m.id===S.activeMonth;
-    sel.appendChild(opt);
-  });
-}
-
-function mSetMonthFromSel(id){setMonthFromSel(id);}
-
-function mPrevMonth(){
-  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
-  if(idx>0){S.activeMonth=S.months[idx-1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
-}
-function mNextMonth(){
-  const idx=S.months.findIndex(m=>m.id===S.activeMonth);
-  if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
-  else{addNextMonth();populateMonthSel();}
-}
-
-// ── Tab navigation ───────────────────────────────────────────────────────────
-function mGoTab(tab){
-  const tabMap={dash:'overview',buckets:'buckets',log:'log',ledger:'ledger'};
-  setTab(tabMap[tab]||tab);
-  mTab=tab; // keep mTab in sync for any remaining references
-}
-
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
-
-// ── Dashboard ────────────────────────────────────────────────────────────────
-function mRenderDash(){
-  const el=document.getElementById('paneOverview');
-  if(!el)return;
-  const mid=S.activeMonth;
-  if(!mid){el.innerHTML='<div style="padding:40px 16px;text-align:center;color:var(--text3)">No month selected</div>';return;}
-
-  const {rts,alloc,income,totalSpent:spent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
-
-  let h='';
-
-  // Account chips — split cash vs debt
-  const cashAccts=S.accounts.filter(a=>a.type!=='debt');
-  const debtAccts=S.accounts.filter(a=>a.type==='debt');
-  h+=`<div class="m-accounts-hdr">
-    <span class="m-section-label" style="margin:0">Accounts</span>
-    <button class="m-cat-add-btn" onclick="openModal('acct')">+ Account</button>
-  </div>`;
-  if(cashAccts.length){
-    h+=`<div class="m-acct-group-label">Cash & Savings</div>`;
-    h+=`<div class="m-accounts">`;
-    cashAccts.forEach(a=>{
-      const bal=acctBalance(a.id);
-      const color=a.color||COLORS[0];
-      h+=`<div class="m-acct-chip" onclick="mOpenAcct('${a.id}')">
-        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">${a.type}</span></div>
-        <div class="m-acct-chip-bal" style="color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</div>
-      </div>`;
-    });
-    h+=`</div>`;
-  }
-  if(debtAccts.length){
-    const totalDebt=debtAccts.reduce((s,a)=>s+acctBalance(a.id),0);
-    h+=`<div class="m-acct-group-label" style="color:var(--red)">Debt · ${$f(totalDebt)} total</div>`;
-    h+=`<div class="m-accounts">`;
-    debtAccts.forEach(a=>{
-      const bal=acctBalance(a.id);
-      const color=a.color||COLORS[0];
-      h+=`<div class="m-acct-chip debt" onclick="mOpenAcct('${a.id}')">
-        <div class="m-acct-chip-name"><div class="m-acct-chip-dot" style="background:${color}"></div>${esc(a.name)}<span class="m-acct-chip-type">💳</span></div>
-        <div class="m-acct-chip-bal" style="color:var(--red)">${$f(bal)}</div>
-        ${a.debtAPR?`<div class="m-acct-chip-apr">${a.debtAPR}% APR</div>`:''}
-      </div>`;
-    });
-    h+=`</div>`;
-  }
-  if(!S.accounts.length)h+=`<div style="padding:10px 16px;color:var(--text3);font-size:13px;">No accounts yet</div>`;
-
-  // Budget health bar
-  h+=mRenderBudgetHealth(mid);
-
-  // Pool numbers — all from computePoolStats called above
-  h+=`<div class="m-pool-grid">
-    <div class="m-pool-cell hero">
-      <div class="m-pool-label">Ready to Spend</div>
-      <div class="m-pool-val lg ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div>
-      <div class="m-pool-sub">${rts>0?'ready to allocate':rts<0?'⚠ budget short':'balanced ✓'}</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Income</div>
-      <div class="m-pool-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div>
-      <div class="m-pool-sub">this month</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Spent</div>
-      <div class="m-pool-val dim">${spent>0?$f(spent):'—'}</div>
-      <div class="m-pool-sub">from buckets</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Allocated</div>
-      <div class="m-pool-val dim">${alloc>0?$f(alloc):'—'}</div>
-      <div class="m-pool-sub">to buckets</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Net Worth</div>
-      <div class="m-pool-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
-      <div class="m-pool-sub">all accounts</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Age of Money</div>
-      <div class="m-pool-val ${aom===null?'dim':aom>=30?'green':aom>=10?'amber':'red'}">${aom!==null?aom+'d':'—'}</div>
-      <div class="m-pool-sub">${aom===null?'need spend data':aom>=30?'well ahead':aom>=10?'getting close':'paycheck-to-paycheck'}</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Bucket Health</div>
-      <div class="m-pool-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
-      <div class="m-pool-sub">${fundedCnt} funded · ${unfundedCnt} unfunded</div>
-    </div>
-    <div class="m-pool-cell">
-      <div class="m-pool-label">Budget Cash</div>
-      <div class="m-pool-val dim">${$f(budgetBal)}</div>
-      <div class="m-pool-sub">spending pool</div>
-    </div>
-  </div>`;
-
-  // Urgency items
-  const urgency=[];
-  const m=getMonth(mid);
-  if(m){
-    S.buckets.filter(b=>!b.archived).forEach(b=>{
-      const days=daysUntilDue(b,m.year,m.month);
-      const alloc=bAlloc(mid,b.id);
-      const spent=bSpent(mid,b.id);
-      const avail=alloc+rolloverBal(b.id,mid)-spent;
-      if(avail<0)urgency.push({type:'over',b,avail,days,priority:0});
-      else if(days!==null&&days<=0&&alloc===0)urgency.push({type:'overdue',b,avail,days,priority:1});
-      else if(days!==null&&days<=3&&alloc===0)urgency.push({type:'due-soon',b,avail,days,priority:2});
-      else if(alloc===0&&bBudget(mid,b.id)>0)urgency.push({type:'unfunded',b,avail,days,priority:3});
-    });
-    urgency.sort((a,b)=>a.priority-b.priority||((a.days??999)-(b.days??999)));
-  }
-
-  if(urgency.length){
-    h+=`<div class="m-section-label">Needs Attention</div>`;
-    urgency.slice(0,8).forEach(u=>{
-      const cat=getCat(u.b.catId);
-      const color=cat?.color||COLORS[0];
-      let dotColor='var(--red)',sub='';
-      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
-      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
-      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
-      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
-      h+=`<div class="m-urgency-item" onclick="mOpenBucket('${u.b.id}')">
-        <div class="m-urgency-dot" style="background:${dotColor}"></div>
-        <div style="flex:1">
-          <div class="m-urgency-name">${esc(u.b.name)}</div>
-          <div class="m-urgency-sub" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div>
-        </div>
-        <span style="color:var(--text3);font-size:18px">›</span>
-      </div>`;
-    });
-  } else if(alloc>0){
-    h+=`<div style="padding:20px 16px;text-align:center;color:var(--green);font-size:14px">✓ Everything looks good</div>`;
-  }
-
-  // Recent transactions preview
-  const recent=S.txs.filter(t=>t.monthId===mid).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
-  if(recent.length){
-    h+=`<div class="m-section-label">Recent</div>`;
-    recent.forEach(tx=>h+=mTxRowHtml(tx));
-  }
-
-  // Quick actions row
-  h+=`<div class="m-settings-row">
-    <button class="m-settings-btn" onclick="openNetWorth()">◈ Net Worth</button>
-    <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
-    <button class="m-settings-btn" onclick="openMonthReport('${mid}')">📊 Report</button>
-    <button class="m-settings-btn" onclick="openRecurringBills()">⏱ Recurring</button>
-  </div>`;
-  // Settings row
-  h+=`<div class="m-settings-row">
-    <button class="m-settings-btn" onclick="openSettings()">&#x2699; Settings</button>
-    <button class="m-settings-btn" onclick="exportData()">&#x2193; Export</button>
-    <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">&#x2191; Import</button>
-    <button class="m-settings-btn" style="color:var(--red)" onclick="confirmFreshStart()">&#x21BA; Fresh Start</button>
-  </div>
-  <input type="file" id="importFileMobile" accept=".json" style="display:none" onchange="importData(event)" />`;
-
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
-}
-
-// ── Buckets ───────────────────────────────────────────────────────────────────
-function mRenderBuckets(){
-  const el=document.getElementById('paneBuckets');
-  if(!el)return;
-  const mid=S.activeMonth;
-
-  if(!S.cats.length){
-    el.innerHTML=`<div style="padding:40px 16px;text-align:center">
-      <div style="font-size:18px;font-weight:600;margin-bottom:8px">No categories yet</div>
-      <div style="color:var(--text3);font-size:14px;margin-bottom:20px">Create a category to get started</div>
-      <button class="m-submit" style="width:auto;padding:12px 24px" onclick="openModal('cat')">+ Create Category</button>
-    </div>`;return;
-  }
-
-  let h='';
-  sortedCats().forEach(cat=>{
-    const catBuckets=sortedBuckets(cat.id);
-    const color=cat.color||COLORS[0];
-    const catAlloc=catBuckets.reduce((s,b)=>s+bAlloc(mid,b.id),0);
-    const catTarget=catBuckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
-
-    h+=`<div class="m-cat-sec">
-      <div class="m-cat-hdr">
-        <div class="m-cat-color" style="background:${color}"></div>
-        <span class="m-cat-name">${esc(cat.name)}</span>
-        <span class="m-cat-totals">${$f(catAlloc)} / ${$f(catTarget)}</span>
-        <button class="m-cat-add-btn" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>
-      </div>`;
-
-    if(!catBuckets.length){
-      h+=`<div style="padding:12px 16px;color:var(--text3);font-size:13px;font-style:italic">No buckets yet — tap + Bucket to add one</div>`;
-    }
-
-    const m=getMonth(mid);
-    const sorted=[...catBuckets].sort((a,b)=>{
-      const da=daysUntilDue(a,m?.year,m?.month);
-      const db=daysUntilDue(b,m?.year,m?.month);
-      if(da!==null&&da<=0&&(db===null||db>0))return -1;
-      if(db!==null&&db<=0&&(da===null||da>0))return 1;
-      return (a.order??0)-(b.order??0);
-    });
-
-    sorted.forEach(b=>{
-      const alloc=bAlloc(mid,b.id);
-      const target=bBudget(mid,b.id);
-      const roll=rolloverBal(b.id,mid);
-      const eff=alloc+roll;
-      const spent=bSpent(mid,b.id);
-      const avail=eff-spent;
-      const pctRaw=eff>0?spent/eff:0;
-      const pct=Math.min(pctRaw,1);
-      const days=daysUntilDue(b,m?.year,m?.month);
-      const pend=bucketPendingAmt(b.id,mid);
-      let pillCls='pill-empty',pillTxt='Unfunded';
-      if(avail<0){pillCls='pill-over';pillTxt='Over';}
-      else if(spent>=eff&&eff>0){pillCls='pill-done';pillTxt='Done';}
-      else if(alloc>=target&&target>0){pillCls='pill-funded';pillTxt='Funded';}
-      else if(alloc>0){pillCls='pill-partial';pillTxt=Math.round(pctRaw*100)+'%';}
-      else if(pend>0){pillCls='pill-pending';pillTxt='⏱ '+$f(pend);}
-      let dueStr='';
-      if(days!==null){dueStr=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':days<=7?`due ${days}d`:'';}
-      const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
-
-      h+=`<div class="m-bucket-item" onclick="mOpenBucket('${b.id}')">
-        <div style="width:4px;border-radius:2px;align-self:stretch;min-height:40px;background:${color};flex-shrink:0"></div>
-        <div class="m-bkt-left">
-          <div class="m-bkt-name">${esc(b.name)}</div>
-          <div class="m-bkt-sub">
-            ${dueStr?`<span style="color:${days<=0?'var(--red)':days<=3?'var(--amber)':'var(--text3)'}">${dueStr}</span><span>·</span>`:''}
-            <span>${$f(spent)} spent</span>
-          </div>
-          <div class="m-bkt-bar"><div class="m-bkt-bar-fill" style="width:${Math.round(pct*100)}%;background:${fillColor}"></div></div>
-        </div>
-        <div class="m-bkt-right">
-          <div class="m-bkt-alloc" style="color:${alloc>=target&&target>0?'var(--green)':alloc>0?'var(--text)':'var(--text3)'}">${alloc>0?$f(alloc):'—'}</div>
-          <div class="m-bkt-pill ${pillCls}">${pillTxt}</div>
-        </div>
-        <div class="m-chevron">›</div>
-      </div>`;
-    });
-    h+=`</div>`;
-  });
-  h+=`<div style="height:16px"></div>`;
-  el.innerHTML=h;
-}
 
 // ── Log ───────────────────────────────────────────────────────────────────────
 function mRenderLog(){
@@ -6959,63 +6611,6 @@ function mShakeInput(id){
   setTimeout(()=>el.style.borderColor='',1500);
 }
 
-// ── Ledger ────────────────────────────────────────────────────────────────────
-function mSetLedgerFilter(f,btn){
-  mLedgerFilter=f;
-  mRenderLedger();
-}
-
-function mRenderLedger(){
-  const pane=document.getElementById('paneLedger');
-  if(!pane)return;
-  const mid=S.activeMonth;
-  // Preserve search value across re-renders
-  const searchVal=pane.querySelector('#mLedgerSearch')?.value||'';
-  let txs=S.txs.filter(t=>t.monthId===mid);
-
-  if(mLedgerFilter==='in')txs=txs.filter(t=>t.type==='in');
-  else if(mLedgerFilter==='out')txs=txs.filter(t=>t.type==='out');
-  else if(mLedgerFilter==='xfr')txs=txs.filter(t=>t.type==='xfr');
-
-  const search=searchVal.toLowerCase();
-  if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
-
-  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
-
-  const today=todayStr();
-  const scheduled=txs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const posted=txs.filter(t=>t.date<=today);
-  const groups={};
-  posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
-
-  let listHtml='';
-  if(!txs.length){
-    listHtml=`<div style="padding:40px 16px;text-align:center;color:var(--text3)">No transactions${search?' matching "'+esc(search)+'"':''}.</div>`;
-  } else {
-    if(scheduled.length){
-      listHtml+=`<div class="m-tx-date-hdr" style="color:var(--amber);background:var(--abg)">⏱ Scheduled — not yet in balance</div>`;
-      scheduled.forEach(tx=>listHtml+=mTxRowHtml(tx,true));
-    }
-    Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
-      listHtml+=`<div class="m-tx-date-hdr">${ld(date)}</div>`;
-      groups[date].forEach(tx=>listHtml+=mTxRowHtml(tx,true));
-    });
-    listHtml+=`<div style="height:16px"></div>`;
-  }
-
-  const mkF=(f,lbl)=>`<button class="m-chip-btn${mLedgerFilter===f?' active':''}" onclick="mSetLedgerFilter('${f}',this)">${lbl}</button>`;
-  pane.innerHTML=`
-    <div class="pane-hdr" style="height:auto;padding:8px 12px;gap:6px;flex-wrap:wrap">
-      <div id="mLedgerFilters" style="display:flex;gap:4px">
-        ${mkF('all','All')}${mkF('in','In')}${mkF('out','Out')}${mkF('xfr','Xfr')}
-      </div>
-      <input class="m-input" id="mLedgerSearch" placeholder="Search..."
-        style="flex:1;min-width:100px;padding:6px 10px;font-size:13px"
-        value="${esc(searchVal)}" oninput="mRenderLedger()">
-    </div>
-    <div class="mscroll">${listHtml}</div>`;
-}
-
 function mTxRowHtml(tx,tappable,runBal=null){
   const {b,cat,color,acct,isOpening,sched,amtCls,amtPfx,indColor:baseIndColor}=computeTxMeta(tx,null);
   const indColor=sched?'var(--amber)':baseIndColor;
@@ -7041,51 +6636,6 @@ function mTxRowHtml(tx,tappable,runBal=null){
     </div>
   </div>`;
 }
-
-// ── Subviews ─────────────────────────────────────────────────────────────────
-function mOpenBucket(id){openDetail('bucket',id);}
-function mOpenAcct(id){openDetail('account',id);}
-function mCloseSubview(){closeDetail();}
-function mEditActiveBucket(){if(S.activeBucket)editBucket(S.activeBucket);}
-function mEditActiveAcct(){if(S.activeAccount)editAcct(S.activeAccount);}
-function mRenderSubview(){
-  if(S.activeBucket)openDetail('bucket',S.activeBucket);
-  else if(S.activeAccount)openDetail('account',S.activeAccount);
-}
-
-function mRenderBucketDetail(bid){
-  // Redirect to unified detail panel
-  openDetail('bucket',bid);
-}
-
-function mSetAlloc(bid){
-  const inp=document.getElementById('mAllocInp');
-  const cur=bAlloc(S.activeMonth,bid);
-  const ref=monthProjectedIncome(S.activeMonth);
-  const val=evalMoneyExpr(inp?.value||'',cur,ref);
-  if(inp)inp.value=val;
-  const m=getMonth(S.activeMonth);if(!m)return;
-  if(!m.allocations)m.allocations={};
-  m.allocations[bid]=val;
-  save();renderTopbar();
-  // Refresh bucket detail in the open panel
-  const scroll=document.getElementById('detailScroll');
-  if(scroll&&S.activeBucket===bid){const mid=S.activeMonth;const past=monthStatus(mid)==='past';scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));}
-  mShowToast('alloc',getBucket(bid)?.name+' allocated',$f(val));
-}
-
-function mFundBucket(bid){
-  const target=bBudget(S.activeMonth,bid);
-  const m=getMonth(S.activeMonth);if(!m)return;
-  if(!m.allocations)m.allocations={};
-  m.allocations[bid]=target;
-  save();renderTopbar();
-  const scroll=document.getElementById('detailScroll');
-  if(scroll&&S.activeBucket===bid){const mid=S.activeMonth;const past=monthStatus(mid)==='past';scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));}
-  mShowToast('alloc',getBucket(bid)?.name+' funded',$f(target));
-}
-
-function mRenderAcctDetail(aid){openDetail('account',aid);}
 
 // ── Edit sheet ────────────────────────────────────────────────────────────────
 function mEditTxSheet(id){
