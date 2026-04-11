@@ -1237,13 +1237,32 @@ function supaReady(){
 // ═══════════════════════════════════════════════════════
 
 function setSyncStatus(state, label){
+  // Legacy element (no longer in DOM — keep call harmless)
   const el=document.getElementById('syncStatus');
-  if(!el)return;
-  if(!supaReady()){el.style.display='none';return;}
-  el.style.display='';
-  el.className='';
-  el.classList.add(state);
-  el.textContent=label;
+  if(el){
+    if(!supaReady()){el.style.display='none';}
+    else{el.style.display='';el.className='';el.classList.add(state);el.textContent=label;}
+  }
+  // New topbar sync elements
+  const dot=document.getElementById('tbSyncDot');
+  const lbl=document.getElementById('tbSyncLabel');
+  if(!dot||!lbl)return;
+  if(state==='synced'){
+    dot.className='tb-sync-dot';
+    lbl.textContent=_supaUser?.email?.split('@')[0]||label;
+  } else if(state==='syncing'){
+    dot.className='tb-sync-dot';
+    dot.style.background='var(--amber)';
+    lbl.textContent=label;
+  } else if(state==='error'){
+    dot.className='tb-sync-dot';
+    dot.style.background='var(--red)';
+    lbl.textContent=label;
+  } else {
+    dot.className='tb-sync-dot off';
+    dot.style.background='';
+    lbl.textContent=label;
+  }
 }
 
 async function authInit(){
@@ -1963,12 +1982,12 @@ function renderTopbar(){
   }
   if(lEl)lEl.innerHTML=scheduledOutCl>0?`Ready to Spend <span style="font-size:9px;color:var(--amber);font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
 
-  // Sync status dot
+  // Sync status dot — use _supaUser (not S.userId which is never populated)
   const dot=document.getElementById('tbSyncDot');
   const lbl=document.getElementById('tbSyncLabel');
-  const supaOk=typeof supabase!=='undefined'&&S.userId;
+  const supaOk=supaReady()&&!!_supaUser;
   if(dot){dot.className='tb-sync-dot'+(supaOk?'':' off');}
-  if(lbl)lbl.textContent=supaOk?(S.userEmail||'Synced'):'Local only';
+  if(lbl)lbl.textContent=supaOk?(_supaUser.email?.split('@')[0]||'Synced'):'Not signed in';
 
   // WI button state
   const wiBtn=document.getElementById('wiBtnTop');
@@ -1997,7 +2016,6 @@ function renderSidebar(){
       <span>${item.label}</span>
     </button>`;
   });
-  h+=`<div class="nav-btn-spacer"></div><div class="nav-foot"><button class="nav-new-btn" onclick="openModal('new')"><span class="nav-new-btn-icon">+</span><span>New Transaction</span></button></div>`;
   el.innerHTML=h;
 }
 
@@ -2035,13 +2053,13 @@ function renderOverviewTab(el,mid){
   const prevM=midIdx>0?S.months[midIdx-1]:null;
   const nextM=midIdx>=0&&midIdx<S.months.length-1?S.months[midIdx+1]:null;
   const curLabel=mid?(S.months[midIdx]?.label||mid):'No Month';
-  let h=`<div class="ov-month-nav">
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''} title="${prevM?prevM.label:'No previous month'}">‹</button>
-    <span class="ov-mnav-label">${curLabel}</span>
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
-    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" title="Add next month">+</button>`:''}
-  </div>`;
-  if(!mid){el.innerHTML=h;return;}
+  if(!mid){
+    el.innerHTML=`<div class="month-hdr">
+      <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" disabled>‹</button>
+      <span class="month-title" style="margin:0 10px">${curLabel}</span>
+      <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)">›</button>
+    </div>`;return;
+  }
   const m=getMonth(mid);
   const st=monthStatus(mid);
   const past=st==='past';
@@ -2051,7 +2069,13 @@ function renderOverviewTab(el,mid){
   const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
   const unalloc=S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0).length;
   const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
-  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span>
+  // Single unified header: nav arrows + month title + chip + Reports
+  let h=`<div class="month-hdr" style="margin-bottom:20px">
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''} title="${prevM?prevM.label:'No previous month'}">‹</button>
+    <span class="month-title" style="margin:0 10px">${m.label}</span>
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
+    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" title="Add next month" style="margin-left:4px">+</button>`:''}
+    <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
     <div class="reports-drop-wrap" style="margin-left:auto">
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="toggleReportsMenu('${mid}',this)">📊 Reports ▾</button>
       <div class="reports-drop-menu" id="reportsMenu_${mid}">
@@ -2084,7 +2108,7 @@ function renderLedgerTab(el,mid){
   const past=mid&&monthStatus(mid)==='past';
   el.innerHTML=`<div class="ledger-layout">
     <div class="ledger-form-col">
-      <div class="rp-form" id="txForm" style="display:${past?'none':'flex'}">
+      <div class="rp-form" id="txForm" style="display:${past?'none':'flex'};background:transparent;border-bottom:none;padding:0;gap:10px">
         <div class="rpf-row rpf-type-row">
           <span class="rpf-label">Type</span>
           <div class="type-tog" style="flex:1">
@@ -2205,7 +2229,15 @@ function renderBucketsTab(el,mid){
   const alloc=totalAllocated(mid);
   const unalloc=S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0).length;
   const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
-  let h=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span>
+  const bMidIdx=S.months.findIndex(mn=>mn.id===mid);
+  const bPrevM=bMidIdx>0?S.months[bMidIdx-1]:null;
+  const bNextM=bMidIdx>=0&&bMidIdx<S.months.length-1?S.months[bMidIdx+1]:null;
+  let h=`<div class="month-hdr" style="margin-bottom:20px">
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!bPrevM?'disabled':''} title="${bPrevM?bPrevM.label:'No previous month'}">‹</button>
+    <span class="month-title" style="margin:0 10px">${m.label}</span>
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${bNextM?bNextM.label:'Add next month'}">›</button>
+    ${!bNextM?`<button class="ov-mnav-add" onclick="addNextMonth()" title="Add next month" style="margin-left:4px">+</button>`:''}
+    <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Recurring Bills">⏱ Bills</button>
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openModal('cat')">+ Category</button>
@@ -2545,7 +2577,7 @@ function renderAccountView(el,mid){
   const bal=acctBalance(a.id);
   const txs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
 
-  let h=`<button class="back-btn" onclick="clearActive()">← Overview</button>
+  let h=`<button class="back-btn" onclick="clearActive()">← Accounts</button>
   <div class="acct-hdr">
     <div style="width:12px;height:12px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
     <div class="acct-hdr-name">${esc(a.name)}</div>
@@ -2591,7 +2623,7 @@ function renderBucketDetail(mid,past,m){
   const days=daysUntilDue(b,m?.year,m?.month);
 
   const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
-  let h=`<button class="back-btn" onclick="setBucket(null)">← Overview</button>
+  let h=`<button class="back-btn" onclick="setBucket(null)">← Buckets</button>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
     <span style="color:${color}">${esc(cat?.name||'')}</span><span class="det-sep">·</span>
@@ -7027,7 +7059,6 @@ function mAcctOptions(selectedId){
         onclick="showAuthSignIn()">Back to Sign In</button>
     </div>
     <div id="authMsg" class="auth-msg" style="display:none"></div>
-    <a class="auth-skip" onclick="skipAuth()">Use offline without account →</a>
   </div>
 </div>
 
