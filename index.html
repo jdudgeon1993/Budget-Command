@@ -33,7 +33,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 
 /* ═══ TOPBAR ═══ */
 .topbar{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:stretch;flex-shrink:0;z-index:100;overflow:hidden;}
-.tb-logo{display:flex;align-items:center;gap:8px;padding:0 18px;border-right:1px solid var(--border);font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:-.3px;white-space:nowrap;flex-shrink:0;}
+.tb-logo{display:flex;align-items:center;gap:8px;padding:0 20px;border-right:1px solid var(--border);font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:-.3px;white-space:nowrap;flex-shrink:0;width:200px;}
 .tb-logo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
 
 .tb-accounts{display:flex;align-items:stretch;gap:0;overflow-x:auto;scrollbar-width:none;border-right:1px solid var(--border);}
@@ -48,28 +48,26 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ac-bal.neg{color:var(--red);}
 .ac-type{font-size:9px;color:var(--text3);}
 
-.tb-total{display:flex;flex-direction:column;justify-content:center;padding:0 16px;border-right:1px solid var(--border);min-width:130px;flex-shrink:0;}
+.tb-total{display:flex;flex-direction:column;justify-content:center;padding:0 20px;border-right:1px solid var(--border);min-width:140px;flex-shrink:0;}
 .tb-total-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:1px;}
-.tb-total-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.5px;color:var(--text);}
+.tb-total-val{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-.5px;color:var(--text);}
 
-.tb-rts{display:flex;flex-direction:column;justify-content:center;padding:0 16px;border-right:1px solid var(--border);min-width:150px;flex-shrink:0;background:var(--bg3);}
+.tb-rts{display:flex;flex-direction:column;justify-content:center;padding:0 20px;border-right:1px solid var(--border);flex-shrink:0;}
 .tb-rts-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:1px;}
-.tb-rts-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.5px;}
+.tb-rts-val{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-.5px;}
 .tb-rts-val.pos{color:var(--green);}
 .tb-rts-val.neg{color:var(--red);}
 .tb-rts-val.zero{color:var(--text3);}
 
-.tb-months{display:flex;align-items:stretch;flex:1;overflow-x:auto;scrollbar-width:none;}
-.tb-months::-webkit-scrollbar{display:none;}
-.mtab{display:flex;align-items:center;padding:0 15px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;color:var(--text3);transition:all .12s;gap:5px;user-select:none;}
-.mtab:hover{color:var(--text2);background:var(--bg3);}
-.mtab.present{color:var(--text2);}
-.mtab.active{color:var(--text);border-bottom-color:var(--accent);background:var(--bg3);}
-.mtab-pip{width:5px;height:5px;border-radius:50%;background:var(--text3);flex-shrink:0;}
-.mtab.present .mtab-pip{background:var(--green);}
-.mtab-add{display:flex;align-items:center;padding:0 14px;color:var(--text3);cursor:pointer;font-size:18px;transition:all .12s;border-bottom:2px solid transparent;}
-.mtab-add:hover{color:var(--text2);background:var(--bg3);}
+.tb-wi{display:flex;align-items:center;justify-content:center;padding:0 20px;border-right:1px solid var(--border);flex-shrink:0;}
+.tb-wi-btn{background:none;border:1px solid var(--border2);border-radius:var(--r);padding:7px 18px;font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;letter-spacing:.2px;}
+.tb-wi-btn:hover{border-color:var(--amber);color:var(--amber);}
+.tb-wi-btn.on{background:var(--abg);border-color:var(--amber);color:var(--amber);}
 
+.tb-right{display:flex;align-items:center;gap:10px;padding:0 20px;margin-left:auto;flex-shrink:0;}
+.tb-sync{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.tb-sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.tb-sync-dot.off{background:var(--border2);}
 .tb-actions{display:flex;align-items:center;gap:6px;padding:0 14px;border-left:1px solid var(--border);flex-shrink:0;}
 .tbtn{background:none;border:1px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:var(--r);font-size:12px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;}
 .tbtn:hover{border-color:var(--accent);color:var(--text);background:var(--bg3);}
@@ -85,10 +83,22 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .strip.warn{background:var(--rbg);border-bottom:1px solid var(--rb);color:var(--red);}
 
 /* ═══ LAYOUT ═══ */
-.app{display:grid;grid-template-columns:232px 1fr 316px;flex:1;overflow:hidden;min-height:0;}
+.app{display:grid;grid-template-columns:200px 1fr;flex:1;overflow:hidden;min-height:0;}
 
-/* ═══ SIDEBAR ═══ */
-.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:0 0 32px;}
+/* ═══ NAV SIDEBAR ═══ */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;padding:0;flex-shrink:0;}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:13px 20px;cursor:pointer;color:var(--text3);font-size:13px;font-weight:500;font-family:var(--sans);background:none;border:none;border-bottom:1px solid var(--border);letter-spacing:.2px;transition:background .12s,color .12s;position:relative;width:100%;text-align:left;}
+.nav-btn:hover{background:var(--bg3);color:var(--text2);}
+.nav-btn.active{background:var(--bg);color:var(--text);border-right:2px solid var(--bg);margin-right:-1px;padding-right:21px;z-index:2;}
+.nav-btn.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:0 2px 2px 0;}
+.nav-btn-icon{font-size:14px;color:var(--text3);width:16px;text-align:center;flex-shrink:0;transition:color .12s;}
+.nav-btn.active .nav-btn-icon{color:var(--accent);}
+.nav-btn:hover .nav-btn-icon{color:var(--text2);}
+.nav-btn-spacer{flex:1;}
+.nav-foot{margin-top:auto;border-top:1px solid var(--border);}
+.nav-new-btn{display:flex;align-items:center;gap:8px;width:100%;padding:12px 20px;background:var(--accent);border:none;color:#fff;font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;transition:background .12s;letter-spacing:.2px;}
+.nav-new-btn:hover{background:var(--accent2);}
+.nav-new-btn-icon{font-size:14px;}
 .sb-link{display:flex;align-items:center;padding:8px 16px;cursor:pointer;color:var(--text2);font-size:13px;gap:9px;transition:background .1s,color .1s;}
 .sb-link:hover,.sb-link.active{background:var(--bg3);color:var(--text);}
 .sb-link-icon{font-size:13px;color:var(--text3);width:14px;text-align:center;}
@@ -159,6 +169,35 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .hint-bar.info{background:var(--bbg);border:1px solid var(--bb);color:var(--blue);}
 .hint-bar.warn{background:var(--rbg);border:1px solid var(--rb);color:var(--red);}
 .hint-bar.success{background:var(--gbg);border:1px solid var(--gb);color:var(--green);}
+
+/* ═══ TAB CONTENT AREAS ═══ */
+/* Overview tab */
+.ov-month-nav{display:flex;align-items:center;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;align-self:flex-start;}
+.ov-mnav-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:8px 14px;transition:all .12s;line-height:1;font-family:var(--sans);}
+.ov-mnav-btn:hover{background:var(--bg3);color:var(--text);}
+.ov-mnav-btn:disabled{opacity:.3;cursor:default;}
+.ov-mnav-label{font-size:13px;font-weight:600;color:var(--text2);padding:8px 16px;border-left:1px solid var(--border);border-right:1px solid var(--border);letter-spacing:-.2px;white-space:nowrap;}
+.ov-mnav-add{background:none;border:none;cursor:pointer;color:var(--accent);font-size:18px;padding:8px 12px;line-height:1;transition:opacity .12s;}
+.ov-mnav-add:hover{opacity:.7;}
+
+/* Ledger tab */
+.ledger-layout{display:grid;grid-template-columns:300px 1fr;gap:0;height:100%;min-height:0;}
+.ledger-form-col{border-right:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
+.ledger-list-col{display:flex;flex-direction:column;overflow:hidden;}
+.ledger-list-head{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px;}
+.ledger-list-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);flex:1;}
+.ledger-filters{display:flex;gap:3px;}
+.ledger-search{width:100%;padding:8px 12px;background:var(--surface2);border:none;border-top:1px solid var(--border);font-size:13px;font-family:var(--sans);color:var(--text);outline:none;}
+.ledger-search:focus{border-top-color:var(--accent);}
+.ledger-search::placeholder{color:var(--text3);}
+
+/* Accounts tab */
+.acct-tab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;}
+.acct-tab-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;cursor:pointer;transition:border-color .12s;}
+.acct-tab-card:hover{border-color:var(--accent);}
+.acct-tab-card-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.acct-tab-card-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.acct-tab-card-bal{font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:-.5px;}
 
 /* ═══ SIDEBAR MONTH NAV ═══ */
 .sb-monnav{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;}
@@ -314,9 +353,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .acct-hdr-name{font-size:22px;font-weight:600;letter-spacing:-.5px;}
 .acct-balance-block{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:20px;}
 
-/* ═══ RIGHT PANEL ═══ */
-.rpanel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
-/* rp styles moved to right panel section */
+/* ═══ RIGHT PANEL — hidden in new desktop layout ═══ */
+.rpanel{display:none;}
 
 /* TX FORM */
 .txf{display:flex;flex-direction:column;gap:5px;}
@@ -453,8 +491,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .add-bkt-btn{display:flex;align-items:center;gap:6px;background:none;border:1px dashed var(--border2);border-radius:var(--r);padding:9px 14px;font-size:13px;font-family:var(--sans);color:var(--text3);cursor:pointer;transition:all .12s;width:100%;margin-top:8px;}
 .add-bkt-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--gbg);}
 
-/* ═══ RIGHT PANEL ═══ */
-.rpanel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+/* rpanel is hidden on desktop (content lives in tab views) */
+.rpanel{display:none;}
 
 /* Compact form — all rows inline, never taller than needed */
 .rp-form{background:var(--bg3);border-bottom:2px solid var(--border2);flex-shrink:0;padding:8px 12px;display:flex;flex-direction:column;gap:6px;}
@@ -736,15 +774,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 }
 
 /* Tablet: 768–1199px */
-@media(min-width:768px) and (max-width:1199px){
+@media(min-width:768px) and (max-width:1099px){
   #mShell{display:none;}
-  .app{grid-template-columns:64px 1fr 300px;}
-  .sidebar{overflow:visible;}
-  .sb-link span:last-child,.cat-label,.cat-row .cat-acts,.bni-name,.bni-val,.bni-acts,.sb-sec-label,.sb-sec .sb-add{display:none;}
-  .sb-link{justify-content:center;padding:10px 0;}
-  .sb-link-icon{font-size:18px;width:auto;}
-  .bni{padding:8px;justify-content:center;}
-  .bni-dot{margin:0;}
+  .app{grid-template-columns:56px 1fr;}
+  .nav-btn span:not(.nav-btn-icon){display:none;}
+  .nav-btn{padding:14px 0;justify-content:center;}
+  .nav-new-btn span:last-child{display:none;}
+  .nav-new-btn{padding:12px 0;justify-content:center;}
 }
 
 /* Desktop: hide mobile shell AND mobile-only DOM elements */
@@ -1038,19 +1074,20 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium<span style="color:var(--text3);margin:0 2px"> </span>Fisci</div>
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium<span style="color:var(--text3);margin:0 3px"> </span>Fisci</div>
   <div class="tb-total">
     <div class="tb-total-label">Total Cash</div>
     <div class="tb-total-val" id="tbTotal">—</div>
   </div>
   <div class="tb-rts">
-    <div class="tb-rts-label">Ready to Spend</div>
+    <div class="tb-rts-label" id="tbRtsLabel">Ready to Spend</div>
     <div class="tb-rts-val zero" id="tbRTS">—</div>
   </div>
-  <div style="flex:1"></div>
-  <div class="tb-actions">
-    <span id="syncStatus" class="offline" style="display:none"></span>
-    <button class="tbtn" onclick="openSettings()" title="Settings" style="padding:5px 10px;font-size:13px;">⚙ Settings</button>
+  <div class="tb-wi">
+    <button class="tb-wi-btn" id="wiBtnTop" onclick="toggleWI()">⚡ What If</button>
+  </div>
+  <div class="tb-right">
+    <div class="tb-sync" id="tbSyncStatus"><div class="tb-sync-dot off" id="tbSyncDot"></div><span id="tbSyncLabel">Offline</span></div>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
   </div>
 </div>
@@ -1862,10 +1899,9 @@ function getPrevMonthId(mid){
 // RENDER
 // ═══════════════════════════════════════════════════════
 function render(){
-  renderTopbar();renderSidebar();renderMain();renderTxList();renderRpSummary();
+  renderTopbar();renderSidebar();renderMain();
   if(S.wiOpen)renderWI();
   wireFormKeys();
-  setTimeout(wireAllocKeys, 50);
   setTimeout(wireDesktopPayee, 0);
   // Keep mobile in sync when render is called from desktop actions
   if(isMobile())setTimeout(mRenderAll, 0);
@@ -1914,159 +1950,243 @@ function renderTopbar(){
   const mid=S.activeMonth;
   const rts=mid?readyToSpend(mid):0;
   const rEl=document.getElementById('tbRTS');
-  if(!mid||(!S.accounts.some(a=>a.type==='budget'))){rEl.className='tb-rts-val zero';rEl.textContent='—';return;}
+  const lEl=document.getElementById('tbRtsLabel');
+  if(!mid||(!S.accounts.some(a=>a.type==='budget'))){
+    if(rEl){rEl.className='tb-rts-val zero';rEl.textContent='—';}
+    return;
+  }
   const scheduledOutCl=S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.type!=='in'&&getAcct(t.accountId)?.type!=='debt').reduce((s,t)=>s+t.amount,0);
-  rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
-  rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
-  rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} in scheduled outflows pending — After scheduled: ${$f(rts-scheduledOutCl)}`:'Budget cash minus remaining unfulfilled obligations';
-  const rtsLabel=document.querySelector('.tb-rts-label');
-  if(rtsLabel)rtsLabel.innerHTML=scheduledOutCl>0?`Ready to Spend <span style="font-size:9px;color:var(--amber);font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
+  if(rEl){
+    rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
+    rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
+    rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} scheduled — After: ${$f(rts-scheduledOutCl)}`:'Budget cash minus remaining unfulfilled obligations';
+  }
+  if(lEl)lEl.innerHTML=scheduledOutCl>0?`Ready to Spend <span style="font-size:9px;color:var(--amber);font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
+
+  // Sync status dot
+  const dot=document.getElementById('tbSyncDot');
+  const lbl=document.getElementById('tbSyncLabel');
+  const supaOk=typeof supabase!=='undefined'&&S.userId;
+  if(dot){dot.className='tb-sync-dot'+(supaOk?'':' off');}
+  if(lbl)lbl.textContent=supaOk?(S.userEmail||'Synced'):'Local only';
+
+  // WI button state
+  const wiBtn=document.getElementById('wiBtnTop');
+  if(wiBtn){wiBtn.className='tb-wi-btn'+(S.wiOpen?' on':'');}
+
+  // Auth button
+  updateAuthBtn();
 }
 
 function renderSidebar(){
   const el=document.getElementById('sidebar');
-
-  // Month nav + WI toggle
-  const mid=S.activeMonth;
-  const midIdx=mid?S.months.findIndex(m=>m.id===mid):-1;
-  const prevM=midIdx>0?S.months[midIdx-1]:null;
-  const nextM=midIdx>=0&&midIdx<S.months.length-1?S.months[midIdx+1]:null;
-  const curLabel=mid?(S.months[midIdx]?.label||mid):'No Month';
-  const wiOn=S.wiScenario?.id;
-  let h=`<div class="sb-monnav">
-    <button class="sb-monnav-btn" onclick="sidebarNavMonth(-1)" title="${prevM?prevM.label:'No previous month'}" ${!prevM?'disabled style="opacity:.3"':''}>‹</button>
-    <span class="sb-monnav-label">${curLabel}</span>
-    <button class="sb-monnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
-    <button class="sb-monnav-wi${wiOn?' on':''}" onclick="toggleWI()" id="wiBtnTop" title="What If scenario mode">⚡ What If</button>
-  </div>`;
-
-  // Action buttons
-  h+=`<div class="sb-actions">
-    <button class="sb-act-btn primary" onclick="openModal('new')">+ New</button>
-    <button class="sb-act-btn" onclick="openModal('acct')">+ Account</button>
-    <button class="sb-act-btn" onclick="openGlobalSearch()" title="Search transactions">🔍</button>
-  </div>`;
-
-  h+=`<div class="sb-link${!S.activeBucket&&!S.activeAccount?' active':''}" onclick="clearActive()">
-    <span class="sb-link-icon">▣</span><span>Overview</span></div>`;
-
-  if(S.accounts.length){
-    h+=`<div class="sb-sep"></div>
-    <div class="sb-sec"><span class="sb-sec-label">Accounts</span>
-      <button class="sb-add" onclick="openModal('acct')">+</button></div>`;
-    const sbCash=S.accounts.filter(a=>a.type!=='debt');
-    const sbDebt=S.accounts.filter(a=>a.type==='debt');
-    if(sbCash.length){
-      h+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);padding:4px 16px 2px">Cash & Savings</div>`;
-      sbCash.forEach(a=>{
-        const bal=acctBalance(a.id);
-        h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')">
-          <span class="sb-link-icon"><div style="width:8px;height:8px;border-radius:50%;background:${a.color};display:inline-block"></div></span>
-          <span style="flex:1">${esc(a.name)}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:${bal>=0?'var(--text3)':'var(--red)'}">${$f(bal)}</span>
-          <button class="ib" style="opacity:0.5" onclick="event.stopPropagation();editAcct('${a.id}')">✎</button>
-        </div>`;
-      });
-    }
-    if(sbDebt.length){
-      const totalDebt=sbDebt.reduce((s,a)=>s+acctBalance(a.id),0);
-      h+=`<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--red);padding:6px 16px 2px">Debt · ${$f(totalDebt)}</div>`;
-      sbDebt.forEach(a=>{
-        const bal=acctBalance(a.id);
-        h+=`<div class="sb-link${S.activeAccount===a.id?' active':''}" onclick="setActiveAccount('${a.id}')" style="border-left:2px solid var(--rb)">
-          <span class="sb-link-icon">💳</span>
-          <span style="flex:1">${esc(a.name)}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:var(--red)">${$f(bal)}</span>
-          <button class="ib" style="opacity:0.5" onclick="event.stopPropagation();editAcct('${a.id}')">✎</button>
-        </div>`;
-      });
-    }
-  }
-
-  if(S.cats.length){
-    h+=`<div class="sb-sep"></div>
-    <div class="sb-sec"><span class="sb-sec-label">Buckets</span>
-      <button class="sb-add" title="Recurring Bills" onclick="openRecurringBills()" style="font-size:10px;padding:1px 5px;margin-right:2px">⏱</button>
-      <button class="sb-add" onclick="openModal('cat')">+</button></div>`;
-    const sCats=sortedCats();
-    sCats.forEach((cat,catIdx)=>{
-      const catBuckets=sortedBuckets(cat.id);
-      const isFirstCat=catIdx===0;
-      const isLastCat=catIdx===sCats.length-1;
-      h+=`<div class="cat-block"><div class="cat-row">
-        <div class="cat-color" style="background:${cat.color||COLORS[0]}"></div>
-        <span class="cat-label">${esc(cat.name)}</span>
-        <div class="cat-acts">
-          <button class="ib" onclick="event.stopPropagation();moveCat('${cat.id}',-1)" title="Move up" ${isFirstCat?'disabled style="opacity:.3"':''}>↑</button>
-          <button class="ib" onclick="event.stopPropagation();moveCat('${cat.id}',1)" title="Move down" ${isLastCat?'disabled style="opacity:.3"':''}>↓</button>
-          <button class="ib" onclick="editCat('${cat.id}')">✎</button>
-          <button class="ib" onclick="openModal('bkt','${cat.id}')">+</button>
-          <button class="ib del" onclick="delCat('${cat.id}')">×</button>
-        </div></div>`;
-      catBuckets.forEach((b,bIdx)=>{
-        const mid=S.activeMonth;
-        const alloc=bAlloc(mid,b.id);
-        const target=bBudget(mid,b.id);
-        const avail=alloc+rolloverBal(b.id,mid)-bSpent(mid,b.id);
-        const pend=bucketPendingAmt(b.id,mid);
-        let dotCls='empty';
-        if(avail<0)dotCls='over';
-        else if(alloc>=target&&target>0)dotCls='funded';
-        else if(alloc>0)dotCls='partial';
-        const dotExtra=(pend>0&&dotCls!=='over'&&dotCls!=='funded')?' has-pending':'';
-        const isFirstBkt=bIdx===0;
-        const isLastBkt=bIdx===catBuckets.length-1;
-        h+=`<div class="bni${S.activeBucket===b.id?' active':''}" onclick="setBucket('${b.id}')" tabindex="0" role="button" aria-label="${esc(b.name)}" onkeydown="if(event.key==='Enter'||event.key===' ')setBucket('${b.id}')">
-          <div class="bni-line" style="background:${cat.color||COLORS[0]}"></div>
-          <div class="bni-dot ${dotCls}${dotExtra}"></div>
-          <span class="bni-name">${esc(b.name)}${pend>0?'<span style="font-size:9px;color:var(--amber);margin-left:3px">⏱</span>':''}</span>
-          <span class="bni-val">${alloc>0?$f(alloc):pend>0?`<span style="color:var(--amber);opacity:.7">${$f(pend)}</span>`:''}</span>
-          <div class="bni-acts">
-            <button class="ib" onclick="event.stopPropagation();moveBkt('${b.id}',-1)" title="Move up" ${isFirstBkt?'disabled style="opacity:.3"':''}>↑</button>
-            <button class="ib" onclick="event.stopPropagation();moveBkt('${b.id}',1)" title="Move down" ${isLastBkt?'disabled style="opacity:.3"':''}>↓</button>
-            <button class="ib" onclick="event.stopPropagation();editBucket('${b.id}')">✎</button>
-            <button class="ib del" onclick="event.stopPropagation();archiveOrDelete('${b.id}')">×</button>
-          </div></div>`;
-      });
-      h+=`</div>`;
-    });
-  }
-
-    // Settings at bottom
-  const lastExp=localStorage.getItem('bcc_last_export');
-  const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'never';
-  const expCheck=lastExp?'done':'';
-  h+=`<div style="flex:1"></div>
-  <div class="sb-sep" style="margin-top:auto"></div>
-  <div class="sb-link" onclick="exportData()" style="color:var(--text3);font-size:12px;" title="Last exported: ${expLabel}">
-    <span class="sb-link-icon">&#x2193;</span><span>Export Backup</span>
-    <span style="font-size:10px;color:var(--green);margin-left:auto">${expCheck}</span>
-  </div>
-  <div class="sb-link" onclick="document.getElementById('importFile').click()" style="color:var(--text3);font-size:12px;">
-    <span class="sb-link-icon">&#x2191;</span><span>Import Backup</span>
-  </div>
-  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)" />
-  <div class="sb-link" onclick="confirmFreshStart()" style="color:var(--text3);font-size:12px;">
-    <span class="sb-link-icon">&#x21BA;</span><span>Fresh Start</span>
-  </div>`;
-
+  if(!el)return;
+  const navItems=[
+    {id:'overview',label:'Overview',icon:'◈'},
+    {id:'ledger',label:'Ledger',icon:'≡'},
+    {id:'accounts',label:'Accounts',icon:'⬡'},
+    {id:'buckets',label:'Buckets',icon:'▣'},
+    {id:'settings',label:'Settings',icon:'⚙'},
+    {id:'export',label:'Export / Import',icon:'↕'},
+  ];
+  let h='';
+  navItems.forEach(item=>{
+    const active=desktopTab===item.id;
+    h+=`<button class="nav-btn${active?' active':''}" onclick="setDesktopTab('${item.id}')">
+      <span class="nav-btn-icon">${item.icon}</span>
+      <span>${item.label}</span>
+    </button>`;
+  });
+  h+=`<div class="nav-btn-spacer"></div><div class="nav-foot"><button class="nav-new-btn" onclick="openModal('new')"><span class="nav-new-btn-icon">+</span><span>New Transaction</span></button></div>`;
   el.innerHTML=h;
 }
 
 function renderMain(){
   const el=document.getElementById('mainScroll');
+  if(!el)return;
   const mid=S.activeMonth;
+  el.style.padding='';
+  el.style.overflowY='';
+  if(desktopTab==='overview'){renderOverviewTab(el,mid);return;}
+  if(desktopTab==='ledger'){renderLedgerTab(el,mid);return;}
+  if(desktopTab==='accounts'){renderAccountsTab(el,mid);return;}
+  if(desktopTab==='buckets'){renderBucketsTab(el,mid);return;}
+  if(desktopTab==='settings'){renderSettingsTab(el);return;}
+  if(desktopTab==='export'){renderExportTab(el);return;}
+  el.innerHTML='';
+}
 
-  // Account view
-  if(S.activeAccount){renderAccountView(el,mid);return;}
+function setDesktopTab(tab){
+  desktopTab=tab;
+  renderSidebar();
+  renderMain();
+}
 
-  // No categories yet
-  if(!S.cats.length&&!S.accounts.length){
+function renderOverviewTab(el,mid){
+  if(!S.accounts.length&&!S.cats.length){
     el.innerHTML=`<div class="empty-wrap">
       <div class="empty-icon">⬡</div>
       <div class="empty-title">Imperium Fisci</div>
       <div class="empty-sub">Start by adding your accounts and their current balances, then create budget categories and buckets.</div>
       <button class="empty-btn" onclick="startWizard()">Get Started</button>
+    </div>`;return;
+  }
+  const midIdx=mid?S.months.findIndex(m=>m.id===mid):-1;
+  const prevM=midIdx>0?S.months[midIdx-1]:null;
+  const nextM=midIdx>=0&&midIdx<S.months.length-1?S.months[midIdx+1]:null;
+  const curLabel=mid?(S.months[midIdx]?.label||mid):'No Month';
+  let h=`<div class="ov-month-nav">
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''} title="${prevM?prevM.label:'No previous month'}">‹</button>
+    <span class="ov-mnav-label">${curLabel}</span>
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
+    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" title="Add next month">+</button>`:''}
+  </div>`;
+  if(!mid){el.innerHTML=h;return;}
+  const m=getMonth(mid);
+  const st=monthStatus(mid);
+  const past=st==='past';
+  const rts=readyToSpend(mid);
+  const alloc=totalAllocated(mid);
+  const totalSpent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const unalloc=S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0).length;
+  const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
+  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span>
+    <div class="reports-drop-wrap" style="margin-left:auto">
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="toggleReportsMenu('${mid}',this)">📊 Reports ▾</button>
+      <div class="reports-drop-menu" id="reportsMenu_${mid}">
+        <button class="reports-drop-item" onclick="openMonthReport('${mid}');closeReportsMenu()">📅 Month Report</button>
+        <button class="reports-drop-item" onclick="openNetWorth();closeReportsMenu()">◈ Net Worth</button>
+        <button class="reports-drop-item" onclick="wiShowProjector();closeReportsMenu()">📈 Paycheck Projector</button>
+      </div>
+    </div>
+  </div>`;
+  if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
+  h+=`<div class="pool-strip" style="margin-bottom:16px">
+    <div class="ps-cell"><div class="ps-label">Budget Balance</div><div class="ps-val ${budgetBal>=0?'green':'red'}">${$f(budgetBal)}</div><div class="ps-sub">in budget accounts</div></div>
+    <div class="ps-cell"><div class="ps-label">Allocated</div><div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="ps-sub">assigned this month</div></div>
+    <div class="ps-cell hi"><div class="ps-label">Ready to Spend</div><div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="ps-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
+    <div class="ps-cell"><div class="ps-label">Spent</div><div class="ps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="ps-sub">from transactions</div></div>
+  </div>`;
+  h+=renderBudgetHealth(mid);
+  if(!past&&unalloc>0&&rts>0)
+    h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setDesktopTab('buckets')">Go to Buckets →</button></div>`;
+  else if(!past&&rts<0)
+    h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
+  else if(!past&&rts===0&&alloc>0)
+    h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
+  el.innerHTML=h;
+}
+
+function renderLedgerTab(el,mid){
+  el.style.padding='0';
+  el.style.overflowY='hidden';
+  const past=mid&&monthStatus(mid)==='past';
+  el.innerHTML=`<div class="ledger-layout">
+    <div class="ledger-form-col">
+      <div class="rp-form" id="txForm" style="display:${past?'none':'flex'}">
+        <div class="rpf-row rpf-type-row">
+          <span class="rpf-label">Type</span>
+          <div class="type-tog" style="flex:1">
+            <button class="ttbtn sel-out" id="ttOut" onclick="setTxType('out')">↑ Out</button>
+            <button class="ttbtn" id="ttIn" onclick="setTxType('in')">↓ In</button>
+            <button class="ttbtn" id="ttXfr" onclick="setTxType('xfr')">⇄ Xfr</button>
+          </div>
+        </div>
+        <div class="rpf-row">
+          <input class="tfi" id="txDesc" placeholder="Description..." style="flex:1" />
+        </div>
+        <div class="rpf-row">
+          <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" />
+          <input class="tfi" id="txDate" type="date" style="flex:1" />
+        </div>
+        <div class="rpf-row">
+          <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
+        </div>
+        <div class="rpf-row" id="txBktRow">
+          <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1"><option value="">Category...</option></select>
+          <select class="tfi-sel" id="txBkt" style="flex:1"><option value="">Bucket...</option></select>
+        </div>
+        <div class="rpf-row" id="txXfrRow" style="display:none">
+          <select class="tfi-sel" id="txXfrTo" style="flex:1"><option value="">To account...</option></select>
+        </div>
+        <div class="rpf-row rpf-submit-row">
+          <label class="rec-chk" style="flex:1"><input type="checkbox" id="txRec"> ↻ Recurring</label>
+          <button class="txf-submit" id="txSubmitBtn" onclick="addTx()" style="flex:2">Add Transaction</button>
+        </div>
+      </div>
+      ${past?`<div class="notice" style="margin:12px 0">🔒 Closed month — read only.</div>`:''}
+    </div>
+    <div class="ledger-list-col">
+      <div class="ledger-list-head">
+        <span class="ledger-list-title" id="rpTitle">Transactions</span>
+        <span class="rp-bal-badge" id="rpBalBadge" style="display:none"></span>
+        <div class="ledger-filters">
+          <button class="rfbtn active" id="fAll" onclick="setFilter('all')">All</button>
+          <button class="rfbtn" id="fIn" onclick="setFilter('in')">↓ In</button>
+          <button class="rfbtn" id="fOut" onclick="setFilter('out')">↑ Out</button>
+          <button class="rfbtn" id="fXfr" onclick="setFilter('xfr')">⇄</button>
+        </div>
+      </div>
+      <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" />
+      <div class="tx-list" id="txList" style="flex:1;overflow-y:auto"></div>
+    </div>
+  </div>`;
+  wireFormKeys();
+  setTimeout(wireDesktopPayee,0);
+  renderTxList();
+}
+
+function renderAccountsTab(el,mid){
+  if(S.activeAccount){renderAccountView(el,mid);return;}
+  if(!S.accounts.length){
+    el.innerHTML=`<div class="empty-wrap">
+      <div class="empty-icon">⬡</div>
+      <div class="empty-title">No accounts yet</div>
+      <div class="empty-sub">Add your first account to start tracking.</div>
+      <button class="empty-btn" onclick="openModal('acct')">Add Account</button>
+    </div>`;return;
+  }
+  const cash=S.accounts.filter(a=>a.type!=='debt');
+  const debt=S.accounts.filter(a=>a.type==='debt');
+  let h=`<div class="month-hdr"><div class="month-title">Accounts</div>
+    <button class="tbtn" style="margin-left:auto" onclick="openModal('acct')">+ Add Account</button>
+  </div>`;
+  if(cash.length){
+    h+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin-bottom:8px">Cash &amp; Savings</div>
+    <div class="acct-tab-grid">`;
+    cash.forEach(a=>{
+      const bal=acctBalance(a.id);
+      h+=`<div class="acct-tab-card" onclick="setActiveAccount('${a.id}')">
+        <div class="acct-tab-card-name"><div class="acct-tab-card-dot" style="background:${a.color}"></div>${esc(a.name)}<span class="chip chip-${a.type==='savings'?'future':'present'}" style="margin-left:auto;font-size:9px;padding:2px 7px">${a.type}</span></div>
+        <div class="acct-tab-card-bal" style="color:${bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  if(debt.length){
+    const totalDebt=debt.reduce((s,a)=>s+acctBalance(a.id),0);
+    h+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--red);margin:16px 0 8px">Debt · ${$f(totalDebt)}</div>
+    <div class="acct-tab-grid">`;
+    debt.forEach(a=>{
+      const bal=acctBalance(a.id);
+      h+=`<div class="acct-tab-card" onclick="setActiveAccount('${a.id}')" style="border-left:3px solid var(--rb)">
+        <div class="acct-tab-card-name">💳 ${esc(a.name)}</div>
+        <div class="acct-tab-card-bal" style="color:var(--red)">${$f(bal)}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  el.innerHTML=h;
+}
+
+function renderBucketsTab(el,mid){
+  if(!S.cats.length&&!S.accounts.length){
+    el.innerHTML=`<div class="empty-wrap">
+      <div class="empty-icon">▣</div>
+      <div class="empty-title">No budget yet</div>
+      <div class="empty-sub">Add accounts and categories to start budgeting.</div>
+      <button class="empty-btn" onclick="openModal('cat')">Add Category</button>
     </div>`;return;
   }
   if(!S.cats.length){
@@ -2078,44 +2198,27 @@ function renderMain(){
     </div>`;return;
   }
   if(!mid){el.innerHTML='';return;}
-
   const m=getMonth(mid);
   const st=monthStatus(mid);
   const past=st==='past';
-  const income=monthIncome(mid);
-  const alloc=totalAllocated(mid);
   const rts=readyToSpend(mid);
-  const totalSpent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const alloc=totalAllocated(mid);
   const unalloc=S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0).length;
-
-  let h='';
-  const chipTxt=st==='past'?'Closed':st==='present'?'Current':'Upcoming';
-  h+=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span>
-    <div class="reports-drop-wrap" style="margin-left:auto">
-      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="toggleReportsMenu('${mid}',this)">📊 Reports ▾</button>
-      <div class="reports-drop-menu" id="reportsMenu_${mid}">
-        <button class="reports-drop-item" onclick="openMonthReport('${mid}');closeReportsMenu()">📅 Month Report</button>
-        <button class="reports-drop-item" onclick="openNetWorth();closeReportsMenu()">◈ Net Worth</button>
-        <button class="reports-drop-item" onclick="wiShowProjector();closeReportsMenu()">📅 Paycheck Projector</button>
-      </div>
+  const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
+  let h=`<div class="month-hdr"><div class="month-title">${m.label}</div><span class="chip chip-${st}">${chipTxt}</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Recurring Bills">⏱ Bills</button>
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openModal('cat')">+ Category</button>
     </div>
   </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
-
   if(S.activeBucket){h+=renderBucketDetail(mid,past,m);el.innerHTML=h;return;}
-
-  // Budget health bar
-  h+=renderBudgetHealth(mid);
-
-  // Hints
   if(!past&&unalloc>0&&rts>0)
     h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
   else if(!past&&rts<0)
     h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
   else if(!past&&rts===0&&alloc>0)
     h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
-
-  // No buckets
   if(!S.buckets.filter(b=>!b.archived).length){
     h+=`<div class="empty-wrap" style="min-height:160px;padding:30px 0;">
       <div class="empty-title" style="font-size:15px">No buckets yet</div>
@@ -2123,7 +2226,6 @@ function renderMain(){
       <button class="empty-btn" onclick="openModal('bkt')">Add a bucket</button>
     </div>`;el.innerHTML=h;return;
   }
-
   // Category sections
   sortedCats().forEach(cat=>{
     const catBuckets=sortedBuckets(cat.id);
@@ -2218,6 +2320,101 @@ function renderMain(){
     h+=`</tbody></table></div>`;
   });
   el.innerHTML=h;
+  setTimeout(wireAllocKeys,50);
+}
+
+function renderSettingsTab(el){
+  const curTheme=localStorage.getItem('bcc_theme')||'dark';
+  const themes=[
+    {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
+    {name:'light',label:'Light',bg:'#f5f5f7',fg:'#1c1c1e',accent:'#147a6e'},
+    {name:'midnight',label:'Midnight',bg:'#000000',fg:'#f0f0f0',accent:'#00d4b8'},
+  ];
+  const themeCards=themes.map(t=>`<div class="theme-card${t.name===curTheme?' active':''}" onclick="setTheme('${t.name}')">
+    <div class="theme-card-swatch" style="background:${t.bg};border:2px solid ${t.accent}"></div>
+    <div class="theme-card-name">${t.label}</div>
+  </div>`).join('');
+  const acctItems=S.accounts.map((a,i)=>`<div class="acct-order-item">
+    <div class="acct-order-dot" style="background:${a.color}"></div>
+    <span class="acct-order-name">${esc(a.name)}</span>
+    <button class="ib" onclick="moveAcct('${a.id}',-1)" ${i===0?'disabled style="opacity:.3"':''}>↑</button>
+    <button class="ib" onclick="moveAcct('${a.id}',1)" ${i===S.accounts.length-1?'disabled style="opacity:.3"':''}>↓</button>
+  </div>`).join('');
+  const payeeItems=(S.payees||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
+    const bkt=getBucket(p.defaultBucketId);
+    return `<div class="payee-settings-row">
+      <span class="payee-settings-name">${esc(p.name)}</span>
+      ${bkt?`<span class="payee-settings-bkt">${esc(bkt.name)}</span>`:'<span class="payee-settings-bkt muted">no default bucket</span>'}
+      <button class="ib" onclick="(()=>{const n=prompt('Rename payee:','${esc(p.name).replace(/'/g,"\\'")}');if(n)renamePayee('${p.id}',n);})()" title="Rename">✎</button>
+      <button class="ib del" onclick="if(confirm('Remove payee?'))deletePayee('${p.id}')" title="Delete">×</button>
+    </div>`;
+  }).join('');
+  const pcRows=[1,2,3].map(n=>{
+    const pc=(S.paychecks||[])[n-1]||{};
+    const req=n===1;
+    return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:7px">💰 Income ${n}${req?' (required)':' (optional)'}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
+        <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
+        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
+        <div><label class="fl">Anchor Date</label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
+        <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
+          <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
+          <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
+          <option value="15"${pc.freq===15?' selected':''}>Semi-monthly</option>
+          <option value="30"${pc.freq===30?' selected':''}>Monthly</option>
+        </select></div>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="month-hdr"><div class="month-title">Settings</div>
+    <button class="tbtn" style="margin-left:auto" onclick="openGlobalSearch()" title="Search transactions">🔍 Search</button>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Theme</div>
+    <div class="theme-cards">${themeCards}</div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Account Order</div>
+    ${acctItems||'<div style="color:var(--text3);font-size:13px">No accounts yet</div>'}
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Saved Payees <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.payees||[]).length} saved</span></div>
+    ${payeeItems||'<div style="color:var(--text3);font-size:13px">No payees saved yet — descriptions are saved automatically when you log transactions.</div>'}
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Income Allocation Rules <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Auto-suggest bucket allocations when you log income.</div>
+    <button class="tbtn" onclick="openAllocationRules()">Manage Rules</button>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Income Sources <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.paychecks||[]).length} saved</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Your regular paychecks. Auto-calculates projected monthly income app-wide and pre-fills the Paycheck Projector.</div>
+    ${pcRows}
+    <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
+  </div>`;
+}
+
+function renderExportTab(el){
+  const lastExp=localStorage.getItem('bcc_last_export');
+  const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'Never';
+  el.innerHTML=`<div class="month-hdr"><div class="month-title">Export / Import</div></div>
+  <div class="settings-section">
+    <div class="settings-section-title">Export Backup</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Download a full backup of your budget data as a JSON file. Last exported: <strong style="color:var(--text2)">${expLabel}</strong></div>
+    <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title">Import Backup</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Restore from a previously exported JSON backup. This will replace all current data.</div>
+    <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
+    <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
+  </div>
+  <div class="settings-section">
+    <div class="settings-section-title" style="color:var(--red)">Danger Zone</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Permanently delete all data and start fresh. This cannot be undone.</div>
+    <button class="tbtn" style="border-color:var(--rb);color:var(--red)" onclick="confirmFreshStart()">↺ Fresh Start</button>
+  </div>`;
 }
 
 function renderBudgetHealth(mid){
@@ -2682,9 +2879,9 @@ function fundCategory(catId,mid){
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
 function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
-function setBucket(id){S.activeBucket=id||null;S.activeAccount=null;save();renderSidebar();renderMain();renderTxList();}
-function setActiveAccount(id){S.activeAccount=id;S.activeBucket=null;save();renderSidebar();renderMain();renderTxList();}
-function clearActive(){S.activeBucket=null;S.activeAccount=null;save();renderSidebar();renderMain();renderTxList();}
+function setBucket(id){S.activeBucket=id||null;S.activeAccount=null;if(!isMobile()&&id)desktopTab='buckets';save();renderSidebar();renderMain();}
+function setActiveAccount(id){S.activeAccount=id;S.activeBucket=null;if(!isMobile())desktopTab='accounts';save();renderSidebar();renderMain();}
+function clearActive(){S.activeBucket=null;S.activeAccount=null;save();renderSidebar();renderMain();}
 function setFilter(f){
   S.txFilter=f;
   ['All','In','Out','Xfr'].forEach(x=>{const el=document.getElementById('f'+x);if(el)el.className='rfbtn'+(f===x.toLowerCase()?' active':'');});
@@ -5733,6 +5930,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 // MOBILE SYSTEM
 // ═══════════════════════════════════════════════════════
 // Mobile state
+let desktopTab='overview'; // current desktop nav tab: overview|ledger|accounts|buckets|settings|export
 let mTab='dash';           // current bottom nav tab
 let mSubview=null;         // {type:'bucket'|'account', id}
 let mLedgerFilter='all';
