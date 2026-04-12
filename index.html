@@ -2640,7 +2640,13 @@ function renderLedgerTab(el,mid){
           <button class="rfbtn" id="fXfr" onclick="setFilter('xfr')">⇄</button>
         </div>
       </div>
-      <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" />
+      <div style="display:flex;gap:6px;align-items:center">
+        <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" style="flex:1;margin:0" />
+        ${(S.payees&&S.payees.length)?`<select class="tfi-sel" id="ledgerPayeeSel" style="width:auto;font-size:12px;padding:5px 6px" onchange="_ledgerPayee=this.value;renderTxList()">
+          <option value="">All payees</option>
+          ${(S.payees||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.name)}"${p.name===_ledgerPayee?' selected':''}>👤 ${esc(p.name)}</option>`).join('')}
+        </select>`:''}
+      </div>
       <div class="tx-list" id="txList" style="flex:1;overflow-y:auto"></div>
     </div>
   </div>`;
@@ -2857,12 +2863,20 @@ function renderReportsTab(el){
   const mid=reportsMid||S.activeMonth;
   const tabs=[
     {id:'month',label:'📅 Month'},
+    {id:'bva',label:'⚖ BvA'},
+    {id:'ytd',label:'📆 YTD'},
+    {id:'catspend',label:'🗂 By Category'},
+    {id:'savingsrate',label:'💰 Savings Rate'},
     {id:'networth',label:'◈ Net Worth'},
     {id:'projector',label:'📈 Projector'},
   ];
   const tabNav=tabs.map(t=>`<button class="rtab${t.id===reportsTab?' active':''}" onclick="setReportsTab('${t.id}')">${t.label}</button>`).join('');
   let content='';
   if(reportsTab==='month')content=reportMonthHtml(mid);
+  else if(reportsTab==='bva')content=reportBvAHtml(mid);
+  else if(reportsTab==='ytd')content=reportYTDHtml();
+  else if(reportsTab==='catspend')content=reportCatSpendHtml(mid);
+  else if(reportsTab==='savingsrate')content=reportSavingsRateHtml();
   else if(reportsTab==='networth')content=reportNetWorthHtml();
   else if(reportsTab==='projector')content=wiProjectorHtml(null,'inline');
   el.innerHTML=`<div class="month-hdr"><div class="month-title">Reports</div></div>
@@ -3256,6 +3270,7 @@ function renderTxList(){
 
   const search=(document.getElementById('rpSearch')?.value||'').toLowerCase();
   if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
+  if(_ledgerPayee)txs=txs.filter(t=>t.desc.toLowerCase()===_ledgerPayee.toLowerCase());
 
   if(S.activeBucket)txs=txs.filter(t=>t.bucketId===S.activeBucket);
 
@@ -3414,6 +3429,7 @@ let _editingRbId=null;
 let _editingArId=null;
 let _editingPayeeId=null;
 let _inDetailPanel=false;
+let _ledgerPayee='';
 
 function setTxType(t){
   txType=t;
@@ -4987,6 +5003,162 @@ function reportMonthHtml(mid){
       <tbody>${tableRows}</tbody>
     </table>
   </div>`;
+}
+
+function reportBvAHtml(mid){
+  mid=mid||S.activeMonth;
+  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
+  const sCats=sortedCats();
+  let rows='',totalTarget=0,totalSpent=0;
+  sCats.forEach(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    if(!bkts.length)return;
+    let catTarget=0,catSpent=0;
+    const bktRows=bkts.map(b=>{
+      const target=bBudget(mid,b.id),spent=bSpent(mid,b.id);
+      const variance=target-spent;
+      const pct=target?Math.round(spent/target*100):null;
+      catTarget+=target;catSpent+=spent;
+      const vc=variance>=0?'var(--green)':'var(--red)';
+      return`<tr><td>${esc(b.name)}</td><td>${target?$f(target):'—'}</td><td>${spent?$f(spent):'—'}</td>
+        <td style="color:${vc}">${variance>=0?'+':''}${$f(variance)}</td>
+        <td style="color:${vc}">${pct!==null?pct+'%':'—'}</td></tr>`;
+    }).join('');
+    totalTarget+=catTarget;totalSpent+=catSpent;
+    rows+=`<tr class="report-cat-row"><td colspan="5" style="color:${cat.color||'var(--text3)'}">${esc(cat.name)}</td></tr>${bktRows}`;
+  });
+  const tv=totalTarget-totalSpent;
+  rows+=`<tr class="report-total-row"><td>Total</td><td>${$f(totalTarget)}</td><td>${$f(totalSpent)}</td>
+    <td style="color:${tv>=0?'var(--green)':'var(--red)'}">${tv>=0?'+':''}${$f(tv)}</td>
+    <td style="color:${tv>=0?'var(--green)':'var(--red)'}">${totalTarget?Math.round(totalSpent/totalTarget*100)+'%':'—'}</td></tr>`;
+  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('bva')">${monthOpts}</select>
+  </div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Bucket</th><th>Target</th><th>Spent</th><th>Variance</th><th>±%</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function reportYTDHtml(){
+  const year=new Date().getFullYear();
+  const janId=`${year}-01`;
+  const curId=S.activeMonth;
+  const ytdMonths=[...S.months].filter(m=>m.id>=janId&&m.id<=curId).sort((a,b)=>a.id<b.id?-1:1);
+  if(!ytdMonths.length)return`<div style="color:var(--text3);padding:16px">No data for ${year}.</div>`;
+  let totalIncome=0,totalSpent=0;
+  const rows=ytdMonths.map(mo=>{
+    const inc=monthIncome(mo.id);
+    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
+    totalIncome+=inc;totalSpent+=spent;
+    const rc=rate!==null?(rate>=0?'var(--green)':'var(--red)'):'var(--text3)';
+    return`<tr><td>${esc(mo.label)}</td>
+      <td style="color:var(--green)">${inc?$f(inc):'—'}</td>
+      <td style="color:var(--red)">${spent?$f(spent):'—'}</td>
+      <td style="color:${net>=0?'var(--green)':'var(--red)'}">${$f(net)}</td>
+      <td style="color:${rc};font-weight:600">${rate!==null?rate+'%':'—'}</td></tr>`;
+  }).join('');
+  const totalNet=totalIncome-totalSpent;
+  const totalRate=totalIncome?Math.round(totalNet/totalIncome*100):null;
+  const cards=[
+    {label:'YTD Income',val:$f(totalIncome),c:'var(--green)'},
+    {label:'YTD Spending',val:$f(totalSpent),c:'var(--red)'},
+    {label:'YTD Net Saved',val:$f(totalNet),c:totalNet>=0?'var(--green)':'var(--red)'},
+    {label:'Avg Savings Rate',val:totalRate!==null?totalRate+'%':'—',c:totalRate!==null&&totalRate>=0?'var(--green)':'var(--red)'},
+  ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
+    <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
+  const tc=totalNet>=0?'var(--green)':'var(--red)';
+  return`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Net</th><th>Rate</th></tr></thead>
+    <tbody>${rows}<tr class="report-total-row">
+      <td>${year} Total</td>
+      <td style="color:var(--green)">${$f(totalIncome)}</td>
+      <td style="color:var(--red)">${$f(totalSpent)}</td>
+      <td style="color:${tc}">${$f(totalNet)}</td>
+      <td style="color:${tc}">${totalRate!==null?totalRate+'%':'—'}</td>
+    </tr></tbody></table></div>`;
+}
+
+function reportCatSpendHtml(mid){
+  mid=mid||S.activeMonth;
+  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
+  let total=0;
+  const data=sortedCats().map(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const spent=bkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+    total+=spent;
+    return{cat,spent,bkts};
+  }).filter(d=>d.spent>0).sort((a,b)=>b.spent-a.spent);
+  if(!data.length)return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('catspend')">${monthOpts}</select>
+  </div><div style="color:var(--text3);padding:16px 0">No spending recorded.</div>`;
+  const maxSpent=data[0].spent;
+  const bars=data.map(({cat,spent,bkts})=>{
+    const pct=total?Math.round(spent/total*100):0;
+    const barW=maxSpent?Math.round(spent/maxSpent*100):0;
+    const bktBreakdown=bkts.filter(b=>bSpent(mid,b.id)>0).map(b=>{
+      const bs=bSpent(mid,b.id);
+      const bw=spent?Math.round(bs/spent*70):0;
+      return`<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:8px">
+        <span style="font-size:11px;color:var(--text3);flex:1">${esc(b.name)}</span>
+        <span style="font-size:11px;color:var(--text2)">${$f(bs)}</span>
+        <span style="font-size:10px;color:var(--text3);min-width:30px;text-align:right">${spent?Math.round(bs/spent*100):'0'}%</span>
+      </div>`;
+    }).join('');
+    return`<div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="flex:1;font-size:13px;font-weight:600;color:${cat.color||'var(--text)'}">${esc(cat.name)}</span>
+        <span style="font-size:13px;font-weight:700">${$f(spent)}</span>
+        <span style="font-size:12px;color:var(--text3);min-width:36px;text-align:right">${pct}%</span>
+      </div>
+      <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;margin-bottom:2px">
+        <div style="height:100%;width:${barW}%;background:${cat.color||'var(--accent)'};border-radius:4px"></div>
+      </div>${bktBreakdown}</div>`;
+  }).join('');
+  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('catspend')">${monthOpts}</select>
+    <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong>${$f(total)}</strong></span>
+  </div>${bars}`;
+}
+
+function reportSavingsRateHtml(){
+  const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  if(!months.length)return`<div style="color:var(--text3);padding:16px">No months available.</div>`;
+  let runInc=0,runSpent=0;
+  const rows=months.map(mo=>{
+    const inc=monthIncome(mo.id);
+    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
+    runInc+=inc;runSpent+=spent;
+    const runRate=runInc?Math.round((runInc-runSpent)/runInc*100):null;
+    const rc=rate!==null?(rate>=20?'var(--green)':rate>=0?'var(--text)':'var(--red)'):'var(--text3)';
+    return`<tr><td>${esc(mo.label)}</td>
+      <td style="color:var(--green)">${inc?$f(inc):'—'}</td>
+      <td style="color:var(--red)">${spent?$f(spent):'—'}</td>
+      <td style="color:${rc};font-weight:600">${rate!==null?rate+'%':'—'}</td>
+      <td style="color:var(--text3)">${runRate!==null?runRate+'%':'—'}</td></tr>`;
+  }).join('');
+  const last3=months.slice(-3);
+  const l3inc=last3.reduce((s,mo)=>s+monthIncome(mo.id),0);
+  const l3spent=last3.reduce((s,mo)=>s+S.buckets.filter(b=>!b.archived).reduce((ss,b)=>ss+bSpent(mo.id,b.id),0),0);
+  const l3net=l3inc-l3spent,l3rate=l3inc?Math.round(l3net/l3inc*100):null;
+  const cards=[
+    {label:'3-Month Avg Rate',val:l3rate!==null?l3rate+'%':'—',c:l3rate!==null&&l3rate>=0?'var(--green)':'var(--red)'},
+    {label:'3-Month Avg Saved',val:last3.length?$f(l3net/last3.length)+'/mo':'—',c:l3net>=0?'var(--green)':'var(--red)'},
+  ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
+    <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
+  return`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Rate</th><th>Rolling Rate</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 
 // ═══════════════════════════════════════════════════════
