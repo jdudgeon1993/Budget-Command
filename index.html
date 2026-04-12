@@ -2826,10 +2826,12 @@ function renderBucketsTab(el,mid){
       return (a.order??0)-(b.order??0);
     });
 
+    const catAnomaly=catAnomalyCheck(cat.id,mid);
     h+=`<div class="bkt-cat">
       <div class="bkt-cat-hdr">
         <div class="bkt-cat-dot" style="background:${color}"></div>
         <span class="bkt-cat-name">${esc(cat.name)}</span>
+        ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average" style="font-size:11px;color:var(--amber);margin-left:4px;cursor:default">⚠ ${catAnomaly.z}σ</span>`:''}
         <span class="bkt-cat-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
         ${!past?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund all</button>`:''}
       </div>
@@ -2859,8 +2861,11 @@ function renderBucketsTab(el,mid){
       if(days!==null){const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
       const tags=[];
       if(b.type==='sinking')tags.push('saving');
+      if(b.type==='goal')tags.push('goal');
       if(b.recurring)tags.push('↻');
       if(roll>0)tags.push(`+${$f(roll)} rolled`);
+      const trend=bucketMoMTrend(b.id,mid);
+      if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span style="color:${tc};font-size:10px">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
 
       const pend=bucketPendingAmt(b.id,mid);
       const pillHtml=bucketPillHtml(alloc,spent,eff,target,pend,past,avail);
@@ -3252,6 +3257,23 @@ function renderBucketDetail(mid,past,m){
       <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="editBucket('${b.id}')">Edit</button>
     </div>`;
   }
+  // Smart target suggestion (Phase 9)
+  if(!isSink&&!isGoal&&!past){
+    const sugg=bucketSpendSuggestion(b.id,mid);
+    if(sugg&&Math.abs(sugg.suggested-(target||0))>5){
+      h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="flex:1;font-size:12px;color:var(--text3)">💡 6-mo avg: <strong style="color:var(--text)">${$f(sugg.avg)}</strong> → suggested target ${$f(sugg.suggested)}</span>
+        <button class="tbtn" style="font-size:11px;padding:3px 9px;white-space:nowrap" onclick="applySmartTarget('${b.id}',${sugg.suggested})">Apply ${$f(sugg.suggested)}</button>
+      </div>`;
+    }
+  }
+  // Anomaly alert (Phase 9)
+  const anomaly=catAnomalyCheck(b.catId,mid);
+  if(anomaly){
+    h+=`<div style="background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-top:6px;font-size:12px">
+      ⚠ <strong style="color:var(--amber)">Unusual spending</strong> — category is ${anomaly.z}σ above the 12-month average (${$f(anomaly.excess)} more than usual)
+    </div>`;
+  }
   // Spending trend — last 6 completed months
   const trendMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-6);
   if(trendMonths.length>=2){
@@ -3458,6 +3480,42 @@ function updateBudget(bid){
   const val=parseFloat(document.getElementById('aerBudget')?.value)||0;
   const m=getMonth(S.activeMonth);if(!m)return;
   m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderMain();
+}
+function applySmartTarget(bid,val){
+  const b=getBucket(bid);if(!b)return;
+  b.defaultBudget=val;
+  const m=getMonth(S.activeMonth);if(m){if(!m.budgets)m.budgets={};m.budgets[bid]=val;}
+  save();renderMain();showToast('Target set to '+$f(val),'save');
+}
+// Phase 9: Statistical Intelligence helpers
+function bucketSpendSuggestion(bid,mid){
+  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const ci=all.findIndex(m=>m.id===mid);if(ci<0)return null;
+  const prev=all.slice(Math.max(0,ci-6),ci);if(prev.length<3)return null;
+  const spends=prev.map(mo=>bSpent(mo.id,bid));
+  const nonZero=spends.filter(v=>v>0);if(nonZero.length<3)return null;
+  const avg=spends.reduce((s,v)=>s+v,0)/spends.length;
+  const suggested=Math.ceil(avg*1.1/5)*5;
+  return{avg:Math.round(avg*100)/100,suggested,months:nonZero.length};
+}
+function bucketMoMTrend(bid,mid){
+  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const ci=all.findIndex(m=>m.id===mid);if(ci<=0)return null;
+  const cur=bSpent(mid,bid),prev=bSpent(all[ci-1].id,bid);
+  if(!cur&&!prev)return null;if(!prev)return null;
+  return{pct:Math.round((cur-prev)/prev*100),cur,prev};
+}
+function catAnomalyCheck(catId,mid){
+  const bkts=sortedBuckets(catId).filter(b=>!b.archived);if(!bkts.length)return null;
+  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const ci=all.findIndex(m=>m.id===mid);if(ci<3)return null;
+  const hist=all.slice(Math.max(0,ci-12),ci);if(hist.length<3)return null;
+  const hSpends=hist.map(mo=>bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
+  const mean=hSpends.reduce((s,v)=>s+v,0)/hSpends.length;if(mean===0)return null;
+  const sd=Math.sqrt(hSpends.reduce((s,v)=>s+(v-mean)**2,0)/hSpends.length);if(sd===0)return null;
+  const cur=bkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const z=(cur-mean)/sd;
+  return z>=2?{z:Math.round(z*10)/10,excess:Math.round((cur-mean)*100)/100,cur}:null;
 }
 function fundCategory(catId,mid){
   const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
