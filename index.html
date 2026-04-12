@@ -3413,6 +3413,7 @@ let editingTxId=null;
 let _editingRbId=null;
 let _editingArId=null;
 let _editingPayeeId=null;
+let _inDetailPanel=false;
 
 function setTxType(t){
   txType=t;
@@ -3643,36 +3644,34 @@ function openTxEditModal(id){
   let xfrOpts='<option value="">— account —</option>';
   S.accounts.forEach(a=>{if(a.id!==tx.accountId)xfrOpts+=`<option value="${a.id}"${a.id===tx.toAccountId?' selected':''}>${esc(a.name)}</option>`;});
   const typeLabel=tx.type==='in'?'Income':tx.type==='xfr'?'Transfer':'Expense';
-  const modal=document.getElementById('modalBox');
-  modal.className='modal';
-  modal.innerHTML=`
-    <div class="modal-head">
-      <div class="modal-title">Edit ${esc(typeLabel)}</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+  const panel=document.getElementById('detailPanel');
+  const scroll=document.getElementById('detailScroll');
+  document.getElementById('detailTitle').textContent=`Edit ${typeLabel}`;
+  const actEl=document.getElementById('detailAct');actEl.textContent='';actEl.onclick=null;
+  scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
+  scroll.innerHTML=`
+    <div class="fi-row" style="margin-bottom:8px">
+      <div class="fg"><label class="fl">Description</label><input class="fi" id="etDesc" value="${esc(tx.desc)}" /></div>
     </div>
-    <div class="modal-body">
-      <div class="fi-row" style="margin-bottom:8px">
-        <div class="fg"><label class="fl">Description</label><input class="fi" id="etDesc" value="${esc(tx.desc)}" /></div>
-      </div>
-      <div class="fi-row" style="margin-bottom:8px;gap:8px">
-        <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="etAmt" type="number" step="0.01" value="${tx.amount}" /></div>
-        <div class="fg"><label class="fl">Date</label><input class="fi" id="etDate" type="date" value="${tx.date}" /></div>
-      </div>
-      <div class="fi-row" style="margin-bottom:8px">
-        <div class="fg"><label class="fl">Account</label><select class="fi" id="etAcct">${acctOpts}</select></div>
-      </div>
-      ${tx.type==='out'?`<div class="fi-row" style="margin-bottom:8px">
-        <div class="fg"><label class="fl">Bucket</label><select class="fi" id="etBkt">${bktOpts}</select></div>
-      </div>`:''}
-      ${tx.type==='xfr'?`<div class="fi-row" style="margin-bottom:8px">
-        <div class="fg"><label class="fl">To Account</label><select class="fi" id="etXfrTo">${xfrOpts}</select></div>
-      </div>`:''}
+    <div class="fi-row" style="margin-bottom:8px;gap:8px">
+      <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="etAmt" type="number" step="0.01" value="${tx.amount}" /></div>
+      <div class="fg"><label class="fl">Date</label><input class="fi" id="etDate" type="date" value="${tx.date}" /></div>
     </div>
-    <div class="modal-foot">
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-primary" onclick="saveTxEditModal('${id}','${tx.type}')">Save Changes</button>
+    <div class="fi-row" style="margin-bottom:8px">
+      <div class="fg"><label class="fl">Account</label><select class="fi" id="etAcct">${acctOpts}</select></div>
+    </div>
+    ${tx.type==='out'?`<div class="fi-row" style="margin-bottom:8px">
+      <div class="fg"><label class="fl">Bucket</label><select class="fi" id="etBkt">${bktOpts}</select></div>
+    </div>`:''}
+    ${tx.type==='xfr'?`<div class="fi-row" style="margin-bottom:8px">
+      <div class="fg"><label class="fl">To Account</label><select class="fi" id="etXfrTo">${xfrOpts}</select></div>
+    </div>`:''}
+    <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <button class="tbtn" style="color:var(--red);border-color:var(--rb)" onclick="delTxFromDetail('${id}')">Delete</button>
+      <button class="btn-save" style="flex:1" onclick="saveTxEditModal('${id}','${tx.type}')">Save Changes</button>
     </div>`;
-  document.getElementById('overlay').classList.remove('hidden');
+  if(!panel.classList.contains('active')){panel.classList.add('active');history.pushState({},'','');}
+  setTimeout(()=>document.getElementById('etDesc')?.focus(),40);
 }
 function saveTxEditModal(id,type){
   const tx=S.txs.find(t=>t.id===id);if(!tx)return;
@@ -3685,8 +3684,15 @@ function saveTxEditModal(id,type){
   tx.accountId=document.getElementById('etAcct')?.value||tx.accountId;
   if(type==='out')tx.bucketId=document.getElementById('etBkt')?.value||null;
   if(type==='xfr')tx.toAccountId=document.getElementById('etXfrTo')?.value||null;
-  save();closeModal();render();
+  save();closeDetail(true);render();
   showToast('Updated: '+tx.desc,'save');
+}
+function delTxFromDetail(id){
+  const tx=S.txs.find(t=>t.id===id);
+  if(!confirm('Delete this transaction?'))return;
+  S.txs=S.txs.filter(t=>t.id!==id);
+  save();closeDetail(true);render();
+  if(tx)showToast('Deleted: '+tx.desc,'out');
 }
 function delTx(id){
   const tx=S.txs.find(t=>t.id===id);
@@ -5757,18 +5763,19 @@ function renderModal(){
     body = catSection + (catSection&&builderSection?'<div style="height:16px"></div>':'') + builderSection;
   }
 
-  const modal=document.getElementById('modalBox');
-  modal.className=wideModal?'modal wide':'modal';
-  modal.innerHTML=`
-    <div class="modal-head"><div class="modal-title">${title}</div><button class="modal-x" onclick="closeModal()">&#x2715;</button></div>
-    ${tabs}
-    <div class="modal-body">${body}</div>
-    <div class="modal-foot">
-      ${isEdit&&!isBuilder?`<button class="btn-del" onclick="Mdelete()">Delete</button>`:''}
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-save" onclick="saveModal()">${(isCat&&!M.catEditId&&!M.builderCatId)?'Save & Add Buckets':(isBuilder||((isCat)&&M.buckets?.some(r=>r.name.trim())))?'Save All':'Save'}</button>
+  const panel=document.getElementById('detailPanel');
+  const scroll=document.getElementById('detailScroll');
+  document.getElementById('detailTitle').textContent=title;
+  const actEl=document.getElementById('detailAct');actEl.textContent='';actEl.onclick=null;
+  const saveLabel=(isCat&&!M.catEditId&&!M.builderCatId)?'Save & Add Buckets':(isBuilder||(isCat&&M.buckets?.some(r=>r.name.trim())))?'Save All':'Save';
+  scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
+  scroll.innerHTML=`${tabs}${body}
+    <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      ${isEdit&&!isBuilder?`<button class="tbtn" style="color:var(--red);border-color:var(--rb)" onclick="Mdelete()">Delete</button>`:''}
+      <button class="btn-save" style="flex:1" onclick="saveModal()">${saveLabel}</button>
     </div>`;
-  document.getElementById('overlay').classList.remove('hidden');
+  _inDetailPanel=true;
+  if(!panel.classList.contains('active')){panel.classList.add('active');history.pushState({},'','');}
   setTimeout(()=>{
     if(isAcct)document.getElementById('mAcctName')?.focus();
     else if(isBkt)document.getElementById('mBktName')?.focus();
@@ -5796,7 +5803,7 @@ function saveModal(){
         S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:id,toAccountId:null,monthId:dateToMonthId(today),bucketId:null,desc:'Opening Balance',amount:bal,type:'opening',date:today,recurring:false});
       }
     }
-    save();closeModal();render();updateTxFormForType();
+    save();closeMForm();render();updateTxFormForType();
     showToast((M.acctEditId?'Updated':'Added')+' account: '+name,'save');
 
   } else if(M.tab==='bkt'){
@@ -5826,7 +5833,7 @@ function saveModal(){
       S.buckets.push({id,catId,name,type,defaultBudget:budget,dueDay,dueDay2,dueAmount,dueAmount2,notes,recurring:M.bktRecurring,rollover:M.bktRollover,archived:false,targetAmount:goal,targetDate:tDate,contribFreq:contrib,order:cnt});
       S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[id]=budget;if(!m.allocations)m.allocations={};m.allocations[id]=0;});
     }
-    save();closeModal();render();populateTxCats();
+    save();closeMForm();render();populateTxCats();
     showToast((M.bktEditId?'Updated':'Created')+' bucket: '+name,'save');
 
   } else {
@@ -5854,10 +5861,10 @@ function saveModal(){
     // If no buckets with names, and it's just category save, close
     const namedBuckets=(M.buckets||[]).filter(r=>r.name.trim());
     if(!namedBuckets.length){
-      save();closeModal();render();populateTxCats();return;
+      save();closeMForm();render();populateTxCats();return;
     }
 
-    if(!catId){save();closeModal();render();populateTxCats();return;}
+    if(!catId){save();closeMForm();render();populateTxCats();return;}
 
     // Save all bucket rows that have names
     namedBuckets.forEach((row,idx)=>{
@@ -5882,7 +5889,7 @@ function saveModal(){
       }
     });
 
-    save();closeModal();render();populateTxCats();
+    save();closeMForm();render();populateTxCats();
   }
 }
 
@@ -5899,11 +5906,19 @@ function Mdelete(){
     S.cats=S.cats.filter(c=>c.id!==M.catEditId);
     if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
   } else if(M.tab==='bkt'&&M.bktEditId){
-    closeModal();archiveOrDelete(M.bktEditId);return;
+    closeMForm();archiveOrDelete(M.bktEditId);return;
   }
-  save();closeModal();render();populateTxCats();updateTxFormForType();
+  save();closeMForm();render();populateTxCats();updateTxFormForType();
 }
 
+function closeMForm(){
+  if(_inDetailPanel){
+    _inDetailPanel=false;
+    document.getElementById('detailPanel')?.classList.remove('active');
+  } else {
+    closeModal();
+  }
+}
 function closeModal(){document.getElementById('overlay').classList.add('hidden');document.getElementById('modalBox').innerHTML='';_editingRbId=null;_editingArId=null;}
 
 function delCat(id){
