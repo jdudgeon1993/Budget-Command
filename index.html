@@ -1991,6 +1991,7 @@ function computeBucketMetrics(bid,mid){
   const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
   const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
   const isSink=b.type==='sinking';
+  const isGoal=b.type==='goal';
   const m=getMonth(mid);
   const days=daysUntilDue(b,m?.year,m?.month);
   const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
@@ -2010,7 +2011,18 @@ function computeBucketMetrics(bid,mid){
     const contrib=contribAmt(b);
     sinkData={saved,tgt,mLeft,mNeed,contrib};
   }
-  return {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,fillColor,isSink,m,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData};
+  let goalData=null;
+  if(isGoal){
+    const saved=Math.max(sinkingSaved(bid,mid),0);
+    const tgt=b.targetAmount||0;
+    const td=b.targetDate?new Date(b.targetDate+'-01'):null;
+    const now=new Date();
+    const mLeft=td?Math.max((td.getFullYear()-now.getFullYear())*12+(td.getMonth()-now.getMonth()),0):null;
+    const pctDone=tgt>0?Math.min(saved/tgt,1):0;
+    const mNeed=mLeft>0?Math.ceil(Math.max(tgt-saved,0)/mLeft):0;
+    goalData={saved,tgt,mLeft,pctDone,mNeed,td};
+  }
+  return {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,fillColor,isSink,isGoal,m,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData,goalData};
 }
 
 // Data lookups and derived values for a single transaction row.
@@ -2575,6 +2587,34 @@ function renderOverviewTab(el,mid){
       <div class="ov-widget-title">Recent Transactions</div>${recentHtml}
     </div>
   </div>`;
+  // Goals widget — shows all active goal-type buckets
+  const goalBkts=S.buckets.filter(b=>b.type==='goal'&&!b.archived);
+  if(goalBkts.length){
+    let goalsHtml='';
+    goalBkts.forEach(b=>{
+      const saved=Math.max(sinkingSaved(b.id,mid),0);
+      const tgt=b.targetAmount||0;
+      const pct=tgt>0?Math.min(Math.round(saved/tgt*100),100):0;
+      const cat=getCat(b.catId);
+      const barColor=pct>=100?'var(--green)':(cat?.color||'var(--accent)');
+      const td=b.targetDate?new Date(b.targetDate+'-01'):null;
+      goalsHtml+=`<div class="ov-widget-row" style="flex-direction:column;gap:5px;align-items:stretch;cursor:pointer;padding:8px 0" onclick="setBucket('${b.id}')">
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="flex:1;font-size:13px;font-weight:600">${esc(b.name)}</span>
+          <span style="font-size:12px;font-weight:700;color:var(--green)">${$f(saved)}</span>
+          ${tgt?`<span style="font-size:11px;color:var(--text3)">/ ${$f(tgt)}</span>`:''}
+          <span style="font-size:11px;color:var(--text3)">${pct}%</span>
+        </div>
+        <div style="height:7px;border-radius:4px;background:var(--surface2)">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px"></div>
+        </div>
+        ${td?`<div style="font-size:10px;color:var(--text3)">Target: ${td.toLocaleString('default',{month:'short',year:'numeric'})}${b.targetAmount?` · ${Math.max(Math.ceil((b.targetAmount-saved)/(Math.max((td.getFullYear()-new Date().getFullYear())*12+(td.getMonth()-new Date().getMonth()),1)))||0,0)}/mo needed`:''}</div>`:''}
+      </div>`;
+    });
+    h+=`<div class="ov-widget" style="margin-top:12px">
+      <div class="ov-widget-title">🎯 Goals</div>${goalsHtml}
+    </div>`;
+  }
 
   // ── Quick actions (mobile only — desktop uses sidebar nav) ────────────────
   h+=`<div class="ov-mobile-only">
@@ -3131,7 +3171,7 @@ function renderAccountView(el,mid){
 
 function renderBucketDetail(mid,past,m){
   const bm=computeBucketMetrics(S.activeBucket,mid);if(!bm)return'';
-  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData}=bm;
+  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,isGoal,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData,goalData}=bm;
   let h=`<button class="back-btn" onclick="setBucket(null)">← Buckets</button>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
@@ -3174,6 +3214,26 @@ function renderBucketDetail(mid,past,m){
       <div class="det-row"><span class="det-row-label">Monthly target</span><span class="det-row-val">${$f(b.defaultBudget||0)}</span></div>
       <div class="det-row"><span class="det-row-label">Frequency</span><span class="det-row-val" style="text-transform:capitalize">${b.contribFreq||'monthly'}</span></div>
       <div class="det-row"><span class="det-row-label">Per contribution</span><span class="det-row-val" style="color:var(--accent)">${$f(contrib)}</span></div>
+    </div>`;
+  }
+  if(isGoal&&goalData){
+    const {saved,tgt,pctDone,mLeft,mNeed,td}=goalData;
+    const pctDisp=Math.round(pctDone*100);
+    const barColor=pctDone>=1?'var(--green)':(cat?.color||'var(--accent)');
+    h+=`<div class="det-block">
+      <div class="det-block-title">Goal Progress</div>
+      <div style="position:relative;height:22px;border-radius:11px;background:var(--surface2);overflow:hidden;margin:8px 0 12px">
+        <div style="position:absolute;top:0;left:0;height:100%;width:${pctDisp}%;background:${barColor};border-radius:11px;transition:width .4s"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${pctDone>0.45?'#fff':'var(--text)'}">${pctDisp}%</div>
+      </div>
+      <div class="sink-stats">
+        <div class="ss"><div class="ss-label">Saved</div><div class="ss-val" style="color:var(--green)">${$f(saved)}</div></div>
+        <div class="ss"><div class="ss-label">Target</div><div class="ss-val">${tgt?$f(tgt):'—'}</div></div>
+        <div class="ss"><div class="ss-label">Months Left</div><div class="ss-val">${mLeft!==null?mLeft:'—'}</div></div>
+        <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val" style="${mNeed>target?'color:var(--red)':''}">${mNeed?$f(mNeed):'—'}</div></div>
+      </div>
+      ${td?`<div class="det-row" style="margin-top:8px"><span class="det-row-label">Target date</span><span class="det-row-val">${td.toLocaleString('default',{month:'long',year:'numeric'})}</span></div>`:''}
+      ${pctDone>=1?`<div style="text-align:center;font-size:14px;font-weight:700;color:var(--green);padding:10px 0">🎉 Goal reached!</div>`:''}
     </div>`;
   }
 
@@ -6084,6 +6144,8 @@ function renderModal(){
       <button class="modal-tab active">Bucket</button>
     </div>`;
     const isSink=M.bktType==='sinking';
+    const isGoal=M.bktType==='goal';
+    const hasSinkFields=isSink||isGoal;
     let catOpts=S.cats.length?'<option value="">Select category...</option>':'<option value="">Create a category first</option>';
     sortedCats().forEach(c=>catOpts+=`<option value="${c.id}"${c.id===M.bktCat?' selected':''}>${esc(c.name)}</option>`);
     let contribPreview='';
@@ -6091,7 +6153,7 @@ function renderModal(){
     body=`
       <div class="fg"><label class="fl">Bucket Name</label><input class="fi" id="mBktName" value="${esc(M.bktName)}" placeholder="e.g. Rent, Groceries..." /></div>
       <div class="fg"><label class="fl">Category</label><select class="fi" id="mBktCat" onchange="M.bktCat=this.value">${catOpts}</select></div>
-      <div class="fg"><label class="fl">Type</label><select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()"><option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option><option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — savings goal</option></select></div>
+      <div class="fg"><label class="fl">Type</label><select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()"><option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option><option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — savings goal</option><option value="goal"${M.bktType==='goal'?' selected':''}>Goal — long-term target</option></select></div>
       <div class="fi-row">
         <div class="fg"><label class="fl">${isSink?'Monthly Target':'Budget Target'}</label><input class="fi" id="mBktBudget" type="number" value="${M.bktBudget}" placeholder="0.00" /></div>
         <div class="fg"><label class="fl">Due Day <button type="button" style="font-size:10px;background:none;border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer;color:${M.bktSplit?'var(--accent)':'var(--text3)'};margin-left:4px" onclick="M.bktSplit=!M.bktSplit;MsnapBkt();renderModal()">${M.bktSplit?'Split ✓':'Split'}</button></label><select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select></div>
@@ -6112,8 +6174,8 @@ function renderModal(){
         <div class="fg"><label class="fl">Recurring</label><div class="tog-row"><button class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button></div></div>
         <div class="fg"><label class="fl">Roll Over</label><div class="tog-row"><button class="togbtn${M.bktRollover?' on':''}" onclick="M.bktRollover=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRollover?' on':''}" onclick="M.bktRollover=false;MsnapBkt();renderModal()">No</button></div></div>
       </div>
-      ${isSink?`<div class="fi-row"><div class="fg"><label class="fl">Goal Amount</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>
-      <div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}
+      ${hasSinkFields?`<div class="fi-row"><div class="fg"><label class="fl">${isGoal?'Goal Target':'Goal Amount'}</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>`:''}
+      ${isSink?`<div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}
       <div class="fg"><label class="fl">Notes <span style="font-weight:400;color:var(--text3)">(optional)</span></label><textarea class="fi" id="mBktNotes" rows="2" placeholder="Remind yourself of anything useful..." style="resize:vertical;min-height:56px;font-family:var(--sans)">${esc(M.bktNotes)}</textarea></div>`;
   } else {
     // Category + bulk bucket builder (isCat or isBuilder)
@@ -6256,8 +6318,8 @@ function saveModal(){
     const dueAmount=M.bktSplit?parseFloat(M.bktDueAmount)||null:null;
     const dueAmount2=M.bktSplit?parseFloat(M.bktDueAmount2)||null:null;
     const notes=M.bktNotes.trim()||null;
-    const goal=type==='sinking'?parseFloat(M.bktGoal)||null:null;
-    const tDate=type==='sinking'?M.bktDate||null:null;
+    const goal=(type==='sinking'||type==='goal')?parseFloat(M.bktGoal)||null:null;
+    const tDate=(type==='sinking'||type==='goal')?M.bktDate||null:null;
     const contrib=type==='sinking'?M.bktContrib:'monthly';
     if(M.bktEditId){
       const b=getBucket(M.bktEditId);
@@ -6307,8 +6369,8 @@ function saveModal(){
       const type=row.type;
       const budget=parseFloat(row.budget)||0;
       const dueDay=row.dueDay||null;
-      const goal=type==='sinking'?parseFloat(row.goal)||null:null;
-      const tDate=type==='sinking'?row.goalDate||null:null;
+      const goal=(type==='sinking'||type==='goal')?parseFloat(row.goal)||null:null;
+      const tDate=(type==='sinking'||type==='goal')?row.goalDate||null:null;
       const contrib=type==='sinking'?row.contrib:'monthly';
 
       // If row has a real bucket id (editing existing), update it
