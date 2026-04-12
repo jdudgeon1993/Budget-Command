@@ -1137,6 +1137,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
 .report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
 .report-copy-btn:hover{background:var(--surface);color:var(--text);}
+/* ── Reports tab nav ── */
+.rtab-bar{display:flex;gap:4px;padding:0 0 12px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;}
+.rtab{background:none;border:1px solid var(--border2);border-radius:20px;padding:6px 14px;font-size:12px;font-family:var(--sans);color:var(--text3);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.rtab:hover{background:var(--surface2);color:var(--text);}
+.rtab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.rtab-content{min-height:80px;}
 /* ── Income allocation rules ── */
 .alloc-rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
 .alloc-rule-row:last-child{border-bottom:none;}
@@ -1253,13 +1259,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-icon-txt">⬡</span>
       <span class="nav-label">Accounts</span>
     </button>
+    <button class="nav-btn nav-desktop" data-tab="reports" onclick="setTab('reports')">
+      <span class="nav-icon-txt">📊</span>
+      <span class="nav-label">Reports</span>
+    </button>
     <button class="nav-btn nav-desktop" data-tab="settings" onclick="setTab('settings')">
       <span class="nav-icon-txt">⚙</span>
       <span class="nav-label">Settings</span>
-    </button>
-    <button class="nav-btn nav-desktop" data-tab="export" onclick="setTab('export')">
-      <span class="nav-icon-txt">↕</span>
-      <span class="nav-label">Export / Import</span>
     </button>
   </nav>
 
@@ -1276,8 +1282,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     </div>
     <div class="tab-pane" id="paneLedger"></div>
     <div class="tab-pane" id="paneAccounts"></div>
+    <div class="tab-pane" id="paneReports"></div>
     <div class="tab-pane" id="paneSettings"></div>
-    <div class="tab-pane" id="paneExport"></div>
     <div class="wi-panel hidden" id="wiPanel"></div>
   </main>
 
@@ -1944,7 +1950,7 @@ function computePoolStats(mid){
   const nw=calcNetWorth();
   const aom=ageOfMoney();
   const aomCls=aom===null?'dim':aom>=30?'green':aom>=10?'amber':'red';
-  const aomSub=aom===null?'no spend data':aom>=30?'well ahead':aom>=10?'getting close':'near paycheck-to-paycheck';
+  const aomSub=aom===null?'no recent spend':aom>=30?'well buffered':aom>=10?'getting tight':'near paycheck-to-paycheck';
   const fundedCnt=activeBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
   const partialCnt=activeBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
   const unfundedCnt=activeBkts.filter(b=>bAlloc(mid,b.id)===0).length;
@@ -1995,7 +2001,7 @@ function computeBucketMetrics(bid,mid){
   const remainNote=pctRaw>1?'⚠ over by '+$f(spent-eff):$f(Math.max(eff-spent,0))+' remaining';
   let sinkData=null;
   if(isSink){
-    const saved=sinkingSaved(bid);
+    const saved=sinkingSaved(bid,mid);
     const tgt=b.targetAmount||0;
     const td=b.targetDate?new Date(b.targetDate+'-01'):null;
     const now=new Date();
@@ -2132,8 +2138,10 @@ function rolloverBal(bid,mid){
   const prior=S.months.filter(mo=>mo.year<m.year||(mo.year===m.year&&mo.month<m.month));
   return prior.reduce((s,mo)=>{const a=mo.allocations?mo.allocations[bid]||0:0;return s+(a-bSpent(mo.id,bid));},0);
 }
-const sinkingSaved=bid=>S.txs.filter(t=>t.bucketId===bid&&t.type==='out'&&!isScheduled(t)).reduce((s,t)=>s+t.amount,0);
-function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m/4.33).toFixed(2);if(b.contribFreq==='biweekly')return+(m/2).toFixed(2);return m;}
+// "Saved" for a sinking fund = current available balance (rollover + this month's alloc − spent)
+function sinkingSaved(bid,mid){return rolloverBal(bid,mid)+bAlloc(mid,bid)-bSpent(mid,bid);}
+// Contribution per pay-period given a monthly target amount
+function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m/4.33).toFixed(2);if(b.contribFreq==='biweekly')return+(m*12/26).toFixed(2);return m;}
 
 // ═══════════════════════════════════════════════════════
 // FORMAT
@@ -2249,6 +2257,8 @@ function renderTopbar(){
 
 // ── Unified nav + tab routing ─────────────────────────────────────────────────
 let activeTab='overview';
+let reportsTab='month';
+let reportsMid=null;
 
 function renderNav(){
   document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
@@ -2279,6 +2289,12 @@ function setTab(tab){
   save();
 }
 
+function setReportsTab(t){
+  reportsTab=t;
+  const p=document.getElementById('paneReports');
+  if(p)renderReportsTab(p);
+}
+
 function renderActivePane(){
   const mid=S.activeMonth;
   if(activeTab==='overview'){
@@ -2291,10 +2307,10 @@ function renderActivePane(){
     const p=document.getElementById('paneLedger');if(p)renderLedgerTab(p,mid);
   } else if(activeTab==='accounts'){
     const p=document.getElementById('paneAccounts');if(p)renderAccountsTab(p,mid);
+  } else if(activeTab==='reports'){
+    const p=document.getElementById('paneReports');if(p)renderReportsTab(p);
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
-  } else if(activeTab==='export'){
-    const p=document.getElementById('paneExport');if(p)renderExportTab(p);
   }
 }
 
@@ -2412,14 +2428,7 @@ function renderOverviewTab(el,mid){
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
     ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" style="margin-left:4px">+</button>`:''}
     <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
-    <div class="reports-drop-wrap" style="margin-left:auto">
-      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="toggleReportsMenu('${mid}',this)">📊 Reports ▾</button>
-      <div class="reports-drop-menu" id="reportsMenu_${mid}">
-        <button class="reports-drop-item" onclick="openMonthReport('${mid}');closeReportsMenu()">📅 Month Report</button>
-        <button class="reports-drop-item" onclick="openNetWorth();closeReportsMenu()">◈ Net Worth</button>
-        <button class="reports-drop-item" onclick="wiShowProjector();closeReportsMenu()">📈 Paycheck Projector</button>
-      </div>
-    </div>
+    <button class="tbtn" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
   </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
 
@@ -2466,7 +2475,7 @@ function renderOverviewTab(el,mid){
       <div class="ov-stat-sub">all accounts</div>
     </div>
     <div class="ov-stat">
-      <div class="ov-stat-label">Age of Money</div>
+      <div class="ov-stat-label">Cash Runway</div>
       <div class="ov-stat-val ${aomCls}">${aom!==null?aom+'d':'—'}</div>
       <div class="ov-stat-sub">${aomSub}</div>
     </div>
@@ -2570,18 +2579,11 @@ function renderOverviewTab(el,mid){
   // ── Quick actions (mobile only — desktop uses sidebar nav) ────────────────
   h+=`<div class="ov-mobile-only">
     <div class="m-settings-row">
-      <button class="m-settings-btn" onclick="openNetWorth()">◈ Net Worth</button>
+      <button class="m-settings-btn" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
       <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
-      <button class="m-settings-btn" onclick="openMonthReport('${mid}')">📊 Report</button>
-      <button class="m-settings-btn" onclick="openRecurringBills()">⏱ Recurring</button>
-    </div>
-    <div class="m-settings-row">
       <button class="m-settings-btn" onclick="setTab('settings')">⚙ Settings</button>
       <button class="m-settings-btn" onclick="exportData()">↓ Export</button>
-      <button class="m-settings-btn" onclick="document.getElementById('importFileMobile').click()">↑ Import</button>
-      <button class="m-settings-btn" style="color:var(--red)" onclick="confirmFreshStart()">↺ Fresh Start</button>
     </div>
-    <input type="file" id="importFileMobile" accept=".json" style="display:none" onchange="importData(event)" />
     <div style="height:24px"></div>
   </div>`;
 
@@ -2850,7 +2852,26 @@ function renderBucketsTab(el,mid){
   setTimeout(wireAllocKeys,50);
 }
 
+function renderReportsTab(el){
+  if(!el)return;
+  const mid=reportsMid||S.activeMonth;
+  const tabs=[
+    {id:'month',label:'📅 Month'},
+    {id:'networth',label:'◈ Net Worth'},
+    {id:'projector',label:'📈 Projector'},
+  ];
+  const tabNav=tabs.map(t=>`<button class="rtab${t.id===reportsTab?' active':''}" onclick="setReportsTab('${t.id}')">${t.label}</button>`).join('');
+  let content='';
+  if(reportsTab==='month')content=reportMonthHtml(mid);
+  else if(reportsTab==='networth')content=reportNetWorthHtml();
+  else if(reportsTab==='projector')content=wiProjectorHtml(null,'inline');
+  el.innerHTML=`<div class="month-hdr"><div class="month-title">Reports</div></div>
+    <div class="rtab-bar">${tabNav}</div>
+    <div class="rtab-content">${content}</div>`;
+}
+
 function renderSettingsTab(el){
+  if(!el)return;
   const curTheme=localStorage.getItem('bcc_theme')||'dark';
   const themes=[
     {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
@@ -2861,21 +2882,32 @@ function renderSettingsTab(el){
     <div class="theme-card-swatch" style="background:${t.bg};border:2px solid ${t.accent}"></div>
     <div class="theme-card-name">${t.label}</div>
   </div>`).join('');
+
   const acctItems=S.accounts.map((a,i)=>`<div class="acct-order-item">
     <div class="acct-order-dot" style="background:${a.color}"></div>
     <span class="acct-order-name">${esc(a.name)}</span>
     <button class="ib" onclick="moveAcct('${a.id}',-1)" ${i===0?'disabled style="opacity:.3"':''}>↑</button>
     <button class="ib" onclick="moveAcct('${a.id}',1)" ${i===S.accounts.length-1?'disabled style="opacity:.3"':''}>↓</button>
   </div>`).join('');
+
   const payeeItems=(S.payees||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
     const bkt=getBucket(p.defaultBucketId);
+    if(_editingPayeeId===p.id){
+      return `<div class="payee-settings-row">
+        <input class="fi" id="payeeRenameInp" value="${esc(p.name)}" style="flex:1;min-width:0"
+          onkeydown="if(event.key==='Enter')commitRenamePayee('${p.id}');else if(event.key==='Escape'){_editingPayeeId=null;renderSettingsTab(document.getElementById('paneSettings'));}" />
+        <button class="ib" onclick="commitRenamePayee('${p.id}')" title="Save">✓</button>
+        <button class="ib" onclick="_editingPayeeId=null;renderSettingsTab(document.getElementById('paneSettings'))" title="Cancel">✕</button>
+      </div>`;
+    }
     return `<div class="payee-settings-row">
       <span class="payee-settings-name">${esc(p.name)}</span>
-      ${bkt?`<span class="payee-settings-bkt">${esc(bkt.name)}</span>`:'<span class="payee-settings-bkt muted">no default bucket</span>'}
-      <button class="ib" onclick="(()=>{const n=prompt('Rename payee:','${esc(p.name).replace(/'/g,"\\'")}');if(n)renamePayee('${p.id}',n);})()" title="Rename">✎</button>
+      ${bkt?`<span class="payee-settings-bkt">${esc(bkt.name)}</span>`:'<span class="payee-settings-bkt muted">no default</span>'}
+      <button class="ib" onclick="_editingPayeeId='${p.id}';renderSettingsTab(document.getElementById('paneSettings'))" title="Rename">✎</button>
       <button class="ib del" onclick="if(confirm('Remove payee?'))deletePayee('${p.id}')" title="Delete">×</button>
     </div>`;
   }).join('');
+
   const pcRows=[1,2,3].map(n=>{
     const pc=(S.paychecks||[])[n-1]||{};
     const req=n===1;
@@ -2884,7 +2916,7 @@ function renderSettingsTab(el){
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
         <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
         <div><label class="fl">Amount ($)</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
-        <div><label class="fl">Anchor Date</label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
+        <div><label class="fl">Anchor Date <span style="font-weight:400;color:var(--text3)">(a known pay date)</span></label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
         <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
           <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
           <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
@@ -2894,55 +2926,68 @@ function renderSettingsTab(el){
       </div>
     </div>`;
   }).join('');
+
+  const lastExp=localStorage.getItem('bcc_last_export');
+  const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+
   el.innerHTML=`<div class="month-hdr"><div class="month-title">Settings</div>
     <button class="tbtn" style="margin-left:auto" onclick="openGlobalSearch()" title="Search transactions">🔍 Search</button>
   </div>
+
   <div class="settings-section">
-    <div class="settings-section-title">Theme</div>
+    <div class="settings-section-title">Appearance</div>
     <div class="theme-cards">${themeCards}</div>
   </div>
+
   <div class="settings-section">
-    <div class="settings-section-title">Account Order</div>
-    ${acctItems||'<div style="color:var(--text3);font-size:13px">No accounts yet</div>'}
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Saved Payees <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.payees||[]).length} saved</span></div>
-    ${payeeItems||'<div style="color:var(--text3);font-size:13px">No payees saved yet — descriptions are saved automatically when you log transactions.</div>'}
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Income Allocation Rules <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Auto-suggest bucket allocations when you log income.</div>
-    <button class="tbtn" onclick="openAllocationRules()">Manage Rules</button>
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Income Sources <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.paychecks||[]).length} saved</span></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Your regular paychecks. Auto-calculates projected monthly income app-wide and pre-fills the Paycheck Projector.</div>
+    <div class="settings-section-title">Income Setup</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Your regular paychecks. Used app-wide for projected income and the Paycheck Projector.</div>
     ${pcRows}
     <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Allocation Rules <span style="font-weight:400">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Auto-suggest bucket splits when you log income. You confirm before anything is applied.</div>
+      ${allocationRulesHtml()}
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Budget Setup</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:8px">Account Order</div>
+    ${acctItems||'<div style="color:var(--text3);font-size:13px">No accounts yet</div>'}
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Recurring Bills <span style="font-weight:400">${(S.recurringBills||[]).length} set up</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
+      ${recurringBillsHtml()}
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Data</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Payees <span style="font-weight:400">${(S.payees||[]).length} saved</span></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Saved automatically when you log transactions. Tap ✎ to rename inline.</div>
+    <div style="margin-bottom:14px">
+      ${payeeItems||'<div style="color:var(--text3);font-size:13px">No payees saved yet.</div>'}
+    </div>
+    <div style="padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Export / Import</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Last exported: <strong style="color:var(--text2)">${expLabel}</strong></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
+        <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
+        <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
+      </div>
+    </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--red);margin-bottom:4px">Danger Zone</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Permanently delete all data and start fresh. Cannot be undone.</div>
+      <button class="tbtn" style="border-color:var(--rb);color:var(--red)" onclick="confirmFreshStart()">↺ Fresh Start</button>
+    </div>
   </div>`;
+
+  if(_editingPayeeId)setTimeout(()=>{const i=document.getElementById('payeeRenameInp');if(i){i.focus();i.select();}},30);
 }
 
-function renderExportTab(el){
-  const lastExp=localStorage.getItem('bcc_last_export');
-  const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'Never';
-  el.innerHTML=`<div class="month-hdr"><div class="month-title">Export / Import</div></div>
-  <div class="settings-section">
-    <div class="settings-section-title">Export Backup</div>
-    <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Download a full backup of your budget data as a JSON file. Last exported: <strong style="color:var(--text2)">${expLabel}</strong></div>
-    <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Import Backup</div>
-    <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Restore from a previously exported JSON backup. This will replace all current data.</div>
-    <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
-    <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title" style="color:var(--red)">Danger Zone</div>
-    <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Permanently delete all data and start fresh. This cannot be undone.</div>
-    <button class="tbtn" style="border-color:var(--rb);color:var(--red)" onclick="confirmFreshStart()">↺ Fresh Start</button>
-  </div>`;
-}
 
 function renderBudgetHealth(mid){
   const bh=computeBudgetHealth(mid);
@@ -3367,6 +3412,7 @@ let txType='out';
 let editingTxId=null;
 let _editingRbId=null;
 let _editingArId=null;
+let _editingPayeeId=null;
 
 function setTxType(t){
   txType=t;
@@ -3427,11 +3473,19 @@ function payeeSuggestions(prefix){
   return S.payees.filter(p=>p.name.toLowerCase().includes(lower)).slice(0,7);
 }
 function deletePayee(id){
-  S.payees=S.payees.filter(p=>p.id!==id);save();openSettings();
+  S.payees=S.payees.filter(p=>p.id!==id);save();
+  renderSettingsTab(document.getElementById('paneSettings'));
 }
 function renamePayee(id,newName){
   const p=S.payees.find(x=>x.id===id);if(!p||!newName.trim())return;
-  p.name=newName.trim();save();openSettings();
+  p.name=newName.trim();save();_editingPayeeId=null;
+  renderSettingsTab(document.getElementById('paneSettings'));
+}
+function commitRenamePayee(id){
+  const inp=document.getElementById('payeeRenameInp');
+  const newName=inp?inp.value.trim():'';
+  if(newName)renamePayee(id,newName);
+  else{_editingPayeeId=null;renderSettingsTab(document.getElementById('paneSettings'));}
 }
 
 // Autocomplete UI — used by both desktop #txDesc and mobile #mLogDesc
@@ -4010,10 +4064,7 @@ function wiShowProjector(){
   if(inner&&document.getElementById('wiOverlay')&&!document.getElementById('wiOverlay').classList.contains('hidden')){
     inner.innerHTML=wiProjectorHtml(null,false);
   } else {
-    const modal=document.getElementById('modalBox');
-    modal.className='modal';
-    modal.innerHTML=wiProjectorHtml(null,true);
-    document.getElementById('overlay').classList.remove('hidden');
+    setTab('reports');setReportsTab('projector');
   }
 }
 
@@ -4022,11 +4073,13 @@ function wiProjectorHtml(result,standalone){
   const backBtn=standalone
     ?`<button class="modal-x" onclick="${backFn}">&#x2715;</button>`
     :`<button class="tbtn" onclick="${backFn}" style="padding:4px 10px;font-size:12px">← Back to What If</button>`;
-  const headTitle=standalone
-    ?`<div class="modal-head"><div class="modal-title">📅 Paycheck Projector</div>${backBtn}</div>`
-    :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div style="font-size:13px;font-weight:700;color:var(--text)">📅 Paycheck Projector</div><div></div></div>`;
-  const bodyWrap=standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
-  const footHtml=standalone?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
+  const headTitle=standalone==='inline'?''
+    :standalone
+      ?`<div class="modal-head"><div class="modal-title">📅 Paycheck Projector</div>${backBtn}</div>`
+      :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div style="font-size:13px;font-weight:700;color:var(--text)">📅 Paycheck Projector</div><div></div></div>`;
+  const bodyWrap=standalone==='inline'?`<div style="padding:4px 0">`
+    :standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
+  const footHtml=standalone&&standalone!=='inline'?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
   const cashBal=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
 
   // Paycheck row builder — pre-fills from saved S.paychecks if available
@@ -4439,7 +4492,7 @@ function applyTheme(name){
 function setTheme(name){
   localStorage.setItem('bcc_theme',name);
   applyTheme(name);
-  openSettings();
+  renderSettingsTab(document.getElementById('paneSettings'));
 }
 
 function moveAcct(id,dir){
@@ -4447,92 +4500,10 @@ function moveAcct(id,dir){
   const swap=idx+dir;
   if(swap<0||swap>=S.accounts.length)return;
   const tmp=S.accounts[idx];S.accounts[idx]=S.accounts[swap];S.accounts[swap]=tmp;
-  save();openSettings();renderTopbar();
+  save();renderSettingsTab(document.getElementById('paneSettings'));renderTopbar();
 }
 
-function openSettings(){
-  const curTheme=localStorage.getItem('bcc_theme')||'dark';
-  const themes=[
-    {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
-    {name:'light',label:'Light',bg:'#f5f5f7',fg:'#1c1c1e',accent:'#147a6e'},
-    {name:'midnight',label:'Midnight',bg:'#000000',fg:'#f0f0f0',accent:'#00d4b8'},
-  ];
-  const themeCards=themes.map(t=>`
-    <div class="theme-card${t.name===curTheme?' active':''}" onclick="setTheme('${t.name}')">
-      <div class="theme-card-swatch" style="background:${t.bg};border:2px solid ${t.accent}"></div>
-      <div class="theme-card-name">${t.label}</div>
-    </div>`).join('');
-
-  const acctItems=S.accounts.map((a,i)=>`
-    <div class="acct-order-item">
-      <div class="acct-order-dot" style="background:${a.color}"></div>
-      <span class="acct-order-name">${esc(a.name)}</span>
-      <button class="ib" onclick="moveAcct('${a.id}',-1)" ${i===0?'disabled style="opacity:.3"':''}>↑</button>
-      <button class="ib" onclick="moveAcct('${a.id}',1)" ${i===S.accounts.length-1?'disabled style="opacity:.3"':''}>↓</button>
-    </div>`).join('');
-
-  const payeeItems=(S.payees||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
-    const bkt=getBucket(p.defaultBucketId);
-    return `<div class="payee-settings-row">
-      <span class="payee-settings-name">${esc(p.name)}</span>
-      ${bkt?`<span class="payee-settings-bkt">${esc(bkt.name)}</span>`:'<span class="payee-settings-bkt muted">no default bucket</span>'}
-      <button class="ib" onclick="(()=>{const n=prompt('Rename payee:','${esc(p.name).replace(/'/g,"\\'")}');if(n)renamePayee('${p.id}',n);})()" title="Rename">✎</button>
-      <button class="ib del" onclick="if(confirm('Remove payee &quot;${esc(p.name).replace(/"/g,'&quot;')}&quot;?'))deletePayee('${p.id}')" title="Delete">×</button>
-    </div>`;
-  }).join('');
-
-  const body=`<div class="settings-section">
-    <div class="settings-section-title">Account Order</div>
-    ${acctItems||'<div style="color:var(--text3);font-size:13px">No accounts yet</div>'}
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Theme</div>
-    <div class="theme-cards">${themeCards}</div>
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Saved Payees <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.payees||[]).length} saved</span></div>
-    ${payeeItems||'<div style="color:var(--text3);font-size:13px">No payees saved yet — descriptions are saved automatically when you log transactions.</div>'}
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Income Allocation Rules <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Auto-suggest bucket allocations when you log income.</div>
-    <button class="tbtn" onclick="openAllocationRules()">Manage Rules</button>
-  </div>
-  <div class="settings-section">
-    <div class="settings-section-title">Income Sources <span style="font-weight:400;font-size:11px;color:var(--text3)">${(S.paychecks||[]).length} saved</span></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Your regular paychecks. Auto-calculates projected monthly income app-wide and pre-fills the Paycheck Projector.</div>
-    ${[1,2,3].map(n=>{
-      const pc=(S.paychecks||[])[n-1]||{};
-      const req=n===1;
-      return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin-bottom:8px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:7px">
-          💰 Income ${n}${req?' (required)':' <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span>'}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
-          <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
-          <div><label class="fl">Amount ($)</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
-          <div><label class="fl">Anchor Date <span style="font-weight:400;color:var(--text3)">(a known pay date)</span></label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
-          <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
-            <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
-            <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
-            <option value="15"${pc.freq===15?' selected':''}>Semi-monthly</option>
-            <option value="30"${pc.freq===30?' selected':''}>Monthly</option>
-          </select></div>
-        </div>
-      </div>`;
-    }).join('')}
-    <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
-  </div>
-  `;
-
-  const modal=document.getElementById('modalBox');
-  modal.className='modal';
-  modal.innerHTML=`
-    <div class="modal-head"><div class="modal-title">Settings</div><button class="modal-x" onclick="closeModal()">&#x2715;</button></div>
-    <div class="modal-body">${body}</div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
-  document.getElementById('overlay').classList.remove('hidden');
-}
+function openSettings(){setTab('settings');}
 
 // ═══════════════════════════════════════════════════════
 // GLOBAL SEARCH
@@ -4748,29 +4719,24 @@ function reconFinish(acctId){
 // ═══════════════════════════════════════════════════════
 // NET WORTH
 // ═══════════════════════════════════════════════════════
-function openNetWorth(){
-  const modal=document.getElementById('modalBox');
-  modal.className='modal nw-modal';
+function openNetWorth(){setTab('reports');setReportsTab('networth');}
+
+function reportNetWorthHtml(){
   // Compute each balance once — debt accounts always negative for net worth
   const _bals=S.accounts.map(a=>({a,bal:acctBalance(a.id),nwBal:a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)}));
   const totalAssets=_bals.filter(x=>x.nwBal>0).reduce((s,x)=>s+x.nwBal,0);
   const totalLiab=_bals.filter(x=>x.nwBal<0).reduce((s,x)=>s+x.nwBal,0);
   const netWorth=totalAssets+totalLiab;
-  // Current accounts summary
   const acctRows=_bals.map(({a,bal,nwBal})=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
       <span style="flex:1;font-size:13px">${esc(a.name)}<span style="font-size:10px;color:var(--text3);margin-left:6px">${a.type}</span></span>
       <span style="font-family:var(--mono);font-size:13px;color:${nwBal>=0?'var(--green)':'var(--red)'}">${a.type==='debt'?'-':''} ${$f(Math.abs(bal))}</span>
     </div>`).join('');
-  // Historical: end-of-month balance per account per past month
   const pastMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-12);
   let histTable='';
   if(pastMonths.length){
-    // For each month, compute each account's balance at end of that month
-    // We derive this from txs: sum all txs up to and including last day of the month
-    function balAtEndOfMonth(acctId, moYear, moMonth){
+    function balAtEndOfMonth(acctId,moYear,moMonth){
       const lastDay=new Date(moYear,moMonth+1,0).toISOString().split('T')[0];
-      // Opening balance
       const openTx=S.txs.find(t=>t.accountId===acctId&&t.type==='opening');
       let bal=openTx?openTx.amount:0;
       S.txs.forEach(t=>{
@@ -4789,40 +4755,30 @@ function openNetWorth(){
     const rows=pastMonths.map(mo=>{
       const bals=S.accounts.map(a=>balAtEndOfMonth(a.id,mo.year,mo.month));
       const total=bals.reduce((s,b)=>s+b,0);
-      const cells=bals.map((b,i)=>`<td style="color:${b>=0?'var(--text)':'var(--red)'}">${$f(b)}</td>`).join('');
+      const cells=bals.map(b=>`<td style="color:${b>=0?'var(--text)':'var(--red)'}">${$f(b)}</td>`).join('');
       return `<tr><td>${mo.label}</td>${cells}<td style="color:${total>=0?'var(--green)':'var(--red)'};font-weight:700">${$f(total)}</td></tr>`;
     }).join('');
-    histTable=`<div class="nw-history">
-      <table class="nw-table">
-        <thead><tr><th>Month</th>${cols}<th>Net Worth</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    histTable=`<div class="nw-history"><table class="nw-table">
+      <thead><tr><th>Month</th>${cols}<th>Net Worth</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
   }
-
-  modal.innerHTML=`
-    <div class="modal-head">
-      <div class="modal-title">Net Worth</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+  return `<div class="nw-summary" style="margin:0 0 4px;border-radius:var(--r)">
+    <div class="nw-summary-cell">
+      <div class="nw-summary-label">Total Assets</div>
+      <div class="nw-summary-val" style="color:var(--green)">${$f(totalAssets)}</div>
     </div>
-    <div class="nw-summary">
-      <div class="nw-summary-cell">
-        <div class="nw-summary-label">Total Assets</div>
-        <div class="nw-summary-val" style="color:var(--green)">${$f(totalAssets)}</div>
-      </div>
-      <div class="nw-summary-cell">
-        <div class="nw-summary-label">Total Liabilities</div>
-        <div class="nw-summary-val" style="color:${totalLiab<0?'var(--red)':'var(--text3)'}">${$f(totalLiab)}</div>
-      </div>
-      <div class="nw-summary-cell">
-        <div class="nw-summary-label">Net Worth</div>
-        <div class="nw-summary-val" style="color:${netWorth>=0?'var(--green)':'var(--red)'}">${$f(netWorth)}</div>
-      </div>
+    <div class="nw-summary-cell">
+      <div class="nw-summary-label">Total Liabilities</div>
+      <div class="nw-summary-val" style="color:${totalLiab<0?'var(--red)':'var(--text3)'}">${$f(totalLiab)}</div>
     </div>
-    <div style="padding:12px 16px 0">${acctRows}</div>
-    ${pastMonths.length?`<div style="padding:10px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">Historical</div>${histTable}`:''}
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
-  document.getElementById('overlay').classList.remove('hidden');
+    <div class="nw-summary-cell">
+      <div class="nw-summary-label">Net Worth</div>
+      <div class="nw-summary-val" style="color:${netWorth>=0?'var(--green)':'var(--red)'}">${$f(netWorth)}</div>
+    </div>
+  </div>
+  <div style="margin-bottom:12px">${acctRows}</div>
+  ${pastMonths.length?`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px">Historical (last 12 months)</div>${histTable}`:''}`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4962,9 +4918,17 @@ function renderDebtWI(acctId,balance,monthlyRate,currentPayment,monthlyInterest)
 // ═══════════════════════════════════════════════════════
 function openMonthReport(mid){
   mid=mid||S.activeMonth;
-  const mo=S.months.find(m=>m.id===mid);if(!mo)return;
-  const modal=document.getElementById('modalBox');
-  modal.className='modal report-modal';
+  reportsMid=mid;
+  setTab('reports');
+  setReportsTab('month');
+}
+
+function reportMonthHtml(mid){
+  mid=mid||S.activeMonth;
+  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  const mo=S.months.find(m=>m.id===mid);
+  if(!mo)return`<div style="color:var(--text3);padding:16px">Month not found.</div>`;
+  const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
   const sCats=sortedCats();
   let totalBudget=0,totalAlloc=0,totalSpent=0,totalAvail=0;
   let tableRows='';
@@ -4993,14 +4957,10 @@ function openMonthReport(mid){
     tableRows+=`<tr class="report-cat-row"><td colspan="5" style="color:${cat.color||'var(--text3)'}">${esc(cat.name)}</td></tr>${bktRows}`;
   });
   tableRows+=`<tr class="report-total-row">
-    <td>Total</td>
-    <td>${$f(totalBudget)}</td>
-    <td>${$f(totalAlloc)}</td>
+    <td>Total</td><td>${$f(totalBudget)}</td><td>${$f(totalAlloc)}</td>
     <td>${$f(totalSpent)}</td>
     <td style="color:${totalAvail>=0?'var(--green)':'var(--red)'}">${$f(totalAvail)}</td>
   </tr>`;
-
-  // Plain text for copy
   const copyText=sCats.flatMap(cat=>{
     const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
     if(!bkts.length)return[];
@@ -5009,36 +4969,25 @@ function openMonthReport(mid){
       return`  ${b.name.padEnd(24)} budget:${$f(bBudget(mid,b.id)).padStart(9)}  alloc:${$f(alloc).padStart(9)}  spent:${$f(spent).padStart(9)}  avail:${$f(avail).padStart(9)}`;
     })];
   }).join('\n');
-
-  modal.innerHTML=`
-    <div class="modal-head">
-      <div class="modal-title">Monthly Report — ${esc(mo.label)}</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
-    </div>
-    <div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
-      <span style="font-size:12px;color:var(--text3)">Ready to Spend: <strong style="color:${readyToSpend(mid)>=0?'var(--green)':'var(--red)'}">${$f(readyToSpend(mid))}</strong></span>
-      <button class="report-copy-btn" style="margin-left:auto" onclick="navigator.clipboard.writeText(${JSON.stringify(mo.label+'\n'+copyText)}).then(()=>showToast('Copied to clipboard','save'))">⎘ Copy</button>
-    </div>
-    <div style="padding:0 16px 16px;overflow-x:auto">
-      <table class="report-table">
-        <thead><tr><th style="text-align:left">Bucket</th><th>Budget</th><th>Allocated</th><th>Spent</th><th>Available</th></tr></thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-    </div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
-  document.getElementById('overlay').classList.remove('hidden');
+  return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('month')">${monthOpts}</select>
+    <span style="font-size:12px;color:var(--text3);margin-left:auto">Ready to Spend: <strong style="color:${readyToSpend(mid)>=0?'var(--green)':'var(--red)'}">${$f(readyToSpend(mid))}</strong></span>
+    <button class="report-copy-btn" onclick="navigator.clipboard.writeText(${JSON.stringify(mo.label+'\n'+copyText)}).then(()=>showToast('Copied to clipboard','save'))">⎘ Copy</button>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="report-table">
+      <thead><tr><th style="text-align:left">Bucket</th><th>Budget</th><th>Allocated</th><th>Spent</th><th>Available</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </div>`;
 }
 
 // ═══════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════
 // INCOME ALLOCATION RULES (Phase 7)
 // ═══════════════════════════════════════════════════════
-function openAllocationRules(){
-  const modal=document.getElementById('modalBox');
-  modal.className='modal';
-  modal.innerHTML=allocationRulesHtml();
-  document.getElementById('overlay').classList.remove('hidden');
-}
+function openAllocationRules(){setTab('settings');}
 function allocationRulesHtml(){
   const rules=S.allocationRules||[];
   const editing=_editingArId?rules.find(r=>r.id===_editingArId):null;
@@ -5063,44 +5012,33 @@ function allocationRulesHtml(){
     </div>`;
   }).join('');
   return `
-    <div class="modal-head">
-      <div class="modal-title">Income Allocation Rules</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-        When you log income, these rules suggest how to split it across your buckets. You confirm before anything is applied.
+    ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No rules yet. Add one below.</div>'}
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">${editing?'Edit Rule':'Add Rule'}</div>
+      <div class="fi-row" style="margin-bottom:8px">
+        <div class="fg"><label class="fl">Rule Name</label><input class="fi" id="newRuleName" placeholder="e.g. 5% to Savings" value="${editing?esc(editing.name||''):''}" /></div>
       </div>
-      ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No rules yet. Add one below.</div>'}
-      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">${editing?'Edit Rule':'Add Rule'}</div>
-        <div class="fi-row" style="margin-bottom:8px">
-          <div class="fg"><label class="fl">Rule Name</label><input class="fi" id="newRuleName" placeholder="e.g. 5% to Savings" value="${editing?esc(editing.name||''):''}" /></div>
-        </div>
-        <div class="fi-row" style="margin-bottom:8px">
-          <div class="fg"><label class="fl">Bucket</label><select class="fi" id="newRuleBkt">${bktOpts}</select></div>
-        </div>
-        <div class="fi-row" style="margin-bottom:10px">
-          <div class="fg"><label class="fl">Type</label>
-            <select class="fi" id="newRuleType">
-              <option value="pct"${editing&&editing.type==='pct'?' selected':''}>% of income</option>
-              <option value="fixed"${editing&&editing.type==='fixed'?' selected':''}>Fixed amount $</option>
-            </select>
-          </div>
-          <div class="fg"><label class="fl">Value</label><input class="fi mono" id="newRuleVal" type="number" placeholder="5" value="${editing?editing.value:''}" /></div>
-        </div>
-        <div style="display:flex;gap:8px">
-          ${editing?`<button class="btn-cancel" onclick="_editingArId=null;document.getElementById('modalBox').innerHTML=allocationRulesHtml()">Cancel</button>`:''}
-          <button class="btn-primary" onclick="saveAllocationRule()">${editing?'Update Rule':'Add Rule'}</button>
-        </div>
+      <div class="fi-row" style="margin-bottom:8px">
+        <div class="fg"><label class="fl">Bucket</label><select class="fi" id="newRuleBkt">${bktOpts}</select></div>
       </div>
-    </div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+      <div class="fi-row" style="margin-bottom:10px">
+        <div class="fg"><label class="fl">Type</label>
+          <select class="fi" id="newRuleType">
+            <option value="pct"${editing&&editing.type==='pct'?' selected':''}>% of income</option>
+            <option value="fixed"${editing&&editing.type==='fixed'?' selected':''}>Fixed amount $</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Value</label><input class="fi mono" id="newRuleVal" type="number" placeholder="5" value="${editing?editing.value:''}" /></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${editing?`<button class="btn-cancel" onclick="_editingArId=null;renderSettingsTab(document.getElementById('paneSettings'))">Cancel</button>`:''}
+        <button class="btn-primary" onclick="saveAllocationRule()">${editing?'Update Rule':'Add Rule'}</button>
+      </div>
+    </div>`;
 }
 function editAllocationRule(id){
   _editingArId=id;
-  const modal=document.getElementById('modalBox');
-  if(modal)modal.innerHTML=allocationRulesHtml();
+  renderSettingsTab(document.getElementById('paneSettings'));
 }
 function saveAllocationRule(){
   const name=document.getElementById('newRuleName')?.value.trim();
@@ -5118,15 +5056,13 @@ function saveAllocationRule(){
     S.allocationRules.push({id:'_ar'+Math.random().toString(36).slice(2,9),name:name||'Rule',bucketId,type,value,active:true});
   }
   save();
-  const modal=document.getElementById('modalBox');
-  if(modal)modal.innerHTML=allocationRulesHtml();
+  renderSettingsTab(document.getElementById('paneSettings'));
 }
 function addAllocationRule(){saveAllocationRule();}
 function deleteAllocationRule(id){
   S.allocationRules=(S.allocationRules||[]).filter(r=>r.id!==id);
   save();
-  const modal=document.getElementById('modalBox');
-  if(modal)modal.innerHTML=allocationRulesHtml();
+  renderSettingsTab(document.getElementById('paneSettings'));
 }
 function toggleAllocationRule(id,active){
   const r=(S.allocationRules||[]).find(x=>x.id===id);
@@ -5255,12 +5191,7 @@ function refreshRecurringBill(id){
   generateRecurringTxs();
 }
 
-function openRecurringBills(){
-  const modal=document.getElementById('modalBox');
-  modal.className='modal';
-  modal.innerHTML=recurringBillsHtml();
-  document.getElementById('overlay').classList.remove('hidden');
-}
+function openRecurringBills(){setTab('settings');}
 
 function recurringBillsHtml(){
   const bills=S.recurringBills||[];
@@ -5285,43 +5216,32 @@ function recurringBillsHtml(){
     </div>`;
   }).join('');
   return `
-    <div class="modal-head">
-      <div class="modal-title">⏱ Recurring Bills</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-        Bills auto-appear as scheduled transactions so buckets show ⏱ before the date arrives. When the date passes, log the real transaction — the placeholder clears automatically.
+    ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No recurring bills yet. Add one below.</div>'}
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">${editing?'Edit Bill':'Add Bill'}</div>
+      <div class="fi-row" style="margin-bottom:8px">
+        <div class="fg"><label class="fl">Description</label><input class="fi" id="rbDesc" placeholder="e.g. Netflix" value="${editing?esc(editing.desc):''}" /></div>
       </div>
-      ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No recurring bills yet. Add one below.</div>'}
-      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">${editing?'Edit Bill':'Add Bill'}</div>
-        <div class="fi-row" style="margin-bottom:8px">
-          <div class="fg"><label class="fl">Description</label><input class="fi" id="rbDesc" placeholder="e.g. Netflix" value="${editing?esc(editing.desc):''}" /></div>
-        </div>
-        <div class="fi-row" style="margin-bottom:8px;gap:8px">
-          <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="rbAmt" type="number" min="0" step="0.01" placeholder="0.00" value="${editing?editing.amount:''}" /></div>
-          <div class="fg"><label class="fl">Day of Month</label><input class="fi mono" id="rbDay" type="number" min="1" max="31" placeholder="15" value="${editing?editing.dayOfMonth:''}" /></div>
-        </div>
-        <div class="fi-row" style="margin-bottom:8px">
-          <div class="fg"><label class="fl">Account</label><select class="fi" id="rbAcct">${acctOpts}</select></div>
-        </div>
-        <div class="fi-row" style="margin-bottom:10px">
-          <div class="fg"><label class="fl">Bucket</label><select class="fi" id="rbBkt">${bktOpts}</select></div>
-        </div>
-        <div style="display:flex;gap:8px">
-          ${editing?`<button class="btn-cancel" onclick="_editingRbId=null;document.getElementById('modalBox').innerHTML=recurringBillsHtml()">Cancel</button>`:''}
-          <button class="btn-primary" onclick="saveRecurringBill()">${editing?'Update Bill':'Add Bill'}</button>
-        </div>
+      <div class="fi-row" style="margin-bottom:8px;gap:8px">
+        <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="rbAmt" type="number" min="0" step="0.01" placeholder="0.00" value="${editing?editing.amount:''}" /></div>
+        <div class="fg"><label class="fl">Day of Month</label><input class="fi mono" id="rbDay" type="number" min="1" max="31" placeholder="15" value="${editing?editing.dayOfMonth:''}" /></div>
       </div>
-    </div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+      <div class="fi-row" style="margin-bottom:8px">
+        <div class="fg"><label class="fl">Account</label><select class="fi" id="rbAcct">${acctOpts}</select></div>
+      </div>
+      <div class="fi-row" style="margin-bottom:10px">
+        <div class="fg"><label class="fl">Bucket</label><select class="fi" id="rbBkt">${bktOpts}</select></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${editing?`<button class="btn-cancel" onclick="_editingRbId=null;renderSettingsTab(document.getElementById('paneSettings'))">Cancel</button>`:''}
+        <button class="btn-primary" onclick="saveRecurringBill()">${editing?'Update Bill':'Add Bill'}</button>
+      </div>
+    </div>`;
 }
 
 function editRecurringBill(id){
   _editingRbId=id;
-  const modal=document.getElementById('modalBox');
-  if(modal)modal.innerHTML=recurringBillsHtml();
+  renderSettingsTab(document.getElementById('paneSettings'));
 }
 function saveRecurringBill(){
   const desc=document.getElementById('rbDesc')?.value.trim();
@@ -5344,8 +5264,8 @@ function saveRecurringBill(){
     S.recurringBills.push({id:'_rb'+Math.random().toString(36).slice(2,9),desc,amount:amt,dayOfMonth:day,accountId,bucketId,type:'out',active:true});
     generateRecurringTxs();
   }
-  const modal=document.getElementById('modalBox');
-  if(modal)modal.innerHTML=recurringBillsHtml();
+  save();
+  renderSettingsTab(document.getElementById('paneSettings'));
   render();
 }
 // keep old name as alias for any inline onclick references
@@ -5355,9 +5275,7 @@ function deleteRecurringBill(id){
   S.recurringBills=(S.recurringBills||[]).filter(r=>r.id!==id);
   S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));
   save();render();
-  const modal=document.getElementById('modalBox');
-  if(modal&&!document.getElementById('overlay').classList.contains('hidden'))
-    modal.innerHTML=recurringBillsHtml();
+  renderSettingsTab(document.getElementById('paneSettings'));
 }
 
 function toggleRecurringBill(id,active){
@@ -6326,6 +6244,7 @@ function init(){
   document.getElementById('authScreen')?.classList.add('hidden');
   // Log tab is mobile-only; correct saved state on desktop
   if(activeTab==='log'&&!isMobile())activeTab='ledger';
+  if(activeTab==='export')activeTab='settings';
   render();
   populateTxCats();
   updateTxFormForType();
