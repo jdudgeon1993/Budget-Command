@@ -1991,6 +1991,7 @@ function computeBucketMetrics(bid,mid){
   const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
   const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
   const isSink=b.type==='sinking';
+  const isGoal=b.type==='goal';
   const m=getMonth(mid);
   const days=daysUntilDue(b,m?.year,m?.month);
   const days2=b.dueDay2?daysUntilDue({dueDay:b.dueDay2},m?.year,m?.month):null;
@@ -2010,7 +2011,18 @@ function computeBucketMetrics(bid,mid){
     const contrib=contribAmt(b);
     sinkData={saved,tgt,mLeft,mNeed,contrib};
   }
-  return {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,fillColor,isSink,m,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData};
+  let goalData=null;
+  if(isGoal){
+    const saved=Math.max(sinkingSaved(bid,mid),0);
+    const tgt=b.targetAmount||0;
+    const td=b.targetDate?new Date(b.targetDate+'-01'):null;
+    const now=new Date();
+    const mLeft=td?Math.max((td.getFullYear()-now.getFullYear())*12+(td.getMonth()-now.getMonth()),0):null;
+    const pctDone=tgt>0?Math.min(saved/tgt,1):0;
+    const mNeed=mLeft>0?Math.ceil(Math.max(tgt-saved,0)/mLeft):0;
+    goalData={saved,tgt,mLeft,pctDone,mNeed,td};
+  }
+  return {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,fillColor,isSink,isGoal,m,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData,goalData};
 }
 
 // Data lookups and derived values for a single transaction row.
@@ -2575,6 +2587,34 @@ function renderOverviewTab(el,mid){
       <div class="ov-widget-title">Recent Transactions</div>${recentHtml}
     </div>
   </div>`;
+  // Goals widget — shows all active goal-type buckets
+  const goalBkts=S.buckets.filter(b=>b.type==='goal'&&!b.archived);
+  if(goalBkts.length){
+    let goalsHtml='';
+    goalBkts.forEach(b=>{
+      const saved=Math.max(sinkingSaved(b.id,mid),0);
+      const tgt=b.targetAmount||0;
+      const pct=tgt>0?Math.min(Math.round(saved/tgt*100),100):0;
+      const cat=getCat(b.catId);
+      const barColor=pct>=100?'var(--green)':(cat?.color||'var(--accent)');
+      const td=b.targetDate?new Date(b.targetDate+'-01'):null;
+      goalsHtml+=`<div class="ov-widget-row" style="flex-direction:column;gap:5px;align-items:stretch;cursor:pointer;padding:8px 0" onclick="setBucket('${b.id}')">
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="flex:1;font-size:13px;font-weight:600">${esc(b.name)}</span>
+          <span style="font-size:12px;font-weight:700;color:var(--green)">${$f(saved)}</span>
+          ${tgt?`<span style="font-size:11px;color:var(--text3)">/ ${$f(tgt)}</span>`:''}
+          <span style="font-size:11px;color:var(--text3)">${pct}%</span>
+        </div>
+        <div style="height:7px;border-radius:4px;background:var(--surface2)">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px"></div>
+        </div>
+        ${td?`<div style="font-size:10px;color:var(--text3)">Target: ${td.toLocaleString('default',{month:'short',year:'numeric'})}${b.targetAmount?` · ${Math.max(Math.ceil((b.targetAmount-saved)/(Math.max((td.getFullYear()-new Date().getFullYear())*12+(td.getMonth()-new Date().getMonth()),1)))||0,0)}/mo needed`:''}</div>`:''}
+      </div>`;
+    });
+    h+=`<div class="ov-widget" style="margin-top:12px">
+      <div class="ov-widget-title">🎯 Goals</div>${goalsHtml}
+    </div>`;
+  }
 
   // ── Quick actions (mobile only — desktop uses sidebar nav) ────────────────
   h+=`<div class="ov-mobile-only">
@@ -2640,7 +2680,13 @@ function renderLedgerTab(el,mid){
           <button class="rfbtn" id="fXfr" onclick="setFilter('xfr')">⇄</button>
         </div>
       </div>
-      <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" />
+      <div style="display:flex;gap:6px;align-items:center">
+        <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" style="flex:1;margin:0" />
+        ${(S.payees&&S.payees.length)?`<select class="tfi-sel" id="ledgerPayeeSel" style="width:auto;font-size:12px;padding:5px 6px" onchange="_ledgerPayee=this.value;renderTxList()">
+          <option value="">All payees</option>
+          ${(S.payees||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.name)}"${p.name===_ledgerPayee?' selected':''}>👤 ${esc(p.name)}</option>`).join('')}
+        </select>`:''}
+      </div>
       <div class="tx-list" id="txList" style="flex:1;overflow-y:auto"></div>
     </div>
   </div>`;
@@ -2660,7 +2706,13 @@ function renderAccountsTab(el,mid){
   }
   const cash=S.accounts.filter(a=>a.type!=='debt');
   const debt=S.accounts.filter(a=>a.type==='debt');
-  let h=`<div class="month-hdr ov-desktop-only"><div class="month-title">Accounts</div>
+  const totalDebt=debt.reduce((s,a)=>s+acctBalance(a.id),0);
+  const monthInc=monthIncome(S.activeMonth)||0;
+  const totalMinPay=debt.reduce((s,a)=>s+(a.debtMinPayment||0),0);
+  const dti=monthInc>0&&totalMinPay>0?Math.round(totalMinPay/monthInc*100):null;
+  let h=`<div class="month-hdr ov-desktop-only">
+    <div class="month-title">Accounts</div>
+    ${debt.length&&dti!==null?`<span style="font-size:11px;color:var(--text3);margin-left:12px">DTI <strong style="color:${dti>43?'var(--red)':dti>36?'var(--amber)':'var(--green)'}">${dti}%</strong></span>`:''}
     <button class="tbtn" style="margin-left:auto" onclick="openModal('acct')">+ Add Account</button>
   </div>
   <div class="acct-pane-wrap">`;
@@ -2677,8 +2729,10 @@ function renderAccountsTab(el,mid){
     h+=`</div>`;
   }
   if(debt.length){
-    const totalDebt=debt.reduce((s,a)=>s+acctBalance(a.id),0);
-    h+=`<div class="acct-group-hdr" style="color:var(--red)">Debt · ${$f(totalDebt)}</div>
+    h+=`<div class="acct-group-hdr" style="display:flex;align-items:center">
+      <span style="color:var(--red)">Debt · ${$f(totalDebt)}</span>
+      <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="showDebtPlanner()">📋 Planner</button>
+    </div>
     <div class="acct-tab-grid">`;
     debt.forEach(a=>{
       const bal=acctBalance(a.id);
@@ -2772,10 +2826,12 @@ function renderBucketsTab(el,mid){
       return (a.order??0)-(b.order??0);
     });
 
+    const catAnomaly=catAnomalyCheck(cat.id,mid);
     h+=`<div class="bkt-cat">
       <div class="bkt-cat-hdr">
         <div class="bkt-cat-dot" style="background:${color}"></div>
         <span class="bkt-cat-name">${esc(cat.name)}</span>
+        ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average" style="font-size:11px;color:var(--amber);margin-left:4px;cursor:default">⚠ ${catAnomaly.z}σ</span>`:''}
         <span class="bkt-cat-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
         ${!past?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund all</button>`:''}
       </div>
@@ -2805,8 +2861,11 @@ function renderBucketsTab(el,mid){
       if(days!==null){const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
       const tags=[];
       if(b.type==='sinking')tags.push('saving');
+      if(b.type==='goal')tags.push('goal');
       if(b.recurring)tags.push('↻');
       if(roll>0)tags.push(`+${$f(roll)} rolled`);
+      const trend=bucketMoMTrend(b.id,mid);
+      if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span style="color:${tc};font-size:10px">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
 
       const pend=bucketPendingAmt(b.id,mid);
       const pillHtml=bucketPillHtml(alloc,spent,eff,target,pend,past,avail);
@@ -2857,12 +2916,28 @@ function renderReportsTab(el){
   const mid=reportsMid||S.activeMonth;
   const tabs=[
     {id:'month',label:'📅 Month'},
+    {id:'bva',label:'⚖ BvA'},
+    {id:'ytd',label:'📆 YTD'},
+    {id:'catspend',label:'🗂 By Category'},
+    {id:'savingsrate',label:'💰 Savings Rate'},
+    {id:'payees',label:'👤 Payees'},
+    {id:'cashflow',label:'📊 Cash Flow'},
+    {id:'incomesrc',label:'💵 Income Sources'},
+    {id:'cathistory',label:'📈 Cat Trends'},
     {id:'networth',label:'◈ Net Worth'},
     {id:'projector',label:'📈 Projector'},
   ];
   const tabNav=tabs.map(t=>`<button class="rtab${t.id===reportsTab?' active':''}" onclick="setReportsTab('${t.id}')">${t.label}</button>`).join('');
   let content='';
   if(reportsTab==='month')content=reportMonthHtml(mid);
+  else if(reportsTab==='bva')content=reportBvAHtml(mid);
+  else if(reportsTab==='ytd')content=reportYTDHtml();
+  else if(reportsTab==='catspend')content=reportCatSpendHtml(mid);
+  else if(reportsTab==='savingsrate')content=reportSavingsRateHtml();
+  else if(reportsTab==='payees')content=reportPayeeBreakdownHtml();
+  else if(reportsTab==='cashflow')content=reportCashFlowHtml();
+  else if(reportsTab==='incomesrc')content=reportIncomeSourcesHtml(mid);
+  else if(reportsTab==='cathistory')content=reportCatHistoryHtml();
   else if(reportsTab==='networth')content=reportNetWorthHtml();
   else if(reportsTab==='projector')content=wiProjectorHtml(null,'inline');
   el.innerHTML=`<div class="month-hdr"><div class="month-title">Reports</div></div>
@@ -3101,7 +3176,7 @@ function renderAccountView(el,mid){
 
 function renderBucketDetail(mid,past,m){
   const bm=computeBucketMetrics(S.activeBucket,mid);if(!bm)return'';
-  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData}=bm;
+  const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,isGoal,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData,goalData}=bm;
   let h=`<button class="back-btn" onclick="setBucket(null)">← Buckets</button>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
@@ -3146,6 +3221,26 @@ function renderBucketDetail(mid,past,m){
       <div class="det-row"><span class="det-row-label">Per contribution</span><span class="det-row-val" style="color:var(--accent)">${$f(contrib)}</span></div>
     </div>`;
   }
+  if(isGoal&&goalData){
+    const {saved,tgt,pctDone,mLeft,mNeed,td}=goalData;
+    const pctDisp=Math.round(pctDone*100);
+    const barColor=pctDone>=1?'var(--green)':(cat?.color||'var(--accent)');
+    h+=`<div class="det-block">
+      <div class="det-block-title">Goal Progress</div>
+      <div style="position:relative;height:22px;border-radius:11px;background:var(--surface2);overflow:hidden;margin:8px 0 12px">
+        <div style="position:absolute;top:0;left:0;height:100%;width:${pctDisp}%;background:${barColor};border-radius:11px;transition:width .4s"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${pctDone>0.45?'#fff':'var(--text)'}">${pctDisp}%</div>
+      </div>
+      <div class="sink-stats">
+        <div class="ss"><div class="ss-label">Saved</div><div class="ss-val" style="color:var(--green)">${$f(saved)}</div></div>
+        <div class="ss"><div class="ss-label">Target</div><div class="ss-val">${tgt?$f(tgt):'—'}</div></div>
+        <div class="ss"><div class="ss-label">Months Left</div><div class="ss-val">${mLeft!==null?mLeft:'—'}</div></div>
+        <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val" style="${mNeed>target?'color:var(--red)':''}">${mNeed?$f(mNeed):'—'}</div></div>
+      </div>
+      ${td?`<div class="det-row" style="margin-top:8px"><span class="det-row-label">Target date</span><span class="det-row-val">${td.toLocaleString('default',{month:'long',year:'numeric'})}</span></div>`:''}
+      ${pctDone>=1?`<div style="text-align:center;font-size:14px;font-weight:700;color:var(--green);padding:10px 0">🎉 Goal reached!</div>`:''}
+    </div>`;
+  }
 
   if(!past){
     h+=`<div class="alloc-edit-row">
@@ -3160,6 +3255,23 @@ function renderBucketDetail(mid,past,m){
         onkeydown="if(event.key==='Enter')updateBudget('${b.id}')" />
       <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="updateBudget('${b.id}')">Set</button>
       <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="editBucket('${b.id}')">Edit</button>
+    </div>`;
+  }
+  // Smart target suggestion (Phase 9)
+  if(!isSink&&!isGoal&&!past){
+    const sugg=bucketSpendSuggestion(b.id,mid);
+    if(sugg&&Math.abs(sugg.suggested-(target||0))>5){
+      h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="flex:1;font-size:12px;color:var(--text3)">💡 6-mo avg: <strong style="color:var(--text)">${$f(sugg.avg)}</strong> → suggested target ${$f(sugg.suggested)}</span>
+        <button class="tbtn" style="font-size:11px;padding:3px 9px;white-space:nowrap" onclick="applySmartTarget('${b.id}',${sugg.suggested})">Apply ${$f(sugg.suggested)}</button>
+      </div>`;
+    }
+  }
+  // Anomaly alert (Phase 9)
+  const anomaly=catAnomalyCheck(b.catId,mid);
+  if(anomaly){
+    h+=`<div style="background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-top:6px;font-size:12px">
+      ⚠ <strong style="color:var(--amber)">Unusual spending</strong> — category is ${anomaly.z}σ above the 12-month average (${$f(anomaly.excess)} more than usual)
     </div>`;
   }
   // Spending trend — last 6 completed months
@@ -3256,6 +3368,7 @@ function renderTxList(){
 
   const search=(document.getElementById('rpSearch')?.value||'').toLowerCase();
   if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
+  if(_ledgerPayee)txs=txs.filter(t=>t.desc.toLowerCase()===_ledgerPayee.toLowerCase());
 
   if(S.activeBucket)txs=txs.filter(t=>t.bucketId===S.activeBucket);
 
@@ -3368,6 +3481,42 @@ function updateBudget(bid){
   const m=getMonth(S.activeMonth);if(!m)return;
   m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderMain();
 }
+function applySmartTarget(bid,val){
+  const b=getBucket(bid);if(!b)return;
+  b.defaultBudget=val;
+  const m=getMonth(S.activeMonth);if(m){if(!m.budgets)m.budgets={};m.budgets[bid]=val;}
+  save();renderMain();showToast('Target set to '+$f(val),'save');
+}
+// Phase 9: Statistical Intelligence helpers
+function bucketSpendSuggestion(bid,mid){
+  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const ci=all.findIndex(m=>m.id===mid);if(ci<0)return null;
+  const prev=all.slice(Math.max(0,ci-6),ci);if(prev.length<3)return null;
+  const spends=prev.map(mo=>bSpent(mo.id,bid));
+  const nonZero=spends.filter(v=>v>0);if(nonZero.length<3)return null;
+  const avg=spends.reduce((s,v)=>s+v,0)/spends.length;
+  const suggested=Math.ceil(avg*1.1/5)*5;
+  return{avg:Math.round(avg*100)/100,suggested,months:nonZero.length};
+}
+function bucketMoMTrend(bid,mid){
+  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const ci=all.findIndex(m=>m.id===mid);if(ci<=0)return null;
+  const cur=bSpent(mid,bid),prev=bSpent(all[ci-1].id,bid);
+  if(!cur&&!prev)return null;if(!prev)return null;
+  return{pct:Math.round((cur-prev)/prev*100),cur,prev};
+}
+function catAnomalyCheck(catId,mid){
+  const bkts=sortedBuckets(catId).filter(b=>!b.archived);if(!bkts.length)return null;
+  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const ci=all.findIndex(m=>m.id===mid);if(ci<3)return null;
+  const hist=all.slice(Math.max(0,ci-12),ci);if(hist.length<3)return null;
+  const hSpends=hist.map(mo=>bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
+  const mean=hSpends.reduce((s,v)=>s+v,0)/hSpends.length;if(mean===0)return null;
+  const sd=Math.sqrt(hSpends.reduce((s,v)=>s+(v-mean)**2,0)/hSpends.length);if(sd===0)return null;
+  const cur=bkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const z=(cur-mean)/sd;
+  return z>=2?{z:Math.round(z*10)/10,excess:Math.round((cur-mean)*100)/100,cur}:null;
+}
 function fundCategory(catId,mid){
   const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
   S.buckets.filter(b=>b.catId===catId&&!b.archived).forEach(b=>{
@@ -3414,6 +3563,10 @@ let _editingRbId=null;
 let _editingArId=null;
 let _editingPayeeId=null;
 let _inDetailPanel=false;
+let _ledgerPayee='';
+let _payeePeriod='month';
+let _catHistMonths=6;
+let _debtExtra=200;
 
 function setTxType(t){
   txType=t;
@@ -4920,6 +5073,101 @@ function renderDebtWI(acctId,balance,monthlyRate,currentPayment,monthlyInterest)
   </div>`;
 }
 
+// DEBT PLANNER (Phase 6)
+function _simPayoff(debtList,extraPerMonth){
+  let debts=debtList.map(d=>({...d,bal:Math.max(d.balance,0),iPaid:0}));
+  let extra=extraPerMonth;
+  let month=0;
+  const results=[];
+  const MAX=600;
+  while(debts.length>0&&month<MAX){
+    month++;
+    debts.forEach(d=>{
+      const r=d.apr/100/12;
+      const interest=d.bal*r;
+      d.bal=Math.round((d.bal+interest)*100)/100;
+      d.iPaid=Math.round((d.iPaid+interest)*100)/100;
+    });
+    debts.forEach(d=>{const pay=Math.min(d.minPayment||0,d.bal);d.bal=Math.round((d.bal-pay)*100)/100;});
+    if(debts.length>0){const ep=Math.min(extra,debts[0].bal);debts[0].bal=Math.round((debts[0].bal-ep)*100)/100;}
+    const next=[];
+    debts.forEach(d=>{
+      if(d.bal<=0.01){results.push({id:d.id,name:d.name,payoffMonth:month,interestPaid:d.iPaid});extra+=d.minPayment||0;}
+      else next.push(d);
+    });
+    debts=next;
+  }
+  debts.forEach(d=>results.push({id:d.id,name:d.name,payoffMonth:Infinity,interestPaid:d.iPaid}));
+  return results;
+}
+function showDebtPlanner(){
+  const panel=document.getElementById('detailPanel');
+  const scroll=document.getElementById('detailScroll');
+  document.getElementById('detailTitle').textContent='Debt Planner';
+  const actEl=document.getElementById('detailAct');actEl.textContent='';actEl.onclick=null;
+  scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
+  scroll.innerHTML=debtPlannerHtml();
+  if(!panel.classList.contains('active')){panel.classList.add('active');history.pushState({},'','');}
+}
+function _refreshDebtPlanner(){
+  const title=document.getElementById('detailTitle');
+  if(title?.textContent!=='Debt Planner')return;
+  const scroll=document.getElementById('detailScroll');
+  if(scroll)scroll.innerHTML=debtPlannerHtml();
+}
+function debtPlannerHtml(){
+  const debts=S.accounts.filter(a=>a.type==='debt').map(a=>({
+    id:a.id,name:a.name,balance:acctBalance(a.id),apr:a.debtAPR||0,minPayment:a.debtMinPayment||0
+  })).filter(d=>d.balance>0);
+  if(!debts.length)return`<div style="color:var(--text3);padding:16px 0">No active debts to plan.</div>`;
+  const extra=_debtExtra;
+  const avalanche=[...debts].sort((a,b)=>b.apr-a.apr);
+  const snowball=[...debts].sort((a,b)=>a.balance-b.balance);
+  const avRes=_simPayoff(avalanche,extra);
+  const swRes=_simPayoff(snowball,extra);
+  const avTotalInt=avRes.reduce((s,d)=>s+(d.payoffMonth===Infinity?0:d.interestPaid),0);
+  const swTotalInt=swRes.reduce((s,d)=>s+(d.payoffMonth===Infinity?0:d.interestPaid),0);
+  const avMonths=avRes.filter(d=>d.payoffMonth!==Infinity).reduce((m,d)=>Math.max(m,d.payoffMonth),0);
+  const swMonths=swRes.filter(d=>d.payoffMonth!==Infinity).reduce((m,d)=>Math.max(m,d.payoffMonth),0);
+  const moToDate=m=>{const d=new Date();d.setMonth(d.getMonth()+m);return d.toLocaleString('default',{month:'short',year:'numeric'});};
+  const interestSaved=Math.round((swTotalInt-avTotalInt)*100)/100;
+  const avRow=r=>`<tr><td>${esc(r.name)}</td><td>${r.payoffMonth===Infinity?'Never':moToDate(r.payoffMonth)}</td><td style="color:var(--red)">${r.payoffMonth===Infinity?'∞':$f(r.interestPaid)}</td></tr>`;
+  const cards=[
+    {l:'Avalanche Debt-Free',v:avMonths?moToDate(avMonths):'Never',s:`Total interest: ${$f(avTotalInt)}`,c:'var(--green)'},
+    {l:'Snowball Debt-Free',v:swMonths?moToDate(swMonths):'Never',s:`Total interest: ${$f(swTotalInt)}`,c:'var(--green)'},
+    ...(interestSaved>0?[{l:'Avalanche Saves',v:$f(interestSaved),s:'in interest vs snowball',c:'var(--green)'}]:[]),
+  ].map(({l,v,s,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
+    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${l}</div>
+    <div style="font-size:16px;font-weight:700;color:${c}">${v}</div>
+    <div style="font-size:11px;color:var(--text3)">${s}</div>
+  </div>`).join('');
+  return`<div style="margin-bottom:16px">
+    <label class="fl" style="margin-bottom:4px">Extra monthly payment (beyond minimums)</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input class="fi mono" id="debtExtraInp" type="number" step="10" min="0" value="${extra}" style="width:120px"
+        oninput="_debtExtra=Math.max(0,parseFloat(this.value)||0);_refreshDebtPlanner()" />
+      <span style="font-size:12px;color:var(--text3)">/ month</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">⚡ Avalanche (Highest APR First)</div>
+      <table class="report-table" style="font-size:12px">
+        <thead><tr><th style="text-align:left">Debt</th><th>Payoff</th><th>Interest</th></tr></thead>
+        <tbody>${avRes.map(avRow).join('')}</tbody>
+      </table>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">⛄ Snowball (Lowest Balance First)</div>
+      <table class="report-table" style="font-size:12px">
+        <thead><tr><th style="text-align:left">Debt</th><th>Payoff</th><th>Interest</th></tr></thead>
+        <tbody>${swRes.map(avRow).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
 // MONTHLY REPORT
 // ═══════════════════════════════════════════════════════
 function openMonthReport(mid){
@@ -4987,6 +5235,312 @@ function reportMonthHtml(mid){
       <tbody>${tableRows}</tbody>
     </table>
   </div>`;
+}
+
+function reportBvAHtml(mid){
+  mid=mid||S.activeMonth;
+  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
+  const sCats=sortedCats();
+  let rows='',totalTarget=0,totalSpent=0;
+  sCats.forEach(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    if(!bkts.length)return;
+    let catTarget=0,catSpent=0;
+    const bktRows=bkts.map(b=>{
+      const target=bBudget(mid,b.id),spent=bSpent(mid,b.id);
+      const variance=target-spent;
+      const pct=target?Math.round(spent/target*100):null;
+      catTarget+=target;catSpent+=spent;
+      const vc=variance>=0?'var(--green)':'var(--red)';
+      return`<tr><td>${esc(b.name)}</td><td>${target?$f(target):'—'}</td><td>${spent?$f(spent):'—'}</td>
+        <td style="color:${vc}">${variance>=0?'+':''}${$f(variance)}</td>
+        <td style="color:${vc}">${pct!==null?pct+'%':'—'}</td></tr>`;
+    }).join('');
+    totalTarget+=catTarget;totalSpent+=catSpent;
+    rows+=`<tr class="report-cat-row"><td colspan="5" style="color:${cat.color||'var(--text3)'}">${esc(cat.name)}</td></tr>${bktRows}`;
+  });
+  const tv=totalTarget-totalSpent;
+  rows+=`<tr class="report-total-row"><td>Total</td><td>${$f(totalTarget)}</td><td>${$f(totalSpent)}</td>
+    <td style="color:${tv>=0?'var(--green)':'var(--red)'}">${tv>=0?'+':''}${$f(tv)}</td>
+    <td style="color:${tv>=0?'var(--green)':'var(--red)'}">${totalTarget?Math.round(totalSpent/totalTarget*100)+'%':'—'}</td></tr>`;
+  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('bva')">${monthOpts}</select>
+  </div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Bucket</th><th>Target</th><th>Spent</th><th>Variance</th><th>±%</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function reportYTDHtml(){
+  const year=new Date().getFullYear();
+  const janId=`${year}-01`;
+  const curId=S.activeMonth;
+  const ytdMonths=[...S.months].filter(m=>m.id>=janId&&m.id<=curId).sort((a,b)=>a.id<b.id?-1:1);
+  if(!ytdMonths.length)return`<div style="color:var(--text3);padding:16px">No data for ${year}.</div>`;
+  let totalIncome=0,totalSpent=0;
+  const rows=ytdMonths.map(mo=>{
+    const inc=monthIncome(mo.id);
+    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
+    totalIncome+=inc;totalSpent+=spent;
+    const rc=rate!==null?(rate>=0?'var(--green)':'var(--red)'):'var(--text3)';
+    return`<tr><td>${esc(mo.label)}</td>
+      <td style="color:var(--green)">${inc?$f(inc):'—'}</td>
+      <td style="color:var(--red)">${spent?$f(spent):'—'}</td>
+      <td style="color:${net>=0?'var(--green)':'var(--red)'}">${$f(net)}</td>
+      <td style="color:${rc};font-weight:600">${rate!==null?rate+'%':'—'}</td></tr>`;
+  }).join('');
+  const totalNet=totalIncome-totalSpent;
+  const totalRate=totalIncome?Math.round(totalNet/totalIncome*100):null;
+  const cards=[
+    {label:'YTD Income',val:$f(totalIncome),c:'var(--green)'},
+    {label:'YTD Spending',val:$f(totalSpent),c:'var(--red)'},
+    {label:'YTD Net Saved',val:$f(totalNet),c:totalNet>=0?'var(--green)':'var(--red)'},
+    {label:'Avg Savings Rate',val:totalRate!==null?totalRate+'%':'—',c:totalRate!==null&&totalRate>=0?'var(--green)':'var(--red)'},
+  ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
+    <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
+  const tc=totalNet>=0?'var(--green)':'var(--red)';
+  return`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Net</th><th>Rate</th></tr></thead>
+    <tbody>${rows}<tr class="report-total-row">
+      <td>${year} Total</td>
+      <td style="color:var(--green)">${$f(totalIncome)}</td>
+      <td style="color:var(--red)">${$f(totalSpent)}</td>
+      <td style="color:${tc}">${$f(totalNet)}</td>
+      <td style="color:${tc}">${totalRate!==null?totalRate+'%':'—'}</td>
+    </tr></tbody></table></div>`;
+}
+
+function reportCatSpendHtml(mid){
+  mid=mid||S.activeMonth;
+  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
+  let total=0;
+  const data=sortedCats().map(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const spent=bkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+    total+=spent;
+    return{cat,spent,bkts};
+  }).filter(d=>d.spent>0).sort((a,b)=>b.spent-a.spent);
+  if(!data.length)return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('catspend')">${monthOpts}</select>
+  </div><div style="color:var(--text3);padding:16px 0">No spending recorded.</div>`;
+  const maxSpent=data[0].spent;
+  const bars=data.map(({cat,spent,bkts})=>{
+    const pct=total?Math.round(spent/total*100):0;
+    const barW=maxSpent?Math.round(spent/maxSpent*100):0;
+    const bktBreakdown=bkts.filter(b=>bSpent(mid,b.id)>0).map(b=>{
+      const bs=bSpent(mid,b.id);
+      const bw=spent?Math.round(bs/spent*70):0;
+      return`<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:8px">
+        <span style="font-size:11px;color:var(--text3);flex:1">${esc(b.name)}</span>
+        <span style="font-size:11px;color:var(--text2)">${$f(bs)}</span>
+        <span style="font-size:10px;color:var(--text3);min-width:30px;text-align:right">${spent?Math.round(bs/spent*100):'0'}%</span>
+      </div>`;
+    }).join('');
+    return`<div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="flex:1;font-size:13px;font-weight:600;color:${cat.color||'var(--text)'}">${esc(cat.name)}</span>
+        <span style="font-size:13px;font-weight:700">${$f(spent)}</span>
+        <span style="font-size:12px;color:var(--text3);min-width:36px;text-align:right">${pct}%</span>
+      </div>
+      <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;margin-bottom:2px">
+        <div style="height:100%;width:${barW}%;background:${cat.color||'var(--accent)'};border-radius:4px"></div>
+      </div>${bktBreakdown}</div>`;
+  }).join('');
+  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('catspend')">${monthOpts}</select>
+    <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong>${$f(total)}</strong></span>
+  </div>${bars}`;
+}
+
+function reportSavingsRateHtml(){
+  const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  if(!months.length)return`<div style="color:var(--text3);padding:16px">No months available.</div>`;
+  let runInc=0,runSpent=0;
+  const rows=months.map(mo=>{
+    const inc=monthIncome(mo.id);
+    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
+    runInc+=inc;runSpent+=spent;
+    const runRate=runInc?Math.round((runInc-runSpent)/runInc*100):null;
+    const rc=rate!==null?(rate>=20?'var(--green)':rate>=0?'var(--text)':'var(--red)'):'var(--text3)';
+    return`<tr><td>${esc(mo.label)}</td>
+      <td style="color:var(--green)">${inc?$f(inc):'—'}</td>
+      <td style="color:var(--red)">${spent?$f(spent):'—'}</td>
+      <td style="color:${rc};font-weight:600">${rate!==null?rate+'%':'—'}</td>
+      <td style="color:var(--text3)">${runRate!==null?runRate+'%':'—'}</td></tr>`;
+  }).join('');
+  const last3=months.slice(-3);
+  const l3inc=last3.reduce((s,mo)=>s+monthIncome(mo.id),0);
+  const l3spent=last3.reduce((s,mo)=>s+S.buckets.filter(b=>!b.archived).reduce((ss,b)=>ss+bSpent(mo.id,b.id),0),0);
+  const l3net=l3inc-l3spent,l3rate=l3inc?Math.round(l3net/l3inc*100):null;
+  const cards=[
+    {label:'3-Month Avg Rate',val:l3rate!==null?l3rate+'%':'—',c:l3rate!==null&&l3rate>=0?'var(--green)':'var(--red)'},
+    {label:'3-Month Avg Saved',val:last3.length?$f(l3net/last3.length)+'/mo':'—',c:l3net>=0?'var(--green)':'var(--red)'},
+  ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
+    <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
+  return`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Rate</th><th>Rolling Rate</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function reportPayeeBreakdownHtml(){
+  const periodOpts=[{v:'month',l:'This Month'},{v:'3m',l:'Last 3 Months'},{v:'6m',l:'Last 6 Months'},{v:'all',l:'All Time'}];
+  const now=new Date();
+  let txs=S.txs.filter(t=>t.type==='out'&&!isScheduled(t));
+  if(_payeePeriod==='month')txs=txs.filter(t=>t.monthId===S.activeMonth);
+  else if(_payeePeriod==='3m'){
+    const cutoff=new Date(now.getFullYear(),now.getMonth()-3,1).toISOString().slice(0,7).replace('-','-');
+    txs=txs.filter(t=>t.monthId>=cutoff);
+  }
+  else if(_payeePeriod==='6m'){
+    const d=new Date(now.getFullYear(),now.getMonth()-6,1);
+    const cutoff=mId(d.getFullYear(),d.getMonth());
+    txs=txs.filter(t=>t.monthId>=cutoff);
+  }
+  const groups={};
+  txs.forEach(t=>{const k=t.desc.trim()||'(no description)';groups[k]=(groups[k]||0)+t.amount;});
+  const sorted=Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,30);
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+  const periodSel=periodOpts.map(o=>`<option value="${o.v}"${o.v===_payeePeriod?' selected':''}>${o.l}</option>`).join('');
+  const rows=sorted.map(([name,amt],i)=>{
+    const pct=total?Math.round(amt/total*100):0;
+    const barW=sorted[0][1]?Math.round(amt/sorted[0][1]*100):0;
+    return`<tr>
+      <td style="color:var(--text3);font-size:11px">${i+1}</td>
+      <td>${esc(name)}</td>
+      <td style="min-width:100px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:6px;border-radius:3px;background:var(--surface2)">
+            <div style="height:100%;width:${barW}%;background:var(--red);border-radius:3px"></div>
+          </div>
+          <span style="font-size:11px;color:var(--text3);min-width:28px">${pct}%</span>
+        </div>
+      </td>
+      <td style="color:var(--red);font-weight:600">${$f(amt)}</td>
+    </tr>`;
+  }).join('');
+  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Period:</label>
+    <select class="fi" style="width:auto" onchange="_payeePeriod=this.value;setReportsTab('payees')">${periodSel}</select>
+    <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong>${$f(total)}</strong></span>
+  </div>
+  ${sorted.length?`<div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th>#</th><th style="text-align:left">Description</th><th style="width:120px">Share</th><th>Amount</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`:'<div style="color:var(--text3);padding:16px 0">No spending in this period.</div>'}`;
+}
+
+function reportCashFlowHtml(){
+  const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1).slice(-12);
+  if(!months.length)return`<div style="color:var(--text3);padding:16px">No data available.</div>`;
+  const maxInc=Math.max(...months.map(mo=>monthIncome(mo.id)));
+  const maxSpent=Math.max(...months.map(mo=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0)));
+  const maxVal=Math.max(maxInc,maxSpent,1);
+  const rows=months.map(mo=>{
+    const inc=monthIncome(mo.id);
+    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
+    const iW=Math.round(inc/maxVal*100),sW=Math.round(spent/maxVal*100);
+    const nc=net>=0?'var(--green)':'var(--red)';
+    return`<tr>
+      <td style="white-space:nowrap;font-size:12px">${esc(mo.label)}</td>
+      <td style="min-width:80px">
+        <div style="display:flex;gap:2px;flex-direction:column">
+          <div style="display:flex;gap:4px;align-items:center;font-size:10px">
+            <div style="height:5px;border-radius:2px;background:var(--green);width:${iW}%;min-width:${inc?2:0}px"></div>
+            <span style="color:var(--green)">${inc?$f(inc):''}</span>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;font-size:10px">
+            <div style="height:5px;border-radius:2px;background:var(--red);width:${sW}%;min-width:${spent?2:0}px"></div>
+            <span style="color:var(--red)">${spent?$f(spent):''}</span>
+          </div>
+        </div>
+      </td>
+      <td style="color:${nc};font-weight:600">${$f(net)}</td>
+      <td style="color:${rate!==null?(rate>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${rate!==null?rate+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+  return`<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Last 12 months — income vs spending</div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Month</th><th style="text-align:left">Flow</th><th>Net</th><th>Rate</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function reportIncomeSourcesHtml(mid){
+  mid=mid||S.activeMonth;
+  const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
+  const inTxs=S.txs.filter(t=>t.type==='in'&&t.monthId===mid&&!isScheduled(t));
+  const byAcct={};
+  inTxs.forEach(t=>{byAcct[t.accountId]=(byAcct[t.accountId]||0)+t.amount;});
+  const total=Object.values(byAcct).reduce((s,v)=>s+v,0);
+  if(!total)return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('incomesrc')">${monthOpts}</select>
+  </div><div style="color:var(--text3);padding:16px 0">No income recorded.</div>`;
+  const sorted=Object.entries(byAcct).sort((a,b)=>b[1]-a[1]);
+  const bars=sorted.map(([aid,amt])=>{
+    const acct=getAcct(aid);const pct=total?Math.round(amt/total*100):0;
+    const barW=sorted[0][1]?Math.round(amt/sorted[0][1]*100):0;
+    return`<div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${acct?.color||'var(--accent)'}"></div>
+        <span style="flex:1;font-size:13px;font-weight:600">${esc(acct?.name||aid)}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--green)">${$f(amt)}</span>
+        <span style="font-size:12px;color:var(--text3);min-width:36px;text-align:right">${pct}%</span>
+      </div>
+      <div style="height:7px;border-radius:4px;background:var(--surface2)">
+        <div style="height:100%;width:${barW}%;background:${acct?.color||'var(--accent)'};border-radius:4px"></div>
+      </div>
+    </div>`;
+  }).join('');
+  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('incomesrc')">${monthOpts}</select>
+    <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong style="color:var(--green)">${$f(total)}</strong></span>
+  </div>${bars}`;
+}
+
+function reportCatHistoryHtml(){
+  const allMonths=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const months=allMonths.slice(-_catHistMonths);
+  if(!months.length)return`<div style="color:var(--text3);padding:16px">No months available.</div>`;
+  const nOpts=[3,6,12,24].map(n=>`<option value="${n}"${n===_catHistMonths?' selected':''}>${n} months</option>`).join('');
+  const sCats=sortedCats();
+  const catRows=sCats.map(cat=>{
+    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const totals=months.map(mo=>bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
+    if(totals.every(v=>v===0))return'';
+    const max=Math.max(...totals,1);
+    const cells=totals.map((v,i)=>{
+      const h=v?Math.round(v/max*32):0;
+      const prev=i>0?totals[i-1]:null;
+      const trend=prev===null?'':(v>prev?'↑':v<prev?'↓':'');
+      const tc=trend==='↑'?'var(--red)':trend==='↓'?'var(--green)':'var(--text3)';
+      return`<td style="text-align:right;white-space:nowrap">
+        ${v?`<span style="font-size:11px">${$f(v)}</span>`:'<span style="color:var(--text3);font-size:11px">—</span>'}
+        ${trend?`<span style="font-size:9px;color:${tc}">${trend}</span>`:''}
+      </td>`;
+    }).join('');
+    return`<tr><td style="color:${cat.color||'var(--text)'};font-weight:600;white-space:nowrap">${esc(cat.name)}</td>${cells}</tr>`;
+  }).filter(Boolean).join('');
+  const hdrs=months.map(mo=>`<th style="text-align:right;font-size:10px;white-space:nowrap">${esc(mo.label)}</th>`).join('');
+  return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <label style="font-size:12px;color:var(--text3)">Show:</label>
+    <select class="fi" style="width:auto" onchange="_catHistMonths=parseInt(this.value);setReportsTab('cathistory')">${nOpts}</select>
+  </div>
+  <div style="overflow-x:auto"><table class="report-table">
+    <thead><tr><th style="text-align:left">Category</th>${hdrs}</tr></thead>
+    <tbody>${catRows||'<tr><td colspan="99" style="color:var(--text3)">No spending data.</td></tr>'}</tbody>
+  </table></div>`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5648,6 +6202,8 @@ function renderModal(){
       <button class="modal-tab active">Bucket</button>
     </div>`;
     const isSink=M.bktType==='sinking';
+    const isGoal=M.bktType==='goal';
+    const hasSinkFields=isSink||isGoal;
     let catOpts=S.cats.length?'<option value="">Select category...</option>':'<option value="">Create a category first</option>';
     sortedCats().forEach(c=>catOpts+=`<option value="${c.id}"${c.id===M.bktCat?' selected':''}>${esc(c.name)}</option>`);
     let contribPreview='';
@@ -5655,7 +6211,7 @@ function renderModal(){
     body=`
       <div class="fg"><label class="fl">Bucket Name</label><input class="fi" id="mBktName" value="${esc(M.bktName)}" placeholder="e.g. Rent, Groceries..." /></div>
       <div class="fg"><label class="fl">Category</label><select class="fi" id="mBktCat" onchange="M.bktCat=this.value">${catOpts}</select></div>
-      <div class="fg"><label class="fl">Type</label><select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()"><option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option><option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — savings goal</option></select></div>
+      <div class="fg"><label class="fl">Type</label><select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()"><option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option><option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — savings goal</option><option value="goal"${M.bktType==='goal'?' selected':''}>Goal — long-term target</option></select></div>
       <div class="fi-row">
         <div class="fg"><label class="fl">${isSink?'Monthly Target':'Budget Target'}</label><input class="fi" id="mBktBudget" type="number" value="${M.bktBudget}" placeholder="0.00" /></div>
         <div class="fg"><label class="fl">Due Day <button type="button" style="font-size:10px;background:none;border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer;color:${M.bktSplit?'var(--accent)':'var(--text3)'};margin-left:4px" onclick="M.bktSplit=!M.bktSplit;MsnapBkt();renderModal()">${M.bktSplit?'Split ✓':'Split'}</button></label><select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select></div>
@@ -5676,8 +6232,8 @@ function renderModal(){
         <div class="fg"><label class="fl">Recurring</label><div class="tog-row"><button class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button></div></div>
         <div class="fg"><label class="fl">Roll Over</label><div class="tog-row"><button class="togbtn${M.bktRollover?' on':''}" onclick="M.bktRollover=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRollover?' on':''}" onclick="M.bktRollover=false;MsnapBkt();renderModal()">No</button></div></div>
       </div>
-      ${isSink?`<div class="fi-row"><div class="fg"><label class="fl">Goal Amount</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>
-      <div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}
+      ${hasSinkFields?`<div class="fi-row"><div class="fg"><label class="fl">${isGoal?'Goal Target':'Goal Amount'}</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>`:''}
+      ${isSink?`<div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}
       <div class="fg"><label class="fl">Notes <span style="font-weight:400;color:var(--text3)">(optional)</span></label><textarea class="fi" id="mBktNotes" rows="2" placeholder="Remind yourself of anything useful..." style="resize:vertical;min-height:56px;font-family:var(--sans)">${esc(M.bktNotes)}</textarea></div>`;
   } else {
     // Category + bulk bucket builder (isCat or isBuilder)
@@ -5820,8 +6376,8 @@ function saveModal(){
     const dueAmount=M.bktSplit?parseFloat(M.bktDueAmount)||null:null;
     const dueAmount2=M.bktSplit?parseFloat(M.bktDueAmount2)||null:null;
     const notes=M.bktNotes.trim()||null;
-    const goal=type==='sinking'?parseFloat(M.bktGoal)||null:null;
-    const tDate=type==='sinking'?M.bktDate||null:null;
+    const goal=(type==='sinking'||type==='goal')?parseFloat(M.bktGoal)||null:null;
+    const tDate=(type==='sinking'||type==='goal')?M.bktDate||null:null;
     const contrib=type==='sinking'?M.bktContrib:'monthly';
     if(M.bktEditId){
       const b=getBucket(M.bktEditId);
@@ -5871,8 +6427,8 @@ function saveModal(){
       const type=row.type;
       const budget=parseFloat(row.budget)||0;
       const dueDay=row.dueDay||null;
-      const goal=type==='sinking'?parseFloat(row.goal)||null:null;
-      const tDate=type==='sinking'?row.goalDate||null:null;
+      const goal=(type==='sinking'||type==='goal')?parseFloat(row.goal)||null:null;
+      const tDate=(type==='sinking'||type==='goal')?row.goalDate||null:null;
       const contrib=type==='sinking'?row.contrib:'monthly';
 
       // If row has a real bucket id (editing existing), update it
