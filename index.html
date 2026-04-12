@@ -869,6 +869,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   /* ── Accounts tab: mobile layout ── */
   .acct-pane-wrap{padding:12px 14px 24px;}
   .acct-tab-grid{grid-template-columns:1fr;}
+  .acct-group-hdr{display:flex;align-items:center;}
   .acct-tab-card-bal{font-size:18px;}
 
   /* ── Ledger: touch-friendly filter bar ── */
@@ -884,6 +885,26 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .bkt-chevron{display:block;}
   .bkt-row{padding:11px 14px;}
   .bkt-cat-hdr{padding:8px 14px 6px;}
+
+  /* Topbar: hide logo to free space for month nav + auth button */
+  .tb-logo{display:none;}
+  .tb-right{padding:0 8px;gap:6px;}
+  #authBtn{font-size:11px;padding:5px 8px;white-space:nowrap;}
+  .tb-new-btn{font-size:11px !important;padding:5px 10px !important;}
+
+  /* Reports tab bar: horizontal scroll so all tabs fit */
+  .rtab-bar{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:10px;margin-bottom:8px;}
+  .rtab-bar::-webkit-scrollbar{display:none;}
+  .rtab{white-space:nowrap;flex-shrink:0;}
+  .rtab-content{min-height:60px;}
+
+  /* Settings: add horizontal padding on mobile */
+  .settings-section{padding:0 16px 16px;}
+  .settings-section-title{padding:14px 0 8px;margin:0;}
+
+  /* Ledger payee filter row: stack vertically on very narrow screens */
+  .ledger-list-col{display:flex;flex-direction:column;min-height:0;}
+  #ledgerPayeeSel{font-size:13px;padding:8px 6px;}
 }
 
 /* Tablet: 768–1199px — icon-only sidebar */
@@ -1255,9 +1276,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <div class="nav-pip"></div>
     </button>
     <!-- Desktop-only nav items -->
-    <button class="nav-btn nav-desktop" data-tab="accounts" onclick="setTab('accounts')">
+    <button class="nav-btn" data-tab="accounts" onclick="setTab('accounts')">
+      <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
       <span class="nav-icon-txt">⬡</span>
       <span class="nav-label">Accounts</span>
+      <div class="nav-pip"></div>
     </button>
     <button class="nav-btn nav-desktop" data-tab="reports" onclick="setTab('reports')">
       <span class="nav-icon-txt">📊</span>
