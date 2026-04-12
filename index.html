@@ -192,7 +192,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ledger-search::placeholder{color:var(--text3);}
 
 /* Accounts tab */
-.acct-pane-wrap{padding:0 28px 24px;}
+.acct-pane-wrap{padding:0;}
 .acct-group-hdr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin:16px 0 8px;}
 .acct-group-hdr:first-child{margin-top:0;}
 .acct-tab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:8px;}
@@ -631,6 +631,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .nav-svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:none;}
 .nav-label{flex:1;}
 .nav-pip{display:none;}
+.nav-mobile{display:none!important;}
 .pane-hdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
 .pane-hdr-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;}
 .pane-hdr-action{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;}
@@ -654,6 +655,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .app-main{grid-row:1;position:relative;overflow:hidden;}
   /* Nav buttons: bottom bar style */
   .nav-desktop{display:none !important;}
+  .nav-mobile{display:flex !important;}
   .nav-btn{flex:1;flex-direction:column;justify-content:center;align-items:center;padding:10px 8px 8px;border-left:none;border-top:2px solid transparent;gap:3px;min-height:44px;}
   .nav-btn.active{border-left-color:transparent;border-top-color:var(--accent);background:none;}
   .nav-icon-txt{display:none;}
@@ -1234,7 +1236,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-label">Buckets</span>
       <div class="nav-pip"></div>
     </button>
-    <button class="nav-btn" data-tab="log" onclick="setTab('log')">
+    <button class="nav-btn nav-mobile" data-tab="log" onclick="setTab('log')">
       <svg class="nav-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       <span class="nav-icon-txt">✚</span>
       <span class="nav-label">Log</span>
@@ -2170,8 +2172,6 @@ function render(){
   renderNav();
   renderActivePane();
   if(S.wiOpen)renderWI();
-  wireFormKeys();
-  setTimeout(wireDesktopPayee, 0);
 }
 
 function renderRpSummary(){
@@ -2257,6 +2257,8 @@ function renderNav(){
 }
 
 function setTab(tab){
+  // Log is mobile-only; redirect desktop to ledger
+  if(tab==='log'&&!isMobile())tab='ledger';
   // Animate out current pane
   const curPane=document.getElementById('pane'+capitalize(activeTab));
   curPane?.classList.add('slide-left');
@@ -2296,11 +2298,8 @@ function renderActivePane(){
   }
 }
 
-// Keep renderMain as a shim — many save/render call sites still use it
 function renderMain(){renderActivePane();}
-// Keep setDesktopTab as a shim
 function setDesktopTab(tab){setTab(tab);}
-// Keep renderSidebar as a shim
 function renderSidebar(){renderNav();}
 
 // ── Detail panel ─────────────────────────��─────────────────────��──────────────
@@ -2329,11 +2328,11 @@ function openDetail(type,id){
   history.pushState({},'','');
 }
 
-function closeDetail(silent){
+function closeDetail(noRefresh){
   const panel=document.getElementById('detailPanel');
   if(!panel||!panel.classList.contains('active'))return;
   panel.classList.remove('active');
-  if(!silent){
+  if(!noRefresh){
     S.activeBucket=null;S.activeAccount=null;
     save();
     renderActivePane();
@@ -2693,6 +2692,16 @@ function renderAccountsTab(el,mid){
   el.innerHTML=h;
 }
 
+function bucketPillHtml(alloc,spent,eff,target,pend,past,avail){
+  if(past&&spent===0&&alloc>0)return`<span class="pill pill-missed">Missed</span>`;
+  if(alloc===0&&pend>0)return`<span class="pill pill-pending" title="${$f(pend)} scheduled">⏱ ${$f(pend)}</span>`;
+  if(alloc===0)return`<span class="pill pill-empty">Unfunded</span>`;
+  if(avail<0)return`<span class="pill pill-over">Over</span>`;
+  if(spent>=eff&&eff>0)return`<span class="pill pill-done">Done</span>`;
+  if(alloc>=target&&target>0)return`<span class="pill pill-funded">Funded</span>`;
+  return`<span class="pill pill-partial">Partial</span>`;
+}
+
 function renderBucketsTab(el,mid){
   if(!S.cats.length&&!S.accounts.length){
     el.innerHTML=`<div class="empty-wrap">
@@ -2798,14 +2807,7 @@ function renderBucketsTab(el,mid){
       if(roll>0)tags.push(`+${$f(roll)} rolled`);
 
       const pend=bucketPendingAmt(b.id,mid);
-      let pillHtml='';
-      if(past&&spent===0&&alloc>0)pillHtml=`<span class="pill pill-missed">Missed</span>`;
-      else if(alloc===0&&pend>0)pillHtml=`<span class="pill pill-pending" title="${$f(pend)} scheduled">⏱ ${$f(pend)}</span>`;
-      else if(alloc===0)pillHtml=`<span class="pill pill-empty">Unfunded</span>`;
-      else if(avail<0)pillHtml=`<span class="pill pill-over">Over</span>`;
-      else if(spent>=eff&&eff>0)pillHtml=`<span class="pill pill-done">Done</span>`;
-      else if(alloc>=target&&target>0)pillHtml=`<span class="pill pill-funded">Funded</span>`;
-      else pillHtml=`<span class="pill pill-partial">Partial</span>`;
+      const pillHtml=bucketPillHtml(alloc,spent,eff,target,pend,past,avail);
 
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
       const availCls=avail>0?'green':avail<0?'red':'muted';
@@ -6322,6 +6324,8 @@ let _resizeTimer=null;
 function init(){
   if(!_appInitialized)return;
   document.getElementById('authScreen')?.classList.add('hidden');
+  // Log tab is mobile-only; correct saved state on desktop
+  if(activeTab==='log'&&!isMobile())activeTab='ledger';
   render();
   populateTxCats();
   updateTxFormForType();
@@ -6330,10 +6334,6 @@ function init(){
   wireFormKeys();
   mInit();
 }
-
-// Shims for any remaining call sites
-function initDesktop(){init();}
-function initMobile(){init();}
 
 // Defer init until DOM is fully ready
 document.addEventListener('DOMContentLoaded',()=>{
@@ -6680,8 +6680,7 @@ function mEditTxSheet(id){
 function mSheetCatChange(catId){
   const bsel=document.getElementById('sBkt');
   if(!bsel)return;
-  bsel.innerHTML='<option value="">Bucket...</option>';
-  sortedBuckets(catId).forEach(b=>bsel.innerHTML+=`<option value="${b.id}">${esc(b.name)}</option>`);
+  bsel.innerHTML=mBktOptions(catId,'');
 }
 
 function mSaveTxSheet(id,type){
