@@ -2113,6 +2113,25 @@ function paycheckEventsInRange(anchorStr,freq,amount,startStr,endStr){
   }
   return events;
 }
+// Compute the next pay date on or after today given an anchor date and frequency
+function nextPayDateFrom(anchorDate,freq){
+  if(!anchorDate)return'';
+  const todayDate=new Date(todayStr()+'T12:00:00');
+  const freqNum=parseInt(freq)||14;
+  if(freqNum===15){
+    // Semi-monthly: alternate 1st and 15th, starting from anchor pattern
+    let d=new Date(anchorDate+'T12:00:00');
+    while(d<todayDate){
+      if(d.getDate()<15)d=new Date(d.getFullYear(),d.getMonth(),15);
+      else d=new Date(d.getFullYear(),d.getMonth()+1,1);
+    }
+    return d.toISOString().split('T')[0];
+  } else {
+    let d=new Date(anchorDate+'T12:00:00');
+    while(d<todayDate)d.setDate(d.getDate()+freqNum);
+    return d.toISOString().split('T')[0];
+  }
+}
 // Sum all saved paycheck income that falls in the given month
 function calcMonthlyPaychecks(mid){
   const pcs=S.paychecks||[];if(!pcs.length)return null;
@@ -2969,7 +2988,7 @@ function renderReportsTab(el){
   else if(reportsTab==='incomesrc')content=reportIncomeSourcesHtml(mid);
   else if(reportsTab==='cathistory')content=reportCatHistoryHtml();
   else if(reportsTab==='networth')content=reportNetWorthHtml();
-  else if(reportsTab==='projector')content=wiProjectorHtml(null,'inline');
+  else if(reportsTab==='projector')content=wiProjectorHtml(_projectorLastResult,'inline');
   el.innerHTML=`<div class="month-hdr"><div class="month-title">Reports</div></div>
     <div class="rtab-bar">${tabNav}</div>
     <div class="rtab-content">${content}</div>`;
@@ -3597,6 +3616,8 @@ let _ledgerPayee='';
 let _payeePeriod='month';
 let _catHistMonths=6;
 let _debtExtra=200;
+let _projectorLastResult=null;
+let _projectorFormState=null;
 
 function setTxType(t){
   txType=t;
@@ -3910,7 +3931,9 @@ function toggleWI(){
 function renderWI(){
   const inner=document.getElementById('wiModalInner');
   if(!inner)return;
+  const st=inner.scrollTop;
   inner.innerHTML=_wiPanelHTML();
+  inner.scrollTop=st;
 }
 
 function _wiPanelHTML(){
@@ -3948,7 +3971,7 @@ function _wiPanelHTML(){
     <span style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;flex:1">Proj. Income (${getMonth(mid)?.label||''})</span>
     <input class="wi-s-inp" type="text" inputmode="decimal" value="${piSc||''}" placeholder="0"
       title="Math: +50, -20, *1.05, 5% of income, =100+50"
-      onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${mid}']??${piReal};var val=evalMoneyExpr(inp.value,cur,cur);inp.value=val;S.wiScenario.incomeOverrides['${mid}']=val;renderWI();renderMain();})(this)"
+      onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${mid}']??${piReal};var val=evalMoneyExpr(inp.value,cur,cur);inp.value=val;S.wiScenario.incomeOverrides['${mid}']=val;renderWI();})(this)"
       onkeydown="if(event.key==='Enter')this.blur()" />
   </div>
   <div style="display:flex;gap:12px;font-size:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
@@ -3976,7 +3999,7 @@ function _wiPanelHTML(){
         ${diffHtml}
         <input class="wi-s-inp" type="text" inputmode="decimal" value="${val||''}" placeholder="0" style="width:80px"
           title="Math: +50, -20, *1.05, 5% of income, =100+50"
-          onchange="(function(inp){var cur=S.wiScenario.budgets['${b.id}']??${real};var ref=S.wiScenario.incomeOverrides['${mid}']??${piReal};var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;S.wiScenario.budgets['${b.id}']=v;renderWI();renderMain();})(this)"
+          onchange="(function(inp){var cur=S.wiScenario.budgets['${b.id}']??${real};var ref=S.wiScenario.incomeOverrides['${mid}']??${piReal};var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;S.wiScenario.budgets['${b.id}']=v;renderWI();})(this)"
           onkeydown="if(event.key==='Enter')this.blur()" />
       </div>
       <div style="display:flex;gap:6px;align-items:center;padding:2px 0 6px 4px;border-bottom:1px solid var(--border2)">
@@ -4200,7 +4223,7 @@ function loadScenario(id){
   if(!sc)return;
   S.wiScenario=JSON.parse(JSON.stringify(sc));
   S.scenario=true;
-  if(isMobile())openModal('__wi__');else renderWI();renderMain();
+  if(isMobile())openModal('__wi__');else{renderWI();renderMain();}
 }
 
 function deleteScenario(id){
@@ -4228,7 +4251,7 @@ function setWIBktSchedule(bucketId,field,val){
   if(!S.wiScenario.bucketSchedule)S.wiScenario.bucketSchedule={};
   if(!S.wiScenario.bucketSchedule[bucketId])S.wiScenario.bucketSchedule[bucketId]={};
   S.wiScenario.bucketSchedule[bucketId][field]=val||null;
-  if(isMobile())openModal('__wi__');else{renderWI();renderMain();}
+  if(isMobile())openModal('__wi__');else renderWI();
 }
 // Save paycheck sources from Settings form (Paycheck 1.2)
 function savePaycheckSettings(){
@@ -4241,6 +4264,8 @@ function savePaycheckSettings(){
     if(amount>0&&anchorDate)pcs.push({id:uid(),label:label||(n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'),amount,freq,anchorDate});
   }
   S.paychecks=pcs;
+  _projectorFormState=null; // reset so projector re-reads from new paycheck data
+  _projectorLastResult=null;
   save();
   const btn=document.querySelector('[onclick="savePaycheckSettings()"]');
   if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';btn.disabled=true;setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1500);}
@@ -4269,26 +4294,36 @@ function wiProjectorHtml(result,standalone){
   const bodyWrap=standalone==='inline'?`<div style="padding:4px 0">`
     :standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
   const footHtml=standalone&&standalone!=='inline'?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
-  const cashBal=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
+  // Use stored form state if available (preserves user edits after re-render)
+  const fs=_projectorFormState||{};
+  const sysCashBal=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
+  const cashBal=fs.startBal!==undefined?fs.startBal:sysCashBal;
+  const pmv=fs.projMonths||'2';
+  const psv=fs.scenarioId||'';
 
-  // Paycheck row builder — pre-fills from saved S.paychecks if available
+  // Paycheck row builder — pre-fills from stored form state, then S.paychecks, then smart next date
   const pcRow=(n,req)=>{
     const pc=(S.paychecks||[])[n-1]||{};
+    const labelVal=fs['pc'+n+'Label']!==undefined?fs['pc'+n+'Label']:(pc.label||'');
+    const amtVal=fs['pc'+n+'Amt']!==undefined?fs['pc'+n+'Amt']:(pc.amount||'');
+    // Smart date: use stored form value, or compute next upcoming pay date from anchor+freq
+    const dateVal=fs['pc'+n+'Date']!==undefined?fs['pc'+n+'Date']:nextPayDateFrom(pc.anchorDate,pc.freq||14);
+    const freqNum=fs['pc'+n+'Freq']!==undefined?parseInt(fs['pc'+n+'Freq']):(pc.freq||14);
     return `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:8px">
         💰 Paycheck ${n}${req?'':' <span style="font-weight:400">(optional)</span>'}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
-        <div><label class="fl">Label</label><input class="fi" id="pc${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
-        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pc${n}Amt" type="number" step="0.01" value="${pc.amount||''}" placeholder="0.00" /></div>
-        <div><label class="fl">Anchor / Pay Date</label><input class="fi" id="pc${n}Date" type="date" value="${pc.anchorDate||''}" ${!pc.anchorDate&&req?`placeholder=""`:`placeholder="leave blank to skip"`} /></div>
+        <div><label class="fl">Label</label><input class="fi" id="pc${n}Label" value="${esc(labelVal)}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
+        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pc${n}Amt" type="number" step="0.01" value="${amtVal}" placeholder="0.00" /></div>
+        <div><label class="fl">Next Pay Date</label><input class="fi" id="pc${n}Date" type="date" value="${dateVal}" ${!dateVal&&req?`placeholder=""`:`placeholder="leave blank to skip"`} /></div>
         <div><label class="fl">Frequency</label>
           <select class="fi" id="pc${n}Freq">
-            <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
-            <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
-            <option value="15"${pc.freq===15?' selected':''}>Semi-monthly</option>
-            <option value="30"${pc.freq===30?' selected':''}>Monthly</option>
+            <option value="7"${freqNum===7?' selected':''}>Weekly</option>
+            <option value="14"${freqNum===14?' selected':''}>Bi-weekly</option>
+            <option value="15"${freqNum===15?' selected':''}>Semi-monthly</option>
+            <option value="30"${freqNum===30?' selected':''}>Monthly</option>
           </select></div>
       </div>
     </div>`;
@@ -4296,25 +4331,25 @@ function wiProjectorHtml(result,standalone){
 
   // Build scenario options
   const savedScenarios=S.scenarios||[];
-  const scOpts=`<option value="">Actual Budget (default)</option>`
-    +savedScenarios.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  const scOpts=`<option value=""${psv===''?' selected':''}>Actual Budget (default)</option>`
+    +savedScenarios.map(s=>`<option value="${s.id}"${psv===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
 
   return `${headTitle}${bodyWrap}
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
       Projects week-by-week cash flow using your budget bucket due dates, recurring bills, and scheduled transactions. Add up to 3 income sources.
     </div>
-    ${(S.paychecks||[]).length?`<div style="font-size:11px;color:var(--accent);background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;margin-bottom:10px">💰 Pre-filled from your saved Income Sources — edit below to override for this run.</div>`:''}
+    ${(S.paychecks||[]).length?`<div style="font-size:11px;color:var(--accent);background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;margin-bottom:10px">💰 Pre-filled from your saved Income Sources — dates auto-set to next upcoming pay date.</div>`:''}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
       <div><label class="fl">Starting Cash Balance</label><input class="fi mono" id="projBal" type="number" step="0.01" value="${cashBal.toFixed(2)}" /></div>
       <div><label class="fl">Project Forward</label>
         <select class="fi" id="projMonths">
-          <option value="1">1 month</option>
-          <option value="2" selected>2 months</option>
-          <option value="3">3 months</option>
-          <option value="6">6 months</option>
-          <option value="12">12 months</option>
-          <option value="eoy">To year-end</option>
+          <option value="1"${pmv==='1'?' selected':''}>1 month</option>
+          <option value="2"${pmv==='2'?' selected':''}>2 months</option>
+          <option value="3"${pmv==='3'?' selected':''}>3 months</option>
+          <option value="6"${pmv==='6'?' selected':''}>6 months</option>
+          <option value="12"${pmv==='12'?' selected':''}>12 months</option>
+          <option value="eoy"${pmv==='eoy'?' selected':''}>To year-end</option>
         </select></div>
       <div><label class="fl">Budget to Simulate</label>
         <select class="fi" id="projScenario">${scOpts}</select>
@@ -4349,6 +4384,15 @@ function wiRunProjector(){
     if(dateVal&&amtVal>0)sources.push({date:dateVal,amt:amtVal,freq,label});
   }
   if(!sources.length){alert('Enter at least one paycheck (date + amount).');return;}
+
+  // Capture form state so it can be restored after re-render
+  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId};
+  for(let n=1;n<=3;n++){
+    _projectorFormState['pc'+n+'Label']=document.getElementById('pc'+n+'Label')?.value||'';
+    _projectorFormState['pc'+n+'Amt']=document.getElementById('pc'+n+'Amt')?.value||'';
+    _projectorFormState['pc'+n+'Date']=document.getElementById('pc'+n+'Date')?.value||'';
+    _projectorFormState['pc'+n+'Freq']=document.getElementById('pc'+n+'Freq')?.value||'14';
+  }
 
   // Projection window: start from earliest paycheck date
   const startStr=sources.map(s=>s.date).sort()[0];
@@ -4646,6 +4690,9 @@ function wiRunProjector(){
     </div>`;
   }
 
+  // Store result for re-render (inline/reports case)
+  _projectorLastResult=html;
+
   // Inject into the right container
   const inner=document.getElementById('wiModalInner');
   const modal=document.getElementById('modalBox');
@@ -4654,6 +4701,10 @@ function wiRunProjector(){
     modal.innerHTML=wiProjectorHtml(html,true);
   } else if(inner){
     inner.innerHTML=wiProjectorHtml(html,false);
+  } else {
+    // Inline in Reports tab — re-render the reports pane with the stored result
+    const rPane=document.getElementById('paneReports');
+    if(rPane&&reportsTab==='projector')renderReportsTab(rPane);
   }
 }
 
@@ -6119,6 +6170,7 @@ function MsnapAcct(){
 }
 function MsnapBkt(){
   const n=document.getElementById('mBktName');if(n)M.bktName=n.value;
+  const cat=document.getElementById('mBktCat');if(cat&&cat.value)M.bktCat=cat.value;
   const t=document.getElementById('mBktType');if(t)M.bktType=t.value;
   const b=document.getElementById('mBktBudget');if(b)M.bktBudget=b.value;
   const d=document.getElementById('mBktDue');if(d)M.bktDueDay=d.value;
@@ -6425,6 +6477,7 @@ function saveModal(){
   } else {
     // Category + bulk buckets (isCat or isBuilder)
     const isCat=M.tab==='cat';
+    let justCreated=false; // track if we just created the category in this call
 
     // If on cat tab and category hasn't been saved/named yet, save it first
     let catId=M.catEditId||M.builderCatId;
@@ -6441,13 +6494,22 @@ function saveModal(){
         catId=newCat.id;
         M.catEditId=catId;
         M.builderCatId=catId;
+        justCreated=true;
       }
     }
 
-    // If no buckets with names, and it's just category save, close
+    // If no buckets with names yet — either show bucket builder (new cat) or close (existing cat)
     const namedBuckets=(M.buckets||[]).filter(r=>r.name.trim());
     if(!namedBuckets.length){
-      save();closeMForm();render();populateTxCats();return;
+      save();
+      if(justCreated){
+        // Category just saved — stay in modal and show bucket builder
+        render();populateTxCats();renderModal();
+        showToast('Category created — now add buckets below','save');
+      } else {
+        closeMForm();render();populateTxCats();
+      }
+      return;
     }
 
     if(!catId){save();closeMForm();render();populateTxCats();return;}
