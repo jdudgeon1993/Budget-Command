@@ -1670,6 +1670,7 @@ let S={
 function save(){
   if(!_appInitialized)return; // Never save before app is ready (prevents writing during/after signout)
   localStorage.setItem(KEY, JSON.stringify(S));
+  localStorage.setItem(KEY+'_local_ts', new Date().toISOString());
   if(supaReady()&&_supaUser){
     _pendingSync=true;
     setSyncStatus('syncing','Syncing…');
@@ -1756,10 +1757,21 @@ async function loadFromSupabase(){
     (remote.accounts?.length||remote.cats?.length||remote.months?.length);
 
   if(remoteHasData){
-    // Supabase has data — use it, it is the source of truth
-    S=remote;
-    localStorage.setItem(KEY,JSON.stringify(S));
-    console.log('Loaded from Supabase');
+    // Compare timestamps to avoid overwriting newer local data with older Supabase data (P1-C)
+    const remoteTs=new Date(data.updated_at||0).getTime();
+    const localTs=new Date(localStorage.getItem(KEY+'_local_ts')||0).getTime();
+    if(localTs>remoteTs+5000){
+      // Local is meaningfully newer — upload it instead of pulling from Supabase
+      const raw=localStorage.getItem(KEY);
+      if(raw){try{S=JSON.parse(raw);}catch(e){}}
+      console.log('Local data is newer than Supabase — uploading local copy');
+      await supabase_push();
+    } else {
+      // Supabase data is current — use it as source of truth
+      S=remote;
+      localStorage.setItem(KEY,JSON.stringify(S));
+      console.log('Loaded from Supabase');
+    }
   } else {
     // Supabase row is empty or missing — check localStorage for existing data to upload
     const raw=localStorage.getItem(KEY);
@@ -2358,6 +2370,10 @@ function setReportsTab(t){
 
 function renderActivePane(){
   const mid=S.activeMonth;
+  // Save scroll position before re-render (P10-B)
+  const paneIdMap={overview:'paneOverview',buckets:'paneBuckets',ledger:'paneLedger',accounts:'paneAccounts',reports:'paneReports',settings:'paneSettings'};
+  const activePaneEl=document.getElementById(paneIdMap[activeTab]);
+  const savedScroll=activePaneEl?activePaneEl.scrollTop:0;
   if(activeTab==='overview'){
     const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);
   } else if(activeTab==='buckets'){
@@ -2373,6 +2389,8 @@ function renderActivePane(){
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
   }
+  // Restore scroll position (P10-B)
+  if(activePaneEl&&savedScroll>0)activePaneEl.scrollTop=savedScroll;
 }
 
 function renderMain(){renderActivePane();}
@@ -2385,6 +2403,7 @@ function openDetail(type,id){
   const scroll=document.getElementById('detailScroll');
   const title=document.getElementById('detailTitle');
   const act=document.getElementById('detailAct');
+  scroll.scrollTop=0; // reset scroll when navigating to a new item (P10-C)
   if(type==='bucket'){
     const b=getBucket(id);if(!b)return;
     S.activeBucket=id;S.activeAccount=null;
@@ -2680,6 +2699,11 @@ function renderOverviewTab(el,mid){
 }
 
 function renderLedgerTab(el,mid){
+  // Save form state before rebuilding DOM (P4-A date, P4-B type, P4-C dropdowns)
+  const prevDate=document.getElementById('txDate')?.value||todayStr();
+  const prevAcct=document.getElementById('txAcct')?.value||'';
+  const prevCat=document.getElementById('txCat')?.value||'';
+  const prevBkt=document.getElementById('txBkt')?.value||'';
   el.style.padding='0';
   el.style.overflowY='hidden';
   const past=mid&&monthStatus(mid)==='past';
@@ -2741,6 +2765,31 @@ function renderLedgerTab(el,mid){
   </div>`;
   wireFormKeys();
   setTimeout(wireDesktopPayee,0);
+  // Restore form state after DOM rebuild (P4-A date, P4-B type buttons, P4-C dropdowns)
+  setTxType(txType);
+  const txDateEl=document.getElementById('txDate');
+  if(txDateEl)txDateEl.value=prevDate;
+  const txAcctEl=document.getElementById('txAcct');
+  if(txAcctEl&&prevAcct)txAcctEl.value=prevAcct;
+  populateTxCats();
+  const txCatEl=document.getElementById('txCat');
+  if(txCatEl&&prevCat){txCatEl.value=prevCat;syncTxBuckets();}
+  const txBktEl=document.getElementById('txBkt');
+  if(txBktEl&&prevBkt)txBktEl.value=prevBkt;
+  if(editingTxId){
+    const tx=S.txs.find(t=>t.id===editingTxId);
+    if(tx){
+      document.getElementById('txDesc').value=tx.desc;
+      document.getElementById('txAmt').value=tx.amount;
+      document.getElementById('txDate').value=tx.date;
+      document.getElementById('txRec').checked=tx.recurring;
+      setTxType(tx.type);
+      document.getElementById('txAcct').value=tx.accountId||'';
+      if(tx.bucketId){const b=getBucket(tx.bucketId);if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=tx.bucketId;}}
+      if(tx.toAccountId)document.getElementById('txXfrTo').value=tx.toAccountId;
+      document.getElementById('txSubmitBtn').textContent='Update Transaction';
+    }
+  }
   renderTxList();
 }
 
@@ -2996,6 +3045,7 @@ function renderReportsTab(el){
 
 function renderSettingsTab(el){
   if(!el)return;
+  const _settingsScroll=el.scrollTop; // save scroll before rebuild (P7-C)
   const curTheme=localStorage.getItem('bcc_theme')||'dark';
   const themes=[
     {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
@@ -3109,6 +3159,7 @@ function renderSettingsTab(el){
     </div>
   </div>`;
 
+  if(_settingsScroll>0)el.scrollTop=_settingsScroll; // restore scroll (P7-C)
   if(_editingPayeeId)setTimeout(()=>{const i=document.getElementById('payeeRenameInp');if(i){i.focus();i.select();}},30);
 }
 
@@ -4251,6 +4302,7 @@ function setWIBktSchedule(bucketId,field,val){
   if(!S.wiScenario.bucketSchedule)S.wiScenario.bucketSchedule={};
   if(!S.wiScenario.bucketSchedule[bucketId])S.wiScenario.bucketSchedule[bucketId]={};
   S.wiScenario.bucketSchedule[bucketId][field]=val||null;
+  save();
   if(isMobile())openModal('__wi__');else renderWI();
 }
 // Save paycheck sources from Settings form (Paycheck 1.2)
@@ -4263,22 +4315,53 @@ function savePaycheckSettings(){
     const freq=parseInt(document.getElementById(`pcs${n}Freq`)?.value||14);
     if(amount>0&&anchorDate)pcs.push({id:uid(),label:label||(n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'),amount,freq,anchorDate});
   }
+  if(!pcs.length){
+    showToast('No income sources saved — enter an amount and start date for at least one paycheck','out');
+    return;
+  }
   S.paychecks=pcs;
   _projectorFormState=null; // reset so projector re-reads from new paycheck data
   _projectorLastResult=null;
   save();
   const btn=document.querySelector('[onclick="savePaycheckSettings()"]');
   if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';btn.disabled=true;setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1500);}
+  showToast(`Saved ${pcs.length} income source${pcs.length!==1?'s':''}`, 'save');
   render();
 }
 
 // ── Paycheck Projector ────────────────────────────────────────────────────────
 function wiShowProjector(){
+  const wiOverlayEl=document.getElementById('wiOverlay');
   const inner=document.getElementById('wiModalInner');
-  if(inner&&document.getElementById('wiOverlay')&&!document.getElementById('wiOverlay').classList.contains('hidden')){
+  // Desktop: WI sidebar is visible — render projector inside it
+  if(inner&&wiOverlayEl&&!wiOverlayEl.classList.contains('hidden')){
     inner.innerHTML=wiProjectorHtml(null,false);
+    return;
+  }
+  // Mobile: WI is open inside modalBox — replace modal content with projector
+  const overlayEl=document.getElementById('overlay');
+  const modal=document.getElementById('modalBox');
+  if(modal&&overlayEl&&!overlayEl.classList.contains('hidden')){
+    modal.innerHTML=wiProjectorHtml(null,true);
+    return;
+  }
+  // Fallback: navigate to Reports → Projector tab
+  setTab('reports');setReportsTab('projector');
+}
+
+function wiResetProjector(){
+  _projectorFormState=null;
+  _projectorLastResult=null;
+  const wiOverlayEl=document.getElementById('wiOverlay');
+  const inner=document.getElementById('wiModalInner');
+  if(inner&&wiOverlayEl&&!wiOverlayEl.classList.contains('hidden')){
+    inner.innerHTML=wiProjectorHtml(null,false);
+  } else if(!document.getElementById('overlay')?.classList.contains('hidden')){
+    const modal=document.getElementById('modalBox');
+    if(modal)modal.innerHTML=wiProjectorHtml(null,true);
   } else {
-    setTab('reports');setReportsTab('projector');
+    const rPane=document.getElementById('paneReports');
+    if(rPane&&reportsTab==='projector')renderReportsTab(rPane);
   }
 }
 
@@ -4359,7 +4442,10 @@ function wiProjectorHtml(result,standalone){
 
     ${pcRow(1,true)}${pcRow(2,false)}${pcRow(3,false)}
 
-    <button class="btn-primary" style="width:100%;margin-top:4px" onclick="wiRunProjector()">Generate Week-by-Week Projection</button>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn-primary" style="flex:1" onclick="wiRunProjector()">Generate Week-by-Week Projection</button>
+      ${(_projectorFormState||_projectorLastResult)?`<button class="tbtn" style="font-size:12px;padding:4px 10px;color:var(--text3)" onclick="wiResetProjector()" title="Reset form and clear results">↺ Reset</button>`:''}
+    </div>
     ${result||''}
   </div>${footHtml}`;
 }
@@ -5906,6 +5992,7 @@ function saveRecurringBill(){
     generateRecurringTxs();
   }
   save();
+  showToast((_editingRbId?'Updated':'Added')+' recurring bill: '+desc,'save');
   renderSettingsTab(document.getElementById('paneSettings'));
   render();
 }
@@ -5913,9 +6000,12 @@ function saveRecurringBill(){
 function addRecurringBill(){saveRecurringBill();}
 
 function deleteRecurringBill(id){
+  const bill=(S.recurringBills||[]).find(r=>r.id===id);
   S.recurringBills=(S.recurringBills||[]).filter(r=>r.id!==id);
   S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));
-  save();render();
+  save();
+  showToast('Deleted recurring bill'+(bill?' : '+bill.desc:''),'out');
+  render();
   renderSettingsTab(document.getElementById('paneSettings'));
 }
 
@@ -6143,7 +6233,12 @@ function editBucket(id){
   renderModal();
 }
 
-function editAcct(id){const a=getAcct(id);if(!a)return;M={...M,tab:'acct',acctName:a.name,acctColor:a.color||COLORS[0],acctType:a.type||'budget',acctBal:'',acctEditId:id,acctAPR:String(a.debtAPR||''),acctMinPay:String(a.debtMinPayment||'')};renderModal();}
+function editAcct(id){
+  const a=getAcct(id);if(!a)return;
+  const openBal=S.txs.filter(t=>t.accountId===id&&t.type==='opening').reduce((s,t)=>s+t.amount,0)||(a.openingBalance||0);
+  M={...M,tab:'acct',acctName:a.name,acctColor:a.color||COLORS[0],acctType:a.type||'budget',acctBal:String(openBal||''),acctEditId:id,acctAPR:String(a.debtAPR||''),acctMinPay:String(a.debtMinPayment||'')};
+  renderModal();
+}
 
 // Snapshot live field values back into M before any re-render
 function MsnapBuilder(){
@@ -6273,7 +6368,7 @@ function renderModal(){
         <div class="fg"><label class="fl">APR (%)</label><input class="fi mono" id="mAcctAPR" type="number" step="0.01" value="${M.acctAPR||''}" placeholder="e.g. 22.99" /></div>
         <div class="fg"><label class="fl">Min. Payment</label><input class="fi mono" id="mAcctMinPay" type="number" step="0.01" value="${M.acctMinPay||''}" placeholder="e.g. 25.00" /></div>
       </div>`:''}
-      ${!M.acctEditId?`<div class="fg"><label class="fl">Current Balance</label><input class="fi mono" id="mAcctBal" type="number" value="${M.acctBal}" placeholder="0.00" /><div class="hint">Posted as an opening balance transaction.</div></div>`:''}
+      <div class="fg"><label class="fl">${M.acctEditId?'Opening Balance':'Current Balance'}</label><input class="fi mono" id="mAcctBal" type="number" value="${M.acctBal}" placeholder="0.00" /><div class="hint">${M.acctEditId?'Adjusts the opening balance transaction for this account.':'Posted as an opening balance transaction.'}</div></div>
       <div class="fg"><label class="fl">Color</label><div class="color-row">${swatches}</div></div>`;
 
   } else if(isBkt){
@@ -6431,6 +6526,11 @@ function saveModal(){
     const debtMinPayment=M.acctType==='debt'?(parseFloat(M.acctMinPay)||null):null;
     if(M.acctEditId){
       const a=getAcct(M.acctEditId);if(a){a.name=name;a.color=M.acctColor;a.type=M.acctType;a.debtAPR=debtAPR;a.debtMinPayment=debtMinPayment;}
+      // Update opening balance (P5-A)
+      const newBal=parseFloat(M.acctBal)||0;
+      const existingOpenTx=S.txs.find(t=>t.accountId===M.acctEditId&&t.type==='opening');
+      if(existingOpenTx){existingOpenTx.amount=newBal;}
+      else if(newBal!==0){const today=new Date().toISOString().split('T')[0];addMonth(new Date().getFullYear(),new Date().getMonth());S.txs.push({id:uid(),accountId:M.acctEditId,toAccountId:null,monthId:dateToMonthId(today),bucketId:null,desc:'Opening Balance',amount:newBal,type:'opening',date:today,recurring:false});}
     } else {
       const id='_'+Math.random().toString(36).slice(2,9);
       S.accounts.push({id,name,color:M.acctColor,type:M.acctType,openingBalance:0,debtAPR,debtMinPayment});
@@ -6503,7 +6603,9 @@ function saveModal(){
     if(!namedBuckets.length){
       save();
       if(justCreated){
-        // Category just saved — stay in modal and show bucket builder
+        // Category just saved — switch to builder tab and seed an initial row
+        M.tab='builder';
+        if(!M.buckets?.length)M.buckets=[mkBkt()];
         render();populateTxCats();renderModal();
         showToast('Category created — now add buckets below','save');
       } else {
@@ -6795,6 +6897,7 @@ function wireFormKeys(){
   fields.forEach((id,i)=>{
     const el=document.getElementById(id);
     if(!el)return;
+    if(el._keyWired)return; el._keyWired=true;
     el.addEventListener('keydown',e=>{
       if(e.key!=='Enter')return;
       e.preventDefault();
@@ -6929,12 +7032,20 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   localStorage.setItem('bcc_app_version',APP_VERSION);
 
-  // Resize handler — just re-render nav (layout is CSS-driven now)
+  // Resize handler — re-render nav always; full render on breakpoint cross (P10-D)
   window.addEventListener('resize',()=>{
     clearTimeout(_resizeTimer);
     _resizeTimer=setTimeout(()=>{
       if(!_appInitialized)return;
-      renderNav();
+      const nowMobile=isMobile();
+      if(nowMobile!==_layoutIsMobile){
+        _layoutIsMobile=nowMobile;
+        // Correct tab state that is mobile-only or desktop-only
+        if(!nowMobile&&activeTab==='log')activeTab='ledger';
+        render();
+      } else {
+        renderNav();
+      }
     },150);
   });
 
