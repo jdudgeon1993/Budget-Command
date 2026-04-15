@@ -4299,6 +4299,7 @@ function setWIBktSchedule(bucketId,field,val){
   if(!S.wiScenario.bucketSchedule)S.wiScenario.bucketSchedule={};
   if(!S.wiScenario.bucketSchedule[bucketId])S.wiScenario.bucketSchedule[bucketId]={};
   S.wiScenario.bucketSchedule[bucketId][field]=val||null;
+  save();
   if(isMobile())openModal('__wi__');else renderWI();
 }
 // Save paycheck sources from Settings form (Paycheck 1.2)
@@ -4322,12 +4323,22 @@ function savePaycheckSettings(){
 
 // ── Paycheck Projector ────────────────────────────────────────────────────────
 function wiShowProjector(){
+  const wiOverlayEl=document.getElementById('wiOverlay');
   const inner=document.getElementById('wiModalInner');
-  if(inner&&document.getElementById('wiOverlay')&&!document.getElementById('wiOverlay').classList.contains('hidden')){
+  // Desktop: WI sidebar is visible — render projector inside it
+  if(inner&&wiOverlayEl&&!wiOverlayEl.classList.contains('hidden')){
     inner.innerHTML=wiProjectorHtml(null,false);
-  } else {
-    setTab('reports');setReportsTab('projector');
+    return;
   }
+  // Mobile: WI is open inside modalBox — replace modal content with projector
+  const overlayEl=document.getElementById('overlay');
+  const modal=document.getElementById('modalBox');
+  if(modal&&overlayEl&&!overlayEl.classList.contains('hidden')){
+    modal.innerHTML=wiProjectorHtml(null,true);
+    return;
+  }
+  // Fallback: navigate to Reports → Projector tab
+  setTab('reports');setReportsTab('projector');
 }
 
 function wiProjectorHtml(result,standalone){
@@ -6551,7 +6562,9 @@ function saveModal(){
     if(!namedBuckets.length){
       save();
       if(justCreated){
-        // Category just saved — stay in modal and show bucket builder
+        // Category just saved — switch to builder tab and seed an initial row
+        M.tab='builder';
+        if(!M.buckets?.length)M.buckets=[mkBkt()];
         render();populateTxCats();renderModal();
         showToast('Category created — now add buckets below','save');
       } else {
