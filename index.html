@@ -1670,6 +1670,7 @@ let S={
 function save(){
   if(!_appInitialized)return; // Never save before app is ready (prevents writing during/after signout)
   localStorage.setItem(KEY, JSON.stringify(S));
+  localStorage.setItem(KEY+'_local_ts', new Date().toISOString());
   if(supaReady()&&_supaUser){
     _pendingSync=true;
     setSyncStatus('syncing','Syncing…');
@@ -1756,10 +1757,21 @@ async function loadFromSupabase(){
     (remote.accounts?.length||remote.cats?.length||remote.months?.length);
 
   if(remoteHasData){
-    // Supabase has data — use it, it is the source of truth
-    S=remote;
-    localStorage.setItem(KEY,JSON.stringify(S));
-    console.log('Loaded from Supabase');
+    // Compare timestamps to avoid overwriting newer local data with older Supabase data (P1-C)
+    const remoteTs=new Date(data.updated_at||0).getTime();
+    const localTs=new Date(localStorage.getItem(KEY+'_local_ts')||0).getTime();
+    if(localTs>remoteTs+5000){
+      // Local is meaningfully newer — upload it instead of pulling from Supabase
+      const raw=localStorage.getItem(KEY);
+      if(raw){try{S=JSON.parse(raw);}catch(e){}}
+      console.log('Local data is newer than Supabase — uploading local copy');
+      await supabase_push();
+    } else {
+      // Supabase data is current — use it as source of truth
+      S=remote;
+      localStorage.setItem(KEY,JSON.stringify(S));
+      console.log('Loaded from Supabase');
+    }
   } else {
     // Supabase row is empty or missing — check localStorage for existing data to upload
     const raw=localStorage.getItem(KEY);
@@ -2358,6 +2370,10 @@ function setReportsTab(t){
 
 function renderActivePane(){
   const mid=S.activeMonth;
+  // Save scroll position before re-render (P10-B)
+  const paneIdMap={overview:'paneOverview',buckets:'paneBuckets',ledger:'paneLedger',accounts:'paneAccounts',reports:'paneReports',settings:'paneSettings'};
+  const activePaneEl=document.getElementById(paneIdMap[activeTab]);
+  const savedScroll=activePaneEl?activePaneEl.scrollTop:0;
   if(activeTab==='overview'){
     const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);
   } else if(activeTab==='buckets'){
@@ -2373,6 +2389,8 @@ function renderActivePane(){
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
   }
+  // Restore scroll position (P10-B)
+  if(activePaneEl&&savedScroll>0)activePaneEl.scrollTop=savedScroll;
 }
 
 function renderMain(){renderActivePane();}
@@ -2680,6 +2698,11 @@ function renderOverviewTab(el,mid){
 }
 
 function renderLedgerTab(el,mid){
+  // Save form state before rebuilding DOM (P4-A date, P4-B type, P4-C dropdowns)
+  const prevDate=document.getElementById('txDate')?.value||todayStr();
+  const prevAcct=document.getElementById('txAcct')?.value||'';
+  const prevCat=document.getElementById('txCat')?.value||'';
+  const prevBkt=document.getElementById('txBkt')?.value||'';
   el.style.padding='0';
   el.style.overflowY='hidden';
   const past=mid&&monthStatus(mid)==='past';
@@ -2741,6 +2764,31 @@ function renderLedgerTab(el,mid){
   </div>`;
   wireFormKeys();
   setTimeout(wireDesktopPayee,0);
+  // Restore form state after DOM rebuild (P4-A date, P4-B type buttons, P4-C dropdowns)
+  setTxType(txType);
+  const txDateEl=document.getElementById('txDate');
+  if(txDateEl)txDateEl.value=prevDate;
+  const txAcctEl=document.getElementById('txAcct');
+  if(txAcctEl&&prevAcct)txAcctEl.value=prevAcct;
+  populateTxCats();
+  const txCatEl=document.getElementById('txCat');
+  if(txCatEl&&prevCat){txCatEl.value=prevCat;syncTxBuckets();}
+  const txBktEl=document.getElementById('txBkt');
+  if(txBktEl&&prevBkt)txBktEl.value=prevBkt;
+  if(editingTxId){
+    const tx=S.txs.find(t=>t.id===editingTxId);
+    if(tx){
+      document.getElementById('txDesc').value=tx.desc;
+      document.getElementById('txAmt').value=tx.amount;
+      document.getElementById('txDate').value=tx.date;
+      document.getElementById('txRec').checked=tx.recurring;
+      setTxType(tx.type);
+      document.getElementById('txAcct').value=tx.accountId||'';
+      if(tx.bucketId){const b=getBucket(tx.bucketId);if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=tx.bucketId;}}
+      if(tx.toAccountId)document.getElementById('txXfrTo').value=tx.toAccountId;
+      document.getElementById('txSubmitBtn').textContent='Update Transaction';
+    }
+  }
   renderTxList();
 }
 
@@ -6795,6 +6843,7 @@ function wireFormKeys(){
   fields.forEach((id,i)=>{
     const el=document.getElementById(id);
     if(!el)return;
+    if(el._keyWired)return; el._keyWired=true;
     el.addEventListener('keydown',e=>{
       if(e.key!=='Enter')return;
       e.preventDefault();
