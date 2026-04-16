@@ -4694,20 +4694,17 @@ function wiRunProjector(){
     });
     const mNet=mIn-mOut;
 
-    const firstNEW=mWeeks.find(w=>
-      payEvents.some(e=>e.date>=w.start&&e.date<=w.end)||
-      outflows.some(o=>o.date>=w.start&&o.date<=w.end)
-    );
-    const mFwdBal=minForwardBal[firstNEW.wIdx];
-    const mSafe=mFwdBal-cushionFloor;
+    // Month risk: tightest balance reached within this month's own weeks
+    const mMinMonthBal=Math.min(...mWeeks.map(w=>weekEndBals[w.wIdx]));
+    const mSafe=mMinMonthBal-cushionFloor;
     const mAmber=cushionFloor+Math.max(100,cushionFloor*0.5);
     let mRiskHtml;
-    if(mFwdBal>=mAmber){
-      mRiskHtml=`<span style="font-size:11px;color:var(--text2)">You have <strong style="font-family:var(--mono);color:var(--green)">${$f(mSafe)}</strong> left to spend after all upcoming bills.</span>`;
+    if(mMinMonthBal>=mAmber){
+      mRiskHtml=`<span style="font-size:11px;color:var(--text2)">You have <strong style="font-family:var(--mono);color:var(--green)">${$f(mSafe)}</strong> to spend this month after all bills.</span>`;
     } else if(mSafe>0){
-      mRiskHtml=`<span style="font-size:11px;color:var(--amber)">⚠️ Only <strong style="font-family:var(--mono)">${$f(mSafe)}</strong> left after upcoming bills — spend carefully.</span>`;
+      mRiskHtml=`<span style="font-size:11px;color:var(--amber)">⚠️ Only <strong style="font-family:var(--mono)">${$f(mSafe)}</strong> left after this month's bills — spend carefully.</span>`;
     } else {
-      mRiskHtml=`<span style="font-size:11px;color:var(--red)">⚠️ <strong>Bills exceed balance by ${$f(Math.abs(mSafe))}</strong> — do not spend anything extra.</span>`;
+      mRiskHtml=`<span style="font-size:11px;color:var(--red)">⚠️ <strong>Bills exceed balance by ${$f(Math.abs(mSafe))}</strong> this month — do not spend anything extra.</span>`;
     }
 
     const [mYr,mMo]=ym.split('-');
@@ -4765,24 +4762,24 @@ function wiRunProjector(){
         const evs=byDay[date];
         const d=new Date(date+'T12:00:00');
         const dayLabel=d.toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
-        dayRowsHtml+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:5px 0 2px">${dayLabel}</div>`;
+        dayRowsHtml+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:4px 0 1px;margin-top:2px">${dayLabel}</div>`;
         evs.forEach(ev=>{
           if(ev.kind==='pay'){
             running+=ev.amount;
-            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:2px 0;align-items:center">
+            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:1px 0;align-items:center">
               <span style="flex:1;font-size:12px;font-weight:600">💰 ${esc(ev.desc)}</span>
               <span style="font-family:var(--mono);font-size:12px;color:var(--green);min-width:68px;text-align:right">+${$f(ev.amount)}</span>
             </div>`;
           } else {
             running-=ev.amount;
             const badge=ev.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">variable</span>`:'';
-            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:2px 0;align-items:center">
+            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:1px 0;align-items:center">
               <span style="flex:1;font-size:12px">${esc(ev.desc)}${badge}</span>
               <span style="font-family:var(--mono);font-size:12px;color:var(--red);min-width:68px;text-align:right">-${$f(ev.amount)}</span>
             </div>`;
           }
         });
-        dayRowsHtml+=`<div style="display:flex;justify-content:flex-end;padding:2px 0 5px;border-bottom:1px solid var(--border2)">
+        dayRowsHtml+=`<div style="display:flex;justify-content:flex-end;padding:1px 0 3px;border-bottom:1px solid var(--border2)">
           <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'}">balance ${$f(running)}</span>
         </div>`;
       });
@@ -4790,7 +4787,7 @@ function wiRunProjector(){
       html+=`<div style="border-top:1px solid var(--border)">
         <div onclick="wiToggleWeek('${wId}')" role="button" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;background:var(--bg2);user-select:none;-webkit-user-select:none">
           <span style="font-size:14px;line-height:1">${dotChar}</span>
-          <span style="font-size:11px;font-weight:600;color:var(--text);flex:1">${w.start.slice(5)} – ${w.end.slice(5)}</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text);flex:1;white-space:nowrap">${w.start.slice(5)} – ${w.end.slice(5)}</span>
           ${bonusInWeek?`<span style="font-size:10px;font-weight:700;color:var(--green);background:rgba(0,200,100,.12);border:1px solid var(--green);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
           ${weekInAmt?`<span style="font-size:11px;color:var(--green)">+${$f(weekInAmt)}</span>`:''}
           ${weekOutAmt?`<span style="font-size:11px;color:var(--red)">-${$f(weekOutAmt)}</span>`:''}
