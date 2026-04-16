@@ -3023,7 +3023,6 @@ function renderReportsTab(el){
     {id:'incomesrc',label:'💵 Income Sources'},
     {id:'cathistory',label:'📈 Cat Trends'},
     {id:'networth',label:'◈ Net Worth'},
-    {id:'projector',label:'📈 Projector'},
   ];
   const tabNav=tabs.map(t=>`<button class="rtab${t.id===reportsTab?' active':''}" onclick="setReportsTab('${t.id}')">${t.label}</button>`).join('');
   let content='';
@@ -3037,7 +3036,6 @@ function renderReportsTab(el){
   else if(reportsTab==='incomesrc')content=reportIncomeSourcesHtml(mid);
   else if(reportsTab==='cathistory')content=reportCatHistoryHtml();
   else if(reportsTab==='networth')content=reportNetWorthHtml();
-  else if(reportsTab==='projector')content=wiProjectorHtml(_projectorLastResult,'inline');
   el.innerHTML=`<div class="month-hdr"><div class="month-title">Reports</div></div>
     <div class="rtab-bar">${tabNav}</div>
     <div class="rtab-content">${content}</div>`;
@@ -4345,8 +4343,6 @@ function wiShowProjector(){
     modal.innerHTML=wiProjectorHtml(null,true);
     return;
   }
-  // Fallback: navigate to Reports → Projector tab
-  setTab('reports');setReportsTab('projector');
 }
 
 function wiResetProjector(){
@@ -4359,10 +4355,16 @@ function wiResetProjector(){
   } else if(!document.getElementById('overlay')?.classList.contains('hidden')){
     const modal=document.getElementById('modalBox');
     if(modal)modal.innerHTML=wiProjectorHtml(null,true);
-  } else {
-    const rPane=document.getElementById('paneReports');
-    if(rPane&&reportsTab==='projector')renderReportsTab(rPane);
   }
+}
+
+function wiToggleWeek(id){
+  const el=document.getElementById('pwb_'+id);
+  if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  const btn=document.getElementById('pwt_'+id);
+  if(btn)btn.textContent=isOpen?'▶':'▼';
 }
 
 function wiProjectorHtml(result,standalone){
@@ -4370,13 +4372,11 @@ function wiProjectorHtml(result,standalone){
   const backBtn=standalone
     ?`<button class="modal-x" onclick="${backFn}">&#x2715;</button>`
     :`<button class="tbtn" onclick="${backFn}" style="padding:4px 10px;font-size:12px">← Back to What If</button>`;
-  const headTitle=standalone==='inline'?''
-    :standalone
-      ?`<div class="modal-head"><div class="modal-title">📅 Paycheck Projector</div>${backBtn}</div>`
-      :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div style="font-size:13px;font-weight:700;color:var(--text)">📅 Paycheck Projector</div><div></div></div>`;
-  const bodyWrap=standalone==='inline'?`<div style="padding:4px 0">`
-    :standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
-  const footHtml=standalone&&standalone!=='inline'?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
+  const headTitle=standalone
+    ?`<div class="modal-head"><div class="modal-title">📅 Paycheck Projector</div>${backBtn}</div>`
+    :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div style="font-size:13px;font-weight:700;color:var(--text)">📅 Paycheck Projector</div><div></div></div>`;
+  const bodyWrap=standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
+  const footHtml=standalone?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
   // Use stored form state if available (preserves user edits after re-render)
   const fs=_projectorFormState||{};
   const sysCashBal=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
@@ -4657,83 +4657,152 @@ function wiRunProjector(){
       <span>${weeks.length} weeks · ${months} months</span>
     </div>`;
 
+  // ── Group weeks by month, find tightest + first non-empty ────────────────
+  const weeksByMonthMap={};
+  const monthOrderArr=[];
+  weeks.forEach((w,idx)=>{
+    const ym=w.start.slice(0,7);
+    if(!weeksByMonthMap[ym]){weeksByMonthMap[ym]=[];monthOrderArr.push(ym);}
+    weeksByMonthMap[ym].push({...w,wIdx:idx});
+  });
+
+  let tightestWIdx=-1,tightestBal=Infinity;
+  let firstNonEmptyWIdx=-1;
+  weeks.forEach((w,i)=>{
+    const hP=payEvents.some(e=>e.date>=w.start&&e.date<=w.end);
+    const hO=outflows.some(o=>o.date>=w.start&&o.date<=w.end);
+    if(hP||hO){
+      if(firstNonEmptyWIdx===-1)firstNonEmptyWIdx=i;
+      if(weekEndBals[i]<tightestBal){tightestBal=weekEndBals[i];tightestWIdx=i;}
+    }
+  });
+
   let shortfallCount=0;
-  let _wIdx=0;
-  weeks.forEach(w=>{
-    const wPay=payEvents.filter(e=>e.date>=w.start&&e.date<=w.end);
-    const wOut=outflows.filter(o=>o.date>=w.start&&o.date<=w.end);
-    const wIdx=_wIdx++;
-    if(!wPay.length&&!wOut.length)return; // skip truly empty weeks
 
-    // Merge and sort all events chronologically within the week
-    const allWk=[
-      ...wPay.map(e=>({...e,kind:'pay'})),
-      ...wOut.map(e=>({...e,kind:'out'}))
-    ].sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='pay'?-1:1));
-
-    let weekIn=0,weekOut=0;
-    const rows=allWk.map(ev=>{
-      if(ev.kind==='pay'){
-        running+=ev.amount;weekIn+=ev.amount;
-        return `<div style="display:flex;gap:6px;padding:3px 0;align-items:center;border-bottom:1px solid var(--border2)">
-          <span style="font-size:11px;color:var(--text3);width:48px;flex-shrink:0">${ev.date.slice(5)}</span>
-          <span style="flex:1;font-size:12px;font-weight:600">💰 ${esc(ev.desc)}</span>
-          <span style="font-family:var(--mono);font-size:12px;color:var(--green);min-width:68px;text-align:right">+${$f(ev.amount)}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'};min-width:68px;text-align:right">${$f(running)}</span>
-        </div>`;
-      } else {
-        running-=ev.amount;weekOut+=ev.amount;
-        const badge=ev.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">variable</span>`:'';
-        return `<div style="display:flex;gap:6px;padding:3px 0;align-items:center;border-bottom:1px solid var(--border2)">
-          <span style="font-size:11px;color:var(--text3);width:48px;flex-shrink:0">${ev.date.slice(5)}</span>
-          <span style="flex:1;font-size:12px">${esc(ev.desc)}${badge}</span>
-          <span style="font-family:var(--mono);font-size:12px;color:var(--red);min-width:68px;text-align:right">-${$f(ev.amount)}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'};min-width:68px;text-align:right">${$f(running)}</span>
-        </div>`;
-      }
-    }).join('');
-
-    const shortfall=running<0;
-    if(shortfall)shortfallCount++;
-    const netColor=running>=0?'var(--green)':'var(--red)';
-    // Detect bonus paycheck: any source has a pay event in this week that
-    // pushes that source's month total above the normal count
-    const wYM=w.start.slice(0,7);
-    const bonusInWeek=sources.some(src=>
-      wPay.some(e=>e.desc===src.label)&&bonusMonths.has(wYM+':'+src.label)
+  monthOrderArr.forEach(ym=>{
+    const mWeeks=weeksByMonthMap[ym];
+    const hasAnyEvents=mWeeks.some(w=>
+      payEvents.some(e=>e.date>=w.start&&e.date<=w.end)||
+      outflows.some(o=>o.date>=w.start&&o.date<=w.end)
     );
+    if(!hasAnyEvents)return;
 
-    // ── Safe-spend risk bar ───────────────────────────────────────────────────
-    const minFwd=minForwardBal[wIdx];
-    const safeToSpend=minFwd-cushionFloor;
-    const amberThreshold=cushionFloor+Math.max(100,cushionFloor*0.5);
-    let riskBar;
-    if(minFwd>=amberThreshold){
-      riskBar=`<div style="background:rgba(0,200,100,.07);border-top:1px solid rgba(0,200,100,.2);padding:6px 12px;font-size:12px;color:var(--text2)">
-        After all upcoming bills are paid, you have <strong style="font-family:var(--mono);color:var(--green)">${$f(safeToSpend)}</strong> left to spend before this projection ends.
-      </div>`;
-    } else if(safeToSpend>0){
-      riskBar=`<div style="background:rgba(220,160,0,.07);border-top:1px solid rgba(220,160,0,.25);padding:6px 12px;font-size:12px;color:var(--text2)">
-        ⚠️ Only <strong style="font-family:var(--mono);color:var(--amber)">${$f(safeToSpend)}</strong> left after upcoming bills — think twice before spending anything extra.
-      </div>`;
+    let mIn=0,mOut=0;
+    mWeeks.forEach(w=>{
+      payEvents.filter(e=>e.date>=w.start&&e.date<=w.end).forEach(e=>mIn+=e.amount);
+      outflows.filter(o=>o.date>=w.start&&o.date<=w.end).forEach(o=>mOut+=o.amount);
+    });
+    const mNet=mIn-mOut;
+
+    const firstNEW=mWeeks.find(w=>
+      payEvents.some(e=>e.date>=w.start&&e.date<=w.end)||
+      outflows.some(o=>o.date>=w.start&&o.date<=w.end)
+    );
+    const mFwdBal=minForwardBal[firstNEW.wIdx];
+    const mSafe=mFwdBal-cushionFloor;
+    const mAmber=cushionFloor+Math.max(100,cushionFloor*0.5);
+    let mRiskHtml;
+    if(mFwdBal>=mAmber){
+      mRiskHtml=`<span style="font-size:11px;color:var(--text2)">You have <strong style="font-family:var(--mono);color:var(--green)">${$f(mSafe)}</strong> left to spend after all upcoming bills.</span>`;
+    } else if(mSafe>0){
+      mRiskHtml=`<span style="font-size:11px;color:var(--amber)">⚠️ Only <strong style="font-family:var(--mono)">${$f(mSafe)}</strong> left after upcoming bills — spend carefully.</span>`;
     } else {
-      riskBar=`<div style="background:var(--rbg);border-top:1px solid var(--rb);padding:6px 12px;font-size:12px;color:var(--text2)">
-        ⚠️ <strong style="color:var(--red)">You're ${$f(Math.abs(safeToSpend))} short</strong> — your projected balance won't cover all upcoming bills. Do not spend anything extra right now.
-      </div>`;
+      mRiskHtml=`<span style="font-size:11px;color:var(--red)">⚠️ <strong>Bills exceed balance by ${$f(Math.abs(mSafe))}</strong> — do not spend anything extra.</span>`;
     }
 
-    html+=`<div style="background:var(--bg2);border:1px solid ${shortfall?'var(--red)':'var(--border)'};border-radius:8px;margin-bottom:8px;overflow:hidden">
-      <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:${shortfall?'var(--rbg)':'var(--surface)'};border-bottom:1px solid var(--border);flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:700;color:var(--text)">Week of ${w.start.slice(5)} – ${w.end.slice(5)}</span>
-        ${bonusInWeek?`<span style="font-size:10px;font-weight:700;color:var(--green);background:rgba(0,200,100,.12);border:1px solid var(--green);border-radius:4px;padding:1px 5px">⭐ Bonus paycheck month</span>`:''}
-        ${weekIn?`<span style="font-size:11px;color:var(--green)">+${$f(weekIn)}</span>`:''}
-        ${weekOut?`<span style="font-size:11px;color:var(--red)">-${$f(weekOut)}</span>`:''}
-        <span style="font-size:12px;font-weight:700;color:${netColor};margin-left:auto">${$f(running)}</span>
-        ${shortfall?`<span style="font-size:11px;font-weight:700;color:var(--red)">⚠ SHORTFALL</span>`:''}
-      </div>
-      <div style="padding:4px 12px">${rows}</div>
-      ${riskBar}
-    </div>`;
+    const [mYr,mMo]=ym.split('-');
+    const mLabelStr=new Date(parseInt(mYr),parseInt(mMo)-1,1).toLocaleString('default',{month:'long',year:'numeric'});
+    const mNetColor=mNet>=0?'var(--green)':'var(--red)';
+
+    html+=`<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;color:var(--text)">${mLabelStr}</span>
+        ${mIn?`<span style="font-size:11px;color:var(--green)">+${$f(mIn)}</span>`:''}
+        ${mOut?`<span style="font-size:11px;color:var(--red)">-${$f(mOut)}</span>`:''}
+        <span style="font-size:11px;font-weight:700;color:${mNetColor}">net ${mNet>=0?'+':''}${$f(mNet)}</span>
+        <div style="width:100%;margin-top:2px">${mRiskHtml}</div>
+      </div>`;
+
+    mWeeks.forEach(w=>{
+      const wPay=payEvents.filter(e=>e.date>=w.start&&e.date<=w.end);
+      const wOut2=outflows.filter(o=>o.date>=w.start&&o.date<=w.end);
+      if(!wPay.length&&!wOut2.length)return;
+
+      const wId='w'+w.wIdx;
+      const autoExpand=w.wIdx===firstNonEmptyWIdx||w.wIdx===tightestWIdx;
+
+      const minFwd=minForwardBal[w.wIdx];
+      const safeW=minFwd-cushionFloor;
+      const amberW=cushionFloor+Math.max(100,cushionFloor*0.5);
+      let dotChar;
+      if(minFwd>=amberW)dotChar='🟢';
+      else if(safeW>0)dotChar='🟡';
+      else dotChar='🔴';
+
+      const wEndBal=weekEndBals[w.wIdx];
+      const wEndColor=wEndBal>=0?'var(--green)':'var(--red)';
+      if(wEndBal<0)shortfallCount++;
+
+      const bonusInWeek=sources.some(src=>
+        wPay.some(e=>e.desc===src.label)&&bonusMonths.has(w.start.slice(0,7)+':'+src.label)
+      );
+      const weekInAmt=wPay.reduce((s,e)=>s+e.amount,0);
+      const weekOutAmt=wOut2.reduce((s,e)=>s+e.amount,0);
+
+      const allWk=[
+        ...wPay.map(e=>({...e,kind:'pay'})),
+        ...wOut2.map(e=>({...e,kind:'out'}))
+      ].sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='pay'?-1:1));
+
+      const byDay={},dayOrd=[];
+      allWk.forEach(ev=>{
+        if(!byDay[ev.date]){byDay[ev.date]=[];dayOrd.push(ev.date);}
+        byDay[ev.date].push(ev);
+      });
+
+      let dayRowsHtml='';
+      dayOrd.forEach(date=>{
+        const evs=byDay[date];
+        const d=new Date(date+'T12:00:00');
+        const dayLabel=d.toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
+        dayRowsHtml+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:5px 0 2px">${dayLabel}</div>`;
+        evs.forEach(ev=>{
+          if(ev.kind==='pay'){
+            running+=ev.amount;
+            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:2px 0;align-items:center">
+              <span style="flex:1;font-size:12px;font-weight:600">💰 ${esc(ev.desc)}</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--green);min-width:68px;text-align:right">+${$f(ev.amount)}</span>
+            </div>`;
+          } else {
+            running-=ev.amount;
+            const badge=ev.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">variable</span>`:'';
+            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:2px 0;align-items:center">
+              <span style="flex:1;font-size:12px">${esc(ev.desc)}${badge}</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--red);min-width:68px;text-align:right">-${$f(ev.amount)}</span>
+            </div>`;
+          }
+        });
+        dayRowsHtml+=`<div style="display:flex;justify-content:flex-end;padding:2px 0 5px;border-bottom:1px solid var(--border2)">
+          <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'}">balance ${$f(running)}</span>
+        </div>`;
+      });
+
+      html+=`<div style="border-top:1px solid var(--border)">
+        <div onclick="wiToggleWeek('${wId}')" role="button" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;background:var(--bg2);user-select:none;-webkit-user-select:none">
+          <span style="font-size:14px;line-height:1">${dotChar}</span>
+          <span style="font-size:11px;font-weight:600;color:var(--text);flex:1">${w.start.slice(5)} – ${w.end.slice(5)}</span>
+          ${bonusInWeek?`<span style="font-size:10px;font-weight:700;color:var(--green);background:rgba(0,200,100,.12);border:1px solid var(--green);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
+          ${weekInAmt?`<span style="font-size:11px;color:var(--green)">+${$f(weekInAmt)}</span>`:''}
+          ${weekOutAmt?`<span style="font-size:11px;color:var(--red)">-${$f(weekOutAmt)}</span>`:''}
+          ${wEndBal<0?`<span style="font-size:10px;font-weight:700;color:var(--red)">⚠ SHORTFALL</span>`:''}
+          <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${wEndColor}">${$f(wEndBal)}</span>
+          <span id="pwt_${wId}" style="font-size:11px;color:var(--text3);width:12px;text-align:center">${autoExpand?'▼':'▶'}</span>
+        </div>
+        <div id="pwb_${wId}" style="padding:4px 12px;display:${autoExpand?'block':'none'}">${dayRowsHtml}</div>
+      </div>`;
+    });
+
+    html+=`</div>`;
   });
 
   const endColor=running>=startBal?'var(--green)':'var(--red)';
@@ -4830,10 +4899,6 @@ function wiRunProjector(){
     modal.innerHTML=wiProjectorHtml(html,true);
   } else if(inner){
     inner.innerHTML=wiProjectorHtml(html,false);
-  } else {
-    // Inline in Reports tab — re-render the reports pane with the stored result
-    const rPane=document.getElementById('paneReports');
-    if(rPane&&reportsTab==='projector')renderReportsTab(rPane);
   }
 }
 
