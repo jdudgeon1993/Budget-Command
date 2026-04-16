@@ -4383,6 +4383,10 @@ function wiProjectorHtml(result,standalone){
   const cashBal=fs.startBal!==undefined?fs.startBal:sysCashBal;
   const pmv=fs.projMonths||'2';
   const psv=fs.scenarioId||'';
+  // Best-practice cushion: 1.5× average weekly bills from actual bucket data, floored at $200
+  const _totalMonthlyBills=S.buckets.filter(b=>!b.archived&&(b.defaultBudget||0)>0).reduce((s,b)=>s+(b.defaultBudget||0),0);
+  const _cushionDefault=Math.max(200,Math.round(_totalMonthlyBills/4.33*1.5/10)*10);
+  const cushionVal=fs.cushion!==undefined?fs.cushion:String(_cushionDefault);
 
   // Paycheck row builder — pre-fills from stored form state, then S.paychecks, then smart next date
   const pcRow=(n,req)=>{
@@ -4438,6 +4442,11 @@ function wiProjectorHtml(result,standalone){
         <select class="fi" id="projScenario">${scOpts}</select>
         ${!savedScenarios.length?`<div style="font-size:10px;color:var(--text3);margin-top:3px">Save a What If scenario to use here</div>`:''}
       </div>
+      <div>
+        <label class="fl">Weekly Cushion <span style="font-size:10px;color:var(--accent);font-weight:600">pro default: ${$f(_cushionDefault)}</span></label>
+        <input class="fi mono" id="projCushion" type="number" step="10" value="${cushionVal}" placeholder="${_cushionDefault}" />
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Min balance to keep at all times · never saved · adjust freely</div>
+      </div>
     </div>
 
     ${pcRow(1,true)}${pcRow(2,false)}${pcRow(3,false)}
@@ -4454,6 +4463,7 @@ function wiRunProjector(){
   const monthsRaw=document.getElementById('projMonths')?.value||'2';
   const balInput=document.getElementById('projBal')?.value;
   const startBal=balInput!==''&&balInput!=null?parseFloat(balInput)||0:S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
+  const cushionFloor=parseFloat(document.getElementById('projCushion')?.value)||0;
 
   // Resolve scenario for bucket amounts
   const scenarioId=document.getElementById('projScenario')?.value||'';
@@ -4472,7 +4482,7 @@ function wiRunProjector(){
   if(!sources.length){alert('Enter at least one paycheck (date + amount).');return;}
 
   // Capture form state so it can be restored after re-render
-  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId};
+  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId,cushion:document.getElementById('projCushion')?.value||''};
   for(let n=1;n<=3;n++){
     _projectorFormState['pc'+n+'Label']=document.getElementById('pc'+n+'Label')?.value||'';
     _projectorFormState['pc'+n+'Amt']=document.getElementById('pc'+n+'Amt')?.value||'';
@@ -4606,6 +4616,16 @@ function wiRunProjector(){
     wStart.setDate(wStart.getDate()+1);
   }
 
+  // ── Pre-compute end-of-week balances for safe-spend analysis ─────────────
+  {let _pr=startBal;
+  var weekEndBals=weeks.map(w=>{
+    payEvents.filter(e=>e.date>=w.start&&e.date<=w.end).forEach(e=>_pr+=e.amount);
+    outflows.filter(o=>o.date>=w.start&&o.date<=w.end).forEach(o=>_pr-=o.amount);
+    return _pr;
+  });}
+  // minForwardBal[i] = lowest balance from week i through end of projection
+  const minForwardBal=weekEndBals.map((_,i)=>Math.min(...weekEndBals.slice(i)));
+
   // ── Render ────────────────────────────────────────────────────────────────
   let running=startBal;
   const totalIncome=payEvents.reduce((s,p)=>s+p.amount,0);
@@ -4638,9 +4658,11 @@ function wiRunProjector(){
     </div>`;
 
   let shortfallCount=0;
+  let _wIdx=0;
   weeks.forEach(w=>{
     const wPay=payEvents.filter(e=>e.date>=w.start&&e.date<=w.end);
     const wOut=outflows.filter(o=>o.date>=w.start&&o.date<=w.end);
+    const wIdx=_wIdx++;
     if(!wPay.length&&!wOut.length)return; // skip truly empty weeks
 
     // Merge and sort all events chronologically within the week
@@ -4680,6 +4702,35 @@ function wiRunProjector(){
     const bonusInWeek=sources.some(src=>
       wPay.some(e=>e.desc===src.label)&&bonusMonths.has(wYM+':'+src.label)
     );
+
+    // ── Safe-spend risk bar ───────────────────────────────────────────────────
+    // safeToSpend = lowest projected balance from this week forward minus cushion floor
+    // Spending any amount over this in the current week will breach the cushion at some point
+    const minFwd=minForwardBal[wIdx];
+    const safeToSpend=minFwd-cushionFloor;
+    const amberThreshold=cushionFloor+Math.max(100,cushionFloor*0.5);
+    let riskBar;
+    if(minFwd>=amberThreshold){
+      riskBar=`<div style="background:rgba(0,200,100,.07);border-top:1px solid rgba(0,200,100,.2);padding:5px 12px;display:flex;align-items:center;gap:8px;font-size:11px">
+        <span style="font-size:13px">🟢</span>
+        <span style="color:var(--green);font-weight:700">Clear</span>
+        <span style="color:var(--text3)">— up to <strong style="font-family:var(--mono);color:var(--green)">${$f(safeToSpend)}</strong> discretionary this week without touching future bills</span>
+      </div>`;
+    } else if(safeToSpend>0){
+      riskBar=`<div style="background:rgba(220,160,0,.07);border-top:1px solid rgba(220,160,0,.25);padding:5px 12px;display:flex;align-items:center;gap:8px;font-size:11px">
+        <span style="font-size:13px">🟡</span>
+        <span style="color:var(--amber);font-weight:700">Caution</span>
+        <span style="color:var(--text3)">— limit extra spending to <strong style="font-family:var(--mono);color:var(--amber)">${$f(safeToSpend)}</strong> this week · future bills are close</span>
+      </div>`;
+    } else {
+      const overBy=$f(Math.abs(safeToSpend));
+      riskBar=`<div style="background:var(--rbg);border-top:1px solid var(--rb);padding:5px 12px;display:flex;align-items:center;gap:8px;font-size:11px">
+        <span style="font-size:13px">🔴</span>
+        <span style="color:var(--red);font-weight:700">At Risk</span>
+        <span style="color:var(--text3)">— <strong style="font-family:var(--mono);color:var(--red)">${overBy}</strong> below cushion floor · freeze non-essential spending now</span>
+      </div>`;
+    }
+
     html+=`<div style="background:var(--bg2);border:1px solid ${shortfall?'var(--red)':'var(--border)'};border-radius:8px;margin-bottom:8px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:${shortfall?'var(--rbg)':'var(--surface)'};border-bottom:1px solid var(--border);flex-wrap:wrap">
         <span style="font-size:11px;font-weight:700;color:var(--text)">Week of ${w.start.slice(5)} – ${w.end.slice(5)}</span>
@@ -4690,6 +4741,7 @@ function wiRunProjector(){
         ${shortfall?`<span style="font-size:11px;font-weight:700;color:var(--red)">⚠ SHORTFALL</span>`:''}
       </div>
       <div style="padding:4px 12px">${rows}</div>
+      ${riskBar}
     </div>`;
   });
 
