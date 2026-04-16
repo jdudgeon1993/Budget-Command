@@ -4704,30 +4704,21 @@ function wiRunProjector(){
     );
 
     // ── Safe-spend risk bar ───────────────────────────────────────────────────
-    // safeToSpend = lowest projected balance from this week forward minus cushion floor
-    // Spending any amount over this in the current week will breach the cushion at some point
     const minFwd=minForwardBal[wIdx];
     const safeToSpend=minFwd-cushionFloor;
     const amberThreshold=cushionFloor+Math.max(100,cushionFloor*0.5);
     let riskBar;
     if(minFwd>=amberThreshold){
-      riskBar=`<div style="background:rgba(0,200,100,.07);border-top:1px solid rgba(0,200,100,.2);padding:5px 12px;display:flex;align-items:center;gap:8px;font-size:11px">
-        <span style="font-size:13px">🟢</span>
-        <span style="color:var(--green);font-weight:700">Clear</span>
-        <span style="color:var(--text3)">— up to <strong style="font-family:var(--mono);color:var(--green)">${$f(safeToSpend)}</strong> discretionary this week without touching future bills</span>
+      riskBar=`<div style="background:rgba(0,200,100,.07);border-top:1px solid rgba(0,200,100,.2);padding:6px 12px;font-size:12px;color:var(--text2)">
+        After all upcoming bills are paid, you have <strong style="font-family:var(--mono);color:var(--green)">${$f(safeToSpend)}</strong> left to spend before this projection ends.
       </div>`;
     } else if(safeToSpend>0){
-      riskBar=`<div style="background:rgba(220,160,0,.07);border-top:1px solid rgba(220,160,0,.25);padding:5px 12px;display:flex;align-items:center;gap:8px;font-size:11px">
-        <span style="font-size:13px">🟡</span>
-        <span style="color:var(--amber);font-weight:700">Caution</span>
-        <span style="color:var(--text3)">— limit extra spending to <strong style="font-family:var(--mono);color:var(--amber)">${$f(safeToSpend)}</strong> this week · future bills are close</span>
+      riskBar=`<div style="background:rgba(220,160,0,.07);border-top:1px solid rgba(220,160,0,.25);padding:6px 12px;font-size:12px;color:var(--text2)">
+        ⚠️ Only <strong style="font-family:var(--mono);color:var(--amber)">${$f(safeToSpend)}</strong> left after upcoming bills — think twice before spending anything extra.
       </div>`;
     } else {
-      const overBy=$f(Math.abs(safeToSpend));
-      riskBar=`<div style="background:var(--rbg);border-top:1px solid var(--rb);padding:5px 12px;display:flex;align-items:center;gap:8px;font-size:11px">
-        <span style="font-size:13px">🔴</span>
-        <span style="color:var(--red);font-weight:700">At Risk</span>
-        <span style="color:var(--text3)">— <strong style="font-family:var(--mono);color:var(--red)">${overBy}</strong> below cushion floor · freeze non-essential spending now</span>
+      riskBar=`<div style="background:var(--rbg);border-top:1px solid var(--rb);padding:6px 12px;font-size:12px;color:var(--text2)">
+        ⚠️ <strong style="color:var(--red)">You're ${$f(Math.abs(safeToSpend))} short</strong> — your projected balance won't cover all upcoming bills. Do not spend anything extra right now.
       </div>`;
     }
 
