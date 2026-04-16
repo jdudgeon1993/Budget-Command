@@ -4387,6 +4387,7 @@ function wiProjectorHtml(result,standalone){
   const _totalMonthlyBills=S.buckets.filter(b=>!b.archived&&(b.defaultBudget||0)>0).reduce((s,b)=>s+(b.defaultBudget||0),0);
   const _cushionDefault=Math.max(200,Math.round(_totalMonthlyBills/4.33*1.5/10)*10);
   const cushionVal=fs.cushion!==undefined?fs.cushion:String(_cushionDefault);
+  const extraVal=fs.extra!==undefined?fs.extra:'0';
 
   // Paycheck row builder — pre-fills from stored form state, then S.paychecks, then smart next date
   const pcRow=(n,req)=>{
@@ -4447,6 +4448,11 @@ function wiProjectorHtml(result,standalone){
         <input class="fi mono" id="projCushion" type="number" step="10" value="${cushionVal}" placeholder="${_cushionDefault}" />
         <div style="font-size:10px;color:var(--text3);margin-top:2px">Min balance to keep at all times · never saved · adjust freely</div>
       </div>
+      <div>
+        <label class="fl">Test: extra spend / wk <span style="font-size:10px;color:var(--text3);font-weight:400">what if?</span></label>
+        <input class="fi mono" id="projExtra" type="number" step="5" min="0" value="${extraVal}" placeholder="0" />
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Adds weekly discretionary spending — see how it shrinks your buffer</div>
+      </div>
     </div>
 
     ${pcRow(1,true)}${pcRow(2,false)}${pcRow(3,false)}
@@ -4464,6 +4470,7 @@ function wiRunProjector(){
   const balInput=document.getElementById('projBal')?.value;
   const startBal=balInput!==''&&balInput!=null?parseFloat(balInput)||0:S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
   const cushionFloor=parseFloat(document.getElementById('projCushion')?.value)||0;
+  const extraWeekly=parseFloat(document.getElementById('projExtra')?.value)||0;
 
   // Resolve scenario for bucket amounts
   const scenarioId=document.getElementById('projScenario')?.value||'';
@@ -4482,7 +4489,7 @@ function wiRunProjector(){
   if(!sources.length){alert('Enter at least one paycheck (date + amount).');return;}
 
   // Capture form state so it can be restored after re-render
-  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId,cushion:document.getElementById('projCushion')?.value||''};
+  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId,cushion:document.getElementById('projCushion')?.value||'',extra:document.getElementById('projExtra')?.value||'0'};
   for(let n=1;n<=3;n++){
     _projectorFormState['pc'+n+'Label']=document.getElementById('pc'+n+'Label')?.value||'';
     _projectorFormState['pc'+n+'Amt']=document.getElementById('pc'+n+'Amt')?.value||'';
@@ -4491,7 +4498,8 @@ function wiRunProjector(){
   }
 
   // Projection window: start from earliest paycheck date
-  const startStr=sources.map(s=>s.date).sort()[0];
+  // Always start from today — bills before today are already in the current balance
+  const startStr=todayStr();
   const startDate=new Date(startStr+'T12:00:00');
   const endDate=new Date(startDate);
   if(monthsRaw==='eoy'){
@@ -4580,6 +4588,14 @@ function wiRunProjector(){
       d.setMonth(d.getMonth()+1);
     }
   });
+  // ── Inject weekly "what if" extra spending ────────────────────────────────
+  if(extraWeekly>0){
+    let eD=new Date(startDate);
+    while(eD<=endDate){
+      outflows.push({date:eD.toISOString().split('T')[0],desc:'Extra spending',amount:extraWeekly,src:'discretionary'});
+      eD.setDate(eD.getDate()+7);
+    }
+  }
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
   // ── Collect no-due-date buckets for warning ───────────────────────────────
