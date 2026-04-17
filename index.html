@@ -2279,7 +2279,7 @@ function readyToSpend(mid){
     .filter(a=>a.type==='budget')
     .reduce((s,a)=>s+acctBalance(a.id),0);
   const unfulfilled=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
-    return s+Math.max(0,bAlloc(mid,b.id)-bSpent(mid,b.id));
+    return s+Math.max(0,bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id));
   },0);
   return budgetBal-unfulfilled;
 }
