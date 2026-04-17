@@ -2925,14 +2925,19 @@ function renderBucketsTab(el,mid){
     });
 
     const catAnomaly=catAnomalyCheck(cat.id,mid);
+    const catFundAmt=catBuckets.reduce((s,b)=>{const a=bAlloc(mid,b.id),t=bBudget(mid,b.id);return s+(a===0&&t>0?t:0);},0);
+    const catAllocPct=catTarget>0?Math.min(catAlloc/catTarget,1):0;
+    const catBarColor=catAllocPct>=1?'var(--green)':catAllocPct>=0.5?'var(--accent)':'var(--amber)';
+    const catAllocColor=catTarget>0?(catAlloc>=catTarget?'var(--green)':catAlloc>0?'var(--amber)':'var(--text3)'):'var(--text3)';
     h+=`<div class="bkt-cat">
       <div class="bkt-cat-hdr">
         <div class="bkt-cat-dot" style="background:${color}"></div>
         <span class="bkt-cat-name">${esc(cat.name)}</span>
-        ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average" style="font-size:11px;color:var(--amber);margin-left:4px;cursor:default">⚠ ${catAnomaly.z}σ</span>`:''}
-        <span class="bkt-cat-totals">${$f(catAlloc)} allocated · ${$f(catTarget)} target</span>
-        ${!past?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund all</button>`:''}
+        ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average — ${$f(catAnomaly.excess)} more than usual" style="font-size:10px;font-weight:700;color:var(--amber);background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;flex-shrink:0">⚠ Spike</span>`:''}
+        <span class="bkt-cat-totals" style="color:${catAllocColor}">${$f(catAlloc)}<span style="color:var(--text3);font-weight:400"> / ${$f(catTarget)}</span></span>
+        ${!past&&catFundAmt>0?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
       </div>
+      ${catTarget>0?`<div style="height:2px;background:var(--border2);margin:0 16px 0;overflow:hidden"><div style="height:100%;width:${Math.round(catAllocPct*100)}%;background:${catBarColor};transition:width .3s"></div></div>`:''}
       <div class="bkt-col-hdr">
         <div style="width:3px;flex-shrink:0"></div>
         <span style="flex:1">Bucket</span>
@@ -3275,7 +3280,10 @@ function renderAccountView(el,mid){
 function renderBucketDetail(mid,past,m){
   const bm=computeBucketMetrics(S.activeBucket,mid);if(!bm)return'';
   const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,isGoal,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData,goalData}=bm;
-  let h=`<button class="back-btn" onclick="setBucket(null)">← Buckets</button>
+  let h=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+    <button class="back-btn" style="margin-bottom:0" onclick="setBucket(null)">← Buckets</button>
+    ${!past?`<button class="tbtn" style="font-size:12px;padding:4px 10px" onclick="editBucket('${b.id}')">✏ Edit</button>`:''}
+  </div>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
     <span style="color:${color}">${esc(cat?.name||'')}</span><span class="det-sep">·</span>
@@ -3342,17 +3350,17 @@ function renderBucketDetail(mid,past,m){
 
   if(!past){
     h+=`<div class="alloc-edit-row">
-      <span class="aer-label">Allocate to ${esc(b.name)}</span>
-      <input class="aer-input" id="aerAlloc" type="number" value="${alloc||''}" placeholder="0.00"
+      <span class="aer-label">Allocate</span>
+      <input class="aer-input" id="aerAlloc" type="number" value="${alloc||''}" placeholder="${target?target.toFixed(2):'0.00'}"
         onkeydown="if(event.key==='Enter')commitAlloc('${mid}','${b.id}')" />
-      <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="commitAlloc('${mid}','${b.id}')">Set</button>
+      <button class="tbtn" style="font-size:12px;padding:5px 9px" onclick="commitAlloc('${mid}','${b.id}')">Set</button>
+      ${target>0&&alloc<target?`<button class="tbtn" style="font-size:12px;padding:5px 9px;color:var(--accent);border-color:var(--accent)" title="Fund to monthly target" onclick="setAlloc('${mid}','${b.id}',${target})">→ ${$f(target)}</button>`:''}
     </div>
     <div class="alloc-edit-row" style="margin-top:-10px;">
-      <span class="aer-label">Monthly target (template)</span>
+      <span class="aer-label">Monthly target</span>
       <input class="aer-input" id="aerBudget" type="number" value="${target||''}" placeholder="0.00"
         onkeydown="if(event.key==='Enter')updateBudget('${b.id}')" />
-      <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="updateBudget('${b.id}')">Set</button>
-      <button class="tbtn" style="font-size:12px;padding:5px 9px;" onclick="editBucket('${b.id}')">Edit</button>
+      <button class="tbtn" style="font-size:12px;padding:5px 9px" onclick="updateBudget('${b.id}')">Set</button>
     </div>`;
   }
   // Smart target suggestion (Phase 9)
@@ -3396,7 +3404,7 @@ function renderBucketDetail(mid,past,m){
       </div>`;
     });
     h+=`<div class="trend-section">
-      <div class="trend-title">Spending History <span style="font-weight:400;color:var(--accent)">— bar = teal line</span></div>
+      <div class="trend-title">Spending History <span style="font-weight:400;color:var(--text3)">— dashed line = budget</span></div>
       <div class="trend-chart">${bars}</div>
     </div>`;
   }
