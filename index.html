@@ -682,6 +682,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   /* Ledger: hide form column (use Log tab instead) */
   .ledger-layout{grid-template-columns:1fr;}
   .ledger-form-col{display:none;}
+  .tx-acts{opacity:1;}
   /* Legacy mobile scroll containers — still used by content functions */
   .mscroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .mscroll::-webkit-scrollbar{display:none;}
@@ -2707,6 +2708,30 @@ function renderLedgerTab(el,mid){
   el.style.padding='0';
   el.style.overflowY='hidden';
   const past=mid&&monthStatus(mid)==='past';
+  // Past month summary for left column
+  let pastSumHtml='';
+  if(past&&mid){
+    const _ptxs=S.txs.filter(t=>t.monthId===mid);
+    const _pIn=_ptxs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+    const _pOut=_ptxs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+    const _pNet=_pIn-_pOut;
+    pastSumHtml=`<div class="notice" style="margin:0 0 14px">🔒 Closed month — read only.</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px">Month Summary</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="background:var(--gbg);border:1px solid var(--gb);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--green);margin-bottom:4px">Income</div>
+          <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green)">${$f(_pIn)}</div>
+        </div>
+        <div style="background:var(--rbg);border:1px solid var(--rb);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--red);margin-bottom:4px">Expenses</div>
+          <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--red)">${$f(_pOut)}</div>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;font-weight:600;color:var(--text3)">Net</span>
+        <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${_pNet>=0?'var(--green)':'var(--red)'}">${_pNet>=0?'+':''}${$f(_pNet)}</span>
+      </div>`;
+  }
   el.innerHTML=`<div class="ledger-layout">
     <div class="ledger-form-col">
       <div class="rp-form" id="txForm" style="display:${past?'none':'flex'};background:transparent;border-bottom:none;padding:0;gap:10px">
@@ -2725,6 +2750,7 @@ function renderLedgerTab(el,mid){
           <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" />
           <input class="tfi" id="txDate" type="date" style="flex:1" />
         </div>
+        <div style="font-size:10px;color:var(--text3);padding:0 2px;margin-top:-4px">✦ Math: +50 · −20 · ×1.05 · 5%</div>
         <div class="rpf-row">
           <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
         </div>
@@ -2740,7 +2766,7 @@ function renderLedgerTab(el,mid){
           <button class="txf-submit" id="txSubmitBtn" onclick="addTx()" style="flex:2">Add Transaction</button>
         </div>
       </div>
-      ${past?`<div class="notice" style="margin:12px 0">🔒 Closed month — read only.</div>`:''}
+      ${pastSumHtml}
     </div>
     <div class="ledger-list-col">
       <div class="ledger-list-head">
@@ -2753,13 +2779,17 @@ function renderLedgerTab(el,mid){
           <button class="rfbtn" id="fXfr" onclick="setFilter('xfr')">⇄</button>
         </div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" style="flex:1;margin:0" />
-        ${(S.payees&&S.payees.length)?`<select class="tfi-sel" id="ledgerPayeeSel" style="width:auto;font-size:12px;padding:5px 6px" onchange="_ledgerPayee=this.value;renderTxList()">
+      <div style="position:relative;display:flex">
+        <div style="flex:1;position:relative">
+          <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" style="width:100%;margin:0;padding-right:30px;box-sizing:border-box" />
+          <button id="rpSearchClear" onclick="document.getElementById('rpSearch').value='';renderTxList()" title="Clear search" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--text3);line-height:1;padding:2px 4px">×</button>
+        </div>
+        ${(S.payees&&S.payees.length)?`<select class="tfi-sel" id="ledgerPayeeSel" style="width:auto;font-size:12px;padding:5px 6px;margin:0;border-radius:0;border-left:none;flex-shrink:0" onchange="_ledgerPayee=this.value;renderTxList()">
           <option value="">All payees</option>
           ${(S.payees||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.name)}"${p.name===_ledgerPayee?' selected':''}>👤 ${esc(p.name)}</option>`).join('')}
         </select>`:''}
       </div>
+      <div id="txSummaryBar" style="flex-shrink:0"></div>
       <div class="tx-list" id="txList" style="flex:1;overflow-y:auto"></div>
     </div>
   </div>`;
@@ -3512,6 +3542,27 @@ function renderTxList(){
   const scheduled=txs.filter(t=>t.date>today);
   const posted=txs.filter(t=>t.date<=today);
 
+  // Summary bar (month view only — account view uses balance badge)
+  const summaryBar=document.getElementById('txSummaryBar');
+  if(summaryBar){
+    if(!S.activeAccount&&(posted.length||scheduled.length)){
+      const sIn=posted.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+      const sOut=posted.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+      const sNet=sIn-sOut;
+      summaryBar.innerHTML=`<div style="display:flex;gap:14px;align-items:center;padding:5px 14px;font-size:11px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <span>↓ <strong style="font-family:var(--mono);color:var(--green)">${$f(sIn)}</strong></span>
+        <span>↑ <strong style="font-family:var(--mono);color:var(--red)">${$f(sOut)}</strong></span>
+        <span style="margin-left:auto;color:var(--text3)">${posted.length} posted</span>
+        <span style="font-family:var(--mono);font-weight:700;color:${sNet>=0?'var(--green)':'var(--red)'}">${sNet>=0?'+':''}${$f(sNet)}</span>
+      </div>`;
+    } else {
+      summaryBar.innerHTML='';
+    }
+  }
+  // Search clear button visibility
+  const clearBtn=document.getElementById('rpSearchClear');
+  if(clearBtn)clearBtn.style.display=search?'block':'none';
+
   const groups={};
   posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
   let h='';
@@ -3523,12 +3574,11 @@ function renderTxList(){
       const projBal=runBals.schedMap.has(tx.id)?runBals.schedMap.get(tx.id):null;
       h+=txRowHtml(tx,past,true,projBal);
     });
-    if(posted.length)h+=`<div class="tx-date-hdr" style="margin-top:6px">Posted</div>`;
+    if(posted.length)h+=`<div style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border)">Posted</div>`;
   }
 
   Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
-    if(scheduled.length)h+=`<div class="tx-date-hdr" style="font-size:10px;padding:4px 10px 2px;opacity:.7">${ld(date)}</div>`;
-    else h+=`<div class="tx-date-hdr">${ld(date)}</div>`;
+    h+=`<div class="tx-date-hdr">${ld(date)}</div>`;
     groups[date].forEach(tx=>{
       const rb=runBals.balMap.has(tx.id)?runBals.balMap.get(tx.id):null;
       h+=txRowHtml(tx,past,false,rb);
