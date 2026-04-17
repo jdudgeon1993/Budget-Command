@@ -1226,6 +1226,31 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .wi-debt-amt{font-family:var(--mono);font-size:12px;color:var(--red);}
 .wi-debt-freed{font-size:11px;color:var(--green);}
 
+/* ═══ MONTH-CLOSE WIZARD ═══ */
+.month-close-modal{max-width:580px;width:95vw;}
+.mc-section{padding:14px 20px;border-bottom:1px solid var(--border);}
+.mc-section:last-child{border-bottom:none;}
+.mc-section-hdr{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.mc-section-icon{font-size:16px;width:24px;text-align:center;flex-shrink:0;}
+.mc-section-title{font-size:13px;font-weight:600;flex:1;}
+.mc-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;flex-shrink:0;}
+.mc-badge.ok{background:var(--gbg);color:var(--green);}
+.mc-badge.warn{background:var(--abg);color:var(--amber);}
+.mc-badge.info{background:var(--bbg);color:var(--blue);}
+.mc-tx-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.mc-tx-row:last-child{border-bottom:none;}
+.mc-tx-desc{flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mc-tx-date{font-size:11px;color:var(--text3);flex-shrink:0;}
+.mc-tx-amt{font-family:var(--mono);font-size:12px;font-weight:500;flex-shrink:0;}
+.mc-acct-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.mc-acct-row:last-child{border-bottom:none;}
+.mc-acct-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.mc-acct-name{flex:1;}
+.mc-roll-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;}
+.mc-roll-name{flex:1;color:var(--text2);}
+.mc-roll-amt{font-family:var(--mono);font-size:12px;font-weight:500;flex-shrink:0;}
+.chip-closed{background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
+
 /* ═══════════════════════════════════════════════════════
    UTILITY LAYER — canonical shared patterns
    Use these for new code; existing component classes stay
@@ -2295,6 +2320,159 @@ function getPrevMonthId(mid){
   const idx=S.months.findIndex(m=>m.id===mid);
   return idx>0?S.months[idx-1].id:null;
 }
+function getNextMonthId(mid){
+  const idx=S.months.findIndex(m=>m.id===mid);
+  return idx>=0&&idx<S.months.length-1?S.months[idx+1].id:null;
+}
+
+// ═══════════════════════════════════════════════════════
+// MONTH-CLOSE WIZARD
+// ═══════════════════════════════════════════════════════
+function openMonthClose(mid){
+  const m=getMonth(mid);if(!m)return;
+  const modal=document.getElementById('modalBox');
+  modal.className='modal month-close-modal';
+  modal.innerHTML=monthCloseHtml(mid);
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function monthCloseHtml(mid){
+  const m=getMonth(mid);
+  // ── Section 1: uncategorized transactions ──────────────────────
+  const uncatTxs=S.txs.filter(t=>
+    t.monthId===mid&&!t.bucketId&&t.type!=='opening'&&t.type!=='xfr'&&!isScheduled(t)
+  ).sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  let uncatHtml='';
+  if(!uncatTxs.length){
+    uncatHtml=`<div style="font-size:12px;color:var(--green)">✓ All transactions are categorized.</div>`;
+  } else {
+    uncatHtml=uncatTxs.slice(0,8).map(t=>`
+      <div class="mc-tx-row">
+        <span class="mc-tx-date">${ld(t.date)}</span>
+        <span class="mc-tx-desc">${esc(t.desc||'(no description)')}</span>
+        <span class="mc-tx-amt" style="color:var(--${t.type==='in'?'green':'red'})">${t.type==='in'?'+':'−'}${$f(t.amount)}</span>
+        <button class="ib" onclick="openTxEditModal('${t.id}');setTimeout(()=>openMonthClose('${mid}'),400)" title="Assign bucket">✎</button>
+      </div>`).join('');
+    if(uncatTxs.length>8)uncatHtml+=`<div style="font-size:11px;color:var(--text3);padding-top:6px">…and ${uncatTxs.length-8} more. Assign buckets in the Ledger tab.</div>`;
+  }
+  const uncatBadge=uncatTxs.length
+    ?`<span class="mc-badge warn">${uncatTxs.length} unassigned</span>`
+    :`<span class="mc-badge ok">All done</span>`;
+
+  // ── Section 2: account reconciliation ──────────────────────────
+  const acctRows=S.accounts.map(a=>{
+    const unrecon=S.txs.filter(t=>
+      (t.accountId===a.id||t.toAccountId===a.id)&&
+      t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+    ).length;
+    const bal=acctBalance(a.id);
+    const statusHtml=unrecon===0
+      ?`<span style="font-size:11px;color:var(--green)">✓ balanced</span>`
+      :`<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="closeModal();openReconcile('${a.id}')">Reconcile (${unrecon})</button>`;
+    return`<div class="mc-acct-row">
+      <div class="mc-acct-dot" style="background:${a.color}"></div>
+      <span class="mc-acct-name">${esc(a.name)}</span>
+      <span style="font-family:var(--mono);font-size:12px;color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</span>
+      ${statusHtml}
+    </div>`;
+  }).join('');
+  const reconDone=S.accounts.every(a=>S.txs.filter(t=>
+    (t.accountId===a.id||t.toAccountId===a.id)&&
+    t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+  ).length===0);
+  const reconBadge=reconDone
+    ?`<span class="mc-badge ok">All balanced</span>`
+    :`<span class="mc-badge warn">Unreconciled txs</span>`;
+
+  // ── Section 3: rollover preview ────────────────────────────────
+  const nextMid=getNextMonthId(mid);
+  const rollBkts=S.buckets.filter(b=>!b.archived&&b.rollover).map(b=>{
+    const avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id);
+    return{b,avail};
+  }).filter(r=>Math.abs(r.avail)>0.005);
+
+  let rollHtml='';
+  if(!rollBkts.length){
+    rollHtml=`<div style="font-size:12px;color:var(--text3)">No rollover buckets with a balance.</div>`;
+  } else {
+    rollHtml=rollBkts.map(({b,avail})=>`
+      <div class="mc-roll-row">
+        <span class="mc-roll-name">${esc(b.name)}</span>
+        <span style="font-size:10px;color:var(--text3);flex-shrink:0">${avail>0?'rolls forward':'deficit rolls'}</span>
+        <span class="mc-roll-amt" style="color:var(--${avail>=0?'green':'red'})">${avail>=0?'+':''}${$f(avail)}</span>
+      </div>`).join('');
+    if(!nextMid)rollHtml+=`<div class="hint-bar info" style="margin-top:8px;font-size:11px">No next month exists yet — rollovers will apply when you create it.</div>`;
+  }
+  const rollBadge=rollBkts.length
+    ?`<span class="mc-badge info">${rollBkts.length} bucket${rollBkts.length!==1?'s':''}</span>`
+    :`<span class="mc-badge ok">None</span>`;
+
+  // ── Summary insight ────────────────────────────────────────────
+  const issues=[];
+  if(uncatTxs.length)issues.push(`${uncatTxs.length} uncategorized transaction${uncatTxs.length!==1?'s':''}`);
+  if(!reconDone)issues.push('unreconciled accounts');
+  const summaryHtml=issues.length
+    ?`<div class="hint-bar warn" style="margin:0 0 4px">Heads up: ${issues.join(' and ')}. You can still close, but consider fixing these first.</div>`
+    :`<div class="hint-bar success" style="margin:0 0 4px">✓ Everything looks good — ready to close ${esc(m.label)}.</div>`;
+
+  return`
+    <div class="modal-head">
+      <div class="modal-title">Close ${esc(m.label)}</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" style="padding:0;gap:0">
+      <div class="mc-section">
+        <div class="mc-section-hdr">
+          <span class="mc-section-icon">🗂</span>
+          <span class="mc-section-title">Uncategorized Transactions</span>
+          ${uncatBadge}
+        </div>
+        ${uncatHtml}
+      </div>
+      <div class="mc-section">
+        <div class="mc-section-hdr">
+          <span class="mc-section-icon">✓</span>
+          <span class="mc-section-title">Account Reconciliation</span>
+          ${reconBadge}
+        </div>
+        ${acctRows}
+      </div>
+      <div class="mc-section">
+        <div class="mc-section-hdr">
+          <span class="mc-section-icon">↩</span>
+          <span class="mc-section-title">Rollover Preview</span>
+          ${rollBadge}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">These buckets carry their remaining balance into the next month.</div>
+        ${rollHtml}
+      </div>
+    </div>
+    <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:8px">
+      ${summaryHtml}
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-cancel" onclick="closeModal()">Not yet</button>
+        <button class="btn-save" onclick="confirmCloseMonth('${mid}')">🔒 Close ${esc(m.label)}</button>
+      </div>
+    </div>`;
+}
+
+function confirmCloseMonth(mid){
+  const m=getMonth(mid);if(!m)return;
+  m.closed=true;
+  save();
+  closeModal();
+  render();
+  showToast(`${m.label} closed`,'save');
+}
+
+function reopenMonth(mid){
+  const m=getMonth(mid);if(!m)return;
+  delete m.closed;
+  save();
+  render();
+  showToast(`${m.label} reopened`,'info');
+}
 
 // ═══════════════════════════════════════════════════════
 // RENDER
@@ -2549,8 +2727,10 @@ function renderOverviewTab(el,mid){
   const m=getMonth(mid);
   const st=monthStatus(mid);
   const past=st==='past';
+  const closed=!!(m&&m.closed);
   const {rts,alloc,income,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
-  const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
+  const chipClass=closed?'chip-closed':st==='present'?'chip-present':past?'chip-past':'chip-future';
+  const chipTxt=closed?'✓ Closed':st==='present'?'Current':past?'Past':'Upcoming';
 
   // ── Month header (desktop; mobile topbar handles navigation) ──────────────
   let h=`<div class="month-hdr ov-month-hdr" style="margin-bottom:20px">
@@ -2558,10 +2738,15 @@ function renderOverviewTab(el,mid){
     <span class="month-title" style="margin:0 10px">${m.label}</span>
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
     ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" style="margin-left:4px">+</button>`:''}
-    <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
-    <button class="tbtn" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
+    <span class="chip ${chipClass}" style="margin-left:8px">${chipTxt}</span>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      ${past&&!closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px;border-color:var(--gb);color:var(--green)" onclick="openMonthClose('${mid}')">🔒 Close Month</button>`:''}
+      ${closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reopenMonth('${mid}')">↩ Reopen</button>`:''}
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
+    </div>
   </div>`;
-  if(past)h+=`<div style="font-size:11px;color:var(--text3);padding:0 0 12px;display:flex;align-items:center;gap:6px">🔒 <span>Closed month — read only</span></div>`;
+  if(closed)h+=`<div class="hint-bar success" style="margin-bottom:16px">🔒 ${esc(m.label)} is closed. Transactions are locked. <span style="color:var(--text3);cursor:pointer;text-decoration:underline" onclick="reopenMonth('${mid}')">Reopen</span> to make changes.</div>`;
+  else if(past)h+=`<div class="hint-bar info" style="margin-bottom:16px">This is a past month. <button class="tbtn" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="openMonthClose('${mid}')">🔒 Close &amp; Reconcile →</button></div>`;
 
   // ── Account liquidity strip (horizontal scroll on mobile) ─────────────────
   if(S.accounts.length){
