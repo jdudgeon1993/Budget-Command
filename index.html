@@ -526,6 +526,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .btn-cancel:hover{color:var(--text);}
 .btn-save{background:var(--accent);color:#fff;border:none;padding:7px 17px;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;}
 .btn-save:hover{background:var(--accent2);}
+.btn-primary{background:var(--accent);color:#fff;border:none;padding:7px 17px;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
 .btn-del{background:var(--rbg);color:var(--red);border:1px solid var(--rb);padding:7px 13px;border-radius:var(--r);font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;margin-right:auto;transition:opacity .12s;}
 .hint{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5;}
 .contrib-preview{background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);padding:9px 13px;margin-top:7px;font-size:12px;color:var(--blue);}
@@ -2352,7 +2355,7 @@ function monthCloseHtml(mid){
         <span class="mc-tx-date">${ld(t.date)}</span>
         <span class="mc-tx-desc">${esc(t.desc||'(no description)')}</span>
         <span class="mc-tx-amt" style="color:var(--${t.type==='in'?'green':'red'})">${t.type==='in'?'+':'−'}${$f(t.amount)}</span>
-        <button class="ib" onclick="openTxEditModal('${t.id}');setTimeout(()=>openMonthClose('${mid}'),400)" title="Assign bucket">✎</button>
+        <button class="ib" onclick="closeModal();openTxEditModal('${t.id}')" title="Assign bucket — close wizard to edit, then reopen from the hint bar">✎</button>
       </div>`).join('');
     if(uncatTxs.length>8)uncatHtml+=`<div style="font-size:11px;color:var(--text3);padding-top:6px">…and ${uncatTxs.length-8} more. Assign buckets in the Ledger tab.</div>`;
   }
@@ -3884,18 +3887,23 @@ function refreshBucketDetail(){
   if(scroll)scroll.innerHTML=renderBucketDetail(mid,past,m);
 }
 function setAlloc(mid,bid,val){
-  const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
+  const m=getMonth(mid);if(!m)return;
+  if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
+  if(!m.allocations)m.allocations={};
   m.allocations[bid]=Math.max(parseFloat(val)||0,0);
   save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
 }
 function commitAlloc(mid,bid){
+  const m=getMonth(mid);if(!m)return;
+  if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
   const val=parseFloat(document.getElementById('aerAlloc')?.value)||0;
-  const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
+  if(!m.allocations)m.allocations={};
   m.allocations[bid]=val;save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
 }
 function updateBudget(bid){
-  const val=parseFloat(document.getElementById('aerBudget')?.value)||0;
   const m=getMonth(S.activeMonth);if(!m)return;
+  if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
+  const val=parseFloat(document.getElementById('aerBudget')?.value)||0;
   m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderMain();refreshBucketDetail();
 }
 function applySmartTarget(bid,val){
@@ -4193,6 +4201,7 @@ function addMonth(y,m){
 
 function editTx(id){
   const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  const m=getMonth(tx.monthId);if(m?.closed){showToast('Month is closed — reopen to edit','info');return;}
   editingTxId=id;
   document.getElementById('txDesc').value=tx.desc;
   document.getElementById('txAmt').value=tx.amount;
@@ -4247,6 +4256,7 @@ function openTxEditModal(id){
 }
 function saveTxEditModal(id,type){
   const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  const _m=getMonth(tx.monthId);if(_m?.closed){showToast('Month is closed — reopen to edit','info');closeModal();return;}
   const desc=document.getElementById('etDesc')?.value.trim();
   const amt=parseFloat(document.getElementById('etAmt')?.value);
   const date=document.getElementById('etDate')?.value;
@@ -4261,6 +4271,7 @@ function saveTxEditModal(id,type){
 }
 function delTxFromDetail(id){
   const tx=S.txs.find(t=>t.id===id);
+  const _m=tx?getMonth(tx.monthId):null;if(_m?.closed){showToast('Month is closed — reopen to delete','info');return;}
   if(!confirm('Delete this transaction?'))return;
   S.txs=S.txs.filter(t=>t.id!==id);
   save();closeDetail(true);render();
@@ -4268,6 +4279,7 @@ function delTxFromDetail(id){
 }
 function delTx(id){
   const tx=S.txs.find(t=>t.id===id);
+  const _m=tx?getMonth(tx.monthId):null;if(_m?.closed){showToast('Month is closed — reopen to delete','info');return;}
   if(!confirm('Delete this transaction?'))return;
   S.txs=S.txs.filter(t=>t.id!==id);
   save();render();
