@@ -36,11 +36,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 ════════════════════════════════════════════════════════ */
 
 /* Uppercase section labels */
-.u-label,.ps-label,.ov-stat-label,.rps-label,.dn-label,.ss-label,.tb-total-label,.tb-rts-label,.bh-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
-.u-label,.ov-stat-label,.dn-label,.ss-label{margin-bottom:3px;}
-.ps-label,.rps-label{margin-bottom:2px;}
+.u-label,.stat-label,.tb-total-label,.tb-rts-label,.bh-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.u-label,.stat-label{margin-bottom:3px;}
 .tb-total-label,.tb-rts-label{margin-bottom:1px;}
-.ps-label{letter-spacing:.9px;}
 .bh-label{white-space:nowrap;}
 
 /* Stat grid containers — border-gap layout */
@@ -53,30 +51,29 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .stat-grid.rl{border-radius:var(--rl);}
 
 /* Stat grid cells */
-.ps-cell,.ov-stat,.rps-cell,.dn,.ss,.stat-cell{background:var(--surface);}
-.ps-cell,.ov-stat,.stat-cell{padding:10px 14px;}
-.rps-cell{padding:9px 12px;}
-.dn{padding:13px 15px;}
-.ss{padding:11px 13px;}
-.ps-cell.hi,.rps-cell.hi,.stat-cell.hi{background:var(--surface2);}
-.ps-cell.hi{border-right:2px solid var(--border);}
+.stat-cell{background:var(--surface);padding:10px 14px;}
+.stat-cell.sm{padding:9px 12px;}
+.stat-cell.md{padding:11px 13px;}
+.stat-cell.lg{padding:13px 15px;}
+.stat-cell.hi{background:var(--surface2);}
+.pool-strip .stat-cell.hi{border-right:2px solid var(--border);}
 
 /* Stat values */
-.ps-val,.ov-stat-val,.dn-val,.stat-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.4px;}
-.rps-val,.ss-val{font-family:var(--mono);font-size:14px;font-weight:500;letter-spacing:-.4px;}
-.ps-cell.hi .ps-val{font-size:18px;font-weight:600;}
-.ov-stat-val{margin-bottom:2px;}
+.stat-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.4px;}
+.stat-val.sm{font-size:14px;}
+.pool-strip .stat-cell.hi .stat-val{font-size:18px;font-weight:600;}
+.ov-stats-row .stat-val{margin-bottom:2px;}
 
 /* Stat value color modifiers */
-.ps-val.green,.ov-stat-val.green,.rps-val.green,.stat-val.green{color:var(--green);}
-.ps-val.red,.ov-stat-val.red,.rps-val.red,.stat-val.red{color:var(--red);}
-.ps-val.dim,.ov-stat-val.dim,.rps-val.dim,.stat-val.dim{color:var(--text2);}
-.ov-stat-val.amber,.stat-val.amber{color:var(--amber);}
+.stat-val.green{color:var(--green);}
+.stat-val.red{color:var(--red);}
+.stat-val.dim{color:var(--text2);}
+.stat-val.amber{color:var(--amber);}
 
 /* Sub text beneath stat values */
-.ps-sub,.ov-stat-sub,.stat-sub{font-size:10px;color:var(--text3);margin-top:1px;}
-.dn-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-.rps-sub{font-size:9px;color:var(--text3);margin-top:1px;}
+.stat-sub{font-size:10px;color:var(--text3);margin-top:1px;}
+.stat-sub.sm{font-size:9px;}
+.stat-sub.lg{font-size:11px;margin-top:2px;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 
@@ -879,7 +876,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   /* ── Unified overview: mobile adaptations ── */
   .ov-desktop-only{display:none!important;}
   .ov-month-hdr{display:none!important;} /* topbar handles month nav on mobile */
-  .ov-stat{padding:10px 8px;}
+  .ov-stats-row .stat-cell{padding:10px 8px;}
   .ov-widgets{grid-template-columns:1fr;gap:0;}
   .ov-widget{border:none;border-radius:0;border-top:1px solid var(--border);padding:12px 16px;}
   .ov-widget-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px;}
@@ -2509,10 +2506,10 @@ function renderRpSummary(){
   const rts=readyToSpend(mid);
   const totalSpent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
   el.innerHTML=`
-    <div class="rps-cell"><div class="rps-label">Budget Balance</div><div class="rps-val green">${$f(budgetBal)}</div><div class="rps-sub">in budget accounts</div></div>
-    <div class="rps-cell"><div class="rps-label">Allocated</div><div class="rps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="rps-sub">assigned this month</div></div>
-    <div class="rps-cell hi"><div class="rps-label">Ready to Spend</div><div class="rps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="rps-sub">${rts>0?'ready to allocate':rts<0?'⚠ budget short':'balanced ✓'}</div></div>
-    <div class="rps-cell"><div class="rps-label">Spent</div><div class="rps-val dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="rps-sub">from transactions</div></div>`;
+    <div class="stat-cell sm"><div class="stat-label">Budget Balance</div><div class="stat-val sm green">${$f(budgetBal)}</div><div class="stat-sub sm">in budget accounts</div></div>
+    <div class="stat-cell sm"><div class="stat-label">Allocated</div><div class="stat-val sm dim">${alloc>0?$f(alloc):'—'}</div><div class="stat-sub sm">assigned this month</div></div>
+    <div class="stat-cell sm hi"><div class="stat-label">Ready to Spend</div><div class="stat-val sm ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="stat-sub sm">${rts>0?'ready to allocate':rts<0?'⚠ budget short':'balanced ✓'}</div></div>
+    <div class="stat-cell sm"><div class="stat-label">Spent</div><div class="stat-val sm dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="stat-sub sm">from transactions</div></div>`;
 }
 
 function sidebarNavMonth(dir){
@@ -2787,10 +2784,10 @@ function renderOverviewTab(el,mid){
   const spendBarW=Math.round(spendPct*100);
   const spendBarClr=spendPct>=1?'var(--red)':spendPct>=0.8?'var(--amber)':'var(--green)';
   h+=`<div class="pool-strip" style="margin-bottom:${alloc>0&&totalSpent>0?'8px':'16px'}">
-    <div class="ps-cell hi"><div class="ps-label">Ready to Spend</div><div class="ps-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="ps-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
-    <div class="ps-cell"><div class="ps-label">Income</div><div class="ps-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div><div class="ps-sub">this month</div></div>
-    <div class="ps-cell"><div class="ps-label">Allocated</div><div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="ps-sub">to buckets</div></div>
-    <div class="ps-cell"><div class="ps-label">Spent</div><div class="ps-val ${spendPct>=1?'red':spendPct>=0.8?'amber':'dim'}">${totalSpent>0?$f(totalSpent):'—'}</div><div class="ps-sub">${alloc>0?spendBarW+'% of budget':'from buckets'}</div></div>
+    <div class="stat-cell hi"><div class="stat-label">Ready to Spend</div><div class="stat-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="stat-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
+    <div class="stat-cell"><div class="stat-label">Income</div><div class="stat-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div><div class="stat-sub">this month</div></div>
+    <div class="stat-cell"><div class="stat-label">Allocated</div><div class="stat-val dim">${alloc>0?$f(alloc):'—'}</div><div class="stat-sub">to buckets</div></div>
+    <div class="stat-cell"><div class="stat-label">Spent</div><div class="stat-val ${spendPct>=1?'red':spendPct>=0.8?'amber':'dim'}">${totalSpent>0?$f(totalSpent):'—'}</div><div class="stat-sub">${alloc>0?spendBarW+'% of budget':'from buckets'}</div></div>
   </div>`;
   if(alloc>0&&totalSpent>0)h+=`<div class="ov-spend-row" style="margin-bottom:16px"><div class="ov-spend-bar-track"><div class="ov-spend-bar-fill" style="width:${spendBarW}%;background:${spendBarClr}"></div></div><span class="c-text3" style="font-size:10px;flex-shrink:0">${spendBarW}% spent</span></div>`;
 
@@ -2803,25 +2800,25 @@ function renderOverviewTab(el,mid){
     h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
   // ── Secondary stats row ───────────────────────────────────────────────────
   h+=`<div class="ov-stats-row">
-    <div class="ov-stat">
-      <div class="ov-stat-label">Net Worth</div>
-      <div class="ov-stat-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
-      <div class="ov-stat-sub">all accounts</div>
+    <div class="stat-cell">
+      <div class="stat-label">Net Worth</div>
+      <div class="stat-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
+      <div class="stat-sub">all accounts</div>
     </div>
-    <div class="ov-stat">
-      <div class="ov-stat-label">Cash Runway</div>
-      <div class="ov-stat-val ${aomCls}">${aom!==null?aom+'d':'—'}</div>
-      <div class="ov-stat-sub">${aomSub}</div>
+    <div class="stat-cell">
+      <div class="stat-label">Cash Runway</div>
+      <div class="stat-val ${aomCls}">${aom!==null?aom+'d':'—'}</div>
+      <div class="stat-sub">${aomSub}</div>
     </div>
-    <div class="ov-stat">
-      <div class="ov-stat-label">Bucket Health</div>
-      <div class="ov-stat-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
-      <div class="ov-stat-sub">${fundedCnt} funded · ${partialCnt} partial · ${unfundedCnt} unfunded</div>
+    <div class="stat-cell">
+      <div class="stat-label">Bucket Health</div>
+      <div class="stat-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
+      <div class="stat-sub">${fundedCnt} funded · ${partialCnt} partial · ${unfundedCnt} unfunded</div>
     </div>
-    <div class="ov-stat">
-      <div class="ov-stat-label">Budget Cash</div>
-      <div class="ov-stat-val dim">${$f(budgetBal)}</div>
-      <div class="ov-stat-sub">spending pool</div>
+    <div class="stat-cell">
+      <div class="stat-label">Budget Cash</div>
+      <div class="stat-val dim">${$f(budgetBal)}</div>
+      <div class="stat-sub">spending pool</div>
     </div>
   </div>`;
 
@@ -3543,9 +3540,9 @@ function renderAccountView(el,mid){
   </div>
   ${a.type==='debt'?renderDebtTracker(a):''}
   <div class="acct-balance-block">
-    <div class="ps-cell hi"><div class="ps-label">${a.type==='debt'?'Amount Owed':'Available in Account'}</div><div class="ps-val ${bal>=0?'green':'red'}" style="font-size:22px">${$f(bal)}</div><div class="ps-sub">${a.type==='budget'?'your spending ceiling here':a.type==='savings'?'parked — not in RTS pool':'physical balance'}</div></div>
-    <div class="ps-cell"><div class="ps-label">Total In (all time)</div><div class="ps-val dim">${$f(totalIn)}</div></div>
-    <div class="ps-cell"><div class="ps-label">Total Out (all time)</div><div class="ps-val dim">${$f(totalOut)}</div></div>
+    <div class="stat-cell hi"><div class="stat-label">${a.type==='debt'?'Amount Owed':'Available in Account'}</div><div class="stat-val ${bal>=0?'green':'red'}" style="font-size:22px">${$f(bal)}</div><div class="stat-sub">${a.type==='budget'?'your spending ceiling here':a.type==='savings'?'parked — not in RTS pool':'physical balance'}</div></div>
+    <div class="stat-cell"><div class="stat-label">Total In (all time)</div><div class="stat-val dim">${$f(totalIn)}</div></div>
+    <div class="stat-cell"><div class="stat-label">Total Out (all time)</div><div class="stat-val dim">${$f(totalOut)}</div></div>
   </div>`;
 
   if(scheduled.length){
@@ -3594,9 +3591,9 @@ function renderBucketDetail(mid,past,m){
   ${b.notes?`<div class="det-notes">${esc(b.notes)}</div>`:''}
 
   <div class="det-nums">
-    <div class="dn"><div class="dn-label">Allocated</div><div class="dn-val ${alloc>=target&&target>0?'c-green':'dim'}">${$f(alloc)}</div><div class="dn-sub">of ${$f(target)} target</div></div>
-    <div class="dn"><div class="dn-label">Spent</div><div class="dn-val c-text2">${$f(spent)}</div><div class="dn-sub">from transactions</div></div>
-    <div class="dn"><div class="dn-label">Available</div><div class="dn-val" style="color:${avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)'}">${$f(avail)}</div><div class="dn-sub">${avail<0?'overspent':avail===0&&spent>0?'fully spent':'remaining'}</div></div>
+    <div class="stat-cell lg"><div class="stat-label">Allocated</div><div class="stat-val ${alloc>=target&&target>0?'c-green':'dim'}">${$f(alloc)}</div><div class="stat-sub lg">of ${$f(target)} target</div></div>
+    <div class="stat-cell lg"><div class="stat-label">Spent</div><div class="stat-val c-text2">${$f(spent)}</div><div class="stat-sub lg">from transactions</div></div>
+    <div class="stat-cell lg"><div class="stat-label">Available</div><div class="stat-val ${avail>0?'c-green':avail<0?'c-red':'c-text3'}">${$f(avail)}</div><div class="stat-sub lg">${avail<0?'overspent':avail===0&&spent>0?'fully spent':'remaining'}</div></div>
   </div>
   <div class="det-bar">
     <div class="det-bar-track"><div class="det-bar-fill ${fillCls}" style="width:${Math.round(pct*100)}%"></div></div>
@@ -3614,10 +3611,10 @@ function renderBucketDetail(mid,past,m){
   if(isSink&&sinkData){
     const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
     h+=`<div class="sink-stats">
-      <div class="ss"><div class="ss-label">Saved</div><div class="ss-val c-green">${$f(saved)}</div></div>
-      <div class="ss"><div class="ss-label">Goal</div><div class="ss-val">${$f(tgt)}</div></div>
-      <div class="ss"><div class="ss-label">Months Left</div><div class="ss-val">${mLeft||'—'}</div></div>
-      <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val c-red" style="${mNeed>target?'':''}">${$f(mNeed)}</div></div>
+      <div class="stat-cell md"><div class="stat-label">Saved</div><div class="stat-val sm c-green">${$f(saved)}</div></div>
+      <div class="stat-cell md"><div class="stat-label">Goal</div><div class="stat-val sm">${$f(tgt)}</div></div>
+      <div class="stat-cell md"><div class="stat-label">Months Left</div><div class="stat-val sm">${mLeft||'—'}</div></div>
+      <div class="stat-cell md"><div class="stat-label">Need/mo</div><div class="stat-val sm c-red">${$f(mNeed)}</div></div>
     </div>
     <div class="det-block"><div class="det-block-title">Contribution Schedule</div>
       <div class="det-row"><span class="det-row-label">Monthly target</span><span class="det-row-val">${$f(b.defaultBudget||0)}</span></div>
@@ -3636,10 +3633,10 @@ function renderBucketDetail(mid,past,m){
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${pctDone>0.45?'#fff':'var(--text)'}">${pctDisp}%</div>
       </div>
       <div class="sink-stats">
-        <div class="ss"><div class="ss-label">Saved</div><div class="ss-val c-green">${$f(saved)}</div></div>
-        <div class="ss"><div class="ss-label">Target</div><div class="ss-val">${tgt?$f(tgt):'—'}</div></div>
-        <div class="ss"><div class="ss-label">Months Left</div><div class="ss-val">${mLeft!==null?mLeft:'—'}</div></div>
-        <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val c-red" style="${mNeed>target?'':''}">${mNeed?$f(mNeed):'—'}</div></div>
+        <div class="stat-cell md"><div class="stat-label">Saved</div><div class="stat-val sm c-green">${$f(saved)}</div></div>
+        <div class="stat-cell md"><div class="stat-label">Target</div><div class="stat-val sm">${tgt?$f(tgt):'—'}</div></div>
+        <div class="stat-cell md"><div class="stat-label">Months Left</div><div class="stat-val sm">${mLeft!==null?mLeft:'—'}</div></div>
+        <div class="stat-cell md"><div class="stat-label">Need/mo</div><div class="stat-val sm c-red">${mNeed?$f(mNeed):'—'}</div></div>
       </div>
       ${td?`<div class="det-row" style="margin-top:8px"><span class="det-row-label">Target date</span><span class="det-row-val">${td.toLocaleString('default',{month:'long',year:'numeric'})}</span></div>`:''}
       ${pctDone>=1?`<div class="c-green" style="text-align:center;font-size:14px;font-weight:700;padding:10px 0">🎉 Goal reached!</div>`:''}
