@@ -318,6 +318,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .bndue.urgent{color:var(--red);}
 .bndue.soon{color:var(--amber);}
 .bndue.ok{color:var(--text3);}
+.bndue.green{color:var(--green);}
 
 /* Progress bar — no sub % text, it's shown by the pill */
 .td-bar{width:56px;padding:4px 6px;vertical-align:middle;}
@@ -3014,8 +3015,12 @@ function renderBucketsTab(el,mid){
       const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
       const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
       const days=daysUntilDue(b,m.year,m.month);
+      const due1Paid=days!==null&&(b.dueAmount>0?spent>=b.dueAmount:(days<0&&spent>0));
       let dueHtml='';
-      if(days!==null){const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
+      if(days!==null){
+        if(due1Paid){dueHtml=`<span class="bndue green">✓ paid</span>`;}
+        else{const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
+      }
       const tags=[];
       if(b.type==='sinking')tags.push('saving');
       if(b.type==='goal')tags.push('goal');
@@ -3613,8 +3618,8 @@ function renderTxList(){
 
 function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
   const {b,cat,color,acct,toAcct,isOpening,isXfrIn,amtCls,amtPfx,indColor}=computeTxMeta(tx,S.activeAccount);
-  // forceModal: always use the edit modal (account view has no inline form in DOM)
-  const editFn=(past||forceModal)?'openTxEditModal':'editTx';
+  // forceModal / mobile: use edit modal (form col hidden on mobile; account view has no inline form)
+  const editFn=(past||forceModal||isMobile())?'openTxEditModal':'editTx';
   let metaLine='';
   if(sched)metaLine+=`<span class="tx-sched-badge">${ld(tx.date)}</span><span class="tx-dot2"></span>`;
   if(acct)metaLine+=`<span class="tx-meta-acct">${esc(acct.name)}</span>`;
@@ -3646,20 +3651,28 @@ function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
 // ═══════════════════════════════════════════════════════
 // ALLOCATION
 // ═══════════════════════════════════════════════════════
+function refreshBucketDetail(){
+  if(!S.activeBucket)return;
+  const mid=S.activeMonth;
+  const m=getMonth(mid);if(!m)return;
+  const past=monthStatus(mid)==='past';
+  const scroll=document.getElementById('detailScroll');
+  if(scroll)scroll.innerHTML=renderBucketDetail(mid,past,m);
+}
 function setAlloc(mid,bid,val){
   const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
   m.allocations[bid]=Math.max(parseFloat(val)||0,0);
-  save();renderTopbar();renderSidebar();renderMain();
+  save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
 }
 function commitAlloc(mid,bid){
   const val=parseFloat(document.getElementById('aerAlloc')?.value)||0;
   const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
-  m.allocations[bid]=val;save();renderTopbar();renderSidebar();renderMain();
+  m.allocations[bid]=val;save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
 }
 function updateBudget(bid){
   const val=parseFloat(document.getElementById('aerBudget')?.value)||0;
   const m=getMonth(S.activeMonth);if(!m)return;
-  m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderMain();
+  m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderMain();refreshBucketDetail();
 }
 function applySmartTarget(bid,val){
   const b=getBucket(bid);if(!b)return;
