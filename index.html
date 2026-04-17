@@ -214,7 +214,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .als-bal{font-family:var(--mono);font-size:13px;font-weight:500;flex-shrink:0;}
 .ov-stats-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:16px 0;}
 .ov-stat{background:var(--surface);padding:10px 14px;}
-.ov-stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;}
+.ov-stat-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
 .ov-stat-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.4px;margin-bottom:2px;}
 .ov-stat-val.green{color:var(--green);}
 .ov-stat-val.red{color:var(--red);}
@@ -269,7 +269,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .rp-summary{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border);flex-shrink:0;}
 .rps-cell{background:var(--surface);padding:9px 12px;}
 .rps-cell.hi{background:var(--surface2);}
-.rps-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.9px;color:var(--text3);margin-bottom:2px;}
+.rps-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:2px;}
 .rps-val{font-family:var(--mono);font-size:14px;font-weight:500;letter-spacing:-.4px;}
 .rps-val.green{color:var(--green);}
 .rps-val.red{color:var(--red);}
@@ -395,7 +395,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .det-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px;}
 .dn{background:var(--surface);padding:13px 15px;}
 .dn-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
-.dn-val{font-family:var(--mono);font-size:17px;font-weight:500;}
+.dn-val{font-family:var(--mono);font-size:16px;font-weight:500;}
 .dn-sub{font-size:11px;color:var(--text3);margin-top:2px;}
 .det-bar{margin-bottom:18px;}
 .det-bar-track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-bottom:5px;}
@@ -1225,6 +1225,70 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .wi-debt-name{flex:1;font-size:12px;color:var(--text2);}
 .wi-debt-amt{font-family:var(--mono);font-size:12px;color:var(--red);}
 .wi-debt-freed{font-size:11px;color:var(--green);}
+
+/* ═══ MONTH-CLOSE WIZARD ═══ */
+.month-close-modal{max-width:580px;width:95vw;}
+.mc-section{padding:14px 20px;border-bottom:1px solid var(--border);}
+.mc-section:last-child{border-bottom:none;}
+.mc-section-hdr{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.mc-section-icon{font-size:16px;width:24px;text-align:center;flex-shrink:0;}
+.mc-section-title{font-size:13px;font-weight:600;flex:1;}
+.mc-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;flex-shrink:0;}
+.mc-badge.ok{background:var(--gbg);color:var(--green);}
+.mc-badge.warn{background:var(--abg);color:var(--amber);}
+.mc-badge.info{background:var(--bbg);color:var(--blue);}
+.mc-tx-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.mc-tx-row:last-child{border-bottom:none;}
+.mc-tx-desc{flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mc-tx-date{font-size:11px;color:var(--text3);flex-shrink:0;}
+.mc-tx-amt{font-family:var(--mono);font-size:12px;font-weight:500;flex-shrink:0;}
+.mc-acct-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.mc-acct-row:last-child{border-bottom:none;}
+.mc-acct-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.mc-acct-name{flex:1;}
+.mc-roll-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;}
+.mc-roll-name{flex:1;color:var(--text2);}
+.mc-roll-amt{font-family:var(--mono);font-size:12px;font-weight:500;flex-shrink:0;}
+.chip-closed{background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
+
+/* ═══════════════════════════════════════════════════════
+   UTILITY LAYER — canonical shared patterns
+   Use these for new code; existing component classes stay
+   for backward compat but values are normalized below.
+═══════════════════════════════════════════════════════ */
+
+/* Section label: uppercase, weight 600, text3 — one definition */
+.u-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:3px;}
+
+/* Stat grid system — replaces pool-strip/ov-stats-row/det-nums/sink-stats pattern */
+.stat-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:16px;}
+.stat-grid.rl{border-radius:var(--rl);}
+.stat-cell{background:var(--surface);padding:10px 14px;}
+.stat-cell.hi{background:var(--surface2);}
+.stat-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.4px;}
+.stat-val.lg{font-size:18px;font-weight:600;}
+.stat-val.sm{font-size:14px;}
+.stat-val.green{color:var(--green);}
+.stat-val.red{color:var(--red);}
+.stat-val.amber{color:var(--amber);}
+.stat-val.dim{color:var(--text2);}
+.stat-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+
+/* Color utilities — replaces inline style="color:var(--X)" throughout JS templates */
+.c-green{color:var(--green);}
+.c-red{color:var(--red);}
+.c-amber{color:var(--amber);}
+.c-blue{color:var(--blue);}
+.c-purple{color:var(--purple);}
+.c-dim{color:var(--text2);}
+.c-muted{color:var(--text3);}
+
+/* Report layout — used by renderReportsTab insight callouts */
+.rpt-desc{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.rpt-insight{background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--blue);line-height:1.6;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start;}
+.rpt-insight.warn{background:var(--abg);border-color:var(--ab);color:var(--amber);}
+.rpt-insight.good{background:var(--gbg);border-color:var(--gb);color:var(--green);}
+.rpt-insight-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
 </style>
 </head>
 <body>
@@ -2256,6 +2320,159 @@ function getPrevMonthId(mid){
   const idx=S.months.findIndex(m=>m.id===mid);
   return idx>0?S.months[idx-1].id:null;
 }
+function getNextMonthId(mid){
+  const idx=S.months.findIndex(m=>m.id===mid);
+  return idx>=0&&idx<S.months.length-1?S.months[idx+1].id:null;
+}
+
+// ═══════════════════════════════════════════════════════
+// MONTH-CLOSE WIZARD
+// ═══════════════════════════════════════════════════════
+function openMonthClose(mid){
+  const m=getMonth(mid);if(!m)return;
+  const modal=document.getElementById('modalBox');
+  modal.className='modal month-close-modal';
+  modal.innerHTML=monthCloseHtml(mid);
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function monthCloseHtml(mid){
+  const m=getMonth(mid);
+  // ── Section 1: uncategorized transactions ──────────────────────
+  const uncatTxs=S.txs.filter(t=>
+    t.monthId===mid&&!t.bucketId&&t.type!=='opening'&&t.type!=='xfr'&&!isScheduled(t)
+  ).sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  let uncatHtml='';
+  if(!uncatTxs.length){
+    uncatHtml=`<div style="font-size:12px;color:var(--green)">✓ All transactions are categorized.</div>`;
+  } else {
+    uncatHtml=uncatTxs.slice(0,8).map(t=>`
+      <div class="mc-tx-row">
+        <span class="mc-tx-date">${ld(t.date)}</span>
+        <span class="mc-tx-desc">${esc(t.desc||'(no description)')}</span>
+        <span class="mc-tx-amt" style="color:var(--${t.type==='in'?'green':'red'})">${t.type==='in'?'+':'−'}${$f(t.amount)}</span>
+        <button class="ib" onclick="openTxEditModal('${t.id}');setTimeout(()=>openMonthClose('${mid}'),400)" title="Assign bucket">✎</button>
+      </div>`).join('');
+    if(uncatTxs.length>8)uncatHtml+=`<div style="font-size:11px;color:var(--text3);padding-top:6px">…and ${uncatTxs.length-8} more. Assign buckets in the Ledger tab.</div>`;
+  }
+  const uncatBadge=uncatTxs.length
+    ?`<span class="mc-badge warn">${uncatTxs.length} unassigned</span>`
+    :`<span class="mc-badge ok">All done</span>`;
+
+  // ── Section 2: account reconciliation ──────────────────────────
+  const acctRows=S.accounts.map(a=>{
+    const unrecon=S.txs.filter(t=>
+      (t.accountId===a.id||t.toAccountId===a.id)&&
+      t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+    ).length;
+    const bal=acctBalance(a.id);
+    const statusHtml=unrecon===0
+      ?`<span style="font-size:11px;color:var(--green)">✓ balanced</span>`
+      :`<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="closeModal();openReconcile('${a.id}')">Reconcile (${unrecon})</button>`;
+    return`<div class="mc-acct-row">
+      <div class="mc-acct-dot" style="background:${a.color}"></div>
+      <span class="mc-acct-name">${esc(a.name)}</span>
+      <span style="font-family:var(--mono);font-size:12px;color:${bal>=0?'var(--text)':'var(--red)'}">${$f(bal)}</span>
+      ${statusHtml}
+    </div>`;
+  }).join('');
+  const reconDone=S.accounts.every(a=>S.txs.filter(t=>
+    (t.accountId===a.id||t.toAccountId===a.id)&&
+    t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+  ).length===0);
+  const reconBadge=reconDone
+    ?`<span class="mc-badge ok">All balanced</span>`
+    :`<span class="mc-badge warn">Unreconciled txs</span>`;
+
+  // ── Section 3: rollover preview ────────────────────────────────
+  const nextMid=getNextMonthId(mid);
+  const rollBkts=S.buckets.filter(b=>!b.archived&&b.rollover).map(b=>{
+    const avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id);
+    return{b,avail};
+  }).filter(r=>Math.abs(r.avail)>0.005);
+
+  let rollHtml='';
+  if(!rollBkts.length){
+    rollHtml=`<div style="font-size:12px;color:var(--text3)">No rollover buckets with a balance.</div>`;
+  } else {
+    rollHtml=rollBkts.map(({b,avail})=>`
+      <div class="mc-roll-row">
+        <span class="mc-roll-name">${esc(b.name)}</span>
+        <span style="font-size:10px;color:var(--text3);flex-shrink:0">${avail>0?'rolls forward':'deficit rolls'}</span>
+        <span class="mc-roll-amt" style="color:var(--${avail>=0?'green':'red'})">${avail>=0?'+':''}${$f(avail)}</span>
+      </div>`).join('');
+    if(!nextMid)rollHtml+=`<div class="hint-bar info" style="margin-top:8px;font-size:11px">No next month exists yet — rollovers will apply when you create it.</div>`;
+  }
+  const rollBadge=rollBkts.length
+    ?`<span class="mc-badge info">${rollBkts.length} bucket${rollBkts.length!==1?'s':''}</span>`
+    :`<span class="mc-badge ok">None</span>`;
+
+  // ── Summary insight ────────────────────────────────────────────
+  const issues=[];
+  if(uncatTxs.length)issues.push(`${uncatTxs.length} uncategorized transaction${uncatTxs.length!==1?'s':''}`);
+  if(!reconDone)issues.push('unreconciled accounts');
+  const summaryHtml=issues.length
+    ?`<div class="hint-bar warn" style="margin:0 0 4px">Heads up: ${issues.join(' and ')}. You can still close, but consider fixing these first.</div>`
+    :`<div class="hint-bar success" style="margin:0 0 4px">✓ Everything looks good — ready to close ${esc(m.label)}.</div>`;
+
+  return`
+    <div class="modal-head">
+      <div class="modal-title">Close ${esc(m.label)}</div>
+      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" style="padding:0;gap:0">
+      <div class="mc-section">
+        <div class="mc-section-hdr">
+          <span class="mc-section-icon">🗂</span>
+          <span class="mc-section-title">Uncategorized Transactions</span>
+          ${uncatBadge}
+        </div>
+        ${uncatHtml}
+      </div>
+      <div class="mc-section">
+        <div class="mc-section-hdr">
+          <span class="mc-section-icon">✓</span>
+          <span class="mc-section-title">Account Reconciliation</span>
+          ${reconBadge}
+        </div>
+        ${acctRows}
+      </div>
+      <div class="mc-section">
+        <div class="mc-section-hdr">
+          <span class="mc-section-icon">↩</span>
+          <span class="mc-section-title">Rollover Preview</span>
+          ${rollBadge}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">These buckets carry their remaining balance into the next month.</div>
+        ${rollHtml}
+      </div>
+    </div>
+    <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:8px">
+      ${summaryHtml}
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-cancel" onclick="closeModal()">Not yet</button>
+        <button class="btn-save" onclick="confirmCloseMonth('${mid}')">🔒 Close ${esc(m.label)}</button>
+      </div>
+    </div>`;
+}
+
+function confirmCloseMonth(mid){
+  const m=getMonth(mid);if(!m)return;
+  m.closed=true;
+  save();
+  closeModal();
+  render();
+  showToast(`${m.label} closed`,'save');
+}
+
+function reopenMonth(mid){
+  const m=getMonth(mid);if(!m)return;
+  delete m.closed;
+  save();
+  render();
+  showToast(`${m.label} reopened`,'info');
+}
 
 // ═══════════════════════════════════════════════════════
 // RENDER
@@ -2510,8 +2727,10 @@ function renderOverviewTab(el,mid){
   const m=getMonth(mid);
   const st=monthStatus(mid);
   const past=st==='past';
+  const closed=!!(m&&m.closed);
   const {rts,alloc,income,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
-  const chipTxt=past?'Closed':st==='present'?'Current':'Upcoming';
+  const chipClass=closed?'chip-closed':st==='present'?'chip-present':past?'chip-past':'chip-future';
+  const chipTxt=closed?'✓ Closed':st==='present'?'Current':past?'Past':'Upcoming';
 
   // ── Month header (desktop; mobile topbar handles navigation) ──────────────
   let h=`<div class="month-hdr ov-month-hdr" style="margin-bottom:20px">
@@ -2519,10 +2738,15 @@ function renderOverviewTab(el,mid){
     <span class="month-title" style="margin:0 10px">${m.label}</span>
     <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
     ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" style="margin-left:4px">+</button>`:''}
-    <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
-    <button class="tbtn" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
+    <span class="chip ${chipClass}" style="margin-left:8px">${chipTxt}</span>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      ${past&&!closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px;border-color:var(--gb);color:var(--green)" onclick="openMonthClose('${mid}')">🔒 Close Month</button>`:''}
+      ${closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reopenMonth('${mid}')">↩ Reopen</button>`:''}
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
+    </div>
   </div>`;
-  if(past)h+=`<div style="font-size:11px;color:var(--text3);padding:0 0 12px;display:flex;align-items:center;gap:6px">🔒 <span>Closed month — read only</span></div>`;
+  if(closed)h+=`<div class="hint-bar success" style="margin-bottom:16px">🔒 ${esc(m.label)} is closed. Transactions are locked. <span style="color:var(--text3);cursor:pointer;text-decoration:underline" onclick="reopenMonth('${mid}')">Reopen</span> to make changes.</div>`;
+  else if(past)h+=`<div class="hint-bar info" style="margin-bottom:16px">This is a past month. <button class="tbtn" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="openMonthClose('${mid}')">🔒 Close &amp; Reconcile →</button></div>`;
 
   // ── Account liquidity strip (horizontal scroll on mobile) ─────────────────
   if(S.accounts.length){
@@ -5378,7 +5602,14 @@ function reportNetWorthHtml(){
       <tbody>${rows}</tbody>
     </table></div>`;
   }
-  return `<div class="nw-summary" style="margin:0 0 4px;border-radius:var(--r)">
+  const _nwInsight=netWorth>0
+    ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span>Your net worth is positive at <strong>${$f(netWorth)}</strong> — your assets outweigh your liabilities. Keep growing the gap.</div>`
+    :netWorth===0
+      ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span>Your assets and liabilities are exactly balanced. Paying down debt or growing savings will push net worth into positive territory.</div>`
+      :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>Your net worth is <strong>${$f(netWorth)}</strong> — liabilities exceed assets. Prioritize debt payoff to improve this number over time.</div>`;
+  return `<p class="rpt-desc">Your total financial picture — all assets (what you own) minus all liabilities (what you owe). This is the single most important number for long-term financial health. Track it monthly to see your progress.</p>
+  ${_nwInsight}
+  <div class="nw-summary" style="margin:0 0 4px;border-radius:var(--r)">
     <div class="nw-summary-cell">
       <div class="nw-summary-label">Total Assets</div>
       <div class="nw-summary-val" style="color:var(--green)">${$f(totalAssets)}</div>
@@ -5679,10 +5910,16 @@ function reportMonthHtml(mid){
       return`  ${b.name.padEnd(24)} budget:${$f(bBudget(mid,b.id)).padStart(9)}  alloc:${$f(alloc).padStart(9)}  spent:${$f(spent).padStart(9)}  avail:${$f(avail).padStart(9)}`;
     })];
   }).join('\n');
-  return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+  const _rts=readyToSpend(mid);
+  const _monthInsight=_rts>=0
+    ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span><strong>${$f(_rts)}</strong> is sitting unallocated — give it a bucket to make every dollar count.</div>`
+    :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>You're <strong>${$f(Math.abs(_rts))}</strong> over-allocated — your buckets claim more than your available cash. Reduce some allocations or add income.</div>`;
+  return `<p class="rpt-desc">A full breakdown of every bucket this month — what was budgeted, how much you allocated, what was spent, and what remains. Use this to reconcile your plan against reality.</p>
+  ${_monthInsight}
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <label style="font-size:12px;color:var(--text3)">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('month')">${monthOpts}</select>
-    <span style="font-size:12px;color:var(--text3);margin-left:auto">Ready to Spend: <strong style="color:${readyToSpend(mid)>=0?'var(--green)':'var(--red)'}">${$f(readyToSpend(mid))}</strong></span>
+    <span style="font-size:12px;color:var(--text3);margin-left:auto">Ready to Spend: <strong style="color:${_rts>=0?'var(--green)':'var(--red)'}">${$f(_rts)}</strong></span>
     <button class="report-copy-btn" onclick="navigator.clipboard.writeText(${JSON.stringify(mo.label+'\n'+copyText)}).then(()=>showToast('Copied to clipboard','save'))">⎘ Copy</button>
   </div>
   <div style="overflow-x:auto">
@@ -5720,7 +5957,13 @@ function reportBvAHtml(mid){
   rows+=`<tr class="report-total-row"><td>Total</td><td>${$f(totalTarget)}</td><td>${$f(totalSpent)}</td>
     <td style="color:${tv>=0?'var(--green)':'var(--red)'}">${tv>=0?'+':''}${$f(tv)}</td>
     <td style="color:${tv>=0?'var(--green)':'var(--red)'}">${totalTarget?Math.round(totalSpent/totalTarget*100)+'%':'—'}</td></tr>`;
-  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+  const _bvaVariance=totalTarget-totalSpent;
+  const _bvaInsight=_bvaVariance>=0
+    ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span>You're <strong>${$f(_bvaVariance)}</strong> under budget overall — spending is on track.</div>`
+    :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>You've exceeded your budget by <strong>${$f(Math.abs(_bvaVariance))}</strong>. Check which buckets went over and adjust next month's plan.</div>`;
+  return`<p class="rpt-desc">Budget vs Actual — compares what you planned to spend (budget) against what you actually spent. A positive variance means you came in under budget; negative means you overspent.</p>
+  ${_bvaInsight}
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <label style="font-size:12px;color:var(--text3)">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('bva')">${monthOpts}</select>
   </div>
@@ -5759,7 +6002,16 @@ function reportYTDHtml(){
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
     <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
   const tc=totalNet>=0?'var(--green)':'var(--red)';
-  return`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+  const _ytdInsight=totalRate!==null
+    ?(totalRate>=20
+      ?`<div class="rpt-insight good"><span class="rpt-insight-icon">🎯</span>Your ${year} savings rate is <strong>${totalRate}%</strong> — excellent. You're building wealth at a healthy pace.</div>`
+      :totalRate>=0
+        ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span>Your ${year} savings rate is <strong>${totalRate}%</strong>. Aim for 20%+ to accelerate your financial progress.</div>`
+        :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>Your ${year} savings rate is <strong>${totalRate}%</strong> — you're spending more than you earn. Review your largest spending categories.</div>`)
+    :'';
+  return`<p class="rpt-desc">Your financial picture for ${year} — total income earned, total spent, and how much you kept. A quick health check on whether you're building up or drawing down.</p>
+  ${_ytdInsight}
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
   <div style="overflow-x:auto"><table class="report-table">
     <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Net</th><th>Rate</th></tr></thead>
     <tbody>${rows}<tr class="report-total-row">
@@ -5809,7 +6061,13 @@ function reportCatSpendHtml(mid){
         <div style="height:100%;width:${barW}%;background:${cat.color||'var(--accent)'};border-radius:4px"></div>
       </div>${bktBreakdown}</div>`;
   }).join('');
-  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+  const _topCat=data[0];
+  const _catInsight=_topCat
+    ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span><strong>${esc(_topCat.cat.name)}</strong> is your biggest spending category this month at <strong>${$f(_topCat.spent)}</strong> (${total?Math.round(_topCat.spent/total*100):0}% of total).</div>`
+    :'';
+  return`<p class="rpt-desc">Where your money actually goes — spending broken down by category and bucket with percentage bars. Useful for spotting which areas of life cost the most.</p>
+  ${_catInsight}
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
     <label style="font-size:12px;color:var(--text3)">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('catspend')">${monthOpts}</select>
     <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong>${$f(total)}</strong></span>
@@ -5843,7 +6101,16 @@ function reportSavingsRateHtml(){
   ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
     <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
-  return`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
+  const _srInsight=l3rate!==null
+    ?(l3rate>=20
+      ?`<div class="rpt-insight good"><span class="rpt-insight-icon">🎯</span>Your 3-month average savings rate is <strong>${l3rate}%</strong> — you're consistently building a financial cushion.</div>`
+      :l3rate>=0
+        ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span>Your 3-month average is <strong>${l3rate}%</strong>. Saving 20% or more of income is the benchmark for long-term financial health.</div>`
+        :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>Your 3-month average savings rate is <strong>${l3rate}%</strong> — spending is outpacing income. Look at your biggest expense categories for cuts.</div>`)
+    :'';
+  return`<p class="rpt-desc">Tracks what percentage of your income you actually keep each month. The higher the rate, the faster you build an emergency fund, pay off debt, or grow investments. A 20%+ rate is considered excellent.</p>
+  ${_srInsight}
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
   <div style="overflow-x:auto"><table class="report-table">
     <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Rate</th><th>Rolling Rate</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
@@ -5885,7 +6152,13 @@ function reportPayeeBreakdownHtml(){
       <td style="color:var(--red);font-weight:600">${$f(amt)}</td>
     </tr>`;
   }).join('');
-  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+  const _topPayee=sorted[0];
+  const _payeeInsight=_topPayee
+    ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span><strong>${esc(_topPayee[0])}</strong> is your top spend at <strong>${$f(_topPayee[1])}</strong> (${total?Math.round(_topPayee[1]/total*100):0}% of total). If it's recurring, consider making it a bucket.</div>`
+    :'';
+  return`<p class="rpt-desc">Your top spending destinations ranked by total amount. Useful for spotting recurring habits, subscription creep, or unexpected large payees you may want to budget for explicitly.</p>
+  ${_payeeInsight}
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <label style="font-size:12px;color:var(--text3)">Period:</label>
     <select class="fi" style="width:auto" onchange="_payeePeriod=this.value;setReportsTab('payees')">${periodSel}</select>
     <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong>${$f(total)}</strong></span>
@@ -5925,7 +6198,17 @@ function reportCashFlowHtml(){
       <td style="color:${rate!==null?(rate>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${rate!==null?rate+'%':'—'}</td>
     </tr>`;
   }).join('');
-  return`<div style="font-size:12px;color:var(--text3);margin-bottom:12px">Last 12 months — income vs spending</div>
+  const _cfNets=months.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc-sp;});
+  const _cfPositive=_cfNets.filter(n=>n>0).length;
+  const _cfInsight=months.length
+    ?(_cfPositive===months.length
+      ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span>Every tracked month has been cash-flow positive — you've spent less than you earned consistently.</div>`
+      :_cfPositive>months.length/2
+        ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span>${_cfPositive} of ${months.length} months were cash-flow positive. Look at the red months to find patterns in overspending.</div>`
+        :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>More than half of recent months show negative cash flow — spending exceeds income too often. Focus on your Savings Rate report for detail.</div>`)
+    :'';
+  return`<p class="rpt-desc">Income vs spending side-by-side for each month — the simplest view of whether you're getting ahead or falling behind. Green net means you kept money; red means you spent more than you earned.</p>
+  ${_cfInsight}
   <div style="overflow-x:auto"><table class="report-table">
     <thead><tr><th style="text-align:left">Month</th><th style="text-align:left">Flow</th><th>Net</th><th>Rate</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
@@ -5958,7 +6241,13 @@ function reportIncomeSourcesHtml(mid){
       </div>
     </div>`;
   }).join('');
-  return`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+  const _srcCount=sorted.length;
+  const _srcInsight=_srcCount>1
+    ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span>You have <strong>${_srcCount} income sources</strong> this month — multiple streams reduce financial risk.</div>`
+    :`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span>All income is coming from one source. Diversifying income streams (side projects, investments) improves financial resilience.</div>`;
+  return`<p class="rpt-desc">A breakdown of where your income came from this month — by account. Useful for understanding income diversification and spotting months where you relied heavily on a single source.</p>
+  ${_srcCount?_srcInsight:''}
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
     <label style="font-size:12px;color:var(--text3)">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('incomesrc')">${monthOpts}</select>
     <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong style="color:var(--green)">${$f(total)}</strong></span>
@@ -5989,7 +6278,9 @@ function reportCatHistoryHtml(){
     return`<tr><td style="color:${cat.color||'var(--text)'};font-weight:600;white-space:nowrap">${esc(cat.name)}</td>${cells}</tr>`;
   }).filter(Boolean).join('');
   const hdrs=months.map(mo=>`<th style="text-align:right;font-size:10px;white-space:nowrap">${esc(mo.label)}</th>`).join('');
-  return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+  return`<p class="rpt-desc">Spending per category over time — the ↑ arrow means spending rose vs the prior month (watch out), ↓ means it fell (good for expenses). Use this to catch categories that are slowly creeping up.</p>
+  <div class="rpt-insight"><span class="rpt-insight-icon">💡</span>Tip: categories trending ↑ consistently are prime candidates for adding a dedicated budget. Categories at ↓ over multiple months show your discipline is working.</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
     <label style="font-size:12px;color:var(--text3)">Show:</label>
     <select class="fi" style="width:auto" onchange="_catHistMonths=parseInt(this.value);setReportsTab('cathistory')">${nOpts}</select>
   </div>
