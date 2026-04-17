@@ -1287,14 +1287,16 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .stat-val.dim{color:var(--text2);}
 .stat-sub{font-size:10px;color:var(--text3);margin-top:2px;}
 
-/* Color utilities — replaces inline style="color:var(--X)" throughout JS templates */
+/* Color utilities — replaces inline class="c-X" throughout JS templates */
 .c-green{color:var(--green);}
 .c-red{color:var(--red);}
 .c-amber{color:var(--amber);}
 .c-blue{color:var(--blue);}
 .c-purple{color:var(--purple);}
-.c-dim{color:var(--text2);}
-.c-muted{color:var(--text3);}
+.c-accent{color:var(--accent);}
+.c-text{color:var(--text);}
+.c-text2{color:var(--text2);}
+.c-text3{color:var(--text3);}
 
 /* Report layout — used by renderReportsTab insight callouts */
 .rpt-desc{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);}
@@ -1308,13 +1310,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 <!-- TOPBAR -->
 <header class="topbar" id="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget<span style="color:var(--text3);margin:0 3px"> </span>Command</div>
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget<span class="c-text3" style="margin:0 3px"> </span>Command</div>
   <!-- Month navigation — visible in topbar on mobile -->
   <div class="tb-month-nav" id="tbMonthNav">
     <button class="tb-month-arrow" onclick="prevMonth()">&#8249;</button>
     <select class="tb-month-sel" id="tbMonthSel" onchange="setMonthFromSel(this.value)"></select>
     <button class="tb-month-arrow" onclick="nextMonth()">&#8250;</button>
-    <button class="tb-month-arrow" style="font-size:13px;padding:6px 10px;border-color:var(--border2)" onclick="toggleWI()" id="tbWiMobile">⚡</button>
+    <button class="tb-month-arrow c-border2" style="font-size:13px;padding:6px 10px;border-" onclick="toggleWI()" id="tbWiMobile">⚡</button>
   </div>
   <!-- Desktop stats -->
   <div class="tb-total">
@@ -2358,16 +2360,16 @@ function monthCloseHtml(mid){
 
   let uncatHtml='';
   if(!uncatTxs.length){
-    uncatHtml=`<div style="font-size:12px;color:var(--green)">✓ All transactions are categorized.</div>`;
+    uncatHtml=`<div class="c-green" style="font-size:12px">✓ All transactions are categorized.</div>`;
   } else {
     uncatHtml=uncatTxs.slice(0,8).map(t=>`
       <div class="mc-tx-row">
         <span class="mc-tx-date">${ld(t.date)}</span>
         <span class="mc-tx-desc">${esc(t.desc||'(no description)')}</span>
-        <span class="mc-tx-amt" style="color:var(--${t.type==='in'?'green':'red'})">${t.type==='in'?'+':'−'}${$f(t.amount)}</span>
+        <span class="mc-tx-amt c-${t.type==='in'?'green':'red'}">${t.type==='in'?'+':'−'}${$f(t.amount)}</span>
         <button class="ib" onclick="closeModal();openTxEditModal('${t.id}')" title="Assign bucket — close wizard to edit, then reopen from the hint bar">✎</button>
       </div>`).join('');
-    if(uncatTxs.length>8)uncatHtml+=`<div style="font-size:11px;color:var(--text3);padding-top:6px">…and ${uncatTxs.length-8} more. Assign buckets in the Ledger tab.</div>`;
+    if(uncatTxs.length>8)uncatHtml+=`<div class="c-text3" style="font-size:11px;padding-top:6px">…and ${uncatTxs.length-8} more. Assign buckets in the Ledger tab.</div>`;
   }
   const uncatBadge=uncatTxs.length
     ?`<span class="mc-badge warn">${uncatTxs.length} unassigned</span>`
@@ -2381,7 +2383,7 @@ function monthCloseHtml(mid){
     ).length;
     const bal=acctBalance(a.id);
     const statusHtml=unrecon===0
-      ?`<span style="font-size:11px;color:var(--green)">✓ balanced</span>`
+      ?`<span class="c-green" style="font-size:11px">✓ balanced</span>`
       :`<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="closeModal();openReconcile('${a.id}')">Reconcile (${unrecon})</button>`;
     return`<div class="mc-acct-row">
       <div class="mc-acct-dot" style="background:${a.color}"></div>
@@ -2407,13 +2409,13 @@ function monthCloseHtml(mid){
 
   let rollHtml='';
   if(!rollBkts.length){
-    rollHtml=`<div style="font-size:12px;color:var(--text3)">No rollover buckets with a balance.</div>`;
+    rollHtml=`<div class="c-text3" style="font-size:12px">No rollover buckets with a balance.</div>`;
   } else {
     rollHtml=rollBkts.map(({b,avail})=>`
       <div class="mc-roll-row">
         <span class="mc-roll-name">${esc(b.name)}</span>
-        <span style="font-size:10px;color:var(--text3);flex-shrink:0">${avail>0?'rolls forward':'deficit rolls'}</span>
-        <span class="mc-roll-amt" style="color:var(--${avail>=0?'green':'red'})">${avail>=0?'+':''}${$f(avail)}</span>
+        <span class="c-text3" style="font-size:10px;flex-shrink:0">${avail>0?'rolls forward':'deficit rolls'}</span>
+        <span class="mc-roll-amt c-${avail>=0?'green':'red'}">${avail>=0?'+':''}${$f(avail)}</span>
       </div>`).join('');
     if(!nextMid)rollHtml+=`<div class="hint-bar info" style="margin-top:8px;font-size:11px">No next month exists yet — rollovers will apply when you create it.</div>`;
   }
@@ -2457,7 +2459,7 @@ function monthCloseHtml(mid){
           <span class="mc-section-title">Rollover Preview</span>
           ${rollBadge}
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">These buckets carry their remaining balance into the next month.</div>
+        <div class="c-text3" style="font-size:11px;margin-bottom:6px">These buckets carry their remaining balance into the next month.</div>
         ${rollHtml}
       </div>
     </div>
@@ -2551,7 +2553,7 @@ function renderTopbar(){
     rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
     rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} scheduled — After: ${$f(rts-scheduledOutCl)}`:'Budget cash minus remaining unfulfilled obligations';
   }
-  if(lEl)lEl.innerHTML=scheduledOutCl>0?`Ready to Spend <span style="font-size:9px;color:var(--amber);font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
+  if(lEl)lEl.innerHTML=scheduledOutCl>0?`Ready to Spend <span class="c-amber" style="font-size:9px;font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
 
   // Sync status dot — use _supaUser (not S.userId which is never populated)
   const dot=document.getElementById('tbSyncDot');
@@ -2753,12 +2755,12 @@ function renderOverviewTab(el,mid){
     ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" style="margin-left:4px">+</button>`:''}
     <span class="chip ${chipClass}" style="margin-left:8px">${chipTxt}</span>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-      ${past&&!closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px;border-color:var(--gb);color:var(--green)" onclick="openMonthClose('${mid}')">🔒 Close Month</button>`:''}
+      ${past&&!closed?`<button class="tbtn c-gb" style="font-size:11px;padding:4px 9px;border-" onclick="openMonthClose('${mid}')">🔒 Close Month</button>`:''}
       ${closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reopenMonth('${mid}')">↩ Reopen</button>`:''}
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
     </div>
   </div>`;
-  if(closed)h+=`<div class="hint-bar success" style="margin-bottom:16px">🔒 ${esc(m.label)} is closed. Transactions are locked. <span style="color:var(--text3);cursor:pointer;text-decoration:underline" onclick="reopenMonth('${mid}')">Reopen</span> to make changes.</div>`;
+  if(closed)h+=`<div class="hint-bar success" style="margin-bottom:16px">🔒 ${esc(m.label)} is closed. Transactions are locked. <span class="c-text3" style="cursor:pointer;text-decoration:underline" onclick="reopenMonth('${mid}')">Reopen</span> to make changes.</div>`;
   else if(past)h+=`<div class="hint-bar info" style="margin-bottom:16px">This is a past month. <button class="tbtn" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="openMonthClose('${mid}')">🔒 Close &amp; Reconcile →</button></div>`;
 
   // ── Account liquidity strip (horizontal scroll on mobile) ─────────────────
@@ -2790,7 +2792,7 @@ function renderOverviewTab(el,mid){
     <div class="ps-cell"><div class="ps-label">Allocated</div><div class="ps-val dim">${alloc>0?$f(alloc):'—'}</div><div class="ps-sub">to buckets</div></div>
     <div class="ps-cell"><div class="ps-label">Spent</div><div class="ps-val ${spendPct>=1?'red':spendPct>=0.8?'amber':'dim'}">${totalSpent>0?$f(totalSpent):'—'}</div><div class="ps-sub">${alloc>0?spendBarW+'% of budget':'from buckets'}</div></div>
   </div>`;
-  if(alloc>0&&totalSpent>0)h+=`<div class="ov-spend-row" style="margin-bottom:16px"><div class="ov-spend-bar-track"><div class="ov-spend-bar-fill" style="width:${spendBarW}%;background:${spendBarClr}"></div></div><span style="font-size:10px;color:var(--text3);flex-shrink:0">${spendBarW}% spent</span></div>`;
+  if(alloc>0&&totalSpent>0)h+=`<div class="ov-spend-row" style="margin-bottom:16px"><div class="ov-spend-bar-track"><div class="ov-spend-bar-fill" style="width:${spendBarW}%;background:${spendBarClr}"></div></div><span class="c-text3" style="font-size:10px;flex-shrink:0">${spendBarW}% spent</span></div>`;
 
   // ── Hint bar (desktop) — urgent items list is mobile equivalent ────────────
   if(!past&&unfundedCnt>0&&rts>0)
@@ -2850,11 +2852,11 @@ function renderOverviewTab(el,mid){
         <div class="m-urgency-dot" style="background:${dotColor}"></div>
         <div style="flex:1"><div class="m-urgency-name">${esc(u.b.name)}</div>
           <div class="m-urgency-sub" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div></div>
-        <span style="color:var(--text3);font-size:18px">›</span>
+        <span class="c-text3" style="font-size:18px">›</span>
       </div>`;
     });
   } else if(alloc>0){
-    h+=`<div class="ov-mobile-only" style="padding:16px;text-align:center;color:var(--green);font-size:14px">✓ Everything looks good</div>`;
+    h+=`<div class="ov-mobile-only c-green" style="padding:16px;text-align:center;font-size:14px">✓ Everything looks good</div>`;
   }
   // Desktop: show critical urgency items (overspent / overdue) that the hint bar doesn't cover
   const criticalItems=urgency.filter(u=>u.type==='over'||u.type==='overdue');
@@ -2880,9 +2882,9 @@ function renderOverviewTab(el,mid){
       const label=paid?'✓ paid':d<0?`${Math.abs(d)}d overdue`:d===0?'today':`${d}d`;
       billsHtml+=`<div class="ov-widget-row clickable" onclick="openDetail('bucket','${b.id}')">
         <span class="ov-widget-row-name">${esc(b.name)}</span>
-        <span class="ov-widget-row-meta" style="color:var(--${urgCls||'text3'})">${label}</span>
-        ${amt?`<span class="ov-widget-row-val" style="color:var(--${paid?'green':'red'})">${amt}</span>`:''}
-        <span style="color:var(--text3);font-size:14px;margin-left:2px">›</span>
+        <span class="ov-widget-row-meta c-${urgCls||'text3'}">${label}</span>
+        ${amt?`<span class="ov-widget-row-val c-${paid?'green':'red'}">${amt}</span>`:''}
+        <span class="c-text3" style="font-size:14px;margin-left:2px">›</span>
       </div>`;
     });
   }
@@ -2903,14 +2905,14 @@ function renderOverviewTab(el,mid){
           <div class="ov-widget-row-name">${esc(t.desc)}</div>
           <div class="ov-widget-row-meta">${esc(acctName)} · ${ld(t.date)}</div>
         </div>
-        <span class="ov-widget-row-val" style="color:var(--${valCls||'text2'})">${pfx}${$f(t.amount)}</span>
+        <span class="ov-widget-row-val c-${valCls||'text2'}">${pfx}${$f(t.amount)}</span>
       </div>`;
     });
     if(allMonthTxs.length>5)recentHtml+=`<div class="ov-widget-footer" onclick="setTab('ledger')">View all ${allMonthTxs.length} transactions →</div>`;
   }
   h+=`<div class="ov-widgets">
     <div class="ov-widget">
-      <div class="ov-widget-title">Upcoming Bills <span style="font-size:9px;color:var(--text3);font-weight:400">14 days</span><span class="ov-widget-title-count">${billEntries.length||''}</span></div>${billsHtml}
+      <div class="ov-widget-title">Upcoming Bills <span class="c-text3" style="font-size:9px;font-weight:400">14 days</span><span class="ov-widget-title-count">${billEntries.length||''}</span></div>${billsHtml}
     </div>
     <div class="ov-widget">
       <div class="ov-widget-title">Recent Transactions<span class="ov-widget-title-count">${allMonthTxs.length||''}</span></div>${recentHtml}
@@ -2920,7 +2922,7 @@ function renderOverviewTab(el,mid){
   const goalBkts=S.buckets.filter(b=>b.type==='goal'&&!b.archived);
   let goalsHtml='';
   if(!goalBkts.length){
-    goalsHtml=`<div class="ov-widget-empty">No goals yet.<br><span class="link-btn" style="cursor:pointer;color:var(--accent)" onclick="setTab('buckets')">Set up a savings goal →</span></div>`;
+    goalsHtml=`<div class="ov-widget-empty">No goals yet.<br><span class="link-btn c-accent" style="cursor:pointer" onclick="setTab('buckets')">Set up a savings goal →</span></div>`;
   } else {
     goalBkts.forEach(b=>{
       const saved=Math.max(sinkingSaved(b.id,mid),0);
@@ -2933,13 +2935,13 @@ function renderOverviewTab(el,mid){
         <div style="display:flex;gap:8px;align-items:center">
           <span style="flex:1;font-size:13px;font-weight:600">${esc(b.name)}</span>
           <span style="font-size:12px;font-weight:700;color:${pct>=100?'var(--green)':'var(--text2)'}">${$f(saved)}</span>
-          ${tgt?`<span style="font-size:11px;color:var(--text3)">/ ${$f(tgt)}</span>`:''}
+          ${tgt?`<span class="c-text3" style="font-size:11px">/ ${$f(tgt)}</span>`:''}
           <span style="font-size:11px;font-weight:600;color:${pct>=100?'var(--green)':'var(--text3)'}">${pct}%</span>
         </div>
         <div style="height:6px;border-radius:4px;background:var(--border2);overflow:hidden">
           <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .3s"></div>
         </div>
-        ${td?`<div style="font-size:10px;color:var(--text3)">Target: ${td.toLocaleString('default',{month:'short',year:'numeric'})}${b.targetAmount&&pct<100?` · ${$f(Math.max(Math.ceil((b.targetAmount-saved)/(Math.max((td.getFullYear()-new Date().getFullYear())*12+(td.getMonth()-new Date().getMonth()),1)))||0,0))}/mo needed`:''}</div>`:''}
+        ${td?`<div class="c-text3" style="font-size:10px">Target: ${td.toLocaleString('default',{month:'short',year:'numeric'})}${b.targetAmount&&pct<100?` · ${$f(Math.max(Math.ceil((b.targetAmount-saved)/(Math.max((td.getFullYear()-new Date().getFullYear())*12+(td.getMonth()-new Date().getMonth()),1)))||0,0))}/mo needed`:''}</div>`:''}
       </div>`;
     });
   }
@@ -2978,19 +2980,19 @@ function renderLedgerTab(el,mid){
     const _pOut=_ptxs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
     const _pNet=_pIn-_pOut;
     pastSumHtml=`<div class="notice" style="margin:0 0 14px">🔒 Closed month — read only.</div>
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px">Month Summary</div>
+      <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Month Summary</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div style="background:var(--gbg);border:1px solid var(--gb);border-radius:8px;padding:10px 12px">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--green);margin-bottom:4px">Income</div>
-          <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green)">${$f(_pIn)}</div>
+          <div class="c-green" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Income</div>
+          <div class="c-green" style="font-family:var(--mono);font-size:15px;font-weight:700">${$f(_pIn)}</div>
         </div>
         <div style="background:var(--rbg);border:1px solid var(--rb);border-radius:8px;padding:10px 12px">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--red);margin-bottom:4px">Expenses</div>
-          <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--red)">${$f(_pOut)}</div>
+          <div class="c-red" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Expenses</div>
+          <div class="c-red" style="font-family:var(--mono);font-size:15px;font-weight:700">${$f(_pOut)}</div>
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:11px;font-weight:600;color:var(--text3)">Net</span>
+        <span class="c-text3" style="font-size:11px;font-weight:600">Net</span>
         <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${_pNet>=0?'var(--green)':'var(--red)'}">${_pNet>=0?'+':''}${$f(_pNet)}</span>
       </div>`;
   }
@@ -3012,7 +3014,7 @@ function renderLedgerTab(el,mid){
           <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" />
           <input class="tfi" id="txDate" type="date" style="flex:1" />
         </div>
-        <div style="font-size:10px;color:var(--text3);padding:0 2px;margin-top:-4px">✦ Math: +50 · −20 · ×1.05 · 5%</div>
+        <div class="c-text3" style="font-size:10px;padding:0 2px;margin-top:-4px">✦ Math: +50 · −20 · ×1.05 · 5%</div>
         <div class="rpf-row">
           <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
         </div>
@@ -3044,7 +3046,7 @@ function renderLedgerTab(el,mid){
       <div style="position:relative;display:flex">
         <div style="flex:1;position:relative">
           <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" style="width:100%;margin:0;padding-right:30px;box-sizing:border-box" />
-          <button id="rpSearchClear" onclick="document.getElementById('rpSearch').value='';renderTxList()" title="Clear search" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--text3);line-height:1;padding:2px 4px">×</button>
+          <button id="rpSearchClear" onclick="document.getElementById('rpSearch').value='';renderTxList()" title="Clear search" class="c-text3" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px">×</button>
         </div>
         ${(S.payees&&S.payees.length)?`<select class="tfi-sel" id="ledgerPayeeSel" style="width:auto;font-size:12px;padding:5px 6px;margin:0;border-radius:0;border-left:none;flex-shrink:0" onchange="_ledgerPayee=this.value;renderTxList()">
           <option value="">All payees</option>
@@ -3102,7 +3104,7 @@ function renderAccountsTab(el,mid){
   const dti=monthInc>0&&totalMinPay>0?Math.round(totalMinPay/monthInc*100):null;
   let h=`<div class="month-hdr ov-desktop-only">
     <div class="month-title">Accounts</div>
-    ${debt.length&&dti!==null?`<span style="font-size:11px;color:var(--text3);margin-left:12px">DTI <strong style="color:${dti>43?'var(--red)':dti>36?'var(--amber)':'var(--green)'}">${dti}%</strong></span>`:''}
+    ${debt.length&&dti!==null?`<span class="c-text3" style="font-size:11px;margin-left:12px">DTI <strong style="color:${dti>43?'var(--red)':dti>36?'var(--amber)':'var(--green)'}">${dti}%</strong></span>`:''}
     <button class="tbtn" style="margin-left:auto" onclick="openModal('acct')">+ Add Account</button>
   </div>
   <div class="acct-pane-wrap">`;
@@ -3120,7 +3122,7 @@ function renderAccountsTab(el,mid){
   }
   if(debt.length){
     h+=`<div class="acct-group-hdr" style="display:flex;align-items:center">
-      <span style="color:var(--red)">Debt · ${$f(totalDebt)}</span>
+      <span class="c-red">Debt · ${$f(totalDebt)}</span>
       <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="showDebtPlanner()">📋 Planner</button>
     </div>
     <div class="acct-tab-grid">`;
@@ -3128,7 +3130,7 @@ function renderAccountsTab(el,mid){
       const bal=acctBalance(a.id);
       h+=`<div class="acct-tab-card" onclick="setActiveAccount('${a.id}')" style="border-left:3px solid var(--rb)">
         <div class="acct-tab-card-name">💳 ${esc(a.name)}</div>
-        <div class="acct-tab-card-bal" style="color:var(--red)">${$f(bal)}</div>
+        <div class="acct-tab-card-bal c-red">${$f(bal)}</div>
       </div>`;
     });
     h+=`</div>`;
@@ -3225,8 +3227,8 @@ function renderBucketsTab(el,mid){
       <div class="bkt-cat-hdr">
         <div class="bkt-cat-dot" style="background:${color}"></div>
         <span class="bkt-cat-name">${esc(cat.name)}</span>
-        ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average — ${$f(catAnomaly.excess)} more than usual" style="font-size:10px;font-weight:700;color:var(--amber);background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;flex-shrink:0">⚠ Spike</span>`:''}
-        <span class="bkt-cat-totals" style="color:${catAllocColor}">${$f(catAlloc)}<span style="color:var(--text3);font-weight:400"> / ${$f(catTarget)}</span></span>
+        ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average — ${$f(catAnomaly.excess)} more than usual" class="c-amber" style="font-size:10px;font-weight:700;background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;flex-shrink:0">⚠ Spike</span>`:''}
+        <span class="bkt-cat-totals" style="color:${catAllocColor}">${$f(catAlloc)}<span class="c-text3" style="font-weight:400"> / ${$f(catTarget)}</span></span>
         ${!past&&catFundAmt>0?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
       </div>
       ${catTarget>0?`<div style="height:2px;background:var(--border2);margin:0 16px 0;overflow:hidden"><div style="height:100%;width:${Math.round(catAllocPct*100)}%;background:${catBarColor};transition:width .3s"></div></div>`:''}
@@ -3389,7 +3391,7 @@ function renderSettingsTab(el){
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
         <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
         <div><label class="fl">Amount ($)</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
-        <div><label class="fl">Anchor Date <span style="font-weight:400;color:var(--text3)">(a known pay date)</span></label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
+        <div><label class="fl">Anchor Date <span class="c-text3" style="font-weight:400">(a known pay date)</span></label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
         <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
           <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
           <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
@@ -3414,37 +3416,37 @@ function renderSettingsTab(el){
 
   <div class="settings-section">
     <div class="settings-section-title">Income Setup</div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Your regular paychecks. Used app-wide for projected income and the Paycheck Projector.</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Your regular paychecks. Used app-wide for projected income and the Paycheck Projector.</div>
     ${pcRows}
     <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Allocation Rules <span style="font-weight:400">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Auto-suggest bucket splits when you log income. You confirm before anything is applied.</div>
+      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Allocation Rules <span style="font-weight:400">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
+      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Auto-suggest bucket splits when you log income. You confirm before anything is applied.</div>
       ${allocationRulesHtml()}
     </div>
   </div>
 
   <div class="settings-section">
     <div class="settings-section-title">Budget Setup</div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:8px">Account Order</div>
-    ${acctItems||'<div style="color:var(--text3);font-size:13px">No accounts yet</div>'}
+    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Account Order</div>
+    ${acctItems||'<div class="c-text3" style="font-size:13px">No accounts yet</div>'}
     <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Recurring Bills <span style="font-weight:400">${(S.recurringBills||[]).length} set up</span></div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
+      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Recurring Bills <span style="font-weight:400">${(S.recurringBills||[]).length} set up</span></div>
+      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
       ${recurringBillsHtml()}
     </div>
   </div>
 
   <div class="settings-section">
     <div class="settings-section-title">Data</div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Payees <span style="font-weight:400">${(S.payees||[]).length} saved</span></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Saved automatically when you log transactions. Tap ✎ to rename inline.</div>
+    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Payees <span style="font-weight:400">${(S.payees||[]).length} saved</span></div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:8px">Saved automatically when you log transactions. Tap ✎ to rename inline.</div>
     <div style="margin-bottom:14px">
-      ${payeeItems||'<div style="color:var(--text3);font-size:13px">No payees saved yet.</div>'}
+      ${payeeItems||'<div class="c-text3" style="font-size:13px">No payees saved yet.</div>'}
     </div>
     <div style="padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">Export / Import</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Last exported: <strong style="color:var(--text2)">${expLabel}</strong></div>
+      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Export / Import</div>
+      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Last exported: <strong class="c-text2">${expLabel}</strong></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
         <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
         <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
@@ -3452,9 +3454,9 @@ function renderSettingsTab(el){
       </div>
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--red);margin-bottom:4px">Danger Zone</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Permanently delete all data and start fresh. Cannot be undone.</div>
-      <button class="tbtn" style="border-color:var(--rb);color:var(--red)" onclick="confirmFreshStart()">↺ Fresh Start</button>
+      <div class="c-red" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Danger Zone</div>
+      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Permanently delete all data and start fresh. Cannot be undone.</div>
+      <button class="tbtn c-rb" style="border-" onclick="confirmFreshStart()">↺ Fresh Start</button>
     </div>
   </div>`;
 
@@ -3548,7 +3550,7 @@ function renderAccountView(el,mid){
 
   if(scheduled.length){
     h+=`<div class="det-block">
-    <div class="det-block-title" style="color:var(--accent)">Scheduled / Upcoming</div>
+    <div class="det-block-title c-accent">Scheduled / Upcoming</div>
     <div class="tx-list" style="padding:0">`;
     scheduled.forEach(tx=>{
       h+=txRowHtml(tx,past,true,schedMap.get(tx.id)??null,true);
@@ -3560,13 +3562,13 @@ function renderAccountView(el,mid){
     <div class="det-block-title" style="padding:10px 14px 8px">All Transactions</div>
     <div class="tx-list" style="padding:0">`;
   if(!posted.length){
-    h+=`<div style="padding:20px 0;text-align:center;font-size:13px;color:var(--text3)">No posted transactions yet</div>`;
+    h+=`<div class="c-text3" style="padding:20px 0;text-align:center;font-size:13px">No posted transactions yet</div>`;
   } else {
     posted.slice(0,100).forEach(tx=>{
       h+=txRowHtml(tx,past,false,balMap.get(tx.id)??null,true);
     });
     if(posted.length>100){
-      h+=`<div style="padding:12px 14px;font-size:12px;color:var(--text3);text-align:center">Showing 100 of ${posted.length} transactions</div>`;
+      h+=`<div class="c-text3" style="padding:12px 14px;font-size:12px;text-align:center">Showing 100 of ${posted.length} transactions</div>`;
     }
   }
   h+=`</div></div>`;
@@ -3592,8 +3594,8 @@ function renderBucketDetail(mid,past,m){
   ${b.notes?`<div class="det-notes">${esc(b.notes)}</div>`:''}
 
   <div class="det-nums">
-    <div class="dn"><div class="dn-label">Allocated</div><div class="dn-val ${alloc>=target&&target>0?'':'dim'}" style="${alloc>=target&&target>0?'color:var(--green)':''}">${$f(alloc)}</div><div class="dn-sub">of ${$f(target)} target</div></div>
-    <div class="dn"><div class="dn-label">Spent</div><div class="dn-val" style="color:var(--text2)">${$f(spent)}</div><div class="dn-sub">from transactions</div></div>
+    <div class="dn"><div class="dn-label">Allocated</div><div class="dn-val ${alloc>=target&&target>0?'c-green':'dim'}">${$f(alloc)}</div><div class="dn-sub">of ${$f(target)} target</div></div>
+    <div class="dn"><div class="dn-label">Spent</div><div class="dn-val c-text2">${$f(spent)}</div><div class="dn-sub">from transactions</div></div>
     <div class="dn"><div class="dn-label">Available</div><div class="dn-val" style="color:${avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)'}">${$f(avail)}</div><div class="dn-sub">${avail<0?'overspent':avail===0&&spent>0?'fully spent':'remaining'}</div></div>
   </div>
   <div class="det-bar">
@@ -3604,7 +3606,7 @@ function renderBucketDetail(mid,past,m){
   if(roll>0){
     h+=`<div class="det-block"><div class="det-block-title">Rollover</div>
       <div class="det-row"><span class="det-row-label">Allocated this month</span><span class="det-row-val">${$f(alloc)}</span></div>
-      <div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val" style="color:var(--accent)">+${$f(roll)}</span></div>
+      <div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val c-accent">+${$f(roll)}</span></div>
       <div class="det-row"><span class="det-row-label">Effective total</span><span class="det-row-val">${$f(eff)}</span></div>
     </div>`;
   }
@@ -3612,15 +3614,15 @@ function renderBucketDetail(mid,past,m){
   if(isSink&&sinkData){
     const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
     h+=`<div class="sink-stats">
-      <div class="ss"><div class="ss-label">Saved</div><div class="ss-val" style="color:var(--green)">${$f(saved)}</div></div>
+      <div class="ss"><div class="ss-label">Saved</div><div class="ss-val c-green">${$f(saved)}</div></div>
       <div class="ss"><div class="ss-label">Goal</div><div class="ss-val">${$f(tgt)}</div></div>
       <div class="ss"><div class="ss-label">Months Left</div><div class="ss-val">${mLeft||'—'}</div></div>
-      <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val" style="${mNeed>target?'color:var(--red)':''}">${$f(mNeed)}</div></div>
+      <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val c-red" style="${mNeed>target?'':''}">${$f(mNeed)}</div></div>
     </div>
     <div class="det-block"><div class="det-block-title">Contribution Schedule</div>
       <div class="det-row"><span class="det-row-label">Monthly target</span><span class="det-row-val">${$f(b.defaultBudget||0)}</span></div>
       <div class="det-row"><span class="det-row-label">Frequency</span><span class="det-row-val" style="text-transform:capitalize">${b.contribFreq||'monthly'}</span></div>
-      <div class="det-row"><span class="det-row-label">Per contribution</span><span class="det-row-val" style="color:var(--accent)">${$f(contrib)}</span></div>
+      <div class="det-row"><span class="det-row-label">Per contribution</span><span class="det-row-val c-accent">${$f(contrib)}</span></div>
     </div>`;
   }
   if(isGoal&&goalData){
@@ -3634,13 +3636,13 @@ function renderBucketDetail(mid,past,m){
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${pctDone>0.45?'#fff':'var(--text)'}">${pctDisp}%</div>
       </div>
       <div class="sink-stats">
-        <div class="ss"><div class="ss-label">Saved</div><div class="ss-val" style="color:var(--green)">${$f(saved)}</div></div>
+        <div class="ss"><div class="ss-label">Saved</div><div class="ss-val c-green">${$f(saved)}</div></div>
         <div class="ss"><div class="ss-label">Target</div><div class="ss-val">${tgt?$f(tgt):'—'}</div></div>
         <div class="ss"><div class="ss-label">Months Left</div><div class="ss-val">${mLeft!==null?mLeft:'—'}</div></div>
-        <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val" style="${mNeed>target?'color:var(--red)':''}">${mNeed?$f(mNeed):'—'}</div></div>
+        <div class="ss"><div class="ss-label">Need/mo</div><div class="ss-val c-red" style="${mNeed>target?'':''}">${mNeed?$f(mNeed):'—'}</div></div>
       </div>
       ${td?`<div class="det-row" style="margin-top:8px"><span class="det-row-label">Target date</span><span class="det-row-val">${td.toLocaleString('default',{month:'long',year:'numeric'})}</span></div>`:''}
-      ${pctDone>=1?`<div style="text-align:center;font-size:14px;font-weight:700;color:var(--green);padding:10px 0">🎉 Goal reached!</div>`:''}
+      ${pctDone>=1?`<div class="c-green" style="text-align:center;font-size:14px;font-weight:700;padding:10px 0">🎉 Goal reached!</div>`:''}
     </div>`;
   }
 
@@ -3650,7 +3652,7 @@ function renderBucketDetail(mid,past,m){
       <input class="aer-input" id="aerAlloc" type="number" value="${alloc||''}" placeholder="${target?target.toFixed(2):'0.00'}"
         onkeydown="if(event.key==='Enter')commitAlloc('${mid}','${b.id}')" />
       <button class="tbtn" style="font-size:12px;padding:5px 9px" onclick="commitAlloc('${mid}','${b.id}')">Set</button>
-      ${target>0&&alloc<target?`<button class="tbtn" style="font-size:12px;padding:5px 9px;color:var(--accent);border-color:var(--accent)" title="Fund to monthly target" onclick="setAlloc('${mid}','${b.id}',${target})">→ ${$f(target)}</button>`:''}
+      ${target>0&&alloc<target?`<button class="tbtn c-accent" style="font-size:12px;padding:5px 9px;border-" title="Fund to monthly target" onclick="setAlloc('${mid}','${b.id}',${target})">→ ${$f(target)}</button>`:''}
     </div>
     <div class="alloc-edit-row" style="margin-top:-10px;">
       <span class="aer-label">Monthly target</span>
@@ -3664,7 +3666,7 @@ function renderBucketDetail(mid,past,m){
     const sugg=bucketSpendSuggestion(b.id,mid);
     if(sugg&&Math.abs(sugg.suggested-(target||0))>5){
       h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="flex:1;font-size:12px;color:var(--text3)">💡 6-mo avg: <strong style="color:var(--text)">${$f(sugg.avg)}</strong> → suggested target ${$f(sugg.suggested)}</span>
+        <span class="c-text3" style="flex:1;font-size:12px">💡 6-mo avg: <strong class="c-text">${$f(sugg.avg)}</strong> → suggested target ${$f(sugg.suggested)}</span>
         <button class="tbtn" style="font-size:11px;padding:3px 9px;white-space:nowrap" onclick="applySmartTarget('${b.id}',${sugg.suggested})">Apply ${$f(sugg.suggested)}</button>
       </div>`;
     }
@@ -3673,7 +3675,7 @@ function renderBucketDetail(mid,past,m){
   const anomaly=catAnomalyCheck(b.catId,mid);
   if(anomaly){
     h+=`<div style="background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-top:6px;font-size:12px">
-      ⚠ <strong style="color:var(--amber)">Unusual spending</strong> — category is ${anomaly.z}σ above the 12-month average (${$f(anomaly.excess)} more than usual)
+      ⚠ <strong class="c-amber">Unusual spending</strong> — category is ${anomaly.z}σ above the 12-month average (${$f(anomaly.excess)} more than usual)
     </div>`;
   }
   // Spending trend — last 6 completed months
@@ -3700,7 +3702,7 @@ function renderBucketDetail(mid,past,m){
       </div>`;
     });
     h+=`<div class="trend-section">
-      <div class="trend-title">Spending History <span style="font-weight:400;color:var(--text3)">— dashed line = budget</span></div>
+      <div class="trend-title">Spending History <span class="c-text3" style="font-weight:400">— dashed line = budget</span></div>
       <div class="trend-chart">${bars}</div>
     </div>`;
   }
@@ -3816,9 +3818,9 @@ function renderTxList(){
       const sOut=posted.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
       const sNet=sIn-sOut;
       summaryBar.innerHTML=`<div style="display:flex;gap:14px;align-items:center;padding:5px 14px;font-size:11px;background:var(--bg3);border-bottom:1px solid var(--border)">
-        <span>↓ <strong style="font-family:var(--mono);color:var(--green)">${$f(sIn)}</strong></span>
-        <span>↑ <strong style="font-family:var(--mono);color:var(--red)">${$f(sOut)}</strong></span>
-        <span style="margin-left:auto;color:var(--text3)">${posted.length} posted</span>
+        <span>↓ <strong class="c-green" style="font-family:var(--mono)">${$f(sIn)}</strong></span>
+        <span>↑ <strong class="c-red" style="font-family:var(--mono)">${$f(sOut)}</strong></span>
+        <span class="c-text3" style="margin-left:auto">${posted.length} posted</span>
         <span style="font-family:var(--mono);font-weight:700;color:${sNet>=0?'var(--green)':'var(--red)'}">${sNet>=0?'+':''}${$f(sNet)}</span>
       </div>`;
     } else {
@@ -3840,7 +3842,7 @@ function renderTxList(){
       const projBal=runBals.schedMap.has(tx.id)?runBals.schedMap.get(tx.id):null;
       h+=txRowHtml(tx,past,true,projBal);
     });
-    if(posted.length)h+=`<div style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border)">Posted</div>`;
+    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Posted</div>`;
   }
 
   Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
@@ -3862,8 +3864,8 @@ function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
   if(acct)metaLine+=`<span class="tx-meta-acct">${esc(acct.name)}</span>`;
   if(cat){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`;}
   if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${esc(b.name)}</span>`;}
-  if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span style="color:var(--purple)">→ ${esc(toAcct.name)}</span>`;}
-  if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span style="color:var(--accent)">↻</span>`;
+  if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span class="c-purple">→ ${esc(toAcct.name)}</span>`;}
+  if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span class="c-accent">↻</span>`;
   // Running balance line — only shown in account view (runBal !== null)
   const balLine=runBal!==null
     ?`<div class="tx-run-bal${sched?' proj':runBal<0?' neg':''}">${sched?'~':''}${$f(runBal)}</div>`
@@ -3872,14 +3874,14 @@ function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
     <div class="tx-indicator" style="background:${sched?'var(--border2)':indColor}"></div>
     <div class="tx-l">
       <div class="tx-name">${esc(tx.desc)}</div>
-      <div class="tx-meta">${metaLine||'<span style="color:var(--text3)">—</span>'}</div>
+      <div class="tx-meta">${metaLine||'<span class="c-text3">—</span>'}</div>
     </div>
     <div class="tx-r">
       <div class="tx-amt ${sched?'muted':amtCls}">${amtPfx}${$f(tx.amount)}</div>
       ${balLine}
     </div>
     <div class="tx-acts">
-      ${tx.reconciled?'<span title="Reconciled" style="font-size:10px;color:var(--green);padding:0 4px">✓</span>':''}
+      ${tx.reconciled?'<span title="Reconciled" class="c-green" style="font-size:10px;padding:0 4px">✓</span>':''}
       ${!tx.autoGenerated?(!tx.reconciled?`<button class="ib" onclick="${editFn}('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:`<button class="ib" onclick="${editFn}('${tx.id}')">✎</button>`):''}
     </div>
   </div>`;
@@ -4258,7 +4260,7 @@ function openTxEditModal(id){
       <div class="fg"><label class="fl">To Account</label><select class="fi" id="etXfrTo">${xfrOpts}</select></div>
     </div>`:''}
     <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      <button class="tbtn" style="color:var(--red);border-color:var(--rb)" onclick="delTxFromDetail('${id}')">Delete</button>
+      <button class="tbtn c-red" style="border-" onclick="delTxFromDetail('${id}')">Delete</button>
       <button class="btn-save" style="flex:1" onclick="saveTxEditModal('${id}','${tx.type}')">Save Changes</button>
     </div>`;
   if(!panel.classList.contains('active')){panel.classList.add('active');history.pushState({},'','');}
@@ -4347,10 +4349,10 @@ function _wiPanelHTML(){
   // Header
   let h=`<div class="wi-hdr">
     <input class="wi-name-inp" id="wiNameInp" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
-    <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
-    <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--green);color:var(--green)" onclick="newWIScenario()" title="Branch into a new separate scenario">+ New</button>
+    <button class="tbtn c-amber" style="font-size:11px;padding:3px 9px;border-" onclick="saveScenario()">Save</button>
+    <button class="tbtn c-green" style="font-size:11px;padding:3px 9px;border-" onclick="newWIScenario()" title="Branch into a new separate scenario">+ New</button>
     ${chips}
-    <button class="tbtn" style="font-size:11px;padding:3px 9px;border-color:var(--accent);color:var(--accent)" onclick="wiShowProjector()">📅 Paycheck Projector</button>
+    <button class="tbtn c-accent" style="font-size:11px;padding:3px 9px;border-" onclick="wiShowProjector()">📅 Paycheck Projector</button>
     <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto" onclick="exitWI()">× Exit</button>
   </div>
   <div class="wi-two-col">
@@ -4358,14 +4360,14 @@ function _wiPanelHTML(){
 
   // Left col: income + summary + bucket adjustments
   h+=`<div class="wi-income-row">
-    <span style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;flex:1">Proj. Income (${getMonth(mid)?.label||''})</span>
+    <span class="c-text3" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;flex:1">Proj. Income (${getMonth(mid)?.label||''})</span>
     <input class="wi-s-inp" type="text" inputmode="decimal" value="${piSc||''}" placeholder="0"
       title="Math: +50, -20, *1.05, 5% of income, =100+50"
       onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${mid}']??${piReal};var val=evalMoneyExpr(inp.value,cur,cur);inp.value=val;S.wiScenario.incomeOverrides['${mid}']=val;renderWI();})(this)"
       onkeydown="if(event.key==='Enter')this.blur()" />
   </div>
   <div style="display:flex;gap:12px;font-size:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
-    <span style="color:var(--text3)">Allocated: <strong style="color:var(--text)">${$f(scAlloc)}</strong></span>
+    <span class="c-text3">Allocated: <strong class="c-text">${$f(scAlloc)}</strong></span>
     <span style="color:${surplusColor}">${scSurplus>=0?'Surplus +':'Deficit '}${$f(Math.abs(scSurplus))}</span>
   </div>`;
 
@@ -4381,8 +4383,8 @@ function _wiPanelHTML(){
       const diff=val-real;
       const diffHtml=diff!==0?`<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${$f(diff)}</span>`:'';
       const sched=sc.bucketSchedule?.[b.id]||{};
-      const onFromSel=`<select style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px;color:var(--text2)" onchange="setWIBktSchedule('${b.id}','onFrom',this.value)"><option value="">Always on</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
-      const offFromSel=`<select style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px;color:var(--text2)" onchange="setWIBktSchedule('${b.id}','offFrom',this.value)"><option value="">Never off</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
+      const onFromSel=`<select class="c-text2" style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px" onchange="setWIBktSchedule('${b.id}','onFrom',this.value)"><option value="">Always on</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
+      const offFromSel=`<select class="c-text2" style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px" onchange="setWIBktSchedule('${b.id}','offFrom',this.value)"><option value="">Never off</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
       const isActive=isWIBucketActive(b.id,mid);
       h+=`<div class="wi-bkt-row" style="${isActive?'':'opacity:.45'}">
         <span class="wi-bkt-label">${esc(b.name)}</span>
@@ -4393,8 +4395,8 @@ function _wiPanelHTML(){
           onkeydown="if(event.key==='Enter')this.blur()" />
       </div>
       <div style="display:flex;gap:6px;align-items:center;padding:2px 0 6px 4px;border-bottom:1px solid var(--border2)">
-        <span style="font-size:10px;color:var(--text3)">On from:</span>${onFromSel}
-        <span style="font-size:10px;color:var(--text3);margin-left:4px">Off from:</span>${offFromSel}
+        <span class="c-text3" style="font-size:10px">On from:</span>${onFromSel}
+        <span class="c-text3" style="font-size:10px;margin-left:4px">Off from:</span>${offFromSel}
       </div>`;
     });
     h+=`</div>`;
@@ -4427,7 +4429,7 @@ function _wiPanelHTML(){
         title="Math: +50, -20, *1.05, 5% of income, =100+50"
         onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${projMid}']??${piRow};var v=evalMoneyExpr(inp.value,cur,cur);inp.value=v;S.wiScenario.incomeOverrides['${projMid}']=v;renderWI();})(this)"
         onkeydown="if(event.key==='Enter')this.blur()" />
-        ${overridden?'<span style="color:var(--amber);font-size:10px">*</span>':''}
+        ${overridden?'<span class="c-amber" style="font-size:10px">*</span>':''}
       </td>
       <td>${$f(allocRow)}</td>
       <td>${surpRow>=0?'+':''}${$f(surpRow)}</td>
@@ -4445,7 +4447,7 @@ function _wiPanelHTML(){
   const debtAccts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0);
   if(debtAccts.length){
     h+=`<div class="wi-debt-section">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--red);margin-bottom:8px">💳 Debt Payoff — What If?</div>`;
+      <div class="c-red" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">💳 Debt Payoff — What If?</div>`;
     debtAccts.forEach(a=>{
       const bal=acctBalance(a.id);
       const apr=a.debtAPR||0;
@@ -4458,10 +4460,10 @@ function _wiPanelHTML(){
         <div class="wi-debt-name">${esc(a.name)}</div>
         <div>
           <div class="wi-debt-amt">${$f(bal)} owed</div>
-          ${apr?`<div style="font-size:10px;color:var(--text3)">Payoff: ${payoffStr}${interest!==Infinity?' · '+$f(interest)+' interest':''}</div>`:'<div style="font-size:10px;color:var(--amber)">Set APR to project</div>'}
+          ${apr?`<div class="c-text3" style="font-size:10px">Payoff: ${payoffStr}${interest!==Infinity?' · '+$f(interest)+' interest':''}</div>`:'<div class="c-amber" style="font-size:10px">Set APR to project</div>'}
         </div>
         <div class="wi-debt-freed">
-          <div style="font-size:10px;color:var(--text3)">Pay it off →</div>
+          <div class="c-text3" style="font-size:10px">Pay it off →</div>
           <div style="font-size:11px;font-weight:600">+${$f(avgPay||a.debtMinPayment||0)}/mo freed</div>
         </div>
       </div>`;
@@ -4477,7 +4479,7 @@ function _wiPanelHTML(){
 function _wiMobileHTML(){
   const mid=S.activeMonth;
   const sc=S.wiScenario;
-  if(!sc)return'<div style="padding:20px;color:var(--text3)">No active scenario</div>';
+  if(!sc)return'<div class="c-text3" style="padding:20px">No active scenario</div>';
   const piReal=monthProjectedIncome(mid)||0;
   const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
   const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
@@ -4495,28 +4497,28 @@ function _wiMobileHTML(){
   let h=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--abg)">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <input class="wi-name-inp" style="flex:1;min-width:120px" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
-      <button class="tbtn" style="font-size:12px;border-color:var(--amber);color:var(--amber)" onclick="saveScenario()">Save</button>
-      <button class="tbtn" style="font-size:12px;border-color:var(--green);color:var(--green)" onclick="newWIScenario()" title="Branch into a new scenario">+ New</button>
+      <button class="tbtn c-amber" style="font-size:12px;border-" onclick="saveScenario()">Save</button>
+      <button class="tbtn c-green" style="font-size:12px;border-" onclick="newWIScenario()" title="Branch into a new scenario">+ New</button>
       ${chips}
     </div>
   </div>
   <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Proj. Income</div>
+      <div><div class="c-text3" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Proj. Income</div>
         <input class="wi-s-inp" type="number" value="${piSc||''}" placeholder="0"
           onchange="S.wiScenario.incomeOverrides['${mid}']=parseFloat(this.value)||0;openModal('__wi__');" />
       </div>
-      <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Allocated</div>
+      <div><div class="c-text3" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Allocated</div>
         <span style="font-family:var(--mono);font-size:15px">${$f(scAlloc)}</span>
       </div>
-      <div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Surplus/Deficit</div>
+      <div><div class="c-text3" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Surplus/Deficit</div>
         <span style="font-family:var(--mono);font-size:15px;color:${surplusColor}">${scSurplus>=0?'+':''}${$f(scSurplus)}</span>
       </div>
     </div>
   </div>`;
 
   // Bucket adjustments (flat list for mobile)
-  h+=`<div style="padding:8px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px">Bucket Targets</div>`;
+  h+=`<div class="c-text3" style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Bucket Targets</div>`;
   sortedCats().forEach(cat=>{
     sortedBuckets(cat.id).forEach(b=>{
       const real=getMonth(mid)?.budgets[b.id]||0;
@@ -4532,13 +4534,13 @@ function _wiMobileHTML(){
           onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');renderActivePane();" />
       </div>
       <div style="display:flex;gap:5px;align-items:center;padding:3px 16px 5px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap">
-        <span style="font-size:10px;color:var(--text3)">On from:</span>
-        <select style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px;color:var(--text)" onchange="setWIBktSchedule('${b.id}','onFrom',this.value);openModal('__wi__')">
+        <span class="c-text3" style="font-size:10px">On from:</span>
+        <select class="c-text" style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px" onchange="setWIBktSchedule('${b.id}','onFrom',this.value);openModal('__wi__')">
           <option value=""${!sched.onFrom?' selected':''}>Always</option>
           ${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
         </select>
-        <span style="font-size:10px;color:var(--text3)">Off from:</span>
-        <select style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px;color:var(--text)" onchange="setWIBktSchedule('${b.id}','offFrom',this.value);openModal('__wi__')">
+        <span class="c-text3" style="font-size:10px">Off from:</span>
+        <select class="c-text" style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px" onchange="setWIBktSchedule('${b.id}','offFrom',this.value);openModal('__wi__')">
           <option value=""${!sched.offFrom?' selected':''}>Never</option>
           ${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
         </select>
@@ -4547,7 +4549,7 @@ function _wiMobileHTML(){
   });
 
   // 6-month projection table
-  h+=`<div style="padding:8px 16px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px">6-Month Projection</div>
+  h+=`<div class="c-text3" style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">6-Month Projection</div>
   <div style="overflow-x:auto;padding:0 8px 8px">
   <table class="wi-proj-table">
     <thead><tr><th>Month</th><th>Income</th><th>Allocated</th><th>Surplus</th><th>Cumul.</th></tr></thead><tbody>`;
@@ -4566,7 +4568,7 @@ function _wiMobileHTML(){
       <td>${pLabel}</td>
       <td><input class="wi-proj-inp" type="number" value="${piR||''}" placeholder="0"
         onchange="S.wiScenario.incomeOverrides['${pMid}']=parseFloat(this.value)||0;openModal('__wi__');" />
-        ${ov?'<span style="color:var(--amber);font-size:10px">*</span>':''}
+        ${ov?'<span class="c-amber" style="font-size:10px">*</span>':''}
       </td>
       <td>${$f(aR)}</td>
       <td>${sR>=0?'+':''}${$f(sR)}</td>
@@ -4577,7 +4579,7 @@ function _wiMobileHTML(){
   h+=`</tbody></table></div>
   <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn-save" onclick="promoteScenario()">Promote to real budgets</button>
-    <button class="tbtn" style="border-color:var(--accent);color:var(--accent)" onclick="wiShowProjector()">📅 Paycheck Projector</button>
+    <button class="tbtn c-accent" style="border-" onclick="wiShowProjector()">📅 Paycheck Projector</button>
     <button class="btn-cancel" onclick="exitWI()">Exit What If</button>
   </div>`;
   return h;
@@ -4734,7 +4736,7 @@ function wiProjectorHtml(result,standalone){
     :`<button class="tbtn" onclick="${backFn}" style="padding:4px 10px;font-size:12px">← Back to What If</button>`;
   const headTitle=standalone
     ?`<div class="modal-head"><div class="modal-title">📅 Paycheck Projector</div>${backBtn}</div>`
-    :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div style="font-size:13px;font-weight:700;color:var(--text)">📅 Paycheck Projector</div><div></div></div>`;
+    :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div class="c-text" style="font-size:13px;font-weight:700">📅 Paycheck Projector</div><div></div></div>`;
   const bodyWrap=standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
   const footHtml=standalone?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
   // Use stored form state if available (preserves user edits after re-render)
@@ -4789,10 +4791,10 @@ function wiProjectorHtml(result,standalone){
     +savedScenarios.map(s=>`<option value="${s.id}"${psv===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
 
   return `${headTitle}${bodyWrap}
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+    <div class="c-text3" style="font-size:12px;margin-bottom:12px">
       Projects week-by-week cash flow using your budget bucket due dates, recurring bills, and scheduled transactions. Add up to 3 income sources.
     </div>
-    ${(S.paychecks||[]).length?`<div style="font-size:11px;color:var(--accent);background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;margin-bottom:10px">💰 Pre-filled from your saved Income Sources — dates auto-set to next upcoming pay date.</div>`:''}
+    ${(S.paychecks||[]).length?`<div class="c-accent" style="font-size:11px;background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;margin-bottom:10px">💰 Pre-filled from your saved Income Sources — dates auto-set to next upcoming pay date.</div>`:''}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
       <div><label class="fl">Starting Cash Balance</label><input class="fi mono" id="projBal" type="number" step="0.01" value="${cashBal.toFixed(2)}" /></div>
@@ -4807,26 +4809,26 @@ function wiProjectorHtml(result,standalone){
         </select></div>
       <div><label class="fl">Budget to Simulate</label>
         <select class="fi" id="projScenario">${scOpts}</select>
-        ${!savedScenarios.length?`<div style="font-size:10px;color:var(--text3);margin-top:3px">Save a What If scenario to use here</div>`:''}
+        ${!savedScenarios.length?`<div class="c-text3" style="font-size:10px;margin-top:3px">Save a What If scenario to use here</div>`:''}
       </div>
       <div>
-        <label class="fl">Weekly Cushion <span style="font-size:10px;color:var(--accent);font-weight:600">pro default: ${$f(_cushionDefault)}</span></label>
+        <label class="fl">Weekly Cushion <span class="c-accent" style="font-size:10px;font-weight:600">pro default: ${$f(_cushionDefault)}</span></label>
         <input class="fi mono" id="projCushion" type="number" step="10" value="${cushionVal}" placeholder="${_cushionDefault}" />
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">Min balance to keep at all times · never saved · adjust freely</div>
+        <div class="c-text3" style="font-size:10px;margin-top:2px">Min balance to keep at all times · never saved · adjust freely</div>
       </div>
       <div>
-        <label class="fl">Test: extra spend / wk <span style="font-size:10px;color:var(--text3);font-weight:400">what if?</span></label>
+        <label class="fl">Test: extra spend / wk <span class="c-text3" style="font-size:10px;font-weight:400">what if?</span></label>
         <input class="fi mono" id="projExtra" type="number" step="5" min="0" value="${extraVal}" placeholder="0" />
-        <div style="font-size:10px;color:var(--text3);margin-top:2px">Adds weekly discretionary spending — see how it shrinks your buffer</div>
+        <div class="c-text3" style="font-size:10px;margin-top:2px">Adds weekly discretionary spending — see how it shrinks your buffer</div>
       </div>
     </div>
 
     ${pcRow(1,true)}
-    ${showPc2?pcRow(2,false):`<div id="addPcWrap2" style="margin-bottom:8px"><button class="tbtn" style="font-size:12px;color:var(--accent);padding:5px 12px;width:100%" onclick="document.getElementById('addPcWrap2').style.display='none';document.getElementById('pcExpandWrap2').style.display='block';(_projectorFormState=_projectorFormState||{}).showPc2=true">+ Add second income source</button></div><div id="pcExpandWrap2" style="display:none">${pcRow(2,false)}</div>`}
-    ${showPc2?(showPc3?pcRow(3,false):`<div id="addPcWrap3" style="margin-bottom:8px"><button class="tbtn" style="font-size:12px;color:var(--text3);padding:5px 12px;width:100%" onclick="document.getElementById('addPcWrap3').style.display='none';document.getElementById('pcExpandWrap3').style.display='block';(_projectorFormState=_projectorFormState||{}).showPc3=true">+ Add third income source</button></div><div id="pcExpandWrap3" style="display:none">${pcRow(3,false)}</div>`):''}
+    ${showPc2?pcRow(2,false):`<div id="addPcWrap2" style="margin-bottom:8px"><button class="tbtn c-accent" style="font-size:12px;padding:5px 12px;width:100%" onclick="document.getElementById('addPcWrap2').style.display='none';document.getElementById('pcExpandWrap2').style.display='block';(_projectorFormState=_projectorFormState||{}).showPc2=true">+ Add second income source</button></div><div id="pcExpandWrap2" style="display:none">${pcRow(2,false)}</div>`}
+    ${showPc2?(showPc3?pcRow(3,false):`<div id="addPcWrap3" style="margin-bottom:8px"><button class="tbtn c-text3" style="font-size:12px;padding:5px 12px;width:100%" onclick="document.getElementById('addPcWrap3').style.display='none';document.getElementById('pcExpandWrap3').style.display='block';(_projectorFormState=_projectorFormState||{}).showPc3=true">+ Add third income source</button></div><div id="pcExpandWrap3" style="display:none">${pcRow(3,false)}</div>`):''}
 
     <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:12px">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:8px">💸 One-Time Expenses <span style="font-weight:400;font-style:italic">(optional — model a repair, trip, or purchase)</span></div>
+      <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">💸 One-Time Expenses <span style="font-weight:400;font-style:italic">(optional — model a repair, trip, or purchase)</span></div>
       ${[1,2,3].filter(n=>n===1||n===2&&showOte2||n===3&&showOte3).map(n=>`
       <div style="display:grid;grid-template-columns:130px 1fr 110px;gap:8px;margin-bottom:6px" id="oteRow${n}">
         <div><label class="fl">Date</label><input class="fi" id="ote${n}Date" type="date" value="${fs['ote'+n+'Date']||''}" /></div>
@@ -4837,7 +4839,7 @@ function wiProjectorHtml(result,standalone){
 
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn-primary" style="flex:1" onclick="wiRunProjector()">Generate Week-by-Week Projection</button>
-      ${(_projectorFormState||_projectorLastResult)?`<button class="tbtn" style="font-size:12px;padding:4px 10px;color:var(--text3)" onclick="wiResetProjector()" title="Reset form and clear results">↺ Reset</button>`:''}
+      ${(_projectorFormState||_projectorLastResult)?`<button class="tbtn c-text3" style="font-size:12px;padding:4px 10px" onclick="wiResetProjector()" title="Reset form and clear results">↺ Reset</button>`:''}
     </div>
     ${result||''}
   </div>${footHtml}`;
@@ -5042,18 +5044,18 @@ function wiRunProjector(){
 
   const scenarioBanner=scenario
     ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px">
-        <span style="color:var(--accent);font-weight:700">⚡ What If:</span>
-        <span style="color:var(--text)">${esc(scenario.name)}</span>
-        <span style="color:var(--text3);font-size:11px">— bucket amounts from this scenario</span>
+        <span class="c-accent" style="font-weight:700">⚡ What If:</span>
+        <span class="c-text">${esc(scenario.name)}</span>
+        <span class="c-text3" style="font-size:11px">— bucket amounts from this scenario</span>
       </div>`
     :'';
 
   const undatedWarning=undatedBkts.length
     ?`<div style="background:var(--abg2,var(--surface));border:1px solid var(--amber);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12px">
-        <span style="color:var(--amber);font-weight:700">⚠ ${undatedBkts.length} bucket${undatedBkts.length!==1?'s':''} have no due date</span>
-        <span style="color:var(--text3)"> — shown on the 1st of each month as an estimate: </span>
-        <span style="color:var(--text)">${undatedBkts.map(b=>esc(b.name)).join(', ')}</span>
-        <span style="color:var(--text3);display:block;margin-top:3px;font-size:11px">Set due dates in the Bucket Editor for accurate week placement.</span>
+        <span class="c-amber" style="font-weight:700">⚠ ${undatedBkts.length} bucket${undatedBkts.length!==1?'s':''} have no due date</span>
+        <span class="c-text3"> — shown on the 1st of each month as an estimate: </span>
+        <span class="c-text">${undatedBkts.map(b=>esc(b.name)).join(', ')}</span>
+        <span class="c-text3" style="display:block;margin-top:3px;font-size:11px">Set due dates in the Bucket Editor for accurate week placement.</span>
       </div>`
     :'';
 
@@ -5061,21 +5063,21 @@ function wiRunProjector(){
     ${scenarioBanner}${undatedWarning}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:12px">
       <div style="background:var(--surface);padding:9px 12px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:2px">Starting Cash</div>
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Starting Cash</div>
         <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:${startBal>=0?'var(--green)':'var(--red)'}">${$f(startBal)}</div>
       </div>
       <div style="background:var(--surface);padding:9px 12px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:2px">Total Income</div>
-        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--green)">+${$f(totalIncome)}</div>
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Total Income</div>
+        <div class="c-green" style="font-family:var(--mono);font-size:15px;font-weight:600">+${$f(totalIncome)}</div>
       </div>
       <div style="background:var(--surface);padding:9px 12px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:2px">Total Bills</div>
-        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--red)">-${$f(totalSpend)}</div>
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Total Bills</div>
+        <div class="c-red" style="font-family:var(--mono);font-size:15px;font-weight:600">-${$f(totalSpend)}</div>
       </div>
       <div style="background:var(--surface2);padding:9px 12px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:2px">Projected End</div>
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Projected End</div>
         <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:${(startBal+totalIncome-totalSpend)>=startBal?'var(--green)':'var(--red)'}">${$f(startBal+totalIncome-totalSpend)}</div>
-        <div style="font-size:10px;color:var(--text3)">${weeks.length} wks · ${months} mo</div>
+        <div class="c-text3" style="font-size:10px">${weeks.length} wks · ${months} mo</div>
       </div>
     </div>`;
 
@@ -5122,11 +5124,11 @@ function wiRunProjector(){
     const mAmber=cushionFloor+Math.max(100,cushionFloor*0.5);
     let mRiskHtml;
     if(mMinMonthBal>=mAmber){
-      mRiskHtml=`<span style="font-size:11px;color:var(--text2)">You have <strong style="font-family:var(--mono);color:var(--green)">${$f(mSafe)}</strong> to spend this month after all bills.</span>`;
+      mRiskHtml=`<span class="c-text2" style="font-size:11px">You have <strong class="c-green" style="font-family:var(--mono)">${$f(mSafe)}</strong> to spend this month after all bills.</span>`;
     } else if(mSafe>0){
-      mRiskHtml=`<span style="font-size:11px;color:var(--amber)">⚠️ Only <strong style="font-family:var(--mono)">${$f(mSafe)}</strong> left after this month's bills — spend carefully.</span>`;
+      mRiskHtml=`<span class="c-amber" style="font-size:11px">⚠️ Only <strong style="font-family:var(--mono)">${$f(mSafe)}</strong> left after this month's bills — spend carefully.</span>`;
     } else {
-      mRiskHtml=`<span style="font-size:11px;color:var(--red)">⚠️ <strong>Bills exceed balance by ${$f(Math.abs(mSafe))}</strong> this month — do not spend anything extra.</span>`;
+      mRiskHtml=`<span class="c-red" style="font-size:11px">⚠️ <strong>Bills exceed balance by ${$f(Math.abs(mSafe))}</strong> this month — do not spend anything extra.</span>`;
     }
 
     const [mYr,mMo]=ym.split('-');
@@ -5136,10 +5138,10 @@ function wiRunProjector(){
 
     html+=`<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
       <div onclick="wiToggleMonth('${ym}')" role="button" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);flex-wrap:wrap;cursor:pointer;user-select:none;-webkit-user-select:none">
-        <span id="pwmbt_${ymSafe}" style="font-size:11px;color:var(--text3);width:12px">▼</span>
-        <span style="font-size:13px;font-weight:700;color:var(--text)">${mLabelStr}</span>
-        ${mIn?`<span style="font-size:11px;color:var(--green)">+${$f(mIn)}</span>`:''}
-        ${mOut?`<span style="font-size:11px;color:var(--red)">-${$f(mOut)}</span>`:''}
+        <span id="pwmbt_${ymSafe}" class="c-text3" style="font-size:11px;width:12px">▼</span>
+        <span class="c-text" style="font-size:13px;font-weight:700">${mLabelStr}</span>
+        ${mIn?`<span class="c-green" style="font-size:11px">+${$f(mIn)}</span>`:''}
+        ${mOut?`<span class="c-red" style="font-size:11px">-${$f(mOut)}</span>`:''}
         <span style="font-size:11px;font-weight:700;color:${mNetColor}">net ${mNet>=0?'+':''}${$f(mNet)}</span>
         <div style="width:100%;margin-top:2px;pointer-events:none">${mRiskHtml}</div>
       </div>
@@ -5187,20 +5189,20 @@ function wiRunProjector(){
         const evs=byDay[date];
         const d=new Date(date+'T12:00:00');
         const dayLabel=d.toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
-        dayRowsHtml+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:4px 0 1px;margin-top:2px">${dayLabel}</div>`;
+        dayRowsHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:4px 0 1px;margin-top:2px">${dayLabel}</div>`;
         evs.forEach(ev=>{
           if(ev.kind==='pay'){
             running+=ev.amount;
             dayRowsHtml+=`<div style="display:flex;gap:6px;padding:1px 0;align-items:center">
               <span style="flex:1;font-size:12px;font-weight:600">💰 ${esc(ev.desc)}</span>
-              <span style="font-family:var(--mono);font-size:12px;color:var(--green);min-width:68px;text-align:right">+${$f(ev.amount)}</span>
+              <span class="c-green" style="font-family:var(--mono);font-size:12px;min-width:68px;text-align:right">+${$f(ev.amount)}</span>
             </div>`;
           } else {
             running-=ev.amount;
-            const badge=ev.src==='discretionary'?`<span style="font-size:9px;color:var(--text3);border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">variable</span>`:ev.src==='onetime'?`<span style="font-size:9px;color:var(--amber);border:1px solid var(--amber);border-radius:3px;padding:0 3px;margin-left:3px">one-time</span>`:'';
+            const badge=ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--amber);border-radius:3px;padding:0 3px;margin-left:3px">one-time</span>`:'';
             dayRowsHtml+=`<div style="display:flex;gap:6px;padding:1px 0;align-items:center">
               <span style="flex:1;font-size:12px">${esc(ev.desc)}${badge}</span>
-              <span style="font-family:var(--mono);font-size:12px;color:var(--red);min-width:68px;text-align:right">-${$f(ev.amount)}</span>
+              <span class="c-red" style="font-family:var(--mono);font-size:12px;min-width:68px;text-align:right">-${$f(ev.amount)}</span>
             </div>`;
           }
         });
@@ -5212,13 +5214,13 @@ function wiRunProjector(){
       html+=`<div style="border-top:1px solid var(--border)">
         <div onclick="wiToggleWeek('${wId}')" role="button" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;background:var(--bg2);user-select:none;-webkit-user-select:none">
           <span style="font-size:14px;line-height:1">${dotChar}</span>
-          <span style="font-size:11px;font-weight:600;color:var(--text);flex:1;white-space:nowrap">${w.start.slice(5)} – ${w.end.slice(5)}</span>
-          ${bonusInWeek?`<span style="font-size:10px;font-weight:700;color:var(--green);background:rgba(0,200,100,.12);border:1px solid var(--green);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
-          ${weekInAmt?`<span style="font-size:11px;color:var(--green)">+${$f(weekInAmt)}</span>`:''}
-          ${weekOutAmt?`<span style="font-size:11px;color:var(--red)">-${$f(weekOutAmt)}</span>`:''}
-          ${wEndBal<0?`<span style="font-size:10px;font-weight:700;color:var(--red)">⚠ SHORTFALL</span>`:''}
+          <span class="c-text" style="font-size:11px;font-weight:600;flex:1;white-space:nowrap">${w.start.slice(5)} – ${w.end.slice(5)}</span>
+          ${bonusInWeek?`<span class="c-green" style="font-size:10px;font-weight:700;background:rgba(0,200,100,.12);border:1px solid var(--green);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
+          ${weekInAmt?`<span class="c-green" style="font-size:11px">+${$f(weekInAmt)}</span>`:''}
+          ${weekOutAmt?`<span class="c-red" style="font-size:11px">-${$f(weekOutAmt)}</span>`:''}
+          ${wEndBal<0?`<span class="c-red" style="font-size:10px;font-weight:700">⚠ SHORTFALL</span>`:''}
           <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${wEndColor}">${$f(wEndBal)}</span>
-          <span id="pwt_${wId}" style="font-size:11px;color:var(--text3);width:12px;text-align:center">${autoExpand?'▼':'▶'}</span>
+          <span id="pwt_${wId}" class="c-text3" style="font-size:11px;width:12px;text-align:center">${autoExpand?'▼':'▶'}</span>
         </div>
         <div id="pwb_${wId}" style="padding:4px 12px;display:${autoExpand?'block':'none'}">${dayRowsHtml}</div>
       </div>`;
@@ -5229,9 +5231,9 @@ function wiRunProjector(){
 
   const endColor=running>=startBal?'var(--green)':'var(--red)';
   html+=`<div style="display:flex;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:2px solid var(--border);margin-top:4px;flex-wrap:wrap">
-    <span style="color:var(--text3)">Total in: <strong style="color:var(--green)">${$f(totalIncome)}</strong></span>
-    <span style="color:var(--text3)">Total out: <strong style="color:var(--red)">${$f(totalSpend)}</strong></span>
-    ${shortfallCount?`<span style="color:var(--red);font-weight:700">⚠ ${shortfallCount} shortfall week${shortfallCount!==1?'s':''}</span>`:'<span style="color:var(--green)">✓ No shortfalls</span>'}
+    <span class="c-text3">Total in: <strong class="c-green">${$f(totalIncome)}</strong></span>
+    <span class="c-text3">Total out: <strong class="c-red">${$f(totalSpend)}</strong></span>
+    ${shortfallCount?`<span class="c-red" style="font-weight:700">⚠ ${shortfallCount} shortfall week${shortfallCount!==1?'s':''}</span>`:'<span class="c-green">✓ No shortfalls</span>'}
     <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End balance: ${$f(running)}</span>
   </div></div>`;
 
@@ -5246,7 +5248,7 @@ function wiRunProjector(){
     const eY=endDate.getFullYear(),eM=endDate.getMonth();
     while(py<eY||(py===eY&&pm2<=eM)){projMths.push({id:mId(py,pm2),label:mLabel(py,pm2)});pm2++;if(pm2>11){pm2=0;py++;}}
 
-    const thCells=projMths.map(m=>`<th style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${m.label}</th>`).join('');
+    const thCells=projMths.map(m=>`<th class="c-text3" style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${m.label}</th>`).join('');
 
     const rows=savingsBkts.map(b=>{
       const curBal=rolloverBal(b.id,S.activeMonth);
@@ -5257,7 +5259,7 @@ function wiRunProjector(){
 
       const cells=projMths.map(pm=>{
         if(!isWIBucketActiveForMonth(b.id,pm.id,scenario)){
-          return `<td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)">—</td>`;
+          return `<td class="c-text3" style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">—</td>`;
         }
         let contrib=0;
         if(bRules.length){
@@ -5286,27 +5288,27 @@ function wiRunProjector(){
       let goalLabel='';
       if(tgt>0){
         const pct=Math.min(100,Math.round((curBal/tgt)*100));
-        const hitTxt=goalReached.month?`<span style="color:var(--green);font-weight:600"> · goal reached ${goalReached.month}</span>`:`<span style="color:var(--text3)"> · goal: ${$f(tgt)}</span>`;
-        goalLabel=`<div style="font-size:10px;color:var(--text3);margin-top:1px">${pct}% of goal${hitTxt}</div>`;
+        const hitTxt=goalReached.month?`<span class="c-green" style="font-weight:600"> · goal reached ${goalReached.month}</span>`:`<span class="c-text3"> · goal: ${$f(tgt)}</span>`;
+        goalLabel=`<div class="c-text3" style="font-size:10px;margin-top:1px">${pct}% of goal${hitTxt}</div>`;
       } else if(bRules.length){
         const ruleDesc=bRules.map(r=>r.type==='pct'?`${r.value}% of pay`:`${$f(r.value)}/pay`).join(', ');
-        goalLabel=`<div style="font-size:10px;color:var(--text3);margin-top:1px">Rule: ${ruleDesc}</div>`;
+        goalLabel=`<div class="c-text3" style="font-size:10px;margin-top:1px">Rule: ${ruleDesc}</div>`;
       }
-      const typeTag=b.rollover?`<span style="font-size:9px;background:var(--bbg);color:var(--blue);border:1px solid var(--bb);border-radius:3px;padding:1px 4px;margin-left:4px">rollover</span>`:`<span style="font-size:9px;background:var(--pbg);color:var(--purple);border:1px solid var(--pb);border-radius:3px;padding:1px 4px;margin-left:4px">rule</span>`;
+      const typeTag=b.rollover?`<span class="c-blue" style="font-size:9px;background:var(--bbg);border:1px solid var(--bb);border-radius:3px;padding:1px 4px;margin-left:4px">rollover</span>`:`<span class="c-purple" style="font-size:9px;background:var(--pbg);border:1px solid var(--pb);border-radius:3px;padding:1px 4px;margin-left:4px">rule</span>`;
       return `<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(b.name)}${typeTag}${goalLabel}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells}</tr>`;
     }).join('');
 
     html+=`<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;-webkit-user-select:none" onclick="wiToggleSavingsGrowth()">
-        <div id="savingsGrowthToggle" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">▶ Show Savings Growth</div>
-        <span style="font-size:11px;color:var(--text3)">(${savingsBkts.length} bucket${savingsBkts.length!==1?'s':''})</span>
+        <div id="savingsGrowthToggle" class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px">▶ Show Savings Growth</div>
+        <span class="c-text3" style="font-size:11px">(${savingsBkts.length} bucket${savingsBkts.length!==1?'s':''})</span>
       </div>
       <div id="savingsGrowthTable" style="display:none;margin-top:10px">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Contributions calculated per paycheck event using allocation rules. 🎯 marks the month a goal is reached.</div>
+        <div class="c-text3" style="font-size:11px;margin-bottom:10px">Contributions calculated per paycheck event using allocation rules. 🎯 marks the month a goal is reached.</div>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:300px">
           <thead><tr>
-            <th style="text-align:left;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg)">Bucket</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);border-bottom:2px solid var(--border);background:var(--bg)">Current</th>
+            <th class="c-text3" style="text-align:left;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg)">Bucket</th>
+            <th class="c-text3" style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg)">Current</th>
             ${thCells}
           </tr></thead>
           <tbody>${rows}</tbody>
@@ -5380,7 +5382,7 @@ function openGlobalSearch(){
       <button class="modal-x" onclick="closeModal()">&#x2715;</button>
     </div>
     <div class="gsearch-input-wrap">
-      <span style="font-size:16px;color:var(--text3)">🔍</span>
+      <span class="c-text3" style="font-size:16px">🔍</span>
       <input class="gsearch-inp" id="gsInput" placeholder="Search by description, payee, or amount..." autofocus oninput="gsRender()" />
     </div>
     <div class="gsearch-filters">
@@ -5512,7 +5514,7 @@ function reconHtml(acctId){
         <div class="recon-tx-desc">${esc(tx.desc)}</div>
         <div class="recon-tx-meta">${ld(tx.date)}${meta?' · '+meta:''}</div>
       </div>
-      <div class="recon-tx-amt" style="color:var(--${amtCls})">${amtPfx}${$f(tx.amount)}</div>
+      <div class="recon-tx-amt c-${amtCls}">${amtPfx}${$f(tx.amount)}</div>
     </div>`;
   });
 
@@ -5522,18 +5524,18 @@ function reconHtml(acctId){
       <button class="modal-x" onclick="closeModal()">&#x2715;</button>
     </div>
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
-      <label style="font-size:12px;color:var(--text3);flex-shrink:0">Statement balance:</label>
+      <label class="c-text3" style="font-size:12px;flex-shrink:0">Statement balance:</label>
       <input id="reconStmtBal" class="fi mono" type="number" step="0.01" placeholder="0.00"
         style="width:140px;margin:0" oninput="reconRefresh('${acctId}')" />
     </div>
     <div class="recon-stat-bar">
       <div class="recon-stat">
         <div class="recon-stat-label">Reconciled</div>
-        <div class="recon-stat-val" style="color:var(--green)">${$f(reconBal)}</div>
+        <div class="recon-stat-val c-green">${$f(reconBal)}</div>
       </div>
       <div class="recon-stat">
         <div class="recon-stat-label">+ Checked</div>
-        <div class="recon-stat-val" style="color:var(--accent)">${$f(checkedSum)}</div>
+        <div class="recon-stat-val c-accent">${$f(checkedSum)}</div>
       </div>
       <div class="recon-stat">
         <div class="recon-stat-label">Working Balance</div>
@@ -5544,12 +5546,12 @@ function reconHtml(acctId){
         <div class="recon-stat-val ${diffCls}" id="reconDiff">${stmtVal?$f(diff):'—'}</div>
       </div>
     </div>
-    <div style="padding:8px 16px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border)">
+    <div class="c-text3" style="padding:8px 16px;font-size:11px;border-bottom:1px solid var(--border)">
       Check off each transaction that appears on your bank statement. When the difference reaches $0.00, you're balanced.
     </div>
-    <div class="recon-tx-list">${txRows||'<div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:13px">All transactions are already reconciled.</div>'}</div>
+    <div class="recon-tx-list">${txRows||'<div class="c-text3" style="padding:24px 16px;text-align:center;font-size:13px">All transactions are already reconciled.</div>'}</div>
     <div class="modal-foot" style="gap:8px">
-      <span id="reconStatus" style="flex:1;font-size:12px;color:var(--text3)">${_reconChecked.size} checked</span>
+      <span id="reconStatus" class="c-text3" style="flex:1;font-size:12px">${_reconChecked.size} checked</span>
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
       <button class="btn-primary" onclick="reconFinish('${acctId}')" ${_reconChecked.size===0?'disabled':''}>Mark Reconciled (${_reconChecked.size})</button>
     </div>`;
@@ -5590,7 +5592,7 @@ function reportNetWorthHtml(){
   const netWorth=totalAssets+totalLiab;
   const acctRows=_bals.map(({a,bal,nwBal})=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
-      <span style="flex:1;font-size:13px">${esc(a.name)}<span style="font-size:10px;color:var(--text3);margin-left:6px">${a.type}</span></span>
+      <span style="flex:1;font-size:13px">${esc(a.name)}<span class="c-text3" style="font-size:10px;margin-left:6px">${a.type}</span></span>
       <span style="font-family:var(--mono);font-size:13px;color:${nwBal>=0?'var(--green)':'var(--red)'}">${a.type==='debt'?'-':''} ${$f(Math.abs(bal))}</span>
     </div>`).join('');
   const pastMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-12);
@@ -5634,7 +5636,7 @@ function reportNetWorthHtml(){
   <div class="nw-summary" style="margin:0 0 4px;border-radius:var(--r)">
     <div class="nw-summary-cell">
       <div class="nw-summary-label">Total Assets</div>
-      <div class="nw-summary-val" style="color:var(--green)">${$f(totalAssets)}</div>
+      <div class="nw-summary-val c-green">${$f(totalAssets)}</div>
     </div>
     <div class="nw-summary-cell">
       <div class="nw-summary-label">Total Liabilities</div>
@@ -5646,7 +5648,7 @@ function reportNetWorthHtml(){
     </div>
   </div>
   <div style="margin-bottom:12px">${acctRows}</div>
-  ${pastMonths.length?`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px">Historical (last 12 months)</div>${histTable}`:''}`;
+  ${pastMonths.length?`<div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Historical (last 12 months)</div>${histTable}`:''}`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5715,17 +5717,17 @@ function renderDebtTracker(a){
   return `<div class="debt-tracker">
     <div class="debt-tracker-hdr">
       <span class="debt-tracker-title">💳 Debt Tracker</span>
-      ${apr?`<span style="font-size:11px;color:var(--text3)">APR: ${apr}%</span>`:'<span style="font-size:11px;color:var(--amber)">Set APR for projections →</span>'}
+      ${apr?`<span class="c-text3" style="font-size:11px">APR: ${apr}%</span>`:'<span class="c-amber" style="font-size:11px">Set APR for projections →</span>'}
       <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="editAcct('${a.id}')">Edit</button>
     </div>
     <div class="debt-stat-grid">
       <div class="debt-stat">
         <div class="debt-stat-label">Balance Owed</div>
-        <div class="debt-stat-val" style="color:var(--red)">${$f(balance)}</div>
+        <div class="debt-stat-val c-red">${$f(balance)}</div>
       </div>
       <div class="debt-stat">
         <div class="debt-stat-label">Monthly Interest</div>
-        <div class="debt-stat-val" style="color:var(--amber)">${apr?$f(monthlyInterest):'—'}</div>
+        <div class="debt-stat-val c-amber">${apr?$f(monthlyInterest):'—'}</div>
       </div>
       <div class="debt-stat">
         <div class="debt-stat-label">Avg Net Payment</div>
@@ -5733,12 +5735,12 @@ function renderDebtTracker(a){
       </div>
     </div>
     ${pctPaid>0?`<div style="padding:8px 16px 0">
-      <div style="font-size:10px;color:var(--text3);margin-bottom:4px">${pctPaid}% paid off</div>
+      <div class="c-text3" style="font-size:10px;margin-bottom:4px">${pctPaid}% paid off</div>
       <div class="debt-payoff-bar"><div class="debt-payoff-fill" style="width:${pctPaid}%"></div></div>
     </div>`:''}
-    ${apr&&effectivePayment>0?`<div style="padding:8px 16px;font-size:12px;color:var(--text3)">
+    ${apr&&effectivePayment>0?`<div class="c-text3" style="padding:8px 16px;font-size:12px">
       At current pace — payoff: <strong style="color:${months===Infinity?'var(--red)':'var(--text)'}">${payoffStr}</strong>
-      ${totalInterest!==Infinity?` · total interest: <strong style="color:var(--amber)">${$f(totalInterest)}</strong>`:''}
+      ${totalInterest!==Infinity?` · total interest: <strong class="c-amber">${$f(totalInterest)}</strong>`:''}
     </div>`:''}
 
     <div class="debt-wi-section">
@@ -5753,13 +5755,13 @@ function renderDebtTracker(a){
 
       <div class="debt-wi-row" style="margin-top:12px">
         <span class="debt-wi-label">What if I paid it off today?</span>
-        <span style="font-size:12px;color:var(--green);font-family:var(--mono)">${$f(balance)} frees ${apr?$f(monthlyInterest)+'/mo in interest':' monthly budget'}</span>
+        <span class="c-green" style="font-size:12px;font-family:var(--mono)">${$f(balance)} frees ${apr?$f(monthlyInterest)+'/mo in interest':' monthly budget'}</span>
       </div>
       ${apr?`<div class="debt-result">
-        <div class="debt-result-row"><span class="debt-result-label">Interest saved (yearly)</span><span class="debt-result-val" style="color:var(--green)">${$f(Math.round(balance*apr/100*100)/100)}</span></div>
-        <div class="debt-result-row"><span class="debt-result-label">Freed monthly cash</span><span class="debt-result-val" style="color:var(--green)">+${$f(effectivePayment)}</span></div>
-        <div class="debt-result-row"><span class="debt-result-label">That money invested 10yr @7%</span><span class="debt-result-val" style="color:var(--accent)">${$f(Math.round(effectivePayment*((Math.pow(0.07/12+1,120)-1)/(0.07/12))*100)/100)}</span></div>
-      </div>`:'<div style="font-size:11px;color:var(--text3);padding:4px 0">Set APR above to see interest savings.</div>'}
+        <div class="debt-result-row"><span class="debt-result-label">Interest saved (yearly)</span><span class="debt-result-val c-green">${$f(Math.round(balance*apr/100*100)/100)}</span></div>
+        <div class="debt-result-row"><span class="debt-result-label">Freed monthly cash</span><span class="debt-result-val c-green">+${$f(effectivePayment)}</span></div>
+        <div class="debt-result-row"><span class="debt-result-label">That money invested 10yr @7%</span><span class="debt-result-val c-accent">${$f(Math.round(effectivePayment*((Math.pow(0.07/12+1,120)-1)/(0.07/12))*100)/100)}</span></div>
+      </div>`:'<div class="c-text3" style="font-size:11px;padding:4px 0">Set APR above to see interest savings.</div>'}
     </div>
   </div>`;
 }
@@ -5776,9 +5778,9 @@ function renderDebtWI(acctId,balance,monthlyRate,currentPayment,monthlyInterest)
   const savedInterest=oldInterest===Infinity?'—':$f(Math.max(0,oldInterest-newInterest));
   const newDate=newMonths===Infinity?'Never':new Date(Date.now()+newMonths*30.44*24*3600*1000).toLocaleString('default',{month:'short',year:'numeric'});
   el.innerHTML=`<div class="debt-result">
-    <div class="debt-result-row"><span class="debt-result-label">New payoff date</span><span class="debt-result-val" style="color:var(--green)">${newDate}</span></div>
-    <div class="debt-result-row"><span class="debt-result-label">Months saved</span><span class="debt-result-val" style="color:var(--green)">${savedMonths} months sooner</span></div>
-    <div class="debt-result-row"><span class="debt-result-label">Interest saved</span><span class="debt-result-val" style="color:var(--green)">${savedInterest}</span></div>
+    <div class="debt-result-row"><span class="debt-result-label">New payoff date</span><span class="debt-result-val c-green">${newDate}</span></div>
+    <div class="debt-result-row"><span class="debt-result-label">Months saved</span><span class="debt-result-val c-green">${savedMonths} months sooner</span></div>
+    <div class="debt-result-row"><span class="debt-result-label">Interest saved</span><span class="debt-result-val c-green">${savedInterest}</span></div>
   </div>`;
 }
 
@@ -5828,7 +5830,7 @@ function debtPlannerHtml(){
   const debts=S.accounts.filter(a=>a.type==='debt').map(a=>({
     id:a.id,name:a.name,balance:acctBalance(a.id),apr:a.debtAPR||0,minPayment:a.debtMinPayment||0
   })).filter(d=>d.balance>0);
-  if(!debts.length)return`<div style="color:var(--text3);padding:16px 0">No active debts to plan.</div>`;
+  if(!debts.length)return`<div class="c-text3" style="padding:16px 0">No active debts to plan.</div>`;
   const extra=_debtExtra;
   const avalanche=[...debts].sort((a,b)=>b.apr-a.apr);
   const snowball=[...debts].sort((a,b)=>a.balance-b.balance);
@@ -5840,35 +5842,35 @@ function debtPlannerHtml(){
   const swMonths=swRes.filter(d=>d.payoffMonth!==Infinity).reduce((m,d)=>Math.max(m,d.payoffMonth),0);
   const moToDate=m=>{const d=new Date();d.setMonth(d.getMonth()+m);return d.toLocaleString('default',{month:'short',year:'numeric'});};
   const interestSaved=Math.round((swTotalInt-avTotalInt)*100)/100;
-  const avRow=r=>`<tr><td>${esc(r.name)}</td><td>${r.payoffMonth===Infinity?'Never':moToDate(r.payoffMonth)}</td><td style="color:var(--red)">${r.payoffMonth===Infinity?'∞':$f(r.interestPaid)}</td></tr>`;
+  const avRow=r=>`<tr><td>${esc(r.name)}</td><td>${r.payoffMonth===Infinity?'Never':moToDate(r.payoffMonth)}</td><td class="c-red">${r.payoffMonth===Infinity?'∞':$f(r.interestPaid)}</td></tr>`;
   const cards=[
     {l:'Avalanche Debt-Free',v:avMonths?moToDate(avMonths):'Never',s:`Total interest: ${$f(avTotalInt)}`,c:'var(--green)'},
     {l:'Snowball Debt-Free',v:swMonths?moToDate(swMonths):'Never',s:`Total interest: ${$f(swTotalInt)}`,c:'var(--green)'},
     ...(interestSaved>0?[{l:'Avalanche Saves',v:$f(interestSaved),s:'in interest vs snowball',c:'var(--green)'}]:[]),
   ].map(({l,v,s,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
-    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${l}</div>
+    <div class="c-text3" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px">${l}</div>
     <div style="font-size:16px;font-weight:700;color:${c}">${v}</div>
-    <div style="font-size:11px;color:var(--text3)">${s}</div>
+    <div class="c-text3" style="font-size:11px">${s}</div>
   </div>`).join('');
   return`<div style="margin-bottom:16px">
     <label class="fl" style="margin-bottom:4px">Extra monthly payment (beyond minimums)</label>
     <div style="display:flex;gap:8px;align-items:center">
       <input class="fi mono" id="debtExtraInp" type="number" step="10" min="0" value="${extra}" style="width:120px"
         oninput="_debtExtra=Math.max(0,parseFloat(this.value)||0);_refreshDebtPlanner()" />
-      <span style="font-size:12px;color:var(--text3)">/ month</span>
+      <span class="c-text3" style="font-size:12px">/ month</span>
     </div>
   </div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
     <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">⚡ Avalanche (Highest APR First)</div>
+      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">⚡ Avalanche (Highest APR First)</div>
       <table class="report-table" style="font-size:12px">
         <thead><tr><th style="text-align:left">Debt</th><th>Payoff</th><th>Interest</th></tr></thead>
         <tbody>${avRes.map(avRow).join('')}</tbody>
       </table>
     </div>
     <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">⛄ Snowball (Lowest Balance First)</div>
+      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">⛄ Snowball (Lowest Balance First)</div>
       <table class="report-table" style="font-size:12px">
         <thead><tr><th style="text-align:left">Debt</th><th>Payoff</th><th>Interest</th></tr></thead>
         <tbody>${swRes.map(avRow).join('')}</tbody>
@@ -5888,9 +5890,9 @@ function openMonthReport(mid){
 
 function reportMonthHtml(mid){
   mid=mid||S.activeMonth;
-  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  if(!mid)return`<div class="c-text3" style="padding:16px">No active month.</div>`;
   const mo=S.months.find(m=>m.id===mid);
-  if(!mo)return`<div style="color:var(--text3);padding:16px">Month not found.</div>`;
+  if(!mo)return`<div class="c-text3" style="padding:16px">Month not found.</div>`;
   const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
   const sCats=sortedCats();
   let totalBudget=0,totalAlloc=0,totalSpent=0,totalAvail=0;
@@ -5909,7 +5911,7 @@ function reportMonthHtml(mid){
       catBudget+=budget;catAlloc+=alloc;catSpent+=spent;catAvail+=avail;
       const availColor=avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)';
       return `<tr>
-        <td>${esc(b.name)}${roll>0?` <span style="color:var(--accent);font-size:10px">(+${$f(roll)} rolled)</span>`:''}</td>
+        <td>${esc(b.name)}${roll>0?` <span class="c-accent" style="font-size:10px">(+${$f(roll)} rolled)</span>`:''}</td>
         <td>${budget?$f(budget):'—'}</td>
         <td>${alloc?$f(alloc):'—'}</td>
         <td>${spent?$f(spent):'—'}</td>
@@ -5939,9 +5941,9 @@ function reportMonthHtml(mid){
   return `<p class="rpt-desc">A full breakdown of every bucket this month — what was budgeted, how much you allocated, what was spent, and what remains. Use this to reconcile your plan against reality.</p>
   ${_monthInsight}
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <label class="c-text3" style="font-size:12px">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('month')">${monthOpts}</select>
-    <span style="font-size:12px;color:var(--text3);margin-left:auto">Ready to Spend: <strong style="color:${_rts>=0?'var(--green)':'var(--red)'}">${$f(_rts)}</strong></span>
+    <span class="c-text3" style="font-size:12px;margin-left:auto">Ready to Spend: <strong style="color:${_rts>=0?'var(--green)':'var(--red)'}">${$f(_rts)}</strong></span>
     <button class="report-copy-btn" onclick="navigator.clipboard.writeText(${JSON.stringify(mo.label+'\n'+copyText)}).then(()=>showToast('Copied to clipboard','save'))">⎘ Copy</button>
   </div>
   <div style="overflow-x:auto">
@@ -5954,7 +5956,7 @@ function reportMonthHtml(mid){
 
 function reportBvAHtml(mid){
   mid=mid||S.activeMonth;
-  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  if(!mid)return`<div class="c-text3" style="padding:16px">No active month.</div>`;
   const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
   const sCats=sortedCats();
   let rows='',totalTarget=0,totalSpent=0;
@@ -5986,7 +5988,7 @@ function reportBvAHtml(mid){
   return`<p class="rpt-desc">Budget vs Actual — compares what you planned to spend (budget) against what you actually spent. A positive variance means you came in under budget; negative means you overspent.</p>
   ${_bvaInsight}
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <label class="c-text3" style="font-size:12px">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('bva')">${monthOpts}</select>
   </div>
   <div style="overflow-x:auto"><table class="report-table">
@@ -5999,7 +6001,7 @@ function reportYTDHtml(){
   const janId=`${year}-01`;
   const curId=S.activeMonth;
   const ytdMonths=[...S.months].filter(m=>m.id>=janId&&m.id<=curId).sort((a,b)=>a.id<b.id?-1:1);
-  if(!ytdMonths.length)return`<div style="color:var(--text3);padding:16px">No data for ${year}.</div>`;
+  if(!ytdMonths.length)return`<div class="c-text3" style="padding:16px">No data for ${year}.</div>`;
   let totalIncome=0,totalSpent=0;
   const rows=ytdMonths.map(mo=>{
     const inc=monthIncome(mo.id);
@@ -6008,8 +6010,8 @@ function reportYTDHtml(){
     totalIncome+=inc;totalSpent+=spent;
     const rc=rate!==null?(rate>=0?'var(--green)':'var(--red)'):'var(--text3)';
     return`<tr><td>${esc(mo.label)}</td>
-      <td style="color:var(--green)">${inc?$f(inc):'—'}</td>
-      <td style="color:var(--red)">${spent?$f(spent):'—'}</td>
+      <td class="c-green">${inc?$f(inc):'—'}</td>
+      <td class="c-red">${spent?$f(spent):'—'}</td>
       <td style="color:${net>=0?'var(--green)':'var(--red)'}">${$f(net)}</td>
       <td style="color:${rc};font-weight:600">${rate!==null?rate+'%':'—'}</td></tr>`;
   }).join('');
@@ -6021,7 +6023,7 @@ function reportYTDHtml(){
     {label:'YTD Net Saved',val:$f(totalNet),c:totalNet>=0?'var(--green)':'var(--red)'},
     {label:'Avg Savings Rate',val:totalRate!==null?totalRate+'%':'—',c:totalRate!==null&&totalRate>=0?'var(--green)':'var(--red)'},
   ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
-    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
+    <div class="c-text3" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">${label}</div>
     <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
   const tc=totalNet>=0?'var(--green)':'var(--red)';
   const _ytdInsight=totalRate!==null
@@ -6038,8 +6040,8 @@ function reportYTDHtml(){
     <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Net</th><th>Rate</th></tr></thead>
     <tbody>${rows}<tr class="report-total-row">
       <td>${year} Total</td>
-      <td style="color:var(--green)">${$f(totalIncome)}</td>
-      <td style="color:var(--red)">${$f(totalSpent)}</td>
+      <td class="c-green">${$f(totalIncome)}</td>
+      <td class="c-red">${$f(totalSpent)}</td>
       <td style="color:${tc}">${$f(totalNet)}</td>
       <td style="color:${tc}">${totalRate!==null?totalRate+'%':'—'}</td>
     </tr></tbody></table></div>`;
@@ -6047,7 +6049,7 @@ function reportYTDHtml(){
 
 function reportCatSpendHtml(mid){
   mid=mid||S.activeMonth;
-  if(!mid)return`<div style="color:var(--text3);padding:16px">No active month.</div>`;
+  if(!mid)return`<div class="c-text3" style="padding:16px">No active month.</div>`;
   const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
   let total=0;
   const data=sortedCats().map(cat=>{
@@ -6057,9 +6059,9 @@ function reportCatSpendHtml(mid){
     return{cat,spent,bkts};
   }).filter(d=>d.spent>0).sort((a,b)=>b.spent-a.spent);
   if(!data.length)return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <label class="c-text3" style="font-size:12px">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('catspend')">${monthOpts}</select>
-  </div><div style="color:var(--text3);padding:16px 0">No spending recorded.</div>`;
+  </div><div class="c-text3" style="padding:16px 0">No spending recorded.</div>`;
   const maxSpent=data[0].spent;
   const bars=data.map(({cat,spent,bkts})=>{
     const pct=total?Math.round(spent/total*100):0;
@@ -6068,16 +6070,16 @@ function reportCatSpendHtml(mid){
       const bs=bSpent(mid,b.id);
       const bw=spent?Math.round(bs/spent*70):0;
       return`<div style="display:flex;align-items:center;gap:6px;margin-top:3px;padding-left:8px">
-        <span style="font-size:11px;color:var(--text3);flex:1">${esc(b.name)}</span>
-        <span style="font-size:11px;color:var(--text2)">${$f(bs)}</span>
-        <span style="font-size:10px;color:var(--text3);min-width:30px;text-align:right">${spent?Math.round(bs/spent*100):'0'}%</span>
+        <span class="c-text3" style="font-size:11px;flex:1">${esc(b.name)}</span>
+        <span class="c-text2" style="font-size:11px">${$f(bs)}</span>
+        <span class="c-text3" style="font-size:10px;min-width:30px;text-align:right">${spent?Math.round(bs/spent*100):'0'}%</span>
       </div>`;
     }).join('');
     return`<div style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <span style="flex:1;font-size:13px;font-weight:600;color:${cat.color||'var(--text)'}">${esc(cat.name)}</span>
         <span style="font-size:13px;font-weight:700">${$f(spent)}</span>
-        <span style="font-size:12px;color:var(--text3);min-width:36px;text-align:right">${pct}%</span>
+        <span class="c-text3" style="font-size:12px;min-width:36px;text-align:right">${pct}%</span>
       </div>
       <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;margin-bottom:2px">
         <div style="height:100%;width:${barW}%;background:${cat.color||'var(--accent)'};border-radius:4px"></div>
@@ -6090,15 +6092,15 @@ function reportCatSpendHtml(mid){
   return`<p class="rpt-desc">Where your money actually goes — spending broken down by category and bucket with percentage bars. Useful for spotting which areas of life cost the most.</p>
   ${_catInsight}
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <label class="c-text3" style="font-size:12px">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('catspend')">${monthOpts}</select>
-    <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong>${$f(total)}</strong></span>
+    <span class="c-text3" style="font-size:12px;margin-left:auto">Total: <strong>${$f(total)}</strong></span>
   </div>${bars}`;
 }
 
 function reportSavingsRateHtml(){
   const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
-  if(!months.length)return`<div style="color:var(--text3);padding:16px">No months available.</div>`;
+  if(!months.length)return`<div class="c-text3" style="padding:16px">No months available.</div>`;
   let runInc=0,runSpent=0;
   const rows=months.map(mo=>{
     const inc=monthIncome(mo.id);
@@ -6108,10 +6110,10 @@ function reportSavingsRateHtml(){
     const runRate=runInc?Math.round((runInc-runSpent)/runInc*100):null;
     const rc=rate!==null?(rate>=20?'var(--green)':rate>=0?'var(--text)':'var(--red)'):'var(--text3)';
     return`<tr><td>${esc(mo.label)}</td>
-      <td style="color:var(--green)">${inc?$f(inc):'—'}</td>
-      <td style="color:var(--red)">${spent?$f(spent):'—'}</td>
+      <td class="c-green">${inc?$f(inc):'—'}</td>
+      <td class="c-red">${spent?$f(spent):'—'}</td>
       <td style="color:${rc};font-weight:600">${rate!==null?rate+'%':'—'}</td>
-      <td style="color:var(--text3)">${runRate!==null?runRate+'%':'—'}</td></tr>`;
+      <td class="c-text3">${runRate!==null?runRate+'%':'—'}</td></tr>`;
   }).join('');
   const last3=months.slice(-3);
   const l3inc=last3.reduce((s,mo)=>s+monthIncome(mo.id),0);
@@ -6121,7 +6123,7 @@ function reportSavingsRateHtml(){
     {label:'3-Month Avg Rate',val:l3rate!==null?l3rate+'%':'—',c:l3rate!==null&&l3rate>=0?'var(--green)':'var(--red)'},
     {label:'3-Month Avg Saved',val:last3.length?$f(l3net/last3.length)+'/mo':'—',c:l3net>=0?'var(--green)':'var(--red)'},
   ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
-    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${label}</div>
+    <div class="c-text3" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">${label}</div>
     <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
   const _srInsight=l3rate!==null
     ?(l3rate>=20
@@ -6161,17 +6163,17 @@ function reportPayeeBreakdownHtml(){
     const pct=total?Math.round(amt/total*100):0;
     const barW=sorted[0][1]?Math.round(amt/sorted[0][1]*100):0;
     return`<tr>
-      <td style="color:var(--text3);font-size:11px">${i+1}</td>
+      <td class="c-text3" style="font-size:11px">${i+1}</td>
       <td>${esc(name)}</td>
       <td style="min-width:100px">
         <div style="display:flex;align-items:center;gap:6px">
           <div style="flex:1;height:6px;border-radius:3px;background:var(--surface2)">
             <div style="height:100%;width:${barW}%;background:var(--red);border-radius:3px"></div>
           </div>
-          <span style="font-size:11px;color:var(--text3);min-width:28px">${pct}%</span>
+          <span class="c-text3" style="font-size:11px;min-width:28px">${pct}%</span>
         </div>
       </td>
-      <td style="color:var(--red);font-weight:600">${$f(amt)}</td>
+      <td class="c-red" style="font-weight:600">${$f(amt)}</td>
     </tr>`;
   }).join('');
   const _topPayee=sorted[0];
@@ -6181,18 +6183,18 @@ function reportPayeeBreakdownHtml(){
   return`<p class="rpt-desc">Your top spending destinations ranked by total amount. Useful for spotting recurring habits, subscription creep, or unexpected large payees you may want to budget for explicitly.</p>
   ${_payeeInsight}
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <label style="font-size:12px;color:var(--text3)">Period:</label>
+    <label class="c-text3" style="font-size:12px">Period:</label>
     <select class="fi" style="width:auto" onchange="_payeePeriod=this.value;setReportsTab('payees')">${periodSel}</select>
-    <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong>${$f(total)}</strong></span>
+    <span class="c-text3" style="font-size:12px;margin-left:auto">Total: <strong>${$f(total)}</strong></span>
   </div>
   ${sorted.length?`<div style="overflow-x:auto"><table class="report-table">
     <thead><tr><th>#</th><th style="text-align:left">Description</th><th style="width:120px">Share</th><th>Amount</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`:'<div style="color:var(--text3);padding:16px 0">No spending in this period.</div>'}`;
+    <tbody>${rows}</tbody></table></div>`:'<div class="c-text3" style="padding:16px 0">No spending in this period.</div>'}`;
 }
 
 function reportCashFlowHtml(){
   const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1).slice(-12);
-  if(!months.length)return`<div style="color:var(--text3);padding:16px">No data available.</div>`;
+  if(!months.length)return`<div class="c-text3" style="padding:16px">No data available.</div>`;
   const maxInc=Math.max(...months.map(mo=>monthIncome(mo.id)));
   const maxSpent=Math.max(...months.map(mo=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0)));
   const maxVal=Math.max(maxInc,maxSpent,1);
@@ -6208,11 +6210,11 @@ function reportCashFlowHtml(){
         <div style="display:flex;gap:2px;flex-direction:column">
           <div style="display:flex;gap:4px;align-items:center;font-size:10px">
             <div style="height:5px;border-radius:2px;background:var(--green);width:${iW}%;min-width:${inc?2:0}px"></div>
-            <span style="color:var(--green)">${inc?$f(inc):''}</span>
+            <span class="c-green">${inc?$f(inc):''}</span>
           </div>
           <div style="display:flex;gap:4px;align-items:center;font-size:10px">
             <div style="height:5px;border-radius:2px;background:var(--red);width:${sW}%;min-width:${spent?2:0}px"></div>
-            <span style="color:var(--red)">${spent?$f(spent):''}</span>
+            <span class="c-red">${spent?$f(spent):''}</span>
           </div>
         </div>
       </td>
@@ -6244,9 +6246,9 @@ function reportIncomeSourcesHtml(mid){
   inTxs.forEach(t=>{byAcct[t.accountId]=(byAcct[t.accountId]||0)+t.amount;});
   const total=Object.values(byAcct).reduce((s,v)=>s+v,0);
   if(!total)return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <label class="c-text3" style="font-size:12px">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('incomesrc')">${monthOpts}</select>
-  </div><div style="color:var(--text3);padding:16px 0">No income recorded.</div>`;
+  </div><div class="c-text3" style="padding:16px 0">No income recorded.</div>`;
   const sorted=Object.entries(byAcct).sort((a,b)=>b[1]-a[1]);
   const bars=sorted.map(([aid,amt])=>{
     const acct=getAcct(aid);const pct=total?Math.round(amt/total*100):0;
@@ -6255,8 +6257,8 @@ function reportIncomeSourcesHtml(mid){
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <div style="width:10px;height:10px;border-radius:50%;background:${acct?.color||'var(--accent)'}"></div>
         <span style="flex:1;font-size:13px;font-weight:600">${esc(acct?.name||aid)}</span>
-        <span style="font-size:13px;font-weight:700;color:var(--green)">${$f(amt)}</span>
-        <span style="font-size:12px;color:var(--text3);min-width:36px;text-align:right">${pct}%</span>
+        <span class="c-green" style="font-size:13px;font-weight:700">${$f(amt)}</span>
+        <span class="c-text3" style="font-size:12px;min-width:36px;text-align:right">${pct}%</span>
       </div>
       <div style="height:7px;border-radius:4px;background:var(--surface2)">
         <div style="height:100%;width:${barW}%;background:${acct?.color||'var(--accent)'};border-radius:4px"></div>
@@ -6270,16 +6272,16 @@ function reportIncomeSourcesHtml(mid){
   return`<p class="rpt-desc">A breakdown of where your income came from this month — by account. Useful for understanding income diversification and spotting months where you relied heavily on a single source.</p>
   ${_srcCount?_srcInsight:''}
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    <label style="font-size:12px;color:var(--text3)">Month:</label>
+    <label class="c-text3" style="font-size:12px">Month:</label>
     <select class="fi" style="width:auto" onchange="reportsMid=this.value;setReportsTab('incomesrc')">${monthOpts}</select>
-    <span style="font-size:12px;color:var(--text3);margin-left:auto">Total: <strong style="color:var(--green)">${$f(total)}</strong></span>
+    <span class="c-text3" style="font-size:12px;margin-left:auto">Total: <strong class="c-green">${$f(total)}</strong></span>
   </div>${bars}`;
 }
 
 function reportCatHistoryHtml(){
   const allMonths=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
   const months=allMonths.slice(-_catHistMonths);
-  if(!months.length)return`<div style="color:var(--text3);padding:16px">No months available.</div>`;
+  if(!months.length)return`<div class="c-text3" style="padding:16px">No months available.</div>`;
   const nOpts=[3,6,12,24].map(n=>`<option value="${n}"${n===_catHistMonths?' selected':''}>${n} months</option>`).join('');
   const sCats=sortedCats();
   const catRows=sCats.map(cat=>{
@@ -6293,7 +6295,7 @@ function reportCatHistoryHtml(){
       const trend=prev===null?'':(v>prev?'↑':v<prev?'↓':'');
       const tc=trend==='↑'?'var(--red)':trend==='↓'?'var(--green)':'var(--text3)';
       return`<td style="text-align:right;white-space:nowrap">
-        ${v?`<span style="font-size:11px">${$f(v)}</span>`:'<span style="color:var(--text3);font-size:11px">—</span>'}
+        ${v?`<span style="font-size:11px">${$f(v)}</span>`:'<span class="c-text3" style="font-size:11px">—</span>'}
         ${trend?`<span style="font-size:9px;color:${tc}">${trend}</span>`:''}
       </td>`;
     }).join('');
@@ -6303,12 +6305,12 @@ function reportCatHistoryHtml(){
   return`<p class="rpt-desc">Spending per category over time — the ↑ arrow means spending rose vs the prior month (watch out), ↓ means it fell (good for expenses). Use this to catch categories that are slowly creeping up.</p>
   <div class="rpt-insight"><span class="rpt-insight-icon">💡</span>Tip: categories trending ↑ consistently are prime candidates for adding a dedicated budget. Categories at ↓ over multiple months show your discipline is working.</div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <label style="font-size:12px;color:var(--text3)">Show:</label>
+    <label class="c-text3" style="font-size:12px">Show:</label>
     <select class="fi" style="width:auto" onchange="_catHistMonths=parseInt(this.value);setReportsTab('cathistory')">${nOpts}</select>
   </div>
   <div style="overflow-x:auto"><table class="report-table">
     <thead><tr><th style="text-align:left">Category</th>${hdrs}</tr></thead>
-    <tbody>${catRows||'<tr><td colspan="99" style="color:var(--text3)">No spending data.</td></tr>'}</tbody>
+    <tbody>${catRows||'<tr><td colspan="99" class="c-text3">No spending data.</td></tr>'}</tbody>
   </table></div>`;
 }
 
@@ -6332,8 +6334,8 @@ function allocationRulesHtml(){
     return `<div class="alloc-rule-row${isEd?' rb-row-editing':''}">
       <span class="alloc-rule-name">${esc(r.name||'Unnamed')}</span>
       <span class="alloc-rule-badge">${r.type==='pct'?r.value+'%':'$'+$f(r.value)}</span>
-      ${b?`<span class="alloc-rule-bkt">${esc(b.name)}</span>`:'<span class="alloc-rule-bkt" style="color:var(--red)">missing bucket</span>'}
-      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer">
+      ${b?`<span class="alloc-rule-bkt">${esc(b.name)}</span>`:'<span class="alloc-rule-bkt c-red">missing bucket</span>'}
+      <label class="c-text3" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
         <input type="checkbox" ${r.active!==false?'checked':''} onchange="toggleAllocationRule('${r.id}',this.checked)" /> On
       </label>
       <button class="ib" onclick="editAllocationRule('${r.id}')" title="Edit">✎</button>
@@ -6341,9 +6343,9 @@ function allocationRulesHtml(){
     </div>`;
   }).join('');
   return `
-    ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No rules yet. Add one below.</div>'}
+    ${rows||'<div class="c-text3" style="font-size:13px;padding:8px 0">No rules yet. Add one below.</div>'}
     <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">${editing?'Edit Rule':'Add Rule'}</div>
+      <div class="c-accent" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">${editing?'Edit Rule':'Add Rule'}</div>
       <div class="fi-row" style="margin-bottom:8px">
         <div class="fg"><label class="fl">Rule Name</label><input class="fi" id="newRuleName" placeholder="e.g. 5% to Savings" value="${editing?esc(editing.name||''):''}" /></div>
       </div>
@@ -6436,12 +6438,12 @@ function ruleApplyHtml(monthId){
       <button class="modal-x" onclick="closeModal()">&#x2715;</button>
     </div>
     <div id="ruleApplyModal">
-      <div style="padding:10px 16px;font-size:12px;color:var(--text3);border-bottom:1px solid var(--border)">
+      <div class="c-text3" style="padding:10px 16px;font-size:12px;border-bottom:1px solid var(--border)">
         Income logged. These rules suggest the following allocations — click to toggle each.
       </div>
       ${rows}
       <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
-        <span style="font-size:13px;color:var(--text3)">Total: <strong style="color:var(--green)">${$f(total)}</strong></span>
+        <span class="c-text3" style="font-size:13px">Total: <strong class="c-green">${$f(total)}</strong></span>
       </div>
     </div>
     <div class="modal-foot" style="gap:8px">
@@ -6537,7 +6539,7 @@ function recurringBillsHtml(){
     return `<div class="rb-row${isEd?' rb-row-editing':''}">
       <div class="rb-row-name"><strong>${esc(r.desc)}</strong><div class="rb-row-day">Day ${r.dayOfMonth} · ${b?esc(b.name):'?'} · ${a?esc(a.name):'?'}</div></div>
       <div class="rb-row-amt">${$f(r.amount)}</div>
-      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer">
+      <label class="c-text3" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
         <input type="checkbox" ${r.active!==false?'checked':''} onchange="toggleRecurringBill('${r.id}',this.checked)" /> On
       </label>
       <button class="ib" onclick="editRecurringBill('${r.id}')" title="Edit">✎</button>
@@ -6545,9 +6547,9 @@ function recurringBillsHtml(){
     </div>`;
   }).join('');
   return `
-    ${rows||'<div style="color:var(--text3);font-size:13px;padding:8px 0">No recurring bills yet. Add one below.</div>'}
+    ${rows||'<div class="c-text3" style="font-size:13px;padding:8px 0">No recurring bills yet. Add one below.</div>'}
     <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:8px">${editing?'Edit Bill':'Add Bill'}</div>
+      <div class="c-accent" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">${editing?'Edit Bill':'Add Bill'}</div>
       <div class="fi-row" style="margin-bottom:8px">
         <div class="fg"><label class="fl">Description</label><input class="fi" id="rbDesc" placeholder="e.g. Netflix" value="${editing?esc(editing.desc):''}" /></div>
       </div>
@@ -6687,7 +6689,7 @@ function renderWizard(){
           <span class="wai-bal">${$f(a.balance)}</span>
           <button class="wai-del" onclick="wiz.accounts=wiz.accounts.filter(x=>x.id!=='${a.id}');renderWizard()">×</button>
         </div>`).join('')+'</div>'
-        :'<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">No accounts added yet. Go back to add some.</div>'}
+        :'<div class="c-text3" style="font-size:13px;padding:20px 0;text-align:center">No accounts added yet. Go back to add some.</div>'}
     </div>
     <div class="wiz-foot">
       <button class="btn-cancel" onclick="wiz.step=1;renderWizard()">← Back</button>
@@ -6702,8 +6704,8 @@ function renderWizard(){
     </div>
     <div class="wiz-body">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Your workflow</div>
-        ${['1. Log income transactions → fills Ready to Spend','2. Allocate money to buckets each month','3. Log expense transactions → buckets draw down','4. Goal: Ready to Spend = $0. Every dollar has a job.'].map(s=>`<div style="font-size:13px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border)">${s}</div>`).join('')}
+        <div class="c-text3" style="font-size:12px;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Your workflow</div>
+        ${['1. Log income transactions → fills Ready to Spend','2. Allocate money to buckets each month','3. Log expense transactions → buckets draw down','4. Goal: Ready to Spend = $0. Every dollar has a job.'].map(s=>`<div class="c-text2" style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${s}</div>`).join('')}
       </div>
     </div>
     <div class="wiz-foot">
@@ -6996,7 +6998,7 @@ function renderModal(){
         <div class="fg"><label class="fl">Due Day <button type="button" style="font-size:10px;background:none;border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer;color:${M.bktSplit?'var(--accent)':'var(--text3)'};margin-left:4px" onclick="M.bktSplit=!M.bktSplit;MsnapBkt();renderModal()">${M.bktSplit?'Split ✓':'Split'}</button></label><select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select></div>
       </div>
       ${M.bktSplit?`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:8px">Split Payment Schedule</div>
+        <div class="c-accent" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Split Payment Schedule</div>
         <div class="fi-row" style="margin-bottom:8px">
           <div class="fg"><label class="fl">1st Due Day</label><select class="fi" id="mBktDue" style="margin:0">${dueOptsHtml(M.bktDueDay)}</select></div>
           <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt1" type="number" value="${M.bktDueAmount}" placeholder="0.00" style="margin:0" oninput="MsyncSplitTotal()" /></div>
@@ -7005,7 +7007,7 @@ function renderModal(){
           <div class="fg"><label class="fl">2nd Due Day</label><select class="fi" id="mBktDue2" style="margin:0">${dueOptsHtml(M.bktDueDay2)}</select></div>
           <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt2" type="number" value="${M.bktDueAmount2}" placeholder="0.00" style="margin:0" oninput="MsyncSplitTotal()" /></div>
         </div>
-        <div id="splitTotalMsg" style="font-size:12px;color:var(--green);font-family:var(--mono);padding:2px 0 0">${(parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0)>0?'Total: '+$f((parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0))+' → synced to budget target':''}</div>
+        <div id="splitTotalMsg" class="c-green" style="font-size:12px;font-family:var(--mono);padding:2px 0 0">${(parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0)>0?'Total: '+$f((parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0))+' → synced to budget target':''}</div>
       </div>`:''}
       <div class="fi-row">
         <div class="fg"><label class="fl">Recurring</label><div class="tog-row"><button class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button></div></div>
@@ -7013,7 +7015,7 @@ function renderModal(){
       </div>
       ${hasSinkFields?`<div class="fi-row"><div class="fg"><label class="fl">${isGoal?'Goal Target':'Goal Amount'}</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>`:''}
       ${isSink?`<div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}
-      <div class="fg"><label class="fl">Notes <span style="font-weight:400;color:var(--text3)">(optional)</span></label><textarea class="fi" id="mBktNotes" rows="2" placeholder="Remind yourself of anything useful..." style="resize:vertical;min-height:56px;font-family:var(--sans)">${esc(M.bktNotes)}</textarea></div>`;
+      <div class="fg"><label class="fl">Notes <span class="c-text3" style="font-weight:400">(optional)</span></label><textarea class="fi" id="mBktNotes" rows="2" placeholder="Remind yourself of anything useful..." style="resize:vertical;min-height:56px;font-family:var(--sans)">${esc(M.bktNotes)}</textarea></div>`;
   } else {
     // Category + bulk bucket builder (isCat or isBuilder)
     wideModal=true;
@@ -7033,7 +7035,7 @@ function renderModal(){
     const catSection=isCat?`
       <div class="fg"><label class="fl">Category Name</label><input class="fi" id="mCatName" value="${esc(M.catName)}" placeholder="e.g. Housing, Food, Savings..." /></div>
       <div class="fg"><label class="fl">Color</label><div class="color-row">${swatches}</div></div>
-      <div style="margin-top:12px;padding:10px 14px;background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);font-size:12px;color:var(--blue);">
+      <div class="c-blue" style="margin-top:12px;padding:10px 14px;background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);font-size:12px">
         💡 After saving the category name and color, switch to the <strong>Buckets</strong> tab to add buckets in bulk.
       </div>
     `:'';
@@ -7106,7 +7108,7 @@ function renderModal(){
   scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
   scroll.innerHTML=`${tabs}${body}
     <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      ${isEdit&&!isBuilder?`<button class="tbtn" style="color:var(--red);border-color:var(--rb)" onclick="Mdelete()">Delete</button>`:''}
+      ${isEdit&&!isBuilder?`<button class="tbtn c-red" style="border-" onclick="Mdelete()">Delete</button>`:''}
       <button class="btn-save" style="flex:1" onclick="saveModal()">${saveLabel}</button>
     </div>`;
   _inDetailPanel=true;
@@ -7819,7 +7821,7 @@ function mRenderBulkLog(el){
   });
   h+=`</div>
   <div style="padding:0 16px 8px">
-    <button class="m-submit" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)"
+    <button class="m-submit c-text2" style="background:var(--surface2);border:1px solid var(--border)"
       onclick="mAddBulkRow()">+ Add Row</button>
   </div>
   <div class="m-submit-wrap">
@@ -7925,8 +7927,8 @@ function mTxRowHtml(tx,tappable,runBal=null){
       <div class="m-tx-meta" style="color:${sched?'var(--amber)':color}">${metaParts.join(' · ')}</div>
     </div>
     <div class="m-tx-r">
-      <div class="m-tx-amt ${sched?'':amtCls}" style="${sched?'color:var(--text3)':''}">${amtPfx}${$f(tx.amount)}</div>
-      ${tx.reconciled?'<div style="font-size:9px;color:var(--green);text-align:right">✓ reconciled</div>':''}
+      <div class="m-tx-amt ${sched?'':amtCls} c-text3" style="${sched?'':''}">${amtPfx}${$f(tx.amount)}</div>
+      ${tx.reconciled?'<div class="c-green" style="font-size:9px;text-align:right">✓ reconciled</div>':''}
       ${balLine}
     </div>
   </div>`;
@@ -7965,7 +7967,7 @@ function mEditTxSheet(id){
       <select class="m-select" id="sBkt">${bktOpts}</select></div>`:''}`;
 
   foot.innerHTML=`
-    <button style="flex:1;padding:12px;background:var(--rbg);color:var(--red);border:1px solid var(--rb);border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer" onclick="mDeleteTxSheet('${id}')">Delete</button>
+    <button class="c-red" style="flex:1;padding:12px;background:var(--rbg);border:1px solid var(--rb);border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer" onclick="mDeleteTxSheet('${id}')">Delete</button>
     <button style="flex:2;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer" onclick="mSaveTxSheet('${id}','${tx.type}')">Save</button>`;
 
   document.getElementById('mSheetOverlay').classList.add('show');
@@ -8077,7 +8079,7 @@ function mAcctOptions(selectedId){
       <input class="auth-input" id="authPassword" type="password" placeholder="Password"
         onkeydown="if(event.key==='Enter')authSignIn()" />
       <button class="auth-btn" id="authSignInBtn" onclick="authSignIn()">Sign In</button>
-      <button class="auth-btn" style="background:transparent;border:1px solid var(--border2);color:var(--text2);margin-top:0"
+      <button class="auth-btn c-text2" style="background:transparent;border:1px solid var(--border2);margin-top:0"
         onclick="showAuthRegister()">Create Account</button>
     </div>
     <!-- Register form (hidden by default) -->
@@ -8089,7 +8091,7 @@ function mAcctOptions(selectedId){
       <input class="auth-input" id="authRegPassword2" type="password" placeholder="Confirm password"
         onkeydown="if(event.key==='Enter')authRegister()" />
       <button class="auth-btn" onclick="authRegister()">Create Account</button>
-      <button class="auth-btn" style="background:transparent;border:1px solid var(--border2);color:var(--text2);margin-top:0"
+      <button class="auth-btn c-text2" style="background:transparent;border:1px solid var(--border2);margin-top:0"
         onclick="showAuthSignIn()">Back to Sign In</button>
     </div>
     <div id="authMsg" class="auth-msg" style="display:none"></div>
