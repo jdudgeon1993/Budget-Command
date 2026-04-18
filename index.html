@@ -254,6 +254,94 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ov-spend-bar-track{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
 .ov-spend-bar-fill{height:100%;border-radius:2px;transition:width .3s;}
 
+/* ═══ CONTROL CENTER ═══ */
+.cc-wrap{display:flex;flex-direction:column;gap:18px;padding:24px 28px;}
+.cc-header{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.cc-month-title{font-size:22px;font-weight:700;letter-spacing:-.6px;}
+.cc-chip{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
+.cc-chip.present{background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
+.cc-chip.past{background:var(--border);color:var(--text3);border:1px solid var(--border2);}
+.cc-chip.closed{background:var(--pbg);color:var(--purple);border:1px solid var(--pb);}
+.cc-chip.future{background:var(--bbg);color:var(--blue);border:1px solid var(--bb);}
+/* Hero stat cards */
+.cc-hero-row{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:14px;}
+.cc-hero-card{padding:22px 24px;border-radius:var(--rl);background:var(--surface);border:1px solid var(--border);}
+.cc-hero-card.primary{background:linear-gradient(135deg,rgba(0,212,170,0.12),rgba(124,92,252,0.06));border-color:rgba(0,212,170,0.25);box-shadow:0 0 0 1px rgba(0,212,170,0.1),0 4px 28px rgba(0,212,170,0.08);}
+.cc-hero-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
+.cc-hero-val{font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.8px;line-height:1;}
+.cc-hero-sub{font-size:12px;color:var(--text3);margin-top:8px;display:flex;align-items:center;gap:6px;}
+.cc-hero-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;gap:3px;}
+.cc-hero-badge.pos{background:var(--gbg);color:var(--green);}
+.cc-hero-badge.neg{background:var(--rbg);color:var(--red);}
+.cc-hero-badge.zero{background:var(--border);color:var(--text3);}
+.cc-progress-track{height:5px;background:var(--border2);border-radius:3px;margin-top:14px;overflow:hidden;}
+.cc-progress-fill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.4,0,.2,1);}
+/* Main 2-column grid */
+.cc-grid{display:grid;grid-template-columns:1fr 300px;gap:14px;min-height:0;}
+.cc-left{display:flex;flex-direction:column;gap:14px;}
+.cc-right{display:flex;flex-direction:column;gap:14px;}
+/* Category breakdown card */
+.cc-cat-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.cc-cat-row:last-child{border-bottom:none;}
+.cc-cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cc-cat-name{flex:1;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-cat-bar-wrap{width:80px;height:4px;background:var(--border2);border-radius:2px;overflow:hidden;flex-shrink:0;}
+.cc-cat-bar{height:100%;border-radius:2px;}
+.cc-cat-amt{font-family:var(--mono);font-size:12px;color:var(--text2);flex-shrink:0;min-width:56px;text-align:right;}
+.cc-cat-pct{font-size:10px;color:var(--text3);flex-shrink:0;min-width:28px;text-align:right;}
+/* Transaction rows */
+.cc-tx-date-hdr{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:12px 0 6px;border-top:1px solid var(--border);margin-top:4px;}
+.cc-tx-date-hdr:first-child{border-top:none;padding-top:0;margin-top:0;}
+.cc-tx-row{display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;border-radius:6px;transition:background .12s;}
+.cc-tx-row:hover{background:var(--bg3);margin:0 -8px;padding:8px 8px;}
+.cc-tx-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cc-tx-info{flex:1;min-width:0;}
+.cc-tx-payee{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-tx-meta{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-tx-amt{font-family:var(--mono);font-size:13px;font-weight:500;flex-shrink:0;}
+/* Account rows */
+.cc-acct-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
+.cc-acct-row:last-child{border-bottom:none;}
+.cc-acct-row:hover{opacity:.75;}
+.cc-acct-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.cc-acct-name{flex:1;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-acct-type{font-size:10px;color:var(--text3);}
+.cc-acct-bal{font-family:var(--mono);font-size:13px;font-weight:500;flex-shrink:0;}
+/* Bill rows */
+.cc-bill-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
+.cc-bill-row:last-child{border-bottom:none;}
+.cc-bill-row:hover{opacity:.75;}
+.cc-bill-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cc-bill-name{flex:1;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-bill-due{font-size:11px;font-weight:600;flex-shrink:0;}
+.cc-bill-amt{font-family:var(--mono);font-size:12px;color:var(--text3);flex-shrink:0;}
+/* Goals rows */
+.cc-goal-row{padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
+.cc-goal-row:last-child{border-bottom:none;}
+.cc-goal-row:hover{opacity:.75;}
+.cc-goal-top{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.cc-goal-name{flex:1;font-size:13px;font-weight:500;}
+.cc-goal-pct{font-size:11px;font-weight:600;}
+.cc-goal-track{height:4px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.cc-goal-fill{height:100%;border-radius:2px;transition:width .5s ease;}
+/* Card inner header */
+.cc-card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cc-card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.cc-card-action{font-size:11px;color:var(--accent);cursor:pointer;font-weight:600;transition:opacity .12s;}
+.cc-card-action:hover{opacity:.7;}
+.cc-empty{padding:16px 0;font-size:12px;color:var(--text3);text-align:center;}
+/* Mobile overrides */
+@media(max-width:1099px){
+  .cc-wrap{padding:14px 14px;gap:12px;}
+  .cc-header{display:none;}
+  .cc-hero-row{grid-template-columns:1fr 1fr;gap:10px;}
+  .cc-hero-card.primary{grid-column:1/-1;}
+  .cc-hero-val{font-size:24px;}
+  .cc-hero-card{padding:16px 18px;}
+  .cc-grid{grid-template-columns:1fr;}
+  .cc-right{display:none;}
+}
+
 /* ═══ SIDEBAR MONTH NAV ═══ */
 .sb-monnav{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;}
 .sb-monnav-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:8px 10px;transition:color .12s;line-height:1;flex-shrink:0;}
@@ -1007,13 +1095,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .acct-order-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;}
 .acct-order-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .acct-order-name{flex:1;font-size:14px;}
-.theme-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.theme-card{padding:12px 10px;background:var(--surface);border:2px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:center;transition:all .12s;}
-.theme-card:hover{border-color:var(--border2);}
-.theme-card.active{border-color:var(--accent);}
-.theme-card-swatch{width:32px;height:32px;border-radius:50%;margin:0 auto 6px;border:2px solid rgba(255,255,255,.15);}
-.theme-card-name{font-size:12px;font-weight:600;color:var(--text2);}
-.theme-card.active .theme-card-name{color:var(--accent);}
 
 /* ═══ LIGHT THEME ═══ */
 [data-theme="light"]{
@@ -2731,7 +2812,7 @@ function renderOverviewTab(el,mid){
   if(!S.accounts.length&&!S.cats.length){
     el.innerHTML=`<div class="empty-wrap">
       <div class="empty-icon">⬡</div>
-      <div class="empty-title">Budget Command</div>
+      <div class="empty-title">Imperium Fisci</div>
       <div class="empty-sub">Start by adding your accounts and their current balances, then create budget categories and buckets.</div>
       <button class="empty-btn" onclick="startWizard()">Get Started</button>
     </div>`;return;
@@ -2754,85 +2835,37 @@ function renderOverviewTab(el,mid){
   const chipClass=closed?'chip-closed':st==='present'?'chip-present':past?'chip-past':'chip-future';
   const chipTxt=closed?'✓ Closed':st==='present'?'Current':past?'Past':'Upcoming';
 
-  // ── Month header (desktop; mobile topbar handles navigation) ──────────────
-  let h=`<div class="month-hdr ov-month-hdr" style="margin-bottom:20px">
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''} title="${prevM?prevM.label:'No previous month'}">‹</button>
-    <span class="month-title" style="margin:0 10px">${m.label}</span>
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${nextM?nextM.label:'Add next month'}">›</button>
-    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()" style="margin-left:4px">+</button>`:''}
-    <span class="chip ${chipClass}" style="margin-left:8px">${chipTxt}</span>
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-      ${past&&!closed?`<button class="tbtn c-gb" style="font-size:11px;padding:4px 9px;border-" onclick="openMonthClose('${mid}')">🔒 Close Month</button>`:''}
-      ${closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reopenMonth('${mid}')">↩ Reopen</button>`:''}
-      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
-    </div>
-  </div>`;
-  if(closed)h+=`<div class="hint-bar success" style="margin-bottom:16px">🔒 ${esc(m.label)} is closed. Transactions are locked. <span class="c-text3" style="cursor:pointer;text-decoration:underline" onclick="reopenMonth('${mid}')">Reopen</span> to make changes.</div>`;
-  else if(past)h+=`<div class="hint-bar info" style="margin-bottom:16px">This is a past month. <button class="tbtn" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="openMonthClose('${mid}')">🔒 Close &amp; Reconcile →</button></div>`;
+  // ── Build category spend breakdown ────────────────────────────────────────
+  const catSpend=[];
+  S.cats.forEach(cat=>{
+    const buckets=S.buckets.filter(b=>b.catId===cat.id&&!b.archived);
+    const spent=buckets.reduce((s,b)=>s+bSpent(mid,b.id),0);
+    const budgeted=buckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
+    if(spent>0||budgeted>0)catSpend.push({cat,spent,budgeted});
+  });
+  catSpend.sort((a,b)=>b.spent-a.spent);
+  const maxCatSpend=catSpend.reduce((m,c)=>Math.max(m,c.spent),0);
 
-  // ── Account liquidity strip (horizontal scroll on mobile) ─────────────────
-  if(S.accounts.length){
-    h+=`<div class="als">`;
-    S.accounts.forEach(a=>{
-      const ab=acctBalance(a.id);
-      const typeTag=a.type==='savings'?'savings':a.type==='budget'?'budget':a.type==='debt'?'debt':'';
-      h+=`<div class="als-cell${a.type==='debt'?' als-debt':''}" onclick="setActiveAccount('${a.id}')" title="View ${esc(a.name)} transactions">
-        <div class="als-dot" style="background:${a.color||COLORS[0]}"></div>
-        <span class="als-name">${esc(a.name)}</span>
-        ${typeTag?`<span class="als-type">${typeTag}</span>`:''}
-        <span class="als-bal" style="color:${a.type==='debt'?'var(--red)':ab>=0?'var(--green)':'var(--red)'}">${$f(ab)}</span>
-      </div>`;
-    });
-    h+=`</div>`;
-  }
+  // ── Build recent transactions (grouped by date) ───────────────────────────
+  const allMonthTxs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening'&&!isScheduled(t))
+    .sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const recentTxs=allMonthTxs.slice(0,10);
+  const txByDate={};
+  recentTxs.forEach(t=>{
+    const dk=t.date;
+    if(!txByDate[dk])txByDate[dk]=[];
+    txByDate[dk].push(t);
+  });
 
-  // ── Budget health bar ─────────────────────────────────────────────────────
-  h+=renderBudgetHealth(mid);
+  // ── Build upcoming bills ──────────────────────────────────────────────────
+  const billEntries=activeBkts.filter(b=>b.dueDay).map(b=>{
+    const d=daysUntilDue(b,m.year,m.month);
+    const bm2=computeBucketMetrics(b.id,mid);
+    const paid=bm2?bm2.due1Paid:false;
+    return {b,d,paid};
+  }).filter(({d,paid})=>d!==null&&(paid?d>=0&&d<=14:d<=14)).sort((a,b)=>a.d-b.d);
 
-  // ── Pool stats strip ──────────────────────────────────────────────────────
-  const spendPct=alloc>0?Math.min(totalSpent/alloc,1):0;
-  const spendBarW=Math.round(spendPct*100);
-  const spendBarClr=spendPct>=1?'var(--red)':spendPct>=0.8?'var(--amber)':'var(--green)';
-  h+=`<div class="pool-strip" style="margin-bottom:${alloc>0&&totalSpent>0?'8px':'16px'}">
-    <div class="stat-cell hi"><div class="stat-label">Ready to Spend</div><div class="stat-val ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="stat-sub">${rts>0?'ready to allocate':rts<0?'⚠ short':'balanced ✓'}</div></div>
-    <div class="stat-cell"><div class="stat-label">Income</div><div class="stat-val ${income>0?'green':'dim'}">${income>0?$f(income):'—'}</div><div class="stat-sub">this month</div></div>
-    <div class="stat-cell"><div class="stat-label">Allocated</div><div class="stat-val dim">${alloc>0?$f(alloc):'—'}</div><div class="stat-sub">to buckets</div></div>
-    <div class="stat-cell"><div class="stat-label">Spent</div><div class="stat-val ${spendPct>=1?'red':spendPct>=0.8?'amber':'dim'}">${totalSpent>0?$f(totalSpent):'—'}</div><div class="stat-sub">${alloc>0?spendBarW+'% of budget':'from buckets'}</div></div>
-  </div>`;
-  if(alloc>0&&totalSpent>0)h+=`<div class="ov-spend-row" style="margin-bottom:16px"><div class="ov-spend-bar-track"><div class="ov-spend-bar-fill" style="width:${spendBarW}%;background:${spendBarClr}"></div></div><span class="c-text3" style="font-size:10px;flex-shrink:0">${spendBarW}% spent</span></div>`;
-
-  // ── Hint bar (desktop) — urgent items list is mobile equivalent ────────────
-  if(!past&&unfundedCnt>0&&rts>0)
-    h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
-  else if(!past&&rts<0)
-    h+=`<div class="hint-bar warn ov-desktop-only">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance.</div>`;
-  else if(!past&&rts===0&&alloc>0)
-    h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
-  // ── Secondary stats row ───────────────────────────────────────────────────
-  h+=`<div class="ov-stats-row">
-    <div class="stat-cell">
-      <div class="stat-label">Net Worth</div>
-      <div class="stat-val ${nw>=0?'green':'red'}">${$f(nw)}</div>
-      <div class="stat-sub">all accounts</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">Cash Runway</div>
-      <div class="stat-val ${aomCls}">${aom!==null?aom+'d':'—'}</div>
-      <div class="stat-sub">${aomSub}</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">Bucket Health</div>
-      <div class="stat-val ${bktHealthCls}">${fundedCnt} / ${activeBkts.length}</div>
-      <div class="stat-sub">${fundedCnt} funded · ${partialCnt} partial · ${unfundedCnt} unfunded</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">Budget Cash</div>
-      <div class="stat-val dim">${$f(budgetBal)}</div>
-      <div class="stat-sub">spending pool</div>
-    </div>
-  </div>`;
-
-  // ── Needs Attention (mobile primary; desktop shows hint bars instead) ──────
+  // ── Build urgency list ────────────────────────────────────────────────────
   const urgency=[];
   if(m){
     S.buckets.filter(b=>!b.archived).forEach(b=>{
@@ -2846,126 +2879,244 @@ function renderOverviewTab(el,mid){
     });
     urgency.sort((a,b)=>a.priority-b.priority||((a.days??999)-(b.days??999)));
   }
-  if(urgency.length){
-    h+=`<div class="m-section-label ov-mobile-only">Needs Attention</div>`;
-    urgency.slice(0,6).forEach(u=>{
-      const cat=getCat(u.b.catId);const color=cat?.color||COLORS[0];
-      let dotColor='var(--red)',sub='';
-      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
-      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
-      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
-      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
-      h+=`<div class="m-urgency-item ov-mobile-only" onclick="openDetail('bucket','${u.b.id}')">
-        <div class="m-urgency-dot" style="background:${dotColor}"></div>
-        <div style="flex:1"><div class="m-urgency-name">${esc(u.b.name)}</div>
-          <div class="m-urgency-sub" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div></div>
-        <span class="c-text3" style="font-size:18px">›</span>
-      </div>`;
-    });
-  } else if(alloc>0){
-    h+=`<div class="ov-mobile-only c-green" style="padding:16px;text-align:center;font-size:14px">✓ Everything looks good</div>`;
-  }
-  // Desktop: show critical urgency items (overspent / overdue) that the hint bar doesn't cover
-  const criticalItems=urgency.filter(u=>u.type==='over'||u.type==='overdue');
-  if(!past&&criticalItems.length){
-    const names=criticalItems.slice(0,3).map(u=>esc(u.b.name)).join(', ')+(criticalItems.length>3?'…':'');
-    h+=`<div class="hint-bar warn ov-desktop-only" style="margin-top:4px">🔴 ${criticalItems.length} bucket${criticalItems.length!==1?'s':''} need attention: ${names} <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">View Buckets →</button></div>`;
-  }
 
-  // ── Widgets: Upcoming Bills + Recent Transactions ─────────────────────────
-  const billEntries=activeBkts.filter(b=>b.dueDay).map(b=>{
-    const d=daysUntilDue(b,m.year,m.month);
-    const bm2=computeBucketMetrics(b.id,mid);
-    const paid=bm2?bm2.due1Paid:false;
-    return {b,d,paid};
-  }).filter(({d,paid})=>d!==null&&(paid?d>=0&&d<=14:d<=14)).sort((a,b)=>a.d-b.d);
-  let billsHtml='';
-  if(!billEntries.length){
-    billsHtml=`<div class="ov-widget-empty">No bills due in next 14 days</div>`;
-  } else {
-    billEntries.forEach(({b,d,paid})=>{
-      const amt=b.dueAmount?$f(b.dueAmount):'';
-      const urgCls=paid?'green':d<0?'red':d===0?'red':d<=3?'amber':'';
-      const label=paid?'✓ paid':d<0?`${Math.abs(d)}d overdue`:d===0?'today':`${d}d`;
-      billsHtml+=`<div class="ov-widget-row clickable" onclick="openDetail('bucket','${b.id}')">
-        <span class="ov-widget-row-name">${esc(b.name)}</span>
-        <span class="ov-widget-row-meta c-${urgCls||'text3'}">${label}</span>
-        ${amt?`<span class="ov-widget-row-val c-${paid?'green':'red'}">${amt}</span>`:''}
-        <span class="c-text3" style="font-size:14px;margin-left:2px">›</span>
-      </div>`;
-    });
-  }
-  const allMonthTxs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening'&&!isScheduled(t))
-    .sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const recentTxs=allMonthTxs.slice(0,5);
-  let recentHtml='';
-  if(!recentTxs.length){
-    recentHtml=`<div class="ov-widget-empty">No posted transactions this month</div>`;
-  } else {
-    recentTxs.forEach(t=>{
-      const isIn=t.type==='in';const isXfr=t.type==='xfr';
-      const valCls=isIn?'green':isXfr?'':'red';
-      const pfx=isIn?'+':isXfr?'':'-';
-      const acctName=getAcct(t.accountId)?.name||'';
-      recentHtml+=`<div class="ov-widget-row clickable" onclick="mEditTxSheet('${t.id}')">
-        <div style="flex:1;overflow:hidden">
-          <div class="ov-widget-row-name">${esc(t.desc)}</div>
-          <div class="ov-widget-row-meta">${esc(acctName)} · ${ld(t.date)}</div>
-        </div>
-        <span class="ov-widget-row-val c-${valCls||'text2'}">${pfx}${$f(t.amount)}</span>
-      </div>`;
-    });
-    if(allMonthTxs.length>5)recentHtml+=`<div class="ov-widget-footer" onclick="setTab('ledger')">View all ${allMonthTxs.length} transactions →</div>`;
-  }
-  h+=`<div class="ov-widgets">
-    <div class="ov-widget">
-      <div class="ov-widget-title">Upcoming Bills <span class="c-text3" style="font-size:9px;font-weight:400">14 days</span><span class="ov-widget-title-count">${billEntries.length||''}</span></div>${billsHtml}
-    </div>
-    <div class="ov-widget">
-      <div class="ov-widget-title">Recent Transactions<span class="ov-widget-title-count">${allMonthTxs.length||''}</span></div>${recentHtml}
+  // ── Spend metrics ─────────────────────────────────────────────────────────
+  const spendPct=alloc>0?Math.min(totalSpent/alloc,1):0;
+  const spendBarW=Math.round(spendPct*100);
+  const spendBarClr=spendPct>=1?'var(--red)':spendPct>=0.8?'var(--amber)':'var(--accent)';
+  const ccChipClass=closed?'closed':st==='present'?'present':past?'past':'future';
+  const ccChipTxt=closed?'✓ Closed':st==='present'?'Current':past?'Past':'Upcoming';
+
+  // ── START BUILDING HTML ───────────────────────────────────────────────────
+  let h=`<div class="cc-wrap">`;
+
+  // ── Header (desktop only — mobile topbar handles month nav) ───────────────
+  h+=`<div class="cc-header">
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''}>‹</button>
+    <span class="cc-month-title">${m.label}</span>
+    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)">›</button>
+    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()">+</button>`:''}
+    <span class="cc-chip ${ccChipClass}">${ccChipTxt}</span>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      ${past&&!closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openMonthClose('${mid}')">🔒 Close Month</button>`:''}
+      ${closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reopenMonth('${mid}')">↩ Reopen</button>`:''}
     </div>
   </div>`;
-  // Goals widget — always shown; empty state prompts goal creation
-  const goalBkts=S.buckets.filter(b=>b.type==='goal'&&!b.archived);
-  let goalsHtml='';
-  if(!goalBkts.length){
-    goalsHtml=`<div class="ov-widget-empty">No goals yet.<br><span class="link-btn c-accent" style="cursor:pointer" onclick="setTab('buckets')">Set up a savings goal →</span></div>`;
+
+  // ── Status notices ────────────────────────────────────────────────────────
+  if(closed)h+=`<div class="hint-bar success">🔒 ${esc(m.label)} is closed. Transactions are locked. <span style="cursor:pointer;text-decoration:underline;color:var(--text3)" onclick="reopenMonth('${mid}')">Reopen</span></div>`;
+  else if(past)h+=`<div class="hint-bar info">Past month. <button class="tbtn" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="openMonthClose('${mid}')">🔒 Close &amp; Reconcile →</button></div>`;
+
+  // ── Hero stat cards ───────────────────────────────────────────────────────
+  const rtsBadgeCls=rts>0?'pos':rts<0?'neg':'zero';
+  const rtsBadgeTxt=rts>0?`▲ ${$f(rts)} free`:rts<0?`▼ ${$f(Math.abs(rts))} short`:'✓ balanced';
+  const nwBadgeCls=nw>=0?'pos':'neg';
+
+  h+=`<div class="cc-hero-row">
+    <div class="cc-hero-card primary">
+      <div class="cc-hero-label">Ready to Spend</div>
+      <div class="cc-hero-val" style="color:${rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)'}">${$f(Math.abs(rts))}</div>
+      <div class="cc-hero-sub">
+        <span class="cc-hero-badge ${rtsBadgeCls}">${rtsBadgeTxt}</span>
+      </div>
+    </div>
+    <div class="cc-hero-card">
+      <div class="cc-hero-label">Monthly Spend</div>
+      <div class="cc-hero-val">${totalSpent>0?$f(totalSpent):'—'}</div>
+      <div class="cc-hero-sub">${alloc>0?`of ${$f(alloc)} budget`:'no budget set'}</div>
+      ${alloc>0?`<div class="cc-progress-track"><div class="cc-progress-fill" style="width:${spendBarW}%;background:${spendBarClr}"></div></div>`:''}
+    </div>
+    <div class="cc-hero-card">
+      <div class="cc-hero-label">Net Worth</div>
+      <div class="cc-hero-val" style="color:${nw>=0?'var(--green)':'var(--red)'}">${$f(nw)}</div>
+      <div class="cc-hero-sub">
+        <span class="cc-hero-badge ${nwBadgeCls}">${nw>=0?'▲':'▼'} all accounts</span>
+      </div>
+    </div>
+  </div>`;
+
+  // ── Main grid: left + right columns ──────────────────────────────────────
+  h+=`<div class="cc-grid"><div class="cc-left">`;
+
+  // ── LEFT: Category spend breakdown card ───────────────────────────────────
+  let catHtml='';
+  if(!catSpend.length){
+    catHtml=`<div class="cc-empty">No spending recorded yet</div>`;
   } else {
+    catSpend.slice(0,8).forEach(({cat,spent,budgeted})=>{
+      const barPct=maxCatSpend>0?Math.round(spent/maxCatSpend*100):0;
+      const overBudget=budgeted>0&&spent>budgeted;
+      catHtml+=`<div class="cc-cat-row">
+        <div class="cc-cat-dot" style="background:${cat.color||'var(--accent)'}"></div>
+        <span class="cc-cat-name">${esc(cat.name)}</span>
+        <div class="cc-cat-bar-wrap"><div class="cc-cat-bar" style="width:${barPct}%;background:${overBudget?'var(--red)':cat.color||'var(--accent)'}"></div></div>
+        <span class="cc-cat-amt">${$f(spent)}</span>
+        ${budgeted>0?`<span class="cc-cat-pct" style="color:${overBudget?'var(--red)':'var(--text3)'}">${Math.round(spent/budgeted*100)}%</span>`:'<span class="cc-cat-pct"></span>'}
+      </div>`;
+    });
+  }
+  h+=`<div class="card card-pad">
+    <div class="cc-card-hdr">
+      <span class="cc-card-title">Spending by Category</span>
+      <span class="cc-card-action" onclick="setTab('buckets')">Buckets →</span>
+    </div>
+    ${catHtml}
+  </div>`;
+
+  // ── LEFT: Recent transactions card ────────────────────────────────────────
+  let txHtml='';
+  if(!recentTxs.length){
+    txHtml=`<div class="cc-empty">No transactions this month</div>`;
+  } else {
+    Object.keys(txByDate).forEach(dk=>{
+      txHtml+=`<div class="cc-tx-date-hdr">${ld(dk)}</div>`;
+      txByDate[dk].forEach(t=>{
+        const isIn=t.type==='in';const isXfr=t.type==='xfr';
+        const cat=getCat(getBkt(t.bucketId)?.catId);
+        const dot=cat?.color||'var(--border2)';
+        const amtCls=isIn?'var(--green)':isXfr?'var(--text2)':'var(--red)';
+        const pfx=isIn?'+':isXfr?'±':'-';
+        const bkt=getBkt(t.bucketId);
+        txHtml+=`<div class="cc-tx-row" onclick="mEditTxSheet('${t.id}')">
+          <div class="cc-tx-dot" style="background:${dot}"></div>
+          <div class="cc-tx-info">
+            <div class="cc-tx-payee">${esc(t.desc)}</div>
+            <div class="cc-tx-meta">${bkt?esc(bkt.name):'Unassigned'} · ${getAcct(t.accountId)?.name||''}</div>
+          </div>
+          <span class="cc-tx-amt" style="color:${amtCls}">${pfx}${$f(t.amount)}</span>
+        </div>`;
+      });
+    });
+  }
+  h+=`<div class="card card-pad">
+    <div class="cc-card-hdr">
+      <span class="cc-card-title">Recent Transactions</span>
+      ${allMonthTxs.length>10?`<span class="cc-card-action" onclick="setTab('ledger')">All ${allMonthTxs.length} →</span>`:''}
+    </div>
+    ${txHtml}
+  </div>`;
+
+  h+=`</div><div class="cc-right">`;
+
+  // ── RIGHT: Accounts card ──────────────────────────────────────────────────
+  let acctHtml='';
+  S.accounts.forEach(a=>{
+    const ab=acctBalance(a.id);
+    const isDebt=a.type==='debt';
+    acctHtml+=`<div class="cc-acct-row" onclick="setActiveAccount('${a.id}')">
+      <div class="cc-acct-dot" style="background:${a.color||'var(--accent)'}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="cc-acct-name">${esc(a.name)}</div>
+        <div class="cc-acct-type">${a.type||'checking'}</div>
+      </div>
+      <span class="cc-acct-bal" style="color:${isDebt?'var(--red)':ab>=0?'var(--green)':'var(--red)'}">${isDebt?'-':''}${$f(Math.abs(ab))}</span>
+    </div>`;
+  });
+  h+=`<div class="card card-pad">
+    <div class="cc-card-hdr">
+      <span class="cc-card-title">Accounts</span>
+      <span class="cc-card-action" onclick="setTab('accounts')">All →</span>
+    </div>
+    ${acctHtml||`<div class="cc-empty">No accounts</div>`}
+  </div>`;
+
+  // ── RIGHT: Upcoming bills card ────────────────────────────────────────────
+  let billHtml='';
+  if(!billEntries.length){
+    billHtml=`<div class="cc-empty">No bills due in the next 14 days</div>`;
+  } else {
+    billEntries.forEach(({b,d,paid})=>{
+      const urgCls=paid?'var(--green)':d<0?'var(--red)':d===0?'var(--red)':d<=3?'var(--amber)':'var(--text3)';
+      const label=paid?'✓ paid':d<0?`${Math.abs(d)}d overdue`:d===0?'today':`${d}d`;
+      const cat=getCat(b.catId);
+      billHtml+=`<div class="cc-bill-row" onclick="openDetail('bucket','${b.id}')">
+        <div class="cc-bill-dot" style="background:${cat?.color||'var(--accent)'}"></div>
+        <span class="cc-bill-name">${esc(b.name)}</span>
+        <span class="cc-bill-due" style="color:${urgCls}">${label}</span>
+        ${b.dueAmount?`<span class="cc-bill-amt">${$f(b.dueAmount)}</span>`:''}
+      </div>`;
+    });
+  }
+  h+=`<div class="card card-pad">
+    <div class="cc-card-hdr"><span class="cc-card-title">Upcoming Bills</span></div>
+    ${billHtml}
+  </div>`;
+
+  // ── RIGHT: Goals card ─────────────────────────────────────────────────────
+  const goalBkts=S.buckets.filter(b=>b.type==='goal'&&!b.archived);
+  if(goalBkts.length){
+    let goalsHtml='';
     goalBkts.forEach(b=>{
       const saved=Math.max(sinkingSaved(b.id,mid),0);
       const tgt=b.targetAmount||0;
       const pct=tgt>0?Math.min(Math.round(saved/tgt*100),100):0;
       const cat=getCat(b.catId);
       const barColor=pct>=100?'var(--green)':(cat?.color||'var(--accent)');
-      const td=b.targetDate?new Date(b.targetDate+'-01'):null;
-      goalsHtml+=`<div class="ov-widget-row clickable" style="flex-direction:column;gap:5px;align-items:stretch;padding:8px 14px" onclick="setBucket('${b.id}')">
-        <div style="display:flex;gap:8px;align-items:center">
-          <span style="flex:1;font-size:13px;font-weight:600">${esc(b.name)}</span>
-          <span style="font-size:12px;font-weight:700;color:${pct>=100?'var(--green)':'var(--text2)'}">${$f(saved)}</span>
-          ${tgt?`<span class="c-text3" style="font-size:11px">/ ${$f(tgt)}</span>`:''}
-          <span style="font-size:11px;font-weight:600;color:${pct>=100?'var(--green)':'var(--text3)'}">${pct}%</span>
+      goalsHtml+=`<div class="cc-goal-row" onclick="setBucket('${b.id}')">
+        <div class="cc-goal-top">
+          <span class="cc-goal-name">${esc(b.name)}</span>
+          <span class="cc-goal-pct" style="color:${pct>=100?'var(--green)':'var(--text3)'}">${pct}%</span>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${$f(saved)}${tgt?` / ${$f(tgt)}`:''}</span>
         </div>
-        <div style="height:6px;border-radius:4px;background:var(--border2);overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .3s"></div>
-        </div>
-        ${td?`<div class="c-text3" style="font-size:10px">Target: ${td.toLocaleString('default',{month:'short',year:'numeric'})}${b.targetAmount&&pct<100?` · ${$f(Math.max(Math.ceil((b.targetAmount-saved)/(Math.max((td.getFullYear()-new Date().getFullYear())*12+(td.getMonth()-new Date().getMonth()),1)))||0,0))}/mo needed`:''}</div>`:''}
+        <div class="cc-goal-track"><div class="cc-goal-fill" style="width:${pct}%;background:${barColor}"></div></div>
       </div>`;
     });
+    h+=`<div class="card card-pad">
+      <div class="cc-card-hdr">
+        <span class="cc-card-title">Goals</span>
+        <span class="cc-card-action" onclick="setTab('buckets')">Manage →</span>
+      </div>
+      ${goalsHtml}
+    </div>`;
   }
-  h+=`<div class="ov-widget" style="margin-top:12px">
-    <div class="ov-widget-title">Goals<span class="ov-widget-title-count">${goalBkts.length||''}</span></div>${goalsHtml}
+
+  h+=`</div></div>`; // close cc-right + cc-grid
+
+  // ── Needs Attention — mobile card (critical items) ─────────────────────────
+  const criticalItems=urgency.filter(u=>u.type==='over'||u.type==='overdue');
+  if(urgency.length){
+    let urgHtml='';
+    urgency.slice(0,5).forEach(u=>{
+      const cat=getCat(u.b.catId);const color=cat?.color||'var(--accent)';
+      let dotColor='var(--text3)',sub='';
+      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
+      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
+      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
+      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
+      urgHtml+=`<div class="cc-tx-row" onclick="openDetail('bucket','${u.b.id}')">
+        <div class="cc-tx-dot" style="background:${dotColor}"></div>
+        <div class="cc-tx-info">
+          <div class="cc-tx-payee">${esc(u.b.name)}</div>
+          <div class="cc-tx-meta" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div>
+        </div>
+        <span style="color:var(--text3);font-size:16px">›</span>
+      </div>`;
+    });
+    h+=`<div class="card card-pad ov-mobile-only">
+      <div class="cc-card-hdr"><span class="cc-card-title">Needs Attention</span></div>
+      ${urgHtml}
+    </div>`;
+  }
+
+  // ── Desktop hint bars for critical items ──────────────────────────────────
+  if(!past){
+    if(rts<0)h+=`<div class="hint-bar warn ov-desktop-only">⚠ Budget short by ${$f(Math.abs(rts))} — obligations exceed balance.</div>`;
+    else if(rts===0&&alloc>0)h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
+    else if(unfundedCnt>0&&rts>0)h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
+    if(criticalItems.length){
+      const names=criticalItems.slice(0,3).map(u=>esc(u.b.name)).join(', ')+(criticalItems.length>3?'…':'');
+      h+=`<div class="hint-bar warn ov-desktop-only">🔴 ${criticalItems.length} bucket${criticalItems.length!==1?'s':''} need attention: ${names} <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">View Buckets →</button></div>`;
+    }
+  }
+
+  // ── Mobile quick actions ──────────────────────────────────────────────────
+  h+=`<div class="m-settings-row ov-mobile-only">
+    <button class="m-settings-btn" onclick="setTab('buckets')">▣ Buckets</button>
+    <button class="m-settings-btn" onclick="setTab('accounts')">⬡ Accounts</button>
+    <button class="m-settings-btn" onclick="setTab('settings')">⚙ Settings</button>
   </div>`;
 
-  // ── Quick actions (mobile only — desktop uses sidebar nav) ────────────────
-  h+=`<div class="ov-mobile-only">
-    <div class="m-settings-row">
-      <button class="m-settings-btn" onclick="reportsMid='${mid}';setTab('reports')">📊 Reports</button>
-      <button class="m-settings-btn" onclick="openGlobalSearch()">🔍 Search</button>
-      <button class="m-settings-btn" onclick="setTab('settings')">⚙ Settings</button>
-      <button class="m-settings-btn" onclick="exportData()">↓ Export</button>
-    </div>
-    <div style="height:24px"></div>
-  </div>`;
+  h+=`</div>`; // close cc-wrap
 
   el.innerHTML=h;
 }
@@ -3354,16 +3505,6 @@ function renderReportsTab(el){
 function renderSettingsTab(el){
   if(!el)return;
   const _settingsScroll=el.scrollTop; // save scroll before rebuild (P7-C)
-  const curTheme=localStorage.getItem('bcc_theme')||'dark';
-  const themes=[
-    {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
-    {name:'light',label:'Light',bg:'#f5f5f7',fg:'#1c1c1e',accent:'#147a6e'},
-    {name:'midnight',label:'Midnight',bg:'#000000',fg:'#f0f0f0',accent:'#00d4b8'},
-  ];
-  const themeCards=themes.map(t=>`<div class="theme-card${t.name===curTheme?' active':''}" onclick="setTheme('${t.name}')">
-    <div class="theme-card-swatch" style="background:${t.bg};border:2px solid ${t.accent}"></div>
-    <div class="theme-card-name">${t.label}</div>
-  </div>`).join('');
 
   const acctItems=S.accounts.map((a,i)=>`<div class="acct-order-item">
     <div class="acct-order-dot" style="background:${a.color}"></div>
@@ -3414,11 +3555,6 @@ function renderSettingsTab(el){
 
   el.innerHTML=`<div class="month-hdr"><div class="month-title">Settings</div>
     <button class="tbtn" style="margin-left:auto" onclick="openGlobalSearch()" title="Search transactions">🔍 Search</button>
-  </div>
-
-  <div class="settings-section">
-    <div class="settings-section-title">Appearance</div>
-    <div class="theme-cards">${themeCards}</div>
   </div>
 
   <div class="settings-section">
