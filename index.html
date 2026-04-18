@@ -12,19 +12,20 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#0f1117;--bg2:#161920;--bg3:#1d2028;
-  --surface:#232730;--surface2:#2a2f3a;
-  --border:#2e333f;--border2:#3a404e;
-  --text:#f0f2f5;--text2:#8b92a0;--text3:#555d6e;
-  --green:#3dba8c;--gbg:#1a3329;--gb:#2a5c42;
-  --red:#e05c5c;--rbg:#2f1818;--rb:#5c2a2a;
-  --amber:#e0a43c;--abg:#2f2210;--ab:#5c4010;
-  --blue:#4a9edd;--bbg:#1a2535;--bb:#2a4a6e;
-  --purple:#9b7fe8;--pbg:#1e1a30;--pb:#3d3060;
-  --accent:#2a7c6f;--accent2:#1f5f55;
   --sans:'DM Sans',system-ui,sans-serif;
   --mono:'DM Mono',monospace;
-  --r:8px;--rl:12px;
+  --r:10px;--rl:16px;
+  /* Default: deep navy dark */
+  --bg:#0d1117;--bg2:#111827;--bg3:#1f2937;
+  --surface:#1a2235;--surface2:#1e2845;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+  --text:#f1f5f9;--text2:#94a3b8;--text3:#4a5568;
+  --green:#10b981;--gbg:rgba(16,185,129,0.1);--gb:rgba(16,185,129,0.3);
+  --red:#ef4444;--rbg:rgba(239,68,68,0.1);--rb:rgba(239,68,68,0.3);
+  --amber:#f59e0b;--abg:rgba(245,158,11,0.1);--ab:rgba(245,158,11,0.3);
+  --blue:#3b82f6;--bbg:rgba(59,130,246,0.1);--bb:rgba(59,130,246,0.3);
+  --purple:#7c5cfc;--pbg:rgba(124,92,252,0.1);--pb:rgba(124,92,252,0.3);
+  --accent:#00d4aa;--accent2:#00b894;
 }
 html,body{height:100%;overflow:hidden;}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;display:flex;flex-direction:column;}
@@ -77,9 +78,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 
+/* ═══ CARD SYSTEM ═══ */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);box-shadow:0 2px 20px rgba(0,0,0,0.18);}
+.card.elevate{background:var(--surface2);box-shadow:0 4px 32px rgba(0,0,0,0.28);}
+.card.glow-teal{box-shadow:0 0 0 1px rgba(0,212,170,0.18),0 4px 28px rgba(0,212,170,0.08);}
+.card.glow-purple{box-shadow:0 0 0 1px rgba(124,92,252,0.18),0 4px 28px rgba(124,92,252,0.08);}
+.card.glow-green{box-shadow:0 0 0 1px rgba(16,185,129,0.18),0 4px 28px rgba(16,185,129,0.08);}
+.card-pad{padding:20px 24px;}
+.card-pad-sm{padding:14px 18px;}
+.card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:12px;}
+.card-divider{height:1px;background:var(--border);margin:16px 0;}
+
 /* ═══ TOPBAR ═══ */
 .topbar{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:stretch;flex-shrink:0;z-index:100;overflow:hidden;}
-.tb-logo{display:flex;align-items:center;gap:8px;padding:0 20px;border-right:1px solid var(--border);font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:-.3px;white-space:nowrap;flex-shrink:0;width:200px;}
+.tb-logo{display:flex;align-items:center;gap:8px;padding:0 20px;border-right:1px solid var(--border);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;white-space:nowrap;flex-shrink:0;width:240px;}
 .tb-logo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
 
 .tb-accounts{display:flex;align-items:stretch;gap:0;overflow-x:auto;scrollbar-width:none;border-right:1px solid var(--border);}
@@ -127,7 +139,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .strip.warn{background:var(--rbg);border-bottom:1px solid var(--rb);color:var(--red);}
 
 /* ═══ LAYOUT ═══ */
-.app{display:grid;grid-template-columns:200px 1fr;flex:1;overflow:hidden;min-height:0;}
+.app{display:grid;grid-template-columns:240px 1fr;flex:1;overflow:hidden;min-height:0;}
 
 .cat-block{margin-bottom:2px;}
 .cat-row{display:flex;align-items:center;padding:5px 16px;gap:8px;cursor:default;user-select:none;}
@@ -624,14 +636,26 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .app-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);position:relative;}
 .tab-pane{display:none;flex:1;flex-direction:column;overflow-y:auto;padding:24px 28px;}
 .tab-pane.active{display:flex;}
-.nav-btn{display:flex;align-items:center;gap:10px;padding:11px 16px;background:none;border:none;border-left:3px solid transparent;cursor:pointer;font-family:var(--sans);font-size:13px;color:var(--text3);text-align:left;width:100%;transition:color .12s,background .12s;}
-.nav-btn:hover:not(.active){color:var(--text);background:var(--bg3);}
-.nav-btn.active{color:var(--accent);border-left-color:var(--accent);background:var(--gbg);}
-.nav-icon-txt{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+/* Nav brand — desktop */
+.nav-brand{display:flex;align-items:center;gap:12px;padding:22px 20px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.nav-brand-mark{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-.5px;}
+.nav-brand-text{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;color:var(--text2);line-height:1.3;}
+/* Nav buttons — desktop sidebar style */
+.nav-btn{display:flex;align-items:center;gap:12px;padding:11px 20px;background:none;border:none;border-left:3px solid transparent;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:500;color:var(--text3);text-align:left;width:100%;transition:all .15s;letter-spacing:.1px;}
+.nav-btn:hover:not(.active){color:var(--text2);background:rgba(255,255,255,0.04);border-left-color:var(--border2);}
+.nav-btn.active{color:var(--accent);border-left-color:var(--accent);background:linear-gradient(90deg,rgba(0,212,170,0.1),transparent);}
+.nav-icon-txt{font-size:16px;width:20px;text-align:center;flex-shrink:0;transition:color .15s;}
 .nav-svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:none;}
 .nav-label{flex:1;}
 .nav-pip{display:none;}
 .nav-mobile{display:none!important;}
+/* Nav section spacer */
+.nav-spacer{flex:1;}
+/* Nav footer — theme toggle */
+.nav-foot{border-top:1px solid var(--border);padding:8px 0;flex-shrink:0;}
+.nav-theme-btn{display:flex;align-items:center;gap:12px;padding:10px 20px;background:none;border:none;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:500;color:var(--text3);width:100%;transition:all .15s;letter-spacing:.1px;}
+.nav-theme-btn:hover{color:var(--text2);background:rgba(255,255,255,0.04);}
+.nav-theme-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0;}
 .pane-hdr{display:flex;align-items:center;padding:0 16px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;}
 .pane-hdr-title{flex:1;font-size:16px;font-weight:600;letter-spacing:-.3px;}
 .pane-hdr-action{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;font-family:var(--sans);padding:0;}
@@ -993,27 +1017,29 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 /* ═══ LIGHT THEME ═══ */
 [data-theme="light"]{
-  --bg:#f5f5f7;--bg2:#ffffff;--bg3:#ebebed;
-  --surface:#ebebed;--surface2:#e0e0e3;
-  --border:#d1d1d6;--border2:#c7c7cc;
-  --text:#1c1c1e;--text2:#3a3a3c;--text3:#8e8e93;
-  --accent:#147a6e;--accent2:#0f6055;
-  --green:#1a9b73;--gbg:#e5f5ef;--gb:#a0d9c2;
-  --red:#d4394b;--rbg:#fce8eb;--rb:#f0a0a8;
-  --amber:#b87800;--abg:#fdf3e0;--ab:#e8c97a;
-  --blue:#0066bb;--bbg:#e0edf8;--bb:#7ab0dd;
+  --bg:#f0f4f8;--bg2:#ffffff;--bg3:#f8fafc;
+  --surface:#ffffff;--surface2:#f1f5f9;
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.16);
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --green:#059669;--gbg:rgba(5,150,105,0.08);--gb:rgba(5,150,105,0.25);
+  --red:#dc2626;--rbg:rgba(220,38,38,0.08);--rb:rgba(220,38,38,0.25);
+  --amber:#d97706;--abg:rgba(217,119,6,0.08);--ab:rgba(217,119,6,0.25);
+  --blue:#2563eb;--bbg:rgba(37,99,235,0.08);--bb:rgba(37,99,235,0.25);
+  --purple:#7c3aed;--pbg:rgba(124,58,237,0.08);--pb:rgba(124,58,237,0.25);
+  --accent:#0d9488;--accent2:#0f766e;
 }
 /* ═══ MIDNIGHT THEME ═══ */
 [data-theme="midnight"]{
-  --bg:#000000;--bg2:#0a0a0a;--bg3:#111111;
-  --surface:#141414;--surface2:#1a1a1a;
-  --border:#2a2a2a;--border2:#333333;
-  --text:#f0f0f0;--text2:#cccccc;--text3:#666666;
-  --accent:#00d4b8;--accent2:#00b89e;
-  --green:#00d4b8;--gbg:#001a18;--gb:#004d44;
-  --red:#ff4d4d;--rbg:#1a0000;--rb:#4d0000;
-  --amber:#ffb347;--abg:#1a1200;--ab:#4d3800;
-  --blue:#4a9edd;--bbg:#0a1520;--bb:#1a3a5c;
+  --bg:#000000;--bg2:#080b12;--bg3:#0f1624;
+  --surface:#0d1426;--surface2:#111c33;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --text:#f0f4ff;--text2:#8899cc;--text3:#3d4d6e;
+  --green:#00ffb3;--gbg:rgba(0,255,179,0.07);--gb:rgba(0,255,179,0.2);
+  --red:#ff4d6d;--rbg:rgba(255,77,109,0.07);--rb:rgba(255,77,109,0.2);
+  --amber:#ffb347;--abg:rgba(255,179,71,0.07);--ab:rgba(255,179,71,0.2);
+  --blue:#4d9fff;--bbg:rgba(77,159,255,0.07);--bb:rgba(77,159,255,0.2);
+  --purple:#b47dff;--pbg:rgba(180,125,255,0.07);--pb:rgba(180,125,255,0.2);
+  --accent:#00e5c0;--accent2:#00c9a8;
 }
 
 /* ═══ AUTH SCREEN ═══ */
@@ -1278,7 +1304,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 <!-- TOPBAR -->
 <header class="topbar" id="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget<span class="c-text3" style="margin:0 3px"> </span>Command</div>
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium Fisci</div>
   <!-- Month navigation — visible in topbar on mobile -->
   <div class="tb-month-nav" id="tbMonthNav">
     <button class="tb-month-arrow" onclick="prevMonth()">&#8249;</button>
@@ -1317,6 +1343,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
   <!-- UNIFIED NAV: sidebar on desktop, bottom bar on mobile -->
   <nav class="app-nav" id="appNav">
+    <!-- Brand — desktop only -->
+    <div class="nav-brand nav-desktop">
+      <div class="nav-brand-mark">IF</div>
+      <div class="nav-brand-text">Imperium<br>Fisci</div>
+    </div>
     <button class="nav-btn active" data-tab="overview" onclick="setTab('overview')">
       <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       <span class="nav-icon-txt">◈</span>
@@ -1356,6 +1387,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-icon-txt">⚙</span>
       <span class="nav-label">Settings</span>
     </button>
+    <!-- Spacer + theme toggle — desktop only -->
+    <div class="nav-spacer nav-desktop"></div>
+    <div class="nav-foot nav-desktop">
+      <button class="nav-theme-btn" onclick="cycleTheme()" id="navThemeBtn">
+        <span class="nav-theme-icon" id="navThemeIcon">◐</span>
+        <span class="nav-label" id="navThemeLabel">Light Mode</span>
+      </button>
+    </div>
   </nav>
 
   <!-- MAIN: unified tab panes -->
@@ -5318,12 +5357,29 @@ function promoteScenario(){
 // ═══════════════════════════════════════════════════════
 function applyTheme(name){
   document.documentElement.setAttribute('data-theme',name||'dark');
+  updateNavThemeBtn(name||'dark');
 }
 
 function setTheme(name){
   localStorage.setItem('bcc_theme',name);
   applyTheme(name);
   renderSettingsTab(document.getElementById('paneSettings'));
+}
+
+function cycleTheme(){
+  const order=['dark','light','midnight'];
+  const cur=document.documentElement.getAttribute('data-theme')||'dark';
+  const next=order[(order.indexOf(cur)+1)%order.length];
+  setTheme(next);
+}
+
+function updateNavThemeBtn(theme){
+  const icon=document.getElementById('navThemeIcon');
+  const label=document.getElementById('navThemeLabel');
+  const map={dark:['◐','Light Mode'],light:['☾','Midnight'],midnight:['☀','Dark Mode']};
+  const [ico,lbl]=map[theme]||map.dark;
+  if(icon)icon.textContent=ico;
+  if(label)label.textContent=lbl;
 }
 
 function moveAcct(id,dir){
@@ -8036,7 +8092,7 @@ function mAcctOptions(selectedId){
   <div class="auth-box">
     <div class="auth-logo">
       <div class="auth-logo-dot"></div>
-      <span class="auth-logo-text">Budget / CC</span>
+      <span class="auth-logo-text">Imperium Fisci</span>
     </div>
     <div class="auth-title" id="authTitle">Sign in</div>
     <div class="auth-sub" id="authSub">Your budget data syncs across all your devices.</div>
