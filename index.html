@@ -5317,48 +5317,58 @@ function wiRunProjector(){
   });
   payEvents.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // ── Build all outflows (budget only — no scheduled txs to avoid duplicates) ──
+  // ── Build all outflows (current-month-aware + debt min payments) ──────────
   const outflows=[];
-  const activeBkts=S.buckets.filter(b=>!b.archived&&bktAmt(b)>0);
-  let wY=startDate.getFullYear(),wM=startDate.getMonth();
-  const endY=endDate.getFullYear(),endMM=endDate.getMonth();
-  while(wY<endY||(wY===endY&&wM<=endMM)){
-    const loopMid=mId(wY,wM);
-    const monthMax=new Date(wY,wM+1,0).getDate();
-    activeBkts.forEach(b=>{
+  const activeMid=S.activeMonth;
+  const allBkts=S.buckets.filter(b=>!b.archived);
+  {let wY2=startDate.getFullYear(),wM2=startDate.getMonth();
+  const endY2=endDate.getFullYear(),endMM2=endDate.getMonth();
+  while(wY2<endY2||(wY2===endY2&&wM2<=endMM2)){
+    const loopMid=mId(wY2,wM2);
+    const isCurMo=loopMid===activeMid;
+    const monthMax=new Date(wY2,wM2+1,0).getDate();
+    const dStr=day=>`${wY2}-${String(wM2+1).padStart(2,'0')}-${String(Math.min(day,monthMax)).padStart(2,'0')}`;
+    allBkts.forEach(b=>{
       if(!isWIBucketActiveForMonth(b.id,loopMid,scenario))return;
-      const bAmt=bktAmt(b);
+      let bAmt;
+      if(isCurMo){
+        // Only remaining unfunded amount
+        const target=bBudget(activeMid,b.id);
+        const alloc=bAlloc(activeMid,b.id);
+        bAmt=Math.max(0,target-alloc);
+      } else {
+        bAmt=bktAmt(b);
+      }
+      if(bAmt<=0)return;
+      const catColor=S.cats.find(c=>c.id===b.catId)?.color||null;
       if(b.dueDay){
         if(b.dueDay2){
-          // Split payment: derive each portion correctly
           const pay2=b.dueAmount2||bAmt/2;
           const pay1=b.dueAmount||(bAmt-pay2);
-          const day1=Math.min(b.dueDay,monthMax);
-          const ds1=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day1).padStart(2,'0')}`;
-          if(ds1>=startStr&&ds1<=endStr)
-            outflows.push({date:ds1,desc:b.name+' (1/2)',amount:pay1,src:'bucket'});
-          const day2=Math.min(b.dueDay2,monthMax);
-          const ds2=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day2).padStart(2,'0')}`;
-          if(ds2>=startStr&&ds2<=endStr)
-            outflows.push({date:ds2,desc:b.name+' (2/2)',amount:pay2,src:'bucket'});
+          const ds1=dStr(b.dueDay);
+          if(ds1>=startStr&&ds1<=endStr)outflows.push({date:ds1,desc:b.name+' (1/2)',amount:pay1,src:'bucket',catColor});
+          const ds2=dStr(b.dueDay2);
+          if(ds2>=startStr&&ds2<=endStr)outflows.push({date:ds2,desc:b.name+' (2/2)',amount:pay2,src:'bucket',catColor});
         } else {
-          // Single due-date bucket
-          const day=Math.min(b.dueDay,monthMax);
-          const ds=`${wY}-${String(wM+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-          if(ds>=startStr&&ds<=endStr)
-            outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket'});
+          const ds=dStr(b.dueDay);
+          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket',catColor});
         }
       } else {
-        // No due date — discretionary, place on 1st of month
-        const ds=`${wY}-${String(wM+1).padStart(2,'0')}-01`;
-        if(ds>=startStr&&ds<=endStr)
-          outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary'});
+        const ds=dStr(1);
+        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor});
       }
     });
-    wM++;if(wM>11){wM=0;wY++;}
-  }
-  // Recurring bills not already covered by a bucket name
-  const bktNames=new Set(activeBkts.map(b=>b.name.toLowerCase()));
+    // Debt minimum payments — auto-add if not covered by a same-named bucket
+    const bktNamesSet=new Set(allBkts.map(b=>b.name.toLowerCase()));
+    S.accounts.filter(a=>a.type==='debt'&&(a.debtMinPayment||0)>0).forEach(a=>{
+      if(allBkts.some(b=>bktAmt(b)>0&&b.name.toLowerCase()===a.name.toLowerCase()))return;
+      const ds=dStr(1); // default 1st of month (no debtDueDay field yet)
+      if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:a.name+' min. payment',amount:a.debtMinPayment,src:'debt',catColor:null});
+    });
+    wM2++;if(wM2>11){wM2=0;wY2++;}
+  }}
+  // Recurring bills not covered by a bucket
+  const bktNames=new Set(allBkts.map(b=>b.name.toLowerCase()));
   (S.recurringBills||[]).filter(b=>b.active!==false).forEach(bill=>{
     if(bktNames.has((bill.desc||'').toLowerCase()))return;
     let d=new Date(startDate);d.setDate(1);
@@ -5366,104 +5376,81 @@ function wiRunProjector(){
       const maxDay=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
       const day=Math.min(bill.dayOfMonth||1,maxDay);
       const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:bill.desc,amount:bill.amount,src:'bill'});
+      if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:bill.desc,amount:bill.amount,src:'bill',catColor:null});
       d.setMonth(d.getMonth()+1);
     }
   });
-  // ── Inject weekly "what if" extra spending ────────────────────────────────
-  if(extraWeekly>0){
-    let eD=new Date(startDate);
-    while(eD<=endDate){
-      outflows.push({date:eD.toISOString().split('T')[0],desc:'Extra spending',amount:extraWeekly,src:'discretionary'});
-      eD.setDate(eD.getDate()+7);
-    }
-  }
-  // ── Inject one-time expenses ──────────────────────────────────────────────
+  if(extraWeekly>0){let eD=new Date(startDate);while(eD<=endDate){outflows.push({date:eD.toISOString().split('T')[0],desc:'Extra spending',amount:extraWeekly,src:'discretionary',catColor:null});eD.setDate(eD.getDate()+7);}}
   for(let n=1;n<=3;n++){
     const oteDate=document.getElementById('ote'+n+'Date')?.value;
     const oteAmt=parseFloat(document.getElementById('ote'+n+'Amt')?.value||'0');
     const oteDesc=document.getElementById('ote'+n+'Desc')?.value||'One-time expense';
-    if(oteDate&&oteAmt>0&&oteDate>=startStr&&oteDate<=endStr)
-      outflows.push({date:oteDate,desc:oteDesc,amount:oteAmt,src:'onetime'});
+    if(oteDate&&oteAmt>0&&oteDate>=startStr&&oteDate<=endStr)outflows.push({date:oteDate,desc:oteDesc,amount:oteAmt,src:'onetime',catColor:null});
   }
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // ── Collect no-due-date buckets for warning ───────────────────────────────
-  const undatedBkts=S.buckets.filter(b=>!b.archived&&bktAmt(b)>0&&!b.dueDay);
+  // ── Undated bucket warning ────────────────────────────────────────────────
+  const undatedBkts=allBkts.filter(b=>bktAmt(b)>0&&!b.dueDay);
 
-  // ── Build 3-paycheck-month map (per source, per calendar month) ───────────
-  // normalPayPerMonth: weekly→4, biweekly→2, semi-monthly→2, monthly→1
+  // ── Bonus-paycheck detection ──────────────────────────────────────────────
   const normalPerMonth={7:4,14:2,15:2,30:1};
-  const bonusMonths=new Set(); // 'YYYY-MM' strings of months with a bonus paycheck
+  const bonusPayDates=new Set();
   sources.forEach(src=>{
     const expected=normalPerMonth[src.freq]??2;
     const countByMonth={};
-    payEvents.filter(e=>e.desc===src.label).forEach(e=>{
-      const ym=e.date.slice(0,7);
-      countByMonth[ym]=(countByMonth[ym]||0)+1;
-    });
+    payEvents.filter(e=>e.desc===src.label).forEach(e=>{const ym=e.date.slice(0,7);countByMonth[ym]=(countByMonth[ym]||0)+1;});
     Object.entries(countByMonth).forEach(([ym,cnt])=>{
-      if(cnt>expected)bonusMonths.add(ym+':'+src.label);
+      if(cnt>expected){payEvents.filter(e=>e.desc===src.label&&e.date.slice(0,7)===ym).slice(expected).forEach(e=>bonusPayDates.add(e.date+':'+src.label));}
     });
   });
 
-  // ── Group into 7-day calendar weeks ──────────────────────────────────────
-  // Weeks always start on the same weekday as the first pay date
-  const weeks=[];
-  let wStart=new Date(startDate);
-  while(wStart<=endDate){
-    const wEnd=new Date(wStart);
-    wEnd.setDate(wEnd.getDate()+6);
-    weeks.push({
-      start:wStart.toISOString().split('T')[0],
-      end:wEnd.toISOString().split('T')[0]
+  // ── Build paycheck-anchored periods ───────────────────────────────────────
+  const _prevDay=ds=>{const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()-1);return d.toISOString().split('T')[0];};
+  const payDates=[...new Set(payEvents.map(e=>e.date))].sort();
+  const periods=[];
+  if(!payDates.length){
+    periods.push({type:'gap',start:startStr,end:endStr,paychecks:[],isBonus:false});
+  } else {
+    if(payDates[0]>startStr)periods.push({type:'gap',start:startStr,end:_prevDay(payDates[0]),paychecks:[],isBonus:false});
+    payDates.forEach((pd,i)=>{
+      const pEnd=i<payDates.length-1?_prevDay(payDates[i+1]):endStr;
+      const pPay=payEvents.filter(e=>e.date===pd);
+      periods.push({type:'paycheck',start:pd,end:pEnd,paychecks:pPay,isBonus:pPay.some(e=>bonusPayDates.has(e.date+':'+e.desc))});
     });
-    wStart=new Date(wEnd);
-    wStart.setDate(wStart.getDate()+1);
   }
 
-  // ── Pre-compute end-of-week balances for safe-spend analysis ─────────────
+  // ── Pre-compute period end balances + forward-min ─────────────────────────
   {let _pr=startBal;
-  var weekEndBals=weeks.map(w=>{
-    payEvents.filter(e=>e.date>=w.start&&e.date<=w.end).forEach(e=>_pr+=e.amount);
-    outflows.filter(o=>o.date>=w.start&&o.date<=w.end).forEach(o=>_pr-=o.amount);
+  var periodEndBals=periods.map(p=>{
+    payEvents.filter(e=>e.date>=p.start&&e.date<=p.end).forEach(e=>_pr+=e.amount);
+    outflows.filter(o=>o.date>=p.start&&o.date<=p.end).forEach(o=>_pr-=o.amount);
     return _pr;
   });}
-  // minForwardBal[i] = lowest balance from week i through end of projection
-  const minForwardBal=weekEndBals.map((_,i)=>Math.min(...weekEndBals.slice(i)));
+  const minFwdPeriod=periodEndBals.map((_,i)=>Math.min(...periodEndBals.slice(i)));
 
   // ── Render ────────────────────────────────────────────────────────────────
   let running=startBal;
   const totalIncome=payEvents.reduce((s,p)=>s+p.amount,0);
   const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
-  const incomeDesc=sources.map(s=>`${s.label}: ${$f(s.amt)} ${s.freq===7?'wkly':s.freq===14?'bi-wkly':s.freq===15?'semi-mo':'mo'}`).join(' · ');
 
   const scenarioBanner=scenario
-    ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px">
-        <span class="c-accent" style="font-weight:700">⚡ What If:</span>
-        <span class="c-text">${esc(scenario.name)}</span>
-        <span class="c-text3" style="font-size:11px">— bucket amounts from this scenario</span>
-      </div>`
-    :'';
+    ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px"><span class="c-accent" style="font-weight:700">⚡ What If:</span><span class="c-text">${esc(scenario.name)}</span><span class="c-text3" style="font-size:11px">— bucket amounts from this scenario</span></div>`:'';
 
   const undatedWarning=undatedBkts.length
-    ?`<div style="background:var(--abg2,var(--surface));border:1px solid var(--amber);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12px">
-        <span class="c-amber" style="font-weight:700">⚠ ${undatedBkts.length} bucket${undatedBkts.length!==1?'s':''} have no due date</span>
-        <span class="c-text3"> — shown on the 1st of each month as an estimate: </span>
-        <span class="c-text">${undatedBkts.map(b=>esc(b.name)).join(', ')}</span>
-        <span class="c-text3" style="display:block;margin-top:3px;font-size:11px">Set due dates in the Bucket Editor for accurate week placement.</span>
-      </div>`
-    :'';
+    ?`<div style="background:var(--abg2,var(--surface));border:1px solid var(--amber);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12px"><span class="c-amber" style="font-weight:700">⚠ ${undatedBkts.length} bucket${undatedBkts.length!==1?'s':''} without due date</span><span class="c-text3"> — placed on the 1st as estimate: ${undatedBkts.map(b=>esc(b.name)).join(', ')}</span><div class="c-text3" style="font-size:11px;margin-top:3px">Set due dates in Bucket Editor for accurate placement.</div></div>`:'';
+
+  // Current-month awareness notice
+  const curMoNote=S.activeMonth?`<div style="background:var(--gbg);border:1px solid var(--gb);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px"><span class="c-green" style="font-weight:700">✓ Smart mode</span><span class="c-text3">Bills already paid this month are excluded. Amounts show only what still needs to be funded.</span></div>`:'';
 
   let html=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
-    ${scenarioBanner}${undatedWarning}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:12px">
+    ${scenarioBanner}${curMoNote}${undatedWarning}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:14px">
       <div style="background:var(--surface);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Starting Cash</div>
         <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:${startBal>=0?'var(--green)':'var(--red)'}">${$f(startBal)}</div>
       </div>
       <div style="background:var(--surface);padding:9px 12px">
-        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Total Income</div>
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Total Paychecks</div>
         <div class="c-green" style="font-family:var(--mono);font-size:15px;font-weight:600">+${$f(totalIncome)}</div>
       </div>
       <div style="background:var(--surface);padding:9px 12px">
@@ -5473,163 +5460,112 @@ function wiRunProjector(){
       <div style="background:var(--surface2);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Projected End</div>
         <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:${(startBal+totalIncome-totalSpend)>=startBal?'var(--green)':'var(--red)'}">${$f(startBal+totalIncome-totalSpend)}</div>
-        <div class="c-text3" style="font-size:10px">${weeks.length} wks · ${months} mo</div>
+        <div class="c-text3" style="font-size:10px">${periods.length} period${periods.length!==1?'s':''} · ${months} mo</div>
       </div>
     </div>`;
 
-  // ── Group weeks by month, find tightest + first non-empty ────────────────
-  const weeksByMonthMap={};
-  const monthOrderArr=[];
-  weeks.forEach((w,idx)=>{
-    const ym=w.start.slice(0,7);
-    if(!weeksByMonthMap[ym]){weeksByMonthMap[ym]=[];monthOrderArr.push(ym);}
-    weeksByMonthMap[ym].push({...w,wIdx:idx});
-  });
-
-  let tightestWIdx=-1,tightestBal=Infinity;
-  let firstNonEmptyWIdx=-1;
-  weeks.forEach((w,i)=>{
-    const hP=payEvents.some(e=>e.date>=w.start&&e.date<=w.end);
-    const hO=outflows.some(o=>o.date>=w.start&&o.date<=w.end);
-    if(hP||hO){
-      if(firstNonEmptyWIdx===-1)firstNonEmptyWIdx=i;
-      if(weekEndBals[i]<tightestBal){tightestBal=weekEndBals[i];tightestWIdx=i;}
-    }
-  });
-
   let shortfallCount=0;
+  let cumulativeOut=0;
 
-  monthOrderArr.forEach(ym=>{
-    const mWeeks=weeksByMonthMap[ym];
-    const hasAnyEvents=mWeeks.some(w=>
-      payEvents.some(e=>e.date>=w.start&&e.date<=w.end)||
-      outflows.some(o=>o.date>=w.start&&o.date<=w.end)
-    );
-    if(!hasAnyEvents)return;
+  periods.forEach((p,pIdx)=>{
+    const pPay=payEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
+    const pOut=outflows.filter(o=>o.date>=p.start&&o.date<=p.end);
+    const pInAmt=pPay.reduce((s,e)=>s+e.amount,0);
+    const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0);
+    const periodStartBal=running;
+    running=periodEndBals[pIdx];
+    cumulativeOut+=pOutAmt;
+    if(periodEndBals[pIdx]<0)shortfallCount++;
 
-    let mIn=0,mOut=0;
-    mWeeks.forEach(w=>{
-      payEvents.filter(e=>e.date>=w.start&&e.date<=w.end).forEach(e=>mIn+=e.amount);
-      outflows.filter(o=>o.date>=w.start&&o.date<=w.end).forEach(o=>mOut+=o.amount);
+    const minFwd=minFwdPeriod[pIdx];
+    const safeToSpend=minFwd-cushionFloor;
+    const amberThresh=cushionFloor+Math.max(100,cushionFloor*0.5);
+    const dotChar=minFwd>=amberThresh?'🟢':safeToSpend>0?'🟡':'🔴';
+    const safeColor=minFwd>=amberThresh?'var(--green)':safeToSpend>0?'var(--amber)':'var(--red)';
+
+    // Projected RTS: end balance minus all remaining future outflows
+    const remainingOut=totalSpend-cumulativeOut;
+    const projRTS=running-remainingOut;
+    const rtsColor=projRTS>=0?'var(--green)':'var(--red)';
+
+    // Period title
+    const pId='p'+pIdx;
+    const autoOpen=pIdx<2;
+    const pStartFmt=new Date(p.start+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
+    const pEndFmt=p.start!==p.end?new Date(p.end+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'}):null;
+    const headerTitle=p.type==='gap'?'Before Next Paycheck':p.paychecks.map(e=>e.desc).join(' + ');
+
+    // Day-grouped event rows
+    const allEvts=[...pPay.map(e=>({...e,kind:'pay'})),...pOut.map(o=>({...o,kind:'out'}))].sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='pay'?-1:1));
+    let dayRunning=periodStartBal;
+    const byDay={},dayOrd=[];
+    allEvts.forEach(ev=>{if(!byDay[ev.date]){byDay[ev.date]=[];dayOrd.push(ev.date);}byDay[ev.date].push(ev);});
+    let dayHtml='';
+    dayOrd.forEach(date=>{
+      const evs=byDay[date];
+      const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
+      dayHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:5px 0 2px;margin-top:4px">${dayLabel}</div>`;
+      evs.forEach(ev=>{
+        if(ev.kind==='pay'){
+          dayRunning+=ev.amount;
+          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">
+            <span style="font-size:13px;flex-shrink:0">💰</span>
+            <span style="flex:1;font-size:13px;font-weight:600">${esc(ev.desc)}</span>
+            <span class="c-green" style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right">+${$f(ev.amount)}</span>
+          </div>`;
+        } else {
+          dayRunning-=ev.amount;
+          const badge=ev.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
+          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">
+            <span style="width:10px;height:10px;border-radius:50%;background:${ev.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>
+            <span style="flex:1;font-size:13px">${esc(ev.desc)}${badge}</span>
+            <span class="c-red" style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right">-${$f(ev.amount)}</span>
+          </div>`;
+        }
+        dayHtml+=`<div style="display:flex;justify-content:flex-end;padding:1px 0 2px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:10px;color:${dayRunning>=0?'var(--text3)':'var(--red)'}">bal ${$f(dayRunning)}</span></div>`;
+      });
     });
-    const mNet=mIn-mOut;
+    if(!dayHtml)dayHtml=`<div class="c-text3" style="font-size:12px;padding:8px 0">No events this period.</div>`;
 
-    // Month risk: tightest balance reached within this month's own weeks
-    const mMinMonthBal=Math.min(...mWeeks.map(w=>weekEndBals[w.wIdx]));
-    const mSafe=mMinMonthBal-cushionFloor;
-    const mAmber=cushionFloor+Math.max(100,cushionFloor*0.5);
-    let mRiskHtml;
-    if(mMinMonthBal>=mAmber){
-      mRiskHtml=`<span class="c-text2" style="font-size:11px">You have <strong class="c-green" style="font-family:var(--mono)">${$f(mSafe)}</strong> to spend this month after all bills.</span>`;
-    } else if(mSafe>0){
-      mRiskHtml=`<span class="c-amber" style="font-size:11px">⚠️ Only <strong style="font-family:var(--mono)">${$f(mSafe)}</strong> left after this month's bills — spend carefully.</span>`;
-    } else {
-      mRiskHtml=`<span class="c-red" style="font-size:11px">⚠️ <strong>Bills exceed balance by ${$f(Math.abs(mSafe))}</strong> this month — do not spend anything extra.</span>`;
-    }
-
-    const [mYr,mMo]=ym.split('-');
-    const mLabelStr=new Date(parseInt(mYr),parseInt(mMo)-1,1).toLocaleString('default',{month:'long',year:'numeric'});
-    const mNetColor=mNet>=0?'var(--green)':'var(--red)';
-    const ymSafe=ym.replace('-','_');
-
-    html+=`<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
-      <div onclick="wiToggleMonth('${ym}')" role="button" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);flex-wrap:wrap;cursor:pointer;user-select:none;-webkit-user-select:none">
-        <span id="pwmbt_${ymSafe}" class="c-text3" style="font-size:11px;width:12px">▼</span>
-        <span class="c-text" style="font-size:13px;font-weight:700">${mLabelStr}</span>
-        ${mIn?`<span class="c-green" style="font-size:11px">+${$f(mIn)}</span>`:''}
-        ${mOut?`<span class="c-red" style="font-size:11px">-${$f(mOut)}</span>`:''}
-        <span style="font-size:11px;font-weight:700;color:${mNetColor}">net ${mNet>=0?'+':''}${$f(mNet)}</span>
-        <div style="width:100%;margin-top:2px;pointer-events:none">${mRiskHtml}</div>
-      </div>
-      <div id="pwmbw_${ymSafe}">`;
-
-    mWeeks.forEach(w=>{
-      const wPay=payEvents.filter(e=>e.date>=w.start&&e.date<=w.end);
-      const wOut2=outflows.filter(o=>o.date>=w.start&&o.date<=w.end);
-      if(!wPay.length&&!wOut2.length)return;
-
-      const wId='w'+w.wIdx;
-      const autoExpand=w.wIdx===firstNonEmptyWIdx||w.wIdx===tightestWIdx;
-
-      const minFwd=minForwardBal[w.wIdx];
-      const safeW=minFwd-cushionFloor;
-      const amberW=cushionFloor+Math.max(100,cushionFloor*0.5);
-      let dotChar;
-      if(minFwd>=amberW)dotChar='🟢';
-      else if(safeW>0)dotChar='🟡';
-      else dotChar='🔴';
-
-      const wEndBal=weekEndBals[w.wIdx];
-      const wEndColor=wEndBal>=0?'var(--green)':'var(--red)';
-      if(wEndBal<0)shortfallCount++;
-
-      const bonusInWeek=sources.some(src=>
-        wPay.some(e=>e.desc===src.label)&&bonusMonths.has(w.start.slice(0,7)+':'+src.label)
-      );
-      const weekInAmt=wPay.reduce((s,e)=>s+e.amount,0);
-      const weekOutAmt=wOut2.reduce((s,e)=>s+e.amount,0);
-
-      const allWk=[
-        ...wPay.map(e=>({...e,kind:'pay'})),
-        ...wOut2.map(e=>({...e,kind:'out'}))
-      ].sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='pay'?-1:1));
-
-      const byDay={},dayOrd=[];
-      allWk.forEach(ev=>{
-        if(!byDay[ev.date]){byDay[ev.date]=[];dayOrd.push(ev.date);}
-        byDay[ev.date].push(ev);
-      });
-
-      let dayRowsHtml='';
-      dayOrd.forEach(date=>{
-        const evs=byDay[date];
-        const d=new Date(date+'T12:00:00');
-        const dayLabel=d.toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
-        dayRowsHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:4px 0 1px;margin-top:2px">${dayLabel}</div>`;
-        evs.forEach(ev=>{
-          if(ev.kind==='pay'){
-            running+=ev.amount;
-            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:1px 0;align-items:center">
-              <span style="flex:1;font-size:12px;font-weight:600">💰 ${esc(ev.desc)}</span>
-              <span class="c-green" style="font-family:var(--mono);font-size:12px;min-width:68px;text-align:right">+${$f(ev.amount)}</span>
-            </div>`;
-          } else {
-            running-=ev.amount;
-            const badge=ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border);border-radius:3px;padding:0 3px;margin-left:3px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--amber);border-radius:3px;padding:0 3px;margin-left:3px">one-time</span>`:'';
-            dayRowsHtml+=`<div style="display:flex;gap:6px;padding:1px 0;align-items:center">
-              <span style="flex:1;font-size:12px">${esc(ev.desc)}${badge}</span>
-              <span class="c-red" style="font-family:var(--mono);font-size:12px;min-width:68px;text-align:right">-${$f(ev.amount)}</span>
-            </div>`;
-          }
-        });
-        dayRowsHtml+=`<div style="display:flex;justify-content:flex-end;padding:1px 0 3px;border-bottom:1px solid var(--border2)">
-          <span style="font-family:var(--mono);font-size:11px;color:${running>=0?'var(--text3)':'var(--red)'}">balance ${$f(running)}</span>
-        </div>`;
-      });
-
-      html+=`<div style="border-top:1px solid var(--border)">
-        <div onclick="wiToggleWeek('${wId}')" role="button" style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;background:var(--bg2);user-select:none;-webkit-user-select:none">
-          <span style="font-size:14px;line-height:1">${dotChar}</span>
-          <span class="c-text" style="font-size:11px;font-weight:600;flex:1;white-space:nowrap">${w.start.slice(5)} – ${w.end.slice(5)}</span>
-          ${bonusInWeek?`<span class="c-green" style="font-size:10px;font-weight:700;background:rgba(0,200,100,.12);border:1px solid var(--green);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
-          ${weekInAmt?`<span class="c-green" style="font-size:11px">+${$f(weekInAmt)}</span>`:''}
-          ${weekOutAmt?`<span class="c-red" style="font-size:11px">-${$f(weekOutAmt)}</span>`:''}
-          ${wEndBal<0?`<span class="c-red" style="font-size:10px;font-weight:700">⚠ SHORTFALL</span>`:''}
-          <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${wEndColor}">${$f(wEndBal)}</span>
-          <span id="pwt_${wId}" class="c-text3" style="font-size:11px;width:12px;text-align:center">${autoExpand?'▼':'▶'}</span>
+    html+=`<div style="border:1px solid ${periodEndBals[pIdx]<0?'var(--rb)':'var(--border)'};border-radius:12px;overflow:hidden;margin-bottom:12px">
+      <div onclick="wiToggleWeek('${pId}')" role="button" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;-webkit-user-select:none;background:${p.type==='paycheck'?'var(--surface)':'var(--bg2)'}">
+        <span style="font-size:16px;line-height:1;flex-shrink:0">${dotChar}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="c-text" style="font-size:13px;font-weight:700">${headerTitle}</span>
+            ${p.isBonus?`<span class="c-green" style="font-size:10px;font-weight:700;background:rgba(16,185,129,.12);border:1px solid var(--gb);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
+            ${periodEndBals[pIdx]<0?`<span class="c-red" style="font-size:10px;font-weight:700;border:1px solid var(--rb);border-radius:4px;padding:1px 5px">⚠ Shortfall</span>`:''}
+          </div>
+          <div class="c-text3" style="font-size:11px;margin-top:1px">${pStartFmt}${pEndFmt?' → '+pEndFmt:''}</div>
         </div>
-        <div id="pwb_${wId}" style="padding:4px 12px;display:${autoExpand?'block':'none'}">${dayRowsHtml}</div>
-      </div>`;
-    });
-
-    html+=`</div></div>`;
+        ${pInAmt?`<span class="c-green" style="font-size:12px;font-family:var(--mono)">+${$f(pInAmt)}</span>`:''}
+        ${pOutAmt?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pOutAmt)}</span>`:''}
+        <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
+        <span id="pwt_${pId}" class="c-text3" style="font-size:11px;width:12px;flex-shrink:0;text-align:center">${autoOpen?'▼':'▶'}</span>
+      </div>
+      <div id="pwb_${pId}" style="padding:8px 16px 14px;display:${autoOpen?'block':'none'}">
+        ${dayHtml}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Safe to Spend</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${safeColor}">${$f(Math.max(0,safeToSpend))}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">above ${$f(cushionFloor)} cushion</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Projected RTS</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${rtsColor}">${$f(projRTS)}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">after all upcoming bills</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
   });
 
   const endColor=running>=startBal?'var(--green)':'var(--red)';
   html+=`<div style="display:flex;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:2px solid var(--border);margin-top:4px;flex-wrap:wrap">
     <span class="c-text3">Total in: <strong class="c-green">${$f(totalIncome)}</strong></span>
     <span class="c-text3">Total out: <strong class="c-red">${$f(totalSpend)}</strong></span>
-    ${shortfallCount?`<span class="c-red" style="font-weight:700">⚠ ${shortfallCount} shortfall week${shortfallCount!==1?'s':''}</span>`:'<span class="c-green">✓ No shortfalls</span>'}
+    ${shortfallCount?`<span class="c-red" style="font-weight:700">⚠ ${shortfallCount} shortfall period${shortfallCount!==1?'s':''}</span>`:'<span class="c-green">✓ No shortfalls</span>'}
     <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End balance: ${$f(running)}</span>
   </div></div>`;
 
