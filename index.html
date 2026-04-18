@@ -2972,11 +2972,11 @@ function renderOverviewTab(el,mid){
       txHtml+=`<div class="cc-tx-date-hdr">${ld(dk)}</div>`;
       txByDate[dk].forEach(t=>{
         const isIn=t.type==='in';const isXfr=t.type==='xfr';
-        const cat=getCat(getBkt(t.bucketId)?.catId);
+        const cat=getCat(getBucket(t.bucketId)?.catId);
         const dot=cat?.color||'var(--border2)';
         const amtCls=isIn?'var(--green)':isXfr?'var(--text2)':'var(--red)';
         const pfx=isIn?'+':isXfr?'±':'-';
-        const bkt=getBkt(t.bucketId);
+        const bkt=getBucket(t.bucketId);
         txHtml+=`<div class="cc-tx-row" onclick="mEditTxSheet('${t.id}')">
           <div class="cc-tx-dot" style="background:${dot}"></div>
           <div class="cc-tx-info">
