@@ -209,7 +209,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ledger-layout{display:grid;grid-template-columns:300px 1fr;gap:0;height:100%;min-height:0;}
 .ledger-form-col{border-right:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
 .ledger-list-col{display:flex;flex-direction:column;overflow:hidden;}
-.ledger-list-head{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px;}
+.ledger-list-head{padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px;}
 .ledger-list-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);flex:1;}
 .ledger-filters{display:flex;gap:3px;}
 .ledger-search{width:100%;padding:8px 12px;background:var(--surface2);border:none;border-top:1px solid var(--border);font-size:13px;font-family:var(--sans);color:var(--text);outline:none;}
@@ -340,6 +340,75 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
   .cc-hero-card{padding:16px 18px;}
   .cc-grid{grid-template-columns:1fr;}
   .cc-right{display:none;}
+}
+
+/* ═══ BUCKETS CARD GRID ═══ */
+.bkt-pane{display:flex;flex-direction:column;gap:20px;padding:24px 28px;}
+.bkt-pane-hdr{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.bkt-pane-title{font-size:22px;font-weight:700;letter-spacing:-.6px;}
+.bkt-cat-section{display:flex;flex-direction:column;gap:10px;}
+.bkt-cat-hdr-row{display:flex;align-items:center;gap:10px;padding:0 2px;}
+.bkt-cat-color{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.bkt-cat-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;flex:1;}
+.bkt-cat-alloc-txt{font-size:12px;font-family:var(--mono);font-weight:500;}
+.bkt-cat-fund-btn{font-size:11px;padding:3px 10px;background:var(--gbg);border:1px solid var(--gb);border-radius:20px;color:var(--green);cursor:pointer;font-weight:600;font-family:var(--sans);transition:all .12s;white-space:nowrap;}
+.bkt-cat-fund-btn:hover{background:var(--gb);}
+.bkt-cat-bar{height:2px;background:var(--border2);border-radius:1px;margin-bottom:4px;overflow:hidden;}
+.bkt-cat-bar-fill{height:100%;border-radius:1px;transition:width .4s;}
+.bkt-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.bkt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;display:flex;flex-direction:column;}
+.bkt-card:hover{border-color:var(--border2);box-shadow:0 4px 20px rgba(0,0,0,0.18);transform:translateY(-1px);}
+.bkt-card.act{border-color:var(--accent);box-shadow:0 0 0 1px rgba(0,212,170,0.2),0 4px 20px rgba(0,212,170,0.08);}
+.bkt-card-top{height:3px;flex-shrink:0;}
+.bkt-card-body{padding:16px 18px;display:flex;flex-direction:column;gap:10px;flex:1;}
+.bkt-card-name-row{display:flex;align-items:flex-start;gap:8px;}
+.bkt-card-name{font-size:14px;font-weight:600;letter-spacing:-.2px;flex:1;line-height:1.3;}
+.bkt-card-tags-row{display:flex;flex-wrap:wrap;gap:4px;min-height:16px;}
+.bkt-card-alloc-row{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--bg3);border-radius:8px;}
+.bkt-card-alloc-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);flex:1;}
+.bkt-card-progress{display:flex;flex-direction:column;gap:4px;}
+.bkt-card-bar-track{height:5px;background:var(--border2);border-radius:3px;overflow:hidden;}
+.bkt-card-bar-fill{height:100%;border-radius:3px;transition:width .4s;}
+.bkt-card-bar-pct{font-size:10px;color:var(--text3);text-align:right;}
+.bkt-card-amounts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:4px;border-top:1px solid var(--border);}
+.bkt-card-amt-block{display:flex;flex-direction:column;gap:2px;}
+.bkt-card-amt-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.bkt-card-amt-val{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-.3px;}
+@media(max-width:1099px){
+  .bkt-pane{padding:14px 14px;}
+  .bkt-pane-hdr{display:none;}
+  .bkt-card-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .bkt-card-body{padding:12px 14px;}
+}
+@media(max-width:480px){
+  .bkt-card-grid{grid-template-columns:1fr;}
+}
+
+/* ═══ ACCOUNTS PANE ═══ */
+.acct-pane{display:flex;flex-direction:column;gap:16px;padding:24px 28px;}
+.acct-pane-hdr{display:flex;align-items:center;gap:10px;}
+.acct-section-label{display:flex;align-items:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.acct-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.acct-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;display:flex;flex-direction:column;}
+.acct-card:hover{border-color:var(--border2);box-shadow:0 4px 20px rgba(0,0,0,0.18);transform:translateY(-1px);}
+.acct-card.debt{border-color:var(--rb);}
+.acct-card.debt:hover{border-color:var(--red);}
+.acct-card-stripe{height:3px;flex-shrink:0;}
+.acct-card-body{padding:16px 18px;display:flex;flex-direction:column;gap:8px;}
+.acct-card-row1{display:flex;align-items:center;gap:8px;}
+.acct-card-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.acct-card-name{flex:1;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.acct-card-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:2px 7px;border-radius:20px;background:var(--border);color:var(--text3);border:1px solid var(--border2);flex-shrink:0;}
+.acct-card-bal{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:-.5px;}
+.acct-card-sub{font-size:11px;color:var(--text3);}
+@media(max-width:1099px){
+  .acct-pane{padding:14px 14px;}
+  .acct-pane-hdr{display:none;}
+  .acct-card-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .acct-card-bal{font-size:20px;}
+}
+@media(max-width:480px){
+  .acct-card-grid{grid-template-columns:1fr;}
 }
 
 /* ═══ SIDEBAR MONTH NAV ═══ */
@@ -663,9 +732,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .rp-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);}
 .rpf-row.rp-filters-row{margin-bottom:0;}
 .rp-filters{display:flex;gap:3px;}
-.rfbtn{flex:1;padding:4px 2px;background:none;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:var(--sans);font-weight:500;color:var(--text3);cursor:pointer;transition:all .12s;text-align:center;}
+.rfbtn{flex:1;padding:4px 2px;background:none;border:1px solid var(--border);border-radius:20px;font-size:11px;font-family:var(--sans);font-weight:500;color:var(--text3);cursor:pointer;transition:all .12s;text-align:center;}
 .rfbtn:hover{color:var(--text2);border-color:var(--border2);}
-.rfbtn.active{background:var(--surface);color:var(--text);border-color:var(--border2);}
+.rfbtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 .rp-search{width:100%;padding:6px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--sans);color:var(--text);margin-top:6px;}
 .rp-search:focus{outline:none;border-color:var(--accent);}
 .rp-search::placeholder{color:var(--text3);}
@@ -3257,42 +3326,65 @@ function renderAccountsTab(el,mid){
   const cash=S.accounts.filter(a=>a.type!=='debt');
   const debt=S.accounts.filter(a=>a.type==='debt');
   const totalDebt=debt.reduce((s,a)=>s+acctBalance(a.id),0);
+  const totalCash=cash.reduce((s,a)=>s+acctBalance(a.id),0);
   const monthInc=monthIncome(S.activeMonth)||0;
   const totalMinPay=debt.reduce((s,a)=>s+(a.debtMinPayment||0),0);
   const dti=monthInc>0&&totalMinPay>0?Math.round(totalMinPay/monthInc*100):null;
-  let h=`<div class="month-hdr ov-desktop-only">
-    <div class="month-title">Accounts</div>
-    ${debt.length&&dti!==null?`<span class="c-text3" style="font-size:11px;margin-left:12px">DTI <strong style="color:${dti>43?'var(--red)':dti>36?'var(--amber)':'var(--green)'}">${dti}%</strong></span>`:''}
-    <button class="tbtn" style="margin-left:auto" onclick="openModal('acct')">+ Add Account</button>
-  </div>
-  <div class="acct-pane-wrap">`;
+
+  let h=`<div class="acct-pane">
+    <div class="acct-pane-hdr ov-desktop-only">
+      <span class="bkt-pane-title">Accounts</span>
+      ${debt.length&&dti!==null?`<span class="c-text3" style="font-size:12px;margin-left:12px">DTI <strong style="color:${dti>43?'var(--red)':dti>36?'var(--amber)':'var(--green)'}">${dti}%</strong></span>`:''}
+      <button class="tbtn" style="margin-left:auto" onclick="openModal('acct')">+ Add Account</button>
+    </div>`;
+
   if(cash.length){
-    h+=`<div class="acct-group-hdr">Cash &amp; Savings</div>
-    <div class="acct-tab-grid">`;
+    h+=`<div class="acct-section-label">Cash &amp; Savings <span class="c-text3" style="font-size:12px;font-family:var(--mono);font-weight:400;margin-left:8px">${$f(totalCash)}</span></div>
+    <div class="acct-card-grid">`;
     cash.forEach(a=>{
       const bal=acctBalance(a.id);
-      h+=`<div class="acct-tab-card" onclick="setActiveAccount('${a.id}')">
-        <div class="acct-tab-card-name"><div class="acct-tab-card-dot" style="background:${a.color}"></div>${esc(a.name)}<span class="chip chip-${a.type==='savings'?'future':'present'}" style="margin-left:auto;font-size:9px;padding:2px 7px">${a.type}</span></div>
-        <div class="acct-tab-card-bal" style="color:${bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</div>
+      const typeBadge=a.type==='savings'?'savings':'checking';
+      h+=`<div class="acct-card" onclick="setActiveAccount('${a.id}')">
+        <div class="acct-card-stripe" style="background:${a.color||'var(--accent)'}"></div>
+        <div class="acct-card-body">
+          <div class="acct-card-row1">
+            <div class="acct-card-dot" style="background:${a.color||'var(--accent)'}"></div>
+            <span class="acct-card-name">${esc(a.name)}</span>
+            <span class="acct-card-badge">${typeBadge}</span>
+          </div>
+          <div class="acct-card-bal" style="color:${bal>=0?'var(--green)':'var(--red)'}">${$f(bal)}</div>
+        </div>
       </div>`;
     });
     h+=`</div>`;
   }
+
   if(debt.length){
-    h+=`<div class="acct-group-hdr" style="display:flex;align-items:center">
-      <span class="c-red">Debt · ${$f(totalDebt)}</span>
+    h+=`<div class="acct-section-label" style="margin-top:20px">
+      <span class="c-red">Debt</span>
+      <span class="c-red" style="font-size:12px;font-family:var(--mono);font-weight:400;margin-left:8px">${$f(totalDebt)}</span>
       <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="showDebtPlanner()">📋 Planner</button>
     </div>
-    <div class="acct-tab-grid">`;
+    <div class="acct-card-grid">`;
     debt.forEach(a=>{
       const bal=acctBalance(a.id);
-      h+=`<div class="acct-tab-card" onclick="setActiveAccount('${a.id}')" style="border-left:3px solid var(--rb)">
-        <div class="acct-tab-card-name">💳 ${esc(a.name)}</div>
-        <div class="acct-tab-card-bal c-red">${$f(bal)}</div>
+      const apr=a.debtAPR?`${a.debtAPR}% APR`:'';
+      h+=`<div class="acct-card debt" onclick="setActiveAccount('${a.id}')">
+        <div class="acct-card-stripe" style="background:var(--red)"></div>
+        <div class="acct-card-body">
+          <div class="acct-card-row1">
+            <span style="font-size:15px">💳</span>
+            <span class="acct-card-name">${esc(a.name)}</span>
+            <span class="acct-card-badge" style="background:var(--rbg);color:var(--red);border-color:var(--rb)">debt</span>
+          </div>
+          <div class="acct-card-bal c-red">${$f(bal)}</div>
+          ${apr?`<div class="acct-card-sub">${apr}</div>`:''}
+        </div>
       </div>`;
     });
     h+=`</div>`;
   }
+
   h+=`<button class="ov-mobile-only m-settings-btn" style="width:100%;margin-top:16px" onclick="openModal('acct')">+ Add Account</button>`;
   h+=`</div>`;
   el.innerHTML=h;
@@ -3381,24 +3473,16 @@ function renderBucketsTab(el,mid){
     const catAllocPct=catTarget>0?Math.min(catAlloc/catTarget,1):0;
     const catBarColor=catAllocPct>=1?'var(--green)':catAllocPct>=0.5?'var(--accent)':'var(--amber)';
     const catAllocColor=catTarget>0?(catAlloc>=catTarget?'var(--green)':catAlloc>0?'var(--amber)':'var(--text3)'):'var(--text3)';
-    h+=`<div class="bkt-cat">
-      <div class="bkt-cat-hdr">
-        <div class="bkt-cat-dot" style="background:${color}"></div>
-        <span class="bkt-cat-name">${esc(cat.name)}</span>
+    h+=`<div class="bkt-cat-section">
+      <div class="bkt-cat-hdr-row">
+        <div class="bkt-cat-color" style="background:${color}"></div>
+        <span class="bkt-cat-title">${esc(cat.name)}</span>
         ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average — ${$f(catAnomaly.excess)} more than usual" class="c-amber" style="font-size:10px;font-weight:700;background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;flex-shrink:0">⚠ Spike</span>`:''}
-        <span class="bkt-cat-totals" style="color:${catAllocColor}">${$f(catAlloc)}<span class="c-text3" style="font-weight:400"> / ${$f(catTarget)}</span></span>
-        ${!past&&catFundAmt>0?`<button class="fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
+        <span class="bkt-cat-alloc-txt" style="color:${catAllocColor}">${$f(catAlloc)}<span class="c-text3" style="font-weight:400"> / ${$f(catTarget)}</span></span>
+        ${!past&&catFundAmt>0?`<button class="bkt-cat-fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
       </div>
-      ${catTarget>0?`<div style="height:2px;background:var(--border2);margin:0 16px 0;overflow:hidden"><div style="height:100%;width:${Math.round(catAllocPct*100)}%;background:${catBarColor};transition:width .3s"></div></div>`:''}
-      <div class="bkt-col-hdr">
-        <div style="width:3px;flex-shrink:0"></div>
-        <span style="flex:1">Bucket</span>
-        <span style="width:108px">Allocated</span>
-        <span style="width:58px">Progress</span>
-        <span style="width:72px;text-align:right">Spent</span>
-        <span style="width:72px;text-align:right">Available</span>
-        <span style="width:58px;text-align:right"></span>
-      </div>`;
+      ${catTarget>0?`<div class="bkt-cat-bar"><div class="bkt-cat-bar-fill" style="width:${Math.round(catAllocPct*100)}%;background:${catBarColor}"></div></div>`:''}
+      <div class="bkt-card-grid">`;
 
     sorted.forEach(b=>{
       const alloc=bAlloc(mid,b.id);
@@ -3409,7 +3493,6 @@ function renderBucketsTab(el,mid){
       const avail=eff-spent;
       const pctRaw=eff>0?spent/eff:0;
       const pct=Math.min(pctRaw,1);
-      const fillCls=pctRaw>1?'bf-over':pctRaw>0.8?'bf-warn':'bf-ok';
       const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
       const days=daysUntilDue(b,m.year,m.month);
       const due1Paid=days!==null&&(b.dueAmount>0?spent>=b.dueAmount:(days<0&&spent>0));
@@ -3428,43 +3511,48 @@ function renderBucketsTab(el,mid){
 
       const pend=bucketPendingAmt(b.id,mid);
       const pillHtml=bucketPillHtml(alloc,spent,eff,target,pend,past,avail);
-
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
-      const availCls=avail>0?'green':avail<0?'red':'muted';
+      const availColor=avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)';
 
-      h+=`<div class="bkt-row${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
-        <div class="bkt-accent" style="background:${color}"></div>
-        <div class="bkt-name-col">
-          <div class="bkt-row-label">${esc(b.name)}</div>
-          <div class="bkt-row-sub">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>
+      h+=`<div class="bkt-card${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
+        <div class="bkt-card-top" style="background:${color}"></div>
+        <div class="bkt-card-body">
+          <div class="bkt-card-name-row">
+            <span class="bkt-card-name">${esc(b.name)}</span>
+            ${pillHtml}
+          </div>
+          ${tags.length||dueHtml?`<div class="bkt-card-tags-row">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>`:''}
+          <div class="bkt-card-alloc-row" onclick="event.stopPropagation()">
+            <span class="bkt-card-alloc-label">Allocated</span>
+            ${past?`<span style="font-family:var(--mono);font-size:14px;color:var(--text2)">${$f(alloc)}</span>`:`
+            <div class="alloc-wrap" style="flex-shrink:0">
+              <span class="alloc-pfx">$</span>
+              <input class="alloc-inp ${allocCls}" type="text" inputmode="decimal"
+                value="${alloc||''}" placeholder="0"
+                onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
+                onkeydown="if(event.key==='Enter'){event.stopPropagation();event.preventDefault();this.dispatchEvent(new Event('change'));var _a=[...document.querySelectorAll('.alloc-inp')];var _i=_a.indexOf(this);if(_i>-1&&_i<_a.length-1)_a[_i+1].focus();else this.blur();}"
+                onfocus="this.select()" />
+              <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
+            </div>`}
+          </div>
+          <div class="bkt-card-progress">
+            <div class="bkt-card-bar-track"><div class="bkt-card-bar-fill" style="width:${eff>0?Math.round(pct*100):0}%;background:${fillColor}"></div></div>
+            ${eff>0?`<div class="bkt-card-bar-pct">${Math.round(pct*100)}% spent</div>`:''}
+          </div>
+          <div class="bkt-card-amounts">
+            <div class="bkt-card-amt-block">
+              <span class="bkt-card-amt-label">Spent</span>
+              <span class="bkt-card-amt-val">${spent>0?$f(spent):'—'}</span>
+            </div>
+            <div class="bkt-card-amt-block">
+              <span class="bkt-card-amt-label">Available</span>
+              <span class="bkt-card-amt-val" style="color:${availColor}">${eff>0||spent>0?$f(avail):'—'}</span>
+            </div>
+          </div>
         </div>
-        <div class="bkt-alloc-col" onclick="event.stopPropagation()">
-          ${past?`<span class="tv dim">${$f(alloc)}</span>`:`
-          <div class="alloc-wrap">
-            <span class="alloc-pfx">$</span>
-            <input class="alloc-inp ${allocCls}" type="text" inputmode="decimal"
-              value="${alloc||''}" placeholder="0"
-              onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
-              onkeydown="if(event.key==='Enter'){event.stopPropagation();event.preventDefault();this.dispatchEvent(new Event('change'));var _a=[...document.querySelectorAll('.alloc-inp')];var _i=_a.indexOf(this);if(_i>-1&&_i<_a.length-1)_a[_i+1].focus();else this.blur();}"
-              onfocus="this.select()" />
-            <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
-          </div>`}
-        </div>
-        <div class="bkt-bar-col">
-          <div class="bbar"><div class="bbar-fill ${eff>0?fillCls:'bf-ok'}" style="width:${eff>0?Math.round(pct*100):0}%"></div></div>
-        </div>
-        <div class="bkt-spent-col">${spent>0?$f(spent):'—'}${target>0?`<div class="tv-sub" style="font-size:10px">of ${$f(target)}</div>`:''}</div>
-        <div class="bkt-avail-col"><span class="tv ${availCls}">${eff>0||spent>0?$f(avail):'—'}</span></div>
-        <div class="bkt-pill-col">${pillHtml}</div>
-        <div class="bkt-compact">
-          <div class="bkt-compact-alloc" style="color:${availCls==='green'?'var(--green)':availCls==='red'?'var(--red)':'var(--text)'}">${eff>0||spent>0?$f(avail):'—'}</div>
-          <div>${pillHtml}</div>
-          <div class="bkt-mini-bar" style="width:56px"><div class="bkt-mini-fill" style="width:${eff>0?Math.round(pct*100):0}%;background:${fillColor}"></div></div>
-        </div>
-        <div class="bkt-chevron">›</div>
       </div>`;
     });
-    h+=`</div>`;
+    h+=`</div></div>`;
   });
   el.innerHTML=h;
   setTimeout(wireAllocKeys,50);
