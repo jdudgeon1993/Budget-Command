@@ -2824,8 +2824,8 @@ function _chartCatSpend(mid){
         tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${$f(ctx.raw)}`}}}}});
 }
 function _chartYTD(){
-  const yr=new Date().getFullYear(),yrStr=yr+'-01';
-  const ytd=[...S.months].filter(m=>m.id>=yrStr&&m.id<=S.activeMonth).sort((a,b)=>a.id<b.id?-1:1);
+  const yr=new Date().getFullYear(),yrStart=mId(yr,0);
+  const ytd=[...S.months].filter(m=>m.id>=yrStart&&m.id<=S.activeMonth).sort((a,b)=>a.id<b.id?-1:1);
   if(!ytd.length)return;
   const c=_cc();
   const income=ytd.map(mo=>monthIncome(mo.id));
@@ -6033,8 +6033,8 @@ function avgMonthlyNetPayment(acctId){
   S.txs.forEach(t=>{
     if(t.type==='opening'||isScheduled(t))return;
     if(!monthSet.has(t.monthId))return;
-    // Payments IN (reduce debt) or XFR received (toAccountId = this debt acct)
-    if(t.accountId===acctId&&(t.type==='in'||t.type==='xfr'))
+    // Payments IN (reduce debt): direct payments + XFR received (transfer TO this debt acct)
+    if(t.accountId===acctId&&t.type==='in')
       inByMonth[t.monthId]=(inByMonth[t.monthId]||0)+t.amount;
     if(t.toAccountId===acctId&&t.type==='xfr')
       inByMonth[t.monthId]=(inByMonth[t.monthId]||0)+t.amount;
@@ -6348,7 +6348,7 @@ function reportBvAHtml(mid){
 
 function reportYTDHtml(){
   const year=new Date().getFullYear();
-  const janId=`${year}-01`;
+  const janId=mId(year,0);
   const curId=S.activeMonth;
   const ytdMonths=[...S.months].filter(m=>m.id>=janId&&m.id<=curId).sort((a,b)=>a.id<b.id?-1:1);
   if(!ytdMonths.length)return`<div class="c-text3" style="padding:16px">No data for ${year}.</div>`;
