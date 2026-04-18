@@ -42,7 +42,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .bh-label{white-space:nowrap;}
 
 /* Stat grid containers — border-gap layout */
-.pool-strip,.ov-stats-row,.det-nums,.sink-stats,.stat-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);overflow:hidden;}
+.pool-strip,.ov-stats-row,.det-nums,.sink-stats,.stat-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);}
 .pool-strip{grid-template-columns:1fr 1fr 1fr 1fr;border-radius:var(--rl);margin-bottom:8px;}
 .ov-stats-row{grid-template-columns:1fr 1fr 1fr 1fr;border-radius:var(--r);margin:16px 0;}
 .det-nums{grid-template-columns:repeat(3,1fr);border-radius:var(--r);margin-bottom:18px;}
@@ -215,7 +215,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .acct-tab-card-bal{font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:-.5px;}
 
 /* ═══ ACCOUNT LIQUIDITY STRIP ═══ */
-.als{display:flex;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px;cursor:pointer;}
+/* .als{display:flex;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;cursor:pointer;}*/
+.als {display: flex;gap: 1px;background: var(--border);border: 1px solid var(--border);border-radius: var(--r);margin-bottom: 14px;cursor: pointer;flex-direction: row;flex-wrap: wrap;
 .als-cell{flex:1;background:var(--surface);padding:8px 12px;display:flex;align-items:center;gap:7px;transition:background .12s;cursor:pointer;}
 .als-cell:hover{background:var(--bg3);}
 .als-cell:hover .als-bal::after{content:' ›';color:var(--text3);font-size:11px;}
@@ -663,7 +664,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .nav-btn.active .nav-pip{opacity:1;}
   .nav-label{font-size:11px;letter-spacing:.3px;}
   /* Tab panes: full screen, slide animation */
-  .tab-pane{display:flex;flex-direction:column;position:absolute;inset:0;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);padding:0;overflow-y:auto;}
+  .tab-pane{position:absolute;inset:0;transform: translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);padding:0;overflow-y:auto;}
   .tab-pane.active{transform:translateX(0);}
   .tab-pane.slide-left{transform:translateX(-30%);}
   /* Topbar: show month nav, hide desktop elements */
@@ -858,7 +859,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .ov-widget{border:none;border-radius:0;border-top:1px solid var(--border);padding:12px 16px;}
   .ov-widget-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px;}
   /* Account strip: inline-block card row (avoids flex+overflow height collapse) */
-  .als{display:block;white-space:nowrap;overflow-x:auto;padding:4px 14px 16px;margin-bottom:0;background:none;border:none;border-radius:0;}
+  .als{display:block;white-space:nowrap;padding:4px 14px 16px;margin-bottom:0;background:none;border:none;border-radius:0;}
   .als::-webkit-scrollbar{display:none;}
   .als-cell{display:inline-block;vertical-align:top;white-space:normal;min-width:130px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);margin-right:8px;}
   .als-cell:last-child{margin-right:0;}
