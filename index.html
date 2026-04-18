@@ -1007,13 +1007,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .acct-order-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;}
 .acct-order-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .acct-order-name{flex:1;font-size:14px;}
-.theme-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-.theme-card{padding:12px 10px;background:var(--surface);border:2px solid var(--border);border-radius:var(--r);cursor:pointer;text-align:center;transition:all .12s;}
-.theme-card:hover{border-color:var(--border2);}
-.theme-card.active{border-color:var(--accent);}
-.theme-card-swatch{width:32px;height:32px;border-radius:50%;margin:0 auto 6px;border:2px solid rgba(255,255,255,.15);}
-.theme-card-name{font-size:12px;font-weight:600;color:var(--text2);}
-.theme-card.active .theme-card-name{color:var(--accent);}
 
 /* ═══ LIGHT THEME ═══ */
 [data-theme="light"]{
@@ -3354,16 +3347,6 @@ function renderReportsTab(el){
 function renderSettingsTab(el){
   if(!el)return;
   const _settingsScroll=el.scrollTop; // save scroll before rebuild (P7-C)
-  const curTheme=localStorage.getItem('bcc_theme')||'dark';
-  const themes=[
-    {name:'dark',label:'Dark',bg:'#0f1117',fg:'#f0f2f5',accent:'#2a7c6f'},
-    {name:'light',label:'Light',bg:'#f5f5f7',fg:'#1c1c1e',accent:'#147a6e'},
-    {name:'midnight',label:'Midnight',bg:'#000000',fg:'#f0f0f0',accent:'#00d4b8'},
-  ];
-  const themeCards=themes.map(t=>`<div class="theme-card${t.name===curTheme?' active':''}" onclick="setTheme('${t.name}')">
-    <div class="theme-card-swatch" style="background:${t.bg};border:2px solid ${t.accent}"></div>
-    <div class="theme-card-name">${t.label}</div>
-  </div>`).join('');
 
   const acctItems=S.accounts.map((a,i)=>`<div class="acct-order-item">
     <div class="acct-order-dot" style="background:${a.color}"></div>
@@ -3414,11 +3397,6 @@ function renderSettingsTab(el){
 
   el.innerHTML=`<div class="month-hdr"><div class="month-title">Settings</div>
     <button class="tbtn" style="margin-left:auto" onclick="openGlobalSearch()" title="Search transactions">🔍 Search</button>
-  </div>
-
-  <div class="settings-section">
-    <div class="settings-section-title">Appearance</div>
-    <div class="theme-cards">${themeCards}</div>
   </div>
 
   <div class="settings-section">
