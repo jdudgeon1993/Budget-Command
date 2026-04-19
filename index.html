@@ -2256,8 +2256,7 @@ function acctBalance(aid){
 // Total liquid cash = budget + savings accounts only (excludes debt balances)
 function totalCash(){return S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);}
 function calcNetWorth(){
-  // All non-debt account balances + debt account balances (debt balances are negative)
-  return S.accounts.reduce((s,a)=>s+acctBalance(a.id),0);
+  return S.accounts.reduce((s,a)=>s+(a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)),0);
 }
 function ageOfMoney(){
   // Days = budget balance / avg daily spend over last 30 days
