@@ -5373,10 +5373,11 @@ function wiRunProjector(){
       if(!isWIBucketActiveForMonth(b.id,loopMid,scenario))return;
       let bAmt;
       if(isCurMo){
-        // Only remaining unfunded amount
+        // Use actual spending (not allocation) — allocated-but-unpaid bills are still in the bank
+        // and will still come out. Only skip what has already transacted.
         const target=bBudget(activeMid,b.id);
-        const alloc=bAlloc(activeMid,b.id);
-        bAmt=Math.max(0,target-alloc);
+        const spent=bSpent(activeMid,b.id);
+        bAmt=Math.max(0,target-spent);
       } else {
         bAmt=bktAmt(b);
       }
@@ -5524,10 +5525,9 @@ function wiRunProjector(){
     const dotChar=minFwd>=amberThresh?'🟢':safeToSpend>0?'🟡':'🔴';
     const safeColor=minFwd>=amberThresh?'var(--green)':safeToSpend>0?'var(--amber)':'var(--red)';
 
-    // Projected RTS: end balance minus all remaining future outflows
-    const remainingOut=totalSpend-cumulativeOut;
-    const projRTS=running-remainingOut;
-    const rtsColor=projRTS>=0?'var(--green)':'var(--red)';
+    // Period net: income received minus bills paid this period (positive = surplus, negative = shortfall)
+    const periodNet=pInAmt-pOutAmt;
+    const netColor=periodNet>=0?'var(--green)':'var(--red)';
 
     // Period title
     const pId='p'+pIdx;
@@ -5593,9 +5593,9 @@ function wiRunProjector(){
             <div class="c-text3" style="font-size:10px;margin-top:2px">above ${$f(cushionFloor)} cushion</div>
           </div>
           <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Projected RTS</div>
-            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${rtsColor}">${$f(projRTS)}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">after all upcoming bills</div>
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Period Net</div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${netColor}">${periodNet>=0?'+':''}${$f(periodNet)}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">income minus bills this period</div>
           </div>
         </div>
       </div>
