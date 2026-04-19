@@ -2503,13 +2503,25 @@ const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAllo
 // so RTS stays stable when spending is on-plan.
 // Over-spent buckets are capped at 0 (overage already left via budgetBal).
 function readyToSpend(mid){
-  const budgetBal=S.accounts
-    .filter(a=>a.type==='budget')
-    .reduce((s,a)=>s+acctBalance(a.id),0);
-  const unfulfilled=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
-    return s+Math.max(0,bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id));
-  },0);
-  return budgetBal-unfulfilled;
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const activeMid=S.activeMonth;
+  if(!activeMid||mid<activeMid){
+    // Past month: historical view — use that month's own allocations as-is
+    const unfulfilled=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
+      return s+Math.max(0,bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id));
+    },0);
+    return budgetBal-unfulfilled;
+  }
+  // Current + any future month: ONE cash pool.
+  // Pre-allocating to any future month claims from the same real cash that exists today.
+  const activeBkts=S.buckets.filter(b=>!b.archived);
+  // Current month obligations (with rollover — prior savings already committed to this bucket)
+  const curClaimed=activeBkts.reduce((s,b)=>
+    s+Math.max(0,bAlloc(activeMid,b.id)+rolloverBal(b.id,activeMid)-bSpent(activeMid,b.id)),0);
+  // All future months: new pre-allocations only (rollover is already captured in curClaimed above)
+  const futureClaimed=S.months.filter(m=>m.id>activeMid).reduce((s,m)=>
+    s+activeBkts.reduce((bs,b)=>bs+(bAlloc(m.id,b.id)||0),0),0);
+  return budgetBal-curClaimed-futureClaimed;
 }
 
 function rolloverBal(bid,mid){
@@ -3193,10 +3205,10 @@ function renderOverviewTab(el,mid){
 
   h+=`<div class="cc-hero-row">
     <div class="cc-hero-card primary">
-      <div class="cc-hero-label">Ready to Spend</div>
+      <div class="cc-hero-label">${st==='future'?'Available Pool':'Ready to Spend'}</div>
       <div class="cc-hero-val" style="color:${rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)'}">${$f(Math.abs(rts))}</div>
       <div class="cc-hero-sub">
-        <span class="cc-hero-badge ${rtsBadgeCls}">${rtsBadgeTxt}</span>
+        <span class="cc-hero-badge ${rtsBadgeCls}">${st==='future'?'today\'s unallocated cash':rtsBadgeTxt}</span>
       </div>
     </div>
     <div class="cc-hero-card">
@@ -3650,6 +3662,7 @@ function renderBucketsTab(el,mid){
     </div>
   </div>`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
+  if(st==='future')h+=`<div class="hint-bar info">📅 Planning month — the RTS shown is your <strong>current available pool</strong> (today's cash minus all present &amp; future commitments). Pre-saving here reduces your current month's RTS.</div>`;
   if(!past&&unalloc>0&&rts>0)
     h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
   else if(!past&&rts<0)
