@@ -689,6 +689,22 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .hint{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.5;}
 .contrib-preview{background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);padding:9px 13px;margin-top:7px;font-size:12px;color:var(--blue);}
 
+/* ═══ RIGHT SHEET ═══ */
+#rsBack{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:580;opacity:0;pointer-events:none;transition:opacity .25s;}
+#rsBack.show{opacity:1;pointer-events:all;}
+#rsheet{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:100vw;background:var(--bg2);border-left:1px solid var(--border2);box-shadow:-16px 0 60px rgba(0,0,0,.5);z-index:590;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow:hidden;}
+#rsheet.show{transform:translateX(0);}
+.rs-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--bg2);}
+.rs-title{font-size:15px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rs-x{background:none;border:none;cursor:pointer;color:var(--text3);font-size:20px;line-height:1;padding:0 2px;transition:color .12s;flex-shrink:0;}
+.rs-x:hover{color:var(--text);}
+.rs-body{overflow-y:auto;flex:1;}
+.rs-foot{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--bg2);}
+@media(max-width:767px){
+  #rsheet{width:100%;border-left:none;top:auto;border-radius:16px 16px 0 0;transform:translateY(100%);max-height:92vh;}
+  #rsheet.show{transform:translateY(0);}
+}
+
 /* ═══ BULK BUCKET BUILDER ═══ */
 .modal.wide{max-width:700px;}
 .bbuilder{display:flex;flex-direction:column;gap:0;}
@@ -1611,6 +1627,17 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 <!-- MODAL -->
 <div class="overlay hidden" id="overlay">
   <div class="modal" id="modalBox"></div>
+</div>
+
+<!-- RIGHT SHEET -->
+<div id="rsBack" onclick="closeRSheet()"></div>
+<div id="rsheet">
+  <div class="rs-head">
+    <span class="rs-title" id="rsTitle">Edit</span>
+    <button class="rs-x" onclick="closeRSheet()">&#x2715;</button>
+  </div>
+  <div class="rs-body" id="rsBody"></div>
+  <div class="rs-foot" id="rsFoot"></div>
 </div>
 
 <!-- WI OVERLAY -->
@@ -2958,11 +2985,31 @@ function renderSidebar(){renderNav();}
 
 // ── Detail panel ─────────────────────────��─────────────────────��──────────────
 function openDetail(type,id){
+  if(!isMobile()){
+    if(type==='bucket'){
+      const b=getBucket(id);if(!b)return;
+      S.activeBucket=id;S.activeAccount=null;
+      const mid=S.activeMonth;const past=monthStatus(mid)==='past';
+      openRSheet(b.name,
+        `<div style="padding:0">${renderBucketDetail(mid,past,getMonth(mid))}</div>`,
+        `<button class="btn-cancel" onclick="closeRSheet()">Close</button>
+         <button class="btn-save" onclick="editBucket('${id}')">Edit</button>`);
+    } else if(type==='account'){
+      const a=getAcct(id);if(!a)return;
+      S.activeAccount=id;S.activeBucket=null;
+      openRSheet(a.name,'',
+        `<button class="btn-cancel" onclick="closeRSheet()">Close</button>
+         <button class="btn-save" onclick="editAcct('${a.id}')">Edit Account</button>`);
+      renderAccountView(document.getElementById('rsBody'),S.activeMonth);
+    }
+    return;
+  }
+  // Mobile: full-screen slide panel
   const panel=document.getElementById('detailPanel');
   const scroll=document.getElementById('detailScroll');
   const title=document.getElementById('detailTitle');
   const act=document.getElementById('detailAct');
-  scroll.scrollTop=0; // reset scroll when navigating to a new item (P10-C)
+  scroll.scrollTop=0;
   if(type==='bucket'){
     const b=getBucket(id);if(!b)return;
     S.activeBucket=id;S.activeAccount=null;
@@ -2984,9 +3031,13 @@ function openDetail(type,id){
 }
 
 function closeDetail(noRefresh){
-  const panel=document.getElementById('detailPanel');
-  if(!panel||!panel.classList.contains('active'))return;
-  panel.classList.remove('active');
+  if(!isMobile()){
+    closeRSheet();
+  } else {
+    const panel=document.getElementById('detailPanel');
+    if(!panel||!panel.classList.contains('active'))return;
+    panel.classList.remove('active');
+  }
   if(!noRefresh){
     S.activeBucket=null;S.activeAccount=null;
     save();
@@ -4633,38 +4684,27 @@ function openTxEditModal(id){
   let xfrOpts='<option value="">— account —</option>';
   S.accounts.forEach(a=>{if(a.id!==tx.accountId)xfrOpts+=`<option value="${a.id}"${a.id===tx.toAccountId?' selected':''}>${esc(a.name)}</option>`;});
   const typeLabel=tx.type==='in'?'Income':tx.type==='xfr'?'Transfer':'Expense';
-  const panel=document.getElementById('detailPanel');
-  const scroll=document.getElementById('detailScroll');
-  document.getElementById('detailTitle').textContent=`Edit ${typeLabel}`;
-  const actEl=document.getElementById('detailAct');actEl.textContent='';actEl.onclick=null;
-  scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
-  scroll.innerHTML=`
-    <div class="fi-row" style="margin-bottom:8px">
+  openRSheet(`Edit ${typeLabel}`,
+    `<div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
       <div class="fg"><label class="fl">Description</label><input class="fi" id="etDesc" value="${esc(tx.desc)}" /></div>
-    </div>
-    <div class="fi-row" style="margin-bottom:8px;gap:8px">
-      <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="etAmt" type="number" step="0.01" value="${tx.amount}" /></div>
-      <div class="fg"><label class="fl">Date</label><input class="fi" id="etDate" type="date" value="${tx.date}" /></div>
-    </div>
-    <div class="fi-row" style="margin-bottom:8px">
+      <div class="fi-row" style="gap:8px">
+        <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="etAmt" type="number" step="0.01" value="${tx.amount}" /></div>
+        <div class="fg"><label class="fl">Date</label><input class="fi" id="etDate" type="date" value="${tx.date}" /></div>
+      </div>
       <div class="fg"><label class="fl">Account</label><select class="fi" id="etAcct">${acctOpts}</select></div>
-    </div>
-    ${tx.type==='out'?`<div class="fi-row" style="margin-bottom:8px">
-      <div class="fg"><label class="fl">Bucket</label><select class="fi" id="etBkt">${bktOpts}</select></div>
-    </div>`:''}
-    ${tx.type==='xfr'?`<div class="fi-row" style="margin-bottom:8px">
-      <div class="fg"><label class="fl">To Account</label><select class="fi" id="etXfrTo">${xfrOpts}</select></div>
-    </div>`:''}
-    <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      <button class="tbtn c-red" style="border-" onclick="delTxFromDetail('${id}')">Delete</button>
-      <button class="btn-save" style="flex:1" onclick="saveTxEditModal('${id}','${tx.type}')">Save Changes</button>
-    </div>`;
-  if(!panel.classList.contains('active')){panel.classList.add('active');history.pushState({},'','');}
+      ${tx.type==='out'?`<div class="fg"><label class="fl">Bucket</label><select class="fi" id="etBkt">${bktOpts}</select></div>`:''}
+      ${tx.type==='xfr'?`<div class="fg"><label class="fl">To Account</label><select class="fi" id="etXfrTo">${xfrOpts}</select></div>`:''}
+    </div>`,
+    `<button class="tbtn c-red" onclick="delTxFromDetail('${id}')">Delete</button>
+     <span style="flex:1"></span>
+     <button class="btn-cancel" onclick="closeRSheet()">Cancel</button>
+     <button class="btn-save" onclick="saveTxEditModal('${id}','${tx.type}')">Save Changes</button>`
+  );
   setTimeout(()=>document.getElementById('etDesc')?.focus(),40);
 }
 function saveTxEditModal(id,type){
   const tx=S.txs.find(t=>t.id===id);if(!tx)return;
-  const _m=getMonth(tx.monthId);if(_m?.closed){showToast('Month is closed — reopen to edit','info');closeModal();return;}
+  const _m=getMonth(tx.monthId);if(_m?.closed){showToast('Month is closed — reopen to edit','info');closeRSheet();return;}
   const desc=document.getElementById('etDesc')?.value.trim();
   const amt=parseFloat(document.getElementById('etAmt')?.value);
   const date=document.getElementById('etDate')?.value;
@@ -4674,7 +4714,7 @@ function saveTxEditModal(id,type){
   tx.accountId=document.getElementById('etAcct')?.value||tx.accountId;
   if(type==='out')tx.bucketId=document.getElementById('etBkt')?.value||null;
   if(type==='xfr')tx.toAccountId=document.getElementById('etXfrTo')?.value||null;
-  save();closeDetail(true);render();
+  save();closeRSheet();render();
   showToast('Updated: '+tx.desc,'save');
 }
 function delTxFromDetail(id){
@@ -4682,7 +4722,7 @@ function delTxFromDetail(id){
   const _m=tx?getMonth(tx.monthId):null;if(_m?.closed){showToast('Month is closed — reopen to delete','info');return;}
   if(!confirm('Delete this transaction?'))return;
   S.txs=S.txs.filter(t=>t.id!==id);
-  save();closeDetail(true);render();
+  save();closeRSheet();render();
   if(tx)showToast('Deleted: '+tx.desc,'out');
 }
 function delTx(id){
@@ -5813,12 +5853,15 @@ let _reconChecked=new Set();
 function openReconcile(acctId){
   _reconChecked=new Set();
   const a=getAcct(acctId);if(!a)return;
-  const modal=document.getElementById('modalBox');
-  modal.className='modal recon-modal';
-  modal.innerHTML=reconHtml(acctId);
-  document.getElementById('overlay').classList.remove('hidden');
+  openRSheet(
+    `Reconcile — ${esc(a.name)}`,
+    reconBodyHtml(acctId),
+    `<span id="reconStatus" class="c-text3" style="flex:1;font-size:12px">0 checked</span>
+     <button class="btn-cancel" onclick="closeRSheet()">Cancel</button>
+     <button class="btn-primary" id="reconFinishBtn" onclick="reconFinish('${acctId}')" disabled>Mark Reconciled (0)</button>`
+  );
 }
-function reconHtml(acctId){
+function reconBodyHtml(acctId){
   const a=getAcct(acctId);
   const clearedBal=acctBalance(acctId);
   const stmtBal=parseFloat(document.getElementById('reconStmtBal')?.value)||0;
@@ -5868,10 +5911,6 @@ function reconHtml(acctId){
   });
 
   return `
-    <div class="modal-head">
-      <div class="modal-title">Reconcile — ${esc(a.name)}</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
-    </div>
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <label class="c-text3" style="font-size:12px;flex-shrink:0">Statement balance:</label>
       <input id="reconStmtBal" class="fi mono" type="number" step="0.01" placeholder="0.00"
@@ -5898,22 +5937,19 @@ function reconHtml(acctId){
     <div class="c-text3" style="padding:8px 16px;font-size:11px;border-bottom:1px solid var(--border)">
       Check off each transaction that appears on your bank statement. When the difference reaches $0.00, you're balanced.
     </div>
-    <div class="recon-tx-list">${txRows||'<div class="c-text3" style="padding:24px 16px;text-align:center;font-size:13px">All transactions are already reconciled.</div>'}</div>
-    <div class="modal-foot" style="gap:8px">
-      <span id="reconStatus" class="c-text3" style="flex:1;font-size:12px">${_reconChecked.size} checked</span>
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-primary" onclick="reconFinish('${acctId}')" ${_reconChecked.size===0?'disabled':''}>Mark Reconciled (${_reconChecked.size})</button>
-    </div>`;
+    <div class="recon-tx-list">${txRows||'<div class="c-text3" style="padding:24px 16px;text-align:center;font-size:13px">All transactions are already reconciled.</div>'}</div>`;
 }
 function reconToggle(txId,acctId){
   if(_reconChecked.has(txId))_reconChecked.delete(txId);else _reconChecked.add(txId);
   reconRefresh(acctId);
 }
 function reconRefresh(acctId){
-  const modal=document.getElementById('modalBox');if(!modal)return;
   const prevBal=document.getElementById('reconStmtBal')?.value||'';
-  modal.innerHTML=reconHtml(acctId);
+  document.getElementById('rsBody').innerHTML=reconBodyHtml(acctId);
   const inp=document.getElementById('reconStmtBal');if(inp)inp.value=prevBal;
+  const st=document.getElementById('reconStatus');if(st)st.textContent=_reconChecked.size+' checked';
+  const btn=document.getElementById('reconFinishBtn');
+  if(btn){btn.textContent=`Mark Reconciled (${_reconChecked.size})`;btn.disabled=_reconChecked.size===0;}
 }
 function reconFinish(acctId){
   if(!_reconChecked.size)return;
@@ -5923,7 +5959,7 @@ function reconFinish(acctId){
   });
   _reconChecked.clear();
   save();
-  closeModal();
+  closeRSheet();
   renderTxList();
   showToast('Transactions reconciled','save');
 }
@@ -7455,19 +7491,11 @@ function renderModal(){
     body = catSection + (catSection&&builderSection?'<div style="height:16px"></div>':'') + builderSection;
   }
 
-  const panel=document.getElementById('detailPanel');
-  const scroll=document.getElementById('detailScroll');
-  document.getElementById('detailTitle').textContent=title;
-  const actEl=document.getElementById('detailAct');actEl.textContent='';actEl.onclick=null;
   const saveLabel=(isCat&&!M.catEditId&&!M.builderCatId)?'Save & Add Buckets':(isBuilder||(isCat&&M.buckets?.some(r=>r.name.trim())))?'Save All':'Save';
-  scroll.style.cssText='flex:1;overflow-y:auto;padding:16px 20px;';
-  scroll.innerHTML=`${tabs}${body}
-    <div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      ${isEdit&&!isBuilder?`<button class="tbtn c-red" style="border-" onclick="Mdelete()">Delete</button>`:''}
-      <button class="btn-save" style="flex:1" onclick="saveModal()">${saveLabel}</button>
-    </div>`;
-  _inDetailPanel=true;
-  if(!panel.classList.contains('active')){panel.classList.add('active');history.pushState({},'','');}
+  const footHtml=`${isEdit&&!isBuilder?`<button class="tbtn c-red" onclick="Mdelete()">Delete</button><span style="flex:1"></span>`:''}
+    <button class="btn-cancel" onclick="closeRSheet()">Cancel</button>
+    <button class="btn-save" onclick="saveModal()">${saveLabel}</button>`;
+  openRSheet(title,`${tabs}<div style="padding:16px 20px;">${body}</div>`,footHtml);
   setTimeout(()=>{
     if(isAcct)document.getElementById('mAcctName')?.focus();
     else if(isBkt)document.getElementById('mBktName')?.focus();
@@ -7621,14 +7649,29 @@ function Mdelete(){
 }
 
 function closeMForm(){
-  if(_inDetailPanel){
-    _inDetailPanel=false;
-    document.getElementById('detailPanel')?.classList.remove('active');
-  } else {
-    closeModal();
-  }
+  closeRSheet();
 }
 function closeModal(){document.getElementById('overlay').classList.add('hidden');document.getElementById('modalBox').innerHTML='';_editingRbId=null;_editingArId=null;}
+function openRSheet(title,bodyHtml,footHtml){
+  document.getElementById('rsTitle').textContent=title;
+  document.getElementById('rsBody').innerHTML=bodyHtml||'';
+  document.getElementById('rsFoot').innerHTML=footHtml||'';
+  const wasOpen=document.getElementById('rsheet').classList.contains('show');
+  document.getElementById('rsBack').classList.add('show');
+  document.getElementById('rsheet').classList.add('show');
+  if(!wasOpen)history.pushState({},'','');
+}
+function closeRSheet(){
+  document.getElementById('rsBack').classList.remove('show');
+  document.getElementById('rsheet').classList.remove('show');
+  setTimeout(()=>{
+    if(!document.getElementById('rsheet').classList.contains('show')){
+      document.getElementById('rsBody').innerHTML='';
+      document.getElementById('rsFoot').innerHTML='';
+    }
+  },300);
+  _editingRbId=null;_editingArId=null;
+}
 
 function delCat(id){
   if(!confirm('Delete this category and all its buckets and transactions?'))return;
@@ -8041,8 +8084,8 @@ function mInit(){
   // Wire back button once only
   if(!_mInitialized){
     window.addEventListener('popstate',()=>{
-      const panel=document.getElementById('detailPanel');
-      if(panel?.classList.contains('active')){closeDetail();}
+      if(document.getElementById('rsheet')?.classList.contains('show')){closeRSheet();}
+      else if(document.getElementById('detailPanel')?.classList.contains('active')){closeDetail();}
       else if(activeTab!=='overview'){setTab('overview');}
     });
     _mInitialized=true;
