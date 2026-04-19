@@ -706,34 +706,21 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 }
 
 /* ═══ BULK BUCKET BUILDER ═══ */
-.modal.wide{max-width:700px;}
 .bbuilder{display:flex;flex-direction:column;gap:0;}
-.brow-builder{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;}
-.brow-builder:last-child{margin-bottom:0;}
-.brow-main{display:grid;grid-template-columns:1fr 110px 90px 100px 60px 60px 28px;gap:6px;padding:9px 10px;align-items:center;}
-.brow-input{padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:13px;font-family:var(--sans);color:var(--text);width:100%;}
-.brow-input:focus{outline:none;border-color:var(--accent);background:var(--bg3);}
-.brow-input.mono{font-family:var(--mono);}
-.brow-select{padding:6px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:var(--sans);color:var(--text);width:100%;cursor:pointer;}
-.brow-select:focus{outline:none;border-color:var(--accent);}
-.brow-select option{background:var(--surface2);}
-.brow-toggle{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;user-select:none;}
-.brow-toggle-btn{width:36px;height:22px;border-radius:11px;border:1px solid var(--border2);background:var(--surface2);position:relative;cursor:pointer;transition:all .15s;flex-shrink:0;}
-.brow-toggle-btn.on{background:var(--accent);border-color:var(--accent);}
-.brow-toggle-btn::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text3);transition:transform .15s,background .15s;}
-.brow-toggle-btn.on::after{transform:translateX(14px);background:#fff;}
-.brow-toggle-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
-.brow-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:0;line-height:1;transition:color .1s;align-self:center;}
-.brow-del:hover{color:var(--red);}
-.brow-sink-drawer{padding:10px 10px 10px 10px;background:var(--bg3);border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;}
-.brow-sink-drawer.hidden{display:none;}
-.brow-field{display:flex;flex-direction:column;gap:4px;}
-.brow-field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
-.contrib-tip{grid-column:1/-1;font-size:11px;color:var(--blue);background:var(--bbg);border:1px solid var(--bb);border-radius:5px;padding:6px 10px;margin-top:2px;}
-.brow-col-hdr{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:0 10px 6px;}
-.brow-hdrs{display:grid;grid-template-columns:1fr 110px 90px 100px 60px 60px 28px;gap:6px;padding:0 10px 6px;}
-.add-bkt-btn{display:flex;align-items:center;gap:6px;background:none;border:1px dashed var(--border2);border-radius:var(--r);padding:9px 14px;font-size:13px;font-family:var(--sans);color:var(--text3);cursor:pointer;transition:all .12s;width:100%;margin-top:8px;}
+.bcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+.bcard:last-of-type{margin-bottom:0;}
+.bcard-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--bg3);border-bottom:1px solid var(--border);}
+.bcard-idx{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.bcard-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0 2px;line-height:1;transition:color .1s;}
+.bcard-del:hover{color:var(--red);}
+.bcard-fields{padding:14px 14px 4px;}
+.bcard-sink{padding:12px 14px 4px;background:var(--bg3);border-top:1px solid var(--border);}
+.bcard-sink-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:10px;}
+.contrib-tip{font-size:11px;color:var(--blue);background:var(--bbg);border:1px solid var(--bb);border-radius:5px;padding:6px 10px;margin-bottom:10px;}
+.add-bkt-btn{display:flex;align-items:center;gap:6px;background:none;border:1px dashed var(--border2);border-radius:var(--r);padding:9px 14px;font-size:13px;font-family:var(--sans);color:var(--text3);cursor:pointer;transition:all .12s;width:100%;margin-top:10px;}
 .add-bkt-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--gbg);}
+.split-panel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px;}
+.split-panel-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:8px;}
 
 /* rpanel is hidden on desktop (content lives in tab views) */
 .rpanel{display:none;}
@@ -7366,20 +7353,38 @@ function renderModal(){
     title=M.acctEditId?'Edit Account':'Add Account';
     tabs=`<div class="modal-tabs"><button class="modal-tab active">Account</button></div>`;
     body=`
-      <div class="fg"><label class="fl">Account Name</label><input class="fi" id="mAcctName" value="${esc(M.acctName)}" placeholder="e.g. Chase Checking, HYSA..." /></div>
-      <div class="fg"><label class="fl">Type</label>
+      <div class="fg">
+        <label class="fl" for="mAcctName">Account Name</label>
+        <input class="fi" id="mAcctName" value="${esc(M.acctName)}" placeholder="e.g. Chase Checking, HYSA..." />
+      </div>
+      <div class="fg">
+        <label class="fl">Type</label>
         <div class="tog-row" style="display:grid;grid-template-columns:1fr 1fr 1fr">
-          <button class="togbtn${M.acctType==='budget'?' on':''}" onclick="M.acctType='budget';MsnapAcct();renderModal()">Budget<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">feeds RTS</div></button>
-          <button class="togbtn${M.acctType==='savings'?' on':''}" onclick="M.acctType='savings';MsnapAcct();renderModal()">Savings<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">net worth only</div></button>
-          <button class="togbtn${M.acctType==='debt'?' on':''}" onclick="M.acctType='debt';MsnapAcct();renderModal()">Debt<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">credit card / loan</div></button>
-        </div></div>
+          <button type="button" class="togbtn${M.acctType==='budget'?' on':''}" onclick="M.acctType='budget';MsnapAcct();renderModal()">Budget<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">feeds RTS</div></button>
+          <button type="button" class="togbtn${M.acctType==='savings'?' on':''}" onclick="M.acctType='savings';MsnapAcct();renderModal()">Savings<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">net worth only</div></button>
+          <button type="button" class="togbtn${M.acctType==='debt'?' on':''}" onclick="M.acctType='debt';MsnapAcct();renderModal()">Debt<div style="font-size:10px;font-weight:400;color:inherit;opacity:.7">credit card / loan</div></button>
+        </div>
+      </div>
       ${M.acctType==='debt'?`
       <div class="fi-row">
-        <div class="fg"><label class="fl">APR (%)</label><input class="fi mono" id="mAcctAPR" type="number" step="0.01" value="${M.acctAPR||''}" placeholder="e.g. 22.99" /></div>
-        <div class="fg"><label class="fl">Min. Payment</label><input class="fi mono" id="mAcctMinPay" type="number" step="0.01" value="${M.acctMinPay||''}" placeholder="e.g. 25.00" /></div>
+        <div class="fg">
+          <label class="fl" for="mAcctAPR">APR (%)</label>
+          <input class="fi mono" id="mAcctAPR" type="number" step="0.01" value="${M.acctAPR||''}" placeholder="e.g. 22.99" />
+        </div>
+        <div class="fg">
+          <label class="fl" for="mAcctMinPay">Min. Payment</label>
+          <input class="fi mono" id="mAcctMinPay" type="number" step="0.01" value="${M.acctMinPay||''}" placeholder="e.g. 25.00" />
+        </div>
       </div>`:''}
-      <div class="fg"><label class="fl">${M.acctEditId?'Opening Balance':'Current Balance'}</label><input class="fi mono" id="mAcctBal" type="number" value="${M.acctBal}" placeholder="0.00" /><div class="hint">${M.acctEditId?'Adjusts the opening balance transaction for this account.':'Posted as an opening balance transaction.'}</div></div>
-      <div class="fg"><label class="fl">Color</label><div class="color-row">${swatches}</div></div>`;
+      <div class="fg">
+        <label class="fl" for="mAcctBal">${M.acctEditId?'Opening Balance':'Current Balance'}</label>
+        <input class="fi mono" id="mAcctBal" type="number" value="${M.acctBal}" placeholder="0.00" />
+        <div class="hint">${M.acctEditId?'Adjusts the opening balance transaction for this account.':'Posted as an opening balance transaction.'}</div>
+      </div>
+      <div class="fg">
+        <label class="fl">Color</label>
+        <div class="color-row">${swatches}</div>
+      </div>`;
 
   } else if(isBkt){
     // Single bucket edit (existing bucket)
@@ -7396,32 +7401,103 @@ function renderModal(){
     let contribPreview='';
     if(isSink&&M.bktBudget){const mn=parseFloat(M.bktBudget)||0;const per=M.bktContrib==='weekly'?+(mn/4.33).toFixed(2):M.bktContrib==='biweekly'?+(mn/2).toFixed(2):mn;contribPreview=`<div class="contrib-preview">💡 Put aside <strong>${$f(per)}</strong> per ${M.bktContrib==='weekly'?'week':M.bktContrib==='biweekly'?'paycheck':'month'}</div>`;}
     body=`
-      <div class="fg"><label class="fl">Bucket Name</label><input class="fi" id="mBktName" value="${esc(M.bktName)}" placeholder="e.g. Rent, Groceries..." /></div>
-      <div class="fg"><label class="fl">Category</label><select class="fi" id="mBktCat" onchange="M.bktCat=this.value">${catOpts}</select></div>
-      <div class="fg"><label class="fl">Type</label><select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()"><option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option><option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — savings goal</option><option value="goal"${M.bktType==='goal'?' selected':''}>Goal — long-term target</option></select></div>
-      <div class="fi-row">
-        <div class="fg"><label class="fl">${isSink?'Monthly Target':'Budget Target'}</label><input class="fi" id="mBktBudget" type="number" value="${M.bktBudget}" placeholder="0.00" /></div>
-        <div class="fg"><label class="fl">Due Day <button type="button" style="font-size:10px;background:none;border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer;color:${M.bktSplit?'var(--accent)':'var(--text3)'};margin-left:4px" onclick="M.bktSplit=!M.bktSplit;MsnapBkt();renderModal()">${M.bktSplit?'Split ✓':'Split'}</button></label><select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select></div>
+      <div class="fg">
+        <label class="fl" for="mBktName">Bucket Name</label>
+        <input class="fi" id="mBktName" value="${esc(M.bktName)}" placeholder="e.g. Rent, Groceries..." />
       </div>
-      ${M.bktSplit?`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
-        <div class="c-accent" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Split Payment Schedule</div>
-        <div class="fi-row" style="margin-bottom:8px">
-          <div class="fg"><label class="fl">1st Due Day</label><select class="fi" id="mBktDue" style="margin:0">${dueOptsHtml(M.bktDueDay)}</select></div>
-          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt1" type="number" value="${M.bktDueAmount}" placeholder="0.00" style="margin:0" oninput="MsyncSplitTotal()" /></div>
+      <div class="fg">
+        <label class="fl" for="mBktCat">Category</label>
+        <select class="fi" id="mBktCat" onchange="M.bktCat=this.value">${catOpts}</select>
+      </div>
+      <div class="fg">
+        <label class="fl" for="mBktType">Type</label>
+        <select class="fi" id="mBktType" onchange="M.bktType=this.value;MsnapBkt();renderModal()">
+          <option value="regular"${M.bktType==='regular'?' selected':''}>Regular — monthly expense</option>
+          <option value="sinking"${M.bktType==='sinking'?' selected':''}>Sinking Fund — save toward a goal</option>
+          <option value="goal"${M.bktType==='goal'?' selected':''}>Goal — long-term target</option>
+        </select>
+      </div>
+      <div class="fi-row">
+        <div class="fg">
+          <label class="fl" for="mBktBudget">${isSink?'Monthly Target':'Budget Target'}</label>
+          <input class="fi mono" id="mBktBudget" type="number" value="${M.bktBudget}" placeholder="0.00" />
         </div>
-        <div class="fi-row" style="margin-bottom:8px">
-          <div class="fg"><label class="fl">2nd Due Day</label><select class="fi" id="mBktDue2" style="margin:0">${dueOptsHtml(M.bktDueDay2)}</select></div>
-          <div class="fg"><label class="fl">Amount</label><input class="fi" id="mBktAmt2" type="number" value="${M.bktDueAmount2}" placeholder="0.00" style="margin:0" oninput="MsyncSplitTotal()" /></div>
+        ${!M.bktSplit?`<div class="fg">
+          <label class="fl" for="mBktDue">Due Day</label>
+          <select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select>
+        </div>`:''}
+      </div>
+      <div class="fg">
+        <label class="fl">Split Payment <span class="c-text3" style="text-transform:none;font-weight:400;letter-spacing:0">— two due dates per month</span></label>
+        <div class="tog-row" style="max-width:140px">
+          <button type="button" class="togbtn${M.bktSplit?' on':''}" onclick="M.bktSplit=true;MsnapBkt();renderModal()">On</button>
+          <button type="button" class="togbtn${!M.bktSplit?' on':''}" onclick="M.bktSplit=false;MsnapBkt();renderModal()">Off</button>
         </div>
-        <div id="splitTotalMsg" class="c-green" style="font-size:12px;font-family:var(--mono);padding:2px 0 0">${(parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0)>0?'Total: '+$f((parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0))+' → synced to budget target':''}</div>
+      </div>
+      ${M.bktSplit?`<div class="split-panel">
+        <div class="split-panel-title">Payment 1</div>
+        <div class="fi-row" style="margin-bottom:12px">
+          <div class="fg">
+            <label class="fl" for="mBktDue">Due Day</label>
+            <select class="fi" id="mBktDue">${dueOptsHtml(M.bktDueDay)}</select>
+          </div>
+          <div class="fg">
+            <label class="fl" for="mBktAmt1">Amount</label>
+            <input class="fi mono" id="mBktAmt1" type="number" value="${M.bktDueAmount}" placeholder="0.00" oninput="MsyncSplitTotal()" />
+          </div>
+        </div>
+        <div class="split-panel-title">Payment 2</div>
+        <div class="fi-row" style="margin-bottom:8px">
+          <div class="fg">
+            <label class="fl" for="mBktDue2">Due Day</label>
+            <select class="fi" id="mBktDue2">${dueOptsHtml(M.bktDueDay2)}</select>
+          </div>
+          <div class="fg">
+            <label class="fl" for="mBktAmt2">Amount</label>
+            <input class="fi mono" id="mBktAmt2" type="number" value="${M.bktDueAmount2}" placeholder="0.00" oninput="MsyncSplitTotal()" />
+          </div>
+        </div>
+        <div id="splitTotalMsg" class="c-green" style="font-size:12px;font-family:var(--mono)">${(parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0)>0?'Total: '+$f((parseFloat(M.bktDueAmount)||0)+(parseFloat(M.bktDueAmount2)||0))+' → synced to budget':''}</div>
       </div>`:''}
       <div class="fi-row">
-        <div class="fg"><label class="fl">Recurring</label><div class="tog-row"><button class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button></div></div>
-        <div class="fg"><label class="fl">Roll Over</label><div class="tog-row"><button class="togbtn${M.bktRollover?' on':''}" onclick="M.bktRollover=true;MsnapBkt();renderModal()">Yes</button><button class="togbtn${!M.bktRollover?' on':''}" onclick="M.bktRollover=false;MsnapBkt();renderModal()">No</button></div></div>
+        <div class="fg">
+          <label class="fl">Recurring</label>
+          <div class="tog-row">
+            <button type="button" class="togbtn${M.bktRecurring?' on':''}" onclick="M.bktRecurring=true;MsnapBkt();renderModal()">Yes</button>
+            <button type="button" class="togbtn${!M.bktRecurring?' on':''}" onclick="M.bktRecurring=false;MsnapBkt();renderModal()">No</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">Roll Over</label>
+          <div class="tog-row">
+            <button type="button" class="togbtn${M.bktRollover?' on':''}" onclick="M.bktRollover=true;MsnapBkt();renderModal()">Yes</button>
+            <button type="button" class="togbtn${!M.bktRollover?' on':''}" onclick="M.bktRollover=false;MsnapBkt();renderModal()">No</button>
+          </div>
+        </div>
       </div>
-      ${hasSinkFields?`<div class="fi-row"><div class="fg"><label class="fl">${isGoal?'Goal Target':'Goal Amount'}</label><input class="fi" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" /></div><div class="fg"><label class="fl">Target Date</label><input class="fi" id="mBktDate" type="month" value="${M.bktDate}" /></div></div>`:''}
-      ${isSink?`<div class="fg"><label class="fl">Frequency</label><select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()"><option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option><option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month</option><option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option></select>${contribPreview}</div>`:''}
-      <div class="fg"><label class="fl">Notes <span class="c-text3" style="font-weight:400">(optional)</span></label><textarea class="fi" id="mBktNotes" rows="2" placeholder="Remind yourself of anything useful..." style="resize:vertical;min-height:56px;font-family:var(--sans)">${esc(M.bktNotes)}</textarea></div>`;
+      ${hasSinkFields?`<div class="fi-row">
+        <div class="fg">
+          <label class="fl" for="mBktGoal">${isGoal?'Goal Target':'Goal Amount'}</label>
+          <input class="fi mono" id="mBktGoal" type="number" value="${M.bktGoal}" placeholder="0.00" />
+        </div>
+        <div class="fg">
+          <label class="fl" for="mBktDate">Target Date</label>
+          <input class="fi" id="mBktDate" type="month" value="${M.bktDate}" />
+        </div>
+      </div>`:''}
+      ${isSink?`<div class="fg">
+        <label class="fl" for="mBktContrib">Contribution Frequency</label>
+        <select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()">
+          <option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option>
+          <option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month (per paycheck)</option>
+          <option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option>
+        </select>
+        ${contribPreview}
+      </div>`:''}
+      <div class="fg">
+        <label class="fl" for="mBktNotes">Notes <span class="c-text3" style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <textarea class="fi" id="mBktNotes" rows="2" placeholder="Remind yourself of anything useful..." style="resize:vertical;min-height:56px;font-family:var(--sans)">${esc(M.bktNotes)}</textarea>
+      </div>`;
   } else {
     // Category + bulk bucket builder (isCat or isBuilder)
     wideModal=true;
@@ -7439,68 +7515,96 @@ function renderModal(){
 
     // Category fields
     const catSection=isCat?`
-      <div class="fg"><label class="fl">Category Name</label><input class="fi" id="mCatName" value="${esc(M.catName)}" placeholder="e.g. Housing, Food, Savings..." /></div>
-      <div class="fg"><label class="fl">Color</label><div class="color-row">${swatches}</div></div>
-      <div class="c-blue" style="margin-top:12px;padding:10px 14px;background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);font-size:12px">
-        💡 After saving the category name and color, switch to the <strong>Buckets</strong> tab to add buckets in bulk.
+      <div class="fg">
+        <label class="fl" for="mCatName">Category Name</label>
+        <input class="fi" id="mCatName" value="${esc(M.catName)}" placeholder="e.g. Housing, Food, Savings..." />
       </div>
+      <div class="fg">
+        <label class="fl">Color</label>
+        <div class="color-row">${swatches}</div>
+      </div>
+      ${!M.catEditId?`<div class="c-blue" style="margin-top:4px;padding:10px 14px;background:var(--bbg);border:1px solid var(--bb);border-radius:var(--r);font-size:12px">
+        💡 After saving the category, switch to the <strong>Buckets</strong> tab to add buckets.
+      </div>`:''}
     `:'';
 
-    // Bucket builder rows
+    // Bucket builder rows — card layout (fits in the right sheet at any width)
     const builderSection=(isCat&&M.catEditId)||isBuilder?`
-      <div class="brow-hdrs">
-        <div class="brow-col-hdr">Bucket Name</div>
-        <div class="brow-col-hdr">Type</div>
-        <div class="brow-col-hdr">Budget</div>
-        <div class="brow-col-hdr">Due Day</div>
-        <div class="brow-col-hdr" style="text-align:center">↻</div>
-        <div class="brow-col-hdr" style="text-align:center">Roll</div>
-        <div></div>
-      </div>
       <div class="bbuilder" id="builderList">
         ${(M.buckets||[]).map((row,i)=>{
-          const isSink=row.type==='sinking';
+          const isSink=row.type==='sinking'||row.type==='goal';
           const contribTipHtml=isSink&&row.budget?contribTip(row):'';
-          return `<div class="brow-builder">
-            <div class="brow-main">
-              <input class="brow-input" id="br_name_${i}" value="${esc(row.name)}" placeholder="Bucket name..." />
-              <select class="brow-select" id="br_type_${i}" onchange="MrowTypeChange(${i},this.value)">
-                <option value="regular"${row.type==='regular'?' selected':''}>Regular</option>
-                <option value="sinking"${row.type==='sinking'?' selected':''}>Sinking</option>
-              </select>
-              <input class="brow-input mono" id="br_budget_${i}" type="number" value="${row.budget}" placeholder="0.00" min="0" step="1" />
-              <select class="brow-select" id="br_due_${i}">${dueOptsHtml(row.dueDay)}</select>
-              <div class="brow-toggle" onclick="MtoggleRecurring(${i})">
-                <div class="brow-toggle-btn${row.recurring?' on':''}"></div>
-              </div>
-              <div class="brow-toggle" onclick="MtoggleRollover(${i})">
-                <div class="brow-toggle-btn${row.rollover?' on':''}"></div>
-              </div>
-              <button class="brow-del" onclick="MremoveRow(${i})" title="Remove">×</button>
+          return `<div class="bcard">
+            <div class="bcard-head">
+              <span class="bcard-idx">Bucket ${i+1}</span>
+              <button type="button" class="bcard-del" onclick="MremoveRow(${i})" title="Remove bucket">×</button>
             </div>
-            <div class="brow-sink-drawer${isSink?'':' hidden'}">
-              <div class="brow-field">
-                <span class="brow-field-label">Goal Amount</span>
-                <input class="brow-input mono" id="br_goal_${i}" type="number" value="${row.goal}" placeholder="0.00" />
+            <div class="bcard-fields">
+              <div class="fg">
+                <label class="fl" for="br_name_${i}">Name</label>
+                <input class="fi" id="br_name_${i}" value="${esc(row.name)}" placeholder="e.g. Rent, Groceries..." />
               </div>
-              <div class="brow-field">
-                <span class="brow-field-label">Target Date</span>
-                <input class="brow-input" id="br_gdate_${i}" type="month" value="${row.goalDate}" />
+              <div class="fi-row">
+                <div class="fg">
+                  <label class="fl" for="br_type_${i}">Type</label>
+                  <select class="fi" id="br_type_${i}" onchange="MrowTypeChange(${i},this.value)">
+                    <option value="regular"${row.type==='regular'?' selected':''}>Regular</option>
+                    <option value="sinking"${row.type==='sinking'?' selected':''}>Sinking</option>
+                    <option value="goal"${row.type==='goal'?' selected':''}>Goal</option>
+                  </select>
+                </div>
+                <div class="fg">
+                  <label class="fl" for="br_budget_${i}">Budget / Mo</label>
+                  <input class="fi mono" id="br_budget_${i}" type="number" value="${row.budget}" placeholder="0.00" min="0" step="1" />
+                </div>
               </div>
-              <div class="brow-field">
-                <span class="brow-field-label">Frequency</span>
-                <select class="brow-select" id="br_contrib_${i}" onchange="MsnapBuilder();M.buckets[${i}].contrib=this.value;renderModal()">
+              <div class="fi-row">
+                <div class="fg">
+                  <label class="fl" for="br_due_${i}">Due Day</label>
+                  <select class="fi" id="br_due_${i}">${dueOptsHtml(row.dueDay)}</select>
+                </div>
+                <div class="fg">
+                  <label class="fl">Recurring</label>
+                  <div class="tog-row">
+                    <button type="button" class="togbtn${row.recurring?' on':''}" onclick="MsnapBuilder();M.buckets[${i}].recurring=true;renderModal()">Yes</button>
+                    <button type="button" class="togbtn${!row.recurring?' on':''}" onclick="MsnapBuilder();M.buckets[${i}].recurring=false;renderModal()">No</button>
+                  </div>
+                </div>
+              </div>
+              <div class="fg">
+                <label class="fl">Roll Over</label>
+                <div class="tog-row" style="max-width:140px">
+                  <button type="button" class="togbtn${row.rollover?' on':''}" onclick="MsnapBuilder();M.buckets[${i}].rollover=true;renderModal()">Yes</button>
+                  <button type="button" class="togbtn${!row.rollover?' on':''}" onclick="MsnapBuilder();M.buckets[${i}].rollover=false;renderModal()">No</button>
+                </div>
+              </div>
+            </div>
+            ${isSink?`<div class="bcard-sink">
+              <div class="bcard-sink-title">Sinking / Goal Details</div>
+              <div class="fi-row">
+                <div class="fg">
+                  <label class="fl" for="br_goal_${i}">Goal Amount</label>
+                  <input class="fi mono" id="br_goal_${i}" type="number" value="${row.goal}" placeholder="0.00" />
+                </div>
+                <div class="fg">
+                  <label class="fl" for="br_gdate_${i}">Target Date</label>
+                  <input class="fi" id="br_gdate_${i}" type="month" value="${row.goalDate}" />
+                </div>
+              </div>
+              <div class="fg">
+                <label class="fl" for="br_contrib_${i}">Contribution Frequency</label>
+                <select class="fi" id="br_contrib_${i}" onchange="MsnapBuilder();M.buckets[${i}].contrib=this.value;renderModal()">
                   <option value="monthly"${row.contrib==='monthly'?' selected':''}>Monthly</option>
                   <option value="biweekly"${row.contrib==='biweekly'?' selected':''}>Per paycheck</option>
                   <option value="weekly"${row.contrib==='weekly'?' selected':''}>Weekly</option>
                 </select>
               </div>
               ${contribTipHtml}
-            </div>
+            </div>`:''}
           </div>`;
         }).join('')}
       </div>
-      <button class="add-bkt-btn" onclick="MaddRow()">+ Add another bucket</button>
+      <button type="button" class="add-bkt-btn" onclick="MaddRow()">+ Add another bucket</button>
     `:isCat&&!M.catEditId?'':'';
 
     body = catSection + (catSection&&builderSection?'<div style="height:16px"></div>':'') + builderSection;
