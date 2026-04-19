@@ -2256,8 +2256,7 @@ function acctBalance(aid){
 // Total liquid cash = budget + savings accounts only (excludes debt balances)
 function totalCash(){return S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);}
 function calcNetWorth(){
-  // All non-debt account balances + debt account balances (debt balances are negative)
-  return S.accounts.reduce((s,a)=>s+acctBalance(a.id),0);
+  return S.accounts.reduce((s,a)=>s+(a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)),0);
 }
 function ageOfMoney(){
   // Days = budget balance / avg daily spend over last 30 days
@@ -3703,6 +3702,8 @@ function renderBucketsTab(el,mid){
         ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average — ${$f(catAnomaly.excess)} more than usual" class="c-amber" style="font-size:10px;font-weight:700;background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;flex-shrink:0">⚠ Spike</span>`:''}
         <span class="bkt-cat-alloc-txt" style="color:${catAllocColor}">${$f(catAlloc)}<span class="c-text3" style="font-weight:400"> / ${$f(catTarget)}</span></span>
         ${!past&&catFundAmt>0?`<button class="bkt-cat-fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
+        ${!past?`<button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>`:''}
+        <button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();editCat('${cat.id}')">Edit</button>
       </div>
       ${catTarget>0?`<div class="bkt-cat-bar"><div class="bkt-cat-bar-fill" style="width:${Math.round(catAllocPct*100)}%;background:${catBarColor}"></div></div>`:''}
       <div class="bkt-card-grid">`;
