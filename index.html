@@ -5282,21 +5282,23 @@ function wiRunProjector(){
       }
       if(bAmt<=0)return;
       const catColor=S.cats.find(c=>c.id===b.catId)?.color||null;
+      const bType=b.type||'regular';
+      const bRoll=!!b.rollover;
       if(b.dueDay){
         if(b.dueDay2){
           const pay2=b.dueAmount2||bAmt/2;
           const pay1=b.dueAmount||(bAmt-pay2);
           const ds1=dStr(b.dueDay);
-          if(ds1>=startStr&&ds1<=endStr)outflows.push({date:ds1,desc:b.name+' (1/2)',amount:pay1,src:'bucket',catColor});
+          if(ds1>=startStr&&ds1<=endStr)outflows.push({date:ds1,desc:b.name+' (1/2)',amount:pay1,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
           const ds2=dStr(b.dueDay2);
-          if(ds2>=startStr&&ds2<=endStr)outflows.push({date:ds2,desc:b.name+' (2/2)',amount:pay2,src:'bucket',catColor});
+          if(ds2>=startStr&&ds2<=endStr)outflows.push({date:ds2,desc:b.name+' (2/2)',amount:pay2,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
         } else {
           const ds=dStr(b.dueDay);
-          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket',catColor});
+          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
         }
       } else {
         const ds=dStr(1);
-        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor});
+        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor,bktType:bType,bktRollover:bRoll});
       }
     });
     // Debt minimum payments — auto-add if not covered by a same-named bucket
@@ -5373,6 +5375,9 @@ function wiRunProjector(){
   let running=startBal;
   const totalIncome=payEvents.reduce((s,p)=>s+p.amount,0);
   const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
+  const isSavingsFlow=o=>o.bktType==='sinking'||o.bktType==='goal'||o.bktRollover;
+  const totalSavings=outflows.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
+  const totalExpenses=totalSpend-totalSavings;
 
   const scenarioBanner=scenario
     ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px"><span class="c-accent" style="font-weight:700">⚡ What If:</span><span class="c-text">${esc(scenario.name)}</span><span class="c-text3" style="font-size:11px">— bucket amounts from this scenario</span></div>`:'';
@@ -5385,19 +5390,24 @@ function wiRunProjector(){
 
   let html=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
     ${scenarioBanner}${curMoNote}${undatedWarning}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:14px">
       <div style="background:var(--surface);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Starting Cash</div>
         <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:${startBal>=0?'var(--green)':'var(--red)'}">${$f(startBal)}</div>
       </div>
       <div style="background:var(--surface);padding:9px 12px">
-        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Total Paychecks</div>
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Paychecks</div>
         <div class="c-green" style="font-family:var(--mono);font-size:15px;font-weight:600">+${$f(totalIncome)}</div>
       </div>
       <div style="background:var(--surface);padding:9px 12px">
-        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Total Bills</div>
-        <div class="c-red" style="font-family:var(--mono);font-size:15px;font-weight:600">-${$f(totalSpend)}</div>
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Expenses</div>
+        <div class="c-red" style="font-family:var(--mono);font-size:15px;font-weight:600">-${$f(totalExpenses)}</div>
       </div>
+      ${totalSavings>0?`<div style="background:var(--surface);padding:9px 12px">
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Savings</div>
+        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent)">↗ ${$f(totalSavings)}</div>
+        <div class="c-text3" style="font-size:10px">set aside</div>
+      </div>`:''}
       <div style="background:var(--surface2);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Projected End</div>
         <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:${(startBal+totalIncome-totalSpend)>=startBal?'var(--green)':'var(--red)'}">${$f(startBal+totalIncome-totalSpend)}</div>
@@ -5413,6 +5423,8 @@ function wiRunProjector(){
     const pOut=outflows.filter(o=>o.date>=p.start&&o.date<=p.end);
     const pInAmt=pPay.reduce((s,e)=>s+e.amount,0);
     const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0);
+    const pSavingsAmt=pOut.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
+    const pExpensesAmt=pOutAmt-pSavingsAmt;
     const periodStartBal=running;
     running=periodEndBals[pIdx];
     cumulativeOut+=pOutAmt;
@@ -5424,9 +5436,12 @@ function wiRunProjector(){
     const dotChar=minFwd>=amberThresh?'🟢':safeToSpend>0?'🟡':'🔴';
     const safeColor=minFwd>=amberThresh?'var(--green)':safeToSpend>0?'var(--amber)':'var(--red)';
 
-    // Period net: income received minus bills paid this period (positive = surplus, negative = shortfall)
+    // Period net: income received minus all outflows
     const periodNet=pInAmt-pOutAmt;
     const netColor=periodNet>=0?'var(--green)':'var(--red)';
+    // Weekly RTS: spending budget per week this period (income minus bills and savings)
+    const periodDays=Math.max(1,Math.round((new Date(p.end+'T12:00:00')-new Date(p.start+'T12:00:00'))/(1000*60*60*24))+1);
+    const weeklyRTS=Math.max(0,periodNet)/(periodDays/7);
 
     // Period title
     const pId='p'+pIdx;
@@ -5455,11 +5470,13 @@ function wiRunProjector(){
           </div>`;
         } else {
           dayRunning-=ev.amount;
-          const badge=ev.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
+          const isSav=isSavingsFlow(ev);
+          const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">saving</span>`:ev.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
+          const dotIcon=isSav?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`:`<span style="width:10px;height:10px;border-radius:50%;background:${ev.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
           dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">
-            <span style="width:10px;height:10px;border-radius:50%;background:${ev.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>
+            ${dotIcon}
             <span style="flex:1;font-size:13px">${esc(ev.desc)}${badge}</span>
-            <span class="c-red" style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right">-${$f(ev.amount)}</span>
+            <span style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right;color:${isSav?'var(--accent)':'var(--red)'}">-${$f(ev.amount)}</span>
           </div>`;
         }
         dayHtml+=`<div style="display:flex;justify-content:flex-end;padding:1px 0 2px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:10px;color:${dayRunning>=0?'var(--text3)':'var(--red)'}">bal ${$f(dayRunning)}</span></div>`;
@@ -5479,22 +5496,33 @@ function wiRunProjector(){
           <div class="c-text3" style="font-size:11px;margin-top:1px">${pStartFmt}${pEndFmt?' → '+pEndFmt:''}</div>
         </div>
         ${pInAmt?`<span class="c-green" style="font-size:12px;font-family:var(--mono)">+${$f(pInAmt)}</span>`:''}
-        ${pOutAmt?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pOutAmt)}</span>`:''}
+        ${pExpensesAmt>0?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pExpensesAmt)}</span>`:''}
+        ${pSavingsAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent)">↗${$f(pSavingsAmt)}</span>`:''}
         <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
         <span id="pwt_${pId}" class="c-text3" style="font-size:11px;width:12px;flex-shrink:0;text-align:center">${autoOpen?'▼':'▶'}</span>
       </div>
       <div id="pwb_${pId}" style="padding:8px 16px 14px;display:${autoOpen?'block':'none'}">
         ${dayHtml}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
           <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Safe to Spend</div>
-            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${safeColor}">${$f(Math.max(0,safeToSpend))}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">above ${$f(cushionFloor)} cushion</div>
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Expenses</div>
+            <div class="c-red" style="font-family:var(--mono);font-size:16px;font-weight:700">${pExpensesAmt>0?'-'+$f(pExpensesAmt):'—'}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">fixed bills this period</div>
+          </div>
+          ${pSavingsAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Savings</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent)">↗ ${$f(pSavingsAmt)}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">set aside this period</div>
+          </div>`:''}
+          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Weekly Allowance</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${weeklyRTS>0?'var(--green)':'var(--text3)'}">${weeklyRTS>0?$f(Math.round(weeklyRTS)):'—'}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">per week after bills & saving</div>
           </div>
           <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Period Net</div>
-            <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${netColor}">${periodNet>=0?'+':''}${$f(periodNet)}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">income minus bills this period</div>
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Safe to Spend</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${safeColor}">${$f(Math.max(0,safeToSpend))}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">above ${$f(cushionFloor)} cushion</div>
           </div>
         </div>
       </div>
@@ -5503,10 +5531,11 @@ function wiRunProjector(){
 
   const endColor=running>=startBal?'var(--green)':'var(--red)';
   html+=`<div style="display:flex;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:2px solid var(--border);margin-top:4px;flex-wrap:wrap">
-    <span class="c-text3">Total in: <strong class="c-green">${$f(totalIncome)}</strong></span>
-    <span class="c-text3">Total out: <strong class="c-red">${$f(totalSpend)}</strong></span>
+    <span class="c-text3">In: <strong class="c-green">+${$f(totalIncome)}</strong></span>
+    <span class="c-text3">Expenses: <strong class="c-red">-${$f(totalExpenses)}</strong></span>
+    ${totalSavings>0?`<span class="c-text3">Savings: <strong style="color:var(--accent)">↗${$f(totalSavings)}</strong></span>`:''}
     ${shortfallCount?`<span class="c-red" style="font-weight:700">⚠ ${shortfallCount} shortfall period${shortfallCount!==1?'s':''}</span>`:'<span class="c-green">✓ No shortfalls</span>'}
-    <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End balance: ${$f(running)}</span>
+    <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End: ${$f(running)}</span>
   </div></div>`;
 
   // ── Savings Growth Table (Paycheck 1.0 enhanced) ──────────────────────────
