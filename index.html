@@ -1125,41 +1125,54 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 /* ═══ WI 2.0 ═══ */
 .wi-panel{display:none!important;}
-.wi-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
-.wi-overlay.hidden{display:none;}
-.wi-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);width:100%;max-width:1100px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,0.6);display:flex;flex-direction:column;}
-.wi-modal-inner{padding:24px;display:flex;flex-direction:column;gap:20px;}
-.wi-two-col{display:grid;grid-template-columns:1fr;gap:20px;}
-@media(min-width:1100px){.wi-two-col{grid-template-columns:55fr 45fr;}}
-@media(max-width:1099px){.wi-overlay{padding:0;}.wi-modal{max-width:100%;max-height:100vh;border-radius:0;}}
-.wi-hdr{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--abg);}
-.wi-name-inp{background:none;border:none;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--amber);flex:1;outline:none;border-bottom:1px dashed var(--ab);padding:1px 2px;}
-.wi-chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:2px 8px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;}
+/* ─── What If panel (rsheet-based) ──────────────────── */
+.wi-section{padding:14px 20px;border-bottom:1px solid var(--border);}
+.wi-field-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;}
+.wi-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:12px 20px 4px;}
+.wi-chips-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.wi-chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;padding:3px 10px;font-size:11px;color:var(--text2);cursor:pointer;transition:all .12s;}
 .wi-chip:hover{border-color:var(--accent);color:var(--accent);}
-.wi-chip-x{color:var(--text3);font-size:12px;line-height:1;padding:0 1px;cursor:pointer;}
+.wi-chip-x{color:var(--text3);font-size:12px;line-height:1;padding:0 2px;}
 .wi-chip-x:hover{color:var(--red);}
-.wi-body{display:grid;grid-template-columns:auto 1fr;gap:0;}
-.wi-left{padding:12px 16px;border-right:1px solid var(--border);min-width:260px;}
-.wi-right{overflow-x:auto;}
-.wi-income-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);}
-.wi-s-inp{padding:4px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:13px;color:var(--text);text-align:right;width:96px;outline:none;}
+.wi-income-row{display:flex;align-items:center;gap:10px;}
+.wi-pills{display:flex;gap:8px;flex:1;}
+.wi-pill{flex:1;text-align:center;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 8px;}
+.wi-pill-label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;}
+.wi-pill-val{font-family:var(--mono);font-size:13px;font-weight:600;}
+.wi-s-inp{padding:6px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:14px;color:var(--text);text-align:right;width:96px;outline:none;flex-shrink:0;}
 .wi-s-inp:focus{border-color:var(--amber);}
-.wi-cat-hdr{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:6px 0 4px;cursor:pointer;display:flex;align-items:center;gap:5px;}
-.wi-cat-arrow{font-size:10px;transition:transform .15s;}
+.wi-cat-hdr{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);padding:8px 20px 6px;cursor:pointer;display:flex;align-items:center;gap:6px;background:var(--bg);border-top:1px solid var(--border);}
+.wi-cat-arrow{font-size:9px;transition:transform .15s;}
 .wi-cat-arrow.open{transform:rotate(90deg);}
-.wi-bkt-row{display:flex;align-items:center;gap:8px;padding:3px 0;}
-.wi-bkt-label{flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wi-diff{font-size:10px;font-family:var(--mono);padding:1px 4px;border-radius:3px;flex-shrink:0;}
+.wi-bkt-row{display:flex;align-items:center;gap:6px;padding:7px 20px;border-bottom:1px solid var(--border2);}
+.wi-bkt-row.inactive{opacity:.38;}
+.wi-bkt-label{flex:1;font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wi-diff{font-size:10px;font-family:var(--mono);padding:1px 5px;border-radius:3px;flex-shrink:0;}
 .wi-diff.pos{background:var(--gbg);color:var(--green);}
 .wi-diff.neg{background:var(--rbg);color:var(--red);}
-.wi-proj-table{width:100%;border-collapse:collapse;font-size:12px;min-width:480px;}
-.wi-proj-table th{padding:8px 12px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
-.wi-proj-table td{padding:7px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);}
-.wi-proj-table tr.surplus td{color:var(--green);}
-.wi-proj-table tr.deficit td{color:var(--red);}
-.wi-proj-table td:first-child{font-family:var(--sans);color:var(--text2);}
-.wi-proj-inp{background:var(--surface2);border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--text);padding:2px 5px;width:82px;outline:none;}
+.wi-sched-btn{background:none;border:1px solid var(--border);border-radius:4px;font-size:11px;padding:2px 5px;cursor:pointer;color:var(--text3);transition:all .12s;flex-shrink:0;line-height:1;}
+.wi-sched-btn:hover,.wi-sched-btn.active{border-color:var(--amber);color:var(--amber);background:var(--abg);}
+.wi-sched-row{display:none;flex-wrap:wrap;gap:10px;padding:8px 20px 10px;background:var(--bg3);border-bottom:1px solid var(--border);}
+.wi-sched-field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px;}
+.wi-sched-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
+.wi-outlook-hdr{display:grid;grid-template-columns:1fr 88px 72px 88px;gap:4px;padding:4px 20px 6px;border-top:1px solid var(--border);}
+.wi-outlook-hdr>span{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);}
+.wi-outlook-hdr>span:not(:first-child){text-align:right;}
+.wi-outlook-row{display:grid;grid-template-columns:1fr 88px 72px 88px;gap:4px;padding:5px 20px;border-bottom:1px solid var(--border2);align-items:center;}
+.wi-outlook-month{font-size:12px;color:var(--text2);}
+.wi-outlook-inc{display:flex;align-items:center;justify-content:flex-end;gap:2px;}
+.wi-outlook-surp,.wi-outlook-cum{font-family:var(--mono);font-size:12px;text-align:right;}
+.wi-outlook-surp.pos,.wi-outlook-cum.pos{color:var(--green);}
+.wi-outlook-surp.neg,.wi-outlook-cum.neg{color:var(--red);}
+.wi-proj-inp{background:var(--surface2);border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--text);padding:3px 5px;width:78px;outline:none;text-align:right;}
 .wi-proj-inp:focus{border-color:var(--amber);}
+.wi-debt-list{padding:0 20px 4px;}
+.wi-debt-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.wi-debt-row:last-child{border-bottom:none;}
+.wi-debt-name{font-size:13px;color:var(--text);font-weight:500;flex-shrink:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wi-debt-amt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--red);}
+.wi-debt-freed{font-size:11px;color:var(--green);font-family:var(--mono);text-align:right;flex-shrink:0;}
+
 
 /* ═══ SETTINGS MODAL ═══ */
 .settings-section{margin-bottom:20px;}
@@ -1517,9 +1530,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 <!-- WI STRIP -->
 <div class="strip wi hidden" id="wiStrip">
-  ⚡ Scenario mode — adjustments won't affect real data
-  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="promoteScenario()">Promote to template</button>
-  <button class="tbtn" style="font-size:11px;padding:3px 9px;" onclick="exitWI()">Exit</button>
+  ⚡ Scenario mode — changes won't affect real data
+  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="toggleWI()">Open Panel</button>
 </div>
 
 <!-- APP -->
@@ -1628,12 +1640,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <div class="rs-foot" id="rsFoot"></div>
 </div>
 
-<!-- WI OVERLAY -->
-<div id="wiOverlay" class="wi-overlay hidden">
-  <div class="wi-modal">
-    <div class="wi-modal-inner" id="wiModalInner"></div>
-  </div>
-</div>
 
 <!-- ONBOARDING WIZARD -->
 <div class="wizard-overlay hidden" id="wizardOverlay">
@@ -1902,7 +1908,6 @@ async function signOut(){
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
-  document.getElementById('wiOverlay')?.classList.add('hidden');
   document.getElementById('wiStrip')?.classList.add('hidden');
   updateAuthBtn();
   setSyncStatus('offline','Not signed in');
@@ -4741,29 +4746,37 @@ function delTx(id){
 // ═══════════════════════════════════════════════════════
 function uid(){return '_'+Math.random().toString(36).slice(2,9);}
 
+let _wiSchedExpanded=new Set();
+
 function toggleWI(){
   if(S.wiOpen){exitWI();return;}
   S.wiOpen=true;S.scenario=true;
+  _wiSchedExpanded.clear();
   const mid=S.activeMonth;
   const budgets={};
   S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=bBudget(mid,b.id);});
   S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
-  if(isMobile()){
-    openModal('__wi__');
-  } else {
-    document.getElementById('wiStrip').classList.remove('hidden');
-    document.getElementById('wiOverlay').classList.remove('hidden');
-    const wiBtn=document.getElementById('wiBtnTop');if(wiBtn)wiBtn.classList.add('on');
-    renderWI();
-  }
+  document.getElementById('wiStrip').classList.remove('hidden');
+  const wiBtn=document.getElementById('wiBtnTop');if(wiBtn)wiBtn.classList.add('on');
+  renderWI();
 }
 
 function renderWI(){
-  const inner=document.getElementById('wiModalInner');
-  if(!inner)return;
-  const st=inner.scrollTop;
-  inner.innerHTML=_wiPanelHTML();
-  inner.scrollTop=st;
+  if(!S.wiScenario)return;
+  const foot=`
+    <button type="button" class="tbtn c-accent" style="padding:6px 12px;font-size:12px" onclick="wiShowProjector()">📅 Projector</button>
+    <span style="flex:1"></span>
+    <button type="button" class="btn-cancel" onclick="exitWI()">Exit</button>
+    <button type="button" class="btn-save" onclick="promoteScenario()">Promote</button>`;
+  openRSheet('⚡ What If',_wiPanelHTML(),foot);
+}
+
+function wiToggleSched(bid){
+  if(_wiSchedExpanded.has(bid)){_wiSchedExpanded.delete(bid);}else{_wiSchedExpanded.add(bid);}
+  const el=document.getElementById('wi_sched_'+bid);
+  if(el)el.style.display=_wiSchedExpanded.has(bid)?'flex':'none';
+  const btn=el?.previousElementSibling?.querySelector('.wi-sched-btn');
+  if(btn)btn.classList.toggle('active',_wiSchedExpanded.has(bid));
 }
 
 function _wiPanelHTML(){
@@ -4779,113 +4792,132 @@ function _wiPanelHTML(){
   const scSurplus=piSc-scAlloc;
   const surplusColor=scSurplus>0?'var(--green)':scSurplus<0?'var(--red)':'var(--text3)';
   const chips=(S.scenarios||[]).map(s=>`<span class="wi-chip" onclick="loadScenario('${s.id}')">${esc(s.name)}<span class="wi-chip-x" onclick="event.stopPropagation();deleteScenario('${s.id}')">×</span></span>`).join('');
-  // Next 13 months for schedule selects
   const nextMonths=[];
   {const d=new Date();let ny=d.getFullYear(),nm=d.getMonth();
    for(let i=0;i<13;i++){nextMonths.push({id:mId(ny,nm),label:mLabel(ny,nm)});nm++;if(nm>11){nm=0;ny++;}}}
 
-  // Header
-  let h=`<div class="wi-hdr">
-    <input class="wi-name-inp" id="wiNameInp" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
-    <button class="tbtn c-amber" style="font-size:11px;padding:3px 9px;border-" onclick="saveScenario()">Save</button>
-    <button class="tbtn c-green" style="font-size:11px;padding:3px 9px;border-" onclick="newWIScenario()" title="Branch into a new separate scenario">+ New</button>
-    ${chips}
-    <button class="tbtn c-accent" style="font-size:11px;padding:3px 9px;border-" onclick="wiShowProjector()">📅 Paycheck Projector</button>
-    <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto" onclick="exitWI()">× Exit</button>
-  </div>
-  <div class="wi-two-col">
-    <div>`;
+  let h='';
 
-  // Left col: income + summary + bucket adjustments
-  h+=`<div class="wi-income-row">
-    <span class="c-text3" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;flex:1">Proj. Income (${getMonth(mid)?.label||''})</span>
-    <input class="wi-s-inp" type="text" inputmode="decimal" value="${piSc||''}" placeholder="0"
-      title="Math: +50, -20, *1.05, 5% of income, =100+50"
-      onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${mid}']??${piReal};var val=evalMoneyExpr(inp.value,cur,cur);inp.value=val;S.wiScenario.incomeOverrides['${mid}']=val;renderWI();})(this)"
-      onkeydown="if(event.key==='Enter')this.blur()" />
-  </div>
-  <div style="display:flex;gap:12px;font-size:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
-    <span class="c-text3">Allocated: <strong class="c-text">${$f(scAlloc)}</strong></span>
-    <span style="color:${surplusColor}">${scSurplus>=0?'Surplus +':'Deficit '}${$f(Math.abs(scSurplus))}</span>
+  // ── Scenario management ───────────────────────────────
+  h+=`<div class="wi-section">
+    <div class="wi-field-label">Scenario Name</div>
+    <div style="display:flex;gap:8px">
+      <input class="fi" id="wiNameInp" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value"
+        style="flex:1;font-family:var(--sans)" placeholder="Name this scenario..." />
+      <button type="button" class="tbtn c-amber" onclick="saveScenario()">Save</button>
+      <button type="button" class="tbtn c-green" onclick="newWIScenario()" title="Branch into a new scenario">+ New</button>
+    </div>
+    ${chips?`<div class="wi-chips-row">${chips}</div>`:''}
   </div>`;
 
+  // ── Income + summary pills ────────────────────────────
+  h+=`<div class="wi-section">
+    <div class="wi-field-label">Projected Income — ${getMonth(mid)?.label||''}</div>
+    <div class="wi-income-row">
+      <input class="wi-s-inp" type="text" inputmode="decimal" value="${piSc||''}" placeholder="0"
+        title="Tip: +500, *1.1, or =4200"
+        onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${mid}']??${piReal};var val=evalMoneyExpr(inp.value,cur,cur);inp.value=val;S.wiScenario.incomeOverrides['${mid}']=val;renderWI();})(this)"
+        onkeydown="if(event.key==='Enter')this.blur()" />
+      <div class="wi-pills">
+        <div class="wi-pill">
+          <div class="wi-pill-label">Allocated</div>
+          <div class="wi-pill-val">${$f(scAlloc)}</div>
+        </div>
+        <div class="wi-pill" style="color:${surplusColor}">
+          <div class="wi-pill-label">${scSurplus>=0?'Surplus':'Deficit'}</div>
+          <div class="wi-pill-val">${scSurplus>=0?'+':''}${$f(scSurplus)}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // ── Bucket adjustments ────────────────────────────────
+  h+=`<div class="wi-section-title">Budget Adjustments <span class="c-text3" style="text-transform:none;font-weight:400;letter-spacing:0">— tap ⏱ to schedule on/off</span></div>`;
   sortedCats().forEach(cat=>{
     const bkts=sortedBuckets(cat.id);
     if(!bkts.length)return;
     h+=`<div class="wi-cat-hdr" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.wi-cat-arrow').classList.toggle('open')">
       <span class="wi-cat-arrow open">▶</span>${esc(cat.name)}
-    </div><div>`;
+    </div>
+    <div>`;
     bkts.forEach(b=>{
       const real=getMonth(mid)?.budgets[b.id]||0;
       const val=sc.budgets[b.id]!==undefined?sc.budgets[b.id]:real;
       const diff=val-real;
       const diffHtml=diff!==0?`<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${$f(diff)}</span>`:'';
       const sched=sc.bucketSchedule?.[b.id]||{};
-      const onFromSel=`<select class="c-text2" style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px" onchange="setWIBktSchedule('${b.id}','onFrom',this.value)"><option value="">Always on</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
-      const offFromSel=`<select class="c-text2" style="font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 3px" onchange="setWIBktSchedule('${b.id}','offFrom',this.value)"><option value="">Never off</option>${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}</select>`;
+      const hasSched=!!(sched.onFrom||sched.offFrom);
       const isActive=isWIBucketActive(b.id,mid);
-      h+=`<div class="wi-bkt-row" style="${isActive?'':'opacity:.45'}">
+      const expanded=_wiSchedExpanded.has(b.id);
+      const onFromSel=`<select class="fi" style="font-size:12px;padding:5px 8px" onchange="setWIBktSchedule('${b.id}','onFrom',this.value)">
+        <option value="">Always on</option>
+        ${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
+      </select>`;
+      const offFromSel=`<select class="fi" style="font-size:12px;padding:5px 8px" onchange="setWIBktSchedule('${b.id}','offFrom',this.value)">
+        <option value="">Never off</option>
+        ${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
+      </select>`;
+      h+=`<div class="wi-bkt-row${isActive?'':' inactive'}">
         <span class="wi-bkt-label">${esc(b.name)}</span>
         ${diffHtml}
-        <input class="wi-s-inp" type="text" inputmode="decimal" value="${val||''}" placeholder="0" style="width:80px"
-          title="Math: +50, -20, *1.05, 5% of income, =100+50"
+        <button type="button" class="wi-sched-btn${hasSched||expanded?' active':''}" onclick="wiToggleSched('${b.id}')" title="Schedule this bucket on/off by month">⏱</button>
+        <input class="wi-s-inp" type="text" inputmode="decimal" value="${val||''}" placeholder="0"
+          title="Tip: +50, -20, *1.05, or =0"
           onchange="(function(inp){var cur=S.wiScenario.budgets['${b.id}']??${real};var ref=S.wiScenario.incomeOverrides['${mid}']??${piReal};var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;S.wiScenario.budgets['${b.id}']=v;renderWI();})(this)"
           onkeydown="if(event.key==='Enter')this.blur()" />
       </div>
-      <div style="display:flex;gap:6px;align-items:center;padding:2px 0 6px 4px;border-bottom:1px solid var(--border2)">
-        <span class="c-text3" style="font-size:10px">On from:</span>${onFromSel}
-        <span class="c-text3" style="font-size:10px;margin-left:4px">Off from:</span>${offFromSel}
+      <div class="wi-sched-row" id="wi_sched_${b.id}" style="display:${expanded?'flex':'none'}">
+        <div class="wi-sched-field">
+          <span class="wi-sched-label">Active from</span>
+          ${onFromSel}
+        </div>
+        <div class="wi-sched-field">
+          <span class="wi-sched-label">Inactive from</span>
+          ${offFromSel}
+        </div>
       </div>`;
     });
     h+=`</div>`;
   });
 
-  h+=`</div>
-    <div>`;
-
-  // Right col: 6-month projection table
-  h+=`<table class="wi-proj-table">
-    <thead><tr>
-      <th>Month</th><th>Proj. Income</th><th>Allocated</th><th>Surplus</th><th>Cumulative</th>
-    </tr></thead><tbody>`;
-
+  // ── 6-month outlook ───────────────────────────────────
+  h+=`<div class="wi-section-title" style="margin-top:8px">6-Month Outlook</div>
+  <div class="wi-outlook-hdr">
+    <span>Month</span><span>Income</span><span>Surplus</span><span>Cumulative</span>
+  </div>`;
   const now2=new Date();let cy=now2.getFullYear(),cm=now2.getMonth();
-  let cumulative=0;
+  let cumulative=0;let hasOverride=false;
   for(let i=0;i<6;i++){
     const projMid=_ensureMonthForWI(cy,cm);
     const projM=getMonth(projMid);
     const projLabel=projM?.label||mLabel(cy,cm);
     const piRow=sc.incomeOverrides[projMid]!==undefined?sc.incomeOverrides[projMid]:(monthProjectedIncome(projMid)||0);
     const overridden=sc.incomeOverrides[projMid]!==undefined;
+    if(overridden)hasOverride=true;
     const allocRow=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{if(!isWIBucketActive(b.id,projMid))return s;return s+(sc.budgets[b.id]??bBudget(projMid,b.id));},0);
     const surpRow=piRow-allocRow;
     cumulative+=surpRow;
-    const rowCls=surpRow>=0?'surplus':'deficit';
-    h+=`<tr class="${rowCls}">
-      <td>${projLabel}</td>
-      <td><input class="wi-proj-inp" type="text" inputmode="decimal" value="${piRow||''}" placeholder="0"
-        title="Math: +50, -20, *1.05, 5% of income, =100+50"
-        onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${projMid}']??${piRow};var v=evalMoneyExpr(inp.value,cur,cur);inp.value=v;S.wiScenario.incomeOverrides['${projMid}']=v;renderWI();})(this)"
-        onkeydown="if(event.key==='Enter')this.blur()" />
-        ${overridden?'<span class="c-amber" style="font-size:10px">*</span>':''}
-      </td>
-      <td>${$f(allocRow)}</td>
-      <td>${surpRow>=0?'+':''}${$f(surpRow)}</td>
-      <td>${cumulative>=0?'+':''}${$f(cumulative)}</td>
-    </tr>`;
+    h+=`<div class="wi-outlook-row">
+      <span class="wi-outlook-month">${projLabel}</span>
+      <span class="wi-outlook-inc">
+        <input class="wi-proj-inp" type="text" inputmode="decimal" value="${piRow||''}" placeholder="0"
+          title="Override income for this month"
+          onchange="(function(inp){var cur=S.wiScenario.incomeOverrides['${projMid}']??${piRow};var v=evalMoneyExpr(inp.value,cur,cur);inp.value=v;S.wiScenario.incomeOverrides['${projMid}']=v;renderWI();})(this)"
+          onkeydown="if(event.key==='Enter')this.blur()" />
+        ${overridden?`<span class="c-amber" style="font-size:9px">●</span>`:''}
+      </span>
+      <span class="wi-outlook-surp ${surpRow>=0?'pos':'neg'}">${surpRow>=0?'+':''}${$f(surpRow)}</span>
+      <span class="wi-outlook-cum ${cumulative>=0?'pos':'neg'}">${cumulative>=0?'+':''}${$f(cumulative)}</span>
+    </div>`;
     cm++;if(cm>11){cm=0;cy++;}
   }
+  if(hasOverride)h+=`<div style="font-size:10px;color:var(--text3);padding:4px 20px">● income overridden from projected</div>`;
 
-  h+=`</tbody></table>
-    <div style="padding:8px 0 0;display:flex;gap:10px;">
-      <button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="promoteScenario()">Promote to real budgets</button>
-    </div>`;
-
-  // Debt payoff section in WI
+  // ── Debt snapshot ─────────────────────────────────────
   const debtAccts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0);
   if(debtAccts.length){
-    h+=`<div class="wi-debt-section">
-      <div class="c-red" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">💳 Debt Payoff — What If?</div>`;
+    h+=`<div class="wi-section-title" style="margin-top:8px;color:var(--red)">💳 Debt Snapshot</div>
+    <div class="wi-debt-list">`;
     debtAccts.forEach(a=>{
       const bal=acctBalance(a.id);
       const apr=a.debtAPR||0;
@@ -4896,156 +4928,39 @@ function _wiPanelHTML(){
       const payoffStr=months===Infinity?'Never':new Date(Date.now()+months*30.44*24*3600*1000).toLocaleString('default',{month:'short',year:'numeric'});
       h+=`<div class="wi-debt-row">
         <div class="wi-debt-name">${esc(a.name)}</div>
-        <div>
-          <div class="wi-debt-amt">${$f(bal)} owed</div>
-          ${apr?`<div class="c-text3" style="font-size:10px">Payoff: ${payoffStr}${interest!==Infinity?' · '+$f(interest)+' interest':''}</div>`:'<div class="c-amber" style="font-size:10px">Set APR to project</div>'}
+        <div style="flex:1">
+          <div class="wi-debt-amt">${$f(bal)}</div>
+          ${apr?`<div class="c-text3" style="font-size:10px">Payoff ${payoffStr}${interest!==Infinity?' · '+$f(interest)+' interest':''}</div>`:`<div class="c-amber" style="font-size:10px">Add APR to project payoff</div>`}
         </div>
-        <div class="wi-debt-freed">
-          <div class="c-text3" style="font-size:10px">Pay it off →</div>
-          <div style="font-size:11px;font-weight:600">+${$f(avgPay||a.debtMinPayment||0)}/mo freed</div>
-        </div>
+        <div class="wi-debt-freed">+${$f(avgPay||a.debtMinPayment||0)}/mo freed</div>
       </div>`;
     });
     h+=`</div>`;
   }
 
-  h+=`</div>
-  </div>`;
-  return h;
-}
-
-function _wiMobileHTML(){
-  const mid=S.activeMonth;
-  const sc=S.wiScenario;
-  if(!sc)return'<div class="c-text3" style="padding:20px">No active scenario</div>';
-  const piReal=monthProjectedIncome(mid)||0;
-  const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
-  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
-    if(!isWIBucketActive(b.id,mid))return s;
-    return s+(sc.budgets[b.id]??bBudget(mid,b.id));
-  },0);
-  const scSurplus=piSc-scAlloc;
-  const surplusColor=scSurplus>0?'var(--green)':scSurplus<0?'var(--red)':'var(--text3)';
-  const chips=(S.scenarios||[]).map(s=>`<span class="wi-chip" onclick="loadScenario('${s.id}')">${esc(s.name)}<span class="wi-chip-x" onclick="event.stopPropagation();deleteScenario('${s.id}')">×</span></span>`).join('');
-  // Next 13 months for schedule selects
-  const nextMonths=[];
-  {const d=new Date();let ny=d.getFullYear(),nm=d.getMonth();
-   for(let i=0;i<13;i++){nextMonths.push({id:mId(ny,nm),label:mLabel(ny,nm)});nm++;if(nm>11){nm=0;ny++;}}}
-
-  let h=`<div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--abg)">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <input class="wi-name-inp" style="flex:1;min-width:120px" value="${esc(sc.name)}" oninput="S.wiScenario.name=this.value" />
-      <button class="tbtn c-amber" style="font-size:12px;border-" onclick="saveScenario()">Save</button>
-      <button class="tbtn c-green" style="font-size:12px;border-" onclick="newWIScenario()" title="Branch into a new scenario">+ New</button>
-      ${chips}
-    </div>
-  </div>
-  <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div><div class="c-text3" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Proj. Income</div>
-        <input class="wi-s-inp" type="number" value="${piSc||''}" placeholder="0"
-          onchange="S.wiScenario.incomeOverrides['${mid}']=parseFloat(this.value)||0;openModal('__wi__');" />
-      </div>
-      <div><div class="c-text3" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Allocated</div>
-        <span style="font-family:var(--mono);font-size:15px">${$f(scAlloc)}</span>
-      </div>
-      <div><div class="c-text3" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Surplus/Deficit</div>
-        <span style="font-family:var(--mono);font-size:15px;color:${surplusColor}">${scSurplus>=0?'+':''}${$f(scSurplus)}</span>
-      </div>
-    </div>
-  </div>`;
-
-  // Bucket adjustments (flat list for mobile)
-  h+=`<div class="c-text3" style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">Bucket Targets</div>`;
-  sortedCats().forEach(cat=>{
-    sortedBuckets(cat.id).forEach(b=>{
-      const real=getMonth(mid)?.budgets[b.id]||0;
-      const val=sc.budgets[b.id]!==undefined?sc.budgets[b.id]:real;
-      const diff=val-real;
-      const diffHtml=diff!==0?`<span class="wi-diff ${diff>0?'pos':'neg'}" style="margin-left:4px">${diff>0?'+':''}${$f(diff)}</span>`:'';
-      const sched=sc.bucketSchedule?.[b.id]||{};
-      const isActive=isWIBucketActive(b.id,mid);
-      const mOpts=nextMonths.map(m=>`<option value="${m.id}">`+m.label+'</option>').join('');
-      h+=`<div class="wi-bkt-row" style="padding:6px 16px;border-bottom:1px solid var(--border);${isActive?'':'opacity:.45'}">
-        <span class="wi-bkt-label">${esc(b.name)}${diffHtml}</span>
-        <input class="wi-s-inp" type="number" value="${val||''}" placeholder="0"
-          onchange="S.wiScenario.budgets['${b.id}']=parseFloat(this.value)||0;openModal('__wi__');renderActivePane();" />
-      </div>
-      <div style="display:flex;gap:5px;align-items:center;padding:3px 16px 5px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap">
-        <span class="c-text3" style="font-size:10px">On from:</span>
-        <select class="c-text" style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px" onchange="setWIBktSchedule('${b.id}','onFrom',this.value);openModal('__wi__')">
-          <option value=""${!sched.onFrom?' selected':''}>Always</option>
-          ${nextMonths.map(m=>`<option value="${m.id}"${sched.onFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
-        </select>
-        <span class="c-text3" style="font-size:10px">Off from:</span>
-        <select class="c-text" style="font-size:10px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 4px" onchange="setWIBktSchedule('${b.id}','offFrom',this.value);openModal('__wi__')">
-          <option value=""${!sched.offFrom?' selected':''}>Never</option>
-          ${nextMonths.map(m=>`<option value="${m.id}"${sched.offFrom===m.id?' selected':''}>${m.label}</option>`).join('')}
-        </select>
-      </div>`;
-    });
-  });
-
-  // 6-month projection table
-  h+=`<div class="c-text3" style="padding:8px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">6-Month Projection</div>
-  <div style="overflow-x:auto;padding:0 8px 8px">
-  <table class="wi-proj-table">
-    <thead><tr><th>Month</th><th>Income</th><th>Allocated</th><th>Surplus</th><th>Cumul.</th></tr></thead><tbody>`;
-  const now3=new Date();let cy2=now3.getFullYear(),cm2=now3.getMonth();
-  let cum2=0;
-  for(let i=0;i<6;i++){
-    const pMid=_ensureMonthForWI(cy2,cm2);
-    const pM=getMonth(pMid);
-    const pLabel=pM?.label||mLabel(cy2,cm2);
-    const piR=sc.incomeOverrides[pMid]!==undefined?sc.incomeOverrides[pMid]:(monthProjectedIncome(pMid)||0);
-    const ov=sc.incomeOverrides[pMid]!==undefined;
-    const aR=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{if(!isWIBucketActive(b.id,pMid))return s;return s+(sc.budgets[b.id]??bBudget(pMid,b.id));},0);
-    const sR=piR-aR;cum2+=sR;
-    const rCls=sR>=0?'surplus':'deficit';
-    h+=`<tr class="${rCls}">
-      <td>${pLabel}</td>
-      <td><input class="wi-proj-inp" type="number" value="${piR||''}" placeholder="0"
-        onchange="S.wiScenario.incomeOverrides['${pMid}']=parseFloat(this.value)||0;openModal('__wi__');" />
-        ${ov?'<span class="c-amber" style="font-size:10px">*</span>':''}
-      </td>
-      <td>${$f(aR)}</td>
-      <td>${sR>=0?'+':''}${$f(sR)}</td>
-      <td>${cum2>=0?'+':''}${$f(cum2)}</td>
-    </tr>`;
-    cm2++;if(cm2>11){cm2=0;cy2++;}
-  }
-  h+=`</tbody></table></div>
-  <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn-save" onclick="promoteScenario()">Promote to real budgets</button>
-    <button class="tbtn c-accent" style="border-" onclick="wiShowProjector()">📅 Paycheck Projector</button>
-    <button class="btn-cancel" onclick="exitWI()">Exit What If</button>
-  </div>`;
+  h+=`<div style="height:8px"></div>`;
   return h;
 }
 
 function exitWI(){
   S.scenario=false;S.wiScenario=null;S.wiOpen=false;
+  _wiSchedExpanded.clear();
   document.getElementById('wiStrip')?.classList.add('hidden');
-  document.getElementById('wiOverlay')?.classList.add('hidden');
   const btn=document.getElementById('wiBtnTop');if(btn)btn.classList.remove('on');
-  const mBtn=document.getElementById('mWiBtn');if(mBtn){mBtn.style.borderColor='';mBtn.style.color='';}
-  closeModal();
+  document.getElementById('rsBack')?.classList.remove('show');
+  document.getElementById('rsheet')?.classList.remove('show');
   render();
 }
 
 function saveScenario(){
   if(!S.wiScenario)return;
   if(!S.scenarios)S.scenarios=[];
-  // Update name from input
   const inp=document.getElementById('wiNameInp');
   if(inp)S.wiScenario.name=inp.value||S.wiScenario.name;
-  // Remove duplicate
   S.scenarios=S.scenarios.filter(s=>s.id!==S.wiScenario.id);
   S.scenarios.push({...S.wiScenario});
-  // Max 6
   if(S.scenarios.length>6)S.scenarios=S.scenarios.slice(-6);
-  save();
-  if(isMobile())openModal('__wi__');else renderWI();
+  save();renderWI();
 }
 
 function loadScenario(id){
@@ -5053,36 +4968,35 @@ function loadScenario(id){
   if(!sc)return;
   S.wiScenario=JSON.parse(JSON.stringify(sc));
   S.scenario=true;
-  if(isMobile())openModal('__wi__');else{renderWI();renderMain();}
+  renderWI();renderMain();
 }
 
 function deleteScenario(id){
   S.scenarios=S.scenarios?.filter(s=>s.id!==id)||[];
-  save();
-  if(isMobile())openModal('__wi__');else renderWI();
+  save();renderWI();
 }
 
-// Branch current WI state into a fresh scenario with a new ID (Design 2.0)
 function newWIScenario(){
   if(!S.wiScenario)return;
+  const inp=document.getElementById('wiNameInp');
+  if(inp)S.wiScenario.name=inp.value||S.wiScenario.name;
   S.wiScenario={
-    id:uid(),
-    name:'New Scenario',
+    id:uid(),name:'New Scenario',
     incomeOverrides:{...S.wiScenario.incomeOverrides},
     budgets:{...S.wiScenario.budgets},
     bucketSchedule:{...S.wiScenario.bucketSchedule||{}},
     createdAt:Date.now()
   };
-  if(isMobile())openModal('__wi__');else renderWI();
+  _wiSchedExpanded.clear();
+  renderWI();
 }
-// Set bucket on/off schedule in WI scenario (Paycheck 1.0)
+
 function setWIBktSchedule(bucketId,field,val){
   if(!S.wiScenario)return;
   if(!S.wiScenario.bucketSchedule)S.wiScenario.bucketSchedule={};
   if(!S.wiScenario.bucketSchedule[bucketId])S.wiScenario.bucketSchedule[bucketId]={};
   S.wiScenario.bucketSchedule[bucketId][field]=val||null;
-  save();
-  if(isMobile())openModal('__wi__');else renderWI();
+  save();renderWI();
 }
 // Save paycheck sources from Settings form (Paycheck 1.2)
 function savePaycheckSettings(){
@@ -5110,33 +5024,17 @@ function savePaycheckSettings(){
 
 // ── Paycheck Projector ────────────────────────────────────────────────────────
 function wiShowProjector(){
-  const wiOverlayEl=document.getElementById('wiOverlay');
-  const inner=document.getElementById('wiModalInner');
-  // Desktop: WI sidebar is visible — render projector inside it
-  if(inner&&wiOverlayEl&&!wiOverlayEl.classList.contains('hidden')){
-    inner.innerHTML=wiProjectorHtml(null,false);
-    return;
-  }
-  // Mobile: WI is open inside modalBox — replace modal content with projector
-  const overlayEl=document.getElementById('overlay');
-  const modal=document.getElementById('modalBox');
-  if(modal&&overlayEl&&!overlayEl.classList.contains('hidden')){
-    modal.innerHTML=wiProjectorHtml(null,true);
-    return;
-  }
+  const rsBody=document.getElementById('rsBody');
+  if(rsBody)rsBody.innerHTML=wiProjectorHtml(null,false);
+  const rsFoot=document.getElementById('rsFoot');
+  if(rsFoot)rsFoot.innerHTML='';
 }
 
 function wiResetProjector(){
   _projectorFormState=null;
   _projectorLastResult=null;
-  const wiOverlayEl=document.getElementById('wiOverlay');
-  const inner=document.getElementById('wiModalInner');
-  if(inner&&wiOverlayEl&&!wiOverlayEl.classList.contains('hidden')){
-    inner.innerHTML=wiProjectorHtml(null,false);
-  } else if(!document.getElementById('overlay')?.classList.contains('hidden')){
-    const modal=document.getElementById('modalBox');
-    if(modal)modal.innerHTML=wiProjectorHtml(null,true);
-  }
+  const rsBody=document.getElementById('rsBody');
+  if(rsBody)rsBody.innerHTML=wiProjectorHtml(null,false);
 }
 
 function wiToggleWeek(id){
@@ -5168,7 +5066,7 @@ function wiToggleSavingsGrowth(){
 }
 
 function wiProjectorHtml(result,standalone){
-  const backFn=standalone?'closeModal()':`isMobile()?openModal('__wi__'):renderWI()`;
+  const backFn=standalone?'closeModal()':'renderWI()';
   const backBtn=standalone
     ?`<button class="modal-x" onclick="${backFn}">&#x2715;</button>`
     :`<button class="tbtn" onclick="${backFn}" style="padding:4px 10px;font-size:12px">← Back to What If</button>`;
@@ -5694,15 +5592,9 @@ function wiRunProjector(){
   // Store result for re-render (inline/reports case)
   _projectorLastResult=html;
 
-  // Inject into the right container
-  const inner=document.getElementById('wiModalInner');
-  const modal=document.getElementById('modalBox');
-  const isStandalone=modal&&modal.innerHTML&&modal.innerHTML.includes('pc1Date');
-  if(isStandalone){
-    modal.innerHTML=wiProjectorHtml(html,true);
-  } else if(inner){
-    inner.innerHTML=wiProjectorHtml(html,false);
-  }
+  // Inject result into rsheet body (projector is always in the rsheet now)
+  const rsBody=document.getElementById('rsBody');
+  if(rsBody)rsBody.innerHTML=wiProjectorHtml(html,false);
 }
 
 function promoteScenario(){
@@ -7177,16 +7069,6 @@ function mkBkt(){
 }
 
 function openModal(tab, lockedCatId){
-  if(tab==='__wi__'){
-    // Mobile / shared What If modal
-    const modal=document.getElementById('modalBox');
-    modal.className='modal wide';
-    modal.innerHTML=`
-      <div class="modal-head"><div class="modal-title">⚡ What If</div><button class="modal-x" onclick="exitWI()">&#x2715;</button></div>
-      <div class="modal-body" style="padding:0;overflow-y:auto">${_wiMobileHTML()}</div>`;
-    document.getElementById('overlay').classList.remove('hidden');
-    return;
-  }
   if(tab==='acct'){
     M={...M,tab:'acct',acctName:'',acctColor:COLORS[0],acctType:'budget',acctBal:'',acctEditId:null};
   } else if(tab==='bkt' && lockedCatId){
@@ -7781,6 +7663,10 @@ function openRSheet(title,bodyHtml,footHtml){
   if(!wasOpen)history.pushState({},'','');
 }
 function closeRSheet(){
+  if(S.wiOpen){exitWI();return;}
+  _closeRSheetRaw();
+}
+function _closeRSheetRaw(){
   document.getElementById('rsBack').classList.remove('show');
   document.getElementById('rsheet').classList.remove('show');
   setTimeout(()=>{
@@ -7948,9 +7834,8 @@ document.addEventListener('keydown', e => {
   const wizOpen   = !document.getElementById('wizardOverlay').classList.contains('hidden');
 
   // ── Always available ──────────────────────────────
-  const wiOpen2=S.wiOpen&&!document.getElementById('wiOverlay')?.classList.contains('hidden');
   if(e.key==='Escape'){
-    if(wiOpen2&&!isMobile()){exitWI();return;}
+    if(S.wiOpen){exitWI();return;}
     if(modalOpen){closeModal();return;}
     if(wizOpen){closeWizard();return;}
     // Escape from bucket detail → back to overview
