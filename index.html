@@ -3121,22 +3121,6 @@ function jumpToToday(){
   renderActivePane();
 }
 
-function copyLastMonthAllocations(fromMid,toMid){
-  const fromMo=getMonth(fromMid);
-  const toMo=getMonth(toMid);
-  if(!fromMo||!toMo)return;
-  if(toMo.closed){showToast('Month is closed — reopen to edit','info');return;}
-  if(!toMo.allocations)toMo.allocations={};
-  let count=0;
-  S.buckets.filter(b=>!b.archived).forEach(b=>{
-    const prev=fromMo.allocations?.[b.id]||0;
-    if(prev>0){toMo.allocations[b.id]=prev;count++;}
-  });
-  save();
-  renderTopbar();
-  renderActivePane();
-  showToast(`Copied ${count} allocation${count!==1?'s':''} from ${fromMo.label}`,'save');
-}
 
 function renderLogPane(){
   mRenderLog();
@@ -3271,21 +3255,6 @@ function renderOverviewTab(el,mid){
     }
   }
 
-  // ── Copy last month's allocations nudge (current month, allocations mostly zero) ──
-  if(st==='present'&&prevM){
-    const activeBktList=S.buckets.filter(b=>!b.archived);
-    const zeroedCnt=activeBktList.filter(b=>(bAlloc(mid,b.id)||0)===0).length;
-    const prevHasAllocs=activeBktList.some(b=>(bAlloc(prevM.id,b.id)||0)>0);
-    if(prevHasAllocs&&zeroedCnt===activeBktList.length){
-      h+=`<div class="hint-bar info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px">
-        <span style="font-size:13px">📋</span>
-        <span style="font-size:13px">No allocations set yet for ${esc(m.label)}</span>
-        <span class="c-text3" style="font-size:11px">— copy last month's as a starting point</span>
-        <button class="tbtn" style="font-size:11px;padding:3px 10px;margin-left:auto;white-space:nowrap" onclick="copyLastMonthAllocations('${prevM.id}','${mid}')">📋 Copy from ${esc(prevM.label)}</button>
-      </div>`;
-    }
-  }
-
   // ── Hero stat cards ───────────────────────────────────────────────────────
   const rtsBadgeCls=rts>0?'pos':rts<0?'neg':'zero';
   const rtsBadgeTxt=rts>0?`▲ ${$f(rts)} free`:rts<0?`▼ ${$f(Math.abs(rts))} short`:'✓ balanced';
@@ -3311,6 +3280,11 @@ function renderOverviewTab(el,mid){
       <div class="cc-hero-sub">
         <span class="cc-hero-badge ${nwBadgeCls}">${nw>=0?'▲':'▼'} all accounts</span>
       </div>
+    </div>
+    <div class="cc-hero-card">
+      <div class="cc-hero-label">Age of Money</div>
+      <div class="cc-hero-val" style="color:var(--${aomCls})">${aom!==null?aom+'d':'—'}</div>
+      <div class="cc-hero-sub"><span class="cc-hero-badge ${aomCls}">${aomSub}</span></div>
     </div>
   </div>`;
 
