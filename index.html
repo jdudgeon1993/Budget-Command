@@ -3231,6 +3231,29 @@ function renderOverviewTab(el,mid){
   if(closed)h+=`<div class="hint-bar success">🔒 ${esc(m.label)} is closed. Transactions are locked. <span style="cursor:pointer;text-decoration:underline;color:var(--text3)" onclick="reopenMonth('${mid}')">Reopen</span></div>`;
   else if(past)h+=`<div class="hint-bar info">Past month. <button class="tbtn" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="openMonthClose('${mid}')">🔒 Close &amp; Reconcile →</button></div>`;
 
+  // ── Unclosed past month nudge (only on current month) ────────────────────
+  if(st==='present'){
+    const unclosedPast=S.months.filter(mo=>monthStatus(mo.id)==='past'&&!mo.closed).sort((a,b)=>compareMid(a.id,b.id));
+    if(unclosedPast.length){
+      const mo=unclosedPast[0];
+      const uncatCnt=S.txs.filter(t=>t.monthId===mo.id&&!t.bucketId&&t.type!=='opening'&&t.type!=='xfr'&&!isScheduled(t)).length;
+      const unreconCnt=S.accounts.reduce((n,a)=>n+S.txs.filter(t=>(t.accountId===a.id||t.toAccountId===a.id)&&t.monthId===mo.id&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled).length,0);
+      const issues=[];
+      if(uncatCnt>0)issues.push(`${uncatCnt} uncategorized tx${uncatCnt!==1?'s':''}`);
+      if(unreconCnt>0)issues.push('unreconciled accounts');
+      const healthBadge=issues.length
+        ?`<span style="font-size:11px;color:var(--amber);font-weight:600">⚠ ${issues.join(', ')}</span>`
+        :`<span style="font-size:11px;color:var(--green);font-weight:600">✓ Ready to close</span>`;
+      const extraLbl=unclosedPast.length>1?`<span class="c-text3" style="font-size:11px">+${unclosedPast.length-1} more open</span>`:'';
+      h+=`<div class="hint-bar warn" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px">
+        <span style="font-size:13px">📅</span>
+        <span style="font-weight:600;font-size:13px">${esc(mo.label)} is still open</span>
+        ${healthBadge}${extraLbl}
+        <button class="tbtn" style="font-size:11px;padding:3px 10px;margin-left:auto;white-space:nowrap" onclick="openMonthClose('${mo.id}')">🔒 Close &amp; Reconcile →</button>
+      </div>`;
+    }
+  }
+
   // ── Hero stat cards ───────────────────────────────────────────────────────
   const rtsBadgeCls=rts>0?'pos':rts<0?'neg':'zero';
   const rtsBadgeTxt=rts>0?`▲ ${$f(rts)} free`:rts<0?`▼ ${$f(Math.abs(rts))} short`:'✓ balanced';
