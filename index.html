@@ -2858,7 +2858,7 @@ function initReportCharts(tab,mid){
   else if(tab==='savingsrate')_chartSavingsRate();
 }
 function _chartCashFlow(){
-  const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1).slice(-12);
+  const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-12);
   if(!months.length)return;
   const c=_cc();
   const income=months.map(mo=>monthIncome(mo.id));
@@ -2932,7 +2932,7 @@ function _chartNetWorth(){
       scales:{x:_scaleX(c),y:_scaleY(c)}}});
 }
 function _chartSavingsRate(){
-  const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1).slice(-12);
+  const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-12);
   if(!months.length)return;
   const c=_cc();
   const nets=months.map(mo=>{
@@ -3121,6 +3121,7 @@ function jumpToToday(){
   renderActivePane();
 }
 
+
 function renderLogPane(){
   mRenderLog();
   setTimeout(wireMobilePayee,0);
@@ -3279,6 +3280,11 @@ function renderOverviewTab(el,mid){
       <div class="cc-hero-sub">
         <span class="cc-hero-badge ${nwBadgeCls}">${nw>=0?'▲':'▼'} all accounts</span>
       </div>
+    </div>
+    <div class="cc-hero-card">
+      <div class="cc-hero-label">Age of Money</div>
+      <div class="cc-hero-val" style="color:var(--${aomCls})">${aom!==null?aom+'d':'—'}</div>
+      <div class="cc-hero-sub"><span class="cc-hero-badge ${aomCls}">${aomSub}</span></div>
     </div>
   </div>`;
 
@@ -4445,7 +4451,7 @@ function applySmartTarget(bid,val){
 }
 // Phase 9: Statistical Intelligence helpers
 function bucketSpendSuggestion(bid,mid){
-  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const all=[...S.months].sort((a,b)=>compareMid(a.id,b.id));
   const ci=all.findIndex(m=>m.id===mid);if(ci<0)return null;
   const prev=all.slice(Math.max(0,ci-6),ci);if(prev.length<3)return null;
   const spends=prev.map(mo=>bSpent(mo.id,bid));
@@ -4455,7 +4461,7 @@ function bucketSpendSuggestion(bid,mid){
   return{avg:Math.round(avg*100)/100,suggested,months:nonZero.length};
 }
 function bucketMoMTrend(bid,mid){
-  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const all=[...S.months].sort((a,b)=>compareMid(a.id,b.id));
   const ci=all.findIndex(m=>m.id===mid);if(ci<=0)return null;
   const cur=bSpent(mid,bid),prev=bSpent(all[ci-1].id,bid);
   if(!cur&&!prev)return null;if(!prev)return null;
@@ -4463,7 +4469,7 @@ function bucketMoMTrend(bid,mid){
 }
 function catAnomalyCheck(catId,mid){
   const bkts=sortedBuckets(catId).filter(b=>!b.archived);if(!bkts.length)return null;
-  const all=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const all=[...S.months].sort((a,b)=>compareMid(a.id,b.id));
   const ci=all.findIndex(m=>m.id===mid);if(ci<3)return null;
   const hist=all.slice(Math.max(0,ci-12),ci);if(hist.length<3)return null;
   const hSpends=hist.map(mo=>bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
@@ -5223,6 +5229,13 @@ function wiProjectorHtml(result,standalone){
         <div class="c-text3" style="font-size:10px;margin-top:2px">Adds weekly discretionary spending — see how it shrinks your buffer</div>
       </div>
     </div>
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:6px;margin-bottom:10px">
+      <input type="checkbox" id="projIncludeDebt" style="margin-top:2px;flex-shrink:0;accent-color:var(--accent)" ${(fs.includeDebt!==false)?'checked':''} onchange="(_projectorFormState=_projectorFormState||{}).includeDebt=this.checked" />
+      <div>
+        <label for="projIncludeDebt" style="font-size:12px;font-weight:600;cursor:pointer">Auto-add debt minimum payments</label>
+        <div class="c-text3" style="font-size:10px;margin-top:2px">Adds debt minimums for any account not already covered by a bucket. <strong>Best practice:</strong> name your bucket identically to the debt account (e.g. both called "Car Loan") so the projector deduplicates automatically — then uncheck this if you've covered all debts via buckets.</div>
+      </div>
+    </div>
 
     ${pcRow(1,true)}
     ${showPc2?pcRow(2,false):`<div id="addPcWrap2" style="margin-bottom:8px"><button class="tbtn c-accent" style="font-size:12px;padding:5px 12px;width:100%" onclick="document.getElementById('addPcWrap2').style.display='none';document.getElementById('pcExpandWrap2').style.display='block';(_projectorFormState=_projectorFormState||{}).showPc2=true">+ Add second income source</button></div><div id="pcExpandWrap2" style="display:none">${pcRow(2,false)}</div>`}
@@ -5271,7 +5284,8 @@ function wiRunProjector(){
 
   // Capture form state so it can be restored after re-render
   const prev=_projectorFormState||{};
-  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId,cushion:document.getElementById('projCushion')?.value||'',extra:document.getElementById('projExtra')?.value||'0',showPc2:prev.showPc2,showPc3:prev.showPc3};
+  const includeDebt=document.getElementById('projIncludeDebt')?.checked!==false;
+  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId,cushion:document.getElementById('projCushion')?.value||'',extra:document.getElementById('projExtra')?.value||'0',showPc2:prev.showPc2,showPc3:prev.showPc3,includeDebt};
   for(let n=1;n<=3;n++){
     _projectorFormState['pc'+n+'Label']=document.getElementById('pc'+n+'Label')?.value||'';
     _projectorFormState['pc'+n+'Amt']=document.getElementById('pc'+n+'Amt')?.value||'';
@@ -5366,13 +5380,16 @@ function wiRunProjector(){
         if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor,bktType:bType,bktRollover:bRoll});
       }
     });
-    // Debt minimum payments — auto-add if not covered by a same-named bucket
-    const bktNamesSet=new Set(allBkts.map(b=>b.name.toLowerCase()));
-    S.accounts.filter(a=>a.type==='debt'&&(a.debtMinPayment||0)>0).forEach(a=>{
-      if(allBkts.some(b=>bktAmt(b)>0&&b.name.toLowerCase()===a.name.toLowerCase()))return;
-      const ds=dStr(1); // default 1st of month (no debtDueDay field yet)
-      if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:a.name+' min. payment',amount:a.debtMinPayment,src:'debt',catColor:null});
-    });
+    // Debt minimum payments — auto-add for accounts not covered by a same-named bucket
+    // Skipped entirely when user has unchecked "Auto-add debt minimums"
+    if(includeDebt){
+      S.accounts.filter(a=>a.type==='debt'&&(a.debtMinPayment||0)>0).forEach(a=>{
+        // Skip if ANY bucket (regardless of scenario amount) shares this account's name
+        if(allBkts.some(b=>b.name.toLowerCase()===a.name.toLowerCase()))return;
+        const ds=dStr(1);
+        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:a.name+' min. payment',amount:a.debtMinPayment,src:'debt',catColor:null});
+      });
+    }
     wM2++;if(wM2>11){wM2=0;wY2++;}
   }}
   // Recurring bills not covered by a bucket
@@ -6476,7 +6493,7 @@ function reportCatSpendHtml(mid){
 }
 
 function reportSavingsRateHtml(){
-  const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id));
   if(!months.length)return`<div class="c-text3" style="padding:16px">No months available.</div>`;
   let runInc=0,runSpent=0;
   const rows=months.map(mo=>{
@@ -6571,7 +6588,7 @@ function reportPayeeBreakdownHtml(){
 }
 
 function reportCashFlowHtml(){
-  const months=[...S.months].sort((a,b)=>a.id<b.id?-1:1).slice(-12);
+  const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-12);
   if(!months.length)return`<div class="c-text3" style="padding:16px">No data available.</div>`;
   const maxInc=Math.max(...months.map(mo=>monthIncome(mo.id)));
   const maxSpent=Math.max(...months.map(mo=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0)));
@@ -6658,7 +6675,7 @@ function reportIncomeSourcesHtml(mid){
 }
 
 function reportCatHistoryHtml(){
-  const allMonths=[...S.months].sort((a,b)=>a.id<b.id?-1:1);
+  const allMonths=[...S.months].sort((a,b)=>compareMid(a.id,b.id));
   const months=allMonths.slice(-_catHistMonths);
   if(!months.length)return`<div class="c-text3" style="padding:16px">No months available.</div>`;
   const nOpts=[3,6,12,24].map(n=>`<option value="${n}"${n===_catHistMonths?' selected':''}>${n} months</option>`).join('');
@@ -6860,12 +6877,13 @@ function cleanupRecurringTxs(){
   return S.txs.length!==before; // returns true if anything was removed
 }
 
-// Project each active recurring bill into current+next month as future-dated txs
+// Project each active recurring bill into the next 3 months as future-dated txs.
+// 3 months gives enough runway that occasional users don't lose projections.
 function generateRecurringTxs(){
   if(!(S.recurringBills||[]).length)return;
   const today=new Date();
   const monthsToCheck=[];
-  for(let i=0;i<=1;i++){
+  for(let i=0;i<=2;i++){
     const d=new Date(today.getFullYear(),today.getMonth()+i,1);
     monthsToCheck.push({year:d.getFullYear(),month:d.getMonth()});
   }
