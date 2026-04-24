@@ -269,7 +269,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .cc-chip.closed{background:var(--pbg);color:var(--purple);border:1px solid var(--pb);}
 .cc-chip.future{background:var(--bbg);color:var(--blue);border:1px solid var(--bb);}
 /* Hero stat cards */
-.cc-hero-row{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:14px;}
+.cc-hero-row{display:grid;grid-template-columns:1.15fr 1fr 1fr 1fr;gap:14px;}
 .cc-hero-card{padding:22px 24px;border-radius:var(--rl);background:var(--surface);border:1px solid var(--border);}
 .cc-hero-card.primary{background:linear-gradient(135deg,rgba(0,212,170,0.12),rgba(124,92,252,0.06));border-color:rgba(0,212,170,0.25);box-shadow:0 0 0 1px rgba(0,212,170,0.1),0 4px 28px rgba(0,212,170,0.08);}
 .cc-hero-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
@@ -335,6 +335,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .cc-card-action{font-size:11px;color:var(--accent);cursor:pointer;font-weight:600;transition:opacity .12s;}
 .cc-card-action:hover{opacity:.7;}
 .cc-empty{padding:16px 0;font-size:12px;color:var(--text3);text-align:center;}
+/* Pre-save panel */
+.cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
+.cc-presave-month{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+.cc-presave-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
+.cc-presave-row:last-child{border-bottom:none;}
+.cc-presave-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.cc-presave-name{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-presave-budget{font-size:11px;color:var(--text3);font-family:var(--mono);flex-shrink:0;min-width:54px;text-align:right;}
+.cc-presave-input{width:90px;padding:4px 8px;font-size:12px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text1);text-align:right;flex-shrink:0;}
+.cc-presave-input:focus{outline:none;border-color:var(--accent);}
 /* Mobile overrides */
 @media(max-width:1099px){
   .cc-wrap{padding:14px 14px;gap:12px;}
@@ -3263,9 +3273,9 @@ function renderOverviewTab(el,mid){
   h+=`<div class="cc-hero-row">
     <div class="cc-hero-card primary">
       <div class="cc-hero-label">${st==='future'?'Available Pool':'Ready to Spend'}</div>
-      <div class="cc-hero-val" style="color:${rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)'}">${$f(Math.abs(rts))}</div>
+      <div class="cc-hero-val" id="heroRtsVal" style="color:${rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)'}">${$f(Math.abs(rts))}</div>
       <div class="cc-hero-sub">
-        <span class="cc-hero-badge ${rtsBadgeCls}">${st==='future'?'today\'s unallocated cash':rtsBadgeTxt}</span>
+        <span class="cc-hero-badge ${rtsBadgeCls}" id="heroRtsBadge">${st==='future'?'today\'s unallocated cash':rtsBadgeTxt}</span>
       </div>
     </div>
     <div class="cc-hero-card">
@@ -3468,6 +3478,12 @@ function renderOverviewTab(el,mid){
     <button class="m-settings-btn" onclick="setTab('accounts')">⬡ Accounts</button>
     <button class="m-settings-btn" onclick="setTab('settings')">⚙ Settings</button>
   </div>`;
+
+  // ── Future month pre-save panel (current month only, when surplus exists) ──
+  if(st==='present'&&rts>0){
+    const pw=presaveWidgetHtml(mid);
+    if(pw)h+=pw;
+  }
 
   h+=`</div>`; // close cc-wrap
 
@@ -4430,6 +4446,78 @@ function setAlloc(mid,bid,val){
   m.allocations[bid]=Math.max(parseFloat(val)||0,0);
   save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
 }
+function setPreAlloc(fmid,bid,val){
+  // Lightweight future-month pre-allocation — saves without full re-render so typing inputs keep focus.
+  const m=getMonth(fmid);if(!m)return;
+  if(!m.allocations)m.allocations={};
+  m.allocations[bid]=Math.max(parseFloat(val)||0,0);
+  save();
+  // Patch hero RTS card in-place
+  const newRts=readyToSpend(S.activeMonth);
+  const rtsEl=document.getElementById('heroRtsVal');
+  if(rtsEl){
+    rtsEl.textContent=$f(Math.abs(newRts));
+    rtsEl.style.color=newRts>0?'var(--accent)':newRts<0?'var(--red)':'var(--text2)';
+  }
+  const badgeEl=document.getElementById('heroRtsBadge');
+  if(badgeEl){
+    badgeEl.textContent=newRts>0?`▲ ${$f(newRts)} free`:newRts<0?`▼ ${$f(Math.abs(newRts))} short`:'✓ balanced';
+    badgeEl.className='cc-hero-badge '+(newRts>0?'pos':newRts<0?'neg':'zero');
+  }
+  // Patch month allocated total in the panel
+  const fm=getMonth(fmid);
+  if(fm){
+    const tot=Object.values(fm.allocations||{}).reduce((s,v)=>s+v,0);
+    const totEl=document.getElementById('psAlloc-'+fmid);
+    if(totEl)totEl.textContent=$f(tot);
+  }
+  // Patch panel surplus label
+  const remEl=document.getElementById('psRtsRemain');
+  if(remEl)remEl.textContent=$f(Math.max(0,newRts));
+}
+
+function presaveWidgetHtml(currentMid){
+  const futureMths=S.months.filter(m=>compareMid(m.id,currentMid)>0).sort((a,b)=>compareMid(a.id,b.id)).slice(0,2);
+  if(!futureMths.length)return'';
+  const activeBkts=S.buckets.filter(b=>!b.archived);
+  if(!activeBkts.length)return'';
+  const rts=readyToSpend(currentMid);
+  let h=`<div class="card card-pad">
+    <div class="cc-presave-hdr">
+      <div>
+        <div class="cc-card-title" style="margin-bottom:6px">📈 Park Surplus in Upcoming Months</div>
+        <div style="font-size:12px;color:var(--text3)">Pre-allocate your <strong style="color:var(--accent)" id="psRtsRemain">${$f(Math.max(0,rts))}</strong> surplus to future months — builds your Age of Money without moving cash.</div>
+      </div>
+    </div>`;
+  futureMths.forEach(fm=>{
+    const fmid=fm.id;
+    const bktsToShow=activeBkts.filter(b=>bBudget(fmid,b.id)>0||bAlloc(fmid,b.id)>0);
+    if(!bktsToShow.length)return;
+    const fAllocTot=Object.values(fm.allocations||{}).reduce((s,v)=>s+(v||0),0);
+    h+=`<div class="cc-presave-month">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:600">${esc(fm.label)}</span>
+        <span style="font-size:12px;color:var(--text3)">Allocated: <strong style="color:var(--accent);font-family:var(--mono)" id="psAlloc-${fmid}">${$f(fAllocTot)}</strong></span>
+      </div>`;
+    bktsToShow.forEach(b=>{
+      const cat=getCat(b.catId);
+      const budget=bBudget(fmid,b.id);
+      const cur=bAlloc(fmid,b.id);
+      h+=`<div class="cc-presave-row">
+        <div class="cc-presave-dot" style="background:${cat?.color||'var(--accent)'}"></div>
+        <span class="cc-presave-name">${esc(b.name)}</span>
+        <span class="cc-presave-budget">${budget>0?'of '+$f(budget):''}</span>
+        <input class="cc-presave-input" type="number" min="0" step="0.01"
+          value="${cur>0?cur:''}" placeholder="0.00"
+          onchange="setPreAlloc('${fmid}','${b.id}',this.value)">
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+
 function commitAlloc(mid,bid){
   const m=getMonth(mid);if(!m)return;
   if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
