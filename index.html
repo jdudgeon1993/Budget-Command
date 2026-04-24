@@ -138,6 +138,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .strip.hidden{display:none;}
 .strip.wi{background:var(--abg);border-bottom:1px solid var(--ab);color:var(--amber);}
 .strip.warn{background:var(--rbg);border-bottom:1px solid var(--rb);color:var(--red);}
+.strip.off-month-past{background:rgba(251,191,36,0.08);border-bottom:1px solid rgba(251,191,36,0.3);color:var(--amber);}
+.strip.off-month-future{background:rgba(59,130,246,0.08);border-bottom:1px solid rgba(59,130,246,0.3);color:var(--blue);}
+.tb-month-sel.past{border-color:rgba(251,191,36,0.6);}
+.tb-month-sel.future{border-color:rgba(59,130,246,0.6);}
 
 /* ═══ LAYOUT ═══ */
 .app{display:grid;grid-template-columns:240px 1fr;flex:1;overflow:hidden;min-height:0;}
@@ -1533,6 +1537,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   ⚡ Scenario mode — changes won't affect real data
   <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="toggleWI()">Open Panel</button>
 </div>
+<div class="strip off-month-past hidden" id="offMonthStrip">
+  <span id="offMonthMsg"></span>
+  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="jumpToToday()">Go to Today</button>
+</div>
 
 <!-- APP -->
 <div class="app" id="app">
@@ -1755,6 +1763,7 @@ async function authInit(){
           if(!S.activeMonth||!S.months.find(m=>m.id===S.activeMonth)){
             S.activeMonth=currentMonthId();
           }
+          if(S.activeMonth&&compareMid(S.activeMonth,currentMonthId())<0)S.activeMonth=currentMonthId();
           normalizeCatOrder();normalizeBktOrder();
         }
         // Always reset WI session — must not persist across page loads
@@ -2113,6 +2122,8 @@ function load(){
   }
   ensureMonth();
   if(!S.activeMonth&&S.months.length)S.activeMonth=currentMonthId();
+  // Auto-advance if stored month is in the past — user came back after month rolled over
+  if(S.activeMonth&&compareMid(S.activeMonth,currentMonthId())<0)S.activeMonth=currentMonthId();
   if(!S.txFilter)S.txFilter='all';
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
@@ -2496,7 +2507,7 @@ const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAllo
 function readyToSpend(mid){
   const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
   const activeMid=S.activeMonth;
-  if(!activeMid||mid<activeMid){
+  if(!activeMid||compareMid(mid,activeMid)<0){
     // Past month: historical view — use that month's own allocations as-is
     const unfulfilled=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
       return s+Math.max(0,bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id));
@@ -2510,7 +2521,7 @@ function readyToSpend(mid){
   const curClaimed=activeBkts.reduce((s,b)=>
     s+Math.max(0,bAlloc(activeMid,b.id)+rolloverBal(b.id,activeMid)-bSpent(activeMid,b.id)),0);
   // All future months: new pre-allocations only (rollover is already captured in curClaimed above)
-  const futureClaimed=S.months.filter(m=>m.id>activeMid).reduce((s,m)=>
+  const futureClaimed=S.months.filter(m=>compareMid(m.id,activeMid)>0).reduce((s,m)=>
     s+activeBkts.reduce((bs,b)=>bs+(bAlloc(m.id,b.id)||0),0),0);
   return budgetBal-curClaimed-futureClaimed;
 }
@@ -2789,6 +2800,28 @@ function renderTopbar(){
   updateAuthBtn();
   // Month selector
   populateMonthSel();
+
+  // Off-month banner
+  const omStrip=document.getElementById('offMonthStrip');
+  const omMsg=document.getElementById('offMonthMsg');
+  const monSel=document.getElementById('tbMonthSel');
+  const curMid=currentMonthId();
+  const status=mid?monthStatus(mid):'present';
+  if(omStrip&&mid&&status!=='present'){
+    const curLabel=S.months.find(m=>m.id===curMid)?.label||new Date().toLocaleString('default',{month:'short',year:'numeric'});
+    const viewLabel=S.months.find(m=>m.id===mid)?.label||mid;
+    if(status==='past'){
+      omStrip.className='strip off-month-past';
+      if(omMsg)omMsg.textContent=`Viewing ${viewLabel} — current month is ${curLabel}. All data reflects this past month.`;
+    } else {
+      omStrip.className='strip off-month-future';
+      if(omMsg)omMsg.textContent=`Planning ahead: ${viewLabel} — current month is ${curLabel}.`;
+    }
+    if(monSel)monSel.className='tb-month-sel '+(status==='past'?'past':'future');
+  } else if(omStrip){
+    omStrip.className='strip off-month-past hidden';
+    if(monSel)monSel.className='tb-month-sel';
+  }
 }
 
 // ── Unified nav + tab routing ─────────────────────────────────────────────────
@@ -2856,7 +2889,7 @@ function _chartCatSpend(mid){
 }
 function _chartYTD(){
   const yr=new Date().getFullYear(),yrStart=mId(yr,0);
-  const ytd=[...S.months].filter(m=>m.id>=yrStart&&m.id<=S.activeMonth).sort((a,b)=>a.id<b.id?-1:1);
+  const ytd=[...S.months].filter(m=>compareMid(m.id,yrStart)>=0&&compareMid(m.id,S.activeMonth)<=0).sort((a,b)=>compareMid(a.id,b.id));
   if(!ytd.length)return;
   const c=_cc();
   const income=ytd.map(mo=>monthIncome(mo.id));
@@ -3077,6 +3110,15 @@ function nextMonth(){
   const idx=S.months.findIndex(m=>m.id===S.activeMonth);
   if(idx<S.months.length-1){S.activeMonth=S.months[idx+1].id;S.activeBucket=null;save();renderTopbar();renderActivePane();}
   else{addNextMonth();populateMonthSel();}
+}
+
+function jumpToToday(){
+  ensureMonth();
+  S.activeMonth=currentMonthId();
+  S.activeBucket=null;
+  save();
+  renderTopbar();
+  renderActivePane();
 }
 
 function renderLogPane(){
@@ -6309,7 +6351,7 @@ function reportYTDHtml(){
   const year=new Date().getFullYear();
   const janId=mId(year,0);
   const curId=S.activeMonth;
-  const ytdMonths=[...S.months].filter(m=>m.id>=janId&&m.id<=curId).sort((a,b)=>a.id<b.id?-1:1);
+  const ytdMonths=[...S.months].filter(m=>compareMid(m.id,janId)>=0&&compareMid(m.id,curId)<=0).sort((a,b)=>compareMid(a.id,b.id));
   if(!ytdMonths.length)return`<div class="c-text3" style="padding:16px">No data for ${year}.</div>`;
   let totalIncome=0,totalSpent=0;
   const rows=ytdMonths.map(mo=>{
