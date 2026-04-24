@@ -2496,7 +2496,7 @@ const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAllo
 function readyToSpend(mid){
   const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
   const activeMid=S.activeMonth;
-  if(!activeMid||mid<activeMid){
+  if(!activeMid||compareMid(mid,activeMid)<0){
     // Past month: historical view — use that month's own allocations as-is
     const unfulfilled=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{
       return s+Math.max(0,bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id));
@@ -2510,7 +2510,7 @@ function readyToSpend(mid){
   const curClaimed=activeBkts.reduce((s,b)=>
     s+Math.max(0,bAlloc(activeMid,b.id)+rolloverBal(b.id,activeMid)-bSpent(activeMid,b.id)),0);
   // All future months: new pre-allocations only (rollover is already captured in curClaimed above)
-  const futureClaimed=S.months.filter(m=>m.id>activeMid).reduce((s,m)=>
+  const futureClaimed=S.months.filter(m=>compareMid(m.id,activeMid)>0).reduce((s,m)=>
     s+activeBkts.reduce((bs,b)=>bs+(bAlloc(m.id,b.id)||0),0),0);
   return budgetBal-curClaimed-futureClaimed;
 }
@@ -2856,7 +2856,7 @@ function _chartCatSpend(mid){
 }
 function _chartYTD(){
   const yr=new Date().getFullYear(),yrStart=mId(yr,0);
-  const ytd=[...S.months].filter(m=>m.id>=yrStart&&m.id<=S.activeMonth).sort((a,b)=>a.id<b.id?-1:1);
+  const ytd=[...S.months].filter(m=>compareMid(m.id,yrStart)>=0&&compareMid(m.id,S.activeMonth)<=0).sort((a,b)=>compareMid(a.id,b.id));
   if(!ytd.length)return;
   const c=_cc();
   const income=ytd.map(mo=>monthIncome(mo.id));
@@ -6309,7 +6309,7 @@ function reportYTDHtml(){
   const year=new Date().getFullYear();
   const janId=mId(year,0);
   const curId=S.activeMonth;
-  const ytdMonths=[...S.months].filter(m=>m.id>=janId&&m.id<=curId).sort((a,b)=>a.id<b.id?-1:1);
+  const ytdMonths=[...S.months].filter(m=>compareMid(m.id,janId)>=0&&compareMid(m.id,curId)<=0).sort((a,b)=>compareMid(a.id,b.id));
   if(!ytdMonths.length)return`<div class="c-text3" style="padding:16px">No data for ${year}.</div>`;
   let totalIncome=0,totalSpent=0;
   const rows=ytdMonths.map(mo=>{
