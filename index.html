@@ -335,6 +335,27 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .cc-card-action{font-size:11px;color:var(--accent);cursor:pointer;font-weight:600;transition:opacity .12s;}
 .cc-card-action:hover{opacity:.7;}
 .cc-empty{padding:16px 0;font-size:12px;color:var(--text3);text-align:center;}
+/* Coaching panel */
+.cc-coach-card{display:flex;flex-direction:column;gap:12px;}
+.cc-coach-top{display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:start;}
+.cc-score-wrap{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:16px 12px;text-align:center;flex-shrink:0;}
+.cc-score-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;}
+.cc-score-num{font-family:var(--mono);font-size:40px;font-weight:700;line-height:1;letter-spacing:-1px;}
+.cc-score-grade{font-size:12px;font-weight:700;margin-top:3px;}
+.cc-score-sub{font-size:10px;color:var(--text3);margin-top:2px;text-transform:capitalize;}
+.cc-nba-wrap{display:flex;flex-direction:column;gap:8px;min-height:80px;}
+.cc-nba-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.cc-nba-body{display:flex;gap:10px;align-items:flex-start;flex:1;}
+.cc-nba-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.cc-nba-msg{font-size:13px;font-weight:500;line-height:1.5;color:var(--text);}
+.cc-nba-act{font-size:11px;padding:4px 12px;align-self:flex-start;}
+.cc-insights-row{display:flex;flex-direction:column;gap:6px;}
+.cc-insight-chip{display:flex;gap:10px;align-items:flex-start;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--text2);line-height:1.5;}
+.cc-insight-icon{flex-shrink:0;font-size:14px;}
+/* Bucket skip */
+.bkt-card.skipped{opacity:.42;pointer-events:none;}
+.bkt-card.skipped .bkt-card-body{filter:grayscale(.7);}
+.bkt-skip-tag{font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text3);background:var(--border);padding:2px 6px;border-radius:6px;pointer-events:all;}
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
 .cc-presave-month{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
@@ -355,6 +376,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
   .cc-hero-card{padding:16px 18px;}
   .cc-grid{grid-template-columns:1fr;}
   .cc-right{display:none;}
+  .cc-coach-top{grid-template-columns:1fr;}
+  .cc-score-wrap{display:none;}
 }
 
 /* ═══ BUCKETS CARD GRID ═══ */
@@ -1983,6 +2006,7 @@ let S={
   allocationRules:[], // {id,name,bucketId,type:'pct'|'fixed',value,active}
   recurringBills:[], // {id,desc,amount,bucketId,accountId,type:'out'|'in',dayOfMonth,active}
   paychecks:[],      // {id,label,amount,freq,anchorDate} — saved income sources, shared app-wide
+  milestones:[],     // [milestoneId,...] — earned milestone IDs
 };
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
@@ -2112,6 +2136,7 @@ async function loadFromSupabase(){
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
   if(!S.recurringBills)S.recurringBills=[];
+  if(!S.milestones)S.milestones=[];
   cleanupRecurringTxs();
   generateRecurringTxs();
 
@@ -2138,6 +2163,7 @@ function load(){
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
   if(!S.recurringBills)S.recurringBills=[];
+  if(!S.milestones)S.milestones=[];
   normalizeCatOrder();
   normalizeBktOrder();
   cleanupRecurringTxs();
@@ -2301,6 +2327,137 @@ function ageOfMoney(){
 
 // All key budget stats for the current month.
 // Used by renderOverviewTab (unified overview — all breakpoints).
+// ── Bucket skip-month ────────────────────────────────────────────────────────
+const isBktSkipped=(bid,mid)=>{const m=getMonth(mid);return !!(m?.skippedBuckets?.includes(bid));};
+function toggleSkipBucket(bid,mid){
+  const m=getMonth(mid);if(!m)return;
+  if(m.closed){showToast('Month is closed','info');return;}
+  if(!m.skippedBuckets)m.skippedBuckets=[];
+  const idx=m.skippedBuckets.indexOf(bid);
+  if(idx>=0)m.skippedBuckets.splice(idx,1);else m.skippedBuckets.push(bid);
+  save();renderTopbar();renderSidebar();renderMain();
+}
+
+// ── Milestones ───────────────────────────────────────────────────────────────
+const MILESTONES=[
+  {id:'first_close',  label:'First Month Closed',    icon:'🔒', check:()=>S.months.some(m=>m.closed)},
+  {id:'aom_30',       label:'30-Day Cash Buffer',     icon:'⏱', check:()=>{const a=ageOfMoney();return a!==null&&a>=30;}},
+  {id:'fully_funded', label:'Every Bucket Funded',    icon:'✅', check:()=>{const mid=currentMonthId();const bkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid)&&bBudget(mid,b.id)>0);return bkts.length>0&&bkts.every(b=>bAlloc(mid,b.id)>=bBudget(mid,b.id));}},
+  {id:'nw_positive',  label:'Positive Net Worth',     icon:'📈', check:()=>calcNetWorth()>0},
+  {id:'3mo_closed',   label:'3 Months Closed',        icon:'🗓', check:()=>S.months.filter(m=>m.closed).length>=3},
+  {id:'debt_paid',    label:'First Debt Eliminated',  icon:'🎉', check:()=>S.accounts.some(a=>a.type==='debt'&&(a.debtMinPayment||0)>0&&acctBalance(a.id)<=0.01)},
+  {id:'aom_60',       label:'60-Day Cash Buffer',     icon:'🏆', check:()=>{const a=ageOfMoney();return a!==null&&a>=60;}},
+];
+function checkMilestones(){
+  if(!S.milestones)S.milestones=[];
+  const fresh=[];
+  MILESTONES.forEach(ms=>{if(!S.milestones.includes(ms.id)&&ms.check()){S.milestones.push(ms.id);fresh.push(ms);}});
+  if(fresh.length){
+    localStorage.setItem('bcc_v6',JSON.stringify(S)); // persist without re-entering save()
+    fresh.forEach(ms=>showToast(`${ms.icon} Milestone: ${ms.label}!`,'save'));
+  }
+}
+
+// ── Financial Health Score ────────────────────────────────────────────────────
+function computeHealthScore(mid){
+  const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
+  const aom=ageOfMoney();
+  const aomScore=aom===null?0:Math.min(aom/30,1)*30;
+  const withTarget=activeBkts.filter(b=>bBudget(mid,b.id)>0);
+  const fundedScore=withTarget.length>0?(withTarget.filter(b=>bAlloc(mid,b.id)>=bBudget(mid,b.id)).length/withTarget.length)*25:25;
+  const income=monthIncome(mid);
+  const spent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const savScore=income>0?Math.min(Math.max((income-spent)/income/0.2,0),1)*20:0;
+  const overCnt=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01&&eff>0;}).length;
+  const overScore=overCnt===0?15:Math.max(0,15-overCnt*5);
+  const pastAll=S.months.filter(mo=>monthStatus(mo.id)==='past').length;
+  const closeScore=pastAll>0?(S.months.filter(mo=>monthStatus(mo.id)==='past'&&mo.closed).length/pastAll)*10:10;
+  const total=Math.min(100,Math.round(aomScore+fundedScore+savScore+overScore+closeScore));
+  const cls=total>=80?'green':total>=65?'accent':total>=50?'amber':'red';
+  return{score:total,cls,grade:total>=90?'A':total>=80?'B':total>=65?'C':total>=50?'D':'F',sub:total>=90?'excellent shape':total>=80?'on track':total>=65?'needs attention':'needs work'};
+}
+
+// ── Next Best Action ──────────────────────────────────────────────────────────
+function nextBestAction(mid){
+  const m=getMonth(mid);if(!m)return null;
+  const rts=readyToSpend(mid);
+  const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
+  const over=activeBkts.find(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01&&eff>0;});
+  if(over){const amt=bSpent(mid,over.id)-(bAlloc(mid,over.id)+rolloverBal(over.id,mid));return{icon:'🔴',msg:`${esc(over.name)} is overspent by ${$f(amt)}.`,fn:`openDetail('bucket','${over.id}')`,lbl:'Review →'};}
+  const dueBills=activeBkts.filter(b=>{const d=daysUntilDue(b,m.year,m.month);return d!==null&&d<=3&&bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0;}).sort((a,b)=>(daysUntilDue(a,m.year,m.month)||99)-(daysUntilDue(b,m.year,m.month)||99));
+  if(dueBills.length){const b=dueBills[0];const d=daysUntilDue(b,m.year,m.month);const tgt=bBudget(mid,b.id);const canFund=rts>=tgt;const dayTxt=d<0?`${Math.abs(d)}d overdue`:d===0?'today':`in ${d}d`;
+    return{icon:'⚠️',msg:`${esc(b.name)} is due ${dayTxt} — bucket is empty (${$f(tgt)} needed).`,fn:canFund?`setAlloc('${mid}','${b.id}',${tgt});showToast('${esc(b.name)} funded','save')`:`openDetail('bucket','${b.id}')`,lbl:canFund?`Fund ${$f(tgt)} →`:'View →'};}
+  const uncatCnt=S.txs.filter(t=>t.monthId===mid&&!t.bucketId&&t.type!=='opening'&&t.type!=='xfr'&&!isScheduled(t)).length;
+  if(uncatCnt>0)return{icon:'🗂',msg:`${uncatCnt} transaction${uncatCnt>1?'s':''} still need a bucket assigned.`,fn:`setTab('ledger')`,lbl:'Assign →'};
+  const unfunded=activeBkts.filter(b=>bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0);
+  if(rts>0&&unfunded.length){const aom=ageOfMoney();const aomlbl=aom!==null&&aom<30?` (Age of Money: ${aom}d — allocating builds your buffer)`:'';return{icon:'💡',msg:`${$f(rts)} ready to allocate — ${unfunded.length} unfunded bucket${unfunded.length>1?'s':''}.${aomlbl}`,fn:`setTab('buckets')`,lbl:'Allocate →'};}
+  const aom=ageOfMoney();
+  if(aom!==null&&aom<30&&rts>0){const futureMths=S.months.filter(mo=>compareMid(mo.id,mid)>0).sort((a,b)=>compareMid(a.id,b.id));const fLbl=futureMths.length?`into ${esc(futureMths[0].label)}`:'into upcoming months';return{icon:'📈',msg:`Age of Money is ${aom}d (goal: 30d). Pre-save ${$f(rts)} ${fLbl} to build your cash buffer.`,fn:`document.getElementById('mainPane')?.scrollTo({top:9999,behavior:'smooth'})`,lbl:'Park Surplus ↓'};}
+  const unclosed=S.months.filter(mo=>monthStatus(mo.id)==='past'&&!mo.closed).sort((a,b)=>compareMid(a.id,b.id));
+  if(unclosed.length)return{icon:'📅',msg:`${esc(unclosed[0].label)} is still open — close it to keep reports accurate.`,fn:`openMonthClose('${unclosed[0].id}')`,lbl:'Close Month →'};
+  return{icon:'✅',msg:aom!==null?`All caught up! Age of Money: ${aom}d${aom>=30?' — you\'re a full month ahead. ':', goal is 30d.'}`:
+    'All caught up — no action needed right now.',fn:'',lbl:''};
+}
+
+// ── Coaching Insights ─────────────────────────────────────────────────────────
+function getCoachingInsights(mid){
+  const ins=[];
+  const activeBkts=S.buckets.filter(b=>!b.archived);
+  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
+  if(past3.length>=2){
+    S.cats.forEach(cat=>{
+      const bkts=S.buckets.filter(b=>b.catId===cat.id&&!b.archived);
+      const spends=past3.map(mo=>bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
+      const avg=spends.slice(0,-1).reduce((s,v)=>s+v,0)/Math.max(spends.length-1,1);
+      const recent=spends[spends.length-1];
+      if(avg>20&&recent>avg*1.3)ins.push({icon:'📈',msg:`${esc(cat.name)} spending is up ${Math.round((recent/avg-1)*100)}% vs your recent average — ${$f(Math.round(recent-avg))} more than usual.`});
+    });
+  }
+  const past4=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-4);
+  activeBkts.forEach(b=>{
+    const timesOver=past4.filter(mo=>{const eff=bAlloc(mo.id,b.id)+rolloverBal(b.id,mo.id);return bSpent(mo.id,b.id)>eff+0.01&&eff>0;}).length;
+    if(timesOver>=3){const avgSpend=past4.reduce((s,mo)=>s+bSpent(mo.id,b.id),0)/past4.length;ins.push({icon:'💰',msg:`${esc(b.name)} has been overspent ${timesOver} of the last 4 months. Consider raising the budget to ${$f(Math.ceil(avgSpend/5)*5)}/mo.`});}
+  });
+  const totalInt=S.accounts.filter(a=>a.type==='debt'&&(a.debtAPR||0)>0).reduce((s,a)=>s+acctBalance(a.id)*(a.debtAPR/100/12),0);
+  const income=monthIncome(mid);
+  if(totalInt>20&&income>0&&totalInt/income>0.02)ins.push({icon:'💳',msg:`You're paying ~${$f(Math.round(totalInt*100)/100)}/month in debt interest — ${Math.round(totalInt/income*100)}% of income. That's ${$f(Math.round(totalInt*12))}/year.`});
+  const lastTx=[...S.txs].filter(t=>t.type!=='opening'&&!isScheduled(t)&&!t.autoGenerated).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+  if(lastTx){const days=Math.round((new Date()-new Date(lastTx.date+'T12:00:00'))/864e5);if(days>=7)ins.push({icon:'📝',msg:`No transactions recorded in ${days} days — your spending picture may be out of date.`});}
+  if(income>0){const spent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);const rate=Math.round((income-spent)/income*100);if(rate>=20)ins.push({icon:'🎉',msg:`Savings rate this month: ${rate}% — above the 20% benchmark. Keep it up!`});}
+  return ins.slice(0,3);
+}
+
+// ── Coaching panel HTML ───────────────────────────────────────────────────────
+function coachingPanelHtml(mid){
+  const hs=computeHealthScore(mid);
+  const nba=nextBestAction(mid);
+  const insights=getCoachingInsights(mid);
+  let h=`<div class="card card-pad cc-coach-card">
+    <div class="cc-coach-top">
+      <div class="cc-score-wrap">
+        <div class="cc-score-label">Budget Health</div>
+        <div class="cc-score-num" style="color:var(--${hs.cls})">${hs.score}</div>
+        <div class="cc-score-grade" style="color:var(--${hs.cls})">${hs.grade}</div>
+        <div class="cc-score-sub">${hs.sub}</div>
+      </div>
+      <div class="cc-nba-wrap">
+        <div class="cc-nba-label">Your Next Move</div>
+        <div class="cc-nba-body">
+          <span class="cc-nba-icon">${nba?.icon||'✅'}</span>
+          <span class="cc-nba-msg">${nba?.msg||'All caught up.'}</span>
+        </div>
+        ${nba?.fn?`<button class="tbtn cc-nba-act" onclick="${nba.fn}">${nba.lbl}</button>`:''}
+      </div>
+    </div>`;
+  if(insights.length){
+    h+=`<div class="cc-insights-row">`;
+    insights.forEach(i=>h+=`<div class="cc-insight-chip"><span class="cc-insight-icon">${i.icon}</span><span>${i.msg}</span></div>`);
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
 function computePoolStats(mid){
   const rts=readyToSpend(mid);
   const alloc=totalAllocated(mid);
@@ -2312,10 +2469,11 @@ function computePoolStats(mid){
   const aom=ageOfMoney();
   const aomCls=aom===null?'dim':aom>=30?'green':aom>=10?'amber':'red';
   const aomSub=aom===null?'no recent spend':aom>=30?'well buffered':aom>=10?'getting tight':'near paycheck-to-paycheck';
-  const fundedCnt=activeBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
-  const partialCnt=activeBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
-  const unfundedCnt=activeBkts.filter(b=>bAlloc(mid,b.id)===0).length;
-  const bktHealthCls=fundedCnt===activeBkts.length?'green':unfundedCnt>partialCnt+fundedCnt?'red':'amber';
+  const trackBkts=activeBkts.filter(b=>!isBktSkipped(b.id,mid));
+  const fundedCnt=trackBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
+  const partialCnt=trackBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
+  const unfundedCnt=trackBkts.filter(b=>bAlloc(mid,b.id)===0).length;
+  const bktHealthCls=fundedCnt===trackBkts.length?'green':unfundedCnt>partialCnt+fundedCnt?'red':'amber';
   return {rts,alloc,income,activeBkts,totalSpent,budgetBal,nw,aom,aomCls,aomSub,fundedCnt,partialCnt,unfundedCnt,bktHealthCls};
 }
 
@@ -2702,6 +2860,31 @@ function monthCloseHtml(mid){
         <div class="c-text3" style="font-size:11px;margin-bottom:6px">These buckets carry their remaining balance into the next month.</div>
         ${rollHtml}
       </div>
+      ${(()=>{
+        const debtWithAPR=S.accounts.filter(a=>a.type==='debt'&&(a.debtAPR||0)>0&&acctBalance(a.id)>0.01);
+        if(!debtWithAPR.length)return'';
+        const rows=debtWithAPR.map(a=>{
+          const est=Math.round(acctBalance(a.id)*(a.debtAPR/100/12)*100)/100;
+          return`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+            <div style="flex:1;font-size:13px">${esc(a.name)}</div>
+            <span class="c-text3" style="font-size:11px">${a.debtAPR}% APR</span>
+            <input class="fi mono" id="mcInt_${a.id}" type="number" step="0.01" min="0" value="${est}" style="width:88px;padding:4px 8px;font-size:12px" />
+          </div>`;
+        }).join('');
+        return`<div class="mc-section">
+          <div class="mc-section-hdr">
+            <span class="mc-section-icon">💳</span>
+            <span class="mc-section-title">Debt Interest Charges</span>
+            <span class="mc-badge info">optional</span>
+          </div>
+          <div class="c-text3" style="font-size:11px;margin-bottom:8px">Post estimated interest to keep debt balances accurate. Edit to match your statement.</div>
+          ${rows}
+          <label style="display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="mcPostIntChk" checked style="accent-color:var(--accent)">
+            Post these interest charges when closing
+          </label>
+        </div>`;
+      })()}
     </div>
     <div class="modal-foot" style="flex-direction:column;align-items:stretch;gap:8px">
       ${summaryHtml}
@@ -2714,6 +2897,17 @@ function monthCloseHtml(mid){
 
 function confirmCloseMonth(mid){
   const m=getMonth(mid);if(!m)return;
+  // Post debt interest charges if opted in
+  if(document.getElementById('mcPostIntChk')?.checked){
+    const lastDay=new Date(m.year,m.month+1,0).toISOString().split('T')[0];
+    S.accounts.filter(a=>a.type==='debt'&&(a.debtAPR||0)>0&&acctBalance(a.id)>0.01).forEach(a=>{
+      const amt=parseFloat(document.getElementById('mcInt_'+a.id)?.value)||0;
+      if(amt>0&&!S.txs.some(t=>t.accountId===a.id&&t.interestCharge&&t.monthId===mid)){
+        S.txs.push({id:'_int'+Math.random().toString(36).slice(2,9),accountId:a.id,monthId:mid,
+          desc:'Interest charge',amount:amt,type:'out',date:lastDay,interestCharge:true});
+      }
+    });
+  }
   m.closed=true;
   save();
   closeModal();
@@ -3246,7 +3440,7 @@ function renderOverviewTab(el,mid){
   // ── Build urgency list ────────────────────────────────────────────────────
   const urgency=[];
   if(m){
-    S.buckets.filter(b=>!b.archived).forEach(b=>{
+    S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid)).forEach(b=>{
       const days=daysUntilDue(b,m.year,m.month);
       const balloc=bAlloc(mid,b.id);const bspent=bSpent(mid,b.id);
       const avail=balloc+rolloverBal(b.id,mid)-bspent;
@@ -3374,6 +3568,12 @@ function renderOverviewTab(el,mid){
       <div class="cc-hero-sub"><span class="cc-hero-badge ${aomCls}">${aomSub}</span></div>
     </div>
   </div>`;
+
+  // ── Coaching panel (current month only) ───────────────────────────────────
+  if(st==='present'){
+    h+=coachingPanelHtml(mid);
+    checkMilestones();
+  }
 
   // ── Main grid: left + right columns ──────────────────────────────────────
   h+=`<div class="cc-grid"><div class="cc-left">`;
@@ -3865,6 +4065,7 @@ function renderBucketsTab(el,mid){
       <div class="bkt-card-grid">`;
 
     sorted.forEach(b=>{
+      const skipped=!past&&isBktSkipped(b.id,mid);
       const alloc=bAlloc(mid,b.id);
       const target=bBudget(mid,b.id);
       const roll=rolloverBal(b.id,mid);
@@ -3894,12 +4095,12 @@ function renderBucketsTab(el,mid){
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
       const availColor=avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)';
 
-      h+=`<div class="bkt-card${S.activeBucket===b.id?' act':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
+      h+=`<div class="bkt-card${S.activeBucket===b.id?' act':''}${skipped?' skipped':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
         <div class="bkt-card-top" style="background:${color}"></div>
         <div class="bkt-card-body">
           <div class="bkt-card-name-row">
             <span class="bkt-card-name">${esc(b.name)}</span>
-            ${pillHtml}
+            ${skipped?`<span class="bkt-skip-tag" onclick="event.stopPropagation();toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</span>`:pillHtml}
           </div>
           ${tags.length||dueHtml?`<div class="bkt-card-tags-row">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>`:''}
           <div class="bkt-card-alloc-row" onclick="event.stopPropagation()">
@@ -4196,9 +4397,13 @@ function renderAccountView(el,mid){
 function renderBucketDetail(mid,past,m){
   const bm=computeBucketMetrics(S.activeBucket,mid);if(!bm)return'';
   const {b,cat,color,alloc,target,roll,eff,spent,avail,pctRaw,pct,fillCls,isSink,isGoal,days,days2,due1Paid,due2Paid,barNote,remainNote,sinkData,goalData}=bm;
-  let h=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+  const skippedNow=!past&&isBktSkipped(b.id,mid);
+  let h=`<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:14px">
     <button class="back-btn" style="margin-bottom:0" onclick="setBucket(null)">← Buckets</button>
-    ${!past?`<button class="tbtn" style="font-size:12px;padding:4px 10px" onclick="editBucket('${b.id}')">✏ Edit</button>`:''}
+    <div style="display:flex;gap:6px;align-items:center">
+      ${!past?`<button class="tbtn" style="font-size:11px;padding:3px 9px;color:${skippedNow?'var(--accent)':'var(--text3)'};border-color:${skippedNow?'var(--accent)':'var(--border2)'};" onclick="toggleSkipBucket('${b.id}','${mid}')">${skippedNow?'⏭ Skipped':'⏭ Skip Month'}</button>`:''}
+      ${!past?`<button class="tbtn" style="font-size:12px;padding:4px 10px" onclick="editBucket('${b.id}')">✏ Edit</button>`:''}
+    </div>
   </div>
   <div class="det-name">${esc(b.name)}</div>
   <div class="det-meta">
@@ -5504,7 +5709,7 @@ function wiRunProjector(){
   // ── Build all outflows (current-month-aware + debt min payments) ──────────
   const outflows=[];
   const activeMid=S.activeMonth;
-  const allBkts=S.buckets.filter(b=>!b.archived);
+  const allBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,S.activeMonth));
   {let wY2=startDate.getFullYear(),wM2=startDate.getMonth();
   const endY2=endDate.getFullYear(),endMM2=endDate.getMonth();
   while(wY2<endY2||(wY2===endY2&&wM2<=endMM2)){
