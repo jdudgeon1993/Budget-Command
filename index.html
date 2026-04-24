@@ -2353,7 +2353,7 @@ function checkMilestones(){
   const fresh=[];
   MILESTONES.forEach(ms=>{if(!S.milestones.includes(ms.id)&&ms.check()){S.milestones.push(ms.id);fresh.push(ms);}});
   if(fresh.length){
-    localStorage.setItem('bcc_v6',JSON.stringify(S)); // persist without re-entering save()
+    save();
     fresh.forEach(ms=>showToast(`${ms.icon} Milestone: ${ms.label}!`,'save'));
   }
 }
@@ -2368,7 +2368,7 @@ function computeHealthScore(mid){
   const income=monthIncome(mid);
   const spent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
   const savScore=income>0?Math.min(Math.max((income-spent)/income/0.2,0),1)*20:0;
-  const overCnt=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01&&eff>0;}).length;
+  const overCnt=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01;}).length;
   const overScore=overCnt===0?15:Math.max(0,15-overCnt*5);
   const pastAll=S.months.filter(mo=>monthStatus(mo.id)==='past').length;
   const closeScore=pastAll>0?(S.months.filter(mo=>monthStatus(mo.id)==='past'&&mo.closed).length/pastAll)*10:10;
@@ -2382,7 +2382,7 @@ function nextBestAction(mid){
   const m=getMonth(mid);if(!m)return null;
   const rts=readyToSpend(mid);
   const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
-  const over=activeBkts.find(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01&&eff>0;});
+  const over=activeBkts.find(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01;});
   if(over){const amt=bSpent(mid,over.id)-(bAlloc(mid,over.id)+rolloverBal(over.id,mid));return{icon:'🔴',msg:`${esc(over.name)} is overspent by ${$f(amt)}.`,fn:`openDetail('bucket','${over.id}')`,lbl:'Review →'};}
   const dueBills=activeBkts.filter(b=>{const d=daysUntilDue(b,m.year,m.month);return d!==null&&d<=3&&bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0;}).sort((a,b)=>(daysUntilDue(a,m.year,m.month)||99)-(daysUntilDue(b,m.year,m.month)||99));
   if(dueBills.length){const b=dueBills[0];const d=daysUntilDue(b,m.year,m.month);const tgt=bBudget(mid,b.id);const canFund=rts>=tgt;const dayTxt=d<0?`${Math.abs(d)}d overdue`:d===0?'today':`in ${d}d`;
@@ -2415,7 +2415,7 @@ function getCoachingInsights(mid){
   }
   const past4=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-4);
   activeBkts.forEach(b=>{
-    const timesOver=past4.filter(mo=>{const eff=bAlloc(mo.id,b.id)+rolloverBal(b.id,mo.id);return bSpent(mo.id,b.id)>eff+0.01&&eff>0;}).length;
+    const timesOver=past4.filter(mo=>{const eff=bAlloc(mo.id,b.id)+rolloverBal(b.id,mo.id);return bSpent(mo.id,b.id)>eff+0.01;}).length;
     if(timesOver>=3){const avgSpend=past4.reduce((s,mo)=>s+bSpent(mo.id,b.id),0)/past4.length;ins.push({icon:'💰',msg:`${esc(b.name)} has been overspent ${timesOver} of the last 4 months. Consider raising the budget to ${$f(Math.ceil(avgSpend/5)*5)}/mo.`});}
   });
   const totalInt=S.accounts.filter(a=>a.type==='debt'&&(a.debtAPR||0)>0).reduce((s,a)=>s+acctBalance(a.id)*(a.debtAPR/100/12),0);
