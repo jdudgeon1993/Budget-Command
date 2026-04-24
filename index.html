@@ -3121,6 +3121,23 @@ function jumpToToday(){
   renderActivePane();
 }
 
+function copyLastMonthAllocations(fromMid,toMid){
+  const fromMo=getMonth(fromMid);
+  const toMo=getMonth(toMid);
+  if(!fromMo||!toMo)return;
+  if(toMo.closed){showToast('Month is closed — reopen to edit','info');return;}
+  if(!toMo.allocations)toMo.allocations={};
+  let count=0;
+  S.buckets.filter(b=>!b.archived).forEach(b=>{
+    const prev=fromMo.allocations?.[b.id]||0;
+    if(prev>0){toMo.allocations[b.id]=prev;count++;}
+  });
+  save();
+  renderTopbar();
+  renderActivePane();
+  showToast(`Copied ${count} allocation${count!==1?'s':''} from ${fromMo.label}`,'save');
+}
+
 function renderLogPane(){
   mRenderLog();
   setTimeout(wireMobilePayee,0);
@@ -3250,6 +3267,21 @@ function renderOverviewTab(el,mid){
         <span style="font-weight:600;font-size:13px">${esc(mo.label)} is still open</span>
         ${healthBadge}${extraLbl}
         <button class="tbtn" style="font-size:11px;padding:3px 10px;margin-left:auto;white-space:nowrap" onclick="openMonthClose('${mo.id}')">🔒 Close &amp; Reconcile →</button>
+      </div>`;
+    }
+  }
+
+  // ── Copy last month's allocations nudge (current month, allocations mostly zero) ──
+  if(st==='present'&&prevM){
+    const activeBktList=S.buckets.filter(b=>!b.archived);
+    const zeroedCnt=activeBktList.filter(b=>(bAlloc(mid,b.id)||0)===0).length;
+    const prevHasAllocs=activeBktList.some(b=>(bAlloc(prevM.id,b.id)||0)>0);
+    if(prevHasAllocs&&zeroedCnt===activeBktList.length){
+      h+=`<div class="hint-bar info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px">
+        <span style="font-size:13px">📋</span>
+        <span style="font-size:13px">No allocations set yet for ${esc(m.label)}</span>
+        <span class="c-text3" style="font-size:11px">— copy last month's as a starting point</span>
+        <button class="tbtn" style="font-size:11px;padding:3px 10px;margin-left:auto;white-space:nowrap" onclick="copyLastMonthAllocations('${prevM.id}','${mid}')">📋 Copy from ${esc(prevM.label)}</button>
       </div>`;
     }
   }
@@ -5223,6 +5255,13 @@ function wiProjectorHtml(result,standalone){
         <div class="c-text3" style="font-size:10px;margin-top:2px">Adds weekly discretionary spending — see how it shrinks your buffer</div>
       </div>
     </div>
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:6px;margin-bottom:10px">
+      <input type="checkbox" id="projIncludeDebt" style="margin-top:2px;flex-shrink:0;accent-color:var(--accent)" ${(fs.includeDebt!==false)?'checked':''} onchange="(_projectorFormState=_projectorFormState||{}).includeDebt=this.checked" />
+      <div>
+        <label for="projIncludeDebt" style="font-size:12px;font-weight:600;cursor:pointer">Auto-add debt minimum payments</label>
+        <div class="c-text3" style="font-size:10px;margin-top:2px">Adds debt minimums for any account not already covered by a bucket. <strong>Best practice:</strong> name your bucket identically to the debt account (e.g. both called "Car Loan") so the projector deduplicates automatically — then uncheck this if you've covered all debts via buckets.</div>
+      </div>
+    </div>
 
     ${pcRow(1,true)}
     ${showPc2?pcRow(2,false):`<div id="addPcWrap2" style="margin-bottom:8px"><button class="tbtn c-accent" style="font-size:12px;padding:5px 12px;width:100%" onclick="document.getElementById('addPcWrap2').style.display='none';document.getElementById('pcExpandWrap2').style.display='block';(_projectorFormState=_projectorFormState||{}).showPc2=true">+ Add second income source</button></div><div id="pcExpandWrap2" style="display:none">${pcRow(2,false)}</div>`}
@@ -5271,7 +5310,8 @@ function wiRunProjector(){
 
   // Capture form state so it can be restored after re-render
   const prev=_projectorFormState||{};
-  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId,cushion:document.getElementById('projCushion')?.value||'',extra:document.getElementById('projExtra')?.value||'0',showPc2:prev.showPc2,showPc3:prev.showPc3};
+  const includeDebt=document.getElementById('projIncludeDebt')?.checked!==false;
+  _projectorFormState={startBal,projMonths:monthsRaw,scenarioId,cushion:document.getElementById('projCushion')?.value||'',extra:document.getElementById('projExtra')?.value||'0',showPc2:prev.showPc2,showPc3:prev.showPc3,includeDebt};
   for(let n=1;n<=3;n++){
     _projectorFormState['pc'+n+'Label']=document.getElementById('pc'+n+'Label')?.value||'';
     _projectorFormState['pc'+n+'Amt']=document.getElementById('pc'+n+'Amt')?.value||'';
@@ -5366,13 +5406,16 @@ function wiRunProjector(){
         if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor,bktType:bType,bktRollover:bRoll});
       }
     });
-    // Debt minimum payments — auto-add if not covered by a same-named bucket
-    const bktNamesSet=new Set(allBkts.map(b=>b.name.toLowerCase()));
-    S.accounts.filter(a=>a.type==='debt'&&(a.debtMinPayment||0)>0).forEach(a=>{
-      if(allBkts.some(b=>bktAmt(b)>0&&b.name.toLowerCase()===a.name.toLowerCase()))return;
-      const ds=dStr(1); // default 1st of month (no debtDueDay field yet)
-      if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:a.name+' min. payment',amount:a.debtMinPayment,src:'debt',catColor:null});
-    });
+    // Debt minimum payments — auto-add for accounts not covered by a same-named bucket
+    // Skipped entirely when user has unchecked "Auto-add debt minimums"
+    if(includeDebt){
+      S.accounts.filter(a=>a.type==='debt'&&(a.debtMinPayment||0)>0).forEach(a=>{
+        // Skip if ANY bucket (regardless of scenario amount) shares this account's name
+        if(allBkts.some(b=>b.name.toLowerCase()===a.name.toLowerCase()))return;
+        const ds=dStr(1);
+        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:a.name+' min. payment',amount:a.debtMinPayment,src:'debt',catColor:null});
+      });
+    }
     wM2++;if(wM2>11){wM2=0;wY2++;}
   }}
   // Recurring bills not covered by a bucket
