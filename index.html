@@ -369,6 +369,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ai-regen:hover{color:var(--accent);}
 .ai-error{font-size:12px;color:var(--red);}
 .ai-section{border-top:1px solid var(--border);padding-top:11px;margin-top:2px;}
+/* AI Alerts */
+.ai-alert-chip{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:10px;font-size:13px;line-height:1.5;background:color-mix(in srgb,var(--amber) 8%,var(--bg2));border:1px solid color-mix(in srgb,var(--amber) 28%,var(--border));margin-bottom:8px;}
+.ai-alert-chip.urgent{background:color-mix(in srgb,var(--red) 7%,var(--bg2));border-color:color-mix(in srgb,var(--red) 28%,var(--border));}
+.ai-alert-icon{font-size:16px;flex-shrink:0;line-height:1.4;}
+.ai-alert-msg{flex:1;color:var(--text2);}
+.ai-alert-dismiss{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 2px;flex-shrink:0;}
+.ai-alert-dismiss:hover{color:var(--text);}
+/* NL Transaction Bar */
+.nl-bar{display:flex;gap:8px;padding:10px 0 8px;border-bottom:1px solid var(--border);margin-bottom:10px;}
+.nl-inp{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;transition:border-color .15s;}
+.nl-inp:focus{border-color:var(--accent);}
+.nl-inp::placeholder{color:var(--text3);}
+.nl-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.nl-btn:disabled{opacity:.5;cursor:not-allowed;}
 
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
@@ -2496,6 +2510,79 @@ async function testGeminiConnection(){
   }finally{btn.disabled=false;btn.textContent='Test Connection';}
 }
 
+// ── Phase 2b: Proactive AI Alerts ────────────────────────────────────────────
+async function scheduleAIAlerts(mid){
+  if(!aiEnabled())return;
+  const el=document.getElementById('ai-alerts-wrap');
+  if(!el)return;
+  const cacheKey=mid+'_alerts';
+  if(_aiCache[cacheKey]!==undefined){el.innerHTML=_aiAlertsHtml(_aiCache[cacheKey],mid);return;}
+  const sys=`You are a financial alert system. Scan this budget data and identify 1-3 specific urgent issues needing immediate attention. Return ONLY a valid JSON array, no markdown, no explanation. Each item: {"icon":"single emoji","msg":"specific message with exact dollar amounts","urgent":true or false}. Only flag real problems — if nothing is wrong return [].`;
+  try{
+    const text=await callGemini(`Scan for urgent issues:\n\n${buildBudgetContext(mid)}`,sys,{maxTokens:300,temp:0.2});
+    let alerts=[];
+    try{alerts=JSON.parse(text.replace(/```json\n?|```/g,'').trim());}catch{}
+    if(!Array.isArray(alerts))alerts=[];
+    _aiCache[cacheKey]=alerts;
+    const node=document.getElementById('ai-alerts-wrap');
+    if(node)node.innerHTML=_aiAlertsHtml(alerts,mid);
+  }catch{_aiCache[cacheKey]=[];}
+}
+
+function _aiAlertsHtml(alerts,mid){
+  if(!alerts?.length)return'';
+  return alerts.map((a,i)=>`
+    <div class="ai-alert-chip${a.urgent?' urgent':''}" id="ai-alrt-${mid}-${i}">
+      <span class="ai-alert-icon">${a.icon||'⚠️'}</span>
+      <span class="ai-alert-msg">${esc(a.msg)}</span>
+      <button class="ai-alert-dismiss" onclick="document.getElementById('ai-alrt-${mid}-${i}').remove()">×</button>
+    </div>`).join('');
+}
+
+// ── Phase 3a/b: Natural Language Transaction Entry ────────────────────────────
+async function parseNLTransaction(){
+  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
+  const inp=document.getElementById('nlInp');
+  const btn=document.getElementById('nlBtn');
+  const text=(inp?.value||'').trim();
+  if(!text)return;
+  btn.disabled=true;btn.textContent='…';
+  const bucketList=S.buckets.filter(b=>!b.archived).map(b=>b.name).join(', ');
+  const sys=`Parse a natural language transaction into JSON. Return ONLY valid JSON, no markdown.
+Format: {"type":"out","amount":number,"desc":"merchant/description","bucketName":"exact bucket name or null","date":"YYYY-MM-DD or null"}
+Available buckets: ${bucketList}
+Today: ${todayStr()}
+Match bucketName exactly from the list. Infer from context if obvious. Use null if unsure.`;
+  try{
+    const raw=await callGemini(`Parse: "${text}"`,sys,{maxTokens:120,temp:0.1});
+    let p={};
+    try{p=JSON.parse(raw.replace(/```json\n?|```/g,'').trim());}catch{}
+    // Merchant memory: check payees for a known bucket mapping
+    let bkt=null;
+    if(p.bucketName)
+      bkt=S.buckets.find(b=>!b.archived&&b.name.toLowerCase()===p.bucketName.toLowerCase())
+        ||S.buckets.find(b=>!b.archived&&b.name.toLowerCase().includes((p.bucketName||'').toLowerCase()));
+    if(!bkt&&p.desc){
+      const pee=(S.payees||[]).find(py=>py.name.toLowerCase()===p.desc.toLowerCase()&&py.defaultBucketId);
+      if(pee)bkt=getBucket(pee.defaultBucketId);
+    }
+    // Pre-fill form
+    const v=(id,val)=>{const e=document.getElementById(id);if(e&&val!=null)e.value=val;};
+    v('txDesc',p.desc||text);
+    v('txAmt',p.amount||'');
+    if(p.date)v('txDate',p.date);
+    const defAcct=S.accounts.find(a=>a.type==='budget');
+    if(defAcct)v('txAcct',defAcct.id);
+    setTxType(p.type==='in'?'in':'out');
+    onTxTypeOrAcctChange();
+    if(bkt){v('txCat',bkt.catId);syncTxBuckets();v('txBkt',bkt.id);}
+    inp.value='';
+    document.getElementById('txAmt')?.focus();
+    showToast('Parsed — review and confirm ✓','save');
+  }catch(err){showToast('Could not parse: '+err.message,'info');
+  }finally{btn.disabled=false;btn.textContent='→';}
+}
+
 // ── Financial Health Score ────────────────────────────────────────────────────
 function computeHealthScore(mid){
   const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
@@ -3722,6 +3809,7 @@ function renderOverviewTab(el,mid){
 
   // ── Coaching panel (current month only) ───────────────────────────────────
   if(st==='present'){
+    h+=`<div id="ai-alerts-wrap"></div>`;
     h+=coachingPanelHtml(mid);
     checkMilestones();
   }
@@ -3916,7 +4004,7 @@ function renderOverviewTab(el,mid){
   h+=`</div>`; // close cc-wrap
 
   el.innerHTML=h;
-  if(st==='present')scheduleAINarrative(mid);
+  if(st==='present'){scheduleAINarrative(mid);scheduleAIAlerts(mid);}
 }
 
 function renderLedgerTab(el,mid){
@@ -3954,6 +4042,11 @@ function renderLedgerTab(el,mid){
   }
   el.innerHTML=`<div class="ledger-layout">
     <div class="ledger-form-col">
+      ${!past&&aiEnabled()?`<div class="nl-bar">
+        <input class="nl-inp" id="nlInp" placeholder="e.g. Spent $45 at Trader Joe's on groceries…"
+          onkeydown="if(event.key==='Enter')parseNLTransaction()" />
+        <button class="nl-btn" id="nlBtn" onclick="parseNLTransaction()">→</button>
+      </div>`:''}
       <div class="rp-form" id="txForm" style="display:${past?'none':'flex'};background:transparent;border-bottom:none;padding:0;gap:10px">
         <div class="rpf-row rpf-type-row">
           <span class="rpf-label">Type</span>
