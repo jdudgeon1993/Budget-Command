@@ -2475,31 +2475,73 @@ async function callGemini(userPrompt,sysPrompt='',opts={}){
 
 function buildBudgetContext(mid){
   const m=getMonth(mid);if(!m)return'';
+  const st=monthStatus(mid);
   const income=monthIncome(mid);
+  const projIncome=monthProjectedIncome(mid);
   const aom=ageOfMoney();
   const nw=calcNetWorth();
   const rts=readyToSpend(mid);
   const activeBkts=S.buckets.filter(b=>!b.archived);
   const totalSpent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const totalBudget=activeBkts.reduce((s,b)=>s+bBudget(mid,b.id),0);
   const overspent=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01;});
   const unfunded=activeBkts.filter(b=>bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0);
   const hs=computeHealthScore(mid);
   const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
   const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
   const savRates=past3.map(mo=>{const inc=monthIncome(mo.id);const sp=activeBkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?Math.round((inc-sp)/inc*100):null;}).filter(r=>r!==null);
+
+  // ── Month timing ──────────────────────────────────────────────────────────
+  const daysInMonth=new Date(m.year,m.month+1,0).getDate();
+  const dayOfMonth=st==='present'?new Date().getDate():daysInMonth;
+  const daysLeft=daysInMonth-dayOfMonth;
+  const timePctStr=`Day ${dayOfMonth} of ${daysInMonth} (${daysLeft} days remaining)`;
+
+  // ── Paycheck schedule for this month ─────────────────────────────────────
+  const today=todayStr();
+  const startStr=`${m.year}-${String(m.month+1).padStart(2,'0')}-01`;
+  const endStr=`${m.year}-${String(m.month+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+  const pcs=S.paychecks||[];
+  const paycheckLines=[];
+  pcs.forEach(pc=>{
+    if(!pc.anchorDate||!pc.amount)return;
+    paycheckEventsInRange(pc.anchorDate,pc.freq||14,pc.amount,startStr,endStr).forEach(e=>{
+      const status=e.date<today?'received':e.date===today?'arrives today':`arrives ${e.date}`;
+      paycheckLines.push(`  ${pc.label||'Paycheck'}: $${e.amount} — ${status}`);
+    });
+  });
+
+  // ── Scheduled future transactions ─────────────────────────────────────────
+  const scheduled=S.txs.filter(t=>t.monthId===mid&&isScheduled(t)&&t.type!=='opening');
+  const schedLines=scheduled.slice(0,5).map(t=>{
+    const bkt=getBucket(t.bucketId);
+    return`  ${t.desc} ${t.type==='in'?'+':'–'}$${t.amount} on ${t.date}${bkt?' ['+bkt.name+']':''}`;
+  });
+
+  // ── Bucket lines: budget target + allocation + spent ───────────────────────
   const bktLines=activeBkts.filter(b=>bBudget(mid,b.id)>0||bSpent(mid,b.id)>0).map(b=>{
     const alloc=bAlloc(mid,b.id),spent=bSpent(mid,b.id),budget=bBudget(mid,b.id);
     const over=spent>(alloc+rolloverBal(b.id,mid)+0.01)?'[OVERSPENT]':'';
-    return`  ${b.name}: budget $${budget} | allocated $${alloc} | spent $${spent.toFixed(0)} ${over}`;
+    const unallocFlag=alloc<budget&&budget>0?`[needs $${(budget-alloc).toFixed(0)} more allocation]`:'';
+    return`  ${b.name}: target $${budget} | allocated $${alloc} | spent $${spent.toFixed(0)} ${over}${unallocFlag}`;
   }).join('\n');
-  return `Budget: ${m.label} | Status: ${monthStatus(mid)}
-Income: $${income.toFixed(0)} | Spent: $${totalSpent.toFixed(0)} | Ready to Spend: $${rts.toFixed(0)}
+
+  // ── Build context string ──────────────────────────────────────────────────
+  const incomeBlock=projIncome!=null
+    ?`Income received so far: $${income.toFixed(0)} | Expected total this month: $${projIncome.toFixed(0)} | Still incoming: $${Math.max(0,projIncome-income).toFixed(0)}`
+    :`Income logged: $${income.toFixed(0)} (no paycheck schedule set)`;
+
+  return`BUDGET CONTEXT — ${m.label} | Status: ${st} | ${timePctStr}
+${incomeBlock}
+Monthly budget target: $${totalBudget.toFixed(0)} | Spent so far: $${totalSpent.toFixed(0)} | Ready to Spend: $${rts.toFixed(0)}
 Health Score: ${hs.score}/100 (${hs.grade}) | Age of Money: ${aom!==null?aom+'d':'unknown'}
-Net Worth: $${nw.toFixed(0)}${savRates.length?' | Avg Savings Rate 3mo: '+Math.round(savRates.reduce((s,v)=>s+v,0)/savRates.length)+'%':''}
-${overspent.length?'Overspent: '+overspent.map(b=>`${b.name} ($${(bSpent(mid,b.id)-(bAlloc(mid,b.id)+rolloverBal(b.id,mid))).toFixed(0)} over)`).join(', '):'No overspent buckets'}
-${unfunded.length?'Unfunded: '+unfunded.map(b=>b.name).join(', '):'All buckets funded'}
+Net Worth: $${nw.toFixed(0)}${savRates.length?' | 3-month avg savings rate: '+Math.round(savRates.reduce((s,v)=>s+v,0)/savRates.length)+'%':''}
+${overspent.length?'Overspent buckets: '+overspent.map(b=>`${b.name} ($${(bSpent(mid,b.id)-(bAlloc(mid,b.id)+rolloverBal(b.id,mid))).toFixed(0)} over)`).join(', '):'No overspent buckets'}
+${unfunded.length?'Unfunded (have target, no allocation yet): '+unfunded.map(b=>b.name).join(', '):'All bucket targets funded'}
 ${debts.length?'Debts: '+debts.map(a=>`${a.name} $${acctBalance(a.id).toFixed(0)}${a.debtAPR?' @ '+a.debtAPR+'% APR':''}`).join(' | '):'No active debts'}
-Buckets:
+${paycheckLines.length?'Paycheck schedule this month:\n'+paycheckLines.join('\n'):'No paycheck schedule configured'}
+${schedLines.length?'Upcoming scheduled transactions:\n'+schedLines.join('\n'):''}
+Bucket details:
 ${bktLines}`;
 }
 
@@ -2515,11 +2557,12 @@ async function scheduleAINarrative(mid){
     toughLove:'Be direct and honest — do not sugarcoat problems or waste words.'
   };
   const tone=toneMap[getAISettings().tone||'encouraging'];
-  const sys=`You are a personal financial coach inside a budgeting app. ${tone} Reply in 2-3 sentences max. Reference specific dollar amounts and percentages from the user's data. No generic advice. No markdown.`;
+  const sys=`You are a personal financial coach inside a budgeting app. ${tone} Reply in 2-3 sentences max. Reference specific dollar amounts from the user's data. No generic advice. No markdown.
+IMPORTANT: "Income received so far" is only what has been logged to date — the user may not have received all paychecks yet. Always base assessments on "Expected total this month" when available, not just income received. If paychecks are still incoming, acknowledge the user is mid-month and comment on whether their full projected income covers their budget. Never say they cannot afford something just because income logged is low — check if expected total covers it.`;
   try{
     const text=await callGemini(
-      `Here is my current budget:\n\n${buildBudgetContext(mid)}\n\nGive me your honest coaching take on where I stand right now.`,
-      sys,{maxTokens:200,temp:0.75}
+      `Here is my current budget:\n\n${buildBudgetContext(mid)}\n\nGive me your forward-looking coaching take: am I on track for the full month based on projected income and spending pace?`,
+      sys,{maxTokens:220,temp:0.75}
     );
     _aiCache[cacheKey]=text;
     const node=document.getElementById('ai-coach-narrative');
@@ -2571,9 +2614,10 @@ async function scheduleAIAlerts(mid){
   if(!el)return;
   const cacheKey=mid+'_alerts';
   if(_aiCache[cacheKey]!==undefined){el.innerHTML=_aiAlertsHtml(_aiCache[cacheKey],mid);return;}
-  const sys=`You are a financial alert system. Scan this budget data and identify 1-3 specific urgent issues needing immediate attention. Return ONLY a valid JSON array, no markdown, no explanation. Each item: {"icon":"single emoji","msg":"specific message with exact dollar amounts","urgent":true or false}. Only flag real problems — if nothing is wrong return [].`;
+  const sys=`You are a financial alert system. Scan this budget data and identify 1-3 specific urgent issues. Return ONLY a valid JSON array, no markdown, no explanation. Each item: {"icon":"single emoji","msg":"specific message with exact dollar amounts","urgent":true or false}. Only flag real problems — if nothing is wrong return [].
+CRITICAL: "Income received so far" is only income logged to date. The user may still have paychecks arriving. Base alerts on "Expected total this month" not received-so-far. Do NOT flag low income as a problem if expected total covers the budget. Flag income concerns only if expected total is less than budget target.`;
   try{
-    const text=await callGemini(`Scan for urgent issues:\n\n${buildBudgetContext(mid)}`,sys,{maxTokens:300,temp:0.2});
+    const text=await callGemini(`Scan for urgent issues (use projected income, not just received):\n\n${buildBudgetContext(mid)}`,sys,{maxTokens:300,temp:0.2});
     let alerts=[];
     try{alerts=JSON.parse(text.replace(/```json\n?|```/g,'').trim());}catch{}
     if(!Array.isArray(alerts))alerts=[];
@@ -2718,7 +2762,9 @@ async function sendChatMsg(prefill){
   }
 
   const s=getAISettings();
+  const wiCtx=S.wiOpen&&S.wiScenario?`\n\nUSER IS IN WHAT IF MODE — Scenario: "${S.wiScenario.name}". Treat scenario budgets as the hypothetical plan the user is exploring, not their actual current budget.`:'';
   const sys=`You are a personal financial coach inside Budget Command, a budgeting app. You have full access to the user's real financial data shown below. Always reference exact numbers, account names, and amounts from their data. Be conversational, direct, and genuinely helpful. No generic advice. No markdown formatting — no bold (**), no headers (#), no bullet hyphens. Use plain sentences and natural line breaks.
+IMPORTANT: "Income received so far" is only income logged to date — the user may have paychecks still arriving later this month. Always base your analysis on "Expected total this month" when available. Do not flag affordability concerns based on received income alone.${wiCtx}
 
 Current snapshot:
 ${buildBudgetContext(S.activeMonth)}`;
