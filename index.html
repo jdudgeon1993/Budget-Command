@@ -423,6 +423,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .chat-msg.model .chat-bubble{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;}
 .chat-typing{display:flex;align-items:center;gap:5px;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;}
 .chat-empty{text-align:center;color:var(--text3);font-size:13px;padding:30px 16px;line-height:1.7;}
+.chat-action-card{background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));border-radius:10px;padding:12px 14px;margin-top:7px;max-width:90%;}
+.chat-action-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:7px;}
+.chat-action-row{font-size:13px;color:var(--text1);padding:5px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
+.chat-action-row:last-of-type{border:none;}
+.chat-action-btns{display:flex;gap:7px;margin-top:10px;}
+.chat-action-apply{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;}
+.chat-action-dismiss{background:transparent;color:var(--text3);border:1px solid var(--border2);border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;}
+.chat-applied{font-size:12px;color:var(--green);padding:6px 0 0;max-width:90%;}
 .chat-inp-row{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
 .chat-inp{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);outline:none;resize:none;min-height:42px;max-height:130px;font-family:inherit;line-height:1.5;transition:border-color .15s;}
 .chat-inp:focus{border-color:var(--accent);}
@@ -2491,13 +2499,16 @@ function buildBudgetContext(mid){
   const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
   const savRates=past3.map(mo=>{const inc=monthIncome(mo.id);const sp=activeBkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?Math.round((inc-sp)/inc*100):null;}).filter(r=>r!==null);
 
-  // ── Month timing ──────────────────────────────────────────────────────────
+  // Timing + velocity
   const daysInMonth=new Date(m.year,m.month+1,0).getDate();
   const dayOfMonth=st==='present'?new Date().getDate():daysInMonth;
   const daysLeft=daysInMonth-dayOfMonth;
-  const timePctStr=`Day ${dayOfMonth} of ${daysInMonth} (${daysLeft} days remaining)`;
+  const timePct=dayOfMonth/daysInMonth;
+  const spendPct=totalBudget>0?totalSpent/totalBudget:0;
+  const velocity=timePct>0?spendPct/timePct:0;
+  const velocityStr=velocity>1.15?`OVERPACING — spending ${Math.round((velocity-1)*100)}% faster than month progress`:velocity<0.85?`underpacing (${Math.round((1-velocity)*100)}% slower than normal)`:'on pace';
 
-  // ── Paycheck schedule for this month ─────────────────────────────────────
+  // Paycheck schedule
   const today=todayStr();
   const startStr=`${m.year}-${String(m.month+1).padStart(2,'0')}-01`;
   const endStr=`${m.year}-${String(m.month+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
@@ -2506,43 +2517,86 @@ function buildBudgetContext(mid){
   pcs.forEach(pc=>{
     if(!pc.anchorDate||!pc.amount)return;
     paycheckEventsInRange(pc.anchorDate,pc.freq||14,pc.amount,startStr,endStr).forEach(e=>{
-      const status=e.date<today?'received':e.date===today?'arrives today':`arrives ${e.date}`;
+      const status=e.date<today?'✓ received':e.date===today?'arrives TODAY':`pending (${e.date})`;
       paycheckLines.push(`  ${pc.label||'Paycheck'}: $${e.amount} — ${status}`);
     });
   });
 
-  // ── Scheduled future transactions ─────────────────────────────────────────
+  // Scheduled future transactions
   const scheduled=S.txs.filter(t=>t.monthId===mid&&isScheduled(t)&&t.type!=='opening');
-  const schedLines=scheduled.slice(0,5).map(t=>{
+  const schedLines=scheduled.slice(0,6).map(t=>{
     const bkt=getBucket(t.bucketId);
     return`  ${t.desc} ${t.type==='in'?'+':'–'}$${t.amount} on ${t.date}${bkt?' ['+bkt.name+']':''}`;
   });
 
-  // ── Bucket lines: budget target + allocation + spent ───────────────────────
-  const bktLines=activeBkts.filter(b=>bBudget(mid,b.id)>0||bSpent(mid,b.id)>0).map(b=>{
-    const alloc=bAlloc(mid,b.id),spent=bSpent(mid,b.id),budget=bBudget(mid,b.id);
-    const over=spent>(alloc+rolloverBal(b.id,mid)+0.01)?'[OVERSPENT]':'';
-    const unallocFlag=alloc<budget&&budget>0?`[needs $${(budget-alloc).toFixed(0)} more allocation]`:'';
-    return`  ${b.name}: target $${budget} | allocated $${alloc} | spent $${spent.toFixed(0)} ${over}${unallocFlag}`;
+  // Recurring bills (monthly obligations)
+  const billLines=(S.recurringBills||[]).filter(b=>b.active!==false).map(b=>{
+    const bkt=getBucket(b.bucketId);
+    const paid=S.txs.some(t=>t.monthId===mid&&t.bucketId===b.bucketId&&t.type==='out'&&!isScheduled(t)&&Math.abs(t.amount-b.amount)<0.02);
+    return`  ${b.desc}: $${b.amount} on day ${b.dayOfMonth} — ${paid?'✓ paid this month':'unpaid'}${bkt?' ['+bkt.name+']':''}`;
   }).join('\n');
 
-  // ── Build context string ──────────────────────────────────────────────────
-  const incomeBlock=projIncome!=null
-    ?`Income received so far: $${income.toFixed(0)} | Expected total this month: $${projIncome.toFixed(0)} | Still incoming: $${Math.max(0,projIncome-income).toFixed(0)}`
-    :`Income logged: $${income.toFixed(0)} (no paycheck schedule set)`;
+  // Allocation rules
+  const ruleLines=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived).map(r=>{
+    const b=getBucket(r.bucketId);
+    return`  ${r.name}: ${r.type==='pct'?r.value+'% of income':'$'+r.value+'/paycheck'} → ${b.name}`;
+  }).join('\n');
 
-  return`BUDGET CONTEXT — ${m.label} | Status: ${st} | ${timePctStr}
+  // Account balances
+  const acctLines=S.accounts.map(a=>`  ${a.name} (${a.type}): $${acctBalance(a.id).toFixed(2)}`).join('\n');
+
+  // Category anomalies (statistical spend spikes)
+  const anomalyLines=sortedCats().map(cat=>{
+    const an=catAnomalyCheck(cat.id,mid);
+    return an?`  ⚠ ${cat.name}: $${an.cur.toFixed(0)} this month — $${an.excess.toFixed(0)} above 12-month avg (${an.z}σ spike)`:null;
+  }).filter(Boolean).join('\n');
+
+  // Income trend (last 3 months)
+  const incomeHistory=past3.map(mo=>`${mo.label}=$${monthIncome(mo.id).toFixed(0)}`).join(', ');
+
+  // Goals progress
+  const goalLines=activeBkts.filter(b=>b.type==='goal'&&(b.targetAmount||0)>0).map(b=>{
+    const saved=Math.max(sinkingSaved(b.id,mid),0);
+    const tgt=b.targetAmount;
+    const pct=Math.round(saved/tgt*100);
+    return`  [${b.id}] ${b.name}: $${saved.toFixed(0)}/$${tgt} (${pct}%)${b.targetDate?' — target date '+b.targetDate:''}`;
+  }).join('\n');
+
+  // Bucket lines — include IDs for action protocol, rollover, type
+  const bktLines=activeBkts.filter(b=>bBudget(mid,b.id)>0||bSpent(mid,b.id)>0||bAlloc(mid,b.id)>0).map(b=>{
+    const alloc=bAlloc(mid,b.id),spent=bSpent(mid,b.id),budget=bBudget(mid,b.id);
+    const roll=rolloverBal(b.id,mid);
+    const eff=alloc+roll;
+    const over=spent>eff+0.01?'[OVERSPENT]':'';
+    const gap=alloc<budget&&budget>0?`[needs $${(budget-alloc).toFixed(0)} more]`:'';
+    const rollStr=roll>0?` | rollover +$${roll.toFixed(0)}`:'';
+    return`  [${b.id}] ${b.name} (${b.type||'regular'}): budget $${budget} | alloc $${alloc}${rollStr} | spent $${spent.toFixed(0)} ${over}${gap}`;
+  }).join('\n');
+
+  const incomeBlock=projIncome!=null
+    ?`Income received: $${income.toFixed(0)} | Expected total: $${projIncome.toFixed(0)} | Still incoming: $${Math.max(0,projIncome-income).toFixed(0)}`
+    :`Income logged: $${income.toFixed(0)} (no paycheck schedule — set one in Settings for better projections)`;
+
+  return`BUDGET CONTEXT — ${m.label} | Status: ${st} | Day ${dayOfMonth}/${daysInMonth} (${daysLeft} days left) | Spending: ${velocityStr}
 ${incomeBlock}
-Monthly budget target: $${totalBudget.toFixed(0)} | Spent so far: $${totalSpent.toFixed(0)} | Ready to Spend: $${rts.toFixed(0)}
-Health Score: ${hs.score}/100 (${hs.grade}) | Age of Money: ${aom!==null?aom+'d':'unknown'}
-Net Worth: $${nw.toFixed(0)}${savRates.length?' | 3-month avg savings rate: '+Math.round(savRates.reduce((s,v)=>s+v,0)/savRates.length)+'%':''}
-${overspent.length?'Overspent buckets: '+overspent.map(b=>`${b.name} ($${(bSpent(mid,b.id)-(bAlloc(mid,b.id)+rolloverBal(b.id,mid))).toFixed(0)} over)`).join(', '):'No overspent buckets'}
-${unfunded.length?'Unfunded (have target, no allocation yet): '+unfunded.map(b=>b.name).join(', '):'All bucket targets funded'}
-${debts.length?'Debts: '+debts.map(a=>`${a.name} $${acctBalance(a.id).toFixed(0)}${a.debtAPR?' @ '+a.debtAPR+'% APR':''}`).join(' | '):'No active debts'}
-${paycheckLines.length?'Paycheck schedule this month:\n'+paycheckLines.join('\n'):'No paycheck schedule configured'}
+Budget target: $${totalBudget.toFixed(0)} | Spent: $${totalSpent.toFixed(0)} | Ready to Spend: $${rts.toFixed(0)}
+Health: ${hs.score}/100 (${hs.grade}) | Age of Money: ${aom!=null?aom+'d':'unknown'} | Net Worth: $${nw.toFixed(0)}
+${savRates.length?'3-month avg savings rate: '+Math.round(savRates.reduce((s,v)=>s+v,0)/savRates.length)+'%':''}
+${incomeHistory?'Income trend: '+incomeHistory:''}
+${overspent.length?'OVERSPENT: '+overspent.map(b=>`${b.name} $${(bSpent(mid,b.id)-(bAlloc(mid,b.id)+rolloverBal(b.id,mid))).toFixed(0)} over`).join(', '):'No overspent buckets'}
+${unfunded.length?'Unfunded (target set, no allocation): '+unfunded.map(b=>b.name).join(', '):'All buckets funded'}
+${debts.length?'Debts: '+debts.map(a=>`${a.name} $${acctBalance(a.id).toFixed(0)}${a.debtAPR?' @'+a.debtAPR+'%':''}`).join(' | '):'No debts'}
+${anomalyLines?'SPENDING SPIKES:\n'+anomalyLines:''}
+Accounts:
+${acctLines}
+${paycheckLines.length?'Paychecks this month:\n'+paycheckLines.join('\n'):'No paycheck schedule set'}
+${billLines?'Recurring bills:\n'+billLines:''}
 ${schedLines.length?'Upcoming scheduled transactions:\n'+schedLines.join('\n'):''}
-Bucket details:
-${bktLines}`;
+${ruleLines?'Auto-allocation rules:\n'+ruleLines:''}
+${goalLines?'Savings goals:\n'+goalLines:''}
+Buckets (use exact [ID] for actions):
+${bktLines}
+CURRENT_MONTH_ID: ${mid}`;
 }
 
 async function scheduleAINarrative(mid){
@@ -2706,20 +2760,25 @@ function refreshChatSuggestions(){
   const mid=S.activeMonth;
   const aom=ageOfMoney();
   const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  const rts=mid?readyToSpend(mid):0;
+  const unfundedBkts=mid?S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0):[];
   const chips=[];
+  // Action-oriented chips first
+  if(rts>0&&unfundedBkts.length)chips.push('Allocate my remaining funds across unfunded buckets');
+  if(unfundedBkts.length===0&&rts>0)chips.push(`I have $${rts.toFixed(0)} left — where should it go?`);
+  if(debts.length)chips.push(`Make a debt payoff plan for my ${debts[0].name}`);
+  // Advisory chips
   if(aom!==null&&aom<20)chips.push('Why do I feel paycheck to paycheck?');
-  if(debts.length)chips.push(`When will my ${debts[0].name} be paid off?`);
-  chips.push('What should I cut to save $200/mo?');
   if(mid){
     const m=getMonth(mid);
     if(m){
       const daysLeft=new Date(m.year,m.month+1,0).getDate()-new Date().getDate();
-      chips.push(daysLeft<=7?'How am I tracking for month end?':"How's my budget this month?");
+      chips.push(daysLeft<=7?'Am I on track to finish the month?':'How is my budget looking this month?');
     }
   }
-  chips.push('Explain my health score');
-  chips.push('Help me plan next month');
-  el.innerHTML=chips.slice(0,4).map(c=>
+  chips.push('What should I cut to save more?');
+  chips.push('Explain my budget health score');
+  el.innerHTML=chips.slice(0,5).map(c=>
     `<button class="chat-chip" onclick="sendChatMsg(${JSON.stringify(c)})">${esc(c)}</button>`
   ).join('');
 }
@@ -2728,16 +2787,34 @@ function renderChatMessages(){
   const el=document.getElementById('chatMsgs');
   if(!el)return;
   if(!_chatHistory.length){
-    el.innerHTML=`<div class="chat-empty">Ask me anything about your finances.<br>I have full context of your budget, accounts, and spending history.</div>`;
+    el.innerHTML=`<div class="chat-empty">Ask me anything about your budget — or tell me to <em>do</em> something. I can allocate funds, set income, and more.</div>`;
     return;
   }
-  el.innerHTML=_chatHistory.map(m=>`
-    <div class="chat-msg ${m.role}">
-      <div class="chat-bubble">${m.role==='user'
-        ?esc(m.parts[0].text)
-        :m.parts[0].text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')
-      }</div>
-    </div>`).join('');
+  el.innerHTML=_chatHistory.map((m,i)=>{
+    const raw=m.parts[0]?.text||'';
+    // Strip action block from display text
+    const display=raw.replace(/```budget-actions[\s\S]*?```/g,'').trim();
+    const safe=display.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    let actionHtml='';
+    if(m._actions?.length){
+      if(m._actionsApplied){
+        actionHtml=`<div class="chat-applied">✓ ${(m._actionReport||['Done']).join(' · ')}</div>`;
+      } else {
+        actionHtml=`<div class="chat-action-card">
+          <div class="chat-action-lbl">✦ Ready to apply</div>
+          ${m._actions.map(_actionPreviewHtml).join('')}
+          <div class="chat-action-btns">
+            <button class="chat-action-apply" onclick="executeChatActions(${i})">✓ Apply</button>
+            <button class="chat-action-dismiss" onclick="dismissChatActions(${i})">Dismiss</button>
+          </div>
+        </div>`;
+      }
+    }
+    return`<div class="chat-msg ${m.role}">
+      <div class="chat-bubble">${m.role==='user'?esc(raw):safe}</div>
+      ${actionHtml}
+    </div>`;
+  }).join('');
   el.scrollTop=el.scrollHeight;
 }
 
@@ -2762,12 +2839,29 @@ async function sendChatMsg(prefill){
   }
 
   const s=getAISettings();
-  const wiCtx=S.wiOpen&&S.wiScenario?`\n\nUSER IS IN WHAT IF MODE — Scenario: "${S.wiScenario.name}". Treat scenario budgets as the hypothetical plan the user is exploring, not their actual current budget.`:'';
-  const sys=`You are a personal financial coach inside Budget Command, a budgeting app. You have full access to the user's real financial data shown below. Always reference exact numbers, account names, and amounts from their data. Be conversational, direct, and genuinely helpful. No generic advice. No markdown formatting — no bold (**), no headers (#), no bullet hyphens. Use plain sentences and natural line breaks.
-IMPORTANT: "Income received so far" is only income logged to date — the user may have paychecks still arriving later this month. Always base your analysis on "Expected total this month" when available. Do not flag affordability concerns based on received income alone.${wiCtx}
+  const wiCtx=S.wiOpen&&S.wiScenario?`\n\nUSER IS IN WHAT IF MODE — Scenario: "${S.wiScenario.name}". The user is exploring a hypothetical budget, not their live data.`:'';
+  const actionProtocol=`
 
-Current snapshot:
+ACTION PROTOCOL — You can take real actions in the app. When the user asks you to DO something (allocate money, set income, etc.), include at the END of your reply:
+\`\`\`budget-actions
+[{"action":"ACTION","field":"value",...}]
+\`\`\`
+
+Available actions:
+• allocate — Set a bucket's allocation. Fields: action, bucketId (exact [ID] from data), bucketName, amount, mid (optional, defaults to current)
+• set_income — Set projected income for a month. Fields: action, amount, mid (optional), label (optional)
+• navigate — Open a tab. Fields: action, tab (one of: overview, buckets, ledger, accounts, reports, settings)
+
+Rules: Only include the code block when user explicitly asks you to act. Explain what you're doing in plain text first. Always use exact bucketId values (the [_xxxxxxx] IDs from the bucket list). You can include multiple actions in the array. NEVER delete data.`;
+
+  const sys=`You are a powerful AI financial assistant inside Budget Command. You have complete, real-time access to the user's financial data. Be conversational, direct, specific — always use exact dollar amounts from their data. No markdown (no **, no #, no -). Use plain sentences.
+INCOME RULE: "Income received" = logged so far. "Expected total" = full month projection. Always reason from expected total, not received. Never flag unaffordability based on mid-month received income alone.${wiCtx}${actionProtocol}
+
+Current financial snapshot:
 ${buildBudgetContext(S.activeMonth)}`;
+
+  // Strip extra metadata fields before sending to API
+  const apiContents=_chatHistory.map(({role,parts})=>({role,parts}));
 
   try{
     const url=`https://generativelanguage.googleapis.com/v1beta/models/${s.model||'gemini-2.0-flash'}:generateContent?key=${s.geminiKey}`;
@@ -2775,16 +2869,19 @@ ${buildBudgetContext(S.activeMonth)}`;
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         system_instruction:{parts:[{text:sys}]},
-        contents:_chatHistory,
-        generationConfig:{maxOutputTokens:600,temperature:0.8}
+        contents:apiContents,
+        generationConfig:{maxOutputTokens:900,temperature:0.8}
       }),
-      signal:AbortSignal.timeout(20000)
+      signal:AbortSignal.timeout(25000)
     });
     document.getElementById('chatTyping')?.remove();
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
     const data=await res.json();
     const reply=data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||"I couldn't generate a response — please try again.";
-    _chatHistory.push({role:'model',parts:[{text:reply}]});
+    const actions=parseChatActionBlock(reply);
+    const entry={role:'model',parts:[{text:reply}]};
+    if(actions.length)entry._actions=actions;
+    _chatHistory.push(entry);
     renderChatMessages();
   }catch(err){
     document.getElementById('chatTyping')?.remove();
@@ -2800,6 +2897,56 @@ function clearChat(){
   _chatHistory=[];
   renderChatMessages();
   refreshChatSuggestions();
+}
+
+// ── AI Action Protocol ─────────────────────────────────────────────────────
+function parseChatActionBlock(text){
+  const m=text.match(/```budget-actions\s*([\s\S]*?)```/);
+  if(!m)return[];
+  try{const p=JSON.parse(m[1].trim());return Array.isArray(p)?p:[p];}catch{return[];}
+}
+function _actionPreviewHtml(act){
+  if(act.action==='allocate')return`<div class="chat-action-row">📊 Allocate <strong>$${parseFloat(act.amount).toFixed(2)}</strong> → <strong>${esc(act.bucketName||act.bucketId)}</strong></div>`;
+  if(act.action==='set_income')return`<div class="chat-action-row">💰 Set projected income to <strong>$${parseFloat(act.amount).toFixed(2)}</strong>${act.label?' ('+esc(act.label)+')':''}</div>`;
+  if(act.action==='navigate')return`<div class="chat-action-row">🔗 Open <strong>${esc(act.tab)}</strong> tab</div>`;
+  return`<div class="chat-action-row">⚡ ${esc(act.action)}</div>`;
+}
+function executeChatActions(idx){
+  const entry=_chatHistory[idx];if(!entry?._actions?.length)return;
+  const mid=S.activeMonth;
+  const report=[];let needsSave=false;let nav=null;
+  entry._actions.forEach(act=>{
+    try{
+      if(act.action==='allocate'){
+        const aMid=act.mid||mid;const m=getMonth(aMid);
+        if(!m){report.push(`⚠ Month not found`);return;}
+        if(m.closed){report.push(`⚠ ${m.label} is closed`);return;}
+        if(!m.allocations)m.allocations={};
+        const amt=Math.max(parseFloat(act.amount)||0,0);
+        m.allocations[act.bucketId]=amt;
+        report.push(`✓ ${act.bucketName||act.bucketId}: $${amt.toFixed(2)}`);
+        needsSave=true;
+      } else if(act.action==='set_income'){
+        const aMid=act.mid||mid;const m=getMonth(aMid);
+        if(!m){report.push(`⚠ Month not found`);return;}
+        m.projectedIncome=parseFloat(act.amount)||null;
+        report.push(`✓ Income set to $${parseFloat(act.amount).toFixed(2)}`);
+        needsSave=true;
+      } else if(act.action==='navigate'){
+        nav=act.tab;
+        report.push(`✓ Navigating to ${act.tab}`);
+      }
+    }catch(e){report.push(`⚠ Error: ${e.message}`);}
+  });
+  entry._actionsApplied=true;entry._actionReport=report;
+  if(needsSave){save();render();}
+  if(nav)setTimeout(()=>setTab(nav),300);
+  renderChatMessages();
+  if(report.length)showToast(report.slice(0,2).join(' · '),'save');
+}
+function dismissChatActions(idx){
+  const e=_chatHistory[idx];if(e){e._actionsApplied=true;e._actionReport=['Dismissed'];}
+  renderChatMessages();
 }
 
 // ── Phase 8a: Spending Personality Report ─────────────────────────────────────
