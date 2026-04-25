@@ -369,6 +369,19 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ai-regen:hover{color:var(--accent);}
 .ai-error{font-size:12px;color:var(--red);}
 .ai-section{border-top:1px solid var(--border);padding-top:11px;margin-top:2px;}
+/* AI Allocation Draft */
+.ai-draft-table{width:100%;border-collapse:collapse;}
+.ai-draft-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);}
+.ai-draft-table td{padding:9px 8px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+.ai-draft-table tr:last-child td{border-bottom:none;}
+.ai-draft-reason{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;}
+.ai-draft-inp{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);width:80px;text-align:right;outline:none;}
+.ai-draft-inp:focus{border-color:var(--accent);}
+/* AI Monthly Report */
+.ai-report-text{font-size:13px;line-height:1.8;color:var(--text2);white-space:pre-wrap;}
+/* Transaction Anomaly */
+.tx-anomaly{font-size:10px;cursor:pointer;color:var(--amber);padding:1px 5px;border-radius:4px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--amber) 25%,var(--border));margin-left:6px;vertical-align:middle;}
+.tx-anomaly:hover{background:color-mix(in srgb,var(--amber) 20%,transparent);}
 /* AI Alerts */
 .ai-alert-chip{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:10px;font-size:13px;line-height:1.5;background:color-mix(in srgb,var(--amber) 8%,var(--bg2));border:1px solid color-mix(in srgb,var(--amber) 28%,var(--border));margin-bottom:8px;}
 .ai-alert-chip.urgent{background:color-mix(in srgb,var(--red) 7%,var(--bg2));border-color:color-mix(in srgb,var(--red) 28%,var(--border));}
@@ -2731,6 +2744,136 @@ function clearChat(){
   refreshChatSuggestions();
 }
 
+// ── Phase 5: AI Allocation Draft ─────────────────────────────────────────────
+async function openAIDraftModal(mid){
+  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
+  const m=getMonth(mid);if(!m)return;
+  const box=document.getElementById('modalBox');
+  document.getElementById('overlay').classList.remove('hidden');
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Draft Allocations</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body" id="aiDraftBody" style="min-height:180px;display:flex;align-items:center;justify-content:center">
+      <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
+        <span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing your spending history…</span></div>
+    </div>
+    <div class="modal-foot" id="aiDraftFoot"><button class="btn-cancel" onclick="closeModal()">Cancel</button></div>`;
+
+  const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
+  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
+  const unfunded=activeBkts.filter(b=>bAlloc(mid,b.id)<bBudget(mid,b.id)&&bBudget(mid,b.id)>0);
+  const bktCtx=unfunded.map(b=>{
+    const avg=past3.length?Math.round(past3.reduce((s,mo)=>s+bSpent(mo.id,b.id),0)/past3.length):0;
+    return`${b.name} (id:${b.id}): target $${bBudget(mid,b.id)}/mo, 3mo avg spent $${avg}, currently allocated $${bAlloc(mid,b.id)}`;
+  }).join('\n');
+  const rts=readyToSpend(mid);
+  const sys=`You are a budget allocation assistant. Suggest allocation amounts for each bucket based on history and targets. Return ONLY valid JSON array, no markdown. Each item: {"bucketId":"id","bucketName":"name","amount":number,"reason":"one short sentence max 12 words"}. Total of all amounts must not exceed $${rts.toFixed(0)}. Skip fully funded buckets. Only include buckets from the list.`;
+  try{
+    const text=await callGemini(`Available to allocate: $${rts.toFixed(0)}\n\nUnfunded/underfunded buckets:\n${bktCtx||'All funded'}`,sys,{maxTokens:700,temp:0.3});
+    let sugg=[];
+    try{sugg=JSON.parse(text.replace(/```json\n?|```/g,'').trim());}catch{}
+    if(!Array.isArray(sugg)||!sugg.length){
+      document.getElementById('aiDraftBody').innerHTML=`<div style="text-align:center;color:var(--text3);padding:24px">All buckets are already fully funded!</div>`;
+      return;
+    }
+    const rows=sugg.map((s,i)=>`<tr>
+      <td><strong>${esc(s.bucketName)}</strong><div class="ai-draft-reason">${esc(s.reason||'')}</div></td>
+      <td style="text-align:right"><input class="ai-draft-inp" id="aiDraft_${i}" type="number" step="0.01" min="0" value="${s.amount}" data-bid="${esc(s.bucketId)}" /></td>
+    </tr>`).join('');
+    document.getElementById('aiDraftBody').innerHTML=`
+      <p style="font-size:12px;color:var(--text3);margin:0 0 8px">Review amounts and adjust if needed.</p>
+      <table class="ai-draft-table"><thead><tr><th>Bucket</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>`;
+    document.getElementById('aiDraftFoot').innerHTML=`
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="applyAIDraft('${mid}',${sugg.length})">✦ Apply All</button>`;
+  }catch(err){
+    document.getElementById('aiDraftBody').innerHTML=`<div style="text-align:center;color:var(--red);padding:24px">Error: ${esc(err.message)}</div>`;
+  }
+}
+
+function applyAIDraft(mid,count){
+  let applied=0;
+  for(let i=0;i<count;i++){
+    const inp=document.getElementById(`aiDraft_${i}`);
+    if(!inp)continue;
+    const bid=inp.dataset.bid;const amt=parseFloat(inp.value)||0;
+    if(bid&&amt>0){setAlloc(mid,bid,bAlloc(mid,bid)+amt);applied++;}
+  }
+  closeModal();
+  if(applied)showToast(`${applied} bucket${applied>1?'s':''} funded by AI draft`,'save');
+}
+
+// ── Phase 6: Monthly Close AI Report ─────────────────────────────────────────
+async function generateMonthReport(mid){
+  const m=getMonth(mid);if(!m)return;
+  const sys=`You are a financial coach writing a monthly budget review. Write 3-4 sentences: what went well this month, what needs attention, and one specific suggestion for next month. Reference exact dollar amounts from the data. Plain text only — no markdown, no bullets, no headers.`;
+  try{
+    const text=await callGemini(`Write a monthly review for ${m.label}:\n\n${buildBudgetContext(mid)}`,sys,{maxTokens:280,temp:0.7});
+    const m2=getMonth(mid);
+    if(m2){m2.aiReport=text;save();showToast(`✦ AI report ready for ${m2.label}`,'save');}
+  }catch{}
+}
+
+function viewMonthReport(mid){
+  const m=getMonth(mid);if(!m?.aiReport)return;
+  const box=document.getElementById('modalBox');
+  document.getElementById('overlay').classList.remove('hidden');
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI Report</span> ${esc(m.label)}</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><div class="ai-report-text">${esc(m.aiReport)}</div></div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+}
+
+// ── Phase 7a: Transaction Anomaly Detection ───────────────────────────────────
+function txAnomalyFlag(tx){
+  if(tx.type!=='out'||!tx.bucketId||tx.interestCharge||tx.autoGenerated)return false;
+  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
+  const pastTxs=past3.flatMap(mo=>S.txs.filter(t=>t.bucketId===tx.bucketId&&t.type==='out'&&!t.autoGenerated&&t.monthId===mo.id));
+  if(pastTxs.length<3)return false;
+  const avg=pastTxs.reduce((s,t)=>s+t.amount,0)/pastTxs.length;
+  return avg>10&&tx.amount>avg*2.5;
+}
+
+async function explainAnomaly(txId){
+  if(!aiEnabled())return;
+  const cacheKey='anom_'+txId;
+  if(_aiCache[cacheKey]){showToast(_aiCache[cacheKey],'info');return;}
+  const tx=S.txs.find(t=>t.id===txId);if(!tx)return;
+  const b=getBucket(tx.bucketId);
+  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
+  const pastTxs=past3.flatMap(mo=>S.txs.filter(t=>t.bucketId===tx.bucketId&&t.type==='out'&&!t.autoGenerated&&t.monthId===mo.id));
+  const avg=pastTxs.length?pastTxs.reduce((s,t)=>s+t.amount,0)/pastTxs.length:0;
+  const sys=`In one plain sentence (max 18 words), explain why this transaction stands out and what the user should consider. No markdown.`;
+  try{
+    const text=await callGemini(`"${tx.desc}" costs $${tx.amount} in ${b?.name||'this bucket'}. 3-month avg per transaction: $${avg.toFixed(0)} (this is ${(tx.amount/avg).toFixed(1)}× the average).`,sys,{maxTokens:60,temp:0.5});
+    _aiCache[cacheKey]=text;
+    showToast(text,'info');
+  }catch{}
+}
+
+// ── Phase 7b: Recurring Pattern Detection ─────────────────────────────────────
+function detectRecurringPatterns(){
+  const existing=new Set((S.recurringBills||[]).map(b=>b.desc.toLowerCase().trim()));
+  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
+  if(past3.length<2)return[];
+  const byDesc={};
+  past3.forEach(mo=>{
+    S.txs.filter(t=>t.type==='out'&&!t.autoGenerated&&!t.recurringBillId&&t.monthId===mo.id).forEach(t=>{
+      const key=t.desc.toLowerCase().trim();
+      if(existing.has(key))return;
+      if(!byDesc[key])byDesc[key]=[];
+      byDesc[key].push(t);
+    });
+  });
+  return Object.values(byDesc).filter(txs=>{
+    const months=new Set(txs.map(t=>t.monthId));
+    if(months.size<2)return false;
+    const avg=txs.reduce((s,t)=>s+t.amount,0)/txs.length;
+    const variance=txs.map(t=>Math.abs(t.amount-avg)/avg).reduce((s,v)=>s+v,0)/txs.length;
+    return variance<0.15&&avg>5;
+  }).map(txs=>{
+    const avg=Math.round(txs.reduce((s,t)=>s+t.amount,0)/txs.length*100)/100;
+    return{desc:txs[0].desc,amount:avg,accountId:txs[0].accountId,bucketId:txs[0].bucketId||null};
+  }).slice(0,3);
+}
+
 // ── Financial Health Score ────────────────────────────────────────────────────
 function computeHealthScore(mid){
   const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
@@ -2823,9 +2966,12 @@ function coachingPanelHtml(mid){
       </div>
     </div>`;
   if(aiEnabled()){
+    const unfunded=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid)&&bAlloc(mid,b.id)<bBudget(mid,b.id)&&bBudget(mid,b.id)>0);
+    const rts=readyToSpend(mid);
     h+=`<div class="ai-section">
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
         <span class="ai-badge">✦ AI Coach</span>
+        ${rts>0&&unfunded.length?`<button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2))" onclick="openAIDraftModal('${mid}')">✦ Draft Allocations</button>`:''}
       </div>
       <div id="ai-coach-narrative">
         <div class="ai-narrative-loading">
@@ -2838,6 +2984,19 @@ function coachingPanelHtml(mid){
   if(insights.length){
     h+=`<div class="cc-insights-row">`;
     insights.forEach(i=>h+=`<div class="cc-insight-chip"><span class="cc-insight-icon">${i.icon}</span><span>${i.msg}</span></div>`);
+    h+=`</div>`;
+  }
+  // Recurring pattern suggestions (Phase 7b)
+  const patterns=detectRecurringPatterns();
+  if(patterns.length){
+    h+=`<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:7px">🔄 Detected Recurring</div>`;
+    patterns.forEach(p=>{
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border)">
+        <span style="flex:1;color:var(--text2)">${esc(p.desc)} <span class="c-text3">~${$f(p.amount)}/mo</span></span>
+        <button class="tbtn" style="font-size:10px;padding:2px 8px" onclick="openRecurringBills()">Add →</button>
+      </div>`;
+    });
     h+=`</div>`;
   }
   h+=`</div>`;
@@ -3299,6 +3458,7 @@ function confirmCloseMonth(mid){
   closeModal();
   render();
   showToast(`${m.label} closed`,'save');
+  if(aiEnabled())generateMonthReport(mid);
 }
 
 function reopenMonth(mid){
@@ -3960,6 +4120,15 @@ function renderOverviewTab(el,mid){
     h+=`<div id="ai-alerts-wrap"></div>`;
     h+=coachingPanelHtml(mid);
     checkMilestones();
+  } else if(st==='past'&&m?.aiReport){
+    h+=`<div class="card card-pad" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span class="ai-badge">✦ AI Report</span>
+        <span style="font-size:12px;color:var(--text3);font-weight:600">${esc(m.label)}</span>
+        <button class="tbtn" style="font-size:10px;padding:2px 8px;margin-left:auto" onclick="viewMonthReport('${mid}')">Expand</button>
+      </div>
+      <div class="ai-report-text" style="-webkit-line-clamp:3;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden">${esc(m.aiReport)}</div>
+    </div>`;
   }
 
   // ── Main grid: left + right columns ──────────────────────────────────────
@@ -5126,7 +5295,7 @@ function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
   return `<div class="tx-row${sched?' tx-sched':''}" data-txid="${tx.id}">
     <div class="tx-indicator" style="background:${sched?'var(--border2)':indColor}"></div>
     <div class="tx-l">
-      <div class="tx-name">${esc(tx.desc)}</div>
+      <div class="tx-name">${esc(tx.desc)}${aiEnabled()&&txAnomalyFlag(tx)?`<button class="tx-anomaly" onclick="event.stopPropagation();explainAnomaly('${tx.id}')" title="Unusual amount — tap for AI explanation">⚠</button>`:''}</div>
       <div class="tx-meta">${metaLine||'<span class="c-text3">—</span>'}</div>
     </div>
     <div class="tx-r">
