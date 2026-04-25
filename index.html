@@ -356,6 +356,20 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .bkt-card.skipped{opacity:.42;pointer-events:none;}
 .bkt-card.skipped .bkt-card-body{filter:grayscale(.7);}
 .bkt-skip-tag{font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text3);background:var(--border);padding:2px 6px;border-radius:6px;pointer-events:all;}
+/* AI Coach */
+.ai-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:2px 8px;border-radius:20px;text-transform:uppercase;}
+.ai-narrative{font-size:13px;line-height:1.75;color:var(--text2);}
+.ai-narrative-loading{display:flex;align-items:center;gap:5px;color:var(--text3);font-size:12px;padding:4px 0;}
+.ai-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;}
+@keyframes ai-blink{0%,80%,100%{opacity:.15}40%{opacity:1}}
+.ai-dot:nth-child(1){animation:ai-blink 1.4s ease infinite 0s}
+.ai-dot:nth-child(2){animation:ai-blink 1.4s ease infinite .2s}
+.ai-dot:nth-child(3){animation:ai-blink 1.4s ease infinite .4s}
+.ai-regen{background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:2px 5px;border-radius:5px;transition:color .15s;}
+.ai-regen:hover{color:var(--accent);}
+.ai-error{font-size:12px;color:var(--red);}
+.ai-section{border-top:1px solid var(--border);padding-top:11px;margin-top:2px;}
+
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
 .cc-presave-month{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
@@ -2358,6 +2372,130 @@ function checkMilestones(){
   }
 }
 
+// ── AI / Gemini Foundation ────────────────────────────────────────────────────
+const AI_KEY='bcc_ai_v1';
+const _aiCache={};  // session-only — never persisted
+
+function getAISettings(){
+  try{return JSON.parse(localStorage.getItem(AI_KEY)||'{}');}catch{return{};}
+}
+function saveAISettings(patch){
+  localStorage.setItem(AI_KEY,JSON.stringify({...getAISettings(),...patch}));
+}
+function aiEnabled(){
+  const s=getAISettings();return !!(s.geminiKey&&s.enabled!==false);
+}
+
+async function callGemini(userPrompt,sysPrompt='',opts={}){
+  const s=getAISettings();
+  if(!s.geminiKey)throw new Error('No Gemini API key configured.');
+  const model=s.model||'gemini-2.0-flash';
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${s.geminiKey}`;
+  const body={
+    contents:[{role:'user',parts:[{text:userPrompt}]}],
+    generationConfig:{maxOutputTokens:opts.maxTokens||400,temperature:opts.temp??0.7}
+  };
+  if(sysPrompt)body.system_instruction={parts:[{text:sysPrompt}]};
+  const res=await fetch(url,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),signal:AbortSignal.timeout(15000)
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
+  const data=await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||'';
+}
+
+function buildBudgetContext(mid){
+  const m=getMonth(mid);if(!m)return'';
+  const income=monthIncome(mid);
+  const aom=ageOfMoney();
+  const nw=calcNetWorth();
+  const rts=readyToSpend(mid);
+  const activeBkts=S.buckets.filter(b=>!b.archived);
+  const totalSpent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
+  const overspent=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01;});
+  const unfunded=activeBkts.filter(b=>bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0);
+  const hs=computeHealthScore(mid);
+  const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
+  const savRates=past3.map(mo=>{const inc=monthIncome(mo.id);const sp=activeBkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?Math.round((inc-sp)/inc*100):null;}).filter(r=>r!==null);
+  const bktLines=activeBkts.filter(b=>bBudget(mid,b.id)>0||bSpent(mid,b.id)>0).map(b=>{
+    const alloc=bAlloc(mid,b.id),spent=bSpent(mid,b.id),budget=bBudget(mid,b.id);
+    const over=spent>(alloc+rolloverBal(b.id,mid)+0.01)?'[OVERSPENT]':'';
+    return`  ${b.name}: budget $${budget} | allocated $${alloc} | spent $${spent.toFixed(0)} ${over}`;
+  }).join('\n');
+  return `Budget: ${m.label} | Status: ${monthStatus(mid)}
+Income: $${income.toFixed(0)} | Spent: $${totalSpent.toFixed(0)} | Ready to Spend: $${rts.toFixed(0)}
+Health Score: ${hs.score}/100 (${hs.grade}) | Age of Money: ${aom!==null?aom+'d':'unknown'}
+Net Worth: $${nw.toFixed(0)}${savRates.length?' | Avg Savings Rate 3mo: '+Math.round(savRates.reduce((s,v)=>s+v,0)/savRates.length)+'%':''}
+${overspent.length?'Overspent: '+overspent.map(b=>`${b.name} ($${(bSpent(mid,b.id)-(bAlloc(mid,b.id)+rolloverBal(b.id,mid))).toFixed(0)} over)`).join(', '):'No overspent buckets'}
+${unfunded.length?'Unfunded: '+unfunded.map(b=>b.name).join(', '):'All buckets funded'}
+${debts.length?'Debts: '+debts.map(a=>`${a.name} $${acctBalance(a.id).toFixed(0)}${a.debtAPR?' @ '+a.debtAPR+'% APR':''}`).join(' | '):'No active debts'}
+Buckets:
+${bktLines}`;
+}
+
+async function scheduleAINarrative(mid){
+  if(!aiEnabled())return;
+  const el=document.getElementById('ai-coach-narrative');
+  if(!el)return;
+  const cacheKey=mid+'_narrative';
+  if(_aiCache[cacheKey]){el.innerHTML=_aiNarrativeHtml(_aiCache[cacheKey],mid);return;}
+  const toneMap={
+    encouraging:'Be warm, supportive, and celebratory of wins.',
+    analytical:'Be precise, data-driven, and objective. Use numbers.',
+    toughLove:'Be direct and honest — do not sugarcoat problems or waste words.'
+  };
+  const tone=toneMap[getAISettings().tone||'encouraging'];
+  const sys=`You are a personal financial coach inside a budgeting app. ${tone} Reply in 2-3 sentences max. Reference specific dollar amounts and percentages from the user's data. No generic advice. No markdown.`;
+  try{
+    const text=await callGemini(
+      `Here is my current budget:\n\n${buildBudgetContext(mid)}\n\nGive me your honest coaching take on where I stand right now.`,
+      sys,{maxTokens:200,temp:0.75}
+    );
+    _aiCache[cacheKey]=text;
+    const node=document.getElementById('ai-coach-narrative');
+    if(node)node.innerHTML=_aiNarrativeHtml(text,mid);
+  }catch(err){
+    const node=document.getElementById('ai-coach-narrative');
+    if(node)node.innerHTML=`<div class="ai-error">Coach unavailable: ${esc(err.message)}</div>`;
+  }
+}
+
+function _aiNarrativeHtml(text,mid){
+  return`<div class="ai-narrative">${esc(text)}</div>
+  <button class="ai-regen" onclick="delete _aiCache['${mid}_narrative'];scheduleAINarrative('${mid}')">↻ refresh</button>`;
+}
+
+function saveAISettingsFromUI(){
+  const key=(document.getElementById('aiKeyInp')?.value||'').trim();
+  const model=document.getElementById('aiModelSel')?.value||'gemini-2.0-flash';
+  const tone=document.getElementById('aiToneSel')?.value||'encouraging';
+  const enabled=document.getElementById('aiEnabledChk')?.checked!==false;
+  saveAISettings({geminiKey:key,model,tone,enabled});
+  Object.keys(_aiCache).forEach(k=>delete _aiCache[k]); // clear cache on settings change
+  showToast('AI settings saved','save');
+}
+
+async function testGeminiConnection(){
+  const btn=document.getElementById('aiTestBtn');
+  const out=document.getElementById('aiTestOut');
+  if(!btn||!out)return;
+  const key=(document.getElementById('aiKeyInp')?.value||'').trim();
+  if(!key){out.innerHTML='<span style="color:var(--red)">Enter a key first.</span>';return;}
+  btn.disabled=true;btn.textContent='Testing…';out.innerHTML='';
+  // Temporarily write key so callGemini can use it
+  const prev=getAISettings();
+  saveAISettings({...prev,geminiKey:key,model:document.getElementById('aiModelSel')?.value||'gemini-2.0-flash'});
+  try{
+    const reply=await callGemini('Reply with exactly the words: Budget Command AI is ready',undefined,{maxTokens:20,temp:0});
+    out.innerHTML=`<span style="color:var(--green)">✓ ${esc(reply)}</span>`;
+  }catch(err){
+    out.innerHTML=`<span style="color:var(--red)">✗ ${esc(err.message)}</span>`;
+    saveAISettings(prev); // restore on failure
+  }finally{btn.disabled=false;btn.textContent='Test Connection';}
+}
+
 // ── Financial Health Score ────────────────────────────────────────────────────
 function computeHealthScore(mid){
   const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
@@ -2449,6 +2587,19 @@ function coachingPanelHtml(mid){
         ${nba?.fn?`<button class="tbtn cc-nba-act" onclick="${nba.fn}">${nba.lbl}</button>`:''}
       </div>
     </div>`;
+  if(aiEnabled()){
+    h+=`<div class="ai-section">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+        <span class="ai-badge">✦ AI Coach</span>
+      </div>
+      <div id="ai-coach-narrative">
+        <div class="ai-narrative-loading">
+          <span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
+          <span style="margin-left:5px">thinking…</span>
+        </div>
+      </div>
+    </div>`;
+  }
   if(insights.length){
     h+=`<div class="cc-insights-row">`;
     insights.forEach(i=>h+=`<div class="cc-insight-chip"><span class="cc-insight-icon">${i.icon}</span><span>${i.msg}</span></div>`);
@@ -3765,6 +3916,7 @@ function renderOverviewTab(el,mid){
   h+=`</div>`; // close cc-wrap
 
   el.innerHTML=h;
+  if(st==='present')scheduleAINarrative(mid);
 }
 
 function renderLedgerTab(el,mid){
@@ -4255,6 +4407,43 @@ function renderSettingsTab(el){
       ${recurringBillsHtml()}
     </div>
   </div>
+
+  ${(()=>{
+    const ai=getAISettings();
+    const statusDot=aiEnabled()?`<span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-left:4px" title="Connected"></span>`:'';
+    return`<div class="settings-section">
+    <div class="settings-section-title">AI Coach <span class="ai-badge">✦ Gemini</span>${statusDot}</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:12px">Connect your Gemini API key to unlock AI-powered coaching, narrative summaries, and smart suggestions. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Get a free key →</a></div>
+    <label class="fl">API Key</label>
+    <input class="fi mono" id="aiKeyInp" type="password" placeholder="AIza…" value="${esc(ai.geminiKey||'')}" style="margin-bottom:10px" />
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <label class="fl">Model</label>
+        <select class="fi" id="aiModelSel">
+          <option value="gemini-2.0-flash"${(ai.model||'gemini-2.0-flash')==='gemini-2.0-flash'?' selected':''}>Gemini 2.0 Flash — fast · free tier</option>
+          <option value="gemini-1.5-flash"${ai.model==='gemini-1.5-flash'?' selected':''}>Gemini 1.5 Flash</option>
+          <option value="gemini-1.5-pro"${ai.model==='gemini-1.5-pro'?' selected':''}>Gemini 1.5 Pro — smarter · paid</option>
+        </select>
+      </div>
+      <div>
+        <label class="fl">Coach Tone</label>
+        <select class="fi" id="aiToneSel">
+          <option value="encouraging"${(ai.tone||'encouraging')==='encouraging'?' selected':''}>Encouraging</option>
+          <option value="analytical"${ai.tone==='analytical'?' selected':''}>Analytical</option>
+          <option value="toughLove"${ai.tone==='toughLove'?' selected':''}>Tough Love</option>
+        </select>
+      </div>
+    </div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;margin-bottom:12px">
+      <input type="checkbox" id="aiEnabledChk" style="accent-color:var(--accent)" ${ai.enabled!==false?'checked':''}>
+      Enable AI coaching on Overview tab
+    </label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn-save" onclick="saveAISettingsFromUI()">Save AI Settings</button>
+      <button class="tbtn" id="aiTestBtn" onclick="testGeminiConnection()">Test Connection</button>
+    </div>
+    <div id="aiTestOut" style="font-size:12px;margin-top:8px;min-height:18px"></div>
+  </div>`;})()}
 
   <div class="settings-section">
     <div class="settings-section-title">Data</div>
