@@ -379,6 +379,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ai-draft-inp:focus{border-color:var(--accent);}
 /* AI Monthly Report */
 .ai-report-text{font-size:13px;line-height:1.8;color:var(--text2);white-space:pre-wrap;}
+/* Debt Strategy */
+.debt-strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;}
+.debt-strat-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:14px;}
+.debt-strat-card.recommended{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--bg3));}
+.debt-strat-title{font-weight:700;font-size:13px;margin-bottom:6px;}
+.debt-strat-rec{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:2px 7px;border-radius:10px;margin-bottom:8px;}
+.debt-strat-stat{font-size:12px;color:var(--text3);line-height:1.7;}
 /* Transaction Anomaly */
 .tx-anomaly{font-size:10px;cursor:pointer;color:var(--amber);padding:1px 5px;border-radius:4px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--amber) 25%,var(--border));margin-left:6px;vertical-align:middle;}
 .tx-anomaly:hover{background:color-mix(in srgb,var(--amber) 20%,transparent);}
@@ -424,6 +431,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tb-chat-btn{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2));}
 .tb-chat-btn.active{background:color-mix(in srgb,var(--accent) 12%,transparent);}
 @media(max-width:640px){.chat-drawer{width:100vw;}}
+/* Chat FAB — mobile only */
+.chat-fab{display:none;position:fixed;bottom:calc(68px + env(safe-area-inset-bottom));right:16px;z-index:600;background:var(--accent);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35);align-items:center;justify-content:center;transition:transform .15s;}
+.chat-fab:active{transform:scale(.92);}
+@media(max-width:1099px){.chat-fab{display:flex;}.tb-chat-btn{display:none!important;}}
 
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
@@ -2744,6 +2755,111 @@ function clearChat(){
   refreshChatSuggestions();
 }
 
+// ── Phase 8a: Spending Personality Report ─────────────────────────────────────
+async function openPersonalityReport(){
+  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
+  const past=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-6);
+  if(past.length<2){showToast('Need at least 2 closed months for a personality report','info');return;}
+  const box=document.getElementById('modalBox');
+  document.getElementById('overlay').classList.remove('hidden');
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Your Money Personality</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body" id="persBody" style="min-height:200px;display:flex;align-items:center;justify-content:center">
+      <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
+        <span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing your patterns…</span></div>
+    </div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  const cats=S.cats.map(cat=>{
+    const bkts=S.buckets.filter(b=>b.catId===cat.id&&!b.archived);
+    const byMonth=past.map(mo=>({label:mo.label,spent:bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0)}));
+    return`${cat.name}: ${byMonth.map(m=>`${m.label} $${m.spent.toFixed(0)}`).join(', ')}`;
+  }).join('\n');
+  const income=past.map(mo=>({label:mo.label,inc:monthIncome(mo.id)}));
+  const sys=`You are a financial personality analyst. Based on the user's real spending patterns over several months, write a "Money Personality" analysis in 4-5 plain-text paragraphs. Cover: their dominant spending pattern, their strongest financial habit, their biggest vulnerability, and one specific strategy to improve. Use their actual category names and dollar amounts. No markdown, no bullets, no headers — flowing prose only.`;
+  try{
+    const text=await callGemini(`Income by month: ${income.map(m=>`${m.label} $${m.inc.toFixed(0)}`).join(', ')}\n\nCategory spending:\n${cats}`,sys,{maxTokens:500,temp:0.8});
+    document.getElementById('persBody').innerHTML=`<div class="ai-report-text">${esc(text)}</div>`;
+  }catch(err){
+    document.getElementById('persBody').innerHTML=`<div style="color:var(--red);text-align:center;padding:20px">Error: ${esc(err.message)}</div>`;
+  }
+}
+
+// ── Phase 8b: Debt Strategy Advisor ──────────────────────────────────────────
+async function openDebtStrategy(){
+  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
+  const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  if(!debts.length){showToast('No active debts found','info');return;}
+  const box=document.getElementById('modalBox');
+  document.getElementById('overlay').classList.remove('hidden');
+
+  // Compute avalanche vs snowball locally
+  const sorted={
+    avalanche:[...debts].sort((a,b)=>(b.debtAPR||0)-(a.debtAPR||0)),
+    snowball:[...debts].sort((a,b)=>acctBalance(a.id)-acctBalance(b.id))
+  };
+  const totalDebt=debts.reduce((s,a)=>s+acctBalance(a.id),0);
+  const totalInt=debts.reduce((s,a)=>s+acctBalance(a.id)*((a.debtAPR||0)/100/12),0);
+
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Debt Strategy Advisor</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="debt-strategy-grid">
+        <div class="debt-strat-card">
+          <div class="debt-strat-title">❄ Avalanche</div>
+          <div class="debt-strat-stat">Pay highest APR first.<br>Saves the most in interest.<br>Attack order:<br>${sorted.avalanche.map(a=>`${esc(a.name)} (${a.debtAPR||0}%)`).join(' → ')}</div>
+        </div>
+        <div class="debt-strat-card">
+          <div class="debt-strat-title">⛄ Snowball</div>
+          <div class="debt-strat-stat">Pay smallest balance first.<br>Builds momentum with quick wins.<br>Attack order:<br>${sorted.snowball.map(a=>`${esc(a.name)} ($${acctBalance(a.id).toFixed(0)})`).join(' → ')}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Total debt: <strong class="c-text2">${$f(totalDebt)}</strong> · Est. monthly interest: <strong class="c-text2">${$f(Math.round(totalInt*100)/100)}</strong></div>
+      <div id="debtStratAI" class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
+        <span style="margin-left:8px;font-size:13px;color:var(--text3)">Getting AI recommendation…</span></div>
+    </div>
+    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+
+  const debtCtx=debts.map(a=>`${a.name}: $${acctBalance(a.id).toFixed(0)} balance, ${a.debtAPR||0}% APR, min payment $${a.debtMinPayment||0}/mo`).join('\n');
+  const savRate=()=>{const past=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-3);if(!past.length)return null;const avg=past.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?(inc-sp)/inc:0;});return Math.round(avg.reduce((s,v)=>s+v,0)/avg.length*100);};
+  const sr=savRate();
+  const sys=`You are a debt payoff coach. In 3 plain sentences, recommend either avalanche or snowball method for this specific person — cite their actual debts and amounts. Consider their savings rate if available. No markdown, no lists, just direct advice.`;
+  try{
+    const text=await callGemini(`Debts:\n${debtCtx}${sr!==null?`\nAvg savings rate: ${sr}%`:''}`,sys,{maxTokens:200,temp:0.6});
+    const el=document.getElementById('debtStratAI');
+    if(el){
+      el.className='';
+      el.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:12px 14px"><span class="ai-badge" style="margin-bottom:6px;display:inline-flex">✦ Recommendation</span><div class="ai-narrative" style="margin-top:6px">${esc(text)}</div></div>`;
+    }
+  }catch{}
+}
+
+// ── Phase 8c: Income Variability (rule-based insight) ─────────────────────────
+function incomeVariabilityInsight(){
+  const past=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-4);
+  if(past.length<3)return null;
+  const incomes=past.map(mo=>monthIncome(mo.id)).filter(v=>v>0);
+  if(incomes.length<3)return null;
+  const avg=incomes.reduce((s,v)=>s+v,0)/incomes.length;
+  const max=Math.max(...incomes),min=Math.min(...incomes);
+  if((max-min)/avg<0.15)return null;
+  return{icon:'📊',msg:`Your income ranged from ${$f(Math.round(min))} to ${$f(Math.round(max))} over the last ${past.length} months. Building your budget around ${$f(Math.round(min))} (your lowest) protects you in slow months.`};
+}
+
+// ── Phase 9: AI Budget Builder ────────────────────────────────────────────────
+function openAIBudgetBuilder(){
+  if(!aiEnabled()){showToast('Add your Gemini key in Settings → AI Coach','info');return;}
+  _chatHistory=[];
+  const hasBuckets=S.buckets.filter(b=>!b.archived).length>0;
+  const intro=hasBuckets
+    ?`Let's review and improve your budget. I'll ask a few questions about your income, goals, and spending habits to give you specific suggestions. First — what's your take-home income each month after taxes?`
+    :`Welcome! I'll help you build your first budget in a few questions. Let's start: what's your approximate monthly take-home income after taxes?`;
+  _chatHistory.push({role:'model',parts:[{text:intro}]});
+  openChat();
+  refreshChatSuggestions();
+  setTimeout(()=>{
+    renderChatMessages();
+    document.getElementById('chatInp')?.focus();
+  },350);
+}
+
 // ── Phase 5: AI Allocation Draft ─────────────────────────────────────────────
 async function openAIDraftModal(mid){
   if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
@@ -2940,6 +3056,7 @@ function getCoachingInsights(mid){
   const lastTx=[...S.txs].filter(t=>t.type!=='opening'&&!isScheduled(t)&&!t.autoGenerated).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
   if(lastTx){const days=Math.round((new Date()-new Date(lastTx.date+'T12:00:00'))/864e5);if(days>=7)ins.push({icon:'📝',msg:`No transactions recorded in ${days} days — your spending picture may be out of date.`});}
   if(income>0){const spent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);const rate=Math.round((income-spent)/income*100);if(rate>=20)ins.push({icon:'🎉',msg:`Savings rate this month: ${rate}% — above the 20% benchmark. Keep it up!`});}
+  const varIns=incomeVariabilityInsight();if(varIns)ins.push(varIns);
   return ins.slice(0,3);
 }
 
@@ -2998,6 +3115,17 @@ function coachingPanelHtml(mid){
       </div>`;
     });
     h+=`</div>`;
+  }
+  // Phase 8/9 action buttons
+  const pastMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').length;
+  const hasDebts=S.accounts.some(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  const hasFewBuckets=S.buckets.filter(b=>!b.archived).length<4;
+  if(aiEnabled()){
+    const btns=[];
+    if(pastMonths>=2)btns.push(`<button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="openPersonalityReport()">✦ Money Personality</button>`);
+    if(hasDebts)btns.push(`<button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="openDebtStrategy()">✦ Debt Strategy</button>`);
+    if(hasFewBuckets)btns.push(`<button class="tbtn" style="font-size:11px;padding:4px 10px;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2))" onclick="openAIBudgetBuilder()">✦ Build Budget</button>`);
+    if(btns.length)h+=`<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px;display:flex;flex-wrap:wrap;gap:7px">${btns.join('')}</div>`;
   }
   h+=`</div>`;
   return h;
@@ -9594,6 +9722,9 @@ function mAcctOptions(selectedId){
 
 <!-- Desktop toast container -->
 <div id="dToastWrap"></div>
+
+<!-- Chat FAB (mobile) -->
+<button class="chat-fab" onclick="openChat()" title="AI Coach">✦</button>
 
 <!-- AI Chat Drawer -->
 <div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
