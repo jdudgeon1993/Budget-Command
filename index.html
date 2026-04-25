@@ -4818,7 +4818,7 @@ function renderLedgerTab(el,mid){
       </div>
       <div style="position:relative;display:flex">
         <div style="flex:1;position:relative">
-          <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="renderTxList()" style="width:100%;margin:0;padding-right:30px;box-sizing:border-box" />
+          <input class="ledger-search" id="rpSearch" placeholder="Search transactions..." oninput="clearTimeout(_txSearchTimer);_txSearchTimer=setTimeout(renderTxList,180)" style="width:100%;margin:0;padding-right:30px;box-sizing:border-box" />
           <button id="rpSearchClear" onclick="document.getElementById('rpSearch').value='';renderTxList()" title="Clear search" class="c-text3" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px">×</button>
         </div>
         ${(S.payees&&S.payees.length)?`<select class="tfi-sel" id="ledgerPayeeSel" style="width:auto;font-size:12px;padding:5px 6px;margin:0;border-radius:0;border-left:none;flex-shrink:0" onchange="_ledgerPayee=this.value;renderTxList()">
@@ -5286,7 +5286,7 @@ function renderSettingsTab(el){
       <span class="payee-settings-name">${esc(p.name)}</span>
       ${bkt?`<span class="payee-settings-bkt">${esc(bkt.name)}</span>`:'<span class="payee-settings-bkt muted">no default</span>'}
       <button class="ib" onclick="_editingPayeeId='${p.id}';renderSettingsTab(document.getElementById('paneSettings'))" title="Rename">✎</button>
-      <button class="ib del" onclick="if(confirm('Remove payee?'))deletePayee('${p.id}')" title="Delete">×</button>
+      <button class="ib del" onclick="deletePayeeWithUndo('${p.id}')" title="Delete">×</button>
     </div>`;
   }).join('');
 
@@ -6001,10 +6001,19 @@ function setFilter(f){
 function archiveOrDelete(id){
   const b=getBucket(id);if(!b)return;
   const hasTxs=S.txs.some(t=>t.bucketId===id);
-  if(hasTxs){if(!confirm(`Archive "${b.name}"? Transactions preserved, hidden from active view.`))return;b.archived=true;}
-  else{if(!confirm(`Delete "${b.name}"?`))return;S.buckets=S.buckets.filter(x=>x.id!==id);S.months.forEach(m=>{delete m.budgets[id];if(m.allocations)delete m.allocations[id];});}
-  if(S.activeBucket===id)S.activeBucket=null;
-  save();render();populateTxCats();
+  if(hasTxs){
+    b.archived=true;
+    if(S.activeBucket===id)S.activeBucket=null;
+    save();render();populateTxCats();
+    showUndoToast(`Archived: ${b.name}`,'out',()=>{b.archived=false;save();render();populateTxCats();showToast('Restored','save');});
+  } else {
+    if(S.celebratedGoals)S.celebratedGoals=S.celebratedGoals.filter(k=>!k.startsWith(id+'_'));
+    S.buckets=S.buckets.filter(x=>x.id!==id);
+    S.months.forEach(m=>{delete m.budgets[id];if(m.allocations)delete m.allocations[id];});
+    if(S.activeBucket===id)S.activeBucket=null;
+    save();render();populateTxCats();
+    showUndoToast(`Deleted: ${b.name}`,'out',()=>{S.buckets.push(b);save();render();populateTxCats();showToast('Restored','save');});
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -6017,6 +6026,8 @@ let _editingArId=null;
 let _editingPayeeId=null;
 let _inDetailPanel=false;
 let _ledgerPayee='';
+let _confirmCallback=null;
+let _txSearchTimer=null;
 let _payeePeriod='month';
 let _catHistMonths=6;
 let _debtExtra=200;
@@ -6084,6 +6095,12 @@ function payeeSuggestions(prefix){
 function deletePayee(id){
   S.payees=S.payees.filter(p=>p.id!==id);save();
   renderSettingsTab(document.getElementById('paneSettings'));
+}
+function deletePayeeWithUndo(id){
+  const p=S.payees.find(x=>x.id===id);if(!p)return;
+  S.payees=S.payees.filter(x=>x.id!==id);save();
+  renderSettingsTab(document.getElementById('paneSettings'));
+  showUndoToast(`Removed payee: ${p.name}`,'out',()=>{S.payees.push(p);save();renderSettingsTab(document.getElementById('paneSettings'));showToast('Restored','save');});
 }
 function renamePayee(id,newName){
   const p=S.payees.find(x=>x.id===id);if(!p||!newName.trim())return;
@@ -6208,6 +6225,7 @@ function addTx(){
   }
   upsertPayee(desc, bkt);
   save();
+  delete _aiCache[monthId+'_narrative'];delete _aiCache[monthId+'_alerts'];
   if(bkt)setTimeout(()=>checkGoalCelebrations(tx.monthId),100);
   const sched=tx.date>todayStr();
   const typeLabel=txType==='in'?'Income':txType==='xfr'?'Transfer':'Expense';
@@ -7158,7 +7176,7 @@ function wiRunProjector(){
     const thCells=projMths.map(m=>`<th class="c-text3" style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${m.label}</th>`).join('');
 
     const rows=savingsBkts.map(b=>{
-      const curBal=rolloverBal(b.id,S.activeMonth);
+      const curBal=Math.max(0,sinkingSaved(b.id,S.activeMonth));
       let runBal=curBal;
       const bRules=rulesActive.filter(r=>r.bucketId===b.id);
       const tgt=b.targetAmount||0;
@@ -7234,16 +7252,22 @@ function wiRunProjector(){
 
 function promoteScenario(){
   if(!S.wiScenario)return;
-  if(!confirm('Apply scenario targets to current and future months?'))return;
-  const now=new Date();
-  S.months.forEach(m=>{
-    if(m.year>now.getFullYear()||(m.year===now.getFullYear()&&m.month>=now.getMonth())){
-      Object.keys(S.wiScenario.budgets).forEach(bid=>{m.budgets[bid]=S.wiScenario.budgets[bid];});
-      if(S.wiScenario.incomeOverrides[m.id]!==undefined)m.projectedIncome=S.wiScenario.incomeOverrides[m.id];
+  showConfirmModal(
+    'Apply Scenario?',
+    'Updates budget targets for the current and all future months.',
+    'Apply',
+    ()=>{
+      const now=new Date();
+      S.months.forEach(m=>{
+        if(m.year>now.getFullYear()||(m.year===now.getFullYear()&&m.month>=now.getMonth())){
+          Object.keys(S.wiScenario.budgets).forEach(bid=>{m.budgets[bid]=S.wiScenario.budgets[bid];});
+          if(S.wiScenario.incomeOverrides[m.id]!==undefined)m.projectedIncome=S.wiScenario.incomeOverrides[m.id];
+        }
+      });
+      S.buckets.forEach(b=>{if(S.wiScenario.budgets[b.id]!==undefined)b.defaultBudget=S.wiScenario.budgets[b.id];});
+      exitWI();save();render();
     }
-  });
-  S.buckets.forEach(b=>{if(S.wiScenario.budgets[b.id]!==undefined)b.defaultBudget=S.wiScenario.budgets[b.id];});
-  exitWI();save();render();
+  );
 }
 
 // ═══════════════════════════════════════════════════════
@@ -8547,12 +8571,19 @@ function toggleRecurringBill(id,active){
 // FRESH START
 // ═══════════════════════════════════════════════════════
 function confirmFreshStart(){
-  if(!confirm('⚠ Fresh Start will erase ALL data — accounts, categories, buckets, and transactions. This cannot be undone.\n\nAre you sure?'))return;
-  localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-  S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
-  closeModal();ensureMonth();S.activeMonth=currentMonthId();
-  save(); // Push empty state to Supabase so old data doesn't restore on next login
-  startWizard();
+  showConfirmModal(
+    '⚠ Fresh Start',
+    'This will permanently erase <strong>all</strong> accounts, categories, buckets, and transactions. This cannot be undone.',
+    'Erase Everything',
+    ()=>{
+      localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
+      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
+      ensureMonth();S.activeMonth=currentMonthId();
+      save();
+      startWizard();
+    },
+    true
+  );
 }
 
 // ═══════════════════════════════════════════════════════
@@ -9281,20 +9312,43 @@ function saveModal(){
 
 function Mdelete(){
   if(M.tab==='acct'&&M.acctEditId){
-    if(!confirm('Delete this account? All its transactions will be removed.'))return;
-    S.txs=S.txs.filter(t=>t.accountId!==M.acctEditId&&t.toAccountId!==M.acctEditId);
-    S.accounts=S.accounts.filter(a=>a.id!==M.acctEditId);
-    if(S.activeAccount===M.acctEditId)S.activeAccount=null;
+    const acct=S.accounts.find(a=>a.id===M.acctEditId);if(!acct)return;
+    const txCount=S.txs.filter(t=>t.accountId===M.acctEditId||t.toAccountId===M.acctEditId).length;
+    showConfirmModal(
+      `Delete "${acct.name}"?`,
+      `Permanently removes ${txCount} transaction${txCount!==1?'s':''}. <strong>This cannot be undone.</strong>`,
+      'Delete Account',
+      ()=>{
+        S.txs=S.txs.filter(t=>t.accountId!==M.acctEditId&&t.toAccountId!==M.acctEditId);
+        S.accounts=S.accounts.filter(a=>a.id!==M.acctEditId);
+        if(S.activeAccount===M.acctEditId)S.activeAccount=null;
+        save();closeMForm();render();populateTxCats();updateTxFormForType();
+      },
+      true
+    );
   } else if(M.tab==='cat'&&M.catEditId){
-    if(!confirm('Delete this category and everything inside it?'))return;
-    S.buckets.filter(b=>b.catId===M.catEditId).forEach(b=>{S.txs=S.txs.filter(t=>t.bucketId!==b.id);});
-    S.buckets=S.buckets.filter(b=>b.catId!==M.catEditId);
-    S.cats=S.cats.filter(c=>c.id!==M.catEditId);
-    if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
+    const cat=S.cats.find(c=>c.id===M.catEditId);if(!cat)return;
+    const bkts=S.buckets.filter(b=>b.catId===M.catEditId);
+    const txCount=S.txs.filter(t=>bkts.some(b=>b.id===t.bucketId)).length;
+    showConfirmModal(
+      `Delete "${cat.name}"?`,
+      `Permanently removes ${bkts.length} bucket${bkts.length!==1?'s':''} and ${txCount} transaction${txCount!==1?'s':''}. <strong>This cannot be undone.</strong>`,
+      'Delete Category',
+      ()=>{
+        bkts.forEach(b=>{
+          S.txs=S.txs.filter(t=>t.bucketId!==b.id);
+          if(S.celebratedGoals)S.celebratedGoals=S.celebratedGoals.filter(k=>!k.startsWith(b.id+'_'));
+        });
+        S.buckets=S.buckets.filter(b=>b.catId!==M.catEditId);
+        S.cats=S.cats.filter(c=>c.id!==M.catEditId);
+        if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
+        save();closeMForm();render();populateTxCats();updateTxFormForType();
+      },
+      true
+    );
   } else if(M.tab==='bkt'&&M.bktEditId){
     closeMForm();archiveOrDelete(M.bktEditId);return;
   }
-  save();closeMForm();render();populateTxCats();updateTxFormForType();
 }
 
 function closeMForm(){
@@ -9327,11 +9381,25 @@ function _closeRSheetRaw(){
 }
 
 function delCat(id){
-  if(!confirm('Delete this category and all its buckets and transactions?'))return;
-  S.buckets.filter(b=>b.catId===id).forEach(b=>{S.txs=S.txs.filter(t=>t.bucketId!==b.id);});
-  S.buckets=S.buckets.filter(b=>b.catId!==id);S.cats=S.cats.filter(c=>c.id!==id);
-  if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
-  save();render();populateTxCats();
+  const cat=S.cats.find(c=>c.id===id);if(!cat)return;
+  const bkts=S.buckets.filter(b=>b.catId===id);
+  const txCount=S.txs.filter(t=>bkts.some(b=>b.id===t.bucketId)).length;
+  showConfirmModal(
+    `Delete "${cat.name}"?`,
+    `Permanently removes ${bkts.length} bucket${bkts.length!==1?'s':''} and ${txCount} transaction${txCount!==1?'s':''}. <strong>This cannot be undone.</strong>`,
+    'Delete',
+    ()=>{
+      bkts.forEach(b=>{
+        S.txs=S.txs.filter(t=>t.bucketId!==b.id);
+        if(S.celebratedGoals)S.celebratedGoals=S.celebratedGoals.filter(k=>!k.startsWith(b.id+'_'));
+      });
+      S.buckets=S.buckets.filter(b=>b.catId!==id);
+      S.cats=S.cats.filter(c=>c.id!==id);
+      if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
+      save();render();populateTxCats();
+    },
+    true
+  );
 }
 
 
@@ -9429,24 +9497,29 @@ function importData(event){
         event.target.value='';return;
       }
       const exportDate=parsed.exportedAt?new Date(parsed.exportedAt).toLocaleString():'unknown date';
-      const msg='Import backup from '+exportDate+'?\n\nThis will REPLACE all current data.\n\nContinue?';
-      if(!confirm(msg)){event.target.value='';return;}
-      S=Object.assign({
-        accounts:[],cats:[],buckets:[],months:[],txs:[],
-        activeMonth:null,activeBucket:null,activeAccount:null,
-        scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],recurringBills:[],
-      },imported);
-      S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
-      normalizeCatOrder();normalizeBktOrder();
-      // Ensure missing fields from older exports don't break things
-      if(!S.scenarioBudgets)S.scenarioBudgets={};
-      if(!S.payees)S.payees=[];
-      if(!S.allocationRules)S.allocationRules=[];
-      save();ensureMonth();
-      if(!S.activeMonth)S.activeMonth=currentMonthId();
-      render();populateTxCats();updateTxFormForType();wireFormKeys();
       event.target.value='';
-      alert('Backup imported successfully!');
+      showConfirmModal(
+        'Import Backup?',
+        `From <strong>${exportDate}</strong>. This will replace all current data.`,
+        'Import',
+        ()=>{
+          S=Object.assign({
+            accounts:[],cats:[],buckets:[],months:[],txs:[],
+            activeMonth:null,activeBucket:null,activeAccount:null,
+            scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],recurringBills:[],
+          },imported);
+          S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
+          normalizeCatOrder();normalizeBktOrder();
+          if(!S.scenarioBudgets)S.scenarioBudgets={};
+          if(!S.payees)S.payees=[];
+          if(!S.allocationRules)S.allocationRules=[];
+          save();ensureMonth();
+          if(!S.activeMonth)S.activeMonth=currentMonthId();
+          render();populateTxCats();updateTxFormForType();wireFormKeys();
+          showToast('Backup imported successfully!','in');
+        },
+        false
+      );
     }catch(err){
       alert('Failed to read backup file: '+err.message);
       event.target.value='';
@@ -9641,6 +9714,21 @@ function showUndoToast(msg, type='out', undoFn){
   });
 }
 
+function showConfirmModal(title,body,confirmLabel,fn,destructive=false){
+  _confirmCallback=fn;
+  const modal=document.getElementById('modalBox');
+  document.getElementById('overlay').classList.remove('hidden');
+  const btnStyle=`background:${destructive?'var(--red)':'var(--accent)'};color:#fff;border-color:transparent;font-weight:700`;
+  modal.innerHTML=`<div style="padding:22px 24px 20px;max-width:360px">
+    <div style="font-weight:700;font-size:15px;margin-bottom:8px">${esc(title)}</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:20px">${body}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="tbtn" onclick="closeModal()">Cancel</button>
+      <button class="tbtn" style="${btnStyle}" onclick="closeModal();_confirmCallback&&_confirmCallback()">${esc(confirmLabel)}</button>
+    </div>
+  </div>`;
+}
+
 // Wire allocation inputs — stopPropagation so Enter/Space don't bubble to <tr> row handler
 function wireAllocKeys(){
   document.querySelectorAll('.alloc-inp').forEach(inp=>{
@@ -9781,6 +9869,7 @@ function mRenderLog(){
 
   // Recent payees for quick chips (last 5 unique)
   const recentPayees=[...new Set(S.txs.filter(t=>t.type==='out'&&t.desc&&!t.autoGenerated).sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t=>t.desc))].slice(0,5);
+  window._mPayees=recentPayees;
 
   el.innerHTML=`
     <div class="m-log-form">
@@ -9794,7 +9883,7 @@ function mRenderLog(){
         <button class="m-type-btn${t==='xfr'?' sel-xfr':''}" onclick="mSetLogType('xfr')">⇄ Transfer</button>
       </div>
       ${recentPayees.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0">
-        ${recentPayees.map(p=>`<button class="tbtn" style="font-size:11px;padding:3px 10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="document.getElementById('mLogDesc').value='${esc(p).replace(/'/g,"\\'")}';document.getElementById('mLogAmt')?.focus()" title="${esc(p)}">${esc(p)}</button>`).join('')}
+        ${recentPayees.map((p,i)=>`<button class="tbtn" style="font-size:11px;padding:3px 10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="var el=document.getElementById('mLogDesc');if(el){el.value=window._mPayees[${i}]||'';document.getElementById('mLogAmt')?.focus();}" title="${esc(p)}">${esc(p)}</button>`).join('')}
       </div>`:''}
       <div class="m-field">
         <div class="m-field-label">Description</div>
@@ -9989,6 +10078,7 @@ function mAddTx(){
   S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:acctId,toAccountId:toAcct||null,monthId,bucketId:bkt||null,desc,amount:amt,type:t,date,recurring:rec});
   upsertPayee(desc, bkt);
   save();
+  delete _aiCache[monthId+'_narrative'];delete _aiCache[monthId+'_alerts'];
   if(bkt)setTimeout(()=>checkGoalCelebrations(monthId),100);
 
   // Get bucket name for toast
@@ -10102,9 +10192,10 @@ function mSaveTxSheet(id,type){
 }
 
 function mDeleteTxSheet(id){
-  if(!confirm('Delete this transaction?'))return;
+  const tx=S.txs.find(t=>t.id===id);if(!tx)return;
   S.txs=S.txs.filter(t=>t.id!==id);
   save();mCloseSheet();render();
+  showUndoToast(`Deleted: ${tx.desc}`,'out',()=>{S.txs.push(tx);save();render();showToast('Restored','save');});
 }
 
 function mCloseSheet(){
