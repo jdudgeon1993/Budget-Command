@@ -383,6 +383,34 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .nl-inp::placeholder{color:var(--text3);}
 .nl-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .nl-btn:disabled{opacity:.5;cursor:not-allowed;}
+/* Chat Drawer */
+.chat-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;opacity:0;pointer-events:none;transition:opacity .25s;}
+.chat-overlay.open{opacity:1;pointer-events:all;}
+.chat-drawer{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100vw;background:var(--bg2);border-left:1px solid var(--border);z-index:1101;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:-6px 0 32px rgba(0,0,0,.3);}
+.chat-drawer.open{transform:translateX(0);}
+.chat-hdr{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.chat-hdr-title{font-weight:700;font-size:14px;flex:1;color:var(--text);}
+.chat-hdr-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:4px 8px;border-radius:6px;}
+.chat-hdr-btn:hover{color:var(--text);background:var(--bg3);}
+.chat-suggestions{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0;}
+.chat-chip{background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.chat-chip:hover{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg3));}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.chat-msg.user{align-items:flex-end;display:flex;flex-direction:column;}
+.chat-msg.model{align-items:flex-start;display:flex;flex-direction:column;}
+.chat-bubble{max-width:87%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;}
+.chat-msg.user .chat-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
+.chat-msg.model .chat-bubble{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;}
+.chat-typing{display:flex;align-items:center;gap:5px;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;}
+.chat-empty{text-align:center;color:var(--text3);font-size:13px;padding:30px 16px;line-height:1.7;}
+.chat-inp-row{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
+.chat-inp{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);outline:none;resize:none;min-height:42px;max-height:130px;font-family:inherit;line-height:1.5;transition:border-color .15s;}
+.chat-inp:focus{border-color:var(--accent);}
+.chat-send{background:var(--accent);color:#fff;border:none;border-radius:10px;width:42px;height:42px;font-size:19px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.chat-send:disabled{opacity:.4;cursor:not-allowed;}
+.tb-chat-btn{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2));}
+.tb-chat-btn.active{background:color-mix(in srgb,var(--accent) 12%,transparent);}
+@media(max-width:640px){.chat-drawer{width:100vw;}}
 
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
@@ -1588,6 +1616,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   </div>
   <div class="tb-right">
     <div class="tb-sync" id="tbSyncStatus"><div class="tb-sync-dot off" id="tbSyncDot"></div><span id="tbSyncLabel">Offline</span></div>
+    <button class="tbtn tb-chat-btn" id="chatBtn" onclick="openChat()" title="AI Coach">✦ Coach</button>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
     <button class="tbtn tb-new-btn" onclick="openModal('new')" id="tbNewBtn">+ New</button>
   </div>
@@ -2581,6 +2610,125 @@ Match bucketName exactly from the list. Infer from context if obvious. Use null 
     showToast('Parsed — review and confirm ✓','save');
   }catch(err){showToast('Could not parse: '+err.message,'info');
   }finally{btn.disabled=false;btn.textContent='→';}
+}
+
+// ── Phase 4: Conversational Chat ─────────────────────────────────────────────
+let _chatHistory=[];
+
+function openChat(){
+  if(!aiEnabled()){showToast('Add your Gemini key in Settings → AI Coach','info');return;}
+  document.getElementById('chatDrawer')?.classList.add('open');
+  document.getElementById('chatOverlay')?.classList.add('open');
+  document.getElementById('chatBtn')?.classList.add('active');
+  refreshChatSuggestions();
+  renderChatMessages();
+  setTimeout(()=>document.getElementById('chatInp')?.focus(),320);
+}
+
+function closeChat(){
+  document.getElementById('chatDrawer')?.classList.remove('open');
+  document.getElementById('chatOverlay')?.classList.remove('open');
+  document.getElementById('chatBtn')?.classList.remove('active');
+}
+
+function refreshChatSuggestions(){
+  const el=document.getElementById('chatSuggestions');
+  if(!el)return;
+  const mid=S.activeMonth;
+  const aom=ageOfMoney();
+  const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  const chips=[];
+  if(aom!==null&&aom<20)chips.push('Why do I feel paycheck to paycheck?');
+  if(debts.length)chips.push(`When will my ${debts[0].name} be paid off?`);
+  chips.push('What should I cut to save $200/mo?');
+  if(mid){
+    const m=getMonth(mid);
+    if(m){
+      const daysLeft=new Date(m.year,m.month+1,0).getDate()-new Date().getDate();
+      chips.push(daysLeft<=7?'How am I tracking for month end?':"How's my budget this month?");
+    }
+  }
+  chips.push('Explain my health score');
+  chips.push('Help me plan next month');
+  el.innerHTML=chips.slice(0,4).map(c=>
+    `<button class="chat-chip" onclick="sendChatMsg(${JSON.stringify(c)})">${esc(c)}</button>`
+  ).join('');
+}
+
+function renderChatMessages(){
+  const el=document.getElementById('chatMsgs');
+  if(!el)return;
+  if(!_chatHistory.length){
+    el.innerHTML=`<div class="chat-empty">Ask me anything about your finances.<br>I have full context of your budget, accounts, and spending history.</div>`;
+    return;
+  }
+  el.innerHTML=_chatHistory.map(m=>`
+    <div class="chat-msg ${m.role}">
+      <div class="chat-bubble">${m.role==='user'
+        ?esc(m.parts[0].text)
+        :m.parts[0].text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')
+      }</div>
+    </div>`).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+async function sendChatMsg(prefill){
+  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
+  const inp=document.getElementById('chatInp');
+  const send=document.getElementById('chatSend');
+  const text=(prefill||inp?.value||'').trim();
+  if(!text)return;
+  if(inp){inp.value='';inp.style.height='auto';}
+  if(send)send.disabled=true;
+
+  _chatHistory.push({role:'user',parts:[{text}]});
+  renderChatMessages();
+
+  const msgs=document.getElementById('chatMsgs');
+  if(msgs){
+    const t=document.createElement('div');
+    t.id='chatTyping';t.className='chat-msg model';
+    t.innerHTML=`<div class="chat-typing"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div>`;
+    msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;
+  }
+
+  const s=getAISettings();
+  const sys=`You are a personal financial coach inside Budget Command, a budgeting app. You have full access to the user's real financial data shown below. Always reference exact numbers, account names, and amounts from their data. Be conversational, direct, and genuinely helpful. No generic advice. No markdown formatting — no bold (**), no headers (#), no bullet hyphens. Use plain sentences and natural line breaks.
+
+Current snapshot:
+${buildBudgetContext(S.activeMonth)}`;
+
+  try{
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${s.model||'gemini-2.0-flash'}:generateContent?key=${s.geminiKey}`;
+    const res=await fetch(url,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        system_instruction:{parts:[{text:sys}]},
+        contents:_chatHistory,
+        generationConfig:{maxOutputTokens:600,temperature:0.8}
+      }),
+      signal:AbortSignal.timeout(20000)
+    });
+    document.getElementById('chatTyping')?.remove();
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
+    const data=await res.json();
+    const reply=data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||"I couldn't generate a response — please try again.";
+    _chatHistory.push({role:'model',parts:[{text:reply}]});
+    renderChatMessages();
+  }catch(err){
+    document.getElementById('chatTyping')?.remove();
+    _chatHistory.push({role:'model',parts:[{text:`Something went wrong: ${err.message}`}]});
+    renderChatMessages();
+  }finally{
+    if(send)send.disabled=false;
+    document.getElementById('chatInp')?.focus();
+  }
+}
+
+function clearChat(){
+  _chatHistory=[];
+  renderChatMessages();
+  refreshChatSuggestions();
 }
 
 // ── Financial Health Score ────────────────────────────────────────────────────
@@ -9277,6 +9425,26 @@ function mAcctOptions(selectedId){
 
 <!-- Desktop toast container -->
 <div id="dToastWrap"></div>
+
+<!-- AI Chat Drawer -->
+<div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
+<div class="chat-drawer" id="chatDrawer">
+  <div class="chat-hdr">
+    <span class="ai-badge">✦ AI Coach</span>
+    <span class="chat-hdr-title">Budget Command</span>
+    <button class="chat-hdr-btn" onclick="clearChat()" title="Clear conversation">↺</button>
+    <button class="chat-hdr-btn" onclick="closeChat()" title="Close" style="font-size:18px">×</button>
+  </div>
+  <div class="chat-suggestions" id="chatSuggestions"></div>
+  <div class="chat-msgs" id="chatMsgs">
+    <div class="chat-empty">Ask me anything about your finances.<br>I have full context of your budget, accounts, and spending history.</div>
+  </div>
+  <div class="chat-inp-row">
+    <textarea class="chat-inp" id="chatInp" placeholder="Ask anything…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}this.style.height='auto';this.style.height=Math.min(this.scrollHeight,130)+'px'"></textarea>
+    <button class="chat-send" id="chatSend" onclick="sendChatMsg()">↑</button>
+  </div>
+</div>
 
 <!-- Update banner -->
 <div id="updateBanner" class="hidden">
