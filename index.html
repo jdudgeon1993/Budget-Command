@@ -2036,7 +2036,7 @@ async function signOut(){
   // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
      activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
-     wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
+     wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[],externalRules:[]};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
@@ -2094,6 +2094,7 @@ let S={
   onboarded:false,
   payees:[],  // {id,name,defaultBucketId?} — saved from transaction descriptions
   allocationRules:[], // {id,name,bucketId,type:'pct'|'fixed',value,active}
+  externalRules:[],   // {id,label,type:'pct'|'fixed',value,fromAccountId,toAccountId,active}
   recurringBills:[], // {id,desc,amount,bucketId,accountId,type:'out'|'in',dayOfMonth,active}
   paychecks:[],      // {id,label,amount,freq,anchorDate} — saved income sources, shared app-wide
   milestones:[],     // [milestoneId,...] — earned milestone IDs
@@ -2225,6 +2226,7 @@ async function loadFromSupabase(){
   if(!S.txFilter)S.txFilter='all';
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
+  if(!S.externalRules)S.externalRules=[];
   if(!S.recurringBills)S.recurringBills=[];
   if(!S.milestones)S.milestones=[];
   cleanupRecurringTxs();
@@ -2252,6 +2254,7 @@ function load(){
   if(!S.txFilter)S.txFilter='all';
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
+  if(!S.externalRules)S.externalRules=[];
   if(!S.recurringBills)S.recurringBills=[];
   if(!S.milestones)S.milestones=[];
   normalizeCatOrder();
@@ -2536,10 +2539,20 @@ function buildBudgetContext(mid){
     return`  ${b.desc}: $${b.amount} on day ${b.dayOfMonth} — ${paid?'✓ paid this month':'unpaid'}${bkt?' ['+bkt.name+']':''}`;
   }).join('\n');
 
-  // Allocation rules
+  // Skipped buckets this month
+  const skippedBkts=activeBkts.filter(b=>isBktSkipped(b.id,mid));
+  const skippedLine=skippedBkts.length?`Skipped this month (intentionally paused): ${skippedBkts.map(b=>b.name).join(', ')}`:'';
+
+  // Internal allocation rules
   const ruleLines=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived).map(r=>{
     const b=getBucket(r.bucketId);
     return`  ${r.name}: ${r.type==='pct'?r.value+'% of income':'$'+r.value+'/paycheck'} → ${b.name}`;
+  }).join('\n');
+
+  // External rules (bank-side auto-transfers on payday)
+  const extRuleLines=(S.externalRules||[]).filter(r=>r.active!==false).map(r=>{
+    const toAcct=S.accounts.find(a=>a.id===r.toAccountId);
+    return`  ${r.label||'Auto-transfer'}: ${r.type==='pct'?r.value+'% of paycheck':'$'+r.value+' flat'} → ${toAcct?toAcct.name:'unknown account'}`;
   }).join('\n');
 
   // Account balances
@@ -2590,9 +2603,11 @@ ${anomalyLines?'SPENDING SPIKES:\n'+anomalyLines:''}
 Accounts:
 ${acctLines}
 ${paycheckLines.length?'Paychecks this month:\n'+paycheckLines.join('\n'):'No paycheck schedule set'}
+${skippedLine}
 ${billLines?'Recurring bills:\n'+billLines:''}
 ${schedLines.length?'Upcoming scheduled transactions:\n'+schedLines.join('\n'):''}
-${ruleLines?'Auto-allocation rules:\n'+ruleLines:''}
+${extRuleLines?'External paycheck auto-transfers (bank-side, before budgeting):\n'+extRuleLines:''}
+${ruleLines?'Internal allocation rules (bucket splits from take-home):\n'+ruleLines:''}
 ${goalLines?'Savings goals:\n'+goalLines:''}
 Buckets (use exact [ID] for actions):
 ${bktLines}
@@ -5316,18 +5331,37 @@ function renderSettingsTab(el){
     <button class="tbtn" style="margin-left:auto" onclick="openGlobalSearch()" title="Search transactions">🔍 Search</button>
   </div>
 
+  <!-- ── 1. Income Sources ──────────────────────────────── -->
   <div class="settings-section">
-    <div class="settings-section-title">Income Setup</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Your regular paychecks. Used app-wide for projected income and the Paycheck Projector.</div>
+    <div class="settings-section-title">Income Sources</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Your regular paychecks — used app-wide for projected income, the Paycheck Projector, and Payday Rules below.</div>
     ${pcRows}
     <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
-    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Allocation Rules <span style="font-weight:400">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span></div>
-      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Auto-suggest bucket splits when you log income. You confirm before anything is applied.</div>
+  </div>
+
+  <!-- ── 2. On Payday ───────────────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">On Payday</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:14px">Rules that fire automatically when you log income. External rules run first (bank-side transfers), then internal rules split what's left across your buckets.</div>
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">
+      External Rules <span style="font-weight:400">${(S.externalRules||[]).filter(r=>r.active!==false).length} active</span>
+      <span class="chip" style="font-size:9px;margin-left:6px;vertical-align:middle">bank-side</span>
+    </div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Transfers that leave your spending account automatically (e.g. 5% to savings). Logged as XFR transactions and factored into the Projector.</div>
+    ${externalRulesHtml()}
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">
+        Internal Rules <span style="font-weight:400">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span>
+        <span class="chip" style="font-size:9px;margin-left:6px;vertical-align:middle">bucket splits</span>
+      </div>
+      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Split your remaining take-home across budget buckets. Suggestions only — you confirm before anything is applied.</div>
       ${allocationRulesHtml()}
     </div>
   </div>
 
+  <!-- ── 3. Budget Setup ────────────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Budget Setup</div>
     <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Account Order</div>
@@ -5337,6 +5371,13 @@ function renderSettingsTab(el){
       <div class="c-text3" style="font-size:12px;margin-bottom:10px">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
       ${recurringBillsHtml()}
     </div>
+  </div>
+
+  <!-- ── 4. Payees ──────────────────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Payees</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:8px">Saved automatically when you log transactions. Tap ✎ to rename; link a default bucket so the right category is pre-selected next time.</div>
+    ${payeeItems||'<div class="c-text3" style="font-size:13px">No payees saved yet.</div>'}
   </div>
 
   ${(()=>{
@@ -5376,26 +5417,20 @@ function renderSettingsTab(el){
     <div id="aiTestOut" style="font-size:12px;margin-top:8px;min-height:18px"></div>
   </div>`;})()}
 
+  <!-- ── 6. Data ────────────────────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Data</div>
-    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Payees <span style="font-weight:400">${(S.payees||[]).length} saved</span></div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:8px">Saved automatically when you log transactions. Tap ✎ to rename inline.</div>
-    <div style="margin-bottom:14px">
-      ${payeeItems||'<div class="c-text3" style="font-size:13px">No payees saved yet.</div>'}
-    </div>
-    <div style="padding-top:14px;border-top:1px solid var(--border)">
-      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Export / Import</div>
-      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Last exported: <strong class="c-text2">${expLabel}</strong></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-        <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
-        <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
-        <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
-      </div>
+    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Export / Import</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Last exported: <strong class="c-text2">${expLabel}</strong></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+      <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
+      <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
+      <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
     </div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
       <div class="c-red" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Danger Zone</div>
       <div class="c-text3" style="font-size:12px;margin-bottom:10px">Permanently delete all data and start fresh. Cannot be undone.</div>
-      <button class="tbtn c-rb" style="border-" onclick="confirmFreshStart()">↺ Fresh Start</button>
+      <button class="tbtn c-rb" onclick="confirmFreshStart()">↺ Fresh Start</button>
     </div>
   </div>`;
 
@@ -6023,6 +6058,7 @@ let txType='out';
 let editingTxId=null;
 let _editingRbId=null;
 let _editingArId=null;
+let _editingErId=null;
 let _editingPayeeId=null;
 let _inDetailPanel=false;
 let _ledgerPayee='';
@@ -6878,6 +6914,20 @@ function wiRunProjector(){
   });
   payEvents.sort((a,b)=>a.date.localeCompare(b.date));
 
+  // ── Inject external-rule deduction events after each paycheck ────────────
+  const activeExtRules=(S.externalRules||[]).filter(r=>r.active!==false);
+  if(activeExtRules.length){
+    const deductEvents=[];
+    payEvents.forEach(ev=>{
+      activeExtRules.forEach(r=>{
+        const amt=r.type==='pct'?Math.round(ev.amount*(r.value/100)*100)/100:r.value;
+        deductEvents.push({date:ev.date,desc:r.label||'Auto-transfer',amount:amt,kind:'ext_deduct',linkedPay:ev.desc});
+      });
+    });
+    deductEvents.forEach(d=>payEvents.push(d));
+    payEvents.sort((a,b)=>a.date.localeCompare(b.date)||((a.kind==='pay'?0:1)-(b.kind==='pay'?0:1)));
+  }
+
   // ── Build all outflows (current-month-aware + debt min payments) ──────────
   const outflows=[];
   const activeMid=S.activeMonth;
@@ -6989,7 +7039,7 @@ function wiRunProjector(){
   // ── Pre-compute period end balances + forward-min ─────────────────────────
   {let _pr=startBal;
   var periodEndBals=periods.map(p=>{
-    payEvents.filter(e=>e.date>=p.start&&e.date<=p.end).forEach(e=>_pr+=e.amount);
+    payEvents.filter(e=>e.date>=p.start&&e.date<=p.end).forEach(e=>{if(e.kind==='pay')_pr+=e.amount;else if(e.kind==='ext_deduct')_pr-=e.amount;});
     outflows.filter(o=>o.date>=p.start&&o.date<=p.end).forEach(o=>_pr-=o.amount);
     return _pr;
   });}
@@ -6997,7 +7047,8 @@ function wiRunProjector(){
 
   // ── Render ────────────────────────────────────────────────────────────────
   let running=startBal;
-  const totalIncome=payEvents.reduce((s,p)=>s+p.amount,0);
+  const totalIncome=payEvents.filter(e=>e.kind==='pay').reduce((s,p)=>s+p.amount,0);
+  const totalExtDeduct=payEvents.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
   const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
   const isSavingsFlow=o=>o.bktType==='sinking'||o.bktType==='goal'||o.bktRollover;
   const totalSavings=outflows.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
@@ -7022,6 +7073,7 @@ function wiRunProjector(){
       <div style="background:var(--surface);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Paychecks</div>
         <div class="c-green" style="font-family:var(--mono);font-size:15px;font-weight:600">+${$f(totalIncome)}</div>
+        ${totalExtDeduct>0?`<div class="c-text3" style="font-size:10px">-${$f(totalExtDeduct)} auto-transfers</div>`:''}
       </div>
       <div style="background:var(--surface);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Expenses</div>
@@ -7045,8 +7097,9 @@ function wiRunProjector(){
   periods.forEach((p,pIdx)=>{
     const pPay=payEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
     const pOut=outflows.filter(o=>o.date>=p.start&&o.date<=p.end);
-    const pInAmt=pPay.reduce((s,e)=>s+e.amount,0);
-    const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0);
+    const pInAmt=pPay.filter(e=>e.kind==='pay').reduce((s,e)=>s+e.amount,0);
+    const pExtAmt=pPay.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
+    const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0)+pExtAmt;
     const pSavingsAmt=pOut.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
     const pExpensesAmt=pOutAmt-pSavingsAmt;
     const periodStartBal=running;
@@ -7074,8 +7127,8 @@ function wiRunProjector(){
     const pEndFmt=p.start!==p.end?new Date(p.end+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'}):null;
     const headerTitle=p.type==='gap'?'Before Next Paycheck':p.paychecks.map(e=>e.desc).join(' + ');
 
-    // Day-grouped event rows
-    const allEvts=[...pPay.map(e=>({...e,kind:'pay'})),...pOut.map(o=>({...o,kind:'out'}))].sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='pay'?-1:1));
+    // Day-grouped event rows (pay → ext_deduct → out)
+    const allEvts=[...pPay,...pOut.map(o=>({...o,kind:'out'}))].sort((a,b)=>a.date.localeCompare(b.date)||({'pay':0,'ext_deduct':1,'out':2}[a.kind]||2)-({'pay':0,'ext_deduct':1,'out':2}[b.kind]||2));
     let dayRunning=periodStartBal;
     const byDay={},dayOrd=[];
     allEvts.forEach(ev=>{if(!byDay[ev.date]){byDay[ev.date]=[];dayOrd.push(ev.date);}byDay[ev.date].push(ev);});
@@ -7091,6 +7144,13 @@ function wiRunProjector(){
             <span style="font-size:13px;flex-shrink:0">💰</span>
             <span style="flex:1;font-size:13px;font-weight:600">${esc(ev.desc)}</span>
             <span class="c-green" style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right">+${$f(ev.amount)}</span>
+          </div>`;
+        } else if(ev.kind==='ext_deduct'){
+          dayRunning-=ev.amount;
+          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center;opacity:.85">
+            <span style="font-size:11px;flex-shrink:0">🏦</span>
+            <span style="flex:1;font-size:12px;color:var(--text2)">${esc(ev.desc)}<span style="font-size:10px;color:var(--text3);margin-left:4px">auto-transfer</span></span>
+            <span style="font-family:var(--mono);font-size:12px;min-width:76px;text-align:right;color:var(--text3)">-${$f(ev.amount)}</span>
           </div>`;
         } else {
           dayRunning-=ev.amount;
@@ -7223,20 +7283,40 @@ function wiRunProjector(){
       return `<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(b.name)}${typeTag}${goalLabel}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells}</tr>`;
     }).join('');
 
+    // External-rule account rows (bank auto-transfers per paycheck)
+    const extRows2=(S.externalRules||[]).filter(r=>r.active!==false).map(r=>{
+      const toA=S.accounts.find(a=>a.id===r.toAccountId);if(!toA)return'';
+      const curBal=acctBalance(r.toAccountId);
+      let runBal2=curBal;
+      const cells2=projMths.map(pm=>{
+        const ymStr=`${pm.id.split('_')[1]}-${String(parseInt(pm.id.split('_')[2])+1).padStart(2,'0')}`;
+        const paysInMonth=payEvents.filter(e=>e.kind==='pay'&&e.date.slice(0,7)===ymStr);
+        let contrib2=paysInMonth.reduce((s,e)=>s+(r.type==='pct'?Math.round(e.amount*(r.value/100)*100)/100:r.value),0);
+        if(!contrib2)contrib2=r.type==='fixed'?r.value:0;
+        runBal2+=contrib2;
+        return`<td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;color:var(--blue);border-bottom:1px solid var(--border);white-space:nowrap">${$f(runBal2)}</td>`;
+      }).join('');
+      const typeTag=`<span style="font-size:9px;background:color-mix(in srgb,var(--blue) 12%,var(--bg));border:1px solid color-mix(in srgb,var(--blue) 35%,var(--border));border-radius:3px;padding:1px 4px;margin-left:4px;color:var(--blue)">ext. transfer</span>`;
+      const rateLabel=`<div class="c-text3" style="font-size:10px;margin-top:1px">${r.type==='pct'?r.value+'% of each paycheck':'$'+r.value+' flat/paycheck'} → ${esc(toA.name)}</div>`;
+      return`<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(r.label||'Auto-transfer')}${typeTag}${rateLabel}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells2}</tr>`;
+    }).join('');
+
+    const allRows=rows+extRows2;
+    const totalRowCount=savingsBkts.length+(S.externalRules||[]).filter(r=>r.active!==false).length;
     html+=`<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;-webkit-user-select:none" onclick="wiToggleSavingsGrowth()">
         <div id="savingsGrowthToggle" class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px">▶ Show Savings Growth</div>
-        <span class="c-text3" style="font-size:11px">(${savingsBkts.length} bucket${savingsBkts.length!==1?'s':''})</span>
+        <span class="c-text3" style="font-size:11px">(${totalRowCount} item${totalRowCount!==1?'s':''})</span>
       </div>
       <div id="savingsGrowthTable" style="display:none;margin-top:10px">
-        <div class="c-text3" style="font-size:11px;margin-bottom:10px">Contributions calculated per paycheck event using allocation rules. 🎯 marks the month a goal is reached.</div>
+        <div class="c-text3" style="font-size:11px;margin-bottom:10px">Bucket rows use allocation rules per paycheck. External transfer rows show bank auto-transfer accumulation. 🎯 marks when a goal is reached.</div>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:300px">
           <thead><tr>
             <th class="c-text3" style="text-align:left;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg)">Bucket</th>
             <th class="c-text3" style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg)">Current</th>
             ${thCells}
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${allRows}</tbody>
         </table></div>
       </div>
     </div>`;
@@ -8324,6 +8404,7 @@ function saveAllocationRule(){
   if(!bucketId){alert('Please select a bucket.');return;}
   if(!value||value<=0){alert('Please enter a valid value.');return;}
   if(!S.allocationRules)S.allocationRules=[];
+  if(!S.externalRules)S.externalRules=[];
   if(_editingArId){
     const r=(S.allocationRules||[]).find(x=>x.id===_editingArId);
     if(r){r.name=name||r.name;r.bucketId=bucketId;r.type=type;r.value=value;}
@@ -8345,31 +8426,127 @@ function toggleAllocationRule(id,active){
   if(r)r.active=active;
   save();
 }
-// Called after income is saved — shows apply-rules modal if active rules exist
-function promptAllocationRules(incomeAmt,monthId){
-  const rules=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId));
-  if(!rules.length)return;
-  const suggestions=rules.map(r=>{
+
+// ── External Rules (bank-side paycheck auto-transfers) ────────────────────────
+function externalRulesHtml(){
+  const rules=S.externalRules||[];
+  const editing=_editingErId?rules.find(r=>r.id===_editingErId):null;
+  const acctOpts=(sel='')=>{
+    let o='<option value="">— select account —</option>';
+    S.accounts.forEach(a=>{o+=`<option value="${a.id}"${a.id===sel?' selected':''}>${esc(a.name)} (${a.type})</option>`;});
+    return o;
+  };
+  const rows=rules.map(r=>{
+    const fromA=S.accounts.find(a=>a.id===r.fromAccountId);
+    const toA=S.accounts.find(a=>a.id===r.toAccountId);
+    const isEd=r.id===_editingErId;
+    return `<div class="alloc-rule-row${isEd?' rb-row-editing':''}">
+      <span class="alloc-rule-name">${esc(r.label||'Auto-transfer')}</span>
+      <span class="alloc-rule-badge">${r.type==='pct'?r.value+'%':'$'+r.value}</span>
+      <span class="alloc-rule-bkt" style="font-size:11px">${fromA?esc(fromA.name):'?'} → ${toA?esc(toA.name):'?'}</span>
+      <label class="c-text3" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
+        <input type="checkbox" ${r.active!==false?'checked':''} onchange="toggleExternalRule('${r.id}',this.checked)" /> On
+      </label>
+      <button class="ib" onclick="editExternalRule('${r.id}')" title="Edit">✎</button>
+      <button class="ib del" onclick="deleteExternalRule('${r.id}')">×</button>
+    </div>`;
+  }).join('');
+  return `
+    ${rows||'<div class="c-text3" style="font-size:13px;padding:8px 0">No external rules yet.</div>'}
+    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+      <div class="c-accent" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">${editing?'Edit Rule':'Add Rule'}</div>
+      <div class="fi-row" style="margin-bottom:8px">
+        <div class="fg"><label class="fl">Label</label><input class="fi" id="newErLabel" placeholder="e.g. 5% Auto-savings" value="${editing?esc(editing.label||''):''}" /></div>
+      </div>
+      <div class="fi-row" style="margin-bottom:8px">
+        <div class="fg"><label class="fl">From Account</label><select class="fi" id="newErFrom">${acctOpts(editing?.fromAccountId||'')}</select></div>
+        <div class="fg"><label class="fl">To Account</label><select class="fi" id="newErTo">${acctOpts(editing?.toAccountId||'')}</select></div>
+      </div>
+      <div class="fi-row" style="margin-bottom:10px">
+        <div class="fg"><label class="fl">Type</label>
+          <select class="fi" id="newErType">
+            <option value="pct"${editing&&editing.type==='pct'?' selected':''}>% of paycheck</option>
+            <option value="fixed"${editing&&editing.type==='fixed'?' selected':''}>Fixed amount $</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Value</label><input class="fi mono" id="newErVal" type="number" placeholder="5" min="0" step="0.01" value="${editing?editing.value:''}" /></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${editing?`<button class="btn-cancel" onclick="_editingErId=null;renderSettingsTab(document.getElementById('paneSettings'))">Cancel</button>`:''}
+        <button class="btn-primary" onclick="saveExternalRule()">${editing?'Update Rule':'Add Rule'}</button>
+      </div>
+    </div>`;
+}
+function editExternalRule(id){_editingErId=id;renderSettingsTab(document.getElementById('paneSettings'));}
+function saveExternalRule(){
+  const label=document.getElementById('newErLabel')?.value.trim()||'Auto-transfer';
+  const fromAccountId=document.getElementById('newErFrom')?.value;
+  const toAccountId=document.getElementById('newErTo')?.value;
+  const type=document.getElementById('newErType')?.value||'pct';
+  const value=parseFloat(document.getElementById('newErVal')?.value);
+  if(!fromAccountId){showToast('Select a source account','out');return;}
+  if(!toAccountId){showToast('Select a destination account','out');return;}
+  if(fromAccountId===toAccountId){showToast('Source and destination must differ','out');return;}
+  if(!value||value<=0){showToast('Enter a valid amount','out');return;}
+  if(!S.externalRules)S.externalRules=[];
+  if(_editingErId){
+    const r=S.externalRules.find(x=>x.id===_editingErId);
+    if(r)Object.assign(r,{label,fromAccountId,toAccountId,type,value});
+    _editingErId=null;
+  } else {
+    S.externalRules.push({id:uid(),label,type,value,fromAccountId,toAccountId,active:true});
+  }
+  save();renderSettingsTab(document.getElementById('paneSettings'));
+}
+function deleteExternalRule(id){
+  S.externalRules=(S.externalRules||[]).filter(r=>r.id!==id);
+  save();renderSettingsTab(document.getElementById('paneSettings'));
+}
+function toggleExternalRule(id,active){
+  const r=(S.externalRules||[]).find(x=>x.id===id);
+  if(r)r.active=active;save();
+}
+
+// ── Payday Actions modal — external transfers + internal allocations ──────────
+let _pendingExtRules=[];
+let _pendingRules=[];
+
+function promptAllocationRules(incomeAmt,monthId){promptPaydayActions(incomeAmt,monthId);}
+
+function promptPaydayActions(incomeAmt,monthId){
+  const extRules=(S.externalRules||[]).filter(r=>r.active!==false&&S.accounts.find(a=>a.id===r.toAccountId)&&S.accounts.find(a=>a.id===r.fromAccountId));
+  const intRules=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId));
+  if(!extRules.length&&!intRules.length)return;
+  _pendingExtRules=extRules.map(r=>{
+    const amt=r.type==='pct'?Math.round(incomeAmt*(r.value/100)*100)/100:r.value;
+    const toA=S.accounts.find(a=>a.id===r.toAccountId);
+    const fromA=S.accounts.find(a=>a.id===r.fromAccountId);
+    return{...r,suggestedAmt:amt,toAcctName:toA?.name||'',fromAcctName:fromA?.name||'',on:true};
+  });
+  _pendingRules=intRules.map(r=>{
     const amt=r.type==='pct'?Math.round(incomeAmt*(r.value/100)*100)/100:r.value;
     const b=getBucket(r.bucketId);
-    return {...r,suggestedAmt:amt,bucketName:b?.name||'',on:true};
+    return{...r,suggestedAmt:amt,bucketName:b?.name||'',on:true};
   });
-  showRuleApplyModal(suggestions,monthId);
-}
-let _pendingRules=[];
-function showRuleApplyModal(suggestions,monthId){
-  _pendingRules=suggestions.map(s=>({...s}));
-  // Dismiss mobile keyboard so the modal is fully visible
   document.activeElement?.blur();
   const modal=document.getElementById('modalBox');
   modal.className='modal';
-  modal.innerHTML=ruleApplyHtml(monthId);
+  modal.innerHTML=paydayActionsHtml(monthId);
   document.getElementById('overlay').classList.remove('hidden');
 }
-function ruleApplyHtml(monthId){
-  const total=_pendingRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
-  const rows=_pendingRules.map((r,i)=>`
-    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('modalBox').innerHTML=ruleApplyHtml('${monthId}')">
+
+function paydayActionsHtml(monthId){
+  const extRows=_pendingExtRules.map((r,i)=>`
+    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingExtRules[${i}].on=!_pendingExtRules[${i}].on;document.getElementById('modalBox').innerHTML=paydayActionsHtml('${monthId}')">
+      <div class="rule-apply-check">${r.on?'✓':''}</div>
+      <div class="rule-apply-main">
+        <div class="rule-apply-name">${esc(r.label||'Auto-transfer')}</div>
+        <div class="rule-apply-detail">${esc(r.fromAcctName)} → ${esc(r.toAcctName)} · ${r.type==='pct'?r.value+'% of paycheck':'fixed'} · logged as XFR</div>
+      </div>
+      <div class="rule-apply-amt" style="color:var(--red)">-${$f(r.suggestedAmt)}</div>
+    </div>`).join('');
+  const intRows=_pendingRules.map((r,i)=>`
+    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('modalBox').innerHTML=paydayActionsHtml('${monthId}')">
       <div class="rule-apply-check">${r.on?'✓':''}</div>
       <div class="rule-apply-main">
         <div class="rule-apply-name">${esc(r.name)}</div>
@@ -8377,37 +8554,52 @@ function ruleApplyHtml(monthId){
       </div>
       <div class="rule-apply-amt">+${$f(r.suggestedAmt)}</div>
     </div>`).join('');
-  return `
-    <div class="modal-head">
-      <div class="modal-title">Apply Allocation Rules?</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+  const extTotal=_pendingExtRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
+  const intTotal=_pendingRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
+  const hasExt=_pendingExtRules.length>0;
+  const hasInt=_pendingRules.length>0;
+  const totalApply=_pendingExtRules.filter(r=>r.on).length+_pendingRules.filter(r=>r.on).length;
+  return`<div class="modal-head">
+    <div class="modal-title">💰 Payday Actions</div>
+    <button class="modal-x" onclick="closeModal()">&#x2715;</button>
+  </div>
+  <div style="overflow-y:auto;max-height:60vh">
+    <div class="c-text3" style="padding:8px 16px 6px;font-size:12px;border-bottom:1px solid var(--border)">
+      Income logged. Review and apply your payday rules — click any row to toggle.
     </div>
-    <div id="ruleApplyModal">
-      <div class="c-text3" style="padding:10px 16px;font-size:12px;border-bottom:1px solid var(--border)">
-        Income logged. These rules suggest the following allocations — click to toggle each.
-      </div>
-      ${rows}
-      <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
-        <span class="c-text3" style="font-size:13px">Total: <strong class="c-green">${$f(total)}</strong></span>
-      </div>
+    ${hasExt?`<div style="padding:10px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">External Transfers <span style="font-weight:400;text-transform:none;letter-spacing:0">(bank-side → logs as XFR)</span></div>${extRows}`:''}
+    ${hasInt?`<div style="padding:${hasExt?'12px':'10px'} 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);${hasExt?'border-top:1px solid var(--border)':''}">Internal Allocations <span style="font-weight:400;text-transform:none;letter-spacing:0">(bucket splits)</span></div>${intRows}`:''}
+    <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);gap:12px">
+      ${hasExt?`<span class="c-text3" style="font-size:12px">Transfers: <strong style="color:var(--red)">-${$f(extTotal)}</strong></span>`:'<span></span>'}
+      ${hasInt?`<span class="c-text3" style="font-size:12px">Allocations: <strong class="c-green">+${$f(intTotal)}</strong></span>`:'<span></span>'}
     </div>
-    <div class="modal-foot" style="gap:8px">
-      <button class="btn-cancel" onclick="closeModal()">Skip</button>
-      <button class="btn-primary" onclick="applyAllocationRules('${monthId}')">Apply ${_pendingRules.filter(r=>r.on).length} Rules</button>
-    </div>`;
+  </div>
+  <div class="modal-foot" style="gap:8px">
+    <button class="btn-cancel" onclick="closeModal()">Skip</button>
+    <button class="btn-primary" onclick="applyPaydayActions('${monthId}')">Apply ${totalApply} Action${totalApply!==1?'s':''}</button>
+  </div>`;
 }
-function applyAllocationRules(monthId){
-  const mo=S.months.find(m=>m.id===monthId);if(!mo)return;
-  if(!mo.allocations)mo.allocations={};
-  _pendingRules.filter(r=>r.on).forEach(r=>{
-    const current=mo.allocations[r.bucketId]||0;
-    mo.allocations[r.bucketId]=Math.round((current+r.suggestedAmt)*100)/100;
+
+function applyPaydayActions(monthId){
+  const mo=S.months.find(m=>m.id===monthId);
+  const date=todayStr();
+  // External: create XFR transactions
+  _pendingExtRules.filter(r=>r.on).forEach(r=>{
+    S.txs.push({id:uid(),type:'xfr',desc:r.label||'Auto-transfer',amount:r.suggestedAmt,
+      date,monthId:dateToMonthId(date),accountId:r.fromAccountId,toAccountId:r.toAccountId,autoGenerated:true});
   });
-  const count=_pendingRules.filter(r=>r.on).length;
-  save();closeModal();
-  render();
-  showToast(`Applied ${count} allocation rule${count!==1?'s':''}`, 'save');
-  mShowToast('alloc',`${count} allocation rule${count!==1?'s':''} applied`,'');
+  // Internal: apply allocations
+  if(mo){
+    if(!mo.allocations)mo.allocations={};
+    _pendingRules.filter(r=>r.on).forEach(r=>{
+      mo.allocations[r.bucketId]=Math.round(((mo.allocations[r.bucketId]||0)+r.suggestedAmt)*100)/100;
+    });
+  }
+  const ec=_pendingExtRules.filter(r=>r.on).length;
+  const ic=_pendingRules.filter(r=>r.on).length;
+  save();closeModal();render();
+  const msg=[ec?`${ec} transfer${ec!==1?'s':''}`:null,ic?`${ic} allocation${ic!==1?'s':''}`:null].filter(Boolean).join(' + ');
+  if(msg){showToast(`Applied: ${msg}`,'save');mShowToast('alloc',`Applied: ${msg}`,'');}
 }
 
 // ═══════════════════════════════════════════════════════
@@ -8577,7 +8769,7 @@ function confirmFreshStart(){
     'Erase Everything',
     ()=>{
       localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
+      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],externalRules:[],recurringBills:[]};
       ensureMonth();S.activeMonth=currentMonthId();
       save();
       startWizard();
@@ -9513,6 +9705,7 @@ function importData(event){
           if(!S.scenarioBudgets)S.scenarioBudgets={};
           if(!S.payees)S.payees=[];
           if(!S.allocationRules)S.allocationRules=[];
+          if(!S.externalRules)S.externalRules=[];
           save();ensureMonth();
           if(!S.activeMonth)S.activeMonth=currentMonthId();
           render();populateTxCats();updateTxFormForType();wireFormKeys();
