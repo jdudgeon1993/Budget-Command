@@ -2475,13 +2475,46 @@ async function callGemini(userPrompt,sysPrompt='',opts={}){
     generationConfig:{maxOutputTokens:opts.maxTokens||400,temperature:opts.temp??0.7}
   };
   if(sysPrompt)body.system_instruction={parts:[{text:sysPrompt}]};
-  const res=await fetch(url,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body),signal:AbortSignal.timeout(15000)
-  });
+  const doFetch=()=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+  let res=await doFetch();
+  if(res.status===429){
+    await new Promise(r=>setTimeout(r,2500));
+    res=await doFetch();
+  }
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
   const data=await res.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||'';
+}
+
+// ── AI request queue — serialises background calls, one every AI_QUEUE_GAP ms ─
+const AI_QUEUE_GAP=4500; // safe for 15 RPM free tier
+let _aiQueue=[];
+let _aiQueueRunning=false;
+let _aiCoachTimer=null;
+
+function queueAICall(fn){
+  return new Promise((resolve,reject)=>{
+    _aiQueue.push({fn,resolve,reject});
+    _drainAIQueue();
+  });
+}
+async function _drainAIQueue(){
+  if(_aiQueueRunning||!_aiQueue.length)return;
+  _aiQueueRunning=true;
+  while(_aiQueue.length){
+    const{fn,resolve,reject}=_aiQueue.shift();
+    try{resolve(await fn());}catch(e){reject(e);}
+    if(_aiQueue.length)await new Promise(r=>setTimeout(r,AI_QUEUE_GAP));
+  }
+  _aiQueueRunning=false;
+}
+function markAICoachStale(monthId){
+  // Keep existing content visible; flag for background refresh on next render
+  if(_aiCache[monthId+'_coach'])_aiCache[monthId+'_coach_stale']=true;
+}
+function scheduleAICoachDebounced(mid){
+  clearTimeout(_aiCoachTimer);
+  _aiCoachTimer=setTimeout(()=>scheduleAICoach(mid),2000);
 }
 
 function buildBudgetContext(mid){
@@ -2614,37 +2647,77 @@ ${bktLines}
 CURRENT_MONTH_ID: ${mid}`;
 }
 
-async function scheduleAINarrative(mid){
+// ── Unified AI Coach (narrative + alerts in one call) ─────────────────────────
+async function scheduleAICoach(mid){
   if(!aiEnabled())return;
-  const el=document.getElementById('ai-coach-narrative');
+  const el=document.getElementById('ai-coach-wrap');
   if(!el)return;
-  const cacheKey=mid+'_narrative';
-  if(_aiCache[cacheKey]){el.innerHTML=_aiNarrativeHtml(_aiCache[cacheKey],mid);return;}
-  const toneMap={
-    encouraging:'Be warm, supportive, and celebratory of wins.',
-    analytical:'Be precise, data-driven, and objective. Use numbers.',
-    toughLove:'Be direct and honest — do not sugarcoat problems or waste words.'
-  };
-  const tone=toneMap[getAISettings().tone||'encouraging'];
-  const sys=`You are a personal financial coach inside a budgeting app. ${tone} Reply in 2-3 sentences max. Reference specific dollar amounts from the user's data. No generic advice. No markdown.
-IMPORTANT: "Income received so far" is only what has been logged to date — the user may not have received all paychecks yet. Always base assessments on "Expected total this month" when available, not just income received. If paychecks are still incoming, acknowledge the user is mid-month and comment on whether their full projected income covers their budget. Never say they cannot afford something just because income logged is low — check if expected total covers it.`;
-  try{
-    const text=await callGemini(
-      `Here is my current budget:\n\n${buildBudgetContext(mid)}\n\nGive me your forward-looking coaching take: am I on track for the full month based on projected income and spending pace?`,
-      sys,{maxTokens:220,temp:0.75}
-    );
-    _aiCache[cacheKey]=text;
-    const node=document.getElementById('ai-coach-narrative');
-    if(node)node.innerHTML=_aiNarrativeHtml(text,mid);
-  }catch(err){
-    const node=document.getElementById('ai-coach-narrative');
-    if(node)node.innerHTML=`<div class="ai-error">Coach unavailable: ${esc(err.message)}</div>`;
+  const cacheKey=mid+'_coach';
+  const isStale=!!_aiCache[cacheKey+'_stale'];
+
+  // Serve cached content immediately (even if stale) so UI never goes blank
+  if(_aiCache[cacheKey]){
+    el.innerHTML=_aiCoachHtml(_aiCache[cacheKey],mid,isStale);
+    if(!isStale)return; // fresh — nothing more to do
   }
+
+  // Queue a background refresh (serialised, rate-limited)
+  queueAICall(async()=>{
+    const toneMap={
+      encouraging:'Be warm, supportive, and celebratory of wins.',
+      analytical:'Be precise, data-driven, and objective. Use numbers.',
+      toughLove:'Be direct and honest — do not sugarcoat. No fluff.'
+    };
+    const tone=toneMap[getAISettings().tone||'encouraging'];
+    const sys=`You are an AI financial coach inside a budgeting app. ${tone}
+Respond with ONLY a valid JSON object — no markdown, no explanation.
+Format: {"narrative":"2-3 sentence coaching message","alerts":[{"icon":"emoji","msg":"specific issue with dollar amounts","urgent":true/false}]}
+Rules:
+- narrative: forward-looking, reference specific amounts, no generic advice, no markdown.
+- alerts: 0–3 items. Only real problems. Return [] if nothing is wrong.
+- urgent:true only for overspent buckets, missed bills, or projected deficit.
+CRITICAL: "Income received so far" is only what has been logged. Always base assessments on "Expected total this month". Never flag low income if expected total covers the budget.`;
+    try{
+      const raw=await callGemini(
+        `Here is my current budget:\n\n${buildBudgetContext(mid)}\n\nRespond with the JSON object only.`,
+        sys,{maxTokens:420,temp:0.65}
+      );
+      let parsed;
+      try{parsed=JSON.parse(raw.replace(/```json\n?|```/g,'').trim());}
+      catch{parsed={narrative:raw,alerts:[]};}
+      if(typeof parsed.narrative!=='string')parsed.narrative=raw;
+      if(!Array.isArray(parsed.alerts))parsed.alerts=[];
+      _aiCache[cacheKey]=parsed;
+      delete _aiCache[cacheKey+'_stale'];
+      const node=document.getElementById('ai-coach-wrap');
+      if(node)node.innerHTML=_aiCoachHtml(parsed,mid,false);
+    }catch(err){
+      delete _aiCache[cacheKey+'_stale'];
+      const node=document.getElementById('ai-coach-wrap');
+      // Only overwrite if there's no good cached content already showing
+      if(node&&!_aiCache[cacheKey])
+        node.innerHTML=`<div class="ai-error">Coach unavailable: ${esc(err.message)}</div>`;
+    }
+  });
 }
 
-function _aiNarrativeHtml(text,mid){
-  return`<div class="ai-narrative">${esc(text)}</div>
-  <button class="ai-regen" onclick="delete _aiCache['${mid}_narrative'];scheduleAINarrative('${mid}')">↻ refresh</button>`;
+// Keep old name as alias so any leftover call sites don't break
+function scheduleAINarrative(mid){scheduleAICoach(mid);}
+
+function _aiCoachHtml(data,mid,stale){
+  const alertsHtml=(data.alerts||[]).length
+    ?`<div style="border-top:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));margin-top:10px;padding-top:8px;display:flex;flex-direction:column;gap:5px">
+        ${(data.alerts||[]).map((a,i)=>`
+          <div class="ai-alert-chip${a.urgent?' urgent':''}" id="ai-alrt-${mid}-${i}">
+            <span class="ai-alert-icon">${a.icon||'⚠️'}</span>
+            <span class="ai-alert-msg">${esc(a.msg)}</span>
+            <button class="ai-alert-dismiss" onclick="document.getElementById('ai-alrt-${mid}-${i}').remove()">×</button>
+          </div>`).join('')}
+      </div>`:'' ;
+  const staleBar=stale?`<div style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px;margin-bottom:6px"><span class="ai-dot"></span> updating…</div>`:'';
+  return`${staleBar}<div class="ai-narrative">${esc(data.narrative||'')}</div>
+    ${alertsHtml}
+    <button class="ai-regen" onclick="delete _aiCache['${mid}_coach'];delete _aiCache['${mid}_coach_stale'];scheduleAICoach('${mid}')">↻ refresh</button>`;
 }
 
 function saveAISettingsFromUI(){
@@ -2674,36 +2747,6 @@ async function testGeminiConnection(){
     out.innerHTML=`<span style="color:var(--red)">✗ ${esc(err.message)}</span>`;
     saveAISettings(prev); // restore on failure
   }finally{btn.disabled=false;btn.textContent='Test Connection';}
-}
-
-// ── Phase 2b: Proactive AI Alerts ────────────────────────────────────────────
-async function scheduleAIAlerts(mid){
-  if(!aiEnabled())return;
-  const el=document.getElementById('ai-alerts-wrap');
-  if(!el)return;
-  const cacheKey=mid+'_alerts';
-  if(_aiCache[cacheKey]!==undefined){el.innerHTML=_aiAlertsHtml(_aiCache[cacheKey],mid);return;}
-  const sys=`You are a financial alert system. Scan this budget data and identify 1-3 specific urgent issues. Return ONLY a valid JSON array, no markdown, no explanation. Each item: {"icon":"single emoji","msg":"specific message with exact dollar amounts","urgent":true or false}. Only flag real problems — if nothing is wrong return [].
-CRITICAL: "Income received so far" is only income logged to date. The user may still have paychecks arriving. Base alerts on "Expected total this month" not received-so-far. Do NOT flag low income as a problem if expected total covers the budget. Flag income concerns only if expected total is less than budget target.`;
-  try{
-    const text=await callGemini(`Scan for urgent issues (use projected income, not just received):\n\n${buildBudgetContext(mid)}`,sys,{maxTokens:300,temp:0.2});
-    let alerts=[];
-    try{alerts=JSON.parse(text.replace(/```json\n?|```/g,'').trim());}catch{}
-    if(!Array.isArray(alerts))alerts=[];
-    _aiCache[cacheKey]=alerts;
-    const node=document.getElementById('ai-alerts-wrap');
-    if(node)node.innerHTML=_aiAlertsHtml(alerts,mid);
-  }catch{_aiCache[cacheKey]=[];}
-}
-
-function _aiAlertsHtml(alerts,mid){
-  if(!alerts?.length)return'';
-  return alerts.map((a,i)=>`
-    <div class="ai-alert-chip${a.urgent?' urgent':''}" id="ai-alrt-${mid}-${i}">
-      <span class="ai-alert-icon">${a.icon||'⚠️'}</span>
-      <span class="ai-alert-msg">${esc(a.msg)}</span>
-      <button class="ai-alert-dismiss" onclick="document.getElementById('ai-alrt-${mid}-${i}').remove()">×</button>
-    </div>`).join('');
 }
 
 // ── Phase 3a/b: Natural Language Transaction Entry ────────────────────────────
@@ -3368,7 +3411,7 @@ function coachingPanelHtml(mid){
         <span class="ai-badge">✦ AI Coach</span>
         ${rts>0&&unfunded.length?`<button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2))" onclick="openAIDraftModal('${mid}')">✦ Draft Allocations</button>`:''}
       </div>
-      <div id="ai-coach-narrative">
+      <div id="ai-coach-wrap">
         <div class="ai-narrative-loading">
           <span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
           <span style="margin-left:5px">thinking…</span>
@@ -4530,7 +4573,6 @@ function renderOverviewTab(el,mid){
 
   // ── Coaching panel (current month only) ───────────────────────────────────
   if(st==='present'){
-    h+=`<div id="ai-alerts-wrap"></div>`;
     h+=coachingPanelHtml(mid);
     checkMilestones();
   } else if(st==='past'&&m?.aiReport){
@@ -4743,7 +4785,7 @@ function renderOverviewTab(el,mid){
   h+=`</div>`; // close cc-wrap
 
   el.innerHTML=h;
-  if(st==='present'){scheduleAINarrative(mid);scheduleAIAlerts(mid);}
+  if(st==='present'){scheduleAICoachDebounced(mid);}
 }
 
 function renderLedgerTab(el,mid){
@@ -6261,7 +6303,7 @@ function addTx(){
   }
   upsertPayee(desc, bkt);
   save();
-  delete _aiCache[monthId+'_narrative'];delete _aiCache[monthId+'_alerts'];
+  markAICoachStale(monthId);
   if(bkt)setTimeout(()=>checkGoalCelebrations(tx.monthId),100);
   const sched=tx.date>todayStr();
   const typeLabel=txType==='in'?'Income':txType==='xfr'?'Transfer':'Expense';
@@ -10271,7 +10313,7 @@ function mAddTx(){
   S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:acctId,toAccountId:toAcct||null,monthId,bucketId:bkt||null,desc,amount:amt,type:t,date,recurring:rec});
   upsertPayee(desc, bkt);
   save();
-  delete _aiCache[monthId+'_narrative'];delete _aiCache[monthId+'_alerts'];
+  markAICoachStale(monthId);
   if(bkt)setTimeout(()=>checkGoalCelebrations(monthId),100);
 
   // Get bucket name for toast
