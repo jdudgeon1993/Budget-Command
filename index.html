@@ -2391,19 +2391,20 @@ function calcNetWorth(){
   return S.accounts.reduce((s,a)=>s+(a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)),0);
 }
 function ageOfMoney(){
-  // Days = budget balance / avg daily spend over last 30 days
+  // Days = budget balance / avg daily spend over last 90 days
+  // 90-day window smooths seasonal variance (vacations, holidays, quarterly bills)
   // Concept: how many days does your current budget balance represent at your spending rate?
   // Green ≥30d (a full month ahead), amber 10–29d, red <10d (near paycheck-to-paycheck)
   const today=new Date();
-  const thirtyDaysAgo=new Date(today-30*24*60*60*1000);
-  const thirtyStr=thirtyDaysAgo.toISOString().split('T')[0];
+  const ninetyDaysAgo=new Date(today-90*24*60*60*1000);
+  const ninetyStr=ninetyDaysAgo.toISOString().split('T')[0];
   const todStr=todayStr();
   const recentOut=S.txs.filter(t=>
     t.type==='out'&&!isScheduled(t)&&
-    t.date>=thirtyStr&&t.date<=todStr&&
+    t.date>=ninetyStr&&t.date<=todStr&&
     getAcct(t.accountId)?.type==='budget'
   ).reduce((s,t)=>s+t.amount,0);
-  const dailyAvg=recentOut/30;
+  const dailyAvg=recentOut/90;
   if(dailyAvg<=0)return null;
   const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
   if(budgetBal<=0)return 0;
