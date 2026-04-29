@@ -1473,6 +1473,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .report-table th:first-child{text-align:left;}
 .report-table td{padding:6px 10px;text-align:right;font-family:var(--mono);border-bottom:1px solid var(--border);}
 .report-table td:first-child{text-align:left;font-family:var(--sans);font-size:12px;color:var(--text2);}
+.bkt-list-table tr.bkt-list-row{cursor:pointer;transition:background .1s;}
+.bkt-list-table tr.bkt-list-row:hover{background:var(--surface2);}
+.bkt-list-table tr.bkt-list-row.act{background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
+.bkt-list-table tr.bkt-list-row.skipped{opacity:.4;pointer-events:none;}
+.bkt-list-table .bkt-row-tags{display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;}
+.bkt-list-table .alloc-wrap{justify-content:flex-end;}
+.bkt-list-table td.alloc-td{padding:3px 10px;}
 .report-table .report-cat-row td{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2);font-family:var(--sans);}
 .report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
 .report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
@@ -5111,7 +5118,19 @@ function renderBucketsTab(el,mid){
       <button class="empty-btn" onclick="openModal('bkt')">Add a bucket</button>
     </div>`;el.innerHTML=h;return;
   }
-  // Category sections — div-based, works on all breakpoints
+  // Bucket list table — Excel-style list grouped by category
+  let grandTarget=0,grandAlloc=0,grandSpent=0,grandAvail=0;
+  h+=`<div style="overflow-x:auto"><table class="report-table bkt-list-table">
+    <thead><tr>
+      <th style="text-align:left;min-width:180px">Bucket</th>
+      <th style="min-width:90px">Target</th>
+      <th style="min-width:110px">Allocated</th>
+      <th style="min-width:80px">Rollover</th>
+      <th style="min-width:90px">Spent</th>
+      <th style="min-width:90px">Available</th>
+    </tr></thead>
+    <tbody>`;
+
   sortedCats().forEach(cat=>{
     const catBuckets=sortedBuckets(cat.id);
     if(!catBuckets.length)return;
@@ -5125,24 +5144,22 @@ function renderBucketsTab(el,mid){
       if(db!==null&&db<=0&&(da===null||da>0))return 1;
       return (a.order??0)-(b.order??0);
     });
-
     const catAnomaly=catAnomalyCheck(cat.id,mid);
     const catFundAmt=catBuckets.reduce((s,b)=>{const a=bAlloc(mid,b.id),t=bBudget(mid,b.id);return s+(a===0&&t>0?t:0);},0);
-    const catAllocPct=catTarget>0?Math.min(catAlloc/catTarget,1):0;
-    const catBarColor=catAllocPct>=1?'var(--green)':catAllocPct>=0.5?'var(--accent)':'var(--amber)';
     const catAllocColor=catTarget>0?(catAlloc>=catTarget?'var(--green)':catAlloc>0?'var(--amber)':'var(--text3)'):'var(--text3)';
-    h+=`<div class="bkt-cat-section">
-      <div class="bkt-cat-hdr-row">
-        <div class="bkt-cat-color" style="background:${color}"></div>
-        <span class="bkt-cat-title">${esc(cat.name)}</span>
-        ${catAnomaly?`<span title="${catAnomaly.z}σ above 12-month average — ${$f(catAnomaly.excess)} more than usual" class="c-amber" style="font-size:10px;font-weight:700;background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;flex-shrink:0">⚠ Spike</span>`:''}
-        <span class="bkt-cat-alloc-txt" style="color:${catAllocColor}">${$f(catAlloc)}<span class="c-text3" style="font-weight:400"> / ${$f(catTarget)}</span></span>
-        ${!past&&catFundAmt>0?`<button class="bkt-cat-fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
-        ${!past?`<button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>`:''}
-        <button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();editCat('${cat.id}')">Edit</button>
-      </div>
-      ${catTarget>0?`<div class="bkt-cat-bar"><div class="bkt-cat-bar-fill" style="width:${Math.round(catAllocPct*100)}%;background:${catBarColor}"></div></div>`:''}
-      <div class="bkt-card-grid">`;
+
+    h+=`<tr class="report-cat-row">
+      <td colspan="6" style="color:${color}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:700">${esc(cat.name)}</span>
+          ${catAnomaly?`<span title="${catAnomaly.z}σ above average — ${$f(catAnomaly.excess)} more than usual" style="font-size:10px;font-weight:700;background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;color:var(--amber)">⚠ Spike</span>`:''}
+          <span style="margin-left:auto;font-family:var(--mono);color:${catAllocColor}">${$f(catAlloc)}<span style="color:var(--text3);font-weight:400"> / ${$f(catTarget)}</span></span>
+          ${!past&&catFundAmt>0?`<button class="bkt-cat-fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
+          ${!past?`<button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>`:''}
+          <button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();editCat('${cat.id}')">Edit</button>
+        </div>
+      </td>
+    </tr>`;
 
     sorted.forEach(b=>{
       const skipped=!past&&isBktSkipped(b.id,mid);
@@ -5153,68 +5170,66 @@ function renderBucketsTab(el,mid){
       const spent=bSpent(mid,b.id);
       const avail=eff-spent;
       const pctRaw=eff>0?spent/eff:0;
-      const pct=Math.min(pctRaw,1);
-      const fillColor=pctRaw>1?'var(--red)':pctRaw>0.8?'var(--amber)':'var(--green)';
       const days=daysUntilDue(b,m.year,m.month);
       const due1Paid=days!==null&&(b.dueAmount>0?spent>=b.dueAmount:(days<0&&spent>0));
-      let dueHtml='';
-      if(days!==null){
-        if(due1Paid){dueHtml=`<span class="bndue green">✓ paid</span>`;}
-        else{const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueHtml=`<span class="bndue ${cls}">${txt}</span>`;}
-      }
-      const tags=[];
-      if(b.type==='sinking')tags.push('saving');
-      if(b.type==='goal')tags.push('goal');
-      if(b.recurring)tags.push('↻');
-      if(roll>0)tags.push(`+${$f(roll)} rolled`);
-      const trend=bucketMoMTrend(b.id,mid);
-      if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span style="color:${tc};font-size:10px">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
-
-      const pend=bucketPendingAmt(b.id,mid);
-      const pillHtml=bucketPillHtml(alloc,spent,eff,target,pend,past,avail);
       const allocCls=alloc===0?'':alloc>=target?'funded':'';
       const availColor=avail>0?'var(--green)':avail<0?'var(--red)':'var(--text3)';
+      const trend=bucketMoMTrend(b.id,mid);
+      grandTarget+=target;grandAlloc+=alloc;grandSpent+=spent;grandAvail+=avail;
 
-      h+=`<div class="bkt-card${S.activeBucket===b.id?' act':''}${skipped?' skipped':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter'&&event.target===this)setBucket('${b.id}')">
-        <div class="bkt-card-top" style="background:${color}"></div>
-        <div class="bkt-card-body">
-          <div class="bkt-card-name-row">
-            <span class="bkt-card-name">${esc(b.name)}</span>
-            ${skipped?`<span class="bkt-skip-tag" onclick="event.stopPropagation();toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</span>`:pillHtml}
-          </div>
-          ${tags.length||dueHtml?`<div class="bkt-card-tags-row">${tags.map(t=>`<span class="bntag">${t}</span>`).join('')}${dueHtml}</div>`:''}
-          <div class="bkt-card-alloc-row" onclick="event.stopPropagation()">
-            <span class="bkt-card-alloc-label">Allocated</span>
-            ${past?`<span style="font-family:var(--mono);font-size:14px;color:var(--text2)">${$f(alloc)}</span>`:`
-            <div class="alloc-wrap" style="flex-shrink:0">
-              <span class="alloc-pfx">$</span>
-              <input class="alloc-inp ${allocCls}" type="text" inputmode="decimal"
-                value="${alloc||''}" placeholder="0"
-                onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
-                onkeydown="if(event.key==='Enter'){event.stopPropagation();event.preventDefault();this.dispatchEvent(new Event('change'));var _a=[...document.querySelectorAll('.alloc-inp')];var _i=_a.indexOf(this);if(_i>-1&&_i<_a.length-1)_a[_i+1].focus();else this.blur();}"
-                onfocus="this.select()" />
-              <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
-            </div>`}
-          </div>
-          <div class="bkt-card-progress">
-            <div class="bkt-card-bar-track"><div class="bkt-card-bar-fill" style="width:${eff>0?Math.round(pct*100):0}%;background:${fillColor}"></div></div>
-            ${eff>0?`<div class="bkt-card-bar-pct">${Math.round(pct*100)}% spent</div>`:''}
-          </div>
-          <div class="bkt-card-amounts">
-            <div class="bkt-card-amt-block">
-              <span class="bkt-card-amt-label">Spent</span>
-              <span class="bkt-card-amt-val">${spent>0?$f(spent):'—'}</span>
+      let dueChip='';
+      if(days!==null){
+        if(due1Paid)dueChip=`<span class="bndue green">✓ paid</span>`;
+        else{const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueChip=`<span class="bndue ${cls}">${txt}</span>`;}
+      }
+      const tags=[];
+      if(b.type==='sinking')tags.push(`<span class="bntag">saving</span>`);
+      if(b.type==='goal')tags.push(`<span class="bntag">goal</span>`);
+      if(b.recurring)tags.push(`<span class="bntag">↻</span>`);
+      if(roll>0)tags.push(`<span class="bntag">+${$f(roll)} rolled</span>`);
+      if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span class="bntag" style="color:${tc}">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
+
+      h+=`<tr class="bkt-list-row${S.activeBucket===b.id?' act':''}${skipped?' skipped':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter')setBucket('${b.id}')">
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="width:3px;height:28px;background:${color};border-radius:2px;flex-shrink:0;display:inline-block"></span>
+            <div>
+              <div style="font-size:13px;color:var(--text1);font-weight:500">${esc(b.name)}</div>
+              ${tags.length||dueChip?`<div class="bkt-row-tags">${tags.join('')}${dueChip}</div>`:''}
             </div>
-            <div class="bkt-card-amt-block">
-              <span class="bkt-card-amt-label">Available</span>
-              <span class="bkt-card-amt-val" style="color:${availColor}">${eff>0||spent>0?$f(avail):'—'}</span>
-            </div>
+            ${skipped?`<button class="bkt-skip-tag" style="margin-left:auto" onclick="event.stopPropagation();toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</button>`:''}
           </div>
-        </div>
-      </div>`;
+        </td>
+        <td>${target?$f(target):'—'}</td>
+        <td class="alloc-td" onclick="event.stopPropagation()">
+          ${past?`<span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${$f(alloc)}</span>`:`
+          <div class="alloc-wrap">
+            <span class="alloc-pfx">$</span>
+            <input class="alloc-inp ${allocCls}" type="text" inputmode="decimal"
+              value="${alloc||''}" placeholder="0"
+              onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
+              onkeydown="if(event.key==='Enter'){event.stopPropagation();event.preventDefault();this.dispatchEvent(new Event('change'));var _a=[...document.querySelectorAll('.alloc-inp')];var _i=_a.indexOf(this);if(_i>-1&&_i<_a.length-1)_a[_i+1].focus();else this.blur();}"
+              onfocus="this.select()" />
+            <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
+          </div>`}
+        </td>
+        <td style="color:${roll>0?'var(--accent)':'var(--text3)'}">${roll>0?$f(roll):'—'}</td>
+        <td style="color:${spent>0?'var(--text2)':'var(--text3)'}">${spent>0?$f(spent):'—'}</td>
+        <td style="color:${availColor};font-weight:600">${eff>0||spent>0?$f(avail):'—'}</td>
+      </tr>`;
     });
-    h+=`</div></div>`;
   });
+
+  const rtsColor=rts>0?'var(--green)':rts<0?'var(--red)':'var(--text3)';
+  h+=`<tr class="report-total-row">
+    <td>Total</td>
+    <td>${grandTarget?$f(grandTarget):'—'}</td>
+    <td>${grandAlloc?$f(grandAlloc):'—'}</td>
+    <td>—</td>
+    <td>${grandSpent?$f(grandSpent):'—'}</td>
+    <td style="color:${rtsColor};font-weight:700">${$f(rts)}</td>
+  </tr>`;
+  h+=`</tbody></table></div>`;
   el.innerHTML=h;
   setTimeout(wireAllocKeys,50);
 }
