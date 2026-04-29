@@ -1480,6 +1480,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-list-table .bkt-row-tags{display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;}
 .bkt-list-table .alloc-wrap{justify-content:flex-end;}
 .bkt-list-table td.alloc-td{padding:3px 10px;}
+@media(max-width:1099px){.bkt-col-hide{display:none;}}
 .report-table .report-cat-row td{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2);font-family:var(--sans);}
 .report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
 .report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
@@ -5122,12 +5123,12 @@ function renderBucketsTab(el,mid){
   let grandTarget=0,grandAlloc=0,grandSpent=0,grandAvail=0;
   h+=`<div style="overflow-x:auto"><table class="report-table bkt-list-table">
     <thead><tr>
-      <th style="text-align:left;min-width:180px">Bucket</th>
-      <th style="min-width:90px">Target</th>
-      <th style="min-width:110px">Allocated</th>
-      <th style="min-width:80px">Rollover</th>
-      <th style="min-width:90px">Spent</th>
-      <th style="min-width:90px">Available</th>
+      <th style="text-align:left">Bucket</th>
+      <th class="bkt-col-hide">Target</th>
+      <th>Allocated</th>
+      <th class="bkt-col-hide">Rollover</th>
+      <th class="bkt-col-hide">Spent</th>
+      <th>Available</th>
     </tr></thead>
     <tbody>`;
 
@@ -5200,7 +5201,7 @@ function renderBucketsTab(el,mid){
             ${skipped?`<button class="bkt-skip-tag" style="margin-left:auto" onclick="event.stopPropagation();toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</button>`:''}
           </div>
         </td>
-        <td>${target?$f(target):'—'}</td>
+        <td class="bkt-col-hide">${target?$f(target):'—'}</td>
         <td class="alloc-td" onclick="event.stopPropagation()">
           ${past?`<span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${$f(alloc)}</span>`:`
           <div class="alloc-wrap">
@@ -5213,8 +5214,8 @@ function renderBucketsTab(el,mid){
             <button type="button" class="expr-fx-btn" title="Expression options" onmousedown="event.preventDefault()" onclick="event.stopPropagation();toggleExprMenu(this)">𝑓x</button>
           </div>`}
         </td>
-        <td style="color:${roll>0?'var(--accent)':'var(--text3)'}">${roll>0?$f(roll):'—'}</td>
-        <td style="color:${spent>0?'var(--text2)':'var(--text3)'}">${spent>0?$f(spent):'—'}</td>
+        <td class="bkt-col-hide" style="color:${roll>0?'var(--accent)':'var(--text3)'}">${roll>0?$f(roll):'—'}</td>
+        <td class="bkt-col-hide" style="color:${spent>0?'var(--text2)':'var(--text3)'}">${spent>0?$f(spent):'—'}</td>
         <td style="color:${availColor};font-weight:600">${eff>0||spent>0?$f(avail):'—'}</td>
       </tr>`;
     });
@@ -5223,10 +5224,10 @@ function renderBucketsTab(el,mid){
   const rtsColor=rts>0?'var(--green)':rts<0?'var(--red)':'var(--text3)';
   h+=`<tr class="report-total-row">
     <td>Total</td>
-    <td>${grandTarget?$f(grandTarget):'—'}</td>
+    <td class="bkt-col-hide">${grandTarget?$f(grandTarget):'—'}</td>
     <td>${grandAlloc?$f(grandAlloc):'—'}</td>
-    <td>—</td>
-    <td>${grandSpent?$f(grandSpent):'—'}</td>
+    <td class="bkt-col-hide">—</td>
+    <td class="bkt-col-hide">${grandSpent?$f(grandSpent):'—'}</td>
     <td style="color:${rtsColor};font-weight:700">${$f(rts)}</td>
   </tr>`;
   h+=`</tbody></table></div>`;
