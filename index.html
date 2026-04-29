@@ -6987,6 +6987,19 @@ function wiRunProjector(){
     payEvents.sort((a,b)=>a.date.localeCompare(b.date)||((a.kind==='pay'?0:1)-(b.kind==='pay'?0:1)));
   }
 
+  // ── Commitment events: internal allocation rules fire on each paycheck ────
+  const commitEvents=[];
+  {const activeIntRules=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived);
+  if(activeIntRules.length){
+    payEvents.filter(e=>e.kind==='pay').forEach(ev=>{
+      activeIntRules.forEach(r=>{
+        const b=getBucket(r.bucketId);
+        const amt=r.type==='pct'?Math.round(ev.amount*(r.value/100)*100)/100:r.value;
+        if(amt>0)commitEvents.push({date:ev.date,desc:b.name,amount:amt,kind:'commit',catColor:S.cats.find(c=>c.id===b.catId)?.color||null,ruleName:r.name});
+      });
+    });
+  }}
+
   // ── Build all outflows (current-month-aware + debt min payments) ──────────
   const outflows=[];
   const activeMid=S.activeMonth;
@@ -7027,8 +7040,22 @@ function wiRunProjector(){
           if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
         }
       } else {
-        const ds=dStr(1);
-        if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor,bktType:bType,bktRollover:bRoll});
+        // Sinking/goal buckets: spread across pay dates in this month (aligns to user's paycheck cadence)
+        // Regular undated buckets: place on the 1st as a discretionary estimate
+        const isSinkGoal=bType==='sinking'||bType==='goal';
+        if(isSinkGoal){
+          const ymStr=`${wY2}-${String(wM2+1).padStart(2,'0')}`;
+          const mPayDates=[...new Set(payEvents.filter(e=>e.kind==='pay'&&e.date.slice(0,7)===ymStr).map(e=>e.date))].sort();
+          if(mPayDates.length){
+            const perPay=Math.round(bAmt/mPayDates.length*100)/100;
+            mPayDates.forEach(pd=>{if(pd>=startStr&&pd<=endStr)outflows.push({date:pd,desc:b.name,amount:perPay,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll});});
+          } else {
+            const ds=dStr(1);if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll});
+          }
+        } else {
+          const ds=dStr(1);
+          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor,bktType:bType,bktRollover:bRoll});
+        }
       }
     });
     // Debt minimum payments — auto-add for accounts not covered by a linked or same-named bucket
@@ -7065,8 +7092,8 @@ function wiRunProjector(){
   }
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // ── Undated bucket warning ────────────────────────────────────────────────
-  const undatedBkts=allBkts.filter(b=>bktAmt(b)>0&&!b.dueDay);
+  // ── Undated bucket warning (regular buckets only — sinking/goal spread to pay dates) ──
+  const undatedBkts=allBkts.filter(b=>bktAmt(b)>0&&!b.dueDay&&(b.type||'regular')==='regular');
 
   // ── Bonus-paycheck detection ──────────────────────────────────────────────
   const normalPerMonth={7:4,14:2,15:2,30:1};
@@ -7110,8 +7137,9 @@ function wiRunProjector(){
   const totalExtDeduct=payEvents.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
   const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
   const isSavingsFlow=o=>o.bktType==='sinking'||o.bktType==='goal'||o.bktRollover;
-  const totalSavings=outflows.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
-  const totalExpenses=totalSpend-totalSavings;
+  const totalPlanned=outflows.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
+  const totalExpenses=totalSpend-totalPlanned;
+  const totalCommitted=commitEvents.reduce((s,e)=>s+e.amount,0);
 
   const scenarioBanner=scenario
     ?`<div style="background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px"><span class="c-accent" style="font-weight:700">⚡ What If:</span><span class="c-text">${esc(scenario.name)}</span><span class="c-text3" style="font-size:11px">— bucket amounts from this scenario</span></div>`:'';
@@ -7132,16 +7160,25 @@ function wiRunProjector(){
       <div style="background:var(--surface);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Paychecks</div>
         <div class="c-green" style="font-family:var(--mono);font-size:15px;font-weight:600">+${$f(totalIncome)}</div>
-        ${totalExtDeduct>0?`<div class="c-text3" style="font-size:10px">-${$f(totalExtDeduct)} auto-transfers</div>`:''}
       </div>
+      ${totalExtDeduct>0?`<div style="background:var(--surface);padding:9px 12px">
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Savings</div>
+        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent)">↗ ${$f(totalExtDeduct)}</div>
+        <div class="c-text3" style="font-size:10px">to savings account</div>
+      </div>`:''}
       <div style="background:var(--surface);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Expenses</div>
         <div class="c-red" style="font-family:var(--mono);font-size:15px;font-weight:600">-${$f(totalExpenses)}</div>
       </div>
-      ${totalSavings>0?`<div style="background:var(--surface);padding:9px 12px">
-        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Savings</div>
-        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent)">↗ ${$f(totalSavings)}</div>
-        <div class="c-text3" style="font-size:10px">set aside</div>
+      ${totalPlanned>0?`<div style="background:var(--surface);padding:9px 12px">
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Planned</div>
+        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent)">~${$f(totalPlanned)}</div>
+        <div class="c-text3" style="font-size:10px">sinking & goals</div>
+      </div>`:''}
+      ${totalCommitted>0?`<div style="background:var(--surface);padding:9px 12px">
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Committed</div>
+        <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text2)">📋 ${$f(totalCommitted)}</div>
+        <div class="c-text3" style="font-size:10px">budget allocations</div>
       </div>`:''}
       <div style="background:var(--surface2);padding:9px 12px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px">Projected End</div>
@@ -7156,11 +7193,13 @@ function wiRunProjector(){
   periods.forEach((p,pIdx)=>{
     const pPay=payEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
     const pOut=outflows.filter(o=>o.date>=p.start&&o.date<=p.end);
+    const pCommit=commitEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
     const pInAmt=pPay.filter(e=>e.kind==='pay').reduce((s,e)=>s+e.amount,0);
     const pExtAmt=pPay.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
     const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0)+pExtAmt;
-    const pSavingsAmt=pOut.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
-    const pExpensesAmt=pOutAmt-pSavingsAmt;
+    const pPlannedAmt=pOut.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
+    const pExpensesAmt=pOutAmt-pPlannedAmt;
+    const pCommitAmt=pCommit.reduce((s,e)=>s+e.amount,0);
     const periodStartBal=running;
     running=periodEndBals[pIdx];
     cumulativeOut+=pOutAmt;
@@ -7186,8 +7225,8 @@ function wiRunProjector(){
     const pEndFmt=p.start!==p.end?new Date(p.end+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'}):null;
     const headerTitle=p.type==='gap'?'Before Next Paycheck':p.paychecks.map(e=>e.desc).join(' + ');
 
-    // Day-grouped event rows (pay → ext_deduct → out)
-    const allEvts=[...pPay,...pOut.map(o=>({...o,kind:'out'}))].sort((a,b)=>a.date.localeCompare(b.date)||({'pay':0,'ext_deduct':1,'out':2}[a.kind]||2)-({'pay':0,'ext_deduct':1,'out':2}[b.kind]||2));
+    // Day-grouped event rows (pay → ext_deduct → commit → out)
+    const allEvts=[...pPay,...pOut.map(o=>({...o,kind:'out'})),...pCommit].sort((a,b)=>a.date.localeCompare(b.date)||({'pay':0,'ext_deduct':1,'commit':2,'out':3}[a.kind]||3)-({'pay':0,'ext_deduct':1,'commit':2,'out':3}[b.kind]||3));
     let dayRunning=periodStartBal;
     const byDay={},dayOrd=[];
     allEvts.forEach(ev=>{if(!byDay[ev.date]){byDay[ev.date]=[];dayOrd.push(ev.date);}byDay[ev.date].push(ev);});
@@ -7211,10 +7250,17 @@ function wiRunProjector(){
             <span style="flex:1;font-size:12px;color:var(--text2)">${esc(ev.desc)}<span style="font-size:10px;color:var(--text3);margin-left:4px">auto-transfer</span></span>
             <span style="font-family:var(--mono);font-size:12px;min-width:76px;text-align:right;color:var(--text3)">-${$f(ev.amount)}</span>
           </div>`;
+        } else if(ev.kind==='commit'){
+          // Budget allocation — no cash movement, shown for transparency
+          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center;opacity:.65">
+            <span style="font-size:11px;flex-shrink:0">📋</span>
+            <span style="flex:1;font-size:12px;color:var(--text2)">${esc(ev.desc)}<span style="font-size:10px;color:var(--text3);margin-left:4px">allocated</span></span>
+            <span style="font-family:var(--mono);font-size:12px;min-width:76px;text-align:right;color:var(--accent)">~${$f(ev.amount)}</span>
+          </div>`;
         } else {
           dayRunning-=ev.amount;
           const isSav=isSavingsFlow(ev);
-          const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">saving</span>`:ev.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
+          const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`:ev.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
           const dotIcon=isSav?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`:`<span style="width:10px;height:10px;border-radius:50%;background:${ev.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
           dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">
             ${dotIcon}
@@ -7222,7 +7268,8 @@ function wiRunProjector(){
             <span style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right;color:${isSav?'var(--accent)':'var(--red)'}">-${$f(ev.amount)}</span>
           </div>`;
         }
-        dayHtml+=`<div style="display:flex;justify-content:flex-end;padding:1px 0 2px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:10px;color:${dayRunning>=0?'var(--text3)':'var(--red)'}">bal ${$f(dayRunning)}</span></div>`;
+        // Balance line only for cash events (commits don't move cash)
+        if(ev.kind!=='commit')dayHtml+=`<div style="display:flex;justify-content:flex-end;padding:1px 0 2px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:10px;color:${dayRunning>=0?'var(--text3)':'var(--red)'}">bal ${$f(dayRunning)}</span></div>`;
       });
     });
     if(!dayHtml)dayHtml=`<div class="c-text3" style="font-size:12px;padding:8px 0">No events this period.</div>`;
@@ -7239,8 +7286,9 @@ function wiRunProjector(){
           <div class="c-text3" style="font-size:11px;margin-top:1px">${pStartFmt}${pEndFmt?' → '+pEndFmt:''}</div>
         </div>
         ${pInAmt?`<span class="c-green" style="font-size:12px;font-family:var(--mono)">+${$f(pInAmt)}</span>`:''}
+        ${pExtAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent)">↗${$f(pExtAmt)}</span>`:''}
         ${pExpensesAmt>0?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pExpensesAmt)}</span>`:''}
-        ${pSavingsAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent)">↗${$f(pSavingsAmt)}</span>`:''}
+        ${pPlannedAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent);opacity:.7">~${$f(pPlannedAmt)}</span>`:''}
         <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
         <span id="pwt_${pId}" class="c-text3" style="font-size:11px;width:12px;flex-shrink:0;text-align:center">${autoOpen?'▼':'▶'}</span>
       </div>
@@ -7250,17 +7298,27 @@ function wiRunProjector(){
           <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
             <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Expenses</div>
             <div class="c-red" style="font-family:var(--mono);font-size:16px;font-weight:700">${pExpensesAmt>0?'-'+$f(pExpensesAmt):'—'}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">fixed bills this period</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">bills this period</div>
           </div>
-          ${pSavingsAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+          ${pExtAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
             <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Savings</div>
-            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent)">↗ ${$f(pSavingsAmt)}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">set aside this period</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent)">↗ ${$f(pExtAmt)}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">to savings account</div>
+          </div>`:''}
+          ${pPlannedAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Planned</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent)">~${$f(pPlannedAmt)}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">sinking & goals</div>
+          </div>`:''}
+          ${pCommitAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
+            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Committed</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text2)">📋 ${$f(pCommitAmt)}</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">budget allocations</div>
           </div>`:''}
           <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
             <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Weekly Allowance</div>
             <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${weeklyRTS>0?'var(--green)':'var(--text3)'}">${weeklyRTS>0?$f(Math.round(weeklyRTS)):'—'}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">per week after bills & saving</div>
+            <div class="c-text3" style="font-size:10px;margin-top:2px">per week after bills</div>
           </div>
           <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
             <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Safe to Spend</div>
@@ -7275,8 +7333,10 @@ function wiRunProjector(){
   const endColor=running>=startBal?'var(--green)':'var(--red)';
   html+=`<div style="display:flex;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:2px solid var(--border);margin-top:4px;flex-wrap:wrap">
     <span class="c-text3">In: <strong class="c-green">+${$f(totalIncome)}</strong></span>
+    ${totalExtDeduct>0?`<span class="c-text3">Savings: <strong style="color:var(--accent)">↗${$f(totalExtDeduct)}</strong></span>`:''}
     <span class="c-text3">Expenses: <strong class="c-red">-${$f(totalExpenses)}</strong></span>
-    ${totalSavings>0?`<span class="c-text3">Savings: <strong style="color:var(--accent)">↗${$f(totalSavings)}</strong></span>`:''}
+    ${totalPlanned>0?`<span class="c-text3">Planned: <strong style="color:var(--accent)">~${$f(totalPlanned)}</strong></span>`:''}
+    ${totalCommitted>0?`<span class="c-text3">Committed: <strong style="color:var(--text2)">📋${$f(totalCommitted)}</strong></span>`:''}
     ${shortfallCount?`<span class="c-red" style="font-weight:700">⚠ ${shortfallCount} shortfall period${shortfallCount!==1?'s':''}</span>`:'<span class="c-green">✓ No shortfalls</span>'}
     <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End: ${$f(running)}</span>
   </div></div>`;
