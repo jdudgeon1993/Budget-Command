@@ -3163,7 +3163,7 @@ async function openDebtStrategy(){
     <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
 
   const debtCtx=debts.map(a=>`${a.name}: $${acctBalance(a.id).toFixed(0)} balance, ${a.debtAPR||0}% APR, min payment $${a.debtMinPayment||0}/mo`).join('\n');
-  const savRate=()=>{const past=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-3);if(!past.length)return null;const avg=past.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?(inc-sp)/inc:0;});return Math.round(avg.reduce((s,v)=>s+v,0)/avg.length*100);};
+  const savRate=()=>{const past=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-3);if(!past.length)return null;const avg=past.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?(inc-sp)/inc:0;});return Math.round(avg.reduce((s,v)=>s+v,0)/avg.length*100);};
   const sr=savRate();
   const sys=`You are a debt payoff coach. In 3 plain sentences, recommend either avalanche or snowball method for this specific person — cite their actual debts and amounts. Consider their savings rate if available. No markdown, no lists, just direct advice.`;
   try{
@@ -3456,11 +3456,10 @@ function onboardingChecklistHtml(){
 function nearLimitBuckets(mid){
   return S.buckets.filter(b=>{
     if(b.archived||isBktSkipped(b.id,mid))return false;
-    const alloc=bAlloc(mid,b.id);if(alloc<=0)return false;
-    const spent=bSpent(mid,b.id);
-    const pct=spent/alloc;
+    const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);if(eff<=0)return false;
+    const pct=bSpent(mid,b.id)/eff;
     return pct>=0.8&&pct<1;
-  }).map(b=>({b,pct:bSpent(mid,b.id)/bAlloc(mid,b.id)})).sort((a,c)=>c.pct-a.pct);
+  }).map(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return{b,pct:bSpent(mid,b.id)/eff};}).sort((a,c)=>c.pct-a.pct);
 }
 function weekInReviewHtml(mid){
   if(new Date().getDay()!==1)return''; // Monday only
@@ -4185,7 +4184,7 @@ function _chartCashFlow(){
   if(!months.length)return;
   const c=_cc();
   const income=months.map(mo=>monthIncome(mo.id));
-  const spending=months.map(mo=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0));
+  const spending=months.map(mo=>S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
   _mkChart('rpt-chart-cashflow',{type:'bar',data:{
     labels:months.map(mo=>mo.label),
     datasets:[
@@ -4198,7 +4197,7 @@ function _chartCashFlow(){
 function _chartCatSpend(mid){
   mid=mid||S.activeMonth;if(!mid)return;
   const data=sortedCats().map(cat=>{
-    const spent=sortedBuckets(cat.id).filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
+    const spent=S.buckets.filter(b=>b.catId===cat.id&&(!b.archived||bSpent(mid,b.id)>0)).reduce((s,b)=>s+bSpent(mid,b.id),0);
     return{name:cat.name,spent,color:cat.color||'var(--accent)'};
   }).filter(d=>d.spent>0);
   if(!data.length)return;
@@ -4216,7 +4215,7 @@ function _chartYTD(){
   if(!ytd.length)return;
   const c=_cc();
   const income=ytd.map(mo=>monthIncome(mo.id));
-  const spending=ytd.map(mo=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0));
+  const spending=ytd.map(mo=>S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
   const net=income.map((v,i)=>v-spending[i]);
   _mkChart('rpt-chart-ytd',{type:'bar',data:{
     labels:ytd.map(mo=>mo.label),
@@ -4302,11 +4301,11 @@ function _chartSavingsRate(){
   if(!months.length)return;
   const c=_cc();
   const nets=months.map(mo=>{
-    const inc=monthIncome(mo.id),sp=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const inc=monthIncome(mo.id),sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
     return inc-sp;
   });
   const rates=months.map(mo=>{
-    const inc=monthIncome(mo.id),sp=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const inc=monthIncome(mo.id),sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
     return inc>0?Math.round((inc-sp)/inc*100):null;
   });
   _mkChart('rpt-chart-savingsrate',{type:'bar',data:{
@@ -6123,9 +6122,10 @@ function refreshBucketDetail(){
 }
 function _allocMonthGuard(mid){
   const curMid=currentMonthId();
-  const curIdx=S.months.findIndex(mo=>mo.id===curMid);
-  const tgtIdx=S.months.findIndex(mo=>mo.id===mid);
-  if(curIdx>=0&&tgtIdx>curIdx+2){showToast('Allocations are limited to the current month + 2 months ahead','info');return false;}
+  const [cy,cm]=curMid.split('_').slice(1).map(Number);
+  const [ty,tm]=mid.split('_').slice(1).map(Number);
+  const diffMonths=(ty-cy)*12+(tm-cm);
+  if(diffMonths>2){showToast('Allocations are limited to the current month + 2 months ahead','info');return false;}
   return true;
 }
 function setAlloc(mid,bid,val){
@@ -9109,6 +9109,7 @@ function saveRecurringBill(){
   if(!accountId){alert('Please select an account.');return;}
   if(!bucketId){alert('Please select a bucket.');return;}
   if(!S.recurringBills)S.recurringBills=[];
+  const wasEditing=!!_editingRbId;
   if(_editingRbId){
     const r=(S.recurringBills||[]).find(x=>x.id===_editingRbId);
     if(r){r.desc=desc;r.amount=amt;r.dayOfMonth=day;r.accountId=accountId;r.bucketId=bucketId;}
@@ -9119,7 +9120,7 @@ function saveRecurringBill(){
     generateRecurringTxs();
   }
   save();
-  showToast((_editingRbId?'Updated':'Added')+' recurring bill: '+desc,'save');
+  showToast((wasEditing?'Updated':'Added')+' recurring bill: '+desc,'save');
   renderSettingsTab(document.getElementById('paneSettings'));
   render();
 }
