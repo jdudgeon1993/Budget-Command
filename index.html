@@ -1256,6 +1256,21 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-mob-month-pill.cur{color:var(--text2);border-color:var(--border);}
   .tb-mob-month-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
   .tb-mob-month-pill.add{color:var(--accent);border-style:dashed;}
+  /* Phase 4: overview card resequencing via flex order */
+  .cc-next-move-card{order:10;}
+  .cc-needs-attn{order:20;}
+  .cc-grid{order:30;}
+  .cc-near-limit{order:35;}
+  .cc-presave-wrap{order:40;}
+  .m-settings-row.ov-mobile-only{display:none!important;}
+  /* Park Surplus: collapsible on mobile */
+  .cc-presave-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);user-select:none;}
+  .cc-presave-caret{font-size:12px;color:var(--text3);transition:transform .2s;}
+  .cc-presave-body{display:none;}
+  .cc-presave-wrap.open .cc-presave-toggle{border-radius:var(--rl) var(--rl) 0 0;border-bottom:none;}
+  .cc-presave-wrap.open .cc-presave-body{display:block;}
+  .cc-presave-wrap.open .cc-presave-caret{transform:rotate(90deg);}
+  .cc-presave-wrap.open > .cc-presave-toggle + .cc-presave-body > .card{border-radius:0 0 var(--rl) var(--rl);margin:0;}
 }
 
 /* Desktop: keep month nav hidden, hide mobile-only DOM */
@@ -1263,6 +1278,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-month-nav{display:none !important;}
   #mToast,#mSheetOverlay,#mSheet{display:none!important;}
   .ov-mobile-only{display:none!important;}
+  .cc-presave-body{display:block!important;}
 }
 
 /* ═══ BUDGET HEALTH BAR ═══ */
@@ -4881,7 +4897,7 @@ function renderOverviewTab(el,mid){
         <span style="color:var(--text3);font-size:16px">›</span>
       </div>`;
     });
-    h+=`<div class="card card-pad ov-mobile-only">
+    h+=`<div class="card card-pad ov-mobile-only cc-needs-attn">
       <div class="cc-card-hdr"><span class="cc-card-title">Needs Attention</span></div>
       ${urgHtml}
     </div>`;
@@ -4892,7 +4908,7 @@ function renderOverviewTab(el,mid){
     const nearLimit=nearLimitBuckets(mid);
     if(nearLimit.length){
       const names=nearLimit.slice(0,3).map(({b,pct})=>`<strong>${esc(b.name)}</strong> (${Math.round(pct*100)}%)`).join(', ')+(nearLimit.length>3?`…`:'');
-      h+=`<div class="hint-bar warn">⚠ Nearing limit: ${names}${nearLimit.length>3?` +${nearLimit.length-3} more`:''} — consider adjusting allocations. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;white-space:nowrap" onclick="setTab('buckets')">View →</button></div>`;
+      h+=`<div class="hint-bar warn cc-near-limit">⚠ Nearing limit: ${names}${nearLimit.length>3?` +${nearLimit.length-3} more`:''} — consider adjusting allocations. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;white-space:nowrap" onclick="setTab('buckets')">View →</button></div>`;
     }
   }
 
@@ -4917,7 +4933,16 @@ function renderOverviewTab(el,mid){
   // ── Future month pre-save panel (current month only, when surplus exists) ──
   if(st==='present'&&rts>0){
     const pw=presaveWidgetHtml(mid);
-    if(pw)h+=pw;
+    if(pw){
+      // Wrap in cc-presave-wrap for flex ordering; on mobile a toggle summary sits above the card
+      h+=`<div class="cc-presave-wrap">
+        <div class="cc-presave-toggle ov-mobile-only" onclick="this.closest('.cc-presave-wrap').classList.toggle('open')" role="button">
+          <span>📈 Park Surplus</span>
+          <span class="cc-presave-caret">▸</span>
+        </div>
+        <div class="cc-presave-body">${pw}</div>
+      </div>`;
+    }
   }
 
   h+=`</div>`; // close cc-wrap
