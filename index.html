@@ -7242,8 +7242,6 @@ function wiRunProjector(){
     const pInAmt=pPay.filter(e=>e.kind==='pay').reduce((s,e)=>s+e.amount,0);
     const pExtAmt=pPay.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
     const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0)+pExtAmt;
-    const pPlannedAmt=pOut.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
-    const pExpensesAmt=pOutAmt-pPlannedAmt;
     const pCommitAmt=pCommit.reduce((s,e)=>s+e.amount,0);
     const periodStartBal=running;
     running=periodEndBals[pIdx];
@@ -7256,13 +7254,6 @@ function wiRunProjector(){
     const dotChar=minFwd>=amberThresh?'🟢':safeToSpend>0?'🟡':'🔴';
     const safeColor=minFwd>=amberThresh?'var(--green)':safeToSpend>0?'var(--amber)':'var(--red)';
 
-    // Period net: income received minus all outflows
-    const periodNet=pInAmt-pOutAmt;
-    const netColor=periodNet>=0?'var(--green)':'var(--red)';
-    // Weekly RTS: spending budget per week this period (income minus bills and savings)
-    const periodDays=Math.max(1,Math.round((new Date(p.end+'T12:00:00')-new Date(p.start+'T12:00:00'))/(1000*60*60*24))+1);
-    const weeklyRTS=Math.max(0,periodNet)/(periodDays/7);
-
     // Period title
     const pId='p'+pIdx;
     const autoOpen=pIdx<2;
@@ -7271,54 +7262,107 @@ function wiRunProjector(){
     const headerTitle=p.type==='gap'?'Pre-Paycheck Gap':`Paycheck ${paycheckNum}`;
     const headerSubtitle=p.type==='paycheck'&&p.paychecks.length?p.paychecks.map(e=>e.desc).join(' + '):null;
 
-    // Day-grouped event rows (pay → ext_deduct → commit → out)
-    const allEvts=[...pPay,...pOut.map(o=>({...o,kind:'out'})),...pCommit].sort((a,b)=>a.date.localeCompare(b.date)||({'pay':0,'ext_deduct':1,'commit':2,'out':3}[a.kind]||3)-({'pay':0,'ext_deduct':1,'commit':2,'out':3}[b.kind]||3));
-    let dayRunning=periodStartBal;
-    const byDay={},dayOrd=[];
-    allEvts.forEach(ev=>{if(!byDay[ev.date]){byDay[ev.date]=[];dayOrd.push(ev.date);}byDay[ev.date].push(ev);});
-    let dayHtml='';
-    dayOrd.forEach(date=>{
-      const evs=byDay[date];
-      const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
-      dayHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:5px 0 2px;margin-top:4px">${dayLabel}</div>`;
-      evs.forEach(ev=>{
-        if(ev.kind==='pay'){
-          dayRunning+=ev.amount;
-          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">
-            <span style="font-size:13px;flex-shrink:0">💰</span>
-            <span style="flex:1;font-size:13px;font-weight:600">${esc(ev.desc)}</span>
-            <span class="c-green" style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right">+${$f(ev.amount)}</span>
-          </div>`;
-        } else if(ev.kind==='ext_deduct'){
-          dayRunning-=ev.amount;
-          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center;opacity:.85">
-            <span style="font-size:11px;flex-shrink:0">🏦</span>
-            <span style="flex:1;font-size:12px;color:var(--text2)">${esc(ev.desc)}<span style="font-size:10px;color:var(--text3);margin-left:4px">auto-transfer</span></span>
-            <span style="font-family:var(--mono);font-size:12px;min-width:76px;text-align:right;color:var(--text3)">-${$f(ev.amount)}</span>
-          </div>`;
-        } else if(ev.kind==='commit'){
-          // Budget allocation — no cash movement, shown for transparency
-          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center;opacity:.65">
-            <span style="font-size:11px;flex-shrink:0">📋</span>
-            <span style="flex:1;font-size:12px;color:var(--text2)">${esc(ev.desc)}<span style="font-size:10px;color:var(--text3);margin-left:4px">allocated</span></span>
-            <span style="font-family:var(--mono);font-size:12px;min-width:76px;text-align:right;color:var(--accent)">~${$f(ev.amount)}</span>
-          </div>`;
-        } else {
-          dayRunning-=ev.amount;
-          const isSav=isSavingsFlow(ev);
-          const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`:ev.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:ev.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:ev.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
-          const dotIcon=isSav?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`:`<span style="width:10px;height:10px;border-radius:50%;background:${ev.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
-          dayHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">
-            ${dotIcon}
-            <span style="flex:1;font-size:13px">${esc(ev.desc)}${badge}</span>
-            <span style="font-family:var(--mono);font-size:13px;min-width:76px;text-align:right;color:${isSav?'var(--accent)':'var(--red)'}">-${$f(ev.amount)}</span>
-          </div>`;
-        }
-        // Balance line only for cash events (commits don't move cash)
-        if(ev.kind!=='commit')dayHtml+=`<div style="display:flex;justify-content:flex-end;padding:1px 0 2px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:10px;color:${dayRunning>=0?'var(--text3)':'var(--red)'}">bal ${$f(dayRunning)}</span></div>`;
-      });
-    });
-    if(!dayHtml)dayHtml=`<div class="c-text3" style="font-size:12px;padding:8px 0">No events this period.</div>`;
+    // ── Period body sections (pay → ext transfers → internal allocs → expenses)
+    let bodyHtml='';
+    const pPayRows=pPay.filter(e=>e.kind==='pay');
+    const pExtEvts=pPay.filter(e=>e.kind==='ext_deduct');
+
+    // 1. Paycheck rows
+    if(pPayRows.length){
+      let balAfterPay=periodStartBal;
+      pPayRows.forEach(e=>{balAfterPay+=e.amount;});
+      bodyHtml+=`<div style="border-bottom:1px solid var(--border);padding:6px 0 8px">
+        ${pPayRows.map(e=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+          <span style="font-size:13px;flex-shrink:0">💰</span>
+          <span style="flex:1;font-size:13px;font-weight:600">${esc(e.desc)}</span>
+          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green)">+${$f(e.amount)}</span>
+        </div>`).join('')}
+        <div style="display:flex;justify-content:flex-end;padding-top:3px">
+          <span style="font-family:var(--mono);font-size:11px;color:${balAfterPay>=0?'var(--text3)':'var(--red)'}">after paychecks: ${$f(balAfterPay)}</span>
+        </div>
+      </div>`;
+    }
+
+    // 2. External Transfers table
+    if(pExtEvts.length){
+      const extMap={};
+      pExtEvts.forEach(e=>{extMap[e.desc]=(extMap[e.desc]||0)+e.amount;});
+      const extTbody=Object.entries(extMap).map(([label,amt])=>{
+        const rule=(S.externalRules||[]).find(r=>(r.label||S.accounts.find(a=>a.id===r.toAccountId)?.name||'External')===label);
+        const curBal=rule?acctBalance(rule.toAccountId):0;
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:5px 0;font-size:12px;color:var(--text2)">🏦 ${esc(label)}</td>
+          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${$f(curBal)}</td>
+          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--red)">-${$f(amt)}</td>
+          <td style="padding:5px 0;text-align:right;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)">↗ ${$f(curBal+amt)}</td>
+        </tr>`;
+      }).join('');
+      bodyHtml+=`<div style="border-bottom:1px solid var(--border);padding:6px 0 8px">
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 0 5px">External Transfers</div>
+        <table style="width:100%;border-collapse:collapse">
+          <tr style="border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--text3)">Account</th>
+            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Current</th>
+            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Transfer</th>
+            <th style="text-align:right;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--accent)">After</th>
+          </tr>
+          ${extTbody}
+        </table>
+      </div>`;
+    }
+
+    // 3. Internal Allocations table
+    if(pCommit.length){
+      const allocMap={};
+      pCommit.forEach(e=>{if(!allocMap[e.desc])allocMap[e.desc]={amount:0,catColor:e.catColor};allocMap[e.desc].amount+=e.amount;});
+      const allocTbody=Object.entries(allocMap).map(([name,{amount,catColor}])=>{
+        const bkt=(S.buckets||[]).find(b=>b.name===name);
+        const curBal=bkt?Math.max(0,sinkingSaved(bkt.id,S.activeMonth)):0;
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:5px 0;font-size:12px;color:var(--text2)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor||'var(--border2)'};margin-right:5px;vertical-align:middle"></span>${esc(name)}</td>
+          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${$f(curBal)}</td>
+          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--accent)">+${$f(amount)}</td>
+          <td style="padding:5px 0;text-align:right;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)">~ ${$f(curBal+amount)}</td>
+        </tr>`;
+      }).join('');
+      bodyHtml+=`<div style="border-bottom:1px solid var(--border);padding:6px 0 8px">
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 0 5px">
+          <span class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Internal Allocations</span>
+          <span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px">no cash impact</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <tr style="border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--text3)">Bucket</th>
+            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Current</th>
+            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Allocated</th>
+            <th style="text-align:right;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--accent)">After</th>
+          </tr>
+          ${allocTbody}
+        </table>
+      </div>`;
+    }
+
+    // 4. Expenses section grouped by date
+    if(pOut.length){
+      const expByDay={},expDayOrd=[];
+      pOut.forEach(o=>{if(!expByDay[o.date]){expByDay[o.date]=[];expDayOrd.push(o.date);}expByDay[o.date].push(o);});
+      const expRows=expDayOrd.map(date=>{
+        const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
+        return `<div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:5px 0 2px;margin-top:2px">${dayLabel}</div>`+
+          expByDay[date].map(o=>{
+            const isSav=isSavingsFlow(o);
+            const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`:o.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:o.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:o.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
+            const dot=isSav?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`:`<span style="width:10px;height:10px;border-radius:50%;background:${o.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
+            return `<div style="display:flex;gap:8px;padding:3px 0;align-items:center">${dot}<span style="flex:1;font-size:13px">${esc(o.desc)}${badge}</span><span style="font-family:var(--mono);font-size:13px;text-align:right;color:${isSav?'var(--accent)':'var(--red)'}">-${$f(o.amount)}</span></div>`;
+          }).join('');
+      }).join('');
+      bodyHtml+=`<div style="padding:4px 0 6px">
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 0 2px">Expenses</div>
+        ${expRows}
+      </div>`;
+    }
+
+    if(!bodyHtml)bodyHtml=`<div class="c-text3" style="font-size:12px;padding:8px 0">No events this period.</div>`;
 
     html+=`<div style="border:1px solid ${periodEndBals[pIdx]<0?'var(--rb)':'var(--border)'};border-radius:12px;overflow:hidden;margin-bottom:12px">
       <div onclick="wiToggleWeek('${pId}')" role="button" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;-webkit-user-select:none;background:${p.type==='paycheck'?'var(--surface)':'var(--bg2)'}">
@@ -7340,37 +7384,15 @@ function wiRunProjector(){
         <span id="pwt_${pId}" class="c-text3" style="font-size:11px;width:12px;flex-shrink:0;text-align:center">${autoOpen?'▼':'▶'}</span>
       </div>
       <div id="pwb_${pId}" style="padding:8px 16px 14px;display:${autoOpen?'block':'none'}">
-        ${dayHtml}
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Expenses</div>
-            <div class="c-red" style="font-family:var(--mono);font-size:16px;font-weight:700">${pExpensesAmt>0?'-'+$f(pExpensesAmt):'—'}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">bills this period</div>
-          </div>
-          ${pExtAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Savings</div>
-            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent)">↗ ${$f(pExtAmt)}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">to savings account</div>
-          </div>`:''}
-          ${pPlannedAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Planned</div>
-            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent)">~${$f(pPlannedAmt)}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">sinking & goals</div>
-          </div>`:''}
-          ${pCommitAmt>0?`<div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Committed</div>
-            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--text2)">📋 ${$f(pCommitAmt)}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">budget allocations</div>
-          </div>`:''}
-          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Weekly Allowance</div>
-            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${weeklyRTS>0?'var(--green)':'var(--text3)'}">${weeklyRTS>0?$f(Math.round(weeklyRTS)):'—'}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">per week after bills</div>
-          </div>
-          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px">
-            <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Safe to Spend</div>
-            <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:${safeColor}">${$f(Math.max(0,safeToSpend))}</div>
-            <div class="c-text3" style="font-size:10px;margin-top:2px">above ${$f(cushionFloor)} cushion</div>
+        ${bodyHtml}
+        <div style="display:flex;align-items:center;padding:9px 0;border-top:2px solid var(--border2);margin-top:6px">
+          <span class="c-text3" style="flex:1;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">End Balance</span>
+          <div style="display:flex;align-items:center;gap:16px">
+            ${safeToSpend>0?`<div style="text-align:right">
+              <div class="c-text3" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Safe to Spend</div>
+              <div style="font-family:var(--mono);font-size:13px;font-weight:600;color:${safeColor}">${$f(Math.max(0,safeToSpend))}</div>
+            </div>`:''}
+            <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
           </div>
         </div>
       </div>
