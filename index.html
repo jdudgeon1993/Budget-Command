@@ -439,6 +439,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tb-chat-btn{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2));}
 .tb-chat-btn.active{background:color-mix(in srgb,var(--accent) 12%,transparent);}
 @media(max-width:640px){.chat-drawer{width:100vw;}}
+/* Mobile: coach drawer becomes bottom sheet */
+@media(max-width:1099px){
+  .chat-drawer{top:auto;left:0;right:0;width:100%;max-width:100%;height:auto;max-height:88vh;border-left:none;border-radius:16px 16px 0 0;transform:translateY(100%);box-shadow:0 -6px 32px rgba(0,0,0,.35);}
+  .chat-drawer.open{transform:translateY(0);}
+  .chat-msgs{flex:1;min-height:0;}
+}
 /* Chat FAB — mobile only */
 .chat-fab{display:none;position:fixed;bottom:calc(68px + env(safe-area-inset-bottom));right:16px;z-index:600;background:var(--accent);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35);align-items:center;justify-content:center;transition:transform .15s;}
 .chat-fab:active{transform:scale(.92);}
@@ -455,17 +461,24 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .cc-presave-input{width:90px;padding:4px 8px;font-size:12px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text1);text-align:right;flex-shrink:0;}
 .cc-presave-input:focus{outline:none;border-color:var(--accent);}
 /* Mobile overrides */
+.cc-next-move-card{display:none;}
 @media(max-width:1099px){
   .cc-wrap{padding:14px 14px;gap:12px;}
   .cc-header{display:none;}
-  .cc-hero-row{grid-template-columns:1fr 1fr;gap:10px;}
-  .cc-hero-card.primary{grid-column:1/-1;}
-  .cc-hero-val{font-size:24px;}
-  .cc-hero-card{padding:16px 18px;}
+  .cc-hero-row{display:none!important;}
+  .cc-coach-card{display:none!important;}
   .cc-grid{grid-template-columns:1fr;}
   .cc-right{display:none;}
-  .cc-coach-top{grid-template-columns:1fr;}
-  .cc-score-wrap{display:none;}
+  /* Your Next Move card */
+  .cc-next-move-card{display:flex!important;flex-direction:column;gap:0;overflow:hidden;}
+  .cc-nm-action{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);}
+  .cc-nm-icon{font-size:20px;flex-shrink:0;margin-top:1px;}
+  .cc-nm-msg{flex:1;font-size:13px;font-weight:500;line-height:1.5;color:var(--text);}
+  .cc-nm-btn{font-size:11px;padding:5px 10px;white-space:nowrap;flex-shrink:0;align-self:center;margin-left:6px;}
+  .cc-nm-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);}
+  .cc-nm-stat{background:var(--surface);padding:10px 12px;}
+  .cc-nm-stat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:3px;}
+  .cc-nm-stat-val{font-family:var(--mono);font-size:14px;font-weight:500;letter-spacing:-.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 }
 
 /* ═══ BUCKETS CARD GRID ═══ */
@@ -1249,6 +1262,21 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-mob-month-pill.cur{color:var(--text2);border-color:var(--border);}
   .tb-mob-month-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
   .tb-mob-month-pill.add{color:var(--accent);border-style:dashed;}
+  /* Phase 4: overview card resequencing via flex order */
+  .cc-next-move-card{order:10;}
+  .cc-needs-attn{order:20;}
+  .cc-grid{order:30;}
+  .cc-near-limit{order:35;}
+  .cc-presave-wrap{order:40;}
+  .m-settings-row.ov-mobile-only{display:none!important;}
+  /* Park Surplus: collapsible on mobile */
+  .cc-presave-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);user-select:none;}
+  .cc-presave-caret{font-size:12px;color:var(--text3);transition:transform .2s;}
+  .cc-presave-body{display:none;}
+  .cc-presave-wrap.open .cc-presave-toggle{border-radius:var(--rl) var(--rl) 0 0;border-bottom:none;}
+  .cc-presave-wrap.open .cc-presave-body{display:block;}
+  .cc-presave-wrap.open .cc-presave-caret{transform:rotate(90deg);}
+  .cc-presave-wrap.open > .cc-presave-toggle + .cc-presave-body > .card{border-radius:0 0 var(--rl) var(--rl);margin:0;}
 }
 
 /* Desktop: keep month nav hidden, hide mobile-only DOM */
@@ -1256,6 +1284,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-month-nav{display:none !important;}
   #mToast,#mSheetOverlay,#mSheet{display:none!important;}
   .ov-mobile-only{display:none!important;}
+  .cc-presave-body{display:block!important;}
 }
 
 /* ═══ BUDGET HEALTH BAR ═══ */
@@ -4620,7 +4649,52 @@ function renderOverviewTab(el,mid){
   // ── Phase B: Onboarding checklist ────────────────────────────────────────
   h+=onboardingChecklistHtml();
 
-  // ── Hero stat cards ───────────────────────────────────────────────────────
+  // ── Mobile "Your Next Move" card (replaces hero grid + coaching panel) ────
+  {
+    const hs=computeHealthScore(mid);
+    const nba=nextBestAction(mid);
+    const spendPctTxt=alloc>0?Math.round(spendPct*100)+'%':'—';
+    const rtsColor=rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)';
+    h+=`<div class="card cc-next-move-card">
+      <div style="padding:10px 16px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">✦ Your Next Move</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${m.label}</span>
+      </div>
+      <div class="cc-nm-action">
+        <span class="cc-nm-icon">${nba?.icon||'✅'}</span>
+        <span class="cc-nm-msg">${nba?.msg||'All caught up.'}</span>
+        ${nba?.fn?`<button class="tbtn cc-nm-btn" onclick="${nba.fn}">${nba.lbl}</button>`:''}
+      </div>
+      <div class="cc-nm-stats">
+        <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Ready to Spend</div>
+          <div class="cc-nm-stat-val" style="color:${rtsColor}">${$f(Math.abs(rts))}</div>
+        </div>
+        <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Spent</div>
+          <div class="cc-nm-stat-val">${spendPctTxt}</div>
+        </div>
+        <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Net Worth</div>
+          <div class="cc-nm-stat-val" style="color:${nw>=0?'var(--text)':'var(--red)'}">${$f(nw)}</div>
+        </div>
+        <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Age of Money</div>
+          <div class="cc-nm-stat-val" style="color:var(--${aomCls})">${aom!==null?aom+'d':'—'}</div>
+        </div>
+        <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Budget Health</div>
+          <div class="cc-nm-stat-val" style="color:var(--${hs.cls})">${hs.score}<span style="font-size:11px;margin-left:3px">${hs.grade}</span></div>
+        </div>
+        <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Funded</div>
+          <div class="cc-nm-stat-val">${fundedCnt}<span style="font-size:11px;color:var(--text3)">/${activeBkts.length}</span></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── Hero stat cards (desktop only — hidden on mobile) ─────────────────────
   const rtsBadgeCls=rts>0?'pos':rts<0?'neg':'zero';
   const rtsBadgeTxt=rts>0?`▲ ${$f(rts)} free`:rts<0?`▼ ${$f(Math.abs(rts))} short`:'✓ balanced';
   const nwBadgeCls=nw>=0?'pos':'neg';
@@ -4829,7 +4903,7 @@ function renderOverviewTab(el,mid){
         <span style="color:var(--text3);font-size:16px">›</span>
       </div>`;
     });
-    h+=`<div class="card card-pad ov-mobile-only">
+    h+=`<div class="card card-pad ov-mobile-only cc-needs-attn">
       <div class="cc-card-hdr"><span class="cc-card-title">Needs Attention</span></div>
       ${urgHtml}
     </div>`;
@@ -4840,7 +4914,7 @@ function renderOverviewTab(el,mid){
     const nearLimit=nearLimitBuckets(mid);
     if(nearLimit.length){
       const names=nearLimit.slice(0,3).map(({b,pct})=>`<strong>${esc(b.name)}</strong> (${Math.round(pct*100)}%)`).join(', ')+(nearLimit.length>3?`…`:'');
-      h+=`<div class="hint-bar warn">⚠ Nearing limit: ${names}${nearLimit.length>3?` +${nearLimit.length-3} more`:''} — consider adjusting allocations. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;white-space:nowrap" onclick="setTab('buckets')">View →</button></div>`;
+      h+=`<div class="hint-bar warn cc-near-limit">⚠ Nearing limit: ${names}${nearLimit.length>3?` +${nearLimit.length-3} more`:''} — consider adjusting allocations. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;white-space:nowrap" onclick="setTab('buckets')">View →</button></div>`;
     }
   }
 
@@ -4865,7 +4939,16 @@ function renderOverviewTab(el,mid){
   // ── Future month pre-save panel (current month only, when surplus exists) ──
   if(st==='present'&&rts>0){
     const pw=presaveWidgetHtml(mid);
-    if(pw)h+=pw;
+    if(pw){
+      // Wrap in cc-presave-wrap for flex ordering; on mobile a toggle summary sits above the card
+      h+=`<div class="cc-presave-wrap">
+        <div class="cc-presave-toggle ov-mobile-only" onclick="this.closest('.cc-presave-wrap').classList.toggle('open')" role="button">
+          <span>📈 Park Surplus</span>
+          <span class="cc-presave-caret">▸</span>
+        </div>
+        <div class="cc-presave-body">${pw}</div>
+      </div>`;
+    }
   }
 
   h+=`</div>`; // close cc-wrap
