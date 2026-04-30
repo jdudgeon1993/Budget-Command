@@ -1246,7 +1246,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-mob-logo-text{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;flex:1;}
   .tb-mob-wi-btn{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:12px;padding:5px 14px;cursor:pointer;font-family:var(--sans);font-weight:600;transition:all .15s;white-space:nowrap;flex-shrink:0;}
   .tb-mob-wi-btn.on{background:var(--abg);border-color:var(--amber);color:var(--amber);}
-  .tb-mob-user{font-size:11px;color:var(--text3);font-family:var(--mono);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:8px;}
+  .tb-mob-user{font-size:11px;color:var(--text3);font-family:var(--mono);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:8px;background:none;border:none;cursor:pointer;}
   .tb-mob-r2{display:flex;align-items:center;height:40px;padding:0 10px;gap:0;}
   .tb-mob-actions{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
   .tb-mob-rts-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;padding-left:8px;}
@@ -1266,7 +1266,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .cc-next-move-card{order:10;}
   .cc-needs-attn{order:20;}
   .cc-grid{order:30;}
-  .cc-near-limit{order:35;}
+  .cc-near-limit{order:5;}
   .cc-presave-wrap{order:40;}
   .m-settings-row.ov-mobile-only{display:none!important;}
   /* Park Surplus: collapsible on mobile */
@@ -1672,15 +1672,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .rpt-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;}
 .rpt-chart-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:12px;}
 .rpt-chart-wrap{position:relative;height:240px;}
+.rpt-mob-topbar{display:none;}
 @media(max-width:1099px){
   .rpt-pane{grid-template-columns:1fr;height:auto;}
-  .rpt-sidebar{border-right:none;border-bottom:1px solid var(--border);}
-  .rpt-sidebar-hdr{display:none;}
-  .rpt-nav{flex-direction:row;overflow-x:auto;padding:8px 10px;gap:4px;-webkit-overflow-scrolling:touch;}
-  .rpt-nav::-webkit-scrollbar{display:none;}
-  .rpt-nav-btn{flex-shrink:0;white-space:nowrap;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);font-size:11px;}
-  .rpt-nav-btn .rpt-nav-icon{display:none;}
-  .rpt-nav-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+  .rpt-sidebar{display:none;}
+  .rpt-mob-topbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--border);}
+  .rpt-mob-select{flex:1;font-size:13px;}
   .rpt-main-inner{padding:14px 14px;}
   .rpt-chart-wrap{height:200px;}
 }
@@ -1721,7 +1718,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="tb-mob-r1">
       <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Imperium Fisci</div>
       <button class="tb-mob-wi-btn" id="tbMobWiBtn" onclick="toggleWI()">⚡ What If</button>
-      <span class="tb-mob-user" id="tbMobUser"></span>
+      <button class="tb-mob-user" id="tbMobUser" onclick="authAction()"></button>
     </div>
     <div class="tb-mob-r2">
       <div class="tb-mob-actions">
@@ -2156,7 +2153,16 @@ function updateAuthBtn(){
     }
   });
   const mobUser=document.getElementById('tbMobUser');
-  if(mobUser){mobUser.textContent=_supaUser?(_supaUser.email?.split('@')[0]||'Account'):'';}
+  if(mobUser){
+    if(_supaUser){
+      mobUser.textContent=_supaUser.email?.split('@')[0]||'Account';
+      mobUser.title='Signed in as '+_supaUser.email;
+      mobUser.onclick=authAction;
+    } else {
+      mobUser.textContent='Sign in';
+      mobUser.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3366,8 +3372,11 @@ function nextBestAction(mid){
   if(aom!==null&&aom<30&&rts>0){const futureMths=S.months.filter(mo=>compareMid(mo.id,mid)>0).sort((a,b)=>compareMid(a.id,b.id));const fLbl=futureMths.length?`into ${esc(futureMths[0].label)}`:'into upcoming months';return{icon:'📈',msg:`Age of Money is ${aom}d (goal: 30d). Pre-save ${$f(rts)} ${fLbl} to build your cash buffer.`,fn:`document.getElementById('mainPane')?.scrollTo({top:9999,behavior:'smooth'})`,lbl:'Park Surplus ↓'};}
   const unclosed=S.months.filter(mo=>monthStatus(mo.id)==='past'&&!mo.closed).sort((a,b)=>compareMid(a.id,b.id));
   if(unclosed.length)return{icon:'📅',msg:`${esc(unclosed[0].label)} is still open — close it to keep reports accurate.`,fn:`openMonthClose('${unclosed[0].id}')`,lbl:'Close Month →'};
-  return{icon:'✅',msg:aom!==null?`All caught up! Age of Money: ${aom}d${aom>=30?' — you\'re a full month ahead. ':', goal is 30d.'}`:
-    'All caught up — no action needed right now.',fn:'',lbl:''};
+  if(rts===0){return{icon:'✅',msg:`Every dollar has a job — budget is perfectly balanced!${aom!==null?' Age of Money: '+aom+'d'+(aom>=30?' 🎉':' (goal: 30d)')+'.':\
+''}`,fn:'',lbl:''};}
+  if(rts>0){return{icon:'💡',msg:`You have ${$f(rts)} unallocated. Put it towards a bucket or a future month.`,fn:`setTab('buckets')`,lbl:'Allocate →'};}
+  return{icon:'✅',msg:aom!==null?`All caught up! Age of Money: ${aom}d${aom>=30?' — a full month ahead! 🎉':' (goal: 30d).'}`:
+    'All caught up — no action needed.',fn:'',lbl:''};
 }
 
 // ── Coaching Insights ─────────────────────────────────────────────────────────
@@ -3757,6 +3766,18 @@ const totalAllocated=mid=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bAllo
 // Paying a budgeted bill reduces budgetBal AND the unfulfilled amount equally,
 // so RTS stays stable when spending is on-plan.
 // Over-spent buckets are capped at 0 (overage already left via budgetBal).
+// Always returns today's RTS regardless of S.activeMonth — used for topbar display
+function todayReadyToSpend(){
+  const curMid=currentMonthId();
+  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const activeBkts=S.buckets.filter(b=>!b.archived);
+  const curClaimed=activeBkts.reduce((s,b)=>
+    s+Math.max(0,bAlloc(curMid,b.id)+rolloverBal(b.id,curMid)-bSpent(curMid,b.id)),0);
+  const futureClaimed=S.months.filter(m=>compareMid(m.id,curMid)>0).reduce((s,m)=>
+    s+activeBkts.reduce((bs,b)=>bs+(bAlloc(m.id,b.id)||0),0),0);
+  return budgetBal-curClaimed-futureClaimed;
+}
+
 function readyToSpend(mid){
   const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
   const activeMid=S.activeMonth;
@@ -4058,29 +4079,30 @@ function renderTopbar(){
   // Total cash
   document.getElementById('tbTotal').textContent=$f(totalCash());
 
-  // RTS
+  // RTS — always reflects TODAY's position regardless of which month is being viewed
   const mid=S.activeMonth;
-  const rts=mid?readyToSpend(mid):0;
+  const rts=S.accounts.some(a=>a.type==='budget')?todayReadyToSpend():0;
   const rEl=document.getElementById('tbRTS');
   const lEl=document.getElementById('tbRtsLabel');
   const mobRts=document.getElementById('tbMobRTS');
   // Mobile date always renders regardless of month state
   const mobDate=document.getElementById('tbMobDate');
   if(mobDate&&!mobDate.textContent){const n=new Date();mobDate.textContent=n.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
-  if(!mid||(!S.accounts.some(a=>a.type==='budget'))){
+  if(!S.accounts.some(a=>a.type==='budget')){
     if(rEl){rEl.className='tb-rts-val zero';rEl.textContent='—';}
     if(mobRts){mobRts.className='tb-mob-rts-chip zero';mobRts.textContent='—';}
     return;
   }
+  const rtsChipTxt=rts>0?`${$f(rts)} free`:rts<0?`${$f(Math.abs(rts))} short`:'✓ balanced';
   const scheduledOutCl=S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.type!=='in'&&getAcct(t.accountId)?.type!=='debt').reduce((s,t)=>s+t.amount,0);
   if(rEl){
     rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
-    rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
+    rEl.textContent=rts===0?'✓ $0.00':$f(Math.abs(rts))+(rts<0?' short':'');
     rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} scheduled — After: ${$f(rts-scheduledOutCl)}`:'Budget cash minus remaining unfulfilled obligations';
   }
   if(mobRts){
     mobRts.className='tb-mob-rts-chip '+(rts>0?'':rts<0?'neg':'zero');
-    mobRts.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
+    mobRts.textContent=rtsChipTxt;
   }
   if(lEl)lEl.innerHTML=scheduledOutCl>0?`Ready to Spend <span class="c-amber" style="font-size:9px;font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
 
@@ -5422,10 +5444,15 @@ function renderReportsTab(el){
   else if(reportsTab==='cathistory')content=reportCatHistoryHtml();
   else if(reportsTab==='networth')content=reportNetWorthHtml();
   const navBtns=tabs.map(t=>`<button class="rpt-nav-btn${t.id===reportsTab?' active':''}" onclick="setReportsTab('${t.id}')"><span class="rpt-nav-icon">${t.icon}</span><span>${t.label}</span></button>`).join('');
+  const selectOpts=tabs.map(t=>`<option value="${t.id}"${t.id===reportsTab?' selected':''}>${t.icon} ${t.label}</option>`).join('');
   el.innerHTML=`<div class="rpt-pane">
     <div class="rpt-sidebar">
       <div class="rpt-sidebar-hdr" style="display:flex;align-items:center;justify-content:space-between">Reports<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="exportCSV()" title="Export transactions to CSV">⬇ CSV</button></div>
       <nav class="rpt-nav">${navBtns}</nav>
+    </div>
+    <div class="rpt-mob-topbar">
+      <select class="fi rpt-mob-select" onchange="setReportsTab(this.value)">${selectOpts}</select>
+      <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="exportCSV()">⬇ CSV</button>
     </div>
     <div class="rpt-main">
       <div class="rpt-main-inner">${content}</div>
@@ -6095,9 +6122,17 @@ function refreshBucketDetail(){
   const scroll=document.getElementById('detailScroll');
   if(scroll)scroll.innerHTML=renderBucketDetail(mid,past,m);
 }
+function _allocMonthGuard(mid){
+  const curMid=currentMonthId();
+  const curIdx=S.months.findIndex(mo=>mo.id===curMid);
+  const tgtIdx=S.months.findIndex(mo=>mo.id===mid);
+  if(curIdx>=0&&tgtIdx>curIdx+2){showToast('Allocations are limited to the current month + 2 months ahead','info');return false;}
+  return true;
+}
 function setAlloc(mid,bid,val){
   const m=getMonth(mid);if(!m)return;
   if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
+  if(!_allocMonthGuard(mid))return;
   if(!m.allocations)m.allocations={};
   m.allocations[bid]=Math.max(parseFloat(val)||0,0);
   save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
@@ -6118,7 +6153,7 @@ function setPreAlloc(fmid,bid,val){
   }
   const badgeEl=document.getElementById('heroRtsBadge');
   if(badgeEl){
-    badgeEl.textContent=newRts>0?`▲ ${$f(newRts)} free`:newRts<0?`▼ ${$f(Math.abs(newRts))} short`:'✓ balanced';
+    badgeEl.textContent=newRts>0?`▲ ${$f(newRts)} free`:newRts<0?`▼ ${$f(Math.abs(newRts))} short`:'✓ every dollar has a job';
     badgeEl.className='cc-hero-badge '+(newRts>0?'pos':newRts<0?'neg':'zero');
   }
   // Patch month allocated total in the panel
@@ -6178,6 +6213,7 @@ function presaveWidgetHtml(currentMid){
 function commitAlloc(mid,bid){
   const m=getMonth(mid);if(!m)return;
   if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
+  if(!_allocMonthGuard(mid))return;
   const val=parseFloat(document.getElementById('aerAlloc')?.value)||0;
   if(!m.allocations)m.allocations={};
   m.allocations[bid]=val;save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
@@ -8267,7 +8303,7 @@ function reportMonthHtml(mid){
   let totalBudget=0,totalAlloc=0,totalSpent=0,totalAvail=0;
   let tableRows='';
   sCats.forEach(cat=>{
-    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const bkts=S.buckets.filter(b=>b.catId===cat.id&&(!b.archived||bSpent(mid,b.id)>0||bAlloc(mid,b.id)>0)).sort((a,b)=>(a.order||0)-(b.order||0));
     if(!bkts.length)return;
     let catBudget=0,catAlloc=0,catSpent=0,catAvail=0;
     const bktRows=bkts.map(b=>{
@@ -8296,7 +8332,7 @@ function reportMonthHtml(mid){
     <td style="color:${totalAvail>=0?'var(--green)':'var(--red)'}">${$f(totalAvail)}</td>
   </tr>`;
   const copyText=sCats.flatMap(cat=>{
-    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const bkts=S.buckets.filter(b=>b.catId===cat.id&&(!b.archived||bSpent(mid,b.id)>0||bAlloc(mid,b.id)>0)).sort((a,b)=>(a.order||0)-(b.order||0));
     if(!bkts.length)return[];
     return[`\n${cat.name}`,...bkts.map(b=>{
       const alloc=bAlloc(mid,b.id),spent=bSpent(mid,b.id),avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-spent;
@@ -8330,7 +8366,7 @@ function reportBvAHtml(mid){
   const sCats=sortedCats();
   let rows='',totalTarget=0,totalSpent=0;
   sCats.forEach(cat=>{
-    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const bkts=S.buckets.filter(b=>b.catId===cat.id&&(!b.archived||bSpent(mid,b.id)>0||bAlloc(mid,b.id)>0)).sort((a,b)=>(a.order||0)-(b.order||0));
     if(!bkts.length)return;
     let catTarget=0,catSpent=0;
     const bktRows=bkts.map(b=>{
@@ -8374,7 +8410,7 @@ function reportYTDHtml(){
   let totalIncome=0,totalSpent=0;
   const rows=ytdMonths.map(mo=>{
     const inc=monthIncome(mo.id);
-    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const spent=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
     const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
     totalIncome+=inc;totalSpent+=spent;
     const rc=rate!==null?(rate>=0?'var(--green)':'var(--red)'):'var(--text3)';
@@ -8423,7 +8459,7 @@ function reportCatSpendHtml(mid){
   const monthOpts=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
   let total=0;
   const data=sortedCats().map(cat=>{
-    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const bkts=S.buckets.filter(b=>b.catId===cat.id&&(!b.archived||bSpent(mid,b.id)>0)).sort((a,b)=>(a.order||0)-(b.order||0));
     const spent=bkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
     total+=spent;
     return{cat,spent,bkts};
@@ -8477,7 +8513,7 @@ function reportSavingsRateHtml(){
   let runInc=0,runSpent=0;
   const rows=months.map(mo=>{
     const inc=monthIncome(mo.id);
-    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const spent=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
     const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
     runInc+=inc;runSpent+=spent;
     const runRate=runInc?Math.round((runInc-runSpent)/runInc*100):null;
@@ -8490,7 +8526,7 @@ function reportSavingsRateHtml(){
   }).join('');
   const last3=months.slice(-3);
   const l3inc=last3.reduce((s,mo)=>s+monthIncome(mo.id),0);
-  const l3spent=last3.reduce((s,mo)=>s+S.buckets.filter(b=>!b.archived).reduce((ss,b)=>ss+bSpent(mo.id,b.id),0),0);
+  const l3spent=last3.reduce((s,mo)=>s+S.buckets.reduce((ss,b)=>ss+bSpent(mo.id,b.id),0),0);
   const l3net=l3inc-l3spent,l3rate=l3inc?Math.round(l3net/l3inc*100):null;
   const cards=[
     {label:'3-Month Avg Rate',val:l3rate!==null?l3rate+'%':'—',c:l3rate!==null&&l3rate>=0?'var(--green)':'var(--red)'},
@@ -8570,11 +8606,11 @@ function reportCashFlowHtml(){
   const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-12);
   if(!months.length)return`<div class="c-text3" style="padding:16px">No data available.</div>`;
   const maxInc=Math.max(...months.map(mo=>monthIncome(mo.id)));
-  const maxSpent=Math.max(...months.map(mo=>S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0)));
+  const maxSpent=Math.max(...months.map(mo=>S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0)));
   const maxVal=Math.max(maxInc,maxSpent,1);
   const rows=months.map(mo=>{
     const inc=monthIncome(mo.id);
-    const spent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);
+    const spent=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
     const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
     const iW=Math.round(inc/maxVal*100),sW=Math.round(spent/maxVal*100);
     const nc=net>=0?'var(--green)':'var(--red)';
@@ -8596,7 +8632,7 @@ function reportCashFlowHtml(){
       <td style="color:${rate!==null?(rate>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${rate!==null?rate+'%':'—'}</td>
     </tr>`;
   }).join('');
-  const _cfNets=months.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc-sp;});
+  const _cfNets=months.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc-sp;});
   const _cfPositive=_cfNets.filter(n=>n>0).length;
   const _cfInsight=months.length
     ?(_cfPositive===months.length
@@ -8660,7 +8696,7 @@ function reportCatHistoryHtml(){
   const nOpts=[3,6,12,24].map(n=>`<option value="${n}"${n===_catHistMonths?' selected':''}>${n} months</option>`).join('');
   const sCats=sortedCats();
   const catRows=sCats.map(cat=>{
-    const bkts=sortedBuckets(cat.id).filter(b=>!b.archived);
+    const bkts=S.buckets.filter(b=>b.catId===cat.id).sort((a,b)=>(a.order||0)-(b.order||0));
     const totals=months.map(mo=>bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
     if(totals.every(v=>v===0))return'';
     const max=Math.max(...totals,1);
