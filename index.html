@@ -7177,7 +7177,7 @@ function wiRunProjector(){
     ${scenarioBanner}${curMoNote}${undatedWarning}
     <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:center;margin-bottom:10px">* Projected Forward · ${durationLabel} *</div>
 
-    <div style="display:grid;grid-template-columns:1fr${(extSavRows.length||intSavRows.length)?` 1fr`:''};gap:12px;margin-bottom:14px;align-items:start">
+    <div style="display:grid;grid-template-columns:${(extSavRows.length||intSavRows.length)?'repeat(auto-fit,minmax(240px,1fr))':'1fr'};gap:12px;margin-bottom:14px;align-items:start">
 
       <div style="border:1px solid var(--border);border-radius:var(--rl);overflow:hidden">
         <div style="background:var(--surface2);padding:7px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">Income / Expenses</div>
@@ -7228,7 +7228,7 @@ function wiRunProjector(){
     ${firstShortfallPeriod?`<div style="background:rgba(239,68,68,.08);border:1px solid var(--rb);border-radius:6px;padding:8px 14px;margin-bottom:14px;font-size:13px;display:flex;align-items:center;gap:8px">
       <span style="font-size:15px">⚠</span>
       <span><strong style="color:var(--red)">Shortfall detected</strong> <span class="c-text3">— Paycheck ${firstShortfallIdx+1}, starting ${fmtDate(firstShortfallPeriod.start)}</span></span>
-    </div>`:'<div style="background:var(--gbg);border:1px solid var(--gb);border-radius:6px;padding:6px 14px;margin-bottom:14px;font-size:12px;display:flex;align-items:center;gap:8px"><span class="c-green" style="font-weight:700">✓ No shortfalls</span><span class="c-text3">projected over ${durationLabel.toLowerCase()}</span></div>'}`;
+    </div>`:`<div style="background:var(--gbg);border:1px solid var(--gb);border-radius:6px;padding:6px 14px;margin-bottom:14px;font-size:12px;display:flex;align-items:center;gap:8px"><span class="c-green" style="font-weight:700">✓ No shortfalls</span><span class="c-text3">projected over ${durationLabel.toLowerCase()}</span></div>`}`;
 
   let shortfallCount=0;
   let cumulativeOut=0;
