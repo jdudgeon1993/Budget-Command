@@ -1241,6 +1241,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-mob-rts-chip{font-family:var(--mono);font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--gbg);border:1px solid var(--gb);color:var(--green);white-space:nowrap;}
   .tb-mob-rts-chip.neg{background:var(--rbg);border-color:var(--rb);color:var(--red);}
   .tb-mob-rts-chip.zero{background:var(--bg3);border-color:var(--border2);color:var(--text3);}
+  /* Month strip Row 3 */
+  .tb-mob-r3{display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--border);padding:0 10px;height:38px;gap:5px;flex-shrink:0;}
+  .tb-mob-r3::-webkit-scrollbar{display:none;}
+  .tb-mob-month-pill{background:none;border:1px solid var(--border2);border-radius:20px;color:var(--text3);font-size:11px;font-family:var(--mono);padding:3px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .12s;font-weight:500;}
+  .tb-mob-month-pill:active{opacity:.7;}
+  .tb-mob-month-pill.cur{color:var(--text2);border-color:var(--border);}
+  .tb-mob-month-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .tb-mob-month-pill.add{color:var(--accent);border-style:dashed;}
 }
 
 /* Desktop: keep month nav hidden, hide mobile-only DOM */
@@ -1697,6 +1705,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
         <span class="tb-mob-rts-chip zero" id="tbMobRTS">—</span>
       </div>
     </div>
+    <!-- Row 3: Month strip -->
+    <div class="tb-mob-r3" id="tbMobMonthStrip"></div>
   </div>
 </header>
 
@@ -4060,8 +4070,9 @@ function renderTopbar(){
 
   // Auth button
   updateAuthBtn();
-  // Month selector
+  // Month selector (desktop) + mobile month strip
   populateMonthSel();
+  renderMobileMonthStrip();
 
   // Off-month banner
   const omStrip=document.getElementById('offMonthStrip');
@@ -4399,6 +4410,22 @@ function populateMonthSel(){
     opt.selected=m.id===S.activeMonth;
     sel.appendChild(opt);
   });
+}
+
+function renderMobileMonthStrip(){
+  const el=document.getElementById('tbMobMonthStrip');
+  if(!el)return;
+  const pills=S.months.map(m=>{
+    const st=monthStatus(m.id);
+    const active=m.id===S.activeMonth;
+    let cls='tb-mob-month-pill'+(active?' active':'')+(st==='present'&&!active?' cur':'');
+    return `<button class="${cls}" onclick="setMonth('${m.id}')">${m.label}</button>`;
+  }).join('');
+  el.innerHTML=pills+`<button class="tb-mob-month-pill add" onclick="addNextMonth()">+ Add</button>`;
+  setTimeout(()=>{
+    const a=el.querySelector('.tb-mob-month-pill.active');
+    if(a)a.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  },60);
 }
 
 function setMonthFromSel(id){
