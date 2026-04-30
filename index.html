@@ -439,6 +439,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tb-chat-btn{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2));}
 .tb-chat-btn.active{background:color-mix(in srgb,var(--accent) 12%,transparent);}
 @media(max-width:640px){.chat-drawer{width:100vw;}}
+/* Mobile: coach drawer becomes bottom sheet */
+@media(max-width:1099px){
+  .chat-drawer{top:auto;left:0;right:0;width:100%;max-width:100%;height:auto;max-height:88vh;border-left:none;border-radius:16px 16px 0 0;transform:translateY(100%);box-shadow:0 -6px 32px rgba(0,0,0,.35);}
+  .chat-drawer.open{transform:translateY(0);}
+  .chat-msgs{flex:1;min-height:0;}
+}
 /* Chat FAB — mobile only */
 .chat-fab{display:none;position:fixed;bottom:calc(68px + env(safe-area-inset-bottom));right:16px;z-index:600;background:var(--accent);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35);align-items:center;justify-content:center;transition:transform .15s;}
 .chat-fab:active{transform:scale(.92);}
