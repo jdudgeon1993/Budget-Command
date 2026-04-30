@@ -7232,8 +7232,10 @@ function wiRunProjector(){
 
   let shortfallCount=0;
   let cumulativeOut=0;
+  let paycheckNum=0;
 
   periods.forEach((p,pIdx)=>{
+    if(p.type==='paycheck')paycheckNum++;
     const pPay=payEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
     const pOut=outflows.filter(o=>o.date>=p.start&&o.date<=p.end);
     const pCommit=commitEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
@@ -7266,7 +7268,8 @@ function wiRunProjector(){
     const autoOpen=pIdx<2;
     const pStartFmt=new Date(p.start+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'});
     const pEndFmt=p.start!==p.end?new Date(p.end+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'short',day:'numeric'}):null;
-    const headerTitle=p.type==='gap'?'Before Next Paycheck':p.paychecks.map(e=>e.desc).join(' + ');
+    const headerTitle=p.type==='gap'?'Pre-Paycheck Gap':`Paycheck ${paycheckNum}`;
+    const headerSubtitle=p.type==='paycheck'&&p.paychecks.length?p.paychecks.map(e=>e.desc).join(' + '):null;
 
     // Day-grouped event rows (pay → ext_deduct → commit → out)
     const allEvts=[...pPay,...pOut.map(o=>({...o,kind:'out'})),...pCommit].sort((a,b)=>a.date.localeCompare(b.date)||({'pay':0,'ext_deduct':1,'commit':2,'out':3}[a.kind]||3)-({'pay':0,'ext_deduct':1,'commit':2,'out':3}[b.kind]||3));
@@ -7326,13 +7329,14 @@ function wiRunProjector(){
             ${p.isBonus?`<span class="c-green" style="font-size:10px;font-weight:700;background:rgba(16,185,129,.12);border:1px solid var(--gb);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
             ${periodEndBals[pIdx]<0?`<span class="c-red" style="font-size:10px;font-weight:700;border:1px solid var(--rb);border-radius:4px;padding:1px 5px">⚠ Shortfall</span>`:''}
           </div>
+          ${headerSubtitle?`<div class="c-text3" style="font-size:11px;margin-top:1px">${esc(headerSubtitle)}</div>`:''}
           <div class="c-text3" style="font-size:11px;margin-top:1px">${pStartFmt}${pEndFmt?' → '+pEndFmt:''}</div>
         </div>
-        ${pInAmt?`<span class="c-green" style="font-size:12px;font-family:var(--mono)">+${$f(pInAmt)}</span>`:''}
-        ${pExtAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent)">↗${$f(pExtAmt)}</span>`:''}
-        ${pExpensesAmt>0?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pExpensesAmt)}</span>`:''}
-        ${pPlannedAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent);opacity:.7">~${$f(pPlannedAmt)}</span>`:''}
-        <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
+          ${pInAmt>0?`<span class="c-green" style="font-size:12px;font-family:var(--mono)">+${$f(pInAmt)}</span>`:''}
+          ${pOutAmt>0?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pOutAmt)}</span>`:''}
+          <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
+        </div>
         <span id="pwt_${pId}" class="c-text3" style="font-size:11px;width:12px;flex-shrink:0;text-align:center">${autoOpen?'▼':'▶'}</span>
       </div>
       <div id="pwb_${pId}" style="padding:8px 16px 14px;display:${autoOpen?'block':'none'}">
