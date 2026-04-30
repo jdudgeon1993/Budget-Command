@@ -442,7 +442,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* Chat FAB — mobile only */
 .chat-fab{display:none;position:fixed;bottom:calc(68px + env(safe-area-inset-bottom));right:16px;z-index:600;background:var(--accent);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35);align-items:center;justify-content:center;transition:transform .15s;}
 .chat-fab:active{transform:scale(.92);}
-@media(max-width:1099px){.chat-fab{display:flex;}.tb-chat-btn{display:none!important;}}
+@media(max-width:1099px){.chat-fab{display:none!important;}}
 
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
@@ -957,6 +957,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .detail-scroll::-webkit-scrollbar{display:none;}
 .tb-month-nav{display:none;}
 .tb-new-btn{display:none !important;}
+.tb-mobile-wrap{display:none;}
 
 @media(max-width:1099px){
   /* App: single column, nav at bottom (mobile + tablet) */
@@ -1223,6 +1224,31 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   /* Ledger payee filter row: stack vertically on very narrow screens */
   .ledger-list-col{display:flex;flex-direction:column;min-height:0;}
   #ledgerPayeeSel{font-size:13px;padding:8px 6px;}
+
+  /* ── Mobile topbar: 2-row sticky header ── */
+  .topbar{height:auto;flex-direction:column;}
+  .tb-logo,.tb-total,.tb-rts,.tb-wi,.tb-right,.tb-month-nav{display:none!important;}
+  .tb-mobile-wrap{display:flex!important;flex-direction:column;}
+  .tb-mob-r1{display:flex;align-items:center;height:46px;padding:0 14px;border-bottom:1px solid var(--border);}
+  .tb-mob-logo-text{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;flex:1;}
+  .tb-mob-wi-btn{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:12px;padding:5px 14px;cursor:pointer;font-family:var(--sans);font-weight:600;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+  .tb-mob-wi-btn.on{background:var(--abg);border-color:var(--amber);color:var(--amber);}
+  .tb-mob-user{font-size:11px;color:var(--text3);font-family:var(--mono);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:8px;}
+  .tb-mob-r2{display:flex;align-items:center;height:40px;padding:0 10px;gap:0;}
+  .tb-mob-actions{display:flex;align-items:center;gap:5px;flex:1;min-width:0;}
+  .tb-mob-rts-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;padding-left:8px;}
+  .tb-mob-date{font-size:10px;color:var(--text3);font-family:var(--mono);}
+  .tb-mob-rts-chip{font-family:var(--mono);font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--gbg);border:1px solid var(--gb);color:var(--green);white-space:nowrap;}
+  .tb-mob-rts-chip.neg{background:var(--rbg);border-color:var(--rb);color:var(--red);}
+  .tb-mob-rts-chip.zero{background:var(--bg3);border-color:var(--border2);color:var(--text3);}
+  /* Month strip Row 3 */
+  .tb-mob-r3{display:flex;align-items:center;overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--border);padding:0 10px;height:38px;gap:5px;flex-shrink:0;}
+  .tb-mob-r3::-webkit-scrollbar{display:none;}
+  .tb-mob-month-pill{background:none;border:1px solid var(--border2);border-radius:20px;color:var(--text3);font-size:11px;font-family:var(--mono);padding:3px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .12s;font-weight:500;}
+  .tb-mob-month-pill:active{opacity:.7;}
+  .tb-mob-month-pill.cur{color:var(--text2);border-color:var(--border);}
+  .tb-mob-month-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .tb-mob-month-pill.add{color:var(--accent);border-style:dashed;}
 }
 
 /* Desktop: keep month nav hidden, hide mobile-only DOM */
@@ -1661,6 +1687,27 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
     <button class="tbtn tb-new-btn" onclick="openModal('new')" id="tbNewBtn">+ New</button>
   </div>
+  <!-- Mobile header: 2-row sticky layout (≤1099px) -->
+  <div class="tb-mobile-wrap" id="tbMobileWrap">
+    <div class="tb-mob-r1">
+      <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Imperium Fisci</div>
+      <button class="tb-mob-wi-btn" id="tbMobWiBtn" onclick="toggleWI()">⚡ What If</button>
+      <span class="tb-mob-user" id="tbMobUser"></span>
+    </div>
+    <div class="tb-mob-r2">
+      <div class="tb-mob-actions">
+        <button class="tbtn primary" style="font-size:11px;padding:5px 10px;" onclick="openModal('new')">+ New</button>
+        <button class="tbtn" style="font-size:11px;padding:5px 10px;" onclick="setTab('settings')">⚙ Settings</button>
+        <button class="tbtn tb-chat-btn" style="font-size:11px;padding:5px 10px;" onclick="openChat()">✦ Coach</button>
+      </div>
+      <div class="tb-mob-rts-wrap">
+        <span class="tb-mob-date" id="tbMobDate"></span>
+        <span class="tb-mob-rts-chip zero" id="tbMobRTS">—</span>
+      </div>
+    </div>
+    <!-- Row 3: Month strip -->
+    <div class="tb-mob-r3" id="tbMobMonthStrip"></div>
+  </div>
 </header>
 
 <!-- WI STRIP -->
@@ -2079,6 +2126,8 @@ function updateAuthBtn(){
       btn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
     }
   });
+  const mobUser=document.getElementById('tbMobUser');
+  if(mobUser){mobUser.textContent=_supaUser?(_supaUser.email?.split('@')[0]||'Account'):'';}
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3985,8 +4034,13 @@ function renderTopbar(){
   const rts=mid?readyToSpend(mid):0;
   const rEl=document.getElementById('tbRTS');
   const lEl=document.getElementById('tbRtsLabel');
+  const mobRts=document.getElementById('tbMobRTS');
+  // Mobile date always renders regardless of month state
+  const mobDate=document.getElementById('tbMobDate');
+  if(mobDate&&!mobDate.textContent){const n=new Date();mobDate.textContent=n.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
   if(!mid||(!S.accounts.some(a=>a.type==='budget'))){
     if(rEl){rEl.className='tb-rts-val zero';rEl.textContent='—';}
+    if(mobRts){mobRts.className='tb-mob-rts-chip zero';mobRts.textContent='—';}
     return;
   }
   const scheduledOutCl=S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.type!=='in'&&getAcct(t.accountId)?.type!=='debt').reduce((s,t)=>s+t.amount,0);
@@ -3994,6 +4048,10 @@ function renderTopbar(){
     rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
     rEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
     rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} scheduled — After: ${$f(rts-scheduledOutCl)}`:'Budget cash minus remaining unfulfilled obligations';
+  }
+  if(mobRts){
+    mobRts.className='tb-mob-rts-chip '+(rts>0?'':rts<0?'neg':'zero');
+    mobRts.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');
   }
   if(lEl)lEl.innerHTML=scheduledOutCl>0?`Ready to Spend <span class="c-amber" style="font-size:9px;font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
 
@@ -4007,11 +4065,14 @@ function renderTopbar(){
   // WI button state
   const wiBtn=document.getElementById('wiBtnTop');
   if(wiBtn){wiBtn.className='tb-wi-btn'+(S.wiOpen?' on':'');}
+  const mobWiBtn=document.getElementById('tbMobWiBtn');
+  if(mobWiBtn){mobWiBtn.className='tb-mob-wi-btn'+(S.wiOpen?' on':'');}
 
   // Auth button
   updateAuthBtn();
-  // Month selector
+  // Month selector (desktop) + mobile month strip
   populateMonthSel();
+  renderMobileMonthStrip();
 
   // Off-month banner
   const omStrip=document.getElementById('offMonthStrip');
@@ -4349,6 +4410,22 @@ function populateMonthSel(){
     opt.selected=m.id===S.activeMonth;
     sel.appendChild(opt);
   });
+}
+
+function renderMobileMonthStrip(){
+  const el=document.getElementById('tbMobMonthStrip');
+  if(!el)return;
+  const pills=S.months.map(m=>{
+    const st=monthStatus(m.id);
+    const active=m.id===S.activeMonth;
+    let cls='tb-mob-month-pill'+(active?' active':'')+(st==='present'&&!active?' cur':'');
+    return `<button class="${cls}" onclick="setMonth('${m.id}')">${m.label}</button>`;
+  }).join('');
+  el.innerHTML=pills+`<button class="tb-mob-month-pill add" onclick="addNextMonth()">+ Add</button>`;
+  setTimeout(()=>{
+    const a=el.querySelector('.tb-mob-month-pill.active');
+    if(a)a.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  },60);
 }
 
 function setMonthFromSel(id){
