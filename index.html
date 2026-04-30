@@ -3372,8 +3372,7 @@ function nextBestAction(mid){
   if(aom!==null&&aom<30&&rts>0){const futureMths=S.months.filter(mo=>compareMid(mo.id,mid)>0).sort((a,b)=>compareMid(a.id,b.id));const fLbl=futureMths.length?`into ${esc(futureMths[0].label)}`:'into upcoming months';return{icon:'📈',msg:`Age of Money is ${aom}d (goal: 30d). Pre-save ${$f(rts)} ${fLbl} to build your cash buffer.`,fn:`document.getElementById('mainPane')?.scrollTo({top:9999,behavior:'smooth'})`,lbl:'Park Surplus ↓'};}
   const unclosed=S.months.filter(mo=>monthStatus(mo.id)==='past'&&!mo.closed).sort((a,b)=>compareMid(a.id,b.id));
   if(unclosed.length)return{icon:'📅',msg:`${esc(unclosed[0].label)} is still open — close it to keep reports accurate.`,fn:`openMonthClose('${unclosed[0].id}')`,lbl:'Close Month →'};
-  if(rts===0){return{icon:'✅',msg:`Every dollar has a job — budget is perfectly balanced!${aom!==null?' Age of Money: '+aom+'d'+(aom>=30?' 🎉':' (goal: 30d)')+'.':\
-''}`,fn:'',lbl:''};}
+  if(rts===0){return{icon:'✅',msg:`Every dollar has a job — budget is perfectly balanced!${aom!==null?' Age of Money: '+aom+'d'+(aom>=30?' 🎉':' (goal: 30d)')+'.':''}`,fn:'',lbl:''};}
   if(rts>0){return{icon:'💡',msg:`You have ${$f(rts)} unallocated. Put it towards a bucket or a future month.`,fn:`setTab('buckets')`,lbl:'Allocate →'};}
   return{icon:'✅',msg:aom!==null?`All caught up! Age of Money: ${aom}d${aom>=30?' — a full month ahead! 🎉':' (goal: 30d).'}`:
     'All caught up — no action needed.',fn:'',lbl:''};
