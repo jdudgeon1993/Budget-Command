@@ -7272,12 +7272,13 @@ function wiRunProjector(){
       let balAfterPay=periodStartBal;
       pPayRows.forEach(e=>{balAfterPay+=e.amount;});
       bodyHtml+=`<div style="border-bottom:1px solid var(--border);padding:6px 0 8px">
+        <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 0 5px">Income</div>
         ${pPayRows.map(e=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0">
           <span style="font-size:13px;flex-shrink:0">💰</span>
           <span style="flex:1;font-size:13px;font-weight:600">${esc(e.desc)}</span>
           <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green)">+${$f(e.amount)}</span>
         </div>`).join('')}
-        <div style="display:flex;justify-content:flex-end;padding-top:3px">
+        <div style="display:flex;justify-content:flex-end;padding-top:4px">
           <span style="font-family:var(--mono);font-size:11px;color:${balAfterPay>=0?'var(--text3)':'var(--red)'}">after paychecks: ${$f(balAfterPay)}</span>
         </div>
       </div>`;
@@ -7288,26 +7289,22 @@ function wiRunProjector(){
       const extMap={};
       pExtEvts.forEach(e=>{extMap[e.desc]=(extMap[e.desc]||0)+e.amount;});
       const extTbody=Object.entries(extMap).map(([label,amt])=>{
-        const rule=(S.externalRules||[]).find(r=>(r.label||S.accounts.find(a=>a.id===r.toAccountId)?.name||'External')===label);
+        // Match by same formula used when creating ext_deduct events: r.label||'Auto-transfer'
+        const rule=(S.externalRules||[]).find(r=>(r.label||'Auto-transfer')===label);
         const curBal=rule?acctBalance(rule.toAccountId):0;
-        return `<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:5px 0;font-size:12px;color:var(--text2)">🏦 ${esc(label)}</td>
-          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${$f(curBal)}</td>
-          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--red)">-${$f(amt)}</td>
-          <td style="padding:5px 0;text-align:right;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)">↗ ${$f(curBal+amt)}</td>
+        return `<tr>
+          <td>🏦 ${esc(label)}</td>
+          <td>${$f(curBal)}</td>
+          <td style="color:var(--red)">-${$f(amt)}</td>
+          <td style="color:var(--accent);font-weight:600">↗ ${$f(curBal+amt)}</td>
         </tr>`;
       }).join('');
       bodyHtml+=`<div style="border-bottom:1px solid var(--border);padding:6px 0 8px">
         <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 0 5px">External Transfers</div>
-        <table style="width:100%;border-collapse:collapse">
-          <tr style="border-bottom:1px solid var(--border)">
-            <th style="text-align:left;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--text3)">Account</th>
-            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Current</th>
-            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Transfer</th>
-            <th style="text-align:right;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--accent)">After</th>
-          </tr>
+        <div style="overflow-x:auto"><table class="report-table" style="margin-top:0">
+          <tr><th>Account</th><th>Current</th><th>Transfer</th><th style="color:var(--accent)">After</th></tr>
           ${extTbody}
-        </table>
+        </table></div>
       </div>`;
     }
 
@@ -7318,11 +7315,11 @@ function wiRunProjector(){
       const allocTbody=Object.entries(allocMap).map(([name,{amount,catColor}])=>{
         const bkt=(S.buckets||[]).find(b=>b.name===name);
         const curBal=bkt?Math.max(0,sinkingSaved(bkt.id,S.activeMonth)):0;
-        return `<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:5px 0;font-size:12px;color:var(--text2)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor||'var(--border2)'};margin-right:5px;vertical-align:middle"></span>${esc(name)}</td>
-          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${$f(curBal)}</td>
-          <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--accent)">+${$f(amount)}</td>
-          <td style="padding:5px 0;text-align:right;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)">~ ${$f(curBal+amount)}</td>
+        return `<tr>
+          <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor||'var(--border2)'};margin-right:5px;vertical-align:middle"></span>${esc(name)}</td>
+          <td>${$f(curBal)}</td>
+          <td style="color:var(--accent)">+${$f(amount)}</td>
+          <td style="color:var(--accent);font-weight:600">~ ${$f(curBal+amount)}</td>
         </tr>`;
       }).join('');
       bodyHtml+=`<div style="border-bottom:1px solid var(--border);padding:6px 0 8px">
@@ -7330,15 +7327,10 @@ function wiRunProjector(){
           <span class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Internal Allocations</span>
           <span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px">no cash impact</span>
         </div>
-        <table style="width:100%;border-collapse:collapse">
-          <tr style="border-bottom:1px solid var(--border)">
-            <th style="text-align:left;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--text3)">Bucket</th>
-            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Current</th>
-            <th style="text-align:right;padding:3px 8px 4px;font-size:10px;font-weight:600;color:var(--text3)">Allocated</th>
-            <th style="text-align:right;padding:3px 0 4px;font-size:10px;font-weight:600;color:var(--accent)">After</th>
-          </tr>
+        <div style="overflow-x:auto"><table class="report-table" style="margin-top:0">
+          <tr><th>Bucket</th><th>Current</th><th>Allocated</th><th style="color:var(--accent)">After</th></tr>
           ${allocTbody}
-        </table>
+        </table></div>
       </div>`;
     }
 
