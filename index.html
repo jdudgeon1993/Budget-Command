@@ -4053,14 +4053,14 @@ function monthCloseHtml(mid){
 
   // ── Section 2: account reconciliation ──────────────────────────
   const acctRows=S.accounts.map(a=>{
-    // All-time unreconciled (matches what reconc modal actually shows)
+    // Month-specific unreconciled count (only transactions in THIS month)
     const unrecon=S.txs.filter(t=>
-      (t.accountId===a.id||t.toAccountId===a.id)&&
-      t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+      (t.accountId===a.id||t.toAccountId===a.id||t.linkedDebtId===a.id)&&
+      t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
     ).length;
-    // This-month activity count for context
+    // This-month activity count
     const thisMoTxs=S.txs.filter(t=>
-      (t.accountId===a.id||t.toAccountId===a.id)&&
+      (t.accountId===a.id||t.toAccountId===a.id||t.linkedDebtId===a.id)&&
       t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)
     ).length;
     const bal=acctBalance(a.id);
@@ -4081,8 +4081,8 @@ function monthCloseHtml(mid){
     </div>`;
   }).join('');
   const reconDone=S.accounts.every(a=>S.txs.filter(t=>
-    (t.accountId===a.id||t.toAccountId===a.id)&&
-    t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+    (t.accountId===a.id||t.toAccountId===a.id||t.linkedDebtId===a.id)&&
+    t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
   ).length===0);
   const reconBadge=reconDone
     ?`<span class="mc-badge ok">All balanced</span>`
@@ -5975,15 +5975,21 @@ function renderAccountView(el,mid){
   const a=getAcct(S.activeAccount);if(!a){clearActive();return;}
   const bal=acctBalance(a.id);
   const past=mid?monthStatus(mid)==='past':false;
-  // All txs for this account, newest first
-  const allTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id)
+  // All txs for this account; for debt accounts, also include linked CC charges
+  const isDebtAcct=a.type==='debt';
+  const allTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id||(isDebtAcct&&t.linkedDebtId===a.id&&t.type==='out'))
     .sort((x,y)=>new Date(y.date)-new Date(x.date)||y.id.localeCompare(x.id));
   const posted=allTxs.filter(t=>!isScheduled(t));
   const scheduled=allTxs.filter(t=>isScheduled(t)).sort((x,y)=>new Date(x.date)-new Date(y.date));
   const {balMap,schedMap}=calcAccountRunningBal(a.id);
 
-  const totalIn=posted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
-  const totalOut=posted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
+  // For debt: totalIn = ccpayments (balance reductions), totalOut = linked charges (balance increases)
+  const totalIn=isDebtAcct
+    ?posted.filter(t=>t.accountId===a.id&&t.type==='ccpayment').reduce((s,t)=>s+t.amount,0)
+    :posted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
+  const totalOut=isDebtAcct
+    ?posted.filter(t=>t.linkedDebtId===a.id&&t.type==='out').reduce((s,t)=>s+t.amount,0)
+    :posted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
 
   let h=`<button class="back-btn" onclick="clearActive()">← Accounts</button>
   <div class="acct-hdr">
@@ -5995,9 +6001,9 @@ function renderAccountView(el,mid){
   </div>
   ${a.type==='debt'?renderDebtTracker(a):''}
   <div class="acct-balance-block">
-    <div class="stat-cell hi"><div class="stat-label">${a.type==='debt'?'Amount Owed':'Available in Account'}</div><div class="stat-val ${bal>=0?'green':'red'}" style="font-size:22px">${$f(bal)}</div><div class="stat-sub">${a.type==='budget'?'your spending ceiling here':a.type==='savings'?'parked — not in RTS pool':'physical balance'}</div></div>
-    <div class="stat-cell"><div class="stat-label">Total In (all time)</div><div class="stat-val dim">${$f(totalIn)}</div></div>
-    <div class="stat-cell"><div class="stat-label">Total Out (all time)</div><div class="stat-val dim">${$f(totalOut)}</div></div>
+    <div class="stat-cell hi"><div class="stat-label">${isDebtAcct?'Amount Owed':'Available in Account'}</div><div class="stat-val ${bal>=0?'green':'red'}" style="font-size:22px">${$f(bal)}</div><div class="stat-sub">${a.type==='budget'?'your spending ceiling here':isDebtAcct?'total balance owed':a.type==='savings'?'parked — not in RTS pool':'physical balance'}</div></div>
+    <div class="stat-cell"><div class="stat-label">${isDebtAcct?'Payments Made':'Total In (all time)'}</div><div class="stat-val dim">${$f(totalIn)}</div></div>
+    <div class="stat-cell"><div class="stat-label">${isDebtAcct?'Charges Logged':'Total Out (all time)'}</div><div class="stat-val dim">${$f(totalOut)}</div></div>
   </div>`;
 
   if(scheduled.length){
@@ -8148,7 +8154,7 @@ function openReconcile(acctId,onFinish=null){
   );
 }
 function reconMarkAll(acctId){
-  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled)
+  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId||t.linkedDebtId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled)
        .forEach(t=>_reconChecked.add(t.id));
   reconRefresh(acctId);
 }
@@ -11017,6 +11023,10 @@ function mEditTxSheet(id){
   const bktOpts=mBktOptions(b?.catId||'',tx.bucketId||'');
   const acctOpts=mAcctOptions(tx.accountId);
 
+  const debtAccts=S.accounts.filter(a=>a.type==='debt');
+  let ccOpts='<option value="">+ Charge to CC (optional)</option>';
+  debtAccts.forEach(a=>ccOpts+=`<option value="${a.id}"${a.id===tx.linkedDebtId?' selected':''}>${esc(a.name)}</option>`);
+
   body.innerHTML=`
     <div>
       <div class="m-field-label" style="margin-bottom:6px">Description</div>
@@ -11034,8 +11044,9 @@ function mEditTxSheet(id){
     <div><div class="m-field-label" style="margin-bottom:6px">Category</div>
       <select class="m-select" id="sCat" onchange="mSheetCatChange(this.value)">${catOpts}</select></div>
     <div><div class="m-field-label" style="margin-bottom:6px">Bucket</div>
-      <select class="m-select" id="sBkt">${bktOpts}</select></div>`:''}`;
-
+      <select class="m-select" id="sBkt">${bktOpts}</select></div>
+    ${debtAccts.length?`<div><div class="m-field-label" style="margin-bottom:6px">Charge to CC</div>
+      <select class="m-select" id="sCCDebt">${ccOpts}</select></div>`:''}`:''}`;
   foot.innerHTML=`
     <button class="c-red" style="flex:1;padding:12px;background:var(--rbg);border:1px solid var(--rb);border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer" onclick="mDeleteTxSheet('${id}')">Delete</button>
     <button style="flex:2;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-family:var(--sans);font-weight:600;cursor:pointer" onclick="mSaveTxSheet('${id}','${tx.type}')">Save</button>`;
@@ -11058,7 +11069,8 @@ function mSaveTxSheet(id,type){
   tx.accountId=document.getElementById('sAcct')?.value||tx.accountId;
   tx.monthId=dateToMonthId(tx.date);
   if(type==='out'){
-    tx.bucketId=document.getElementById('sBkt')?.value||tx.bucketId;
+    tx.bucketId=document.getElementById('sBkt')?.value||null;
+    tx.linkedDebtId=document.getElementById('sCCDebt')?.value||null;
   }
   save();mCloseSheet();render();
 }
