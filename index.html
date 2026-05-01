@@ -359,6 +359,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .bkt-skip-tag{font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text3);background:var(--border);padding:2px 6px;border-radius:6px;pointer-events:all;}
 /* AI Coach */
 .ai-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);padding:2px 8px;border-radius:20px;text-transform:uppercase;}
+.tx-cc-badge{display:inline-flex;align-items:center;gap:2px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--bbg);color:var(--blue);flex-shrink:0;}
 .ai-narrative{font-size:13px;line-height:1.75;color:var(--text2);}
 .ai-narrative-loading{display:flex;align-items:center;gap:5px;color:var(--text3);font-size:12px;padding:4px 0;}
 .ai-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;}
@@ -2479,6 +2480,8 @@ function acctBalance(aid){
     if(t.accountId===aid&&t.type==='out')bal-=mult*t.amount;
     if(t.accountId===aid&&t.type==='xfr')bal-=mult*t.amount;
     if(t.toAccountId===aid&&t.type==='xfr')bal+=mult*t.amount;
+    if(t.linkedDebtId===aid&&t.type==='out')bal+=t.amount;
+    if(t.accountId===aid&&t.type==='ccpayment')bal-=t.amount;
   });
   return bal;
 }
@@ -5223,6 +5226,9 @@ function renderLedgerTab(el,mid){
         <div class="rpf-row">
           <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
         </div>
+        <div class="rpf-row" id="txLinkedDebtRow" style="display:none">
+          <select class="tfi-sel" id="txLinkedDebt" style="flex:1"><option value="">+ Charge to CC (optional)</option></select>
+        </div>
         <div class="rpf-row" id="txBktRow">
           <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1"><option value="">Category...</option></select>
           <select class="tfi-sel" id="txBkt" style="flex:1"><option value="">Bucket...</option></select>
@@ -5347,6 +5353,8 @@ function renderAccountsTab(el,mid){
     debt.forEach(a=>{
       const bal=acctBalance(a.id);
       const apr=a.debtAPR?`${a.debtAPR}% APR`:'';
+      const hasLinkedCharges=S.txs.some(t=>t.linkedDebtId===a.id&&t.type==='out');
+      const payFn=hasLinkedCharges?`openPayCC('${a.id}')`:`openPayDebtModal('${a.id}')`;
       h+=`<div class="acct-card debt" onclick="setActiveAccount('${a.id}')">
         <div class="acct-card-stripe" style="background:var(--red)"></div>
         <div class="acct-card-body">
@@ -5354,7 +5362,7 @@ function renderAccountsTab(el,mid){
             <span style="font-size:15px">💳</span>
             <span class="acct-card-name">${esc(a.name)}</span>
             <span class="acct-card-badge" style="background:var(--rbg);color:var(--red);border-color:var(--rb)">debt</span>
-            <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;flex-shrink:0" onclick="event.stopPropagation();openPayDebtModal('${a.id}')">Pay</button>
+            <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;flex-shrink:0" onclick="event.stopPropagation();${payFn}">Pay</button>
           </div>
           <div class="acct-card-bal c-red">${$f(bal)}</div>
           ${apr?`<div class="acct-card-sub">${apr}</div>`:''}
@@ -5419,6 +5427,46 @@ function confirmPayDebt(debtAid){
   if(bucketId)tx.bucketId=bucketId;
   S.txs.push(tx);save();render();closeModal();
   showToast(`${$f(amt)} payment recorded`,'in');
+}
+
+function openPayCC(debtId){
+  const debt=getAcct(debtId);if(!debt)return;
+  const bal=acctBalance(debtId);
+  const today=todayStr();
+  openRSheet(`Pay ${esc(debt.name)}`,
+    `<div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;color:var(--text2)">Current balance: <strong class="c-red">${$f(bal)}</strong></div>
+      <div class="fg"><label class="fl">Payment amount</label>
+        <input class="fi mono" id="payccAmt" type="number" step="0.01" placeholder="0.00" value="${bal.toFixed(2)}" style="width:100%" /></div>
+      <div class="fg"><label class="fl">Date</label>
+        <input class="fi" id="payccDate" type="date" value="${today}" style="width:100%" /></div>
+      <div style="font-size:11px;color:var(--text3);background:var(--bg3);padding:8px 10px;border-radius:var(--r)">
+        CC Reserve model: charges were pre-deducted from your cash account when logged. This payment only clears the card balance.</div>
+    </div>`,
+    `<button class="btn-cancel" onclick="closeRSheet()">Cancel</button>
+     <button class="btn-save" onclick="savePayCC('${debtId}')">Record Payment</button>`
+  );
+  setTimeout(()=>document.getElementById('payccAmt')?.focus(),40);
+}
+function savePayCC(debtId){
+  const amt=parseFloat(document.getElementById('payccAmt')?.value);
+  const date=document.getElementById('payccDate')?.value||todayStr();
+  if(!amt||amt<=0){showToast('Enter a valid amount','info');return;}
+  const debt=getAcct(debtId);
+  const monthId=dateToMonthId(date);
+  const d=new Date(date+'T12:00:00');
+  addMonth(d.getFullYear(),d.getMonth());
+  S.txs.push({
+    id:'_'+Math.random().toString(36).slice(2,9),
+    accountId:debtId,
+    monthId,
+    desc:`CC Payment — ${debt?.name||''}`,
+    amount:amt,
+    type:'ccpayment',
+    date
+  });
+  save();closeRSheet();render();
+  showToast(`CC payment recorded: ${$f(amt)}`,'save');
 }
 
 function bucketPillHtml(alloc,spent,eff,target,pend,past,avail){
@@ -6129,11 +6177,13 @@ function calcAccountRunningBal(aid){
   // Posted: walk backwards from current cleared balance.
   // Sort must exactly match renderAccountView's display order so balMap[id] lines up correctly.
   const posted=S.txs.filter(t=>
-    (t.accountId===aid||t.toAccountId===aid)&&t.type!=='opening'&&!isScheduled(t)
+    (t.accountId===aid||t.toAccountId===aid||t.linkedDebtId===aid)&&t.type!=='opening'&&!isScheduled(t)
   ).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
   let bal=cleared;
   posted.forEach(t=>{
     balMap.set(t.id,bal);
+    if(t.linkedDebtId===aid&&t.type==='out'){bal-=t.amount;return;}
+    if(t.accountId===aid&&t.type==='ccpayment'){bal+=t.amount;return;}
     if(t.accountId===aid){
       if(t.type==='in')bal-=mult*t.amount;
       if(t.type==='out')bal+=mult*t.amount;
@@ -6145,8 +6195,10 @@ function calcAccountRunningBal(aid){
   // Scheduled: project forward from cleared balance
   let proj=cleared;
   S.txs.filter(t=>
-    (t.accountId===aid||t.toAccountId===aid)&&isScheduled(t)
+    (t.accountId===aid||t.toAccountId===aid||t.linkedDebtId===aid)&&isScheduled(t)
   ).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t=>{
+    if(t.linkedDebtId===aid&&t.type==='out'){proj+=t.amount;schedMap.set(t.id,proj);return;}
+    if(t.accountId===aid&&t.type==='ccpayment'){proj-=t.amount;schedMap.set(t.id,proj);return;}
     if(t.accountId===aid){
       if(t.type==='in')proj+=mult*t.amount;
       if(t.type==='out')proj-=mult*t.amount;
@@ -6166,7 +6218,7 @@ function renderTxList(){
   updateTxFormForType();
 
   let txs=S.txs.filter(t=>{
-    if(S.activeAccount)return t.accountId===S.activeAccount||t.toAccountId===S.activeAccount;
+    if(S.activeAccount)return t.accountId===S.activeAccount||t.toAccountId===S.activeAccount||t.linkedDebtId===S.activeAccount;
     return t.monthId===mid;
   });
 
@@ -6274,6 +6326,7 @@ function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
   if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${esc(b.name)}</span>`;}
   if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span class="c-purple">→ ${esc(toAcct.name)}</span>`;}
   if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span class="c-accent">↻</span>`;
+  if(tx.linkedDebtId){const d=getAcct(tx.linkedDebtId);if(d)metaLine+=`<span class="tx-dot2"></span><span class="tx-cc-badge">💳 ${esc(d.name)}</span>`;}
   // Running balance line — only shown in account view (runBal !== null)
   const balLine=runBal!==null
     ?`<div class="tx-run-bal${sched?' proj':runBal<0?' neg':''}">${sched?'~':''}${$f(runBal)}</div>`
@@ -6537,6 +6590,22 @@ function updateTxFormForType(){
   tsel.innerHTML='<option value="">To account...</option>';
   S.accounts.forEach(a=>tsel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
   if(prevT)tsel.value=prevT;
+  // CC linked debt selector — only shown for expense transactions when debt accounts exist
+  const ccRow=document.getElementById('txLinkedDebtRow');
+  const ccSel=document.getElementById('txLinkedDebt');
+  if(ccRow&&ccSel){
+    const debtAccts=S.accounts.filter(a=>a.type==='debt');
+    if(txType==='out'&&debtAccts.length){
+      ccRow.style.display='flex';
+      const prevCC=ccSel.value;
+      ccSel.innerHTML='<option value="">+ Charge to CC (optional)</option>';
+      debtAccts.forEach(a=>ccSel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
+      if(prevCC)ccSel.value=prevCC;
+    } else {
+      ccRow.style.display='none';
+      ccSel.value='';
+    }
+  }
 }
 function onTxTypeOrAcctChange(){updateTxFormForType();}
 function populateTxCats(){
@@ -6665,6 +6734,7 @@ function addTx(){
   const acctId=document.getElementById('txAcct').value;
   const bkt=txType==='out'?document.getElementById('txBkt').value:null;
   const toAcct=txType==='xfr'?document.getElementById('txXfrTo').value:null;
+  const linkedDebtId=txType==='out'?(document.getElementById('txLinkedDebt')?.value||null):null;
 
   if(!desc){document.getElementById('txDesc').focus();return;}
   if(!amt||amt<=0){document.getElementById('txAmt').focus();return;}
@@ -6685,6 +6755,7 @@ function addTx(){
     id:'_'+Math.random().toString(36).slice(2,9),
     accountId:acctId,
     toAccountId:toAcct||null,
+    linkedDebtId:linkedDebtId||null,
     monthId,
     bucketId:bkt||null,
     desc,amount:amt,type:txType,date,recurring:rec
@@ -6709,6 +6780,7 @@ function addTx(){
   document.getElementById('txDesc').value='';
   document.getElementById('txAmt').value='';
   document.getElementById('txRec').checked=false;
+  const ccEl=document.getElementById('txLinkedDebt');if(ccEl)ccEl.value='';
   render();
   // Prompt allocation rules on new income
   if(!isEdit&&txType==='in'&&!sched)setTimeout(()=>promptAllocationRules(amt,monthId),400);
@@ -6734,6 +6806,7 @@ function editTx(id){
   document.getElementById('txAcct').value=tx.accountId||'';
   if(tx.bucketId){const b=getBucket(tx.bucketId);if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=tx.bucketId;}}
   if(tx.toAccountId)document.getElementById('txXfrTo').value=tx.toAccountId;
+  const ccSel=document.getElementById('txLinkedDebt');if(ccSel&&tx.linkedDebtId)ccSel.value=tx.linkedDebtId;
   document.getElementById('txSubmitBtn').textContent='Update Transaction';
   document.getElementById('txDesc').focus();
 }
@@ -6747,6 +6820,9 @@ function openTxEditModal(id){
   S.accounts.forEach(a=>acctOpts+=`<option value="${a.id}"${a.id===tx.accountId?' selected':''}>${esc(a.name)}</option>`);
   let xfrOpts='<option value="">— account —</option>';
   S.accounts.forEach(a=>{if(a.id!==tx.accountId)xfrOpts+=`<option value="${a.id}"${a.id===tx.toAccountId?' selected':''}>${esc(a.name)}</option>`;});
+  let ccOpts='<option value="">+ Charge to CC (optional)</option>';
+  S.accounts.filter(a=>a.type==='debt').forEach(a=>ccOpts+=`<option value="${a.id}"${a.id===tx.linkedDebtId?' selected':''}>${esc(a.name)}</option>`);
+  const hasCCAccts=S.accounts.some(a=>a.type==='debt');
   const typeLabel=tx.type==='in'?'Income':tx.type==='xfr'?'Transfer':'Expense';
   openRSheet(`Edit ${typeLabel}`,
     `<div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
@@ -6757,6 +6833,7 @@ function openTxEditModal(id){
       </div>
       <div class="fg"><label class="fl">Account</label><select class="fi" id="etAcct">${acctOpts}</select></div>
       ${tx.type==='out'?`<div class="fg"><label class="fl">Bucket</label><select class="fi" id="etBkt">${bktOpts}</select></div>`:''}
+      ${tx.type==='out'&&hasCCAccts?`<div class="fg"><label class="fl">Charge to CC</label><select class="fi" id="etLinkedDebt">${ccOpts}</select></div>`:''}
       ${tx.type==='xfr'?`<div class="fg"><label class="fl">To Account</label><select class="fi" id="etXfrTo">${xfrOpts}</select></div>`:''}
     </div>`,
     `<button class="tbtn c-red" onclick="delTxFromDetail('${id}')">Delete</button>
@@ -6777,6 +6854,7 @@ function saveTxEditModal(id,type){
   if(date){tx.date=date;tx.monthId=dateToMonthId(date);}
   tx.accountId=document.getElementById('etAcct')?.value||tx.accountId;
   if(type==='out')tx.bucketId=document.getElementById('etBkt')?.value||null;
+  if(type==='out')tx.linkedDebtId=document.getElementById('etLinkedDebt')?.value||null;
   if(type==='xfr')tx.toAccountId=document.getElementById('etXfrTo')?.value||null;
   save();closeRSheet();render();
   showToast('Updated: '+tx.desc,'save');
@@ -8078,16 +8156,18 @@ function reconBodyHtml(acctId){
   const a=getAcct(acctId);
   const clearedBal=acctBalance(acctId);
   const stmtBal=parseFloat(document.getElementById('reconStmtBal')?.value)||0;
-  // Unreconciled posted txs for this account
+  // Unreconciled posted txs for this account (includes linked CC charges)
   const txs=S.txs.filter(t=>
-    (t.accountId===acctId||t.toAccountId===acctId)&&
+    (t.accountId===acctId||t.toAccountId===acctId||t.linkedDebtId===acctId)&&
     t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
   ).sort((a,b)=>new Date(a.date)-new Date(b.date));
   // Reconciled cleared balance
   const reconBal=S.txs.filter(t=>
-    (t.accountId===acctId||t.toAccountId===acctId)&&
+    (t.accountId===acctId||t.toAccountId===acctId||t.linkedDebtId===acctId)&&
     t.type!=='opening'&&t.reconciled
   ).reduce((sum,t)=>{
+    if(t.linkedDebtId===acctId&&t.type==='out')return sum+t.amount;
+    if(t.accountId===acctId&&t.type==='ccpayment')return sum-t.amount;
     if(t.accountId===acctId){return t.type==='in'?sum+t.amount:t.type==='out'||t.type==='xfr'?sum-t.amount:sum;}
     if(t.toAccountId===acctId&&t.type==='xfr')return sum+t.amount;
     return sum;
@@ -8096,6 +8176,8 @@ function reconBodyHtml(acctId){
   let checkedSum=0;
   _reconChecked.forEach(id=>{
     const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+    if(tx.linkedDebtId===acctId&&tx.type==='out'){checkedSum+=tx.amount;return;}
+    if(tx.accountId===acctId&&tx.type==='ccpayment'){checkedSum-=tx.amount;return;}
     if(tx.accountId===acctId){if(tx.type==='in')checkedSum+=tx.amount;else if(tx.type==='out'||tx.type==='xfr')checkedSum-=tx.amount;}
     else if(tx.toAccountId===acctId&&tx.type==='xfr')checkedSum+=tx.amount;
   });
@@ -8106,12 +8188,23 @@ function reconBodyHtml(acctId){
 
   let txRows='';
   txs.forEach(tx=>{
+    const isLinkedCharge=tx.linkedDebtId===acctId&&tx.type==='out';
+    const isCCPayment=tx.accountId===acctId&&tx.type==='ccpayment';
     const isXfrIn=tx.type==='xfr'&&tx.toAccountId===acctId;
-    const amtPfx=tx.type==='in'||isXfrIn?'+':'-';
-    const amtCls=tx.type==='in'||isXfrIn?'green':'red';
-    const b=getBucket(tx.bucketId);
-    const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
-    const meta=b?esc(b.name):toAcct?'→ '+esc(toAcct.name):'';
+    let amtPfx,amtCls,meta;
+    if(isLinkedCharge){
+      amtPfx='+';amtCls='red';
+      const fromAcct=getAcct(tx.accountId);
+      meta=(fromAcct?esc(fromAcct.name)+' · ':'')+`<span style="font-size:10px;background:var(--bbg);color:var(--blue);padding:1px 4px;border-radius:4px">CC charge</span>`;
+    } else if(isCCPayment){
+      amtPfx='-';amtCls='green';meta='CC payment';
+    } else {
+      amtPfx=tx.type==='in'||isXfrIn?'+':'-';
+      amtCls=tx.type==='in'||isXfrIn?'green':'red';
+      const b=getBucket(tx.bucketId);
+      const toAcct=tx.toAccountId?getAcct(tx.toAccountId):null;
+      meta=b?esc(b.name):toAcct?'→ '+esc(toAcct.name):'';
+    }
     const chk=_reconChecked.has(tx.id);
     txRows+=`<div class="recon-tx-row${chk?' checked':''}" onclick="reconToggle('${tx.id}','${acctId}')">
       <div class="recon-check">${chk?'✓':''}</div>
