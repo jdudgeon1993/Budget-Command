@@ -2496,7 +2496,25 @@ function acctBalance(aid){
   return bal;
 }
 
-// Total liquid cash = budget + savings accounts only (excludes debt balances)
+// Balance as of the end of a specific month — excludes any transactions dated after mid
+function acctBalanceAtMonth(aid,mid){
+  const acct=getAcct(aid);if(!acct)return 0;
+  const mult=acct.type==='debt'?-1:1;
+  const openingTotal=S.txs.filter(t=>t.accountId===aid&&t.type==='opening').reduce((s,t)=>s+t.amount,0);
+  let bal=openingTotal>0?openingTotal:(acct.openingBalance||0);
+  S.txs.forEach(t=>{
+    if(t.type==='opening')return;
+    if(isScheduled(t))return;
+    if(t.monthId>mid)return;
+    if(t.accountId===aid&&t.type==='in')bal+=mult*t.amount;
+    if(t.accountId===aid&&t.type==='out')bal-=mult*t.amount;
+    if(t.accountId===aid&&t.type==='xfr')bal-=mult*t.amount;
+    if(t.toAccountId===aid&&t.type==='xfr')bal+=mult*t.amount;
+    if(t.accountId===aid&&t.type==='adjustment')bal+=t.amount;
+    if(t.debtPaymentAccountId===aid&&t.type==='out')bal-=t.amount;
+  });
+  return bal;
+}
 function totalCash(){return S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);}
 function calcNetWorth(){
   return S.accounts.reduce((s,a)=>s+(a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)),0);
@@ -4067,7 +4085,7 @@ function monthCloseHtml(mid){
     incomeRows=`<div class="c-text3" style="font-size:12px">No income accounts set up.</div>`;
   } else {
     incomeRows=incomeAccts.map(a=>{
-      const appBal=acctBalance(a.id);
+      const appBal=acctBalanceAtMonth(a.id,mid);
       const unrecon=S.txs.filter(t=>
         (t.accountId===a.id||t.toAccountId===a.id)&&
         t.monthId===mid&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
@@ -4077,7 +4095,7 @@ function monthCloseHtml(mid){
         <div class="mc-acct-dot" style="background:${a.color||'var(--accent)'}"></div>
         <span class="mc-acct-name" style="flex:1">${esc(a.name)}<span style="font-size:10px;color:var(--text3);margin-left:4px">(${a.type})</span>${hasAdj?`<span style="font-size:10px;color:var(--green);margin-left:4px">adj ✓</span>`:''}</span>
         <span style="font-family:var(--mono);font-size:12px;color:${appBal<0?'var(--red)':'var(--text2)'}">App: ${$f(appBal)}</span>
-        <input class="fi mono" id="mcStmt_${a.id}" type="number" step="0.01" value="${appBal.toFixed(2)}" style="width:90px;padding:3px 6px;font-size:12px" oninput="mcUpdateDisc('${a.id}')" placeholder="Statement bal" />
+        <input class="fi mono" id="mcStmt_${a.id}" type="number" step="0.01" value="${appBal.toFixed(2)}" style="width:90px;padding:3px 6px;font-size:12px" oninput="mcUpdateDisc('${a.id}','${mid}')" placeholder="Statement bal" />
         <span class="mc-disc zero" id="mcDisc_${a.id}">✓ Match</span>
         <button class="tbtn" id="mcApprove_${a.id}" style="font-size:11px;padding:3px 8px;display:none" onclick="mcApproveAdjustment('${a.id}','${mid}')">Adjust</button>
         ${unrecon>0?`<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="closeModal();openReconcile('${a.id}',()=>openMonthClose('${mid}'),'${mid}')">Reconcile (${unrecon})</button>`:''}
@@ -4095,7 +4113,7 @@ function monthCloseHtml(mid){
   let debtRows='';
   if(debtAccts.length){
     debtRows=debtAccts.map(a=>{
-      const bal=acctBalance(a.id);
+      const bal=acctBalanceAtMonth(a.id,mid);
       const monthPayments=S.txs.filter(t=>t.debtPaymentAccountId===a.id&&t.monthId===mid&&!isScheduled(t));
       const totalPaid=monthPayments.reduce((s,t)=>s+t.amount,0);
       const estInt=bal>0&&(a.debtAPR||0)>0?Math.round(bal*(a.debtAPR/100/12)*100)/100:0;
@@ -4176,9 +4194,9 @@ function monthCloseHtml(mid){
   const rollBadge=rollBkts.length?`<span class="mc-badge info">${rollBkts.length} bucket${rollBkts.length!==1?'s':''}</span>`:`<span class="mc-badge ok">None</span>`;
 
   // ── Net Worth snapshot ─────────────────────────────────────────────────────
-  const snapCash=totalCash();
-  const snapDebt=S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+acctBalance(a.id),0);
-  const snapNW=calcNetWorth();
+  const snapCash=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalanceAtMonth(a.id,mid),0);
+  const snapDebt=S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+acctBalanceAtMonth(a.id,mid),0);
+  const snapNW=snapCash-snapDebt;
 
   // ── Summary ────────────────────────────────────────────────────────────────
   const issues=[];
@@ -4237,8 +4255,8 @@ function monthCloseHtml(mid){
     </div>`;
 }
 
-function mcUpdateDisc(acctId){
-  const appBal=acctBalance(acctId);
+function mcUpdateDisc(acctId,mid){
+  const appBal=acctBalanceAtMonth(acctId,mid);
   const stmtVal=parseFloat(document.getElementById('mcStmt_'+acctId)?.value);
   const discEl=document.getElementById('mcDisc_'+acctId);
   const approveBtn=document.getElementById('mcApprove_'+acctId);
@@ -4255,7 +4273,7 @@ function mcUpdateDisc(acctId){
 }
 
 function mcApproveAdjustment(acctId,mid){
-  const appBal=acctBalance(acctId);
+  const appBal=acctBalanceAtMonth(acctId,mid);
   const stmtVal=parseFloat(document.getElementById('mcStmt_'+acctId)?.value);
   if(isNaN(stmtVal))return;
   const diff=stmtVal-appBal;
@@ -4292,9 +4310,9 @@ function confirmCloseMonth(mid){
   // Closing snapshot
   m.closingSnapshot={
     date:todayStr(),
-    cash:totalCash(),
-    netWorth:calcNetWorth(),
-    debtTotal:S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+acctBalance(a.id),0),
+    cash:S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalanceAtMonth(a.id,mid),0),
+    netWorth:(()=>{const c=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalanceAtMonth(a.id,mid),0);const d=S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+acctBalanceAtMonth(a.id,mid),0);return c-d;})(),
+    debtTotal:S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+acctBalanceAtMonth(a.id,mid),0),
     income:monthIncome(mid),
     spent:S.buckets.reduce((s,b)=>s+bSpent(mid,b.id),0)
   };
