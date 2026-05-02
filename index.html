@@ -443,9 +443,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 @media(max-width:640px){.chat-drawer{width:100vw;}}
 /* Mobile: coach drawer becomes bottom sheet */
 @media(max-width:1099px){
-  .chat-drawer{top:auto;left:0;right:0;width:100%;max-width:100%;height:auto;max-height:88vh;border-left:none;border-radius:16px 16px 0 0;transform:translateY(100%);box-shadow:0 -6px 32px rgba(0,0,0,.35);}
+  .chat-drawer{top:auto;left:0;right:0;width:100%;max-width:100%;height:auto;min-height:220px;max-height:72vh;border-left:none;border-radius:16px 16px 0 0;transform:translateY(100%);box-shadow:0 -6px 32px rgba(0,0,0,.35);padding-bottom:env(safe-area-inset-bottom);}
   .chat-drawer.open{transform:translateY(0);}
-  .chat-msgs{flex:1;min-height:0;}
+  .chat-drawer::before{content:'';display:block;width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 2px;flex-shrink:0;}
+  .chat-msgs{flex:1;min-height:0;overflow-y:auto;}
+  .chat-hdr{padding-top:6px;}
 }
 /* Chat FAB — mobile only */
 .chat-fab{display:none;position:fixed;bottom:calc(68px + env(safe-area-inset-bottom));right:16px;z-index:600;background:var(--accent);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35);align-items:center;justify-content:center;transition:transform .15s;}
@@ -1707,10 +1709,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium Fisci</div>
   <!-- Month navigation — visible in topbar on mobile -->
   <div class="tb-month-nav" id="tbMonthNav">
-    <button class="tb-month-arrow" onclick="prevMonth()">&#8249;</button>
-    <select class="tb-month-sel" id="tbMonthSel" onchange="setMonthFromSel(this.value)"></select>
-    <button class="tb-month-arrow" onclick="nextMonth()">&#8250;</button>
-    <button class="tb-month-arrow c-border2" style="font-size:13px;padding:6px 10px;border-" onclick="toggleWI()" id="tbWiMobile">⚡</button>
+    <button class="tb-month-arrow" onclick="prevMonth()" aria-label="Previous month">&#8249;</button>
+    <select class="tb-month-sel" id="tbMonthSel" onchange="setMonthFromSel(this.value)" aria-label="Active month"></select>
+    <button class="tb-month-arrow" onclick="nextMonth()" aria-label="Next month">&#8250;</button>
+    <button class="tb-month-arrow c-border2" style="font-size:13px;padding:6px 10px;border-" onclick="toggleWI()" id="tbWiMobile" aria-label="What If scenario">⚡</button>
   </div>
   <!-- Desktop stats -->
   <div class="tb-total">
@@ -2211,8 +2213,10 @@ let S={
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
   if(!_appInitialized)return; // Never save before app is ready (prevents writing during/after signout)
-  localStorage.setItem(KEY, JSON.stringify(S));
-  localStorage.setItem(KEY+'_local_ts', new Date().toISOString());
+  try{
+    localStorage.setItem(KEY, JSON.stringify(S));
+    localStorage.setItem(KEY+'_local_ts', new Date().toISOString());
+  }catch(e){console.error('localStorage write failed (quota exceeded?):',e);}
   if(supaReady()&&_supaUser){
     _pendingSync=true;
     setSyncStatus('syncing','Syncing…');
@@ -2290,7 +2294,7 @@ async function loadFromSupabase(){
     // Network/other error — fall back to localStorage
     console.warn('Falling back to localStorage');
     const raw=localStorage.getItem(KEY);
-    if(raw){try{S=JSON.parse(raw);}catch(e){}}
+    if(raw){try{S=JSON.parse(raw);}catch(e){console.warn('localStorage parse failed (network fallback):',e);}}
     return true;
   }
 
@@ -2305,7 +2309,7 @@ async function loadFromSupabase(){
     if(localTs>remoteTs+5000){
       // Local is meaningfully newer — upload it instead of pulling from Supabase
       const raw=localStorage.getItem(KEY);
-      if(raw){try{S=JSON.parse(raw);}catch(e){}}
+      if(raw){try{S=JSON.parse(raw);}catch(e){console.warn('localStorage parse failed (local-newer path):',e);}}
       console.log('Local data is newer than Supabase — uploading local copy');
       await supabase_push();
     } else {
@@ -2317,7 +2321,7 @@ async function loadFromSupabase(){
   } else {
     // Supabase row is empty or missing — check localStorage for existing data to upload
     const raw=localStorage.getItem(KEY);
-    if(raw){try{S=JSON.parse(raw);}catch(e){}}
+    if(raw){try{S=JSON.parse(raw);}catch(e){console.warn('localStorage parse failed (upload path):',e);}}
     if(S.accounts?.length||S.cats?.length){
       console.log('No Supabase data — uploading from localStorage');
       await supabase_push();
@@ -2351,7 +2355,7 @@ function load(){
     try{
       S=JSON.parse(r6);
       S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
-    }catch(e){}
+    }catch(e){console.warn('localStorage parse failed (sync load):',e);}
   } else {
     const r5=localStorage.getItem('buckets_v5');
     if(r5){migrateV5(r5);}
@@ -2516,6 +2520,12 @@ function acctBalanceAtMonth(aid,mid){
   return bal;
 }
 function totalCash(){return S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);}
+function normalizeDebts(){
+  return S.accounts
+    .filter(a=>a.type==='debt')
+    .map(a=>({id:a.id,name:a.name,balance:acctBalance(a.id),apr:a.debtAPR||0,minPayment:a.debtMinPayment||0}))
+    .filter(d=>d.balance>0);
+}
 function calcNetWorth(){
   return S.accounts.reduce((s,a)=>s+(a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)),0);
 }
@@ -2558,7 +2568,7 @@ function toggleSkipBucket(bid,mid){
   if(!m.skippedBuckets)m.skippedBuckets=[];
   const idx=m.skippedBuckets.indexOf(bid);
   if(idx>=0)m.skippedBuckets.splice(idx,1);else m.skippedBuckets.push(bid);
-  save();renderTopbar();renderSidebar();renderMain();
+  save();renderTopbar();renderNav();renderActivePane();
 }
 
 // ── Milestones ───────────────────────────────────────────────────────────────
@@ -2661,7 +2671,7 @@ function buildBudgetContext(mid){
   const overspent=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01;});
   const unfunded=activeBkts.filter(b=>bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0);
   const hs=computeHealthScore(mid);
-  const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  const debts=normalizeDebts();
   const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
   const savRates=past3.map(mo=>{const inc=monthIncome(mo.id);const sp=activeBkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?Math.round((inc-sp)/inc*100):null;}).filter(r=>r!==null);
 
@@ -2761,7 +2771,7 @@ ${savRates.length?'3-month avg savings rate: '+Math.round(savRates.reduce((s,v)=
 ${incomeHistory?'Income trend: '+incomeHistory:''}
 ${overspent.length?'OVERSPENT: '+overspent.map(b=>`${b.name} $${(bSpent(mid,b.id)-(bAlloc(mid,b.id)+rolloverBal(b.id,mid))).toFixed(0)} over`).join(', '):'No overspent buckets'}
 ${unfunded.length?'Unfunded (target set, no allocation): '+unfunded.map(b=>b.name).join(', '):'All buckets funded'}
-${debts.length?'Debts: '+debts.map(a=>`${a.name} $${acctBalance(a.id).toFixed(0)}${a.debtAPR?' @'+a.debtAPR+'%':''}`).join(' | '):'No debts'}
+${debts.length?'Debts: '+debts.map(d=>`${d.name} $${d.balance.toFixed(0)}${d.apr?' @'+d.apr+'%':''}`).join(' | '):'No debts'}
 ${anomalyLines?'SPENDING SPIKES:\n'+anomalyLines:''}
 Accounts:
 ${acctLines}
@@ -2841,7 +2851,7 @@ function _aiCoachHtml(data,mid,stale){
           <div class="ai-alert-chip${a.urgent?' urgent':''}" id="ai-alrt-${mid}-${i}">
             <span class="ai-alert-icon">${a.icon||'⚠️'}</span>
             <span class="ai-alert-msg">${esc(a.msg)}</span>
-            <button class="ai-alert-dismiss" onclick="document.getElementById('ai-alrt-${mid}-${i}').remove()">×</button>
+            <button class="ai-alert-dismiss" onclick="document.getElementById('ai-alrt-${mid}-${i}').remove()" aria-label="Dismiss alert">×</button>
           </div>`).join('')}
       </div>`:'' ;
   const staleBar=stale?`<div style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px;margin-bottom:6px"><span class="ai-dot"></span> updating…</div>`:'';
@@ -2947,7 +2957,7 @@ function refreshChatSuggestions(){
   if(!el)return;
   const mid=S.activeMonth;
   const aom=ageOfMoney();
-  const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  const debts=normalizeDebts();
   const rts=mid?readyToSpend(mid):0;
   const unfundedBkts=mid?S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0):[];
   const chips=[];
@@ -3144,7 +3154,7 @@ async function openPersonalityReport(){
   if(past.length<2){showToast('Need at least 2 closed months for a personality report','info');return;}
   const box=document.getElementById('modalBox');
   document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Your Money Personality</div><button class="modal-close" onclick="closeModal()">×</button></div>
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Your Money Personality</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
     <div class="modal-body" id="persBody" style="min-height:200px;display:flex;align-items:center;justify-content:center">
       <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
         <span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing your patterns…</span></div>
@@ -3168,29 +3178,28 @@ async function openPersonalityReport(){
 // ── Phase 8b: Debt Strategy Advisor ──────────────────────────────────────────
 async function openDebtStrategy(){
   if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
-  const debts=S.accounts.filter(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
+  const debts=normalizeDebts();
   if(!debts.length){showToast('No active debts found','info');return;}
   const box=document.getElementById('modalBox');
   document.getElementById('overlay').classList.remove('hidden');
 
-  // Compute avalanche vs snowball locally
   const sorted={
-    avalanche:[...debts].sort((a,b)=>(b.debtAPR||0)-(a.debtAPR||0)),
-    snowball:[...debts].sort((a,b)=>acctBalance(a.id)-acctBalance(b.id))
+    avalanche:[...debts].sort((a,b)=>b.apr-a.apr),
+    snowball:[...debts].sort((a,b)=>a.balance-b.balance)
   };
-  const totalDebt=debts.reduce((s,a)=>s+acctBalance(a.id),0);
-  const totalInt=debts.reduce((s,a)=>s+acctBalance(a.id)*((a.debtAPR||0)/100/12),0);
+  const totalDebt=debts.reduce((s,d)=>s+d.balance,0);
+  const totalInt=debts.reduce((s,d)=>s+d.balance*(d.apr/100/12),0);
 
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Debt Strategy Advisor</div><button class="modal-close" onclick="closeModal()">×</button></div>
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Debt Strategy Advisor</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
     <div class="modal-body">
       <div class="debt-strategy-grid">
         <div class="debt-strat-card">
           <div class="debt-strat-title">❄ Avalanche</div>
-          <div class="debt-strat-stat">Pay highest APR first.<br>Saves the most in interest.<br>Attack order:<br>${sorted.avalanche.map(a=>`${esc(a.name)} (${a.debtAPR||0}%)`).join(' → ')}</div>
+          <div class="debt-strat-stat">Pay highest APR first.<br>Saves the most in interest.<br>Attack order:<br>${sorted.avalanche.map(d=>`${esc(d.name)} (${d.apr}%)`).join(' → ')}</div>
         </div>
         <div class="debt-strat-card">
           <div class="debt-strat-title">⛄ Snowball</div>
-          <div class="debt-strat-stat">Pay smallest balance first.<br>Builds momentum with quick wins.<br>Attack order:<br>${sorted.snowball.map(a=>`${esc(a.name)} ($${acctBalance(a.id).toFixed(0)})`).join(' → ')}</div>
+          <div class="debt-strat-stat">Pay smallest balance first.<br>Builds momentum with quick wins.<br>Attack order:<br>${sorted.snowball.map(d=>`${esc(d.name)} ($${d.balance.toFixed(0)})`).join(' → ')}</div>
         </div>
       </div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Total debt: <strong class="c-text2">${$f(totalDebt)}</strong> · Est. monthly interest: <strong class="c-text2">${$f(Math.round(totalInt*100)/100)}</strong></div>
@@ -3199,7 +3208,7 @@ async function openDebtStrategy(){
     </div>
     <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
 
-  const debtCtx=debts.map(a=>`${a.name}: $${acctBalance(a.id).toFixed(0)} balance, ${a.debtAPR||0}% APR, min payment $${a.debtMinPayment||0}/mo`).join('\n');
+  const debtCtx=debts.map(d=>`${d.name}: $${d.balance.toFixed(0)} balance, ${d.apr}% APR, min payment $${d.minPayment}/mo`).join('\n');
   const savRate=()=>{const past=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-3);if(!past.length)return null;const avg=past.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?(inc-sp)/inc:0;});return Math.round(avg.reduce((s,v)=>s+v,0)/avg.length*100);};
   const sr=savRate();
   const sys=`You are a debt payoff coach. In 3 plain sentences, recommend either avalanche or snowball method for this specific person — cite their actual debts and amounts. Consider their savings rate if available. No markdown, no lists, just direct advice.`;
@@ -3248,7 +3257,7 @@ async function openAIDraftModal(mid){
   const m=getMonth(mid);if(!m)return;
   const box=document.getElementById('modalBox');
   document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Draft Allocations</div><button class="modal-close" onclick="closeModal()">×</button></div>
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Draft Allocations</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
     <div class="modal-body" id="aiDraftBody" style="min-height:180px;display:flex;align-items:center;justify-content:center">
       <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
         <span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing your spending history…</span></div>
@@ -3314,7 +3323,7 @@ function viewMonthReport(mid){
   const m=getMonth(mid);if(!m?.aiReport)return;
   const box=document.getElementById('modalBox');
   document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI Report</span> ${esc(m.label)}</div><button class="modal-close" onclick="closeModal()">×</button></div>
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI Report</span> ${esc(m.label)}</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
     <div class="modal-body"><div class="ai-report-text">${esc(m.aiReport)}</div></div>
     <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
 }
@@ -3715,7 +3724,7 @@ function coachingPanelHtml(mid){
       </div>
     </div>`;
   }
-  if(insights.length){
+  if(!aiEnabled()&&insights.length){
     h+=`<div class="cc-insights-row">`;
     insights.forEach(i=>h+=`<div class="cc-insight-chip"><span class="cc-insight-icon">${i.icon}</span><span>${i.msg}</span></div>`);
     h+=`</div>`;
@@ -4344,21 +4353,6 @@ function render(){
   if(S.wiOpen)renderWI();
 }
 
-function renderRpSummary(){
-  const el=document.getElementById('rpSummary');
-  if(!el)return;
-  const mid=S.activeMonth;
-  if(!mid||!S.accounts.some(a=>a.type==='budget')){el.innerHTML='';return;}
-  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
-  const alloc=totalAllocated(mid);
-  const rts=readyToSpend(mid);
-  const totalSpent=S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+bSpent(mid,b.id),0);
-  el.innerHTML=`
-    <div class="stat-cell sm"><div class="stat-label">Budget Balance</div><div class="stat-val sm green">${$f(budgetBal)}</div><div class="stat-sub sm">in budget accounts</div></div>
-    <div class="stat-cell sm"><div class="stat-label">Allocated</div><div class="stat-val sm dim">${alloc>0?$f(alloc):'—'}</div><div class="stat-sub sm">assigned this month</div></div>
-    <div class="stat-cell sm hi"><div class="stat-label">Ready to Spend</div><div class="stat-val sm ${rts>0?'green':rts<0?'red':'dim'}">${$f(Math.abs(rts))}</div><div class="stat-sub sm">${rts>0?'ready to allocate':rts<0?'⚠ budget short':'balanced ✓'}</div></div>
-    <div class="stat-cell sm"><div class="stat-label">Spent</div><div class="stat-val sm dim">${totalSpent>0?$f(totalSpent):'—'}</div><div class="stat-sub sm">from transactions</div></div>`;
-}
 
 function sidebarNavMonth(dir){
   const mid=S.activeMonth;
@@ -4484,6 +4478,7 @@ function initReportCharts(tab,mid){
   else if(tab==='ytd')_chartYTD();
   else if(tab==='networth')_chartNetWorth();
   else if(tab==='savingsrate')_chartSavingsRate();
+  else if(tab==='cathistory')_chartCatHistory();
 }
 function _chartCashFlow(){
   const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-12);
@@ -4627,6 +4622,27 @@ function _chartSavingsRate(){
       }}});
 }
 
+function _chartCatHistory(){
+  const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-_catHistMonths);
+  if(!months.length)return;
+  const c=_cc();
+  const cats=sortedCats().filter(cat=>
+    months.some(mo=>S.buckets.filter(b=>b.catId===cat.id).reduce((s,b)=>s+bSpent(mo.id,b.id),0)>0)
+  );
+  if(!cats.length)return;
+  _mkChart('rpt-chart-cathistory',{type:'bar',data:{
+    labels:months.map(mo=>mo.label),
+    datasets:cats.map(cat=>({
+      label:cat.name,
+      data:months.map(mo=>S.buckets.filter(b=>b.catId===cat.id).reduce((s,b)=>s+bSpent(mo.id,b.id),0)),
+      backgroundColor:cat.color||(c.accent),
+      borderWidth:0,borderRadius:2,
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:c.t2,font:{size:11},boxWidth:10}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${$f(ctx.raw)}`}}},
+      scales:{x:{..._scaleX(c),stacked:true},y:{..._scaleY(c),stacked:true}}}});
+}
+
 function renderNav(){
   document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.tab===activeTab);
@@ -4687,9 +4703,6 @@ function renderActivePane(){
   if(activePaneEl&&savedScroll>0)activePaneEl.scrollTop=savedScroll;
 }
 
-function renderMain(){renderActivePane();}
-function setDesktopTab(tab){setTab(tab);}
-function renderSidebar(){renderNav();}
 
 // ── Detail panel ─────────────────────────��─────────────────────��──────────────
 function openDetail(type,id){
@@ -5333,25 +5346,25 @@ function renderLedgerTab(el,mid){
           </div>
         </div>
         <div class="rpf-row">
-          <input class="tfi" id="txDesc" placeholder="Description..." style="flex:1" />
+          <input class="tfi" id="txDesc" placeholder="Description..." style="flex:1" aria-label="Transaction description" />
         </div>
         <div class="rpf-row">
-          <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" />
-          <input class="tfi" id="txDate" type="date" style="flex:1" />
+          <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" aria-label="Amount" />
+          <input class="tfi" id="txDate" type="date" style="flex:1" aria-label="Transaction date" />
         </div>
         <div class="c-text3" style="font-size:10px;padding:0 2px;margin-top:-4px">✦ Math: +50 · −20 · ×1.05 · 5%</div>
         <div class="rpf-row">
-          <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1"><option value="">Account...</option></select>
+          <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1" aria-label="Account"><option value="">Account...</option></select>
         </div>
         <div class="rpf-row" id="txDebtPayRow" style="display:none">
-          <select class="tfi-sel" id="txDebtPay" style="flex:1"><option value="">Payment toward debt (optional)</option></select>
+          <select class="tfi-sel" id="txDebtPay" style="flex:1" aria-label="Apply payment toward debt"><option value="">Payment toward debt (optional)</option></select>
         </div>
         <div class="rpf-row" id="txBktRow">
-          <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1"><option value="">Category...</option></select>
-          <select class="tfi-sel" id="txBkt" style="flex:1"><option value="">Bucket...</option></select>
+          <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1" aria-label="Category"><option value="">Category...</option></select>
+          <select class="tfi-sel" id="txBkt" style="flex:1" aria-label="Bucket"><option value="">Bucket...</option></select>
         </div>
         <div class="rpf-row" id="txXfrRow" style="display:none">
-          <select class="tfi-sel" id="txXfrTo" style="flex:1"><option value="">To account...</option></select>
+          <select class="tfi-sel" id="txXfrTo" style="flex:1" aria-label="Transfer to account"><option value="">To account...</option></select>
         </div>
         <div class="rpf-row rpf-submit-row">
           <label class="rec-chk" style="flex:1"><input type="checkbox" id="txRec"> ↻ Recurring</label>
@@ -5505,7 +5518,7 @@ function openPayDebtModal(aid){
   document.getElementById('overlay').classList.remove('hidden');
   box.innerHTML=`<div class="modal-head">
     <div class="modal-title">💳 Pay Debt — ${esc(acct.name)}</div>
-    <button class="modal-close" onclick="closeModal()">×</button>
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
   </div>
   <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:20px">
     <div style="font-size:13px;color:var(--text2)">Balance: <strong class="c-red">${$f(bal)}</strong>${acct.debtAPR?` · <span style="color:var(--text2)">${acct.debtAPR}% APR</span>`:''}</div>
@@ -5806,7 +5819,7 @@ function drillCatSpend(catId,mid){
   document.getElementById('overlay').classList.remove('hidden');
   box.innerHTML=`<div class="modal-head">
     <div class="modal-title" style="color:${cat.color||'var(--accent)'}">${esc(cat.name)} Transactions</div>
-    <button class="modal-close" onclick="closeModal()">×</button>
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
   </div>
   <div class="modal-body" style="padding:0 20px;max-height:60vh;overflow-y:auto">
     <div style="padding:12px 0 4px;display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
@@ -6426,7 +6439,7 @@ function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
     </div>
     <div class="tx-acts">
       ${tx.reconciled?'<span title="Reconciled" class="c-green" style="font-size:10px;padding:0 4px">✓</span>':''}
-      ${!tx.autoGenerated?(!tx.reconciled?`<button class="ib" onclick="${editFn}('${tx.id}')">✎</button><button class="ib del" onclick="delTx('${tx.id}')">×</button>`:`<button class="ib" onclick="${editFn}('${tx.id}')">✎</button>`):''}
+      ${!tx.autoGenerated?(!tx.reconciled?`<button class="ib" onclick="${editFn}('${tx.id}')" aria-label="Edit transaction" title="Edit">✎</button><button class="ib del" onclick="delTx('${tx.id}')" aria-label="Delete transaction" title="Delete">×</button>`:`<button class="ib" onclick="${editFn}('${tx.id}')" aria-label="Edit transaction" title="Edit">✎</button>`):''}
     </div>
   </div>`;
 }
@@ -6456,7 +6469,7 @@ function setAlloc(mid,bid,val){
   if(!_allocMonthGuard(mid))return;
   if(!m.allocations)m.allocations={};
   m.allocations[bid]=Math.max(parseFloat(val)||0,0);
-  save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
+  save();renderTopbar();renderNav();renderActivePane();refreshBucketDetail();
   setTimeout(()=>checkGoalCelebrations(mid),100);
 }
 function setPreAlloc(fmid,bid,val){
@@ -6537,19 +6550,19 @@ function commitAlloc(mid,bid){
   if(!_allocMonthGuard(mid))return;
   const val=parseFloat(document.getElementById('aerAlloc')?.value)||0;
   if(!m.allocations)m.allocations={};
-  m.allocations[bid]=val;save();renderTopbar();renderSidebar();renderMain();refreshBucketDetail();
+  m.allocations[bid]=val;save();renderTopbar();renderNav();renderActivePane();refreshBucketDetail();
 }
 function updateBudget(bid){
   const m=getMonth(S.activeMonth);if(!m)return;
   if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
   const val=parseFloat(document.getElementById('aerBudget')?.value)||0;
-  m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderMain();refreshBucketDetail();
+  m.budgets[bid]=val;const b=getBucket(bid);if(b)b.defaultBudget=val;save();renderActivePane();refreshBucketDetail();
 }
 function applySmartTarget(bid,val){
   const b=getBucket(bid);if(!b)return;
   b.defaultBudget=val;
   const m=getMonth(S.activeMonth);if(m){if(!m.budgets)m.budgets={};m.budgets[bid]=val;}
-  save();renderMain();showToast('Target set to '+$f(val),'save');
+  save();renderActivePane();showToast('Target set to '+$f(val),'save');
 }
 // Phase 9: Statistical Intelligence helpers
 function bucketSpendSuggestion(bid,mid){
@@ -7009,7 +7022,7 @@ async function wiNarrateScenario(){
   const narEl=document.getElementById('wi-narrate');
   const box=document.getElementById('modalBox');
   document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Scenario Analysis</div><button class="modal-close" onclick="closeModal()">×</button></div>
+  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Scenario Analysis</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
     <div class="modal-body" id="wiNarrBody" style="padding:20px;min-height:120px;display:flex;align-items:center;justify-content:center">
       <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div>
     </div>
@@ -7218,7 +7231,7 @@ function loadScenario(id){
   if(!sc)return;
   S.wiScenario=JSON.parse(JSON.stringify(sc));
   S.scenario=true;
-  renderWI();renderMain();
+  renderWI();renderActivePane();
 }
 
 function deleteScenario(id){
@@ -8594,9 +8607,7 @@ function _refreshDebtPlanner(){
   if(scroll)scroll.innerHTML=debtPlannerHtml();
 }
 function debtPlannerHtml(){
-  const debts=S.accounts.filter(a=>a.type==='debt').map(a=>({
-    id:a.id,name:a.name,balance:acctBalance(a.id),apr:a.debtAPR||0,minPayment:a.debtMinPayment||0
-  })).filter(d=>d.balance>0);
+  const debts=normalizeDebts();
   if(!debts.length)return`<div class="c-text3" style="padding:16px 0">No active debts to plan.</div>`;
   const extra=_debtExtra;
   const avalanche=[...debts].sort((a,b)=>b.apr-a.apr);
@@ -9081,6 +9092,7 @@ function reportCatHistoryHtml(){
     <label class="c-text3" style="font-size:12px">Show:</label>
     <select class="fi" style="width:auto" onchange="_catHistMonths=parseInt(this.value);setReportsTab('cathistory')">${nOpts}</select>
   </div>
+  <div class="rpt-chart-card" style="margin-bottom:16px"><div class="rpt-chart-title">Category Spending by Month</div><div class="rpt-chart-wrap"><canvas id="rpt-chart-cathistory"></canvas></div></div>
   <div style="overflow-x:auto"><table class="report-table">
     <thead><tr><th style="text-align:left">Category</th>${hdrs}</tr></thead>
     <tbody>${catRows||'<tr><td colspan="99" class="c-text3">No spending data.</td></tr>'}</tbody>
@@ -10381,7 +10393,7 @@ function moveCat(id,dir){
   const tmp=sorted[idx].order;
   sorted[idx].order=sorted[swapIdx].order;
   sorted[swapIdx].order=tmp;
-  save();renderSidebar();renderMain();
+  save();renderNav();renderActivePane();
 }
 
 function moveBkt(id,dir){
@@ -10394,7 +10406,7 @@ function moveBkt(id,dir){
   const tmp=sorted[idx].order;
   sorted[idx].order=sorted[swapIdx].order;
   sorted[swapIdx].order=tmp;
-  save();renderSidebar();renderMain();
+  save();renderNav();renderActivePane();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -10420,14 +10432,14 @@ function exportData(){
   URL.revokeObjectURL(url);
   // Record last export time
   localStorage.setItem('bcc_last_export', Date.now().toString());
-  renderSidebar();
+  renderNav();
   // Brief confirmation
   const btn=event?.currentTarget;
   if(btn){
     const orig=btn.innerHTML;
     btn.style.color='var(--green)';
     btn.querySelector('span').textContent='✓ Exported!';
-    setTimeout(()=>{btn.style.color='';renderSidebar();},2000);
+    setTimeout(()=>{btn.style.color='';renderNav();},2000);
   }
 }
 
