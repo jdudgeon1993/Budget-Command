@@ -341,9 +341,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .cc-coach-top{display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:start;}
 .cc-score-wrap{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:16px 12px;text-align:center;flex-shrink:0;}
 .cc-score-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;}
-.cc-score-num{font-family:var(--mono);font-size:40px;font-weight:700;line-height:1;letter-spacing:-1px;}
-.cc-score-grade{font-size:12px;font-weight:700;margin-top:3px;}
-.cc-score-sub{font-size:10px;color:var(--text3);margin-top:2px;text-transform:capitalize;}
+.cc-score-num{font-family:var(--mono);font-size:38px;font-weight:700;line-height:1;letter-spacing:-.5px;}
+.cc-score-grade{font-size:11px;font-weight:500;margin-top:4px;text-transform:uppercase;letter-spacing:.4px;}
+.cc-score-sub{font-size:10px;color:var(--text3);margin-top:3px;text-transform:capitalize;}
 .cc-nba-wrap{display:flex;flex-direction:column;gap:8px;min-height:80px;}
 .cc-nba-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
 .cc-nba-body{display:flex;gap:10px;align-items:flex-start;flex:1;}
@@ -2733,7 +2733,7 @@ ${paycheckLines.length?'Paychecks this month:\n'+paycheckLines.join('\n'):'No pa
 ${skippedLine}
 ${billLines?'Recurring bills:\n'+billLines:''}
 ${schedLines.length?'Upcoming scheduled transactions:\n'+schedLines.join('\n'):''}
-${ruleLines?'Internal allocation rules (bucket splits from take-home):\n'+ruleLines:''}
+${ruleLines?'Allocation rules (on-payday bucket splits):\n'+ruleLines:''}
 ${goalLines?'Savings goals:\n'+goalLines:''}
 Buckets (use exact [ID] for actions):
 ${bktLines}
@@ -3478,7 +3478,7 @@ function coachingPanelHtml(mid){
       <div class="cc-score-wrap">
         <div class="cc-score-label">Age of Money</div>
         <div class="cc-score-num" style="color:var(--${aomCls2})">${aomVal!==null?aomVal:'—'}</div>
-        <div class="cc-score-grade" style="color:var(--${aomCls2})">${aomVal!==null?'days':''}</div>
+        <div class="cc-score-grade" style="color:var(--text3);font-weight:400">${aomVal!==null?'days':'no data'}</div>
         <div class="cc-score-sub">${aomSub}</div>
       </div>
       <div class="cc-nba-wrap">
@@ -4743,16 +4743,20 @@ function renderOverviewTab(el,mid){
           <div class="cc-nm-stat-val" style="color:${rtsColor}">${$f(Math.abs(rts))}</div>
         </div>
         <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Income</div>
+          <div class="cc-nm-stat-val" style="color:var(--green)">${income>0?$f(income):'—'}</div>
+        </div>
+        <div class="cc-nm-stat">
           <div class="cc-nm-stat-lbl">Spent</div>
           <div class="cc-nm-stat-val">${spendPctTxt}</div>
         </div>
         <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Net Worth</div>
-          <div class="cc-nm-stat-val" style="color:${nw>=0?'var(--text)':'var(--red)'}">${$f(nw)}</div>
-        </div>
-        <div class="cc-nm-stat">
           <div class="cc-nm-stat-lbl">Age of Money</div>
           <div class="cc-nm-stat-val" style="color:var(--${aomCls})">${aom!==null?aom+'d':'—'}</div>
+        </div>
+        <div class="cc-nm-stat">
+          <div class="cc-nm-stat-lbl">Net Worth</div>
+          <div class="cc-nm-stat-val" style="color:${nw>=0?'var(--text)':'var(--red)'}">${$f(nw)}</div>
         </div>
         <div class="cc-nm-stat">
           <div class="cc-nm-stat-lbl">Funded</div>
@@ -4772,7 +4776,7 @@ function renderOverviewTab(el,mid){
       <div class="cc-hero-label">${st==='future'?'Available Pool':'Ready to Spend'}</div>
       <div class="cc-hero-val" id="heroRtsVal" style="color:${rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)'}">${$f(Math.abs(rts))}</div>
       <div class="cc-hero-sub">
-        <span class="cc-hero-badge ${rtsBadgeCls}" id="heroRtsBadge">${st==='future'?'today\'s unallocated cash':rtsBadgeTxt}</span>
+        <span class="cc-hero-badge ${rtsBadgeCls}" id="heroRtsBadge">${st==='future'?'give every dollar a job':rtsBadgeTxt}</span>
       </div>
     </div>
     <div class="cc-hero-card">
@@ -5471,11 +5475,11 @@ function renderReportsTab(el){
   const tabs=[
     {id:'month',icon:'📅',label:'Month'},
     {id:'bva',icon:'⚖',label:'Budget vs Actual'},
-    {id:'ytd',icon:'📆',label:'Year to Date'},
     {id:'catspend',icon:'🗂',label:'By Category'},
     {id:'cashflow',icon:'📊',label:'Cash Flow'},
+    {id:'ytd',icon:'📆',label:'Year to Date'},
     {id:'incomesrc',icon:'💵',label:'Income Sources'},
-    {id:'cathistory',icon:'📈',label:'Cat Trends'},
+    {id:'cathistory',icon:'📈',label:'Trends'},
     {id:'networth',icon:'◈',label:'Net Worth'},
   ];
   let content='';
@@ -5624,7 +5628,7 @@ function renderSettingsTab(el){
   <!-- ── 1. Income Sources ──────────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Income Sources</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Your regular paychecks — used app-wide for projected income, the Paycheck Projector, and Payday Rules below.</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Your regular paychecks — powers the Paycheck Projector, projected income, and the allocation rules below.</div>
     ${pcRows}
     <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
   </div>
@@ -5632,7 +5636,7 @@ function renderSettingsTab(el){
   <!-- ── 2. On Payday ───────────────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">On Payday</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:14px">Rules that fire automatically when you log income — splits your take-home across budget buckets. You confirm before anything is applied.</div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:14px">When you log a paycheck, these rules suggest how to split it across your buckets — giving every dollar a job before you spend it. You review and confirm each time.</div>
     ${allocationRulesHtml()}
   </div>
 
@@ -7495,7 +7499,7 @@ function wiRunProjector(){
       bodyHtml+=runBalRow(ledgerBal);
     }
 
-    // 2. Internal Transfers (budget allocations — no real cash movement)
+    // 2. Bucket Allocations (no cash movement)
     if(pCommit.length){
       const allocMap={};
       pCommit.forEach(e=>{if(!allocMap[e.desc])allocMap[e.desc]={amount:0,catColor:e.catColor};allocMap[e.desc].amount+=e.amount;});
@@ -7515,8 +7519,8 @@ function wiRunProjector(){
       ).join('');
       bodyHtml+=`<div style="padding:5px 0 0">
         <div style="display:flex;align-items:center;gap:6px;padding:4px 0 2px">
-          <span style="font-size:12px;font-weight:700;color:var(--text2)">Internal Transfers</span>
-          <span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px">no cash impact</span>
+          <span style="font-size:12px;font-weight:700;color:var(--text2)">Bucket Allocations</span>
+          <span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px">no cash movement</span>
         </div>
         <div style="overflow-x:auto"><table class="report-table" style="margin-top:0">
           <tr><th>Bucket</th><th>Current</th><th>Allocated</th><th style="color:var(--accent)">After</th></tr>
@@ -7527,7 +7531,7 @@ function wiRunProjector(){
       </div>`;
     }
 
-    // 4. Expenses grouped by date with per-date running balance
+    // 3. Expenses grouped by date with per-date running balance
     if(pOut.length){
       const expByDay={},expDayOrd=[];
       pOut.forEach(o=>{if(!expByDay[o.date]){expByDay[o.date]=[];expDayOrd.push(o.date);}expByDay[o.date].push(o);});
@@ -8322,7 +8326,7 @@ function reportMonthHtml(mid){
   }).join('\n');
   const _rts=readyToSpend(mid);
   const _monthInsight=_rts>=0
-    ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span><strong>${$f(_rts)}</strong> is sitting unallocated — give it a bucket to make every dollar count.</div>`
+    ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span><strong>${$f(_rts)}</strong> is ready to spend — assign it a bucket to give every dollar a job.</div>`
     :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>You're <strong>${$f(Math.abs(_rts))}</strong> over-allocated — your buckets claim more than your available cash. Reduce some allocations or add income.</div>`;
   return `<p class="rpt-desc">A full breakdown of every bucket this month — what was budgeted, how much you allocated, what was spent, and what remains. Use this to reconcile your plan against reality.</p>
   ${_monthInsight}
@@ -8371,7 +8375,7 @@ function reportBvAHtml(mid){
   const _bvaInsight=_bvaVariance>=0
     ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span>You're <strong>${$f(_bvaVariance)}</strong> under budget overall — spending is on track.</div>`
     :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>You've exceeded your budget by <strong>${$f(Math.abs(_bvaVariance))}</strong>. Check which buckets went over and adjust next month's plan.</div>`;
-  return`<p class="rpt-desc">Budget vs Actual — compares what you planned to spend (budget) against what you actually spent. A positive variance means you came in under budget; negative means you overspent.</p>
+  return`<p class="rpt-desc">Did your plan match reality? Compares what you budgeted against what you actually spent, bucket by bucket. Under budget is green; overspent is red.</p>
   ${_bvaInsight}
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <label class="c-text3" style="font-size:12px">Month:</label>
@@ -8566,7 +8570,7 @@ function reportIncomeSourcesHtml(mid){
   const _srcInsight=_srcCount>1
     ?`<div class="rpt-insight good"><span class="rpt-insight-icon">✓</span>You have <strong>${_srcCount} income sources</strong> this month — multiple streams reduce financial risk.</div>`
     :`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span>All income is coming from one source. Diversifying income streams (side projects, investments) improves financial resilience.</div>`;
-  return`<p class="rpt-desc">A breakdown of where your income came from this month — by account. Useful for understanding income diversification and spotting months where you relied heavily on a single source.</p>
+  return`<p class="rpt-desc">Where your income came from — broken down by account and source. Useful for spotting months you relied on a single paycheck and planning when income is variable.</p>
   ${_srcCount?_srcInsight:''}
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
     <label class="c-text3" style="font-size:12px">Month:</label>
