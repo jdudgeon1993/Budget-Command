@@ -4080,7 +4080,7 @@ function monthCloseHtml(mid){
         <input class="fi mono" id="mcStmt_${a.id}" type="number" step="0.01" value="${appBal.toFixed(2)}" style="width:90px;padding:3px 6px;font-size:12px" oninput="mcUpdateDisc('${a.id}')" placeholder="Statement bal" />
         <span class="mc-disc zero" id="mcDisc_${a.id}">✓ Match</span>
         <button class="tbtn" id="mcApprove_${a.id}" style="font-size:11px;padding:3px 8px;display:none" onclick="mcApproveAdjustment('${a.id}','${mid}')">Adjust</button>
-        ${unrecon>0?`<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="closeModal();openReconcile('${a.id}',()=>openMonthClose('${mid}'))">Reconcile (${unrecon})</button>`:''}
+        ${unrecon>0?`<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="closeModal();openReconcile('${a.id}',()=>openMonthClose('${mid}'),'${mid}')">Reconcile (${unrecon})</button>`:''}
       </div>`;
     }).join('');
   }
@@ -8198,11 +8198,13 @@ function gsNavigate(monthId,txId){
 // ═══════════════════════════════════════════════════════
 let _reconChecked=new Set();
 let _reconOnFinish=null;
-function openReconcile(acctId,onFinish=null){
+let _reconScopeMid=null;
+function openReconcile(acctId,onFinish=null,scopeMid=null){
   _reconChecked=new Set();
   _reconOnFinish=onFinish||null;
+  _reconScopeMid=scopeMid||null;
   const a=getAcct(acctId);if(!a)return;
-  const txCount=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled).length;
+  const txCount=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid)).length;
   openRSheet(
     `Reconcile — ${esc(a.name)}`,
     reconBodyHtml(acctId),
@@ -8213,7 +8215,7 @@ function openReconcile(acctId,onFinish=null){
   );
 }
 function reconMarkAll(acctId){
-  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled)
+  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid))
        .forEach(t=>_reconChecked.add(t.id));
   reconRefresh(acctId);
 }
@@ -8222,7 +8224,8 @@ function reconBodyHtml(acctId){
   const clearedBal=acctBalance(acctId);
   const txs=S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
-    t.type!=='opening'&&!isScheduled(t)&&!t.reconciled
+    t.type!=='opening'&&!isScheduled(t)&&!t.reconciled&&
+    (!_reconScopeMid||t.monthId===_reconScopeMid)
   ).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const reconBal=S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
@@ -8302,7 +8305,7 @@ function reconRefresh(acctId){
   if(body)body.innerHTML=reconBodyHtml(acctId);
   const inp=document.getElementById('reconStmtBal');if(inp)inp.value=prevBal;
   if(body)body.scrollTop=prevScroll;
-  const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled).length;
+  const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid)).length;
   const st=document.getElementById('reconStatus');if(st)st.textContent=`${_reconChecked.size} of ${total} checked`;
   const btn=document.getElementById('reconFinishBtn');
   if(btn){btn.textContent=`Mark Reconciled (${_reconChecked.size})`;btn.disabled=_reconChecked.size===0;}
