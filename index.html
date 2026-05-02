@@ -371,14 +371,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ai-regen:hover{color:var(--accent);}
 .ai-error{font-size:12px;color:var(--red);}
 .ai-section{border-top:1px solid var(--border);padding-top:11px;margin-top:2px;}
-/* AI Allocation Draft */
-.ai-draft-table{width:100%;border-collapse:collapse;}
-.ai-draft-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);}
-.ai-draft-table td{padding:9px 8px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
-.ai-draft-table tr:last-child td{border-bottom:none;}
-.ai-draft-reason{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4;}
-.ai-draft-inp{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);color:var(--text);width:80px;text-align:right;outline:none;}
-.ai-draft-inp:focus{border-color:var(--accent);}
 /* AI Monthly Report */
 .ai-report-text{font-size:13px;line-height:1.8;color:var(--text2);white-space:pre-wrap;}
 /* Debt Strategy */
@@ -2136,7 +2128,7 @@ async function signOut(){
   // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
      activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
-     wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[],externalRules:[]};
+     wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
@@ -2205,11 +2197,10 @@ let S={
   onboarded:false,
   payees:[],  // {id,name,defaultBucketId?} — saved from transaction descriptions
   allocationRules:[], // {id,name,bucketId,type:'pct'|'fixed',value,active}
-  externalRules:[],   // {id,label,type:'pct'|'fixed',value,fromAccountId,toAccountId,active}
   recurringBills:[], // {id,desc,amount,bucketId,accountId,type:'out'|'in',dayOfMonth,active}
   paychecks:[],      // {id,label,amount,freq,anchorDate} — saved income sources, shared app-wide
-  milestones:[],     // [milestoneId,...] — earned milestone IDs
 };
+
 // ── Save: localStorage immediately + Supabase async ────────────────────────
 function save(){
   if(!_appInitialized)return; // Never save before app is ready (prevents writing during/after signout)
@@ -2339,9 +2330,7 @@ async function loadFromSupabase(){
   if(!S.txFilter)S.txFilter='all';
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
-  if(!S.externalRules)S.externalRules=[];
   if(!S.recurringBills)S.recurringBills=[];
-  if(!S.milestones)S.milestones=[];
   cleanupRecurringTxs();
   generateRecurringTxs();
 
@@ -2367,9 +2356,7 @@ function load(){
   if(!S.txFilter)S.txFilter='all';
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
-  if(!S.externalRules)S.externalRules=[];
   if(!S.recurringBills)S.recurringBills=[];
-  if(!S.milestones)S.milestones=[];
   normalizeCatOrder();
   normalizeBktOrder();
   cleanupRecurringTxs();
@@ -2571,26 +2558,6 @@ function toggleSkipBucket(bid,mid){
   save();renderTopbar();renderNav();renderActivePane();
 }
 
-// ── Milestones ───────────────────────────────────────────────────────────────
-const MILESTONES=[
-  {id:'first_close',  label:'First Month Closed',    icon:'🔒', check:()=>S.months.some(m=>m.closed)},
-  {id:'aom_30',       label:'30-Day Cash Buffer',     icon:'⏱', check:()=>{const a=ageOfMoney();return a!==null&&a>=30;}},
-  {id:'fully_funded', label:'Every Bucket Funded',    icon:'✅', check:()=>{const mid=currentMonthId();const bkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid)&&bBudget(mid,b.id)>0);return bkts.length>0&&bkts.every(b=>bAlloc(mid,b.id)>=bBudget(mid,b.id));}},
-  {id:'nw_positive',  label:'Positive Net Worth',     icon:'📈', check:()=>calcNetWorth()>0},
-  {id:'3mo_closed',   label:'3 Months Closed',        icon:'🗓', check:()=>S.months.filter(m=>m.closed).length>=3},
-  {id:'debt_paid',    label:'First Debt Eliminated',  icon:'🎉', check:()=>S.accounts.some(a=>a.type==='debt'&&(a.debtMinPayment||0)>0&&acctBalance(a.id)<=0.01)},
-  {id:'aom_60',       label:'60-Day Cash Buffer',     icon:'🏆', check:()=>{const a=ageOfMoney();return a!==null&&a>=60;}},
-];
-function checkMilestones(){
-  if(!S.milestones)S.milestones=[];
-  const fresh=[];
-  MILESTONES.forEach(ms=>{if(!S.milestones.includes(ms.id)&&ms.check()){S.milestones.push(ms.id);fresh.push(ms);}});
-  if(fresh.length){
-    save();
-    fresh.forEach(ms=>showToast(`${ms.icon} Milestone: ${ms.label}!`,'save'));
-  }
-}
-
 // ── AI / Gemini Foundation ────────────────────────────────────────────────────
 const AI_KEY='bcc_ai_v1';
 const _aiCache={};  // session-only — never persisted
@@ -2670,7 +2637,6 @@ function buildBudgetContext(mid){
   const totalBudget=activeBkts.reduce((s,b)=>s+bBudget(mid,b.id),0);
   const overspent=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01;});
   const unfunded=activeBkts.filter(b=>bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0);
-  const hs=computeHealthScore(mid);
   const debts=normalizeDebts();
   const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
   const savRates=past3.map(mo=>{const inc=monthIncome(mo.id);const sp=activeBkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?Math.round((inc-sp)/inc*100):null;}).filter(r=>r!==null);
@@ -2722,20 +2688,9 @@ function buildBudgetContext(mid){
     return`  ${r.name}: ${r.type==='pct'?r.value+'% of income':'$'+r.value+'/paycheck'} → ${b.name}`;
   }).join('\n');
 
-  // External rules (bank-side auto-transfers on payday)
-  const extRuleLines=(S.externalRules||[]).filter(r=>r.active!==false).map(r=>{
-    const toAcct=S.accounts.find(a=>a.id===r.toAccountId);
-    return`  ${r.label||'Auto-transfer'}: ${r.type==='pct'?r.value+'% of paycheck':'$'+r.value+' flat'} → ${toAcct?toAcct.name:'unknown account'}`;
-  }).join('\n');
-
   // Account balances
   const acctLines=S.accounts.map(a=>`  ${a.name} (${a.type}): $${acctBalance(a.id).toFixed(2)}`).join('\n');
 
-  // Category anomalies (statistical spend spikes)
-  const anomalyLines=sortedCats().map(cat=>{
-    const an=catAnomalyCheck(cat.id,mid);
-    return an?`  ⚠ ${cat.name}: $${an.cur.toFixed(0)} this month — $${an.excess.toFixed(0)} above 12-month avg (${an.z}σ spike)`:null;
-  }).filter(Boolean).join('\n');
 
   // Income trend (last 3 months)
   const incomeHistory=past3.map(mo=>`${mo.label}=$${monthIncome(mo.id).toFixed(0)}`).join(', ');
@@ -2766,20 +2721,18 @@ function buildBudgetContext(mid){
   return`BUDGET CONTEXT — ${m.label} | Status: ${st} | Day ${dayOfMonth}/${daysInMonth} (${daysLeft} days left) | Spending: ${velocityStr}
 ${incomeBlock}
 Budget target: $${totalBudget.toFixed(0)} | Spent: $${totalSpent.toFixed(0)} | Ready to Spend: $${rts.toFixed(0)}
-Health: ${hs.score}/100 (${hs.grade}) | Age of Money: ${aom!=null?aom+'d':'unknown'} | Net Worth: $${nw.toFixed(0)}
+Age of Money: ${aom!=null?aom+'d':'unknown'} | Net Worth: $${nw.toFixed(0)}
 ${savRates.length?'3-month avg savings rate: '+Math.round(savRates.reduce((s,v)=>s+v,0)/savRates.length)+'%':''}
 ${incomeHistory?'Income trend: '+incomeHistory:''}
 ${overspent.length?'OVERSPENT: '+overspent.map(b=>`${b.name} $${(bSpent(mid,b.id)-(bAlloc(mid,b.id)+rolloverBal(b.id,mid))).toFixed(0)} over`).join(', '):'No overspent buckets'}
 ${unfunded.length?'Unfunded (target set, no allocation): '+unfunded.map(b=>b.name).join(', '):'All buckets funded'}
 ${debts.length?'Debts: '+debts.map(d=>`${d.name} $${d.balance.toFixed(0)}${d.apr?' @'+d.apr+'%':''}`).join(' | '):'No debts'}
-${anomalyLines?'SPENDING SPIKES:\n'+anomalyLines:''}
 Accounts:
 ${acctLines}
 ${paycheckLines.length?'Paychecks this month:\n'+paycheckLines.join('\n'):'No paycheck schedule set'}
 ${skippedLine}
 ${billLines?'Recurring bills:\n'+billLines:''}
 ${schedLines.length?'Upcoming scheduled transactions:\n'+schedLines.join('\n'):''}
-${extRuleLines?'External paycheck auto-transfers (bank-side, before budgeting):\n'+extRuleLines:''}
 ${ruleLines?'Internal allocation rules (bucket splits from take-home):\n'+ruleLines:''}
 ${goalLines?'Savings goals:\n'+goalLines:''}
 Buckets (use exact [ID] for actions):
@@ -3148,33 +3101,6 @@ function dismissChatActions(idx){
 }
 
 // ── Phase 8a: Spending Personality Report ─────────────────────────────────────
-async function openPersonalityReport(){
-  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
-  const past=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-6);
-  if(past.length<2){showToast('Need at least 2 closed months for a personality report','info');return;}
-  const box=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Your Money Personality</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
-    <div class="modal-body" id="persBody" style="min-height:200px;display:flex;align-items:center;justify-content:center">
-      <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
-        <span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing your patterns…</span></div>
-    </div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
-  const cats=S.cats.map(cat=>{
-    const bkts=S.buckets.filter(b=>b.catId===cat.id&&!b.archived);
-    const byMonth=past.map(mo=>({label:mo.label,spent:bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0)}));
-    return`${cat.name}: ${byMonth.map(m=>`${m.label} $${m.spent.toFixed(0)}`).join(', ')}`;
-  }).join('\n');
-  const income=past.map(mo=>({label:mo.label,inc:monthIncome(mo.id)}));
-  const sys=`You are a financial personality analyst. Based on the user's real spending patterns over several months, write a "Money Personality" analysis in 4-5 plain-text paragraphs. Cover: their dominant spending pattern, their strongest financial habit, their biggest vulnerability, and one specific strategy to improve. Use their actual category names and dollar amounts. No markdown, no bullets, no headers — flowing prose only.`;
-  try{
-    const text=await callGemini(`Income by month: ${income.map(m=>`${m.label} $${m.inc.toFixed(0)}`).join(', ')}\n\nCategory spending:\n${cats}`,sys,{maxTokens:500,temp:0.8});
-    document.getElementById('persBody').innerHTML=`<div class="ai-report-text">${esc(text)}</div>`;
-  }catch(err){
-    document.getElementById('persBody').innerHTML=`<div style="color:var(--red);text-align:center;padding:20px">Error: ${esc(err.message)}</div>`;
-  }
-}
-
 // ── Phase 8b: Debt Strategy Advisor ──────────────────────────────────────────
 async function openDebtStrategy(){
   if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
@@ -3222,92 +3148,6 @@ async function openDebtStrategy(){
   }catch{}
 }
 
-// ── Phase 8c: Income Variability (rule-based insight) ─────────────────────────
-function incomeVariabilityInsight(){
-  const past=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-4);
-  if(past.length<3)return null;
-  const incomes=past.map(mo=>monthIncome(mo.id)).filter(v=>v>0);
-  if(incomes.length<3)return null;
-  const avg=incomes.reduce((s,v)=>s+v,0)/incomes.length;
-  const max=Math.max(...incomes),min=Math.min(...incomes);
-  if((max-min)/avg<0.15)return null;
-  return{icon:'📊',msg:`Your income ranged from ${$f(Math.round(min))} to ${$f(Math.round(max))} over the last ${past.length} months. Building your budget around ${$f(Math.round(min))} (your lowest) protects you in slow months.`};
-}
-
-// ── Phase 9: AI Budget Builder ────────────────────────────────────────────────
-function openAIBudgetBuilder(){
-  if(!aiEnabled()){showToast('Add your Gemini key in Settings → AI Coach','info');return;}
-  _chatHistory=[];
-  const hasBuckets=S.buckets.filter(b=>!b.archived).length>0;
-  const intro=hasBuckets
-    ?`Let's review and improve your budget. I'll ask a few questions about your income, goals, and spending habits to give you specific suggestions. First — what's your take-home income each month after taxes?`
-    :`Welcome! I'll help you build your first budget in a few questions. Let's start: what's your approximate monthly take-home income after taxes?`;
-  _chatHistory.push({role:'model',parts:[{text:intro}]});
-  openChat();
-  refreshChatSuggestions();
-  setTimeout(()=>{
-    renderChatMessages();
-    document.getElementById('chatInp')?.focus();
-  },350);
-}
-
-// ── Phase 5: AI Allocation Draft ─────────────────────────────────────────────
-async function openAIDraftModal(mid){
-  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
-  const m=getMonth(mid);if(!m)return;
-  const box=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Draft Allocations</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
-    <div class="modal-body" id="aiDraftBody" style="min-height:180px;display:flex;align-items:center;justify-content:center">
-      <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
-        <span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing your spending history…</span></div>
-    </div>
-    <div class="modal-foot" id="aiDraftFoot"><button class="btn-cancel" onclick="closeModal()">Cancel</button></div>`;
-
-  const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
-  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
-  const unfunded=activeBkts.filter(b=>bAlloc(mid,b.id)<bBudget(mid,b.id)&&bBudget(mid,b.id)>0);
-  const bktCtx=unfunded.map(b=>{
-    const avg=past3.length?Math.round(past3.reduce((s,mo)=>s+bSpent(mo.id,b.id),0)/past3.length):0;
-    return`${b.name} (id:${b.id}): target $${bBudget(mid,b.id)}/mo, 3mo avg spent $${avg}, currently allocated $${bAlloc(mid,b.id)}`;
-  }).join('\n');
-  const rts=readyToSpend(mid);
-  const sys=`You are a budget allocation assistant. Suggest allocation amounts for each bucket based on history and targets. Return ONLY valid JSON array, no markdown. Each item: {"bucketId":"id","bucketName":"name","amount":number,"reason":"one short sentence max 12 words"}. Total of all amounts must not exceed $${rts.toFixed(0)}. Skip fully funded buckets. Only include buckets from the list.`;
-  try{
-    const text=await callGemini(`Available to allocate: $${rts.toFixed(0)}\n\nUnfunded/underfunded buckets:\n${bktCtx||'All funded'}`,sys,{maxTokens:700,temp:0.3});
-    let sugg=[];
-    try{sugg=JSON.parse(text.replace(/```json\n?|```/g,'').trim());}catch{}
-    if(!Array.isArray(sugg)||!sugg.length){
-      document.getElementById('aiDraftBody').innerHTML=`<div style="text-align:center;color:var(--text3);padding:24px">All buckets are already fully funded!</div>`;
-      return;
-    }
-    const rows=sugg.map((s,i)=>`<tr>
-      <td><strong>${esc(s.bucketName)}</strong><div class="ai-draft-reason">${esc(s.reason||'')}</div></td>
-      <td style="text-align:right"><input class="ai-draft-inp" id="aiDraft_${i}" type="number" step="0.01" min="0" value="${s.amount}" data-bid="${esc(s.bucketId)}" /></td>
-    </tr>`).join('');
-    document.getElementById('aiDraftBody').innerHTML=`
-      <p style="font-size:12px;color:var(--text3);margin:0 0 8px">Review amounts and adjust if needed.</p>
-      <table class="ai-draft-table"><thead><tr><th>Bucket</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>`;
-    document.getElementById('aiDraftFoot').innerHTML=`
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-save" onclick="applyAIDraft('${mid}',${sugg.length})">✦ Apply All</button>`;
-  }catch(err){
-    document.getElementById('aiDraftBody').innerHTML=`<div style="text-align:center;color:var(--red);padding:24px">Error: ${esc(err.message)}</div>`;
-  }
-}
-
-function applyAIDraft(mid,count){
-  let applied=0;
-  for(let i=0;i<count;i++){
-    const inp=document.getElementById(`aiDraft_${i}`);
-    if(!inp)continue;
-    const bid=inp.dataset.bid;const amt=parseFloat(inp.value)||0;
-    if(bid&&amt>0){setAlloc(mid,bid,bAlloc(mid,bid)+amt);applied++;}
-  }
-  closeModal();
-  if(applied)showToast(`${applied} bucket${applied>1?'s':''} funded by AI draft`,'save');
-}
-
 // ── Phase 6: Monthly Close AI Report ─────────────────────────────────────────
 async function generateMonthReport(mid){
   const m=getMonth(mid);if(!m)return;
@@ -3338,7 +3178,6 @@ function buildMonthEndReportHtml(mid){
   const spent=S.buckets.reduce((s,b)=>s+bSpent(mid,b.id),0);
   const net=income-spent;
   const savRate=income>0?Math.round(net/income*100):null;
-  const health=computeHealthScore(mid);
   const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   const mono="'Courier New',Courier,monospace";
 
@@ -3381,7 +3220,6 @@ function buildMonthEndReportHtml(mid){
   const notesHtml=m.notes?`<div style="margin-bottom:28px;padding:12px 16px;background:#faf5ff;border-left:3px solid #8b5cf6;border-radius:4px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#7c3aed;margin-bottom:6px">Month Notes</div><div style="font-size:12px;color:#374151;white-space:pre-wrap">${esc(m.notes)}</div></div>`:'';
   const aiHtml=m.aiReport?`<div style="margin-bottom:28px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px">AI Financial Review</div><div style="font-size:12px;color:#374151;line-height:1.6;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px">${esc(m.aiReport)}</div></div>`:'';
 
-  const healthColor=health.score>=80?'#059669':health.score>=65?'#0284c7':health.score>=50?'#d97706':'#dc2626';
   const metrics=[
     {label:'Income',val:$f(income),color:'#059669'},
     {label:'Spending',val:$f(spent),color:'#dc2626'},
@@ -3392,7 +3230,7 @@ function buildMonthEndReportHtml(mid){
   return`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;padding:40px;max-width:800px;margin:0 auto;background:#fff">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:32px;padding-bottom:16px;border-bottom:3px solid #111827">
     <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;margin-bottom:6px">Monthly Budget Report</div><div style="font-size:30px;font-weight:700;color:#111827;letter-spacing:-0.5px">${esc(m.label)}</div></div>
-    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Imperium Fisci</div><div style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;color:#fff;background:${healthColor}">Health: ${health.score}/100 · ${health.grade}</div></div>
+    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Imperium Fisci</div></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
     ${metrics.map(s=>`<div style="padding:14px 10px;border:1px solid #e5e7eb;border-radius:8px;text-align:center"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#9ca3af;margin-bottom:6px">${s.label}</div><div style="font-size:17px;font-weight:700;font-family:${mono};color:${s.color}">${s.val}</div></div>`).join('')}
@@ -3440,7 +3278,8 @@ function monthCloseSuccessHtml(mid){
   const spent=S.buckets.reduce((s,b)=>s+bSpent(mid,b.id),0);
   const net=income-spent;
   const savRate=income>0?Math.round(net/income*100):null;
-  const health=computeHealthScore(mid);
+  const aomVal=ageOfMoney();
+  const aomColor=aomVal===null?'var(--text2)':aomVal>=30?'var(--green)':aomVal>=14?'var(--amber)':'var(--red)';
 
   let compHtml='';
   if(prevM){
@@ -3452,7 +3291,6 @@ function monthCloseSuccessHtml(mid){
     </div>`;
   }
 
-  const healthColor=health.score>=80?'var(--green)':health.score>=65?'var(--blue)':health.score>=50?'var(--amber)':'var(--red)';
   const savColor=savRate===null?'var(--text2)':savRate>=20?'var(--green)':savRate>=10?'var(--amber)':'var(--red)';
 
   return`<div class="modal-head">
@@ -3479,9 +3317,9 @@ function monthCloseSuccessHtml(mid){
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg3);border-radius:var(--r);margin-bottom:4px">
-      <span style="font-size:12px;color:var(--text2)">Budget Health:</span>
-      <span style="font-family:var(--mono);font-size:15px;font-weight:700;color:${healthColor}">${health.score}/100</span>
-      <span style="font-size:11px;color:var(--text3)">(${health.grade} — ${health.sub})</span>
+      <span style="font-size:12px;color:var(--text2)">Age of Money:</span>
+      <span style="font-family:var(--mono);font-size:15px;font-weight:700;color:${aomColor}">${aomVal!==null?aomVal+'d':'—'}</span>
+      <span style="font-size:11px;color:var(--text3)">${aomVal!==null?aomVal>=30?'— a full month ahead 🎉':'— goal: 30 days':''}</span>
     </div>
     ${compHtml}
     ${m.aiReport?`<div class="hint-bar success" style="margin-top:10px;font-size:12px">✦ AI financial review ready — view from the month overview.</div>`:''}
@@ -3520,51 +3358,8 @@ async function explainAnomaly(txId){
   }catch{}
 }
 
-// ── Phase 7b: Recurring Pattern Detection ─────────────────────────────────────
-function detectRecurringPatterns(){
-  const existing=new Set((S.recurringBills||[]).map(b=>b.desc.toLowerCase().trim()));
-  const past3=[...S.months].filter(mo=>monthStatus(mo.id)==='past').sort((a,b)=>compareMid(a.id,b.id)).slice(-3);
-  if(past3.length<2)return[];
-  const byDesc={};
-  past3.forEach(mo=>{
-    S.txs.filter(t=>t.type==='out'&&!t.autoGenerated&&!t.recurringBillId&&t.monthId===mo.id).forEach(t=>{
-      const key=t.desc.toLowerCase().trim();
-      if(existing.has(key))return;
-      if(!byDesc[key])byDesc[key]=[];
-      byDesc[key].push(t);
-    });
-  });
-  return Object.values(byDesc).filter(txs=>{
-    const months=new Set(txs.map(t=>t.monthId));
-    if(months.size<2)return false;
-    const avg=txs.reduce((s,t)=>s+t.amount,0)/txs.length;
-    const variance=txs.map(t=>Math.abs(t.amount-avg)/avg).reduce((s,v)=>s+v,0)/txs.length;
-    return variance<0.15&&avg>5;
-  }).map(txs=>{
-    const avg=Math.round(txs.reduce((s,t)=>s+t.amount,0)/txs.length*100)/100;
-    return{desc:txs[0].desc,amount:avg,accountId:txs[0].accountId,bucketId:txs[0].bucketId||null};
-  }).slice(0,3);
-}
 
 // ── Financial Health Score ────────────────────────────────────────────────────
-function computeHealthScore(mid){
-  const activeBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid));
-  const aom=ageOfMoney();
-  const aomScore=aom===null?0:Math.min(aom/30,1)*30;
-  const withTarget=activeBkts.filter(b=>bBudget(mid,b.id)>0);
-  const fundedScore=withTarget.length>0?(withTarget.filter(b=>bAlloc(mid,b.id)>=bBudget(mid,b.id)).length/withTarget.length)*25:25;
-  const income=monthIncome(mid);
-  const spent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
-  const savScore=income>0?Math.min(Math.max((income-spent)/income/0.2,0),1)*20:0;
-  const overCnt=activeBkts.filter(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return bSpent(mid,b.id)>eff+0.01;}).length;
-  const overScore=overCnt===0?15:Math.max(0,15-overCnt*5);
-  const pastAll=S.months.filter(mo=>monthStatus(mo.id)==='past').length;
-  const closeScore=pastAll>0?(S.months.filter(mo=>monthStatus(mo.id)==='past'&&mo.closed).length/pastAll)*10:10;
-  const total=Math.min(100,Math.round(aomScore+fundedScore+savScore+overScore+closeScore));
-  const cls=total>=80?'green':total>=65?'accent':total>=50?'amber':'red';
-  return{score:total,cls,grade:total>=90?'A':total>=80?'B':total>=65?'C':total>=50?'D':'F',sub:total>=90?'excellent shape':total>=80?'on track':total>=65?'needs attention':'needs work'};
-}
-
 // ── Next Best Action ──────────────────────────────────────────────────────────
 function nextBestAction(mid){
   const m=getMonth(mid);if(!m)return null;
@@ -3614,7 +3409,6 @@ function getCoachingInsights(mid){
   const lastTx=[...S.txs].filter(t=>t.type!=='opening'&&!isScheduled(t)&&!t.autoGenerated).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
   if(lastTx){const days=Math.round((new Date()-new Date(lastTx.date+'T12:00:00'))/864e5);if(days>=7)ins.push({icon:'📝',msg:`No transactions recorded in ${days} days — your spending picture may be out of date.`});}
   if(income>0){const spent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);const rate=Math.round((income-spent)/income*100);if(rate>=20)ins.push({icon:'🎉',msg:`Savings rate this month: ${rate}% — above the 20% benchmark. Keep it up!`});}
-  const varIns=incomeVariabilityInsight();if(varIns)ins.push(varIns);
   return ins.slice(0,3);
 }
 
@@ -3672,32 +3466,20 @@ function nearLimitBuckets(mid){
     return pct>=0.8&&pct<1;
   }).map(b=>{const eff=bAlloc(mid,b.id)+rolloverBal(b.id,mid);return{b,pct:bSpent(mid,b.id)/eff};}).sort((a,c)=>c.pct-a.pct);
 }
-function weekInReviewHtml(mid){
-  if(new Date().getDay()!==1)return''; // Monday only
-  const now=new Date();const weekAgo=new Date(now-7*86400000);
-  const wkTxs=S.txs.filter(t=>t.monthId===mid&&t.type==='out'&&!t.autoGenerated&&!isScheduled(t)&&new Date(t.date+'T12:00:00')>=weekAgo);
-  if(!wkTxs.length)return'';
-  const total=wkTxs.reduce((s,t)=>s+t.amount,0);
-  const count=wkTxs.length;
-  const topBkt=getBucket(wkTxs.reduce((top,t)=>wkTxs.filter(x=>x.bucketId===t.bucketId).reduce((s,x)=>s+x.amount,0)>(top?wkTxs.filter(x=>x.bucketId===top.bucketId).reduce((s,x)=>s+x.amount,0):0)?t:top,null)?.bucketId);
-  return`<div style="background:color-mix(in srgb,var(--accent) 8%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 25%,var(--border));border-radius:10px;padding:10px 14px;margin-top:10px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);margin-bottom:5px">📅 Week in Review</div>
-    <div style="font-size:13px;color:var(--text1)">You spent <strong>${$f(total)}</strong> across <strong>${count}</strong> transaction${count!==1?'s':''} this week${topBkt?`, mostly on <strong>${esc(topBkt.name)}</strong>`:''}.
-    </div>
-  </div>`;
-}
 
 function coachingPanelHtml(mid){
-  const hs=computeHealthScore(mid);
+  const aomVal=ageOfMoney();
+  const aomCls2=aomVal===null?'text2':aomVal>=30?'green':aomVal>=14?'amber':'red';
+  const aomSub=aomVal===null?'not enough data':aomVal>=30?'a month ahead 🎉':aomVal>=14?'building buffer':'build your buffer';
   const nba=nextBestAction(mid);
   const insights=getCoachingInsights(mid);
   let h=`<div class="card card-pad cc-coach-card">
     <div class="cc-coach-top">
       <div class="cc-score-wrap">
-        <div class="cc-score-label">Budget Health</div>
-        <div class="cc-score-num" style="color:var(--${hs.cls})">${hs.score}</div>
-        <div class="cc-score-grade" style="color:var(--${hs.cls})">${hs.grade}</div>
-        <div class="cc-score-sub">${hs.sub}</div>
+        <div class="cc-score-label">Age of Money</div>
+        <div class="cc-score-num" style="color:var(--${aomCls2})">${aomVal!==null?aomVal:'—'}</div>
+        <div class="cc-score-grade" style="color:var(--${aomCls2})">${aomVal!==null?'days':''}</div>
+        <div class="cc-score-sub">${aomSub}</div>
       </div>
       <div class="cc-nba-wrap">
         <div class="cc-nba-label">Your Next Move</div>
@@ -3714,7 +3496,6 @@ function coachingPanelHtml(mid){
     h+=`<div class="ai-section">
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
         <span class="ai-badge">✦ AI Coach</span>
-        ${rts>0&&unfunded.length?`<button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2))" onclick="openAIDraftModal('${mid}')">✦ Draft Allocations</button>`:''}
       </div>
       <div id="ai-coach-wrap">
         <div class="ai-narrative-loading">
@@ -3729,33 +3510,11 @@ function coachingPanelHtml(mid){
     insights.forEach(i=>h+=`<div class="cc-insight-chip"><span class="cc-insight-icon">${i.icon}</span><span>${i.msg}</span></div>`);
     h+=`</div>`;
   }
-  // Recurring pattern suggestions (Phase 7b)
-  const patterns=detectRecurringPatterns();
-  if(patterns.length){
-    h+=`<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:7px">🔄 Detected Recurring</div>`;
-    patterns.forEach(p=>{
-      h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border)">
-        <span style="flex:1;color:var(--text2)">${esc(p.desc)} <span class="c-text3">~${$f(p.amount)}/mo</span></span>
-        <button class="tbtn" style="font-size:10px;padding:2px 8px" onclick="openRecurringBills()">Add →</button>
-      </div>`;
-    });
-    h+=`</div>`;
-  }
-  // Phase F: Week in Review (Mondays only)
-  const wir=weekInReviewHtml(mid);
-  if(wir)h+=wir;
-
   // Phase 8/9 action buttons
   const pastMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').length;
   const hasDebts=S.accounts.some(a=>a.type==='debt'&&acctBalance(a.id)>0.01);
-  const hasFewBuckets=S.buckets.filter(b=>!b.archived).length<4;
-  if(aiEnabled()){
-    const btns=[];
-    if(pastMonths>=2)btns.push(`<button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="openPersonalityReport()">✦ Money Personality</button>`);
-    if(hasDebts)btns.push(`<button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="openDebtStrategy()">✦ Debt Strategy</button>`);
-    if(hasFewBuckets)btns.push(`<button class="tbtn" style="font-size:11px;padding:4px 10px;color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2))" onclick="openAIBudgetBuilder()">✦ Build Budget</button>`);
-    if(btns.length)h+=`<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px;display:flex;flex-wrap:wrap;gap:7px">${btns.join('')}</div>`;
+  if(aiEnabled()&&hasDebts){
+    h+=`<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px;display:flex;flex-wrap:wrap;gap:7px"><button class="tbtn" style="font-size:11px;padding:4px 10px" onclick="openDebtStrategy()">✦ Debt Strategy</button></div>`;
   }
   h+=`</div>`;
   return h;
@@ -4477,7 +4236,6 @@ function initReportCharts(tab,mid){
   else if(tab==='catspend')_chartCatSpend(mid);
   else if(tab==='ytd')_chartYTD();
   else if(tab==='networth')_chartNetWorth();
-  else if(tab==='savingsrate')_chartSavingsRate();
   else if(tab==='cathistory')_chartCatHistory();
 }
 function _chartCashFlow(){
@@ -4596,30 +4354,6 @@ function _chartNetWorth(){
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${$f(ctx.raw)}`}}},
       scales:{x:_scaleX(c),y:_scaleY(c)}}});
-}
-function _chartSavingsRate(){
-  const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-12);
-  if(!months.length)return;
-  const c=_cc();
-  const nets=months.map(mo=>{
-    const inc=monthIncome(mo.id),sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
-    return inc-sp;
-  });
-  const rates=months.map(mo=>{
-    const inc=monthIncome(mo.id),sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
-    return inc>0?Math.round((inc-sp)/inc*100):null;
-  });
-  _mkChart('rpt-chart-savingsrate',{type:'bar',data:{
-    labels:months.map(mo=>mo.label),
-    datasets:[
-      {label:'Net Savings',data:nets,backgroundColor:nets.map(v=>v>=0?'rgba(16,185,129,0.6)':'rgba(239,68,68,0.6)'),borderColor:nets.map(v=>v>=0?c.green:c.red),borderWidth:1,borderRadius:3,order:2},
-      {label:'Rate %',data:rates,type:'line',borderColor:c.accent,backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:c.accent,yAxisID:'pct',order:1},
-    ]},options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:c.t2,font:{size:11},boxWidth:10}},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?` ${$f(ctx.raw)}`:` ${ctx.raw}%`}}},
-      scales:{
-        x:_scaleX(c),y:_scaleY(c),
-        pct:{position:'right',ticks:{color:c.t3,font:{size:10},callback:v=>v+'%'},grid:{display:false}},
-      }}});
 }
 
 function _chartCatHistory(){
@@ -4990,7 +4724,6 @@ function renderOverviewTab(el,mid){
 
   // ── Mobile "Your Next Move" card (replaces hero grid + coaching panel) ────
   {
-    const hs=computeHealthScore(mid);
     const nba=nextBestAction(mid);
     const spendPctTxt=alloc>0?Math.round(spendPct*100)+'%':'—';
     const rtsColor=rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)';
@@ -5020,10 +4753,6 @@ function renderOverviewTab(el,mid){
         <div class="cc-nm-stat">
           <div class="cc-nm-stat-lbl">Age of Money</div>
           <div class="cc-nm-stat-val" style="color:var(--${aomCls})">${aom!==null?aom+'d':'—'}</div>
-        </div>
-        <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Budget Health</div>
-          <div class="cc-nm-stat-val" style="color:var(--${hs.cls})">${hs.score}<span style="font-size:11px;margin-left:3px">${hs.grade}</span></div>
         </div>
         <div class="cc-nm-stat">
           <div class="cc-nm-stat-lbl">Funded</div>
@@ -5073,7 +4802,6 @@ function renderOverviewTab(el,mid){
   // ── Coaching panel (current month only) ───────────────────────────────────
   if(st==='present'){
     h+=coachingPanelHtml(mid);
-    checkMilestones();
   } else if(st==='past'&&m?.aiReport){
     h+=`<div class="card card-pad" style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -5649,7 +5377,6 @@ function renderBucketsTab(el,mid){
       if(db!==null&&db<=0&&(da===null||da>0))return 1;
       return (a.order??0)-(b.order??0);
     });
-    const catAnomaly=catAnomalyCheck(cat.id,mid);
     const catFundAmt=catBuckets.reduce((s,b)=>{const a=bAlloc(mid,b.id),t=bBudget(mid,b.id);return s+(a===0&&t>0?t:0);},0);
     const catAllocColor=catTarget>0?(catAlloc>=catTarget?'var(--green)':catAlloc>0?'var(--amber)':'var(--text3)'):'var(--text3)';
 
@@ -5657,7 +5384,6 @@ function renderBucketsTab(el,mid){
       <td colspan="6" style="color:${color}">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-weight:700">${esc(cat.name)}</span>
-          ${catAnomaly?`<span title="${catAnomaly.z}σ above average — ${$f(catAnomaly.excess)} more than usual" style="font-size:10px;font-weight:700;background:rgba(220,160,0,.12);border:1px solid rgba(220,160,0,.3);border-radius:4px;padding:1px 5px;cursor:default;color:var(--amber)">⚠ Spike</span>`:''}
           <span style="margin-left:auto;font-family:var(--mono);color:${catAllocColor}">${$f(catAlloc)}<span style="color:var(--text3);font-weight:400"> / ${$f(catTarget)}</span></span>
           ${!past&&catFundAmt>0?`<button class="bkt-cat-fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
           ${!past?`<button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>`:''}
@@ -5747,8 +5473,6 @@ function renderReportsTab(el){
     {id:'bva',icon:'⚖',label:'Budget vs Actual'},
     {id:'ytd',icon:'📆',label:'Year to Date'},
     {id:'catspend',icon:'🗂',label:'By Category'},
-    {id:'savingsrate',icon:'💰',label:'Savings Rate'},
-    {id:'payees',icon:'👤',label:'Payees'},
     {id:'cashflow',icon:'📊',label:'Cash Flow'},
     {id:'incomesrc',icon:'💵',label:'Income Sources'},
     {id:'cathistory',icon:'📈',label:'Cat Trends'},
@@ -5759,8 +5483,6 @@ function renderReportsTab(el){
   else if(reportsTab==='bva')content=reportBvAHtml(mid);
   else if(reportsTab==='ytd')content=reportYTDHtml();
   else if(reportsTab==='catspend')content=reportCatSpendHtml(mid);
-  else if(reportsTab==='savingsrate')content=reportSavingsRateHtml();
-  else if(reportsTab==='payees')content=reportPayeeBreakdownHtml();
   else if(reportsTab==='cashflow')content=reportCashFlowHtml();
   else if(reportsTab==='incomesrc')content=reportIncomeSourcesHtml(mid);
   else if(reportsTab==='cathistory')content=reportCatHistoryHtml();
@@ -5910,23 +5632,8 @@ function renderSettingsTab(el){
   <!-- ── 2. On Payday ───────────────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">On Payday</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:14px">Rules that fire automatically when you log income. External rules run first (bank-side transfers), then internal rules split what's left across your buckets.</div>
-
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">
-      External Rules <span style="font-weight:400">${(S.externalRules||[]).filter(r=>r.active!==false).length} active</span>
-      <span class="chip" style="font-size:9px;margin-left:6px;vertical-align:middle">bank-side</span>
-    </div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Transfers that leave your spending account automatically (e.g. 5% to savings). Logged as XFR transactions and factored into the Projector.</div>
-    ${externalRulesHtml()}
-
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px">
-        Internal Rules <span style="font-weight:400">${(S.allocationRules||[]).filter(r=>r.active!==false).length} active</span>
-        <span class="chip" style="font-size:9px;margin-left:6px;vertical-align:middle">bucket splits</span>
-      </div>
-      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Split your remaining take-home across budget buckets. Suggestions only — you confirm before anything is applied.</div>
-      ${allocationRulesHtml()}
-    </div>
+    <div class="c-text3" style="font-size:12px;margin-bottom:14px">Rules that fire automatically when you log income — splits your take-home across budget buckets. You confirm before anything is applied.</div>
+    ${allocationRulesHtml()}
   </div>
 
   <!-- ── 3. Budget Setup ────────────────────────────────── -->
@@ -6222,13 +5929,6 @@ function renderBucketDetail(mid,past,m){
         <button class="tbtn" style="font-size:11px;padding:3px 9px;white-space:nowrap" onclick="applySmartTarget('${b.id}',${sugg.suggested})">Apply ${$f(sugg.suggested)}</button>
       </div>`;
     }
-  }
-  // Anomaly alert (Phase 9)
-  const anomaly=catAnomalyCheck(b.catId,mid);
-  if(anomaly){
-    h+=`<div style="background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-top:6px;font-size:12px">
-      ⚠ <strong class="c-amber">Unusual spending</strong> — category is ${anomaly.z}σ above the 12-month average (${$f(anomaly.excess)} more than usual)
-    </div>`;
   }
   // Spending trend — last 6 completed months
   const trendMonths=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-6);
@@ -6582,18 +6282,7 @@ function bucketMoMTrend(bid,mid){
   if(!cur&&!prev)return null;if(!prev)return null;
   return{pct:Math.round((cur-prev)/prev*100),cur,prev};
 }
-function catAnomalyCheck(catId,mid){
-  const bkts=sortedBuckets(catId).filter(b=>!b.archived);if(!bkts.length)return null;
-  const all=[...S.months].sort((a,b)=>compareMid(a.id,b.id));
-  const ci=all.findIndex(m=>m.id===mid);if(ci<3)return null;
-  const hist=all.slice(Math.max(0,ci-12),ci);if(hist.length<3)return null;
-  const hSpends=hist.map(mo=>bkts.reduce((s,b)=>s+bSpent(mo.id,b.id),0));
-  const mean=hSpends.reduce((s,v)=>s+v,0)/hSpends.length;if(mean===0)return null;
-  const sd=Math.sqrt(hSpends.reduce((s,v)=>s+(v-mean)**2,0)/hSpends.length);if(sd===0)return null;
-  const cur=bkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
-  const z=(cur-mean)/sd;
-  return z>=2?{z:Math.round(z*10)/10,excess:Math.round((cur-mean)*100)/100,cur}:null;
-}
+
 function fundCategory(catId,mid){
   const m=getMonth(mid);if(!m)return;if(!m.allocations)m.allocations={};
   S.buckets.filter(b=>b.catId===catId&&!b.archived).forEach(b=>{
@@ -6647,13 +6336,11 @@ let txType='out';
 let editingTxId=null;
 let _editingRbId=null;
 let _editingArId=null;
-let _editingErId=null;
 let _editingPayeeId=null;
 let _inDetailPanel=false;
 let _ledgerPayee='';
 let _confirmCallback=null;
 let _txSearchTimer=null;
-let _payeePeriod='month';
 let _catHistMonths=6;
 let _debtExtra=200;
 let _projectorLastResult=null;
@@ -7528,20 +7215,6 @@ function wiRunProjector(){
   });
   payEvents.sort((a,b)=>a.date.localeCompare(b.date));
 
-  // ── Inject external-rule deduction events after each paycheck ────────────
-  const activeExtRules=(S.externalRules||[]).filter(r=>r.active!==false);
-  if(activeExtRules.length){
-    const deductEvents=[];
-    payEvents.forEach(ev=>{
-      activeExtRules.forEach(r=>{
-        const amt=r.type==='pct'?Math.round(ev.amount*(r.value/100)*100)/100:r.value;
-        deductEvents.push({date:ev.date,desc:r.label||'Auto-transfer',amount:amt,kind:'ext_deduct',linkedPay:ev.desc});
-      });
-    });
-    deductEvents.forEach(d=>payEvents.push(d));
-    payEvents.sort((a,b)=>a.date.localeCompare(b.date)||((a.kind==='pay'?0:1)-(b.kind==='pay'?0:1)));
-  }
-
   // ── Commitment events: internal allocation rules fire on each paycheck ────
   const commitEvents=[];
   {const activeIntRules=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived);
@@ -7680,7 +7353,7 @@ function wiRunProjector(){
   // ── Pre-compute period end balances + forward-min ─────────────────────────
   {let _pr=startBal;
   var periodEndBals=periods.map(p=>{
-    payEvents.filter(e=>e.date>=p.start&&e.date<=p.end).forEach(e=>{if(e.kind==='pay')_pr+=e.amount;else if(e.kind==='ext_deduct')_pr-=e.amount;});
+    payEvents.filter(e=>e.date>=p.start&&e.date<=p.end&&e.kind==='pay').forEach(e=>{_pr+=e.amount;});
     outflows.filter(o=>o.date>=p.start&&o.date<=p.end).forEach(o=>_pr-=o.amount);
     return _pr;
   });}
@@ -7689,21 +7362,14 @@ function wiRunProjector(){
   // ── Render ────────────────────────────────────────────────────────────────
   let running=startBal;
   const totalIncome=payEvents.filter(e=>e.kind==='pay').reduce((s,p)=>s+p.amount,0);
-  const totalExtDeduct=payEvents.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
   const totalSpend=outflows.reduce((s,o)=>s+o.amount,0);
   const isSavingsFlow=o=>o.bktType==='sinking'||o.bktType==='goal'||o.bktRollover;
   const totalPlanned=outflows.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
   const totalExpenses=totalSpend-totalPlanned;
   const totalCommitted=commitEvents.reduce((s,e)=>s+e.amount,0);
-  const projectedEnd=startBal+totalIncome-totalSpend-totalExtDeduct;
+  const projectedEnd=startBal+totalIncome-totalSpend;
 
   // Pre-compute savings overview rows
-  const extSavRows=(S.externalRules||[]).filter(r=>r.active!==false&&S.accounts.find(a=>a.id===r.toAccountId)).map(r=>{
-    const toAcct=S.accounts.find(a=>a.id===r.toAccountId);
-    const curBal=acctBalance(r.toAccountId);
-    const contrib=payEvents.filter(e=>e.kind==='ext_deduct'&&e.desc===(r.label||'Auto-transfer')).reduce((s,e)=>s+e.amount,0);
-    return{label:r.label||toAcct?.name||'External',curBal,contrib,afterBal:curBal+contrib};
-  });
   const intSavRows=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived).map(r=>{
     const b=getBucket(r.bucketId);
     const curBal=Math.max(0,sinkingSaved(b.id,S.activeMonth));
@@ -7711,11 +7377,9 @@ function wiRunProjector(){
     return{label:b.name,curBal,contrib,afterBal:curBal+contrib};
   });
   // Aggregate savings totals for the overview single-row display
-  const extAggCur=extSavRows.reduce((s,r)=>s+r.curBal,0);
-  const extAggAfter=extSavRows.reduce((s,r)=>s+r.afterBal,0);
   const intAggCur=intSavRows.reduce((s,r)=>s+r.curBal,0);
   const intAggAfter=intSavRows.reduce((s,r)=>s+r.afterBal,0);
-  const hasSav=extSavRows.length||intSavRows.length;
+  const hasSav=intSavRows.length;
 
   // First shortfall period for the overview warning
   const firstShortfallIdx=periodEndBals.findIndex(b=>b<0);
@@ -7750,7 +7414,7 @@ function wiRunProjector(){
         </tr>
         <tr style="border-bottom:1px solid var(--border)">
           <td style="padding:5px 14px;color:var(--text2)">Expenses</td>
-          <td style="padding:5px 14px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">-${$f(totalSpend+totalExtDeduct)}</td>
+          <td style="padding:5px 14px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">-${$f(totalSpend)}</td>
         </tr>
         <tr style="border-bottom:${hasSav?'2px solid var(--border2)':'none'}">
           <td style="padding:7px 14px;font-weight:700;color:var(--text)">Projected Cash Flow <span style="font-size:10px;font-weight:400;color:var(--text3)">(last day)</span></td>
@@ -7758,12 +7422,8 @@ function wiRunProjector(){
         </tr>
         ${hasSav?`
         <tr><td colspan="2" style="padding:8px 14px 4px;font-weight:700;color:var(--text)">Savings <span style="font-size:10px;font-weight:400;color:var(--text3);float:right;padding-top:2px">Current &nbsp;&nbsp; After</span></td></tr>
-        ${extSavRows.length?`<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:5px 14px;color:var(--text2)">External</td>
-          <td style="padding:5px 14px;text-align:right;font-family:var(--mono)"><span style="color:var(--text3)">${$f(extAggCur)}</span>&nbsp;&nbsp;<span style="color:var(--accent);font-weight:600">↗ ${$f(extAggAfter)}</span></td>
-        </tr>`:''}
         ${intSavRows.length?`<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:5px 14px;color:var(--text2)">Internal <span style="font-size:10px;color:var(--text3)">(budget alloc.)</span></td>
+          <td style="padding:5px 14px;color:var(--text2)">Allocations <span style="font-size:10px;color:var(--text3)">(budget rules)</span></td>
           <td style="padding:5px 14px;text-align:right;font-family:var(--mono)"><span style="color:var(--text3)">${$f(intAggCur)}</span>&nbsp;&nbsp;<span style="color:var(--accent);font-weight:600">~ ${$f(intAggAfter)}</span></td>
         </tr>`:''}
         `:''}
@@ -7779,7 +7439,6 @@ function wiRunProjector(){
   let cumulativeOut=0;
   let paycheckNum=0;
   // Track cumulative contributions across periods so Current→After columns update correctly
-  const extCumulative={};  // label → total contributed to ext account so far
   const intCumulative={};  // bucket name → total allocated to bucket so far
 
   periods.forEach((p,pIdx)=>{
@@ -7788,8 +7447,7 @@ function wiRunProjector(){
     const pOut=outflows.filter(o=>o.date>=p.start&&o.date<=p.end);
     const pCommit=commitEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
     const pInAmt=pPay.filter(e=>e.kind==='pay').reduce((s,e)=>s+e.amount,0);
-    const pExtAmt=pPay.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
-    const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0)+pExtAmt;
+    const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0);
     const pCommitAmt=pCommit.reduce((s,e)=>s+e.amount,0);
     const periodStartBal=running;
     running=periodEndBals[pIdx];
@@ -7813,8 +7471,7 @@ function wiRunProjector(){
     // ── Period body: continuous ledger flow
     let bodyHtml='';
     const pPayRows=pPay.filter(e=>e.kind==='pay');
-    const pExtEvts=pPay.filter(e=>e.kind==='ext_deduct');
-    // Running balance tracks only real cash (pay + ext_deduct + outflows)
+    // Running balance tracks only real cash (pay + outflows)
     let ledgerBal=periodStartBal;
     const runBalRow=(bal)=>`<div style="display:flex;align-items:center;padding:3px 0 4px;border-bottom:1px solid var(--border)"><span style="flex:1"></span><span class="c-text3" style="font-size:10px;margin-right:10px;text-transform:uppercase;letter-spacing:.4px">Run Bal</span><span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${bal>=0?'var(--text2)':'var(--red)'}">${$f(bal)}</span></div>`;
 
@@ -7838,37 +7495,7 @@ function wiRunProjector(){
       bodyHtml+=runBalRow(ledgerBal);
     }
 
-    // 2. External Transfers
-    if(pExtEvts.length){
-      const extMap={};
-      pExtEvts.forEach(e=>{extMap[e.desc]=(extMap[e.desc]||0)+e.amount;});
-      let extTotalCur=0,extTotalAmt=0;
-      // Build rows first (data pass), then HTML (separate from ledger side-effects)
-      const extEntries=Object.entries(extMap).map(([label,amt])=>{
-        const rule=(S.externalRules||[]).find(r=>(r.label||'Auto-transfer')===label);
-        // Current = real balance + all prior period contributions for this rule
-        const curBal=(rule?acctBalance(rule.toAccountId):0)+(extCumulative[label]||0);
-        extTotalCur+=curBal; extTotalAmt+=amt;
-        return{label,amt,curBal};
-      });
-      ledgerBal-=extTotalAmt;
-      // Update cumulative AFTER using current values (so this period's contribution shows in After, not Current)
-      extEntries.forEach(({label,amt})=>{extCumulative[label]=(extCumulative[label]||0)+amt;});
-      const extTbody=extEntries.map(({label,amt,curBal})=>
-        `<tr><td>• ${esc(label)}</td><td>${$f(curBal)}</td><td style="color:var(--red)">-${$f(amt)}</td><td style="color:var(--accent);font-weight:600">↗ ${$f(curBal+amt)}</td></tr>`
-      ).join('');
-      bodyHtml+=`<div style="padding:5px 0 0">
-        <div style="font-size:12px;font-weight:700;padding:4px 0 2px;color:var(--text2)">External Transfers</div>
-        <div style="overflow-x:auto"><table class="report-table" style="margin-top:0">
-          <tr><th>Account</th><th>Current</th><th>Transfer</th><th style="color:var(--accent)">After</th></tr>
-          ${extTbody}
-          <tr class="report-total-row"><td>Total</td><td>${$f(extTotalCur)}</td><td style="color:var(--red)">-${$f(extTotalAmt)}</td><td style="color:var(--accent)">↗ ${$f(extTotalCur+extTotalAmt)}</td></tr>
-        </table></div>
-        ${runBalRow(ledgerBal)}
-      </div>`;
-    }
-
-    // 3. Internal Transfers (budget allocations — no real cash movement)
+    // 2. Internal Transfers (budget allocations — no real cash movement)
     if(pCommit.length){
       const allocMap={};
       pCommit.forEach(e=>{if(!allocMap[e.desc])allocMap[e.desc]={amount:0,catColor:e.catColor};allocMap[e.desc].amount+=e.amount;});
@@ -7959,7 +7586,6 @@ function wiRunProjector(){
   const endColor=running>=startBal?'var(--green)':'var(--red)';
   html+=`<div style="display:flex;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:2px solid var(--border);margin-top:4px;flex-wrap:wrap">
     <span class="c-text3">Income: <strong class="c-green">+${$f(totalIncome)}</strong></span>
-    ${totalExtDeduct>0?`<span class="c-text3">Savings xfr: <strong style="color:var(--accent)">-${$f(totalExtDeduct)}</strong></span>`:''}
     <span class="c-text3">Bills: <strong class="c-red">-${$f(totalExpenses)}</strong></span>
     ${totalPlanned>0?`<span class="c-text3">Planned: <strong style="color:var(--accent)">-${$f(totalPlanned)}</strong></span>`:''}
     ${totalCommitted>0?`<span class="c-text3">Committed: <strong style="color:var(--text2)">📋${$f(totalCommitted)}</strong></span>`:''}
@@ -8028,33 +7654,15 @@ function wiRunProjector(){
       return `<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(b.name)}${typeTag}${goalLabel}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells}</tr>`;
     }).join('');
 
-    // External-rule account rows (bank auto-transfers per paycheck)
-    const extRows2=(S.externalRules||[]).filter(r=>r.active!==false).map(r=>{
-      const toA=S.accounts.find(a=>a.id===r.toAccountId);if(!toA)return'';
-      const curBal=acctBalance(r.toAccountId);
-      let runBal2=curBal;
-      const cells2=projMths.map(pm=>{
-        const ymStr=`${pm.id.split('_')[1]}-${String(parseInt(pm.id.split('_')[2])+1).padStart(2,'0')}`;
-        const paysInMonth=payEvents.filter(e=>e.kind==='pay'&&e.date.slice(0,7)===ymStr);
-        let contrib2=paysInMonth.reduce((s,e)=>s+(r.type==='pct'?Math.round(e.amount*(r.value/100)*100)/100:r.value),0);
-        if(!contrib2)contrib2=r.type==='fixed'?r.value:0;
-        runBal2+=contrib2;
-        return`<td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;color:var(--blue);border-bottom:1px solid var(--border);white-space:nowrap">${$f(runBal2)}</td>`;
-      }).join('');
-      const typeTag=`<span style="font-size:9px;background:color-mix(in srgb,var(--blue) 12%,var(--bg));border:1px solid color-mix(in srgb,var(--blue) 35%,var(--border));border-radius:3px;padding:1px 4px;margin-left:4px;color:var(--blue)">ext. transfer</span>`;
-      const rateLabel=`<div class="c-text3" style="font-size:10px;margin-top:1px">${r.type==='pct'?r.value+'% of each paycheck':'$'+r.value+' flat/paycheck'} → ${esc(toA.name)}</div>`;
-      return`<tr><td style="padding:5px 8px;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">${esc(r.label||'Auto-transfer')}${typeTag}${rateLabel}</td><td style="text-align:right;padding:5px 8px;font-family:var(--mono);font-size:12px;border-bottom:1px solid var(--border)">${$f(curBal)}</td>${cells2}</tr>`;
-    }).join('');
-
-    const allRows=rows+extRows2;
-    const totalRowCount=savingsBkts.length+(S.externalRules||[]).filter(r=>r.active!==false).length;
+    const allRows=rows;
+    const totalRowCount=savingsBkts.length;
     html+=`<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;-webkit-user-select:none" onclick="wiToggleSavingsGrowth()">
         <div id="savingsGrowthToggle" class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px">▶ Show Savings Growth</div>
         <span class="c-text3" style="font-size:11px">(${totalRowCount} item${totalRowCount!==1?'s':''})</span>
       </div>
       <div id="savingsGrowthTable" style="display:none;margin-top:10px">
-        <div class="c-text3" style="font-size:11px;margin-bottom:10px">Bucket rows use allocation rules per paycheck. External transfer rows show bank auto-transfer accumulation. 🎯 marks when a goal is reached.</div>
+        <div class="c-text3" style="font-size:11px;margin-bottom:10px">Buckets with allocation rules show projected growth per paycheck. 🎯 marks when a goal is reached.</div>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:300px">
           <thead><tr>
             <th class="c-text3" style="text-align:left;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg)">Bucket</th>
@@ -8880,101 +8488,6 @@ function reportCatSpendHtml(mid){
   ${bars}`;
 }
 
-function reportSavingsRateHtml(){
-  const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id));
-  if(!months.length)return`<div class="c-text3" style="padding:16px">No months available.</div>`;
-  let runInc=0,runSpent=0;
-  const rows=months.map(mo=>{
-    const inc=monthIncome(mo.id);
-    const spent=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);
-    const net=inc-spent,rate=inc?Math.round(net/inc*100):null;
-    runInc+=inc;runSpent+=spent;
-    const runRate=runInc?Math.round((runInc-runSpent)/runInc*100):null;
-    const rc=rate!==null?(rate>=20?'var(--green)':rate>=0?'var(--text)':'var(--red)'):'var(--text3)';
-    return`<tr><td>${esc(mo.label)}</td>
-      <td class="c-green">${inc?$f(inc):'—'}</td>
-      <td class="c-red">${spent?$f(spent):'—'}</td>
-      <td style="color:${rc};font-weight:600">${rate!==null?rate+'%':'—'}</td>
-      <td class="c-text3">${runRate!==null?runRate+'%':'—'}</td></tr>`;
-  }).join('');
-  const last3=months.slice(-3);
-  const l3inc=last3.reduce((s,mo)=>s+monthIncome(mo.id),0);
-  const l3spent=last3.reduce((s,mo)=>s+S.buckets.reduce((ss,b)=>ss+bSpent(mo.id,b.id),0),0);
-  const l3net=l3inc-l3spent,l3rate=l3inc?Math.round(l3net/l3inc*100):null;
-  const cards=[
-    {label:'3-Month Avg Rate',val:l3rate!==null?l3rate+'%':'—',c:l3rate!==null&&l3rate>=0?'var(--green)':'var(--red)'},
-    {label:'3-Month Avg Saved',val:last3.length?$f(l3net/last3.length)+'/mo':'—',c:l3net>=0?'var(--green)':'var(--red)'},
-  ].map(({label,val,c})=>`<div class="nw-summary" style="flex:1;min-width:140px">
-    <div class="c-text3" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px">${label}</div>
-    <div style="font-size:22px;font-weight:700;color:${c}">${val}</div></div>`).join('');
-  const _srInsight=l3rate!==null
-    ?(l3rate>=20
-      ?`<div class="rpt-insight good"><span class="rpt-insight-icon">🎯</span>Your 3-month average savings rate is <strong>${l3rate}%</strong> — you're consistently building a financial cushion.</div>`
-      :l3rate>=0
-        ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span>Your 3-month average is <strong>${l3rate}%</strong>. Saving 20% or more of income is the benchmark for long-term financial health.</div>`
-        :`<div class="rpt-insight warn"><span class="rpt-insight-icon">⚠</span>Your 3-month average savings rate is <strong>${l3rate}%</strong> — spending is outpacing income. Look at your biggest expense categories for cuts.</div>`)
-    :'';
-  return`<p class="rpt-desc">Tracks what percentage of your income you actually keep each month. The higher the rate, the faster you build an emergency fund, pay off debt, or grow investments. A 20%+ rate is considered excellent.</p>
-  ${_srInsight}
-  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">${cards}</div>
-  <div class="rpt-chart-card" style="margin-bottom:16px"><div class="rpt-chart-title">Savings — Net Amount &amp; Rate %</div><div class="rpt-chart-wrap"><canvas id="rpt-chart-savingsrate"></canvas></div></div>
-  <div style="overflow-x:auto"><table class="report-table">
-    <thead><tr><th style="text-align:left">Month</th><th>Income</th><th>Spent</th><th>Rate</th><th>Rolling Rate</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`;
-}
-
-function reportPayeeBreakdownHtml(){
-  const periodOpts=[{v:'month',l:'This Month'},{v:'3m',l:'Last 3 Months'},{v:'6m',l:'Last 6 Months'},{v:'all',l:'All Time'}];
-  const now=new Date();
-  let txs=S.txs.filter(t=>t.type==='out'&&!isScheduled(t));
-  if(_payeePeriod==='month')txs=txs.filter(t=>t.monthId===S.activeMonth);
-  else if(_payeePeriod==='3m'){
-    const cutoff=new Date(now.getFullYear(),now.getMonth()-3,1).toISOString().slice(0,7).replace('-','-');
-    txs=txs.filter(t=>t.monthId>=cutoff);
-  }
-  else if(_payeePeriod==='6m'){
-    const d=new Date(now.getFullYear(),now.getMonth()-6,1);
-    const cutoff=mId(d.getFullYear(),d.getMonth());
-    txs=txs.filter(t=>t.monthId>=cutoff);
-  }
-  const groups={};
-  txs.forEach(t=>{const k=t.desc.trim()||'(no description)';groups[k]=(groups[k]||0)+t.amount;});
-  const sorted=Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,30);
-  const total=sorted.reduce((s,[,v])=>s+v,0);
-  const periodSel=periodOpts.map(o=>`<option value="${o.v}"${o.v===_payeePeriod?' selected':''}>${o.l}</option>`).join('');
-  const rows=sorted.map(([name,amt],i)=>{
-    const pct=total?Math.round(amt/total*100):0;
-    const barW=sorted[0][1]?Math.round(amt/sorted[0][1]*100):0;
-    return`<tr>
-      <td class="c-text3" style="font-size:11px">${i+1}</td>
-      <td>${esc(name)}</td>
-      <td style="min-width:100px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <div style="flex:1;height:6px;border-radius:3px;background:var(--surface2)">
-            <div style="height:100%;width:${barW}%;background:var(--red);border-radius:3px"></div>
-          </div>
-          <span class="c-text3" style="font-size:11px;min-width:28px">${pct}%</span>
-        </div>
-      </td>
-      <td class="c-red" style="font-weight:600">${$f(amt)}</td>
-    </tr>`;
-  }).join('');
-  const _topPayee=sorted[0];
-  const _payeeInsight=_topPayee
-    ?`<div class="rpt-insight"><span class="rpt-insight-icon">💡</span><strong>${esc(_topPayee[0])}</strong> is your top spend at <strong>${$f(_topPayee[1])}</strong> (${total?Math.round(_topPayee[1]/total*100):0}% of total). If it's recurring, consider making it a bucket.</div>`
-    :'';
-  return`<p class="rpt-desc">Your top spending destinations ranked by total amount. Useful for spotting recurring habits, subscription creep, or unexpected large payees you may want to budget for explicitly.</p>
-  ${_payeeInsight}
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <label class="c-text3" style="font-size:12px">Period:</label>
-    <select class="fi" style="width:auto" onchange="_payeePeriod=this.value;setReportsTab('payees')">${periodSel}</select>
-    <span class="c-text3" style="font-size:12px;margin-left:auto">Total: <strong>${$f(total)}</strong></span>
-  </div>
-  ${sorted.length?`<div style="overflow-x:auto"><table class="report-table">
-    <thead><tr><th>#</th><th style="text-align:left">Description</th><th style="width:120px">Share</th><th>Amount</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`:'<div class="c-text3" style="padding:16px 0">No spending in this period.</div>'}`;
-}
-
 function reportCashFlowHtml(){
   const months=[...S.months].sort((a,b)=>compareMid(a.id,b.id)).slice(-12);
   if(!months.length)return`<div class="c-text3" style="padding:16px">No data available.</div>`;
@@ -9164,7 +8677,6 @@ function saveAllocationRule(){
   if(!bucketId){alert('Please select a bucket.');return;}
   if(!value||value<=0){alert('Please enter a valid value.');return;}
   if(!S.allocationRules)S.allocationRules=[];
-  if(!S.externalRules)S.externalRules=[];
   if(_editingArId){
     const r=(S.allocationRules||[]).find(x=>x.id===_editingArId);
     if(r){r.name=name||r.name;r.bucketId=bucketId;r.type=type;r.value=value;}
@@ -9187,102 +8699,14 @@ function toggleAllocationRule(id,active){
   save();
 }
 
-// ── External Rules (bank-side paycheck auto-transfers) ────────────────────────
-function externalRulesHtml(){
-  const rules=S.externalRules||[];
-  const editing=_editingErId?rules.find(r=>r.id===_editingErId):null;
-  const acctOpts=(sel='')=>{
-    let o='<option value="">— select account —</option>';
-    S.accounts.forEach(a=>{o+=`<option value="${a.id}"${a.id===sel?' selected':''}>${esc(a.name)} (${a.type})</option>`;});
-    return o;
-  };
-  const rows=rules.map(r=>{
-    const fromA=S.accounts.find(a=>a.id===r.fromAccountId);
-    const toA=S.accounts.find(a=>a.id===r.toAccountId);
-    const isEd=r.id===_editingErId;
-    return `<div class="alloc-rule-row${isEd?' rb-row-editing':''}">
-      <span class="alloc-rule-name">${esc(r.label||'Auto-transfer')}</span>
-      <span class="alloc-rule-badge">${r.type==='pct'?r.value+'%':'$'+r.value}</span>
-      <span class="alloc-rule-bkt" style="font-size:11px">${fromA?esc(fromA.name):'?'} → ${toA?esc(toA.name):'?'}</span>
-      <label class="c-text3" style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
-        <input type="checkbox" ${r.active!==false?'checked':''} onchange="toggleExternalRule('${r.id}',this.checked)" /> On
-      </label>
-      <button class="ib" onclick="editExternalRule('${r.id}')" title="Edit">✎</button>
-      <button class="ib del" onclick="deleteExternalRule('${r.id}')">×</button>
-    </div>`;
-  }).join('');
-  return `
-    ${rows||'<div class="c-text3" style="font-size:13px;padding:8px 0">No external rules yet.</div>'}
-    <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
-      <div class="c-accent" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">${editing?'Edit Rule':'Add Rule'}</div>
-      <div class="fi-row" style="margin-bottom:8px">
-        <div class="fg"><label class="fl">Label</label><input class="fi" id="newErLabel" placeholder="e.g. 5% Auto-savings" value="${editing?esc(editing.label||''):''}" /></div>
-      </div>
-      <div class="fi-row" style="margin-bottom:8px">
-        <div class="fg"><label class="fl">From Account</label><select class="fi" id="newErFrom">${acctOpts(editing?.fromAccountId||'')}</select></div>
-        <div class="fg"><label class="fl">To Account</label><select class="fi" id="newErTo">${acctOpts(editing?.toAccountId||'')}</select></div>
-      </div>
-      <div class="fi-row" style="margin-bottom:10px">
-        <div class="fg"><label class="fl">Type</label>
-          <select class="fi" id="newErType">
-            <option value="pct"${editing&&editing.type==='pct'?' selected':''}>% of paycheck</option>
-            <option value="fixed"${editing&&editing.type==='fixed'?' selected':''}>Fixed amount $</option>
-          </select>
-        </div>
-        <div class="fg"><label class="fl">Value</label><input class="fi mono" id="newErVal" type="number" placeholder="5" min="0" step="0.01" value="${editing?editing.value:''}" /></div>
-      </div>
-      <div style="display:flex;gap:8px">
-        ${editing?`<button class="btn-cancel" onclick="_editingErId=null;renderSettingsTab(document.getElementById('paneSettings'))">Cancel</button>`:''}
-        <button class="btn-primary" onclick="saveExternalRule()">${editing?'Update Rule':'Add Rule'}</button>
-      </div>
-    </div>`;
-}
-function editExternalRule(id){_editingErId=id;renderSettingsTab(document.getElementById('paneSettings'));}
-function saveExternalRule(){
-  const label=document.getElementById('newErLabel')?.value.trim()||'Auto-transfer';
-  const fromAccountId=document.getElementById('newErFrom')?.value;
-  const toAccountId=document.getElementById('newErTo')?.value;
-  const type=document.getElementById('newErType')?.value||'pct';
-  const value=parseFloat(document.getElementById('newErVal')?.value);
-  if(!fromAccountId){showToast('Select a source account','out');return;}
-  if(!toAccountId){showToast('Select a destination account','out');return;}
-  if(fromAccountId===toAccountId){showToast('Source and destination must differ','out');return;}
-  if(!value||value<=0){showToast('Enter a valid amount','out');return;}
-  if(!S.externalRules)S.externalRules=[];
-  if(_editingErId){
-    const r=S.externalRules.find(x=>x.id===_editingErId);
-    if(r)Object.assign(r,{label,fromAccountId,toAccountId,type,value});
-    _editingErId=null;
-  } else {
-    S.externalRules.push({id:uid(),label,type,value,fromAccountId,toAccountId,active:true});
-  }
-  save();renderSettingsTab(document.getElementById('paneSettings'));
-}
-function deleteExternalRule(id){
-  S.externalRules=(S.externalRules||[]).filter(r=>r.id!==id);
-  save();renderSettingsTab(document.getElementById('paneSettings'));
-}
-function toggleExternalRule(id,active){
-  const r=(S.externalRules||[]).find(x=>x.id===id);
-  if(r)r.active=active;save();
-}
-
-// ── Payday Actions modal — external transfers + internal allocations ──────────
-let _pendingExtRules=[];
+// ── Payday Actions modal — internal allocations ──────────────────────────────
 let _pendingRules=[];
 
 function promptAllocationRules(incomeAmt,monthId){promptPaydayActions(incomeAmt,monthId);}
 
 function promptPaydayActions(incomeAmt,monthId){
-  const extRules=(S.externalRules||[]).filter(r=>r.active!==false&&S.accounts.find(a=>a.id===r.toAccountId)&&S.accounts.find(a=>a.id===r.fromAccountId));
   const intRules=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId));
-  if(!extRules.length&&!intRules.length)return;
-  _pendingExtRules=extRules.map(r=>{
-    const amt=r.type==='pct'?Math.round(incomeAmt*(r.value/100)*100)/100:r.value;
-    const toA=S.accounts.find(a=>a.id===r.toAccountId);
-    const fromA=S.accounts.find(a=>a.id===r.fromAccountId);
-    return{...r,suggestedAmt:amt,toAcctName:toA?.name||'',fromAcctName:fromA?.name||'',on:true};
-  });
+  if(!intRules.length)return;
   _pendingRules=intRules.map(r=>{
     const amt=r.type==='pct'?Math.round(incomeAmt*(r.value/100)*100)/100:r.value;
     const b=getBucket(r.bucketId);
@@ -9296,15 +8720,6 @@ function promptPaydayActions(incomeAmt,monthId){
 }
 
 function paydayActionsHtml(monthId){
-  const extRows=_pendingExtRules.map((r,i)=>`
-    <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingExtRules[${i}].on=!_pendingExtRules[${i}].on;document.getElementById('modalBox').innerHTML=paydayActionsHtml('${monthId}')">
-      <div class="rule-apply-check">${r.on?'✓':''}</div>
-      <div class="rule-apply-main">
-        <div class="rule-apply-name">${esc(r.label||'Auto-transfer')}</div>
-        <div class="rule-apply-detail">${esc(r.fromAcctName)} → ${esc(r.toAcctName)} · ${r.type==='pct'?r.value+'% of paycheck':'fixed'} · logged as XFR</div>
-      </div>
-      <div class="rule-apply-amt" style="color:var(--red)">-${$f(r.suggestedAmt)}</div>
-    </div>`).join('');
   const intRows=_pendingRules.map((r,i)=>`
     <div class="rule-apply-row${r.on?' on':''}" onclick="_pendingRules[${i}].on=!_pendingRules[${i}].on;document.getElementById('modalBox').innerHTML=paydayActionsHtml('${monthId}')">
       <div class="rule-apply-check">${r.on?'✓':''}</div>
@@ -9314,24 +8729,20 @@ function paydayActionsHtml(monthId){
       </div>
       <div class="rule-apply-amt">+${$f(r.suggestedAmt)}</div>
     </div>`).join('');
-  const extTotal=_pendingExtRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
   const intTotal=_pendingRules.filter(r=>r.on).reduce((s,r)=>s+r.suggestedAmt,0);
-  const hasExt=_pendingExtRules.length>0;
-  const hasInt=_pendingRules.length>0;
-  const totalApply=_pendingExtRules.filter(r=>r.on).length+_pendingRules.filter(r=>r.on).length;
+  const totalApply=_pendingRules.filter(r=>r.on).length;
   return`<div class="modal-head">
     <div class="modal-title">💰 Payday Actions</div>
     <button class="modal-x" onclick="closeModal()">&#x2715;</button>
   </div>
   <div style="overflow-y:auto;max-height:60vh">
     <div class="c-text3" style="padding:8px 16px 6px;font-size:12px;border-bottom:1px solid var(--border)">
-      Income logged. Review and apply your payday rules — click any row to toggle.
+      Income logged. Review and apply your allocation rules — click any row to toggle.
     </div>
-    ${hasExt?`<div style="padding:10px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">External Transfers <span style="font-weight:400;text-transform:none;letter-spacing:0">(bank-side → logs as XFR)</span></div>${extRows}`:''}
-    ${hasInt?`<div style="padding:${hasExt?'12px':'10px'} 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);${hasExt?'border-top:1px solid var(--border)':''}">Internal Allocations <span style="font-weight:400;text-transform:none;letter-spacing:0">(bucket splits)</span></div>${intRows}`:''}
-    <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);gap:12px">
-      ${hasExt?`<span class="c-text3" style="font-size:12px">Transfers: <strong style="color:var(--red)">-${$f(extTotal)}</strong></span>`:'<span></span>'}
-      ${hasInt?`<span class="c-text3" style="font-size:12px">Allocations: <strong class="c-green">+${$f(intTotal)}</strong></span>`:'<span></span>'}
+    <div style="padding:10px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">Bucket Allocations <span style="font-weight:400;text-transform:none;letter-spacing:0">(budget splits)</span></div>
+    ${intRows}
+    <div style="padding:10px 16px;display:flex;justify-content:flex-end;align-items:center;border-top:1px solid var(--border);gap:12px">
+      <span class="c-text3" style="font-size:12px">Allocations: <strong class="c-green">+${$f(intTotal)}</strong></span>
     </div>
   </div>
   <div class="modal-foot" style="gap:8px">
@@ -9342,24 +8753,15 @@ function paydayActionsHtml(monthId){
 
 function applyPaydayActions(monthId){
   const mo=S.months.find(m=>m.id===monthId);
-  const date=todayStr();
-  // External: create XFR transactions
-  _pendingExtRules.filter(r=>r.on).forEach(r=>{
-    S.txs.push({id:uid(),type:'xfr',desc:r.label||'Auto-transfer',amount:r.suggestedAmt,
-      date,monthId:dateToMonthId(date),accountId:r.fromAccountId,toAccountId:r.toAccountId,autoGenerated:true});
-  });
-  // Internal: apply allocations
   if(mo){
     if(!mo.allocations)mo.allocations={};
     _pendingRules.filter(r=>r.on).forEach(r=>{
       mo.allocations[r.bucketId]=Math.round(((mo.allocations[r.bucketId]||0)+r.suggestedAmt)*100)/100;
     });
   }
-  const ec=_pendingExtRules.filter(r=>r.on).length;
   const ic=_pendingRules.filter(r=>r.on).length;
   save();closeModal();render();
-  const msg=[ec?`${ec} transfer${ec!==1?'s':''}`:null,ic?`${ic} allocation${ic!==1?'s':''}`:null].filter(Boolean).join(' + ');
-  if(msg){showToast(`Applied: ${msg}`,'save');mShowToast('alloc',`Applied: ${msg}`,'');}
+  if(ic){const msg=`${ic} allocation${ic!==1?'s':''}`;showToast(`Applied: ${msg}`,'save');mShowToast('alloc',`Applied: ${msg}`,'');}
 }
 
 // ═══════════════════════════════════════════════════════
@@ -9530,7 +8932,7 @@ function confirmFreshStart(){
     'Erase Everything',
     ()=>{
       localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],externalRules:[],recurringBills:[]};
+      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
       ensureMonth();S.activeMonth=currentMonthId();
       save();
       startWizard();
@@ -10472,8 +9874,7 @@ function importData(event){
           if(!S.scenarioBudgets)S.scenarioBudgets={};
           if(!S.payees)S.payees=[];
           if(!S.allocationRules)S.allocationRules=[];
-          if(!S.externalRules)S.externalRules=[];
-          save();ensureMonth();
+                  save();ensureMonth();
           if(!S.activeMonth)S.activeMonth=currentMonthId();
           render();populateTxCats();updateTxFormForType();wireFormKeys();
           showToast('Backup imported successfully!','in');
