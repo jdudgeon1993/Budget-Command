@@ -8222,7 +8222,7 @@ function openReconcile(acctId,onFinish=null,scopeMid=null){
   _reconOnFinish=onFinish||null;
   _reconScopeMid=scopeMid||null;
   const a=getAcct(acctId);if(!a)return;
-  const txCount=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid)).length;
+  const txCount=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid)).length;
   openRSheet(
     `Reconcile — ${esc(a.name)}`,
     reconBodyHtml(acctId),
@@ -8233,19 +8233,22 @@ function openReconcile(acctId,onFinish=null,scopeMid=null){
   );
 }
 function reconMarkAll(acctId){
-  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid))
+  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid))
        .forEach(t=>_reconChecked.add(t.id));
   reconRefresh(acctId);
 }
 function reconBodyHtml(acctId){
   const a=getAcct(acctId);
   const clearedBal=acctBalance(acctId);
+  // Opening balance is the seed — must be included so workingBal matches acctBalance
+  const openingTotal=S.txs.filter(t=>t.accountId===acctId&&t.type==='opening').reduce((s,t)=>s+t.amount,0);
+  const openBal=openingTotal>0?openingTotal:(a?.openingBalance||0);
   const txs=S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
     t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&
-    (!_reconScopeMid||t.monthId===_reconScopeMid)
+    (!_reconScopeMid||t.monthId<=_reconScopeMid)
   ).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const reconBal=S.txs.filter(t=>
+  const reconBal=openBal+S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
     t.type!=='opening'&&t.type!=='adjustment'&&t.reconciled
   ).reduce((sum,t)=>{
@@ -8291,15 +8294,15 @@ function reconBodyHtml(acctId){
     </div>
     <div class="recon-stat-bar">
       <div class="recon-stat">
-        <div class="recon-stat-label">Reconciled</div>
-        <div class="recon-stat-val c-green">${$f(reconBal)}</div>
+        <div class="recon-stat-label">Prev. Balance</div>
+        <div class="recon-stat-val">${$f(reconBal)}</div>
       </div>
       <div class="recon-stat">
-        <div class="recon-stat-label">+ Checked</div>
+        <div class="recon-stat-label">+ Cleared</div>
         <div class="recon-stat-val c-accent">${$f(checkedSum)}</div>
       </div>
       <div class="recon-stat">
-        <div class="recon-stat-label">Working Balance</div>
+        <div class="recon-stat-label">= New Balance</div>
         <div class="recon-stat-val">${$f(workingBal)}</div>
       </div>
       <div class="recon-stat">
@@ -8308,7 +8311,7 @@ function reconBodyHtml(acctId){
       </div>
     </div>
     <div class="c-text3" style="padding:8px 16px;font-size:11px;border-bottom:1px solid var(--border)">
-      Check off each transaction that appears on your bank statement. When the difference reaches $0.00, you're balanced.
+      Check off each transaction that has cleared your bank. Prev. Balance + Cleared = New Balance. When the difference hits $0.00, you're balanced.
     </div>
     <div class="recon-tx-list">${txRows||'<div class="c-text3" style="padding:24px 16px;text-align:center;font-size:13px">All transactions are already reconciled.</div>'}</div>`;
 }
@@ -8323,7 +8326,7 @@ function reconRefresh(acctId){
   if(body)body.innerHTML=reconBodyHtml(acctId);
   const inp=document.getElementById('reconStmtBal');if(inp)inp.value=prevBal;
   if(body)body.scrollTop=prevScroll;
-  const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid)).length;
+  const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid)).length;
   const st=document.getElementById('reconStatus');if(st)st.textContent=`${_reconChecked.size} of ${total} checked`;
   const btn=document.getElementById('reconFinishBtn');
   if(btn){btn.textContent=`Mark Reconciled (${_reconChecked.size})`;btn.disabled=_reconChecked.size===0;}
