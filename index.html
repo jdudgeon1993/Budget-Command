@@ -8240,12 +8240,15 @@ function reconMarkAll(acctId){
 function reconBodyHtml(acctId){
   const a=getAcct(acctId);
   const clearedBal=acctBalance(acctId);
+  // Opening balance is the seed — must be included so workingBal matches acctBalance
+  const openingTotal=S.txs.filter(t=>t.accountId===acctId&&t.type==='opening').reduce((s,t)=>s+t.amount,0);
+  const openBal=openingTotal>0?openingTotal:(a?.openingBalance||0);
   const txs=S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
     t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&
     (!_reconScopeMid||t.monthId<=_reconScopeMid)
   ).sort((a,b)=>new Date(a.date)-new Date(b.date));
-  const reconBal=S.txs.filter(t=>
+  const reconBal=openBal+S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
     t.type!=='opening'&&t.type!=='adjustment'&&t.reconciled
   ).reduce((sum,t)=>{
