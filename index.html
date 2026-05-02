@@ -8222,7 +8222,7 @@ function openReconcile(acctId,onFinish=null,scopeMid=null){
   _reconOnFinish=onFinish||null;
   _reconScopeMid=scopeMid||null;
   const a=getAcct(acctId);if(!a)return;
-  const txCount=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid)).length;
+  const txCount=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid)).length;
   openRSheet(
     `Reconcile — ${esc(a.name)}`,
     reconBodyHtml(acctId),
@@ -8233,7 +8233,7 @@ function openReconcile(acctId,onFinish=null,scopeMid=null){
   );
 }
 function reconMarkAll(acctId){
-  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid))
+  S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid))
        .forEach(t=>_reconChecked.add(t.id));
   reconRefresh(acctId);
 }
@@ -8243,7 +8243,7 @@ function reconBodyHtml(acctId){
   const txs=S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
     t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&
-    (!_reconScopeMid||t.monthId===_reconScopeMid)
+    (!_reconScopeMid||t.monthId<=_reconScopeMid)
   ).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const reconBal=S.txs.filter(t=>
     (t.accountId===acctId||t.toAccountId===acctId)&&
@@ -8323,7 +8323,7 @@ function reconRefresh(acctId){
   if(body)body.innerHTML=reconBodyHtml(acctId);
   const inp=document.getElementById('reconStmtBal');if(inp)inp.value=prevBal;
   if(body)body.scrollTop=prevScroll;
-  const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId===_reconScopeMid)).length;
+  const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid)).length;
   const st=document.getElementById('reconStatus');if(st)st.textContent=`${_reconChecked.size} of ${total} checked`;
   const btn=document.getElementById('reconFinishBtn');
   if(btn){btn.textContent=`Mark Reconciled (${_reconChecked.size})`;btn.disabled=_reconChecked.size===0;}
