@@ -4257,6 +4257,13 @@ function render(){
   renderActivePane();
   if(S.wiOpen)renderWI();
 }
+// Preserve scroll position across innerHTML replacements.
+// fn() does the DOM rebuild; scroll is restored after the next paint.
+function withScroll(el,fn){
+  const s=el?el.scrollTop:0;
+  fn();
+  if(el&&s>0)requestAnimationFrame(()=>{el.scrollTop=s;});
+}
 
 
 function sidebarNavMonth(dir){
@@ -5590,7 +5597,7 @@ function renderBucketsTab(el,mid){
     h+=`<div class="empty-wrap" style="min-height:160px;padding:30px 0;">
       <div class="empty-title" style="font-size:15px">No buckets yet</div>
       <div class="empty-sub" style="font-size:13px;margin-bottom:14px">Use the form above to add your first bucket.</div>
-    </div>`;el.innerHTML=h;return;
+    </div>`;withScroll(el,()=>{el.innerHTML=h;});return;
   }
   // Bucket list table — Excel-style list grouped by category
   let grandTarget=0,grandAlloc=0,grandSpent=0,grandAvail=0;
@@ -5729,7 +5736,7 @@ function renderBucketsTab(el,mid){
     <td></td>
   </tr>`;
   h+=`</tbody></table></div>`;
-  el.innerHTML=h;
+  withScroll(el,()=>{el.innerHTML=h;});
   setTimeout(wireAllocKeys,50);
 }
 
@@ -7205,7 +7212,13 @@ function setAcctExpand(id){
   _reRenderAcctTable();
 }
 function _reRenderAcctTable(){
-  const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
+  const el=document.getElementById('paneAccounts');if(!el)return;
+  const mainEl=document.getElementById('acctLsMain');
+  const prevScroll=mainEl?mainEl.scrollTop:0;
+  renderAccountsTab(el,S.activeMonth);
+  if(prevScroll>0)requestAnimationFrame(()=>{
+    const m=document.getElementById('acctLsMain');if(m)m.scrollTop=prevScroll;
+  });
 }
 function acctAutoSave(id,key,val){
   const a=getAcct(id);if(!a)return;
@@ -8636,7 +8649,7 @@ function reconRefresh(acctId){
   const prevBal=document.getElementById('reconStmtBal')?.value||'';
   if(body)body.innerHTML=reconBodyHtml(acctId);
   const inp=document.getElementById('reconStmtBal');if(inp)inp.value=prevBal;
-  if(body)body.scrollTop=prevScroll;
+  if(body&&prevScroll>0)requestAnimationFrame(()=>{body.scrollTop=prevScroll;});
   const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid)).length;
   const st=document.getElementById('reconStatus');if(st)st.textContent=`${_reconChecked.size} of ${total} checked`;
   const btn=document.getElementById('reconFinishBtn');
