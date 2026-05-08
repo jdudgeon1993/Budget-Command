@@ -212,9 +212,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ov-mnav-add:hover{opacity:.7;}
 
 /* Ledger tab */
-.ledger-layout{display:flex;flex-direction:column;height:100%;min-height:0;}
+.ledger-layout{display:flex;flex-direction:column;}
 .ledger-form-col{display:none;}
-.ledger-add-bar{flex-shrink:0;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.ledger-add-bar{position:sticky;top:0;z-index:10;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
 .ledger-add-row1{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .ledger-add-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;}
 .ledger-add-inp{flex:1;min-width:100px;padding:7px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);}
@@ -225,8 +225,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ledger-add-sel:focus{border-color:var(--accent);outline:none;}
 .ledger-add-btn{padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .ledger-add-btn:hover{background:var(--accent2);}
-.ledger-list-col{display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;}
-/* Bucket create bar */
+.ledger-list-col{display:flex;flex-direction:column;}
+@media(max-width:1099px){
+  .ledger-add-inp.sm{flex:0 0 80px;}
+}
 .bkt-create-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rl);margin-bottom:12px;flex-wrap:wrap;}
 .bkt-create-sel{flex:0 0 160px;min-width:120px;padding:7px 9px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);}
 .bkt-create-sel:focus{border-color:var(--accent);outline:none;}
@@ -1029,7 +1031,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-new-btn{display:inline-flex !important;}
   .tb-sync{display:none;}
   /* Ledger: hide form column (use Log tab instead) */
-  .ledger-layout{flex-direction:column;}
+  /* ledger-layout is already column by default */
   .tx-acts{opacity:1;}
   /* Legacy mobile scroll containers — still used by content functions */
   .mscroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
@@ -5100,7 +5102,7 @@ function renderLedgerTab(el,mid){
   const prevCat=document.getElementById('txCat')?.value||'';
   const prevBkt=document.getElementById('txBkt')?.value||'';
   el.style.padding='0';
-  el.style.overflowY='hidden';
+  el.style.overflowY='';
   const past=mid&&monthStatus(mid)==='past';
   // Past month summary for left column
   let pastSumHtml='';
@@ -5180,7 +5182,7 @@ function renderLedgerTab(el,mid){
         </select>`:''}
       </div>
       <div id="txSummaryBar" style="flex-shrink:0"></div>
-      <div class="tx-list" id="txList" style="flex:1;overflow-y:auto"></div>
+      <div class="tx-list" id="txList"></div>
     </div>
   </div>`;
   wireFormKeys();
