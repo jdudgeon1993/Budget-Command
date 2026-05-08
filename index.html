@@ -6121,7 +6121,8 @@ function calcAccountRunningBal(aid){
 function renderTxList(){
   const mid=S.activeMonth;
   const past=monthStatus(mid)==='past';
-  document.getElementById('txForm').style.display=past?'none':'flex';
+  const addBar=document.getElementById('ledgerAddBar');
+  if(addBar)addBar.style.display=past?'none':'block';
   updateTxFormForType();
 
   let txs=S.txs.filter(t=>{
@@ -10365,7 +10366,7 @@ document.addEventListener('keydown', e => {
   if(e.key==='n'||e.key==='N'){
     e.preventDefault();
     const desc=document.getElementById('txDesc');
-    if(desc&&document.getElementById('txForm').style.display!=='none'){
+    if(desc&&document.getElementById('ledgerAddBar')?.style.display!=='none'){
       desc.focus();desc.select();
     }
     return;
