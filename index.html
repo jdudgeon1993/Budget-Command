@@ -928,6 +928,37 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tx-amt.xfr{color:var(--purple);}
 .tx-acts{display:flex;gap:2px;opacity:0;transition:opacity .1s;align-self:center;flex-shrink:0;}
 .tx-row:hover .tx-acts{opacity:1;}
+/* Inline editing tx rows */
+.tx-stripe-btn{background:none;border:none;cursor:pointer;padding:4px 8px 4px 2px;display:flex;align-items:center;flex-shrink:0;border-radius:4px;}
+.tx-stripe-bar{width:3px;height:28px;border-radius:3px;background:var(--tc);transition:width .2s ease,box-shadow .2s ease;}
+.tx-stripe-btn:hover .tx-stripe-bar{width:5px;box-shadow:0 0 7px var(--tc);}
+.tx-row.tx-open .tx-stripe-bar{width:8px;box-shadow:0 0 10px var(--tc);}
+.tx-inline-inp{background:transparent;border:1px solid transparent;border-radius:4px;padding:3px 5px;font-family:inherit;font-size:13px;color:var(--text);transition:border-color .15s,background .15s;width:100%;}
+.tx-inline-inp:hover{border-color:var(--border2);}
+.tx-inline-inp:focus{border-color:var(--accent);background:var(--surface);outline:none;}
+.tx-desc-inp{font-weight:500;}
+.tx-amt-inp{width:90px;text-align:right;font-family:var(--mono);font-weight:500;}
+.tx-amt-inp.out{color:var(--red);}
+.tx-amt-inp.in{color:var(--green);}
+.tx-amt-inp.xfr{color:var(--purple);}
+.tx-date-inp{width:122px;font-size:12px;color:var(--text2);}
+.tx-type-pill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 6px;border-radius:10px;flex-shrink:0;align-self:center;}
+.tx-type-pill.out{background:var(--rbg);color:var(--red);}
+.tx-type-pill.in{background:var(--gbg);color:var(--green);}
+.tx-type-pill.xfr{background:#2d1f4e;color:var(--purple);}
+.tx-dots-btn{background:none;border:none;cursor:pointer;padding:3px 7px;border-radius:4px;color:var(--text3);font-size:15px;line-height:1;opacity:.3;flex-shrink:0;}
+.tx-row:hover .tx-dots-btn,.tx-row.tx-open .tx-dots-btn{opacity:1;}
+.tx-dots-menu{position:absolute;right:0;top:calc(100% + 2px);background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.35);z-index:300;min-width:130px;overflow:hidden;}
+.tx-dots-item{padding:9px 14px;font-size:13px;cursor:pointer;white-space:nowrap;}
+.tx-dots-item:hover{background:var(--bg3);}
+.tx-dots-item.danger{color:var(--red);}
+/* Expand panel */
+.tx-expand-row{background:var(--surface2);border-bottom:1px solid var(--border);padding:10px 14px 10px 20px;}
+.tx-exp-fields{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.tx-exp-field{display:flex;flex-direction:column;gap:3px;min-width:130px;}
+.tx-exp-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);}
+.tx-exp-sel{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);width:100%;}
+.tx-exp-rec{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);white-space:nowrap;align-self:flex-end;padding-bottom:2px;cursor:pointer;}
 .tx-empty{padding:32px 14px;text-align:center;font-size:13px;color:var(--text3);line-height:1.8;}
 /* Running balance line (account view only) */
 .tx-run-bal{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;text-align:right;}
@@ -5099,8 +5130,6 @@ function renderLedgerTab(el,mid){
   // Save form state before rebuilding DOM (P4-A date, P4-B type, P4-C dropdowns)
   const prevDate=document.getElementById('txDate')?.value||todayStr();
   const prevAcct=document.getElementById('txAcct')?.value||'';
-  const prevCat=document.getElementById('txCat')?.value||'';
-  const prevBkt=document.getElementById('txBkt')?.value||'';
   el.style.padding='0';
   el.style.overflowY='';
   const past=mid&&monthStatus(mid)==='past';
@@ -5147,17 +5176,8 @@ function renderLedgerTab(el,mid){
         <input class="ledger-add-inp mono" id="txAmt" type="text" inputmode="decimal" placeholder="0.00" title="Math: +50 · −20 · ×1.05 · 5%" style="flex:0 0 90px" aria-label="Amount" />
         <input class="ledger-add-inp" id="txDate" type="date" style="flex:0 0 130px" aria-label="Date" />
         <select class="ledger-add-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1;min-width:110px" aria-label="Account"><option value="">Account…</option></select>
+        <select class="ledger-add-sel" id="txXfrTo" style="flex:1;min-width:110px;display:none" aria-label="To account"><option value="">To account…</option></select>
         <button class="ledger-add-btn" id="txSubmitBtn" onclick="addTx()">+ Add</button>
-      </div>
-      <div class="ledger-add-row2" id="txBktRow" style="display:none">
-        <select class="ledger-add-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1;min-width:100px" aria-label="Category"><option value="">Category…</option></select>
-        <select class="ledger-add-sel" id="txBkt" style="flex:1;min-width:100px" aria-label="Bucket"><option value="">Bucket…</option></select>
-        <select class="ledger-add-sel" id="txDebtPay" style="flex:1;min-width:100px" aria-label="Debt payment"><option value="">Debt payment (optional)…</option></select>
-        <label class="rec-chk" style="font-size:12px;color:var(--text3);white-space:nowrap"><input type="checkbox" id="txRec"> ↻ Recurring</label>
-      </div>
-      <div class="ledger-add-row2" id="txXfrRow" style="display:none">
-        <select class="ledger-add-sel" id="txXfrTo" style="flex:1;min-width:140px" aria-label="To account"><option value="">To account…</option></select>
-        <label class="rec-chk" style="font-size:12px;color:var(--text3);white-space:nowrap"><input type="checkbox" id="txRec2"> ↻ Recurring</label>
       </div>
     </div>`}
     <div class="ledger-list-col">
@@ -5193,25 +5213,6 @@ function renderLedgerTab(el,mid){
   if(txDateEl)txDateEl.value=prevDate;
   const txAcctEl=document.getElementById('txAcct');
   if(txAcctEl&&prevAcct)txAcctEl.value=prevAcct;
-  populateTxCats();
-  const txCatEl=document.getElementById('txCat');
-  if(txCatEl&&prevCat){txCatEl.value=prevCat;syncTxBuckets();}
-  const txBktEl=document.getElementById('txBkt');
-  if(txBktEl&&prevBkt)txBktEl.value=prevBkt;
-  if(editingTxId){
-    const tx=S.txs.find(t=>t.id===editingTxId);
-    if(tx){
-      document.getElementById('txDesc').value=tx.desc;
-      document.getElementById('txAmt').value=tx.amount;
-      document.getElementById('txDate').value=tx.date;
-      document.getElementById('txRec').checked=tx.recurring;
-      setTxType(tx.type);
-      document.getElementById('txAcct').value=tx.accountId||'';
-      if(tx.bucketId){const b=getBucket(tx.bucketId);if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=tx.bucketId;}}
-      if(tx.toAccountId)document.getElementById('txXfrTo').value=tx.toAccountId;
-      document.getElementById('txSubmitBtn').textContent='Update Transaction';
-    }
-  }
   renderTxList();
 }
 
@@ -6163,14 +6164,6 @@ function renderTxList(){
     balBadge.style.display='none';
   }
 
-  // Pre-fill form bucket
-  if(S.activeBucket){
-    const b=getBucket(S.activeBucket);
-    if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=b.id;}
-  } else {
-    populateTxCats();
-  }
-
   txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
   const list=document.getElementById('txList');
   if(!txs.length){list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${esc(search)}"`:''}.<br>${past?'Month is closed.':'Log one above.'}</div>`;return;}
@@ -6225,27 +6218,54 @@ function renderTxList(){
   list.innerHTML=h;
 }
 
-function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
+function txRowHtml(tx,past,sched,runBal=null){
   const {b,cat,color,acct,toAcct,isOpening,isXfrIn,amtCls,amtPfx,indColor}=computeTxMeta(tx,S.activeAccount);
-  // forceModal / mobile: use edit modal (form col hidden on mobile; account view has no inline form)
-  const editFn=(past||forceModal||isMobile())?'openTxEditModal':'editTx';
-  let metaLine='';
-  if(sched)metaLine+=`<span class="tx-sched-badge">${ld(tx.date)}</span><span class="tx-dot2"></span>`;
-  if(acct)metaLine+=`<span class="tx-meta-acct">${esc(acct.name)}</span>`;
-  if(cat){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`;}
-  if(b){metaLine+=`<span class="tx-dot2"></span><span class="tx-meta-bkt">${esc(b.name)}</span>`;}
-  if(tx.type==='xfr'&&toAcct){metaLine+=`<span class="tx-dot2"></span><span class="c-purple">→ ${esc(toAcct.name)}</span>`;}
-  if(tx.recurring)metaLine+=`<span class="tx-dot2"></span><span class="c-accent">↻</span>`;
-  if(tx.debtPaymentAccountId){const d=getAcct(tx.debtPaymentAccountId);if(d)metaLine+=`<span class="tx-dot2"></span><span class="tx-debt-pay-badge">↓ ${esc(d.name)}</span>`;}
-  // Running balance line — only shown in account view (runBal !== null)
+  const useInline=!past&&!sched&&!tx.autoGenerated&&!S.activeAccount&&!isMobile();
+  const isOpen=useInline&&activeTx===tx.id;
+  const tc=sched?'var(--border2)':indColor;
+  let metaParts=[];
+  if(sched)metaParts.push(`<span class="tx-sched-badge">${ld(tx.date)}</span>`);
+  if(acct&&(!b||S.activeAccount))metaParts.push(`<span class="tx-meta-acct">${esc(acct.name)}</span>`);
+  if(cat&&!useInline)metaParts.push(`<span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`);
+  if(b)metaParts.push(`<span class="tx-meta-bkt">${esc(b.name)}</span>`);
+  if(tx.type==='xfr'&&toAcct)metaParts.push(`<span class="c-purple">→ ${esc(toAcct.name)}</span>`);
+  if(tx.recurring)metaParts.push(`<span class="c-accent">↻</span>`);
+  if(tx.debtPaymentAccountId){const d=getAcct(tx.debtPaymentAccountId);if(d)metaParts.push(`<span class="tx-debt-pay-badge">↓ ${esc(d.name)}</span>`);}
+  const metaHtml=metaParts.length?metaParts.join('<span class="tx-dot2"></span>'):'<span class="c-text3">—</span>';
   const balLine=runBal!==null
     ?`<div class="tx-run-bal${sched?' proj':runBal<0?' neg':''}">${sched?'~':''}${$f(runBal)}</div>`
     :'';
+  if(useInline){
+    return `<div class="tx-row${sched?' tx-sched':''}${isOpen?' tx-open':''}" data-txid="${tx.id}" style="align-items:center;padding:6px 10px 6px 4px">
+      <button class="tx-stripe-btn" style="--tc:${tc}" onclick="setActiveTx('${tx.id}')">
+        <span class="tx-stripe-bar"></span>
+      </button>
+      <div class="tx-l" style="min-width:0;flex:1">
+        <input class="tx-inline-inp tx-desc-inp" value="${esc(tx.desc)}"
+          onfocus="this.dataset.orig=this.value"
+          onblur="if(this.value.trim()&&this.value.trim()!==this.dataset.orig)txAutoSave('${tx.id}','desc',this.value.trim())"
+          onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.orig;this.blur();}" />
+        <div class="tx-meta" style="margin-top:2px">${metaHtml}</div>
+      </div>
+      <span class="tx-type-pill ${tx.type}">${tx.type==='in'?'In':tx.type==='xfr'?'Xfr':'Out'}</span>
+      <input class="tx-inline-inp tx-amt-inp ${amtCls}" type="number" step="0.01" value="${tx.amount}" style="width:90px"
+        onfocus="this.select();this.dataset.orig=this.value"
+        onblur="if(parseFloat(this.value)>0&&this.value!==this.dataset.orig)txAutoSave('${tx.id}','amount',this.value)"
+        onkeydown="if(event.key==='Enter')this.blur()" />
+      <input class="tx-inline-inp tx-date-inp" type="date" value="${tx.date}" style="width:122px"
+        onchange="txAutoSave('${tx.id}','date',this.value)" />
+      ${tx.reconciled?'<span title="Reconciled" class="c-green" style="font-size:10px;padding:2px 4px;flex-shrink:0">✓</span>':''}
+      <div style="position:relative;flex-shrink:0">
+        <button class="tx-dots-btn" onclick="txDotsMenu(event,'${tx.id}')" title="More">···</button>
+      </div>
+    </div>
+    ${isOpen?txExpandHtml(tx):''}`;
+  }
   return `<div class="tx-row${sched?' tx-sched':''}" data-txid="${tx.id}">
-    <div class="tx-indicator" style="background:${sched?'var(--border2)':indColor}"></div>
+    <div class="tx-indicator" style="background:${tc}"></div>
     <div class="tx-l">
       <div class="tx-name">${esc(tx.desc)}${aiEnabled()&&txAnomalyFlag(tx)?`<button class="tx-anomaly" onclick="event.stopPropagation();explainAnomaly('${tx.id}')" title="Unusual amount — tap for AI explanation">⚠</button>`:''}</div>
-      <div class="tx-meta">${metaLine||'<span class="c-text3">—</span>'}</div>
+      <div class="tx-meta">${metaHtml}</div>
     </div>
     <div class="tx-r">
       <div class="tx-amt ${sched?'muted':amtCls}">${amtPfx}${$f(tx.amount)}</div>
@@ -6253,7 +6273,40 @@ function txRowHtml(tx,past,sched,runBal=null,forceModal=false){
     </div>
     <div class="tx-acts">
       ${tx.reconciled?'<span title="Reconciled" class="c-green" style="font-size:10px;padding:0 4px">✓</span>':''}
-      ${!tx.autoGenerated?(!tx.reconciled?`<button class="ib" onclick="${editFn}('${tx.id}')" aria-label="Edit transaction" title="Edit">✎</button><button class="ib del" onclick="delTx('${tx.id}')" aria-label="Delete transaction" title="Delete">×</button>`:`<button class="ib" onclick="${editFn}('${tx.id}')" aria-label="Edit transaction" title="Edit">✎</button>`):''}
+      ${!tx.autoGenerated?(!tx.reconciled?`<button class="ib" onclick="openTxEditModal('${tx.id}')" aria-label="Edit" title="Edit">✎</button><button class="ib del" onclick="delTx('${tx.id}')" aria-label="Delete" title="Delete">×</button>`:`<button class="ib" onclick="openTxEditModal('${tx.id}')" aria-label="Edit" title="Edit">✎</button>`):''}
+    </div>
+  </div>`;
+}
+function txExpandHtml(tx){
+  let acctOpts=S.accounts.map(a=>`<option value="${a.id}"${a.id===tx.accountId?' selected':''}>${esc(a.name)}</option>`).join('');
+  let bktOpts='<option value="">— unassigned —</option>';
+  sortedCats().forEach(cat=>sortedBuckets(cat.id).forEach(bk=>{
+    bktOpts+=`<option value="${bk.id}"${bk.id===tx.bucketId?' selected':''}>${esc(bk.name)}</option>`;
+  }));
+  const xfrToOpts='<option value="">— account —</option>'+S.accounts.filter(a=>a.id!==tx.accountId).map(a=>`<option value="${a.id}"${a.id===tx.toAccountId?' selected':''}>${esc(a.name)}</option>`).join('');
+  const debtAccts=S.accounts.filter(a=>a.type==='debt');
+  const dpOpts='<option value="">— none —</option>'+debtAccts.map(a=>`<option value="${a.id}"${a.id===tx.debtPaymentAccountId?' selected':''}>${esc(a.name)}</option>`).join('');
+  return `<div class="tx-expand-row">
+    <div class="tx-exp-fields">
+      <div class="tx-exp-field">
+        <div class="tx-exp-label">Account</div>
+        <select class="tx-exp-sel" onchange="txAutoSave('${tx.id}','accountId',this.value)">${acctOpts}</select>
+      </div>
+      ${tx.type==='out'?`<div class="tx-exp-field">
+        <div class="tx-exp-label">Bucket</div>
+        <select class="tx-exp-sel" onchange="txAutoSave('${tx.id}','bucketId',this.value)">${bktOpts}</select>
+      </div>`:''}
+      ${tx.type==='xfr'?`<div class="tx-exp-field">
+        <div class="tx-exp-label">To Account</div>
+        <select class="tx-exp-sel" onchange="txAutoSave('${tx.id}','toAccountId',this.value)">${xfrToOpts}</select>
+      </div>`:''}
+      ${tx.type==='out'&&debtAccts.length?`<div class="tx-exp-field">
+        <div class="tx-exp-label">Debt payment</div>
+        <select class="tx-exp-sel" onchange="txAutoSave('${tx.id}','debtPaymentAccountId',this.value)">${dpOpts}</select>
+      </div>`:''}
+      <label class="tx-exp-rec">
+        <input type="checkbox" ${tx.recurring?'checked':''} onchange="txAutoSave('${tx.id}','recurring',this.checked)"> ↻ Recurring
+      </label>
     </div>
   </div>`;
 }
@@ -6653,6 +6706,7 @@ function archiveOrDelete(id){
 // ═══════════════════════════════════════════════════════
 let txType='out';
 let editingTxId=null;
+let activeTx=null;
 let _editingRbId=null;
 let _editingArId=null;
 let _editingPtId=null;
@@ -6675,36 +6729,22 @@ function setTxType(t){
   updateTxFormForType();
 }
 function updateTxFormForType(){
-  const bktRow=document.getElementById('txBktRow');
-  const xfrRow=document.getElementById('txXfrRow');
-  if(!bktRow||!xfrRow)return;
-  bktRow.style.display=txType==='out'?'flex':'none';
-  xfrRow.style.display=txType==='xfr'?'flex':'none';
-  // Populate accounts
-  const asel=document.getElementById('txAcct');if(!asel)return;
-  const prevA=asel.value;
-  asel.innerHTML='<option value="">Account…</option>';
-  S.accounts.forEach(a=>asel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
-  if(prevA)asel.value=prevA;
-  // Transfer-to accounts
-  const tsel=document.getElementById('txXfrTo');if(!tsel)return;
-  const prevT=tsel.value;
-  tsel.innerHTML='<option value="">To account…</option>';
-  S.accounts.forEach(a=>tsel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
-  if(prevT)tsel.value=prevT;
-  // Debt payment selector (inside txBktRow) — populate when out + debt accounts exist
-  const dpSel=document.getElementById('txDebtPay');
-  if(dpSel){
-    const debtAccts=S.accounts.filter(a=>a.type==='debt');
-    if(txType==='out'&&debtAccts.length){
-      const prevDP=dpSel.value;
-      dpSel.innerHTML='<option value="">Debt payment (optional)…</option>';
-      debtAccts.forEach(a=>dpSel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
-      if(prevDP)dpSel.value=prevDP;
-      dpSel.style.display='';
-    } else {
-      dpSel.style.display='none';dpSel.value='';
-    }
+  // Populate from-account
+  const asel=document.getElementById('txAcct');
+  if(asel){
+    const prevA=asel.value;
+    asel.innerHTML='<option value="">Account…</option>';
+    S.accounts.forEach(a=>asel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
+    if(prevA)asel.value=prevA;
+  }
+  // To-account (xfr only — now inline in Row 1)
+  const tsel=document.getElementById('txXfrTo');
+  if(tsel){
+    tsel.style.display=txType==='xfr'?'':'none';
+    const prevT=tsel.value;
+    tsel.innerHTML='<option value="">To account…</option>';
+    S.accounts.forEach(a=>tsel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
+    if(prevT)tsel.value=prevT;
   }
 }
 function onTxTypeOrAcctChange(){updateTxFormForType();}
@@ -6832,16 +6872,15 @@ function addTx(){
   const date=document.getElementById('txDate').value;
   const rec=(document.getElementById('txRec')?.checked||document.getElementById('txRec2')?.checked)||false;
   const acctId=document.getElementById('txAcct').value;
-  const bkt=txType==='out'?document.getElementById('txBkt').value:null;
-  const toAcct=txType==='xfr'?document.getElementById('txXfrTo').value:null;
-  const debtPaymentAccountId=txType==='out'?(document.getElementById('txDebtPay')?.value||null):null;
+  const bkt=null; // bucket assigned inline after creation
+  const toAcct=txType==='xfr'?(document.getElementById('txXfrTo')?.value||null):null;
+  const debtPaymentAccountId=null; // assigned inline after creation
 
   if(!desc){document.getElementById('txDesc').focus();return;}
   if(!amt||amt<=0){document.getElementById('txAmt').focus();return;}
   if(!date){document.getElementById('txDate').focus();return;}
   if(!acctId){alert('Please select an account.');return;}
-  if(txType==='out'&&!bkt){alert('Please select a bucket.');return;}
-  if(txType==='xfr'&&!toAcct){alert('Please select destination account.');return;}
+  if(txType==='xfr'&&!toAcct){alert('Please select a destination account.');return;}
   if(txType==='xfr'&&toAcct===acctId){alert('Cannot transfer to the same account.');return;}
 
   // Determine correct month from date
@@ -6879,8 +6918,6 @@ function addTx(){
   showToast(`${isEdit?'Updated':'Added'} ${typeLabel}: ${desc}${sched?' (scheduled)':''}`, txType==='in'?'in':txType==='xfr'?'xfr':'out');
   document.getElementById('txDesc').value='';
   document.getElementById('txAmt').value='';
-  document.getElementById('txRec').checked=false;
-  const dpEl=document.getElementById('txDebtPay');if(dpEl)dpEl.value='';
   render();
   // Prompt allocation rules on new income
   if(!isEdit&&txType==='in'&&!sched)setTimeout(()=>promptAllocationRules(amt,monthId),400);
@@ -6898,17 +6935,14 @@ function editTx(id){
   const tx=S.txs.find(t=>t.id===id);if(!tx)return;
   const m=getMonth(tx.monthId);if(m?.closed){showToast('Month is closed — reopen to edit','info');return;}
   editingTxId=id;
-  document.getElementById('txDesc').value=tx.desc;
-  document.getElementById('txAmt').value=tx.amount;
-  document.getElementById('txDate').value=tx.date;
-  document.getElementById('txRec').checked=tx.recurring;
+  const txDescEl=document.getElementById('txDesc');if(txDescEl)txDescEl.value=tx.desc;
+  const txAmtEl2=document.getElementById('txAmt');if(txAmtEl2)txAmtEl2.value=tx.amount;
+  const txDateEl2=document.getElementById('txDate');if(txDateEl2)txDateEl2.value=tx.date;
   setTxType(tx.type);
-  document.getElementById('txAcct').value=tx.accountId||'';
-  if(tx.bucketId){const b=getBucket(tx.bucketId);if(b){document.getElementById('txCat').value=b.catId;syncTxBuckets();document.getElementById('txBkt').value=tx.bucketId;}}
-  if(tx.toAccountId)document.getElementById('txXfrTo').value=tx.toAccountId;
-  const dpSel=document.getElementById('txDebtPay');if(dpSel&&tx.debtPaymentAccountId)dpSel.value=tx.debtPaymentAccountId;
-  document.getElementById('txSubmitBtn').textContent='Update Transaction';
-  document.getElementById('txDesc').focus();
+  const txAcctEl2=document.getElementById('txAcct');if(txAcctEl2)txAcctEl2.value=tx.accountId||'';
+  if(tx.toAccountId){const xfrSel=document.getElementById('txXfrTo');if(xfrSel)xfrSel.value=tx.toAccountId;}
+  const sbEl=document.getElementById('txSubmitBtn');if(sbEl)sbEl.textContent='Update Transaction';
+  if(txDescEl)txDescEl.focus();
 }
 function openTxEditModal(id){
   const tx=S.txs.find(t=>t.id===id);if(!tx)return;
@@ -6967,6 +7001,33 @@ function delTxFromDetail(id){
   save();closeRSheet();render();
   showUndoToast('Deleted: '+tx.desc,'out',()=>{S.txs.push(tx);save();render();showToast('Restored','save');});
 }
+function setActiveTx(id){
+  activeTx=(activeTx===id)?null:id;
+  renderTxList();
+}
+function txAutoSave(id,key,val){
+  const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  const m=getMonth(tx.monthId);if(m?.closed){showToast('Month is closed — reopen to edit','info');return;}
+  if(key==='amount'){const v=parseFloat(val);if(!v||v<=0)return;tx.amount=v;}
+  else if(key==='date'){if(!val)return;tx.date=val;tx.monthId=dateToMonthId(val);}
+  else if(key==='recurring'){tx.recurring=!!val;}
+  else tx[key]=val||null;
+  save();
+  renderTxList();
+  showToast('Saved','save');
+}
+function txDotsMenu(e,id){
+  e.stopPropagation();
+  document.querySelectorAll('.tx-dots-menu').forEach(m=>m.remove());
+  const btn=e.currentTarget;
+  const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  const menu=document.createElement('div');
+  menu.className='tx-dots-menu';
+  menu.innerHTML=`<div class="tx-dots-item danger" onclick="delTx('${id}');txCloseDotsMenu()">✕ Delete</div>`;
+  btn.parentElement.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click',txCloseDotsMenu,{once:true}),10);
+}
+function txCloseDotsMenu(){document.querySelectorAll('.tx-dots-menu').forEach(m=>m.remove());}
 function delTx(id){
   const tx=S.txs.find(t=>t.id===id);
   const _m=tx?getMonth(tx.monthId):null;if(_m?.closed){showToast('Month is closed — reopen to delete','info');return;}
