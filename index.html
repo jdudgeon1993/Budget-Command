@@ -1529,6 +1529,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-list-table tr.bkt-list-row:hover{background:var(--surface2);}
 .bkt-list-table tr.bkt-list-row.act{background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
 .bkt-list-table tr.bkt-list-row.skipped{opacity:.4;pointer-events:none;}
+.bkt-list-table tr.bkt-list-row.skipped td:last-child{pointer-events:auto;}
 .bkt-list-table .bkt-row-tags{display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;}
 .bkt-list-table .alloc-wrap{justify-content:flex-end;}
 .bkt-list-table td.alloc-td{padding:3px 10px;}
@@ -1536,6 +1537,27 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .report-table .report-cat-row td{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2);font-family:var(--sans);}
 .report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
 .report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
+/* ── Bucket Inline Edit Panel ── */
+.bkt-expand-row td{padding:0;border-bottom:2px solid var(--accent);}
+.bkt-inline-panel{background:color-mix(in srgb,var(--accent) 4%,var(--surface));padding:16px 18px;border-top:1px solid var(--border2);}
+.bkt-inline-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 14px;}
+.bkt-inline-field{display:flex;flex-direction:column;gap:4px;}
+.bkt-inline-fullwidth{grid-column:1/-1;}
+.bkt-inline-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.bkt-inline-input{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--text);font-family:var(--sans);width:100%;box-sizing:border-box;}
+.bkt-inline-input:focus{border-color:var(--accent);outline:none;}
+.bkt-inline-toggles{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.bkt-inline-tog{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:var(--text2);user-select:none;}
+.bkt-dots-btn{background:none;border:none;cursor:pointer;padding:3px 7px;border-radius:4px;color:var(--text3);font-size:15px;line-height:1;opacity:.4;}
+.bkt-dots-btn:hover,.bkt-list-row:hover .bkt-dots-btn,.bkt-list-row.act .bkt-dots-btn{opacity:1;}
+.bkt-dots-wrap{position:relative;display:inline-block;}
+.bkt-dots-menu{position:absolute;right:0;top:calc(100% + 2px);background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.35);z-index:300;min-width:150px;overflow:hidden;}
+.bkt-dots-item{padding:9px 14px;font-size:12px;cursor:pointer;color:var(--text2);white-space:nowrap;}
+.bkt-dots-item:hover{background:var(--surface2);color:var(--text);}
+.bkt-dots-item.danger{color:var(--red);}
+.bkt-dots-sep{height:1px;background:var(--border);margin:2px 0;}
+@media(max-width:1099px){.bkt-inline-grid{grid-template-columns:1fr 1fr;}.bkt-dots-btn{opacity:1;}}
+@media(max-width:480px){.bkt-inline-grid{grid-template-columns:1fr;}}
 .report-copy-btn:hover{background:var(--surface);color:var(--text);}
 /* ── Reports tab nav ── */
 .rtab-bar{display:flex;gap:4px;padding:0 0 12px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;}
@@ -5368,6 +5390,7 @@ function renderBucketsTab(el,mid){
       <th class="bkt-col-hide">Rollover</th>
       <th class="bkt-col-hide">Spent</th>
       <th>Available</th>
+      <th style="width:32px;padding:0"></th>
     </tr></thead>
     <tbody>`;
 
@@ -5388,7 +5411,7 @@ function renderBucketsTab(el,mid){
     const catAllocColor=catTarget>0?(catAlloc>=catTarget?'var(--green)':catAlloc>0?'var(--amber)':'var(--text3)'):'var(--text3)';
 
     h+=`<tr class="report-cat-row">
-      <td colspan="6" style="color:${color}">
+      <td colspan="7" style="color:${color}">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-weight:700">${esc(cat.name)}</span>
           <span style="margin-left:auto;font-family:var(--mono);color:${catAllocColor}">${$f(catAlloc)}<span style="color:var(--text3);font-weight:400"> / ${$f(catTarget)}</span></span>
@@ -5427,7 +5450,8 @@ function renderBucketsTab(el,mid){
       if(roll>0)tags.push(`<span class="bntag">+${$f(roll)} rolled</span>`);
       if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span class="bntag" style="color:${tc}">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
 
-      h+=`<tr class="bkt-list-row${S.activeBucket===b.id?' act':''}${skipped?' skipped':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter')setBucket('${b.id}')">
+      const isExpanded=S.activeBucket===b.id;
+      h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter')setBucket('${b.id}')">
         <td>
           <div style="display:flex;align-items:center;gap:6px">
             <span style="width:3px;height:28px;background:${color};border-radius:2px;flex-shrink:0;display:inline-block"></span>
@@ -5454,7 +5478,14 @@ function renderBucketsTab(el,mid){
         <td class="bkt-col-hide" style="color:${roll>0?'var(--accent)':'var(--text3)'}">${roll>0?$f(roll):'—'}</td>
         <td class="bkt-col-hide" style="color:${spent>0?'var(--text2)':'var(--text3)'}">${spent>0?$f(spent):'—'}</td>
         <td style="color:${availColor};font-weight:600">${eff>0||spent>0?$f(avail):'—'}</td>
-      </tr>`;
+        <td style="padding:3px 5px;text-align:center" onclick="event.stopPropagation()">
+          <div class="bkt-dots-wrap">
+            <button id="bktDots_${b.id}" class="bkt-dots-btn" onclick="bktDotsMenu('${b.id}','${mid}',${past})" title="More actions">···</button>
+          </div>
+        </td>
+      </tr>
+      ${isExpanded?`<tr class="bkt-expand-row"><td colspan="7">${bktInlineEditHtml(b,mid,past)}</td></tr>`:''}
+      `;
     });
   });
 
@@ -5466,6 +5497,7 @@ function renderBucketsTab(el,mid){
     <td class="bkt-col-hide">—</td>
     <td class="bkt-col-hide">${grandSpent?$f(grandSpent):'—'}</td>
     <td style="color:${rtsColor};font-weight:700">${$f(rts)}</td>
+    <td></td>
   </tr>`;
   h+=`</tbody></table></div>`;
   el.innerHTML=h;
@@ -6312,8 +6344,164 @@ function fundCategory(catId,mid){
 // ═══════════════════════════════════════════════════════
 function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;const op=document.getElementById('paneOverview');if(op)op.scrollTop=0;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
 function setBucket(id){
-  if(id){openDetail('bucket',id);}
-  else{closeDetail();S.activeBucket=null;save();}
+  if(!_bktExpandSplit)_bktExpandSplit={};
+  if(id){
+    if(S.activeBucket===id){S.activeBucket=null;}
+    else{S.activeBucket=id;const b=getBucket(id);if(b)_bktExpandSplit[id]=!!(b.dueDay2);}
+  } else {
+    S.activeBucket=null;
+  }
+  save();
+  if(activeTab!=='buckets'){setTab('buckets');return;}
+  const el=document.getElementById('paneBuckets');
+  if(el)renderBucketsTab(el,S.activeMonth);
+}
+function bktAutoSave(bid,key,val){
+  const b=getBucket(bid);if(!b)return;
+  if(['defaultBudget','targetAmount','dueAmount','dueAmount2'].includes(key)){b[key]=parseFloat(val)||0;}
+  else if(['recurring','rollover'].includes(key)){b[key]=val===true||val==='true'||val===1;}
+  else if(['dueDay','dueDay2','targetDate','debtAccountId'].includes(key)){b[key]=val||null;}
+  else if(key==='notes'){b[key]=String(val).trim()||null;}
+  else{b[key]=val;}
+  if(key==='defaultBudget'){S.months.forEach(m=>{if(!m.budgets)m.budgets={};if(m.budgets[bid]===undefined)m.budgets[bid]=b.defaultBudget;});}
+  save();
+  const el=document.getElementById('paneBuckets');
+  if(el)renderBucketsTab(el,S.activeMonth);
+}
+function bktToggleSplit(bid){
+  _bktExpandSplit[bid]=!_bktExpandSplit[bid];
+  if(!_bktExpandSplit[bid]){const b=getBucket(bid);if(b){b.dueDay2=null;b.dueAmount=null;b.dueAmount2=null;save();}}
+  const el=document.getElementById('paneBuckets');
+  if(el)renderBucketsTab(el,S.activeMonth);
+}
+function bktDuplicate(id){
+  const b=getBucket(id);if(!b)return;
+  const newId='_'+Math.random().toString(36).slice(2,9);
+  const cnt=S.buckets.filter(x=>x.catId===b.catId).length;
+  S.buckets.push({...b,id:newId,name:b.name+' (copy)',order:cnt});
+  S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[newId]=b.defaultBudget||0;if(!m.allocations)m.allocations={};m.allocations[newId]=0;});
+  save();populateTxCats();
+  const el=document.getElementById('paneBuckets');
+  if(el)renderBucketsTab(el,S.activeMonth);
+  showToast('Duplicated: '+b.name,'save');
+}
+function bktDotsMenu(bid,mid,past){
+  document.querySelectorAll('.bkt-dots-menu').forEach(m=>m.remove());
+  const btn=document.getElementById('bktDots_'+bid);if(!btn)return;
+  const hasTxs=S.txs.some(t=>t.bucketId===bid);
+  const b=getBucket(bid);if(!b)return;
+  const skipped=isBktSkipped(bid,mid);
+  const menu=document.createElement('div');
+  menu.className='bkt-dots-menu';
+  const rows=[];
+  if(!past)rows.push(`<div class="bkt-dots-item" onclick="toggleSkipBucket('${bid}','${mid}');bktCloseDotsMenu()">${skipped?'▶ Unskip Month':'⏭ Skip Month'}</div>`);
+  rows.push(`<div class="bkt-dots-sep"></div>`);
+  rows.push(`<div class="bkt-dots-item" onclick="bktDuplicate('${bid}');bktCloseDotsMenu()">⧉ Duplicate</div>`);
+  rows.push(`<div class="bkt-dots-sep"></div>`);
+  rows.push(`<div class="bkt-dots-item danger" onclick="archiveOrDelete('${bid}');bktCloseDotsMenu()">${hasTxs?'◻ Archive':'✕ Delete'}</div>`);
+  menu.innerHTML=rows.join('');
+  btn.parentElement.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click',bktCloseDotsMenu,{once:true}),10);
+}
+function bktCloseDotsMenu(){document.querySelectorAll('.bkt-dots-menu').forEach(m=>m.remove());}
+function bktInlineEditHtml(b,mid,past){
+  const catOpts=sortedCats().map(c=>`<option value="${c.id}"${c.id===b.catId?' selected':''}>${esc(c.name)}</option>`).join('');
+  const isSink=b.type==='sinking';
+  const isGoal=b.type==='goal';
+  const split=!!(_bktExpandSplit[b.id]??!!(b.dueDay2));
+  const debtAccts=S.accounts.filter(a=>a.type==='debt');
+  const debtOpts='<option value="">— none —</option>'+debtAccts.map(a=>`<option value="${a.id}"${a.id===b.debtAccountId?' selected':''}>${esc(a.name)}</option>`).join('');
+  let g=`<div class="bkt-inline-panel"><div class="bkt-inline-grid">
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">Name</div>
+      <input class="bkt-inline-input" value="${esc(b.name)}"
+        onblur="if(this.value.trim())bktAutoSave('${b.id}','name',this.value.trim())"
+        onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+    </div>
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">Category</div>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','catId',this.value)" onclick="event.stopPropagation()">${catOpts}</select>
+    </div>
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">Type</div>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','type',this.value)" onclick="event.stopPropagation()">
+        <option value="expense"${b.type==='expense'?' selected':''}>Expense</option>
+        <option value="sinking"${b.type==='sinking'?' selected':''}>Sinking (saving)</option>
+        <option value="goal"${b.type==='goal'?' selected':''}>Goal</option>
+      </select>
+    </div>
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">${isSink?'Monthly Target':'Budget Target'}</div>
+      <input class="bkt-inline-input" type="number" value="${b.defaultBudget||''}" placeholder="0.00"
+        onblur="bktAutoSave('${b.id}','defaultBudget',this.value)"
+        onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+    </div>`;
+  if(!split){
+    g+=`<div class="bkt-inline-field">
+      <div class="bkt-inline-label">Due Day</div>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay',this.value)" onclick="event.stopPropagation()">${dueOptsHtml(b.dueDay||'')}</select>
+    </div>`;
+  } else {
+    g+=`<div class="bkt-inline-field">
+      <div class="bkt-inline-label">Due Day 1</div>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay',this.value)" onclick="event.stopPropagation()">${dueOptsHtml(b.dueDay||'')}</select>
+    </div>
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">Amount 1</div>
+      <input class="bkt-inline-input" type="number" value="${b.dueAmount||''}" placeholder="0.00"
+        onblur="bktAutoSave('${b.id}','dueAmount',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+    </div>
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">Due Day 2</div>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay2',this.value)" onclick="event.stopPropagation()">${dueOptsHtml(b.dueDay2||'')}</select>
+    </div>
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">Amount 2</div>
+      <input class="bkt-inline-input" type="number" value="${b.dueAmount2||''}" placeholder="0.00"
+        onblur="bktAutoSave('${b.id}','dueAmount2',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+    </div>`;
+  }
+  if(isSink||isGoal){
+    g+=`<div class="bkt-inline-field">
+      <div class="bkt-inline-label">Goal Amount</div>
+      <input class="bkt-inline-input" type="number" value="${b.targetAmount||''}" placeholder="0.00"
+        onblur="bktAutoSave('${b.id}','targetAmount',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+    </div>
+    <div class="bkt-inline-field">
+      <div class="bkt-inline-label">Target Date</div>
+      <input class="bkt-inline-input" type="month" value="${b.targetDate||''}"
+        onchange="bktAutoSave('${b.id}','targetDate',this.value)" onclick="event.stopPropagation()" />
+    </div>`;
+    if(isSink){
+      g+=`<div class="bkt-inline-field">
+        <div class="bkt-inline-label">Contrib Freq</div>
+        <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','contribFreq',this.value)" onclick="event.stopPropagation()">
+          <option value="monthly"${(b.contribFreq||'monthly')==='monthly'?' selected':''}>Monthly</option>
+          <option value="biweekly"${b.contribFreq==='biweekly'?' selected':''}>Biweekly</option>
+          <option value="weekly"${b.contribFreq==='weekly'?' selected':''}>Weekly</option>
+        </select>
+      </div>`;
+    }
+  }
+  if(debtAccts.length){
+    g+=`<div class="bkt-inline-field">
+      <div class="bkt-inline-label">Linked Debt Acct</div>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','debtAccountId',this.value)" onclick="event.stopPropagation()">${debtOpts}</select>
+    </div>`;
+  }
+  g+=`<div class="bkt-inline-field bkt-inline-fullwidth">
+    <div class="bkt-inline-label">Notes</div>
+    <input class="bkt-inline-input" value="${esc(b.notes||'')}" placeholder="Optional reminder..."
+      onblur="bktAutoSave('${b.id}','notes',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+  </div>
+  </div>
+  <div class="bkt-inline-toggles" onclick="event.stopPropagation()">
+    <label class="bkt-inline-tog"><input type="checkbox"${b.recurring?' checked':''} onchange="bktAutoSave('${b.id}','recurring',this.checked)"> ↻ Recurring</label>
+    <label class="bkt-inline-tog"><input type="checkbox"${b.rollover?' checked':''} onchange="bktAutoSave('${b.id}','rollover',this.checked)"> ⟳ Rollover</label>
+    <label class="bkt-inline-tog"><input type="checkbox"${split?' checked':''} onchange="bktToggleSplit('${b.id}')"> ÷ Split Payment</label>
+  </div>
+  </div>`;
+  return g;
 }
 function setActiveAccount(id){
   if(id){openDetail('account',id);}
@@ -6352,6 +6540,7 @@ let _editingRbId=null;
 let _editingArId=null;
 let _editingPtId=null;
 let _editingPayeeId=null;
+let _bktExpandSplit={};
 let _inDetailPanel=false;
 let _ledgerPayee='';
 let _confirmCallback=null;
