@@ -4586,8 +4586,9 @@ function renderActivePane(){
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
   }
-  // Restore scroll position after paint
-  if(activePaneEl&&savedScroll>0)requestAnimationFrame(()=>{activePaneEl.scrollTop=savedScroll;});
+  // Double-RAF: first frame triggers layout recompute after innerHTML change,
+  // second frame sets scroll after the element's scrollHeight is valid again.
+  if(activePaneEl&&savedScroll>0)requestAnimationFrame(()=>requestAnimationFrame(()=>{activePaneEl.scrollTop=savedScroll;}));
 }
 
 
@@ -7216,9 +7217,9 @@ function _reRenderAcctTable(){
   const mainEl=document.getElementById('acctLsMain');
   const prevScroll=mainEl?mainEl.scrollTop:0;
   renderAccountsTab(el,S.activeMonth);
-  if(prevScroll>0)requestAnimationFrame(()=>{
+  if(prevScroll>0)requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const m=document.getElementById('acctLsMain');if(m)m.scrollTop=prevScroll;
-  });
+  }));
 }
 function acctAutoSave(id,key,val){
   const a=getAcct(id);if(!a)return;
@@ -8649,7 +8650,7 @@ function reconRefresh(acctId){
   const prevBal=document.getElementById('reconStmtBal')?.value||'';
   if(body)body.innerHTML=reconBodyHtml(acctId);
   const inp=document.getElementById('reconStmtBal');if(inp)inp.value=prevBal;
-  if(body&&prevScroll>0)requestAnimationFrame(()=>{body.scrollTop=prevScroll;});
+  if(body&&prevScroll>0)requestAnimationFrame(()=>requestAnimationFrame(()=>{body.scrollTop=prevScroll;}));
   const total=S.txs.filter(t=>(t.accountId===acctId||t.toAccountId===acctId)&&t.type!=='opening'&&t.type!=='adjustment'&&!isScheduled(t)&&!t.reconciled&&(!_reconScopeMid||t.monthId<=_reconScopeMid)).length;
   const st=document.getElementById('reconStatus');if(st)st.textContent=`${_reconChecked.size} of ${total} checked`;
   const btn=document.getElementById('reconFinishBtn');
