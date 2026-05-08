@@ -4586,8 +4586,8 @@ function renderActivePane(){
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
   }
-  // Restore scroll position (P10-B)
-  if(activePaneEl&&savedScroll>0)activePaneEl.scrollTop=savedScroll;
+  // Restore scroll position after paint
+  if(activePaneEl&&savedScroll>0)requestAnimationFrame(()=>{activePaneEl.scrollTop=savedScroll;});
 }
 
 
@@ -5597,7 +5597,7 @@ function renderBucketsTab(el,mid){
     h+=`<div class="empty-wrap" style="min-height:160px;padding:30px 0;">
       <div class="empty-title" style="font-size:15px">No buckets yet</div>
       <div class="empty-sub" style="font-size:13px;margin-bottom:14px">Use the form above to add your first bucket.</div>
-    </div>`;withScroll(el,()=>{el.innerHTML=h;});return;
+    </div>`;el.innerHTML=h;return;
   }
   // Bucket list table — Excel-style list grouped by category
   let grandTarget=0,grandAlloc=0,grandSpent=0,grandAvail=0;
@@ -5736,7 +5736,7 @@ function renderBucketsTab(el,mid){
     <td></td>
   </tr>`;
   h+=`</tbody></table></div>`;
-  withScroll(el,()=>{el.innerHTML=h;});
+  el.innerHTML=h;
   setTimeout(wireAllocKeys,50);
 }
 
@@ -8614,7 +8614,7 @@ function reconBodyHtml(acctId){
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <label class="c-text3" style="font-size:12px;flex-shrink:0">Statement balance:</label>
       <input id="reconStmtBal" class="fi mono" type="number" step="0.01" placeholder="0.00"
-        style="width:140px;margin:0" oninput="reconRefresh('${acctId}')" />
+        style="width:140px;margin:0" onchange="reconRefresh('${acctId}')" onblur="reconRefresh('${acctId}')" />
     </div>
     <div class="recon-stat-bar">
       <div class="recon-stat">
