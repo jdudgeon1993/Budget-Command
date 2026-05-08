@@ -212,9 +212,38 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ov-mnav-add:hover{opacity:.7;}
 
 /* Ledger tab */
-.ledger-layout{display:grid;grid-template-columns:300px 1fr;gap:0;height:100%;min-height:0;}
-.ledger-form-col{border-right:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;}
-.ledger-list-col{display:flex;flex-direction:column;overflow:hidden;}
+.ledger-layout{display:flex;flex-direction:column;height:100%;min-height:0;}
+.ledger-form-col{display:none;}
+.ledger-add-bar{flex-shrink:0;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.ledger-add-row1{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.ledger-add-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.ledger-add-inp{flex:1;min-width:100px;padding:7px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);}
+.ledger-add-inp:focus{border-color:var(--accent);outline:none;}
+.ledger-add-inp.mono{font-family:var(--mono);}
+.ledger-add-inp.sm{flex:0 0 90px;}
+.ledger-add-sel{flex:1;min-width:100px;padding:7px 8px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);cursor:pointer;}
+.ledger-add-sel:focus{border-color:var(--accent);outline:none;}
+.ledger-add-btn{padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.ledger-add-btn:hover{background:var(--accent2);}
+.ledger-list-col{display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;}
+/* Bucket create bar */
+.bkt-create-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rl);margin-bottom:12px;flex-wrap:wrap;}
+.bkt-create-sel{flex:0 0 160px;min-width:120px;padding:7px 9px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);}
+.bkt-create-sel:focus{border-color:var(--accent);outline:none;}
+.bkt-create-inp{flex:1;min-width:120px;padding:7px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);}
+.bkt-create-inp:focus{border-color:var(--accent);outline:none;}
+.bkt-create-swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;flex-shrink:0;border:2px solid var(--border2);transition:transform .15s,border-color .15s;}
+.bkt-create-swatch:hover{transform:scale(1.15);border-color:var(--accent);}
+.bkt-create-swatch-wrap{position:relative;flex-shrink:0;}
+.bkt-create-color-menu{position:absolute;top:calc(100%+6px);left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:5px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.bkt-create-color-dot{width:20px;height:20px;border-radius:50%;cursor:pointer;transition:transform .1s;}
+.bkt-create-color-dot:hover{transform:scale(1.2);}
+.bkt-create-btn{padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.bkt-create-btn:hover{background:var(--accent2);}
+@media(max-width:1099px){
+  .ledger-add-inp.sm{flex:0 0 80px;}
+  .bkt-create-sel{flex:1;}
+}
 .ledger-list-head{padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px;}
 .ledger-list-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);flex:1;}
 .ledger-filters{display:flex;gap:3px;}
@@ -1000,8 +1029,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-new-btn{display:inline-flex !important;}
   .tb-sync{display:none;}
   /* Ledger: hide form column (use Log tab instead) */
-  .ledger-layout{grid-template-columns:1fr;}
-  .ledger-form-col{display:none;}
+  .ledger-layout{flex-direction:column;}
   .tx-acts{opacity:1;}
   /* Legacy mobile scroll containers — still used by content functions */
   .mscroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
@@ -5099,49 +5127,37 @@ function renderLedgerTab(el,mid){
       </div>`;
   }
   el.innerHTML=`<div class="ledger-layout">
-    <div class="ledger-form-col">
-      ${!past&&aiEnabled()?`<div class="nl-bar">
-        <input class="nl-inp" id="nlInp" placeholder="e.g. Spent $45 at Trader Joe's on groceries…"
+    ${past?`<div class="ledger-add-bar" style="background:var(--surface2)">
+      <div class="notice" style="margin:0">🔒 Closed month — read only. Filter or search below.</div>
+    </div>`:`<div class="ledger-add-bar" id="ledgerAddBar">
+      ${aiEnabled()?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <input class="ledger-add-inp" id="nlInp" placeholder="✦ Natural language: 'Spent $45 at Trader Joe's on groceries'" style="flex:1"
           onkeydown="if(event.key==='Enter')parseNLTransaction()" />
-        <button class="nl-btn" id="nlBtn" onclick="parseNLTransaction()">→</button>
+        <button class="ledger-add-btn" style="background:var(--surface);border:1px solid var(--border2);color:var(--text2);font-weight:500" id="nlBtn" onclick="parseNLTransaction()">Parse</button>
       </div>`:''}
-      <div class="rp-form" id="txForm" style="display:${past?'none':'flex'};background:transparent;border-bottom:none;padding:0;gap:10px">
-        <div class="rpf-row rpf-type-row">
-          <span class="rpf-label">Type</span>
-          <div class="type-tog" style="flex:1">
-            <button class="ttbtn sel-out" id="ttOut" onclick="setTxType('out')">↑ Out</button>
-            <button class="ttbtn" id="ttIn" onclick="setTxType('in')">↓ In</button>
-            <button class="ttbtn" id="ttXfr" onclick="setTxType('xfr')">⇄ Xfr</button>
-          </div>
+      <div class="ledger-add-row1">
+        <div class="type-tog" style="flex:0 0 126px">
+          <button class="ttbtn sel-out" id="ttOut" onclick="setTxType('out')">↑ Out</button>
+          <button class="ttbtn" id="ttIn" onclick="setTxType('in')">↓ In</button>
+          <button class="ttbtn" id="ttXfr" onclick="setTxType('xfr')">⇄ Xfr</button>
         </div>
-        <div class="rpf-row">
-          <input class="tfi" id="txDesc" placeholder="Description..." style="flex:1" aria-label="Transaction description" />
-        </div>
-        <div class="rpf-row">
-          <input class="tfi mono" id="txAmt" type="text" inputmode="decimal" placeholder="Amount" style="flex:1" title="Math: +50, -20, *1.05, 5% of income, =100+50" aria-label="Amount" />
-          <input class="tfi" id="txDate" type="date" style="flex:1" aria-label="Transaction date" />
-        </div>
-        <div class="c-text3" style="font-size:10px;padding:0 2px;margin-top:-4px">✦ Math: +50 · −20 · ×1.05 · 5%</div>
-        <div class="rpf-row">
-          <select class="tfi-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1" aria-label="Account"><option value="">Account...</option></select>
-        </div>
-        <div class="rpf-row" id="txDebtPayRow" style="display:none">
-          <select class="tfi-sel" id="txDebtPay" style="flex:1" aria-label="Apply payment toward debt"><option value="">Payment toward debt (optional)</option></select>
-        </div>
-        <div class="rpf-row" id="txBktRow">
-          <select class="tfi-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1" aria-label="Category"><option value="">Category...</option></select>
-          <select class="tfi-sel" id="txBkt" style="flex:1" aria-label="Bucket"><option value="">Bucket...</option></select>
-        </div>
-        <div class="rpf-row" id="txXfrRow" style="display:none">
-          <select class="tfi-sel" id="txXfrTo" style="flex:1" aria-label="Transfer to account"><option value="">To account...</option></select>
-        </div>
-        <div class="rpf-row rpf-submit-row">
-          <label class="rec-chk" style="flex:1"><input type="checkbox" id="txRec"> ↻ Recurring</label>
-          <button class="txf-submit" id="txSubmitBtn" onclick="addTx()" style="flex:2">Add Transaction</button>
-        </div>
+        <input class="ledger-add-inp" id="txDesc" placeholder="Description…" style="flex:2;min-width:120px" aria-label="Description" />
+        <input class="ledger-add-inp mono" id="txAmt" type="text" inputmode="decimal" placeholder="0.00" title="Math: +50 · −20 · ×1.05 · 5%" style="flex:0 0 90px" aria-label="Amount" />
+        <input class="ledger-add-inp" id="txDate" type="date" style="flex:0 0 130px" aria-label="Date" />
+        <select class="ledger-add-sel" id="txAcct" onchange="onTxTypeOrAcctChange()" style="flex:1;min-width:110px" aria-label="Account"><option value="">Account…</option></select>
+        <button class="ledger-add-btn" id="txSubmitBtn" onclick="addTx()">+ Add</button>
       </div>
-      ${pastSumHtml}
-    </div>
+      <div class="ledger-add-row2" id="txBktRow" style="display:none">
+        <select class="ledger-add-sel" id="txCat" onchange="syncTxBuckets()" style="flex:1;min-width:100px" aria-label="Category"><option value="">Category…</option></select>
+        <select class="ledger-add-sel" id="txBkt" style="flex:1;min-width:100px" aria-label="Bucket"><option value="">Bucket…</option></select>
+        <select class="ledger-add-sel" id="txDebtPay" style="flex:1;min-width:100px" aria-label="Debt payment"><option value="">Debt payment (optional)…</option></select>
+        <label class="rec-chk" style="font-size:12px;color:var(--text3);white-space:nowrap"><input type="checkbox" id="txRec"> ↻ Recurring</label>
+      </div>
+      <div class="ledger-add-row2" id="txXfrRow" style="display:none">
+        <select class="ledger-add-sel" id="txXfrTo" style="flex:1;min-width:140px" aria-label="To account"><option value="">To account…</option></select>
+        <label class="rec-chk" style="font-size:12px;color:var(--text3);white-space:nowrap"><input type="checkbox" id="txRec2"> ↻ Recurring</label>
+      </div>
+    </div>`}
     <div class="ledger-list-col">
       <div class="ledger-list-head">
         <span class="ledger-list-title" id="rpTitle">Transactions</span>
@@ -5385,11 +5401,31 @@ function renderBucketsTab(el,mid){
     h+=`<div class="hint-bar warn">⚠ Budget short by ${$f(Math.abs(rts))} — remaining obligations exceed your budget balance. Deposit income or reduce allocations.</div>`;
   else if(!past&&rts===0&&alloc>0)
     h+=`<div class="hint-bar success">✓ Every dollar has a job. Budget balanced.</div>`;
+  if(!past){
+    const catOpts=sortedCats().map(c=>`<option value="${c.id}" data-color="${c.color||COLORS[0]}">${esc(c.name)}</option>`).join('');
+    h+=`<div class="bkt-create-bar">
+      <select class="bkt-create-sel" id="bktCreateCatSel" onchange="bktCreateCatChange()" title="Category">
+        <option value="">Category…</option>
+        ${catOpts}
+        <option value="__new">+ New category</option>
+      </select>
+      <input class="bkt-create-inp" id="bktCreateCatName" placeholder="New category name…" style="display:none;flex:0 0 160px"
+        onkeydown="if(event.key==='Enter')document.getElementById('bktCreateName').focus()" />
+      <div class="bkt-create-swatch-wrap">
+        <div class="bkt-create-swatch" id="bktCreateSwatch" style="background:${COLORS[0]}" onclick="bktCreateToggleColors(event)" title="Color"></div>
+        <div class="bkt-create-color-menu" id="bktCreateColorMenu" style="display:none">
+          ${COLORS.map(c=>`<div class="bkt-create-color-dot" style="background:${c}" onclick="bktCreatePickColor('${c}')"></div>`).join('')}
+        </div>
+      </div>
+      <input class="bkt-create-inp" id="bktCreateName" placeholder="Bucket name…" style="flex:2"
+        onkeydown="if(event.key==='Enter')bktCreateSubmit('${mid}')" />
+      <button class="bkt-create-btn" onclick="bktCreateSubmit('${mid}')">+ Create</button>
+    </div>`;
+  }
   if(!S.buckets.filter(b=>!b.archived).length){
     h+=`<div class="empty-wrap" style="min-height:160px;padding:30px 0;">
       <div class="empty-title" style="font-size:15px">No buckets yet</div>
-      <div class="empty-sub" style="font-size:13px;margin-bottom:14px">Add buckets to categories to start tracking.</div>
-      <button class="empty-btn" onclick="openModal('bkt')">Add a bucket</button>
+      <div class="empty-sub" style="font-size:13px;margin-bottom:14px">Use the form above to add your first bucket.</div>
     </div>`;el.innerHTML=h;return;
   }
   // Bucket list table — Excel-style list grouped by category
@@ -6412,6 +6448,58 @@ function bktToggleSplit(bid){
   const el=document.getElementById('paneBuckets');
   if(el)renderBucketsTab(el,S.activeMonth);
 }
+let _bktCreateColor=COLORS[0];
+let _bktCreateNewCat=false;
+function bktCreateCatChange(){
+  const sel=document.getElementById('bktCreateCatSel');
+  const newInp=document.getElementById('bktCreateCatName');
+  const swatch=document.getElementById('bktCreateSwatch');
+  _bktCreateNewCat=sel.value==='__new';
+  if(_bktCreateNewCat){
+    newInp.style.display='';newInp.focus();
+    swatch.style.pointerEvents='auto';swatch.style.opacity='1';
+    swatch.style.background=_bktCreateColor;
+  } else {
+    newInp.style.display='none';
+    const opt=sel.options[sel.selectedIndex];
+    const c=opt?.dataset?.color||COLORS[0];
+    _bktCreateColor=c;swatch.style.background=c;
+    swatch.style.pointerEvents='none';swatch.style.opacity='.5';
+  }
+}
+function bktCreateToggleColors(e){
+  if(!_bktCreateNewCat)return;
+  e.stopPropagation();
+  const menu=document.getElementById('bktCreateColorMenu');
+  const open=menu.style.display==='none';
+  menu.style.display=open?'grid':'none';
+  if(open)setTimeout(()=>document.addEventListener('click',()=>{menu.style.display='none';},{once:true}),10);
+}
+function bktCreatePickColor(c){
+  _bktCreateColor=c;
+  const s=document.getElementById('bktCreateSwatch');if(s)s.style.background=c;
+  const m=document.getElementById('bktCreateColorMenu');if(m)m.style.display='none';
+}
+function bktCreateSubmit(mid){
+  const sel=document.getElementById('bktCreateCatSel');
+  const nameInp=document.getElementById('bktCreateName');
+  const newCatInp=document.getElementById('bktCreateCatName');
+  const name=nameInp.value.trim();
+  if(!name){nameInp.focus();showToast('Enter a bucket name','info');return;}
+  let catId=sel.value;
+  if(catId==='__new'||!catId){
+    const catName=(newCatInp?.value||'').trim();
+    if(!catName){(newCatInp||sel).focus();showToast('Enter a category name','info');return;}
+    const nc={id:'_'+Math.random().toString(36).slice(2,9),name:catName,color:_bktCreateColor,order:S.cats.length};
+    S.cats.push(nc);catId=nc.id;
+  }
+  const bid='_'+Math.random().toString(36).slice(2,9);
+  const cnt=S.buckets.filter(b=>b.catId===catId).length;
+  S.buckets.push({id:bid,catId,name,type:'expense',defaultBudget:0,dueDay:null,dueDay2:null,dueAmount:null,dueAmount2:null,notes:null,recurring:false,rollover:false,archived:false,targetAmount:null,targetDate:null,contribFreq:'monthly',order:cnt,debtAccountId:null});
+  S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[bid]=0;if(!m.allocations)m.allocations={};m.allocations[bid]=0;});
+  save();render();populateTxCats();
+  showToast('Created: '+name,'save');
+}
 function bktDuplicate(id){
   const b=getBucket(id);if(!b)return;
   const newId='_'+Math.random().toString(36).slice(2,9);
@@ -6589,34 +6677,30 @@ function updateTxFormForType(){
   if(!bktRow||!xfrRow)return;
   bktRow.style.display=txType==='out'?'flex':'none';
   xfrRow.style.display=txType==='xfr'?'flex':'none';
-  // Add gap between rows when shown
-  bktRow.style.gap='6px';
   // Populate accounts
   const asel=document.getElementById('txAcct');if(!asel)return;
   const prevA=asel.value;
-  asel.innerHTML='<option value="">Account...</option>';
+  asel.innerHTML='<option value="">Account…</option>';
   S.accounts.forEach(a=>asel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
   if(prevA)asel.value=prevA;
   // Transfer-to accounts
   const tsel=document.getElementById('txXfrTo');if(!tsel)return;
   const prevT=tsel.value;
-  tsel.innerHTML='<option value="">To account...</option>';
+  tsel.innerHTML='<option value="">To account…</option>';
   S.accounts.forEach(a=>tsel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
   if(prevT)tsel.value=prevT;
-  // Debt payment selector — only shown for expense transactions when debt accounts exist
-  const dpRow=document.getElementById('txDebtPayRow');
+  // Debt payment selector (inside txBktRow) — populate when out + debt accounts exist
   const dpSel=document.getElementById('txDebtPay');
-  if(dpRow&&dpSel){
+  if(dpSel){
     const debtAccts=S.accounts.filter(a=>a.type==='debt');
     if(txType==='out'&&debtAccts.length){
-      dpRow.style.display='flex';
       const prevDP=dpSel.value;
-      dpSel.innerHTML='<option value="">Payment toward debt (optional)</option>';
+      dpSel.innerHTML='<option value="">Debt payment (optional)…</option>';
       debtAccts.forEach(a=>dpSel.innerHTML+=`<option value="${a.id}">${esc(a.name)}</option>`);
       if(prevDP)dpSel.value=prevDP;
+      dpSel.style.display='';
     } else {
-      dpRow.style.display='none';
-      dpSel.value='';
+      dpSel.style.display='none';dpSel.value='';
     }
   }
 }
@@ -6743,7 +6827,7 @@ function addTx(){
   const amt=evalMoneyExpr(txAmtRaw,txAmtCurrent,txAmtRef);
   txAmtEl.value=amt||'';
   const date=document.getElementById('txDate').value;
-  const rec=document.getElementById('txRec').checked;
+  const rec=(document.getElementById('txRec')?.checked||document.getElementById('txRec2')?.checked)||false;
   const acctId=document.getElementById('txAcct').value;
   const bkt=txType==='out'?document.getElementById('txBkt').value:null;
   const toAcct=txType==='xfr'?document.getElementById('txXfrTo').value:null;
