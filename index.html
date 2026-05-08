@@ -1525,7 +1525,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .report-table th:first-child{text-align:left;}
 .report-table td{padding:6px 10px;text-align:right;font-family:var(--mono);border-bottom:1px solid var(--border);}
 .report-table td:first-child{text-align:left;font-family:var(--sans);font-size:12px;color:var(--text2);}
-.bkt-list-table tr.bkt-list-row{cursor:pointer;transition:background .1s;}
+.bkt-list-table tr.bkt-list-row{cursor:default;transition:background .1s;}
 .bkt-list-table tr.bkt-list-row:hover{background:var(--surface2);}
 .bkt-list-table tr.bkt-list-row.act{background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
 .bkt-list-table tr.bkt-list-row.skipped{opacity:.4;pointer-events:none;}
@@ -1548,6 +1548,17 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-inline-input:focus{border-color:var(--accent);outline:none;}
 .bkt-inline-toggles{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
 .bkt-inline-tog{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:var(--text2);user-select:none;}
+.bkt-chevron{background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text3);font-size:14px;line-height:1;border-radius:4px;transition:transform .2s,color .15s;flex-shrink:0;opacity:.5;}
+.bkt-chevron:hover{opacity:1;color:var(--text);}
+.bkt-chevron.open{transform:rotate(90deg);color:var(--accent);opacity:1;}
+.bkt-name-inp{background:none;border:none;border-bottom:1px solid transparent;padding:2px 2px;font-size:13px;font-weight:500;color:var(--text1);width:100%;min-width:60px;font-family:var(--sans);transition:border-color .15s;}
+.bkt-name-inp:hover{border-bottom-color:var(--border2);}
+.bkt-name-inp:focus{border-bottom-color:var(--accent);outline:none;}
+.bkt-target-wrap{display:flex;align-items:center;background:transparent;border:1px solid transparent;border-radius:5px;transition:border-color .15s,background .15s;}
+.bkt-target-wrap:hover{border-color:var(--border);background:var(--surface2);}
+.bkt-target-wrap:focus-within{border-color:var(--accent);background:var(--surface2);}
+.bkt-target-inp{flex:1;min-width:0;width:72px;padding:5px 6px;background:none;border:none;font-family:var(--mono);font-size:12px;font-weight:500;color:var(--text);text-align:right;}
+.bkt-target-inp:focus{outline:none;}
 .bkt-dots-btn{background:none;border:none;cursor:pointer;padding:3px 7px;border-radius:4px;color:var(--text3);font-size:15px;line-height:1;opacity:.4;}
 .bkt-dots-btn:hover,.bkt-list-row:hover .bkt-dots-btn,.bkt-list-row.act .bkt-dots-btn{opacity:1;}
 .bkt-dots-wrap{position:relative;display:inline-block;}
@@ -5451,19 +5462,35 @@ function renderBucketsTab(el,mid){
       if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span class="bntag" style="color:${tc}">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
 
       const isExpanded=S.activeBucket===b.id;
-      h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}" onclick="setBucket('${b.id}')" tabindex="0" onkeydown="if(event.key==='Enter')setBucket('${b.id}')">
+      h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}">
         <td>
-          <div style="display:flex;align-items:center;gap:6px">
+          <div style="display:flex;align-items:center;gap:5px">
+            <button class="bkt-chevron${isExpanded?' open':''}" onclick="setBucket('${b.id}')" title="Settings">›</button>
             <span style="width:3px;height:28px;background:${color};border-radius:2px;flex-shrink:0;display:inline-block"></span>
-            <div>
-              <div style="font-size:13px;color:var(--text1);font-weight:500">${esc(b.name)}</div>
+            <div style="flex:1;min-width:0">
+              ${past
+                ? `<div style="font-size:13px;color:var(--text1);font-weight:500">${esc(b.name)}</div>`
+                : `<input class="bkt-name-inp" value="${esc(b.name)}" title="Rename"
+                    onblur="if(this.value.trim()&&this.value.trim()!==this.dataset.orig)bktAutoSave('${b.id}','name',this.value.trim())"
+                    onfocus="this.dataset.orig=this.value"
+                    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.orig;this.blur();}" />`
+              }
               ${tags.length||dueChip?`<div class="bkt-row-tags">${tags.join('')}${dueChip}</div>`:''}
             </div>
-            ${skipped?`<button class="bkt-skip-tag" style="margin-left:auto" onclick="event.stopPropagation();toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</button>`:''}
+            ${skipped?`<button class="bkt-skip-tag" onclick="toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</button>`:''}
           </div>
         </td>
-        <td class="bkt-col-hide">${target?$f(target):'—'}</td>
-        <td class="alloc-td" onclick="event.stopPropagation()">
+        <td class="bkt-col-hide">
+          ${past
+            ? `<span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${target?$f(target):'—'}</span>`
+            : `<div class="bkt-target-wrap">
+                <input class="bkt-target-inp" type="number" value="${b.defaultBudget||''}" placeholder="—"
+                  onblur="bktSaveTarget('${b.id}','${mid}',this.value)"
+                  onkeydown="if(event.key==='Enter')this.blur()" onfocus="this.select()" />
+              </div>`
+          }
+        </td>
+        <td class="alloc-td">
           ${past?`<span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${$f(alloc)}</span>`:`
           <div class="alloc-wrap">
             <span class="alloc-pfx">$</span>
@@ -5478,7 +5505,7 @@ function renderBucketsTab(el,mid){
         <td class="bkt-col-hide" style="color:${roll>0?'var(--accent)':'var(--text3)'}">${roll>0?$f(roll):'—'}</td>
         <td class="bkt-col-hide" style="color:${spent>0?'var(--text2)':'var(--text3)'}">${spent>0?$f(spent):'—'}</td>
         <td style="color:${availColor};font-weight:600">${eff>0||spent>0?$f(avail):'—'}</td>
-        <td style="padding:3px 5px;text-align:center" onclick="event.stopPropagation()">
+        <td style="padding:3px 5px;text-align:center">
           <div class="bkt-dots-wrap">
             <button id="bktDots_${b.id}" class="bkt-dots-btn" onclick="bktDotsMenu('${b.id}','${mid}',${past})" title="More actions">···</button>
           </div>
@@ -6368,6 +6395,15 @@ function bktAutoSave(bid,key,val){
   const el=document.getElementById('paneBuckets');
   if(el)renderBucketsTab(el,S.activeMonth);
 }
+function bktSaveTarget(bid,mid,val){
+  const b=getBucket(bid);if(!b)return;
+  const v=parseFloat(val)||0;
+  b.defaultBudget=v;
+  const m=getMonth(mid);if(m){if(!m.budgets)m.budgets={};m.budgets[bid]=v;}
+  save();
+  const el=document.getElementById('paneBuckets');
+  if(el)renderBucketsTab(el,S.activeMonth);
+}
 function bktToggleSplit(bid){
   _bktExpandSplit[bid]=!_bktExpandSplit[bid];
   if(!_bktExpandSplit[bid]){const b=getBucket(bid);if(b){b.dueDay2=null;b.dueAmount=null;b.dueAmount2=null;save();}}
@@ -6413,69 +6449,57 @@ function bktInlineEditHtml(b,mid,past){
   const debtOpts='<option value="">— none —</option>'+debtAccts.map(a=>`<option value="${a.id}"${a.id===b.debtAccountId?' selected':''}>${esc(a.name)}</option>`).join('');
   let g=`<div class="bkt-inline-panel"><div class="bkt-inline-grid">
     <div class="bkt-inline-field">
-      <div class="bkt-inline-label">Name</div>
-      <input class="bkt-inline-input" value="${esc(b.name)}"
-        onblur="if(this.value.trim())bktAutoSave('${b.id}','name',this.value.trim())"
-        onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
-    </div>
-    <div class="bkt-inline-field">
       <div class="bkt-inline-label">Category</div>
-      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','catId',this.value)" onclick="event.stopPropagation()">${catOpts}</select>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','catId',this.value)">${catOpts}</select>
     </div>
     <div class="bkt-inline-field">
       <div class="bkt-inline-label">Type</div>
-      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','type',this.value)" onclick="event.stopPropagation()">
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','type',this.value)">
         <option value="expense"${b.type==='expense'?' selected':''}>Expense</option>
         <option value="sinking"${b.type==='sinking'?' selected':''}>Sinking (saving)</option>
         <option value="goal"${b.type==='goal'?' selected':''}>Goal</option>
       </select>
-    </div>
-    <div class="bkt-inline-field">
-      <div class="bkt-inline-label">${isSink?'Monthly Target':'Budget Target'}</div>
-      <input class="bkt-inline-input" type="number" value="${b.defaultBudget||''}" placeholder="0.00"
-        onblur="bktAutoSave('${b.id}','defaultBudget',this.value)"
-        onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
     </div>`;
   if(!split){
     g+=`<div class="bkt-inline-field">
       <div class="bkt-inline-label">Due Day</div>
-      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay',this.value)" onclick="event.stopPropagation()">${dueOptsHtml(b.dueDay||'')}</select>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay',this.value)">${dueOptsHtml(b.dueDay||'')}</select>
     </div>`;
   } else {
     g+=`<div class="bkt-inline-field">
       <div class="bkt-inline-label">Due Day 1</div>
-      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay',this.value)" onclick="event.stopPropagation()">${dueOptsHtml(b.dueDay||'')}</select>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay',this.value)">${dueOptsHtml(b.dueDay||'')}</select>
     </div>
     <div class="bkt-inline-field">
       <div class="bkt-inline-label">Amount 1</div>
       <input class="bkt-inline-input" type="number" value="${b.dueAmount||''}" placeholder="0.00"
-        onblur="bktAutoSave('${b.id}','dueAmount',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+        onblur="bktAutoSave('${b.id}','dueAmount',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
     </div>
     <div class="bkt-inline-field">
       <div class="bkt-inline-label">Due Day 2</div>
-      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay2',this.value)" onclick="event.stopPropagation()">${dueOptsHtml(b.dueDay2||'')}</select>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','dueDay2',this.value)">${dueOptsHtml(b.dueDay2||'')}</select>
     </div>
     <div class="bkt-inline-field">
       <div class="bkt-inline-label">Amount 2</div>
       <input class="bkt-inline-input" type="number" value="${b.dueAmount2||''}" placeholder="0.00"
-        onblur="bktAutoSave('${b.id}','dueAmount2',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+        onblur="bktAutoSave('${b.id}','dueAmount2',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
     </div>`;
   }
   if(isSink||isGoal){
     g+=`<div class="bkt-inline-field">
       <div class="bkt-inline-label">Goal Amount</div>
       <input class="bkt-inline-input" type="number" value="${b.targetAmount||''}" placeholder="0.00"
-        onblur="bktAutoSave('${b.id}','targetAmount',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+        onblur="bktAutoSave('${b.id}','targetAmount',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
     </div>
     <div class="bkt-inline-field">
       <div class="bkt-inline-label">Target Date</div>
       <input class="bkt-inline-input" type="month" value="${b.targetDate||''}"
-        onchange="bktAutoSave('${b.id}','targetDate',this.value)" onclick="event.stopPropagation()" />
+        onchange="bktAutoSave('${b.id}','targetDate',this.value)" />
     </div>`;
     if(isSink){
       g+=`<div class="bkt-inline-field">
         <div class="bkt-inline-label">Contrib Freq</div>
-        <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','contribFreq',this.value)" onclick="event.stopPropagation()">
+        <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','contribFreq',this.value)">
           <option value="monthly"${(b.contribFreq||'monthly')==='monthly'?' selected':''}>Monthly</option>
           <option value="biweekly"${b.contribFreq==='biweekly'?' selected':''}>Biweekly</option>
           <option value="weekly"${b.contribFreq==='weekly'?' selected':''}>Weekly</option>
@@ -6486,16 +6510,16 @@ function bktInlineEditHtml(b,mid,past){
   if(debtAccts.length){
     g+=`<div class="bkt-inline-field">
       <div class="bkt-inline-label">Linked Debt Acct</div>
-      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','debtAccountId',this.value)" onclick="event.stopPropagation()">${debtOpts}</select>
+      <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','debtAccountId',this.value)">${debtOpts}</select>
     </div>`;
   }
   g+=`<div class="bkt-inline-field bkt-inline-fullwidth">
     <div class="bkt-inline-label">Notes</div>
     <input class="bkt-inline-input" value="${esc(b.notes||'')}" placeholder="Optional reminder..."
-      onblur="bktAutoSave('${b.id}','notes',this.value)" onkeydown="if(event.key==='Enter')this.blur()" onclick="event.stopPropagation()" />
+      onblur="bktAutoSave('${b.id}','notes',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
   </div>
   </div>
-  <div class="bkt-inline-toggles" onclick="event.stopPropagation()">
+  <div class="bkt-inline-toggles">
     <label class="bkt-inline-tog"><input type="checkbox"${b.recurring?' checked':''} onchange="bktAutoSave('${b.id}','recurring',this.checked)"> ↻ Recurring</label>
     <label class="bkt-inline-tog"><input type="checkbox"${b.rollover?' checked':''} onchange="bktAutoSave('${b.id}','rollover',this.checked)"> ⟳ Rollover</label>
     <label class="bkt-inline-tog"><input type="checkbox"${split?' checked':''} onchange="bktToggleSplit('${b.id}')"> ÷ Split Payment</label>
