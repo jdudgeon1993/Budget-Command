@@ -1548,9 +1548,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-inline-input:focus{border-color:var(--accent);outline:none;}
 .bkt-inline-toggles{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
 .bkt-inline-tog{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:var(--text2);user-select:none;}
-.bkt-chevron{background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text3);font-size:14px;line-height:1;border-radius:4px;transition:transform .2s,color .15s;flex-shrink:0;opacity:.5;}
-.bkt-chevron:hover{opacity:1;color:var(--text);}
-.bkt-chevron.open{transform:rotate(90deg);color:var(--accent);opacity:1;}
+.bkt-stripe-btn{background:none;border:none;cursor:pointer;padding:4px 8px 4px 2px;display:flex;align-items:center;flex-shrink:0;border-radius:4px;}
+.bkt-stripe-bar{width:3px;height:28px;border-radius:3px;background:var(--sc);transition:width .2s ease,box-shadow .2s ease;}
+.bkt-stripe-btn:hover .bkt-stripe-bar{width:5px;box-shadow:0 0 7px var(--sc);}
+.bkt-list-row.act .bkt-stripe-bar{width:8px;box-shadow:0 0 10px var(--sc);}
 .bkt-name-inp{background:none;border:none;border-bottom:1px solid transparent;padding:2px 2px;font-size:13px;font-weight:500;color:var(--text1);width:100%;min-width:60px;font-family:var(--sans);transition:border-color .15s;}
 .bkt-name-inp:hover{border-bottom-color:var(--border2);}
 .bkt-name-inp:focus{border-bottom-color:var(--accent);outline:none;}
@@ -5464,9 +5465,10 @@ function renderBucketsTab(el,mid){
       const isExpanded=S.activeBucket===b.id;
       h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}">
         <td>
-          <div style="display:flex;align-items:center;gap:5px">
-            <button class="bkt-chevron${isExpanded?' open':''}" onclick="setBucket('${b.id}')" title="Settings">›</button>
-            <span style="width:3px;height:28px;background:${color};border-radius:2px;flex-shrink:0;display:inline-block"></span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="bkt-stripe-btn" style="--sc:${color}" onclick="setBucket('${b.id}')" title="Toggle settings">
+              <span class="bkt-stripe-bar"></span>
+            </button>
             <div style="flex:1;min-width:0">
               ${past
                 ? `<div style="font-size:13px;color:var(--text1);font-weight:500">${esc(b.name)}</div>`
