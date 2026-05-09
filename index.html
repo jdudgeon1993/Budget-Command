@@ -691,6 +691,25 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .td-name .bn{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .td-name .bt{display:flex;align-items:center;gap:4px;margin-top:2px;}
 .bntag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:1px 4px;border-radius:3px;background:var(--bg3);color:var(--text3);}
+.bntag.vault{background:rgba(245,158,11,.18);color:#f59e0b;}
+.vault-panel{padding:14px 0 0;}
+.vault-stats-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.vault-stat-card{flex:1;min-width:100px;background:var(--surface2);border-radius:8px;padding:10px 12px;border:1px solid rgba(245,158,11,.2);}
+.vault-stat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px;}
+.vault-stat-main{font-family:var(--mono);font-size:18px;font-weight:700;color:#f59e0b;}
+.vault-stat-proj{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text1);}
+.vault-xfr-section{border-top:1px solid var(--border);margin-top:12px;padding-top:12px;}
+.vault-xfr-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
+.vault-why-row{display:flex;gap:8px;margin-bottom:10px;}
+.vault-why-btn{flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s;text-align:center;}
+.vault-why-btn.sel-planned{background:rgba(0,212,170,.15);border-color:var(--accent);color:var(--accent);font-weight:600;}
+.vault-why-btn.sel-overspend{background:rgba(239,68,68,.15);border-color:var(--red);color:var(--red);font-weight:600;}
+.vault-acct-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
+.vault-acct-row:hover{background:var(--surface2);}
+.vault-acct-name{flex:1;font-size:13px;font-weight:500;}
+.vault-acct-bal{font-family:var(--mono);font-size:13px;font-weight:600;color:#f59e0b;}
+.vault-acct-proj{font-family:var(--mono);font-size:11px;color:var(--text3);}
+.alloc-inp.vault-inp{color:#f59e0b;}
 .bndue{font-size:10px;font-family:var(--mono);}
 .bndue.urgent{color:var(--red);}
 .bndue.soon{color:var(--amber);}
@@ -2345,6 +2364,7 @@ let S={
   allocationRules:[], // {id,name,bucketId,type:'pct'|'fixed',value,active}
   recurringBills:[], // {id,desc,amount,bucketId,accountId,type:'out'|'in',dayOfMonth,active}
   paychecks:[],      // {id,label,amount,freq,anchorDate} — saved income sources, shared app-wide
+  vaultTransfers:[], // {id,fromBucketId,toBucketId,amount,monthId,date,reason:'planned'|'overspend'}
 };
 
 // ── Save: localStorage immediately + Supabase async ────────────────────────
@@ -2477,6 +2497,7 @@ async function loadFromSupabase(){
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
   if(!S.recurringBills)S.recurringBills=[];
+  if(!S.vaultTransfers)S.vaultTransfers=[];
   cleanupRecurringTxs();
   generateRecurringTxs();
 
@@ -2503,6 +2524,7 @@ function load(){
   if(!S.payees)S.payees=[];
   if(!S.allocationRules)S.allocationRules=[];
   if(!S.recurringBills)S.recurringBills=[];
+  if(!S.vaultTransfers)S.vaultTransfers=[];
   normalizeCatOrder();
   normalizeBktOrder();
   cleanupRecurringTxs();
@@ -5275,29 +5297,37 @@ function renderLedgerTab(el,mid){
 function renderAccountsTab(el,mid){
   const cash=S.accounts.filter(a=>a.type!=='debt');
   const debt=S.accounts.filter(a=>a.type==='debt');
+  const vaultBkts=S.buckets.filter(b=>b.type==='vault'&&!b.archived);
   const totalCash=cash.reduce((s,a)=>s+acctBalance(a.id),0);
   const totalDebt=debt.reduce((s,a)=>s+acctBalance(a.id),0);
+  const totalVault=vaultBkts.reduce((s,b)=>s+vaultAccumulated(b.id),0);
   const monthInc=monthIncome(S.activeMonth)||0;
   const totalMinPay=debt.reduce((s,a)=>s+(a.debtMinPayment||0),0);
   const dti=monthInc>0&&totalMinPay>0?Math.round(totalMinPay/monthInc*100):null;
-  // Auto-switch to debt section if no cash accounts
+  // Auto-switch section if current is empty
   if(acctSection==='cash'&&!cash.length&&debt.length)acctSection='debt';
   if(acctSection==='debt'&&!debt.length&&cash.length)acctSection='cash';
+  if(acctSection==='vault'&&!vaultBkts.length)acctSection=cash.length?'cash':'debt';
   // Sidebar nav
-  const navBtns=[
+  const navItems=[
     {id:'cash',icon:'◈',label:'Cash & Savings',sub:$f(totalCash),redSub:false},
     {id:'debt',icon:'💳',label:'Debt',sub:$f(Math.abs(totalDebt)),redSub:true},
-  ].map(s=>`<button class="acct-ls-btn${s.id===acctSection?' active':''}" onclick="setAcctSection('${s.id}')">
+    ...(vaultBkts.length?[{id:'vault',icon:'🔒',label:'Internal Savings',sub:$f(totalVault),redSub:false}]:[]),
+  ];
+  const navBtns=navItems.map(s=>`<button class="acct-ls-btn${s.id===acctSection?' active':''}" onclick="setAcctSection('${s.id}')">
     <span class="rpt-nav-icon">${s.icon}</span>
     <div style="flex:1;min-width:0;text-align:left">
       <div>${s.label}</div>
-      <div style="font-size:10px;font-family:var(--mono);opacity:.75;color:${s.redSub?'var(--red)':'inherit'}">${s.sub}</div>
+      <div style="font-size:10px;font-family:var(--mono);opacity:.75;color:${s.redSub?'var(--red)':s.id==='vault'?'#f59e0b':'inherit'}">${s.sub}</div>
     </div>
   </button>`).join('');
   // Mobile: show card layout for small screens
   if(isMobile()){
     el.innerHTML=acctMobileHtml(cash,debt,totalCash,totalDebt,dti,mid);return;
   }
+  const mainContent=acctSection==='vault'
+    ? acctVaultMainHtml(vaultBkts,mid)
+    : S.activeAccount?'':`<div class="acct-table" id="acctTable">${acctTableInnerHtml(acctSection==='cash'?cash:debt,mid)}</div>`;
   el.innerHTML=`<div class="acct-list-pane">
     <div class="acct-ls-sidebar">
       <div class="acct-ls-hdr">Accounts</div>
@@ -5306,10 +5336,10 @@ function renderAccountsTab(el,mid){
       ${acctSection==='debt'?`<div style="padding:0 8px 12px"><button class="rpt-nav-btn" onclick="showDebtPlanner()" style="font-size:11px;padding:6px 10px">📋 Debt Planner</button></div>`:''}
     </div>
     <div class="acct-ls-main" id="acctLsMain">
-      ${S.activeAccount?'':`<div class="acct-table" id="acctTable">${acctTableInnerHtml(acctSection==='cash'?cash:debt,mid)}</div>`}
+      ${mainContent}
     </div>
   </div>`;
-  if(S.activeAccount){
+  if(acctSection!=='vault'&&S.activeAccount){
     const mainEl=document.getElementById('acctLsMain');
     if(mainEl){
       const wrap=document.createElement('div');wrap.className='acct-detail-wrap';
@@ -5317,6 +5347,39 @@ function renderAccountsTab(el,mid){
       renderAccountView(wrap,mid);
     }
   }
+}
+
+function acctVaultMainHtml(vaultBkts,mid){
+  if(!vaultBkts.length)return`<div class="empty-wrap" style="padding:40px 0"><div class="empty-icon">🔒</div><div class="empty-title">No vault buckets yet</div><div class="empty-sub">Create a bucket and set its type to Vault in the Buckets tab to start tracking internal savings.</div><button class="empty-btn" onclick="setTab('buckets')">Go to Buckets</button></div>`;
+  const rows=vaultBkts.map(b=>{
+    const acc=vaultAccumulated(b.id);
+    const eoy=vaultProjectEnd(b.id);
+    const p12=vaultProject12(b.id);
+    const monthly=vaultMonthlyContrib(b.id);
+    const cat=S.cats.find(c=>c.id===b.catId);
+    return `<div class="vault-acct-row" onclick="setTab('buckets');setBucket('${b.id}')">
+      <div style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div class="vault-acct-name">${esc(b.name)}</div>
+        <div style="font-size:11px;color:var(--text3)">${cat?esc(cat.name):''} · ${$f(monthly)}/mo contribution</div>
+      </div>
+      <div style="text-align:right">
+        <div class="vault-acct-bal">${$f(acc)}</div>
+        <div class="vault-acct-proj">↗ ${$f(eoy)} by Dec · ${$f(p12)} in 12mo</div>
+      </div>
+    </div>`;
+  }).join('');
+  const grandAcc=vaultBkts.reduce((s,b)=>s+vaultAccumulated(b.id),0);
+  return `<div>
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:13px;font-weight:700;color:var(--text1)">Internal Savings</div>
+      <div style="font-family:var(--mono);font-size:15px;font-weight:700;color:#f59e0b">${$f(grandAcc)}</div>
+    </div>
+    <div style="padding:8px 16px;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface2)">
+      Vault balances are excluded from net worth to avoid double-counting with source accounts. Click a vault to manage it in the Buckets tab.
+    </div>
+    ${rows}
+  </div>`;
 }
 function acctTableInnerHtml(accounts,mid){
   const isDebt=acctSection==='debt';
@@ -5663,7 +5726,9 @@ function renderBucketsTab(el,mid){
         if(due1Paid)dueChip=`<span class="bndue green">✓ paid</span>`;
         else{const cls=days<0?'urgent':days<=7?'soon':'ok';const txt=days<0?`${Math.abs(days)}d overdue`:days===0?'due today':`due ${days}d`;dueChip=`<span class="bndue ${cls}">${txt}</span>`;}
       }
+      const isVault=b.type==='vault';
       const tags=[];
+      if(isVault)tags.push(`<span class="bntag vault">🔒 vault</span>`);
       if(b.type==='sinking')tags.push(`<span class="bntag">saving</span>`);
       if(b.type==='goal')tags.push(`<span class="bntag">goal</span>`);
       if(b.recurring)tags.push(`<span class="bntag">↻</span>`);
@@ -5674,7 +5739,7 @@ function renderBucketsTab(el,mid){
       h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}">
         <td>
           <div style="display:flex;align-items:center;gap:4px">
-            <button class="bkt-stripe-btn" style="--sc:${color}" onclick="setBucket('${b.id}')" title="Toggle settings">
+            <button class="bkt-stripe-btn" style="--sc:${isVault?'#f59e0b':color}" onclick="setBucket('${b.id}')" title="Toggle settings">
               <span class="bkt-stripe-bar"></span>
             </button>
             <div style="flex:1;min-width:0">
@@ -5704,8 +5769,8 @@ function renderBucketsTab(el,mid){
           ${past?`<span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${$f(alloc)}</span>`:`
           <div class="alloc-wrap">
             <span class="alloc-pfx">$</span>
-            <input class="alloc-inp ${allocCls}" type="text" inputmode="decimal"
-              value="${alloc||''}" placeholder="0"
+            <input class="alloc-inp ${allocCls}${isVault?' vault-inp':''}" type="text" inputmode="decimal"
+              value="${alloc||''}" placeholder="0" ${isVault?'title="This month\'s vault contribution — expand to see total balance"':''}
               onchange="(function(inp){var cur=bAlloc('${mid}','${b.id}');var ref=monthProjectedIncome('${mid}');var v=evalMoneyExpr(inp.value,cur,ref);inp.value=v;setAlloc('${mid}','${b.id}',v);})(this)"
               onkeydown="if(event.key==='Enter'){event.stopPropagation();event.preventDefault();this.dispatchEvent(new Event('change'));var _a=[...document.querySelectorAll('.alloc-inp')];var _i=_a.indexOf(this);if(_i>-1&&_i<_a.length-1)_a[_i+1].focus();else this.blur();}"
               onfocus="this.select()" />
@@ -6450,6 +6515,7 @@ function txExpandHtml(tx){
   let acctOpts=S.accounts.map(a=>`<option value="${a.id}"${a.id===tx.accountId?' selected':''}>${esc(a.name)}</option>`).join('');
   let bktOpts='<option value="">— unassigned —</option>';
   sortedCats().forEach(cat=>sortedBuckets(cat.id).forEach(bk=>{
+    if(bk.type==='vault')return; // vault buckets are not spendable
     bktOpts+=`<option value="${bk.id}"${bk.id===tx.bucketId?' selected':''}>${esc(bk.name)}</option>`;
   }));
   const xfrToOpts='<option value="">— account —</option>'+S.accounts.filter(a=>a.id!==tx.accountId).map(a=>`<option value="${a.id}"${a.id===tx.toAccountId?' selected':''}>${esc(a.name)}</option>`).join('');
@@ -6499,12 +6565,58 @@ function _allocMonthGuard(mid){
   if(diffMonths>2){showToast('Allocations are limited to the current month + 2 months ahead','info');return false;}
   return true;
 }
+// ── Vault helpers ────────────────────────────────────────────
+function vaultAccumulated(bid){
+  return S.months.reduce((s,mo)=>s+(mo.allocations?.[bid]||0),0);
+}
+function vaultMonthlyContrib(bid){
+  return getBucket(bid)?.defaultBudget||0;
+}
+function vaultProjectEnd(bid){
+  const now=new Date();
+  const monthsLeft=12-now.getMonth(); // months remaining incl. current
+  return vaultAccumulated(bid)+vaultMonthlyContrib(bid)*monthsLeft;
+}
+function vaultProject12(bid){
+  return vaultAccumulated(bid)+vaultMonthlyContrib(bid)*12;
+}
+function vaultTransferSetReason(bid,reason){
+  _vaultXfrReason[bid]=reason;
+  renderActivePane();
+}
+function vaultTransfer(bid,mid){
+  const destId=document.getElementById('vaultXfrDest_'+bid)?.value;
+  const amt=parseFloat(document.getElementById('vaultXfrAmt_'+bid)?.value)||0;
+  const reason=_vaultXfrReason[bid];
+  if(!destId){showToast('Select a destination bucket','info');return;}
+  if(amt<=0){showToast('Enter a valid amount','info');return;}
+  if(!reason){showToast('Choose planned spend or correcting overspend','info');return;}
+  const cur=bAlloc(mid,bid);
+  if(amt>cur+0.001){showToast('Amount exceeds vault balance','info');return;}
+  const m=getMonth(mid);if(!m)return;
+  if(!m.allocations)m.allocations={};
+  m.allocations[bid]=Math.max((m.allocations[bid]||0)-amt,0);
+  m.allocations[destId]=(m.allocations[destId]||0)+amt;
+  if(!S.vaultTransfers)S.vaultTransfers=[];
+  S.vaultTransfers.push({id:uid(),fromBucketId:bid,toBucketId:destId,amount:amt,monthId:mid,date:todayStr(),reason});
+  delete _vaultXfrReason[bid];
+  save();renderTopbar();renderNav();renderActivePane();
+  showToast('Vault transfer complete — '+$f(amt)+' moved to '+(getBucket(destId)?.name||'bucket'),'save');
+}
+
 function setAlloc(mid,bid,val){
   const m=getMonth(mid);if(!m)return;
   if(m.closed){showToast('Month is closed — reopen to make changes','info');return;}
   if(!_allocMonthGuard(mid))return;
+  const b=getBucket(bid);
+  const newVal=Math.max(parseFloat(val)||0,0);
+  if(b?.type==='vault'&&newVal<bAlloc(mid,bid)){
+    if(!confirm('"'+b.name+'" is a vault bucket — reducing it pulls money out of your internal savings.\n\nAre you sure you want to do this?')){
+      renderActivePane();return;
+    }
+  }
   if(!m.allocations)m.allocations={};
-  m.allocations[bid]=Math.max(parseFloat(val)||0,0);
+  m.allocations[bid]=newVal;
   save();renderTopbar();renderNav();renderActivePane();refreshBucketDetail();
   setTimeout(()=>checkGoalCelebrations(mid),100);
 }
@@ -6757,11 +6869,81 @@ function bktDotsMenu(bid,mid,past){
 function bktCloseDotsMenu(){document.querySelectorAll('.bkt-dots-menu').forEach(m=>m.remove());}
 function bktInlineEditHtml(b,mid,past){
   const catOpts=sortedCats().map(c=>`<option value="${c.id}"${c.id===b.catId?' selected':''}>${esc(c.name)}</option>`).join('');
+  const isVault=b.type==='vault';
   const isSink=b.type==='sinking';
   const isGoal=b.type==='goal';
   const split=!!(_bktExpandSplit[b.id]??!!(b.dueDay2));
   const debtAccts=S.accounts.filter(a=>a.type==='debt');
   const debtOpts='<option value="">— none —</option>'+debtAccts.map(a=>`<option value="${a.id}"${a.id===b.debtAccountId?' selected':''}>${esc(a.name)}</option>`).join('');
+
+  if(isVault){
+    const acc=vaultAccumulated(b.id);
+    const eoy=vaultProjectEnd(b.id);
+    const p12=vaultProject12(b.id);
+    const reason=_vaultXfrReason[b.id]||'';
+    const destOpts='<option value="">Destination bucket…</option>'+sortedCats().flatMap(c=>sortedBuckets(c.id).filter(bk=>bk.id!==b.id&&bk.type!=='vault'&&!bk.archived).map(bk=>`<option value="${bk.id}">${esc(c.name)} → ${esc(bk.name)}</option>`)).join('');
+    return `<div class="bkt-inline-panel">
+      <div class="vault-panel">
+        <div class="vault-stats-row">
+          <div class="vault-stat-card">
+            <div class="vault-stat-label">Total Accumulated</div>
+            <div class="vault-stat-main">${$f(acc)}</div>
+          </div>
+          <div class="vault-stat-card">
+            <div class="vault-stat-label">End of Year</div>
+            <div class="vault-stat-proj">${$f(eoy)}</div>
+          </div>
+          <div class="vault-stat-card">
+            <div class="vault-stat-label">+12 Months</div>
+            <div class="vault-stat-proj">${$f(p12)}</div>
+          </div>
+        </div>
+        <div class="bkt-inline-grid" style="margin-bottom:10px">
+          <div class="bkt-inline-field">
+            <div class="bkt-inline-label">Category</div>
+            <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','catId',this.value)">${catOpts}</select>
+          </div>
+          <div class="bkt-inline-field">
+            <div class="bkt-inline-label">Monthly Contribution</div>
+            <input class="bkt-inline-input" type="number" value="${b.defaultBudget||''}" placeholder="0.00"
+              onblur="bktSaveTarget('${b.id}','${mid}',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
+          </div>
+          <div class="bkt-inline-field">
+            <div class="bkt-inline-label">Type</div>
+            <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','type',this.value)">
+              <option value="expense">Expense</option>
+              <option value="sinking">Sinking (saving)</option>
+              <option value="goal">Goal</option>
+              <option value="vault" selected>🔒 Vault</option>
+            </select>
+          </div>
+          <div class="bkt-inline-field bkt-inline-fullwidth">
+            <div class="bkt-inline-label">Notes</div>
+            <input class="bkt-inline-input" value="${esc(b.notes||'')}" placeholder="Optional reminder..."
+              onblur="bktAutoSave('${b.id}','notes',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
+          </div>
+        </div>
+        <div class="bkt-inline-toggles" style="margin-bottom:0;padding-bottom:12px">
+          <label class="bkt-inline-tog"><input type="checkbox"${b.recurring?' checked':''} onchange="bktAutoSave('${b.id}','recurring',this.checked)"> ↻ Recurring</label>
+        </div>
+        ${!past?`<div class="vault-xfr-section">
+          <div class="bkt-inline-label" style="margin-bottom:8px">Transfer Out of Vault</div>
+          <div class="vault-xfr-row">
+            <input id="vaultXfrAmt_${b.id}" type="number" step="0.01" placeholder="Amount"
+              class="bkt-inline-input" style="width:110px;flex-shrink:0" />
+            <select id="vaultXfrDest_${b.id}" class="bkt-inline-input" style="flex:1;min-width:140px">${destOpts}</select>
+          </div>
+          <div class="bkt-inline-label" style="margin-bottom:6px">Why are you withdrawing?</div>
+          <div class="vault-why-row">
+            <button class="vault-why-btn${reason==='planned'?' sel-planned':''}" onclick="vaultTransferSetReason('${b.id}','planned')">✓ Planned spend</button>
+            <button class="vault-why-btn${reason==='overspend'?' sel-overspend':''}" onclick="vaultTransferSetReason('${b.id}','overspend')">⚠ Correcting overspend</button>
+          </div>
+          <button class="tbtn" style="width:100%;color:var(--accent);border-color:var(--accent)" onclick="vaultTransfer('${b.id}','${mid}')">Execute Transfer →</button>
+        </div>`:''}
+      </div>
+    </div>`;
+  }
+
   let g=`<div class="bkt-inline-panel"><div class="bkt-inline-grid">
     <div class="bkt-inline-field">
       <div class="bkt-inline-label">Category</div>
@@ -6773,6 +6955,7 @@ function bktInlineEditHtml(b,mid,past){
         <option value="expense"${b.type==='expense'?' selected':''}>Expense</option>
         <option value="sinking"${b.type==='sinking'?' selected':''}>Sinking (saving)</option>
         <option value="goal"${b.type==='goal'?' selected':''}>Goal</option>
+        <option value="vault"${b.type==='vault'?' selected':''}>🔒 Vault</option>
       </select>
     </div>`;
   if(!split){
@@ -6882,6 +7065,7 @@ let _editingPtId=null;
 let _editingPayeeId=null;
 let _bktExpandSplit={};
 let _inDetailPanel=false;
+let _vaultXfrReason={};
 let acctSection='cash';
 let activeAcctExpand=null;
 let _acctCreateColor=COLORS[0];
