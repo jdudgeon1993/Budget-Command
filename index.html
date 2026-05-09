@@ -117,10 +117,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tb-rts-val.neg{color:var(--red);}
 .tb-rts-val.zero{color:var(--text3);}
 
-.tb-wi{display:flex;align-items:center;justify-content:center;padding:0 20px;border-right:1px solid var(--border);flex-shrink:0;}
-.tb-wi-btn{background:none;border:1px solid var(--border2);border-radius:var(--r);padding:7px 18px;font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;letter-spacing:.2px;}
-.tb-wi-btn:hover{border-color:var(--amber);color:var(--amber);}
-.tb-wi-btn.on{background:var(--abg);border-color:var(--amber);color:var(--amber);}
 
 .tb-right{display:flex;align-items:center;gap:10px;padding:0 20px;margin-left:auto;flex-shrink:0;}
 .tb-sync{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;white-space:nowrap;}
@@ -1127,7 +1123,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:6px 8px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
   .tb-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
   .tb-month-arrow:active{background:var(--surface);}
-  .tb-total,.tb-wi{display:none !important;}
+  .tb-total{display:none !important;}
   .tb-rts-label{display:none;}
   .tb-rts-val{font-size:13px;padding:4px 10px;border-radius:20px;background:var(--gbg);border:1px solid var(--gb);}
   .tb-rts-val.neg{background:var(--rbg);border-color:var(--rb);}
@@ -1370,12 +1366,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
   /* ── Mobile topbar: 2-row sticky header ── */
   .topbar{height:auto;flex-direction:column;}
-  .tb-logo,.tb-total,.tb-rts,.tb-wi,.tb-right,.tb-month-nav{display:none!important;}
+  .tb-logo,.tb-total,.tb-rts,.tb-right,.tb-month-nav{display:none!important;}
   .tb-mobile-wrap{display:flex!important;flex-direction:column;}
   .tb-mob-r1{display:flex;align-items:center;height:46px;padding:0 14px;border-bottom:1px solid var(--border);}
   .tb-mob-logo-text{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;flex:1;}
-  .tb-mob-wi-btn{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:12px;padding:5px 14px;cursor:pointer;font-family:var(--sans);font-weight:600;transition:all .15s;white-space:nowrap;flex-shrink:0;}
-  .tb-mob-wi-btn.on{background:var(--abg);border-color:var(--amber);color:var(--amber);}
   .tb-mob-user{font-size:11px;color:var(--text3);font-family:var(--mono);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:8px;background:none;border:none;cursor:pointer;}
   .tb-mob-r2{display:flex;align-items:center;height:40px;padding:0 10px;gap:0;}
   .tb-mob-actions{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;}
@@ -1879,7 +1873,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <button class="tb-month-arrow" onclick="prevMonth()" aria-label="Previous month">&#8249;</button>
     <select class="tb-month-sel" id="tbMonthSel" onchange="setMonthFromSel(this.value)" aria-label="Active month"></select>
     <button class="tb-month-arrow" onclick="nextMonth()" aria-label="Next month">&#8250;</button>
-    <button class="tb-month-arrow c-border2" style="font-size:13px;padding:6px 10px;border-" onclick="toggleWI()" id="tbWiMobile" aria-label="What If scenario">⚡</button>
   </div>
   <!-- Desktop stats -->
   <div class="tb-total">
@@ -1889,9 +1882,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <div class="tb-rts">
     <div class="tb-rts-label" id="tbRtsLabel">Ready to Spend</div>
     <div class="tb-rts-val zero" id="tbRTS">—</div>
-  </div>
-  <div class="tb-wi">
-    <button class="tb-wi-btn" id="wiBtnTop" onclick="toggleWI()">⚡ What If</button>
   </div>
   <div class="tb-right">
     <div class="tb-sync" id="tbSyncStatus"><div class="tb-sync-dot off" id="tbSyncDot"></div><span id="tbSyncLabel">Offline</span></div>
@@ -1903,7 +1893,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <div class="tb-mobile-wrap" id="tbMobileWrap">
     <div class="tb-mob-r1">
       <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Imperium Fisci</div>
-      <button class="tb-mob-wi-btn" id="tbMobWiBtn" onclick="toggleWI()">⚡ What If</button>
       <button class="tb-mob-user" id="tbMobUser" onclick="authAction()"></button>
     </div>
     <div class="tb-mob-r2">
@@ -1911,6 +1900,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
         <button class="tbtn primary" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="openModal('new')">+ New</button>
         <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('accounts')">⬡ Accounts</button>
         <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('reports')">📊 Reports</button>
+        <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('whatif')">⚡ What If</button>
         <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('settings')">⚙ Settings</button>
         <button class="tbtn tb-chat-btn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="openChat()">✦ Coach</button>
       </div>
@@ -4324,11 +4314,6 @@ function renderTopbar(){
   if(lbl)lbl.textContent=supaOk?'Synced':'Not signed in';
 
   // WI button state
-  const wiBtn=document.getElementById('wiBtnTop');
-  if(wiBtn){wiBtn.className='tb-wi-btn'+(S.wiOpen?' on':'');}
-  const mobWiBtn=document.getElementById('tbMobWiBtn');
-  if(mobWiBtn){mobWiBtn.className='tb-mob-wi-btn'+(S.wiOpen?' on':'');}
-
   // Auth button
   updateAuthBtn();
   // Month selector (desktop) + mobile month strip
@@ -5501,7 +5486,7 @@ function acctMobileHtml(cash,debt,totalCash,totalDebt,dti,mid){
   }
   if(debt.length){
     h+=`<div class="acct-section-label" style="margin-top:20px"><span class="c-red">Debt</span><span class="c-red" style="font-size:12px;font-family:var(--mono);font-weight:400;margin-left:8px">${$f(totalDebt)}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="showDebtPlanner()">📋 Planner</button></div><div class="acct-card-grid">`;
-    debt.forEach(a=>{const bal=acctBalance(a.id);h+=`<div class="acct-card debt" onclick="setActiveAccount('${a.id}')"><div class="acct-card-stripe" style="background:var(--red)"></div><div class="acct-card-body"><div class="acct-card-row1"><span style="font-size:15px">💳</span><span class="acct-card-name">${esc(a.name)}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;flex-shrink:0" onclick="event.stopPropagation();toggleAcctExpand('${a.id}')">Pay</button></div><div class="acct-card-bal c-red">${$f(Math.abs(bal))}</div>${a.debtAPR?`<div class="acct-card-sub">${a.debtAPR}% APR</div>`:''}</div></div>`;});
+    debt.forEach(a=>{const bal=acctBalance(a.id);h+=`<div class="acct-card debt" onclick="setActiveAccount('${a.id}')"><div class="acct-card-stripe" style="background:var(--red)"></div><div class="acct-card-body"><div class="acct-card-row1"><span style="font-size:15px">💳</span><span class="acct-card-name">${esc(a.name)}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;flex-shrink:0" onclick="event.stopPropagation();setAcctExpand('${a.id}')">Pay</button></div><div class="acct-card-bal c-red">${$f(Math.abs(bal))}</div>${a.debtAPR?`<div class="acct-card-sub">${a.debtAPR}% APR</div>`:''}</div></div>`;});
     h+=`</div>`;
   }
   h+=`<button class="ov-mobile-only m-settings-btn" style="width:100%;margin-top:16px" onclick="openModal('acct')">+ Add Account</button></div>`;
@@ -7578,7 +7563,6 @@ function renderWhatIfPane(el){
     S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
     S.wiOpen=true;S.scenario=true;
     document.getElementById('wiStrip')?.classList.remove('hidden');
-    const wiBtn=document.getElementById('wiBtnTop');if(wiBtn)wiBtn.classList.add('on');
   }
   el.innerHTML=`<div class="wi-pane-wrap">
     <div class="wi-pane-hdr">
@@ -7808,7 +7792,6 @@ function exitWI(){
   S.scenario=false;S.wiScenario=null;S.wiOpen=false;
   _wiSchedExpanded.clear();
   document.getElementById('wiStrip')?.classList.add('hidden');
-  const btn=document.getElementById('wiBtnTop');if(btn)btn.classList.remove('on');
   if(activeTab==='whatif')setTab('overview');
   else render();
 }
@@ -7885,10 +7868,7 @@ function savePaycheckSettings(){
 
 // ── Paycheck Projector ────────────────────────────────────────────────────────
 function wiShowProjector(){
-  const rsBody=document.getElementById('rsBody');
-  if(rsBody)rsBody.innerHTML=wiProjectorHtml(null,false);
-  const rsFoot=document.getElementById('rsFoot');
-  if(rsFoot)rsFoot.innerHTML='';
+  openRSheet('📅 Paycheck Projections', wiProjectorHtml(null,false), '');
 }
 
 function wiResetProjector(){
@@ -7927,7 +7907,7 @@ function wiToggleSavingsGrowth(){
 }
 
 function wiProjectorHtml(result,standalone){
-  const backFn=standalone?'closeModal()':'renderWI()';
+  const backFn=standalone?'closeModal()':'closeRSheet()';
   const backBtn=standalone
     ?`<button class="modal-x" onclick="${backFn}">&#x2715;</button>`
     :`<button class="tbtn" onclick="${backFn}" style="padding:4px 10px;font-size:12px">← Back to What If</button>`;
@@ -10765,7 +10745,7 @@ function closeMForm(){
 }
 function closeModal(){document.getElementById('overlay').classList.add('hidden');document.getElementById('modalBox').innerHTML='';_editingRbId=null;_editingArId=null;}
 function openRSheet(title,bodyHtml,footHtml){
-  document.getElementById('rsTitle').textContent=title;
+  document.getElementById('rsTitle').innerHTML=title;
   document.getElementById('rsBody').innerHTML=bodyHtml||'';
   document.getElementById('rsFoot').innerHTML=footHtml||'';
   const wasOpen=document.getElementById('rsheet').classList.contains('show');
