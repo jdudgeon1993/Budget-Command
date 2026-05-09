@@ -6593,12 +6593,28 @@ function vaultAccumulated(bid){
   return S.months.reduce((s,mo)=>s+(mo.allocations?.[bid]||0),0);
 }
 function vaultMonthlyContrib(bid){
-  const b=getBucket(bid);
-  if(b?.defaultBudget>0)return b.defaultBudget;
-  // Fall back to average of last 3 months with allocations
-  const recent=S.months.slice(-3).map(mo=>mo.allocations?.[bid]||0).filter(v=>v>0);
-  if(recent.length)return recent.reduce((s,v)=>s+v,0)/recent.length;
-  return 0;
+  const rules=(S.allocationRules||[]).filter(r=>r.active!==false&&r.bucketId===bid);
+  if(!rules.length){
+    // No rules: average of last 3 months of actual allocations
+    const recent=S.months.slice(-3).map(mo=>mo.allocations?.[bid]||0).filter(v=>v>0);
+    return recent.length?recent.reduce((s,v)=>s+v,0)/recent.length:0;
+  }
+  const pcs=(S.paychecks||[]).filter(pc=>pc.amount&&pc.anchorDate);
+  return rules.reduce((total,r)=>{
+    if(r.type==='pct'){
+      // pct of each paycheck × how many of that paycheck fire per month
+      const pctTotal=pcs.reduce((s,pc)=>s+(r.value/100)*pc.amount*(30.44/(pc.freq||14)),0);
+      return total+pctTotal;
+    }
+    if(r.type==='fixed'){
+      // fixed amount fires once per paycheck event per month
+      const paychecksPerMonth=pcs.length
+        ?pcs.reduce((s,pc)=>s+(30.44/(pc.freq||14)),0)
+        :2.17; // biweekly default if no paychecks configured
+      return total+r.value*paychecksPerMonth;
+    }
+    return total;
+  },0);
 }
 function vaultProjectEnd(bid){
   const now=new Date();
@@ -6901,16 +6917,25 @@ function bktInlineEditHtml(b,mid,past){
 
   if(isVault){
     const acc=vaultAccumulated(b.id);
+    const monthly=vaultMonthlyContrib(b.id);
     const eoy=vaultProjectEnd(b.id);
     const p12=vaultProject12(b.id);
     const reason=_vaultXfrReason[b.id]||'';
     const destOpts='<option value="">Destination bucket…</option>'+sortedCats().flatMap(c=>sortedBuckets(c.id).filter(bk=>bk.id!==b.id&&bk.type!=='vault'&&!bk.archived).map(bk=>`<option value="${bk.id}">${esc(c.name)} → ${esc(bk.name)}</option>`)).join('');
+    const rulesForThis=(S.allocationRules||[]).filter(r=>r.active!==false&&r.bucketId===b.id);
+    const ruleHint=rulesForThis.length
+      ?rulesForThis.map(r=>r.type==='pct'?r.value+'% per paycheck':'$'+$f(r.value)+'/paycheck').join(' + ')
+      :'No rules — based on recent allocations';
     return `<div class="bkt-inline-panel">
       <div class="vault-panel">
         <div class="vault-stats-row">
           <div class="vault-stat-card">
             <div class="vault-stat-label">Total Accumulated</div>
             <div class="vault-stat-main">${$f(acc)}</div>
+          </div>
+          <div class="vault-stat-card">
+            <div class="vault-stat-label">Est. Monthly</div>
+            <div class="vault-stat-proj" style="color:#f59e0b">${$f(monthly)}<span style="font-size:9px;font-weight:400;color:var(--text3);display:block;margin-top:2px">${ruleHint}</span></div>
           </div>
           <div class="vault-stat-card">
             <div class="vault-stat-label">End of Year</div>
@@ -6925,11 +6950,6 @@ function bktInlineEditHtml(b,mid,past){
           <div class="bkt-inline-field">
             <div class="bkt-inline-label">Category</div>
             <select class="bkt-inline-input" onchange="bktAutoSave('${b.id}','catId',this.value)">${catOpts}</select>
-          </div>
-          <div class="bkt-inline-field">
-            <div class="bkt-inline-label">Monthly Contribution</div>
-            <input class="bkt-inline-input" type="number" value="${b.defaultBudget||''}" placeholder="0.00"
-              onblur="bktSaveTarget('${b.id}','${mid}',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
           </div>
           <div class="bkt-inline-field">
             <div class="bkt-inline-label">Type</div>
