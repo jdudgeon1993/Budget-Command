@@ -4597,13 +4597,10 @@ function setReportsTab(t){
 
 function renderActivePane(){
   const mid=S.activeMonth;
-  // Save scroll position before re-render (P10-B)
-  const paneIdMap={overview:'paneOverview',buckets:'paneBuckets',ledger:'paneLedger',accounts:'paneAccounts',reports:'paneReports',settings:'paneSettings'};
-  const activePaneEl=document.getElementById(paneIdMap[activeTab]);
-  const savedScroll=activePaneEl?activePaneEl.scrollTop:0;
   if(activeTab==='overview'){
     const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);
   } else if(activeTab==='buckets'){
+    // Buckets writes to #paneBucketsInner (child), never el itself — scroll preserved natively.
     const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);
   } else if(activeTab==='log'){
     renderLogPane();
@@ -4616,7 +4613,6 @@ function renderActivePane(){
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
   }
-  if(activePaneEl&&savedScroll>0)requestAnimationFrame(()=>{activePaneEl.scrollTop=savedScroll;setTimeout(()=>{activePaneEl.scrollTop=savedScroll;},50);});
 }
 
 
@@ -5672,7 +5668,7 @@ function renderBucketsTab(el,mid){
     h+=`<div class="empty-wrap" style="min-height:160px;padding:30px 0;">
       <div class="empty-title" style="font-size:15px">No buckets yet</div>
       <div class="empty-sub" style="font-size:13px;margin-bottom:14px">Use the form above to add your first bucket.</div>
-    </div>`;el.innerHTML=h;return;
+    </div>`;_setBucketInner(el,h);return;
   }
   // Bucket list table — Excel-style list grouped by category
   let grandTarget=0,grandAlloc=0,grandSpent=0,grandAvail=0;
@@ -5813,7 +5809,7 @@ function renderBucketsTab(el,mid){
     <td></td>
   </tr>`;
   h+=`</tbody></table></div>`;
-  el.innerHTML=h;
+  _setBucketInner(el,h);
   setTimeout(wireAllocKeys,50);
 }
 
@@ -6578,13 +6574,18 @@ function _allocMonthGuard(mid){
 }
 function _rerenderBucketsTab(){
   const el=document.getElementById('paneBuckets');if(!el)return;
-  const saved=el.scrollTop;
   renderBucketsTab(el,S.activeMonth);
-  if(saved>0){
-    // Restore scroll: RAF ensures layout computed, setTimeout(0) fires after paint,
-    // 50ms fallback covers iOS Safari which can delay scroll reset past both.
-    requestAnimationFrame(()=>{el.scrollTop=saved;setTimeout(()=>{el.scrollTop=saved;},50);});
+}
+function _setBucketInner(el,h){
+  // Write content to a stable child div so el.scrollTop is never reset.
+  let inner=document.getElementById('paneBucketsInner');
+  if(!inner){
+    el.innerHTML='';
+    inner=document.createElement('div');
+    inner.id='paneBucketsInner';
+    el.appendChild(inner);
   }
+  inner.innerHTML=h;
 }
 
 // ── Vault helpers ────────────────────────────────────────────
