@@ -176,7 +176,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* ═══ MAIN ═══ */
 .main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
 .main-scroll{flex:1;overflow-y:auto;padding:24px 28px;}
-.wi-panel{display:none!important;}
 .wi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px;margin-top:10px;}
 .wi-row{display:flex;align-items:center;gap:8px;}
 .wi-label{flex:1;font-size:13px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -1436,8 +1435,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bh-bar-note{font-size:10px;font-family:var(--mono);color:var(--text3);}
 
 /* ═══ WI 2.0 ═══ */
-.wi-panel{display:none!important;}
-/* ─── What If panel (rsheet-based) ──────────────────── */
+/* ─── What If pane (full nav tab) ──────────────────── */
+.wi-pane-wrap{display:flex;flex-direction:column;height:100%;max-width:780px;margin:0 auto;}
+.wi-pane-hdr{display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.wi-pane-body{flex:1;overflow-y:auto;}
 .wi-section{padding:14px 20px;border-bottom:1px solid var(--border);}
 .wi-field-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;}
 .wi-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);padding:12px 20px 4px;}
@@ -1672,6 +1673,9 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .report-table .report-cat-row td{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2);font-family:var(--sans);}
 .report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
 .report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
+/* ── Category Inline Edit ── */
+.cat-inline-edit-row td{padding:0;background:var(--surface2);border-bottom:1px solid var(--border);}
+.report-cat-row.cat-edit-active td{border-bottom:none;}
 /* ── Bucket Inline Edit Panel ── */
 .bkt-expand-row td{padding:0;border-bottom:2px solid var(--accent);}
 .bkt-inline-panel{background:color-mix(in srgb,var(--accent) 4%,var(--surface));padding:16px 18px;border-top:1px solid var(--border2);}
@@ -1923,7 +1927,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 <!-- WI STRIP -->
 <div class="strip wi hidden" id="wiStrip">
   ⚡ Scenario mode — changes won't affect real data
-  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="toggleWI()">Open Panel</button>
+  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="setTab('whatif')">View Scenario</button>
+  <button class="tbtn" style="font-size:11px;padding:3px 9px;color:var(--red);border-color:var(--red)" onclick="exitWI()">Reset</button>
 </div>
 <div class="strip off-month-past hidden" id="offMonthStrip">
   <span id="offMonthMsg"></span>
@@ -1964,6 +1969,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-label">Ledger</span>
       <div class="nav-pip"></div>
     </button>
+    <button class="nav-btn" data-tab="whatif" onclick="setTab('whatif')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707M12 21a9 9 0 100-18 9 9 0 000 18z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-icon-txt">⚡</span>
+      <span class="nav-label">What If</span>
+      <div class="nav-pip"></div>
+    </button>
     <!-- Desktop-only nav items -->
     <button class="nav-btn nav-desktop" data-tab="accounts" onclick="setTab('accounts')">
       <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
@@ -1975,6 +1986,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
       <span class="nav-icon-txt">📊</span>
       <span class="nav-label">Reports</span>
+    </button>
+    <button class="nav-btn nav-desktop" data-tab="whatif" onclick="setTab('whatif')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707M12 21a9 9 0 100-18 9 9 0 000 18z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-icon-txt">⚡</span>
+      <span class="nav-label">What If</span>
     </button>
     <button class="nav-btn nav-desktop" data-tab="settings" onclick="setTab('settings')">
       <span class="nav-icon-txt">⚙</span>
@@ -2005,7 +2021,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="tab-pane" id="paneAccounts"></div>
     <div class="tab-pane" id="paneReports"></div>
     <div class="tab-pane" id="paneSettings"></div>
-    <div class="wi-panel hidden" id="wiPanel"></div>
+    <div class="tab-pane" id="paneWhatif"></div>
   </main>
 
   <!-- DETAIL PANEL: bucket or account detail, slides over main -->
@@ -3276,52 +3292,10 @@ function dismissChatActions(idx){
   renderChatMessages();
 }
 
-// ── Phase 8a: Spending Personality Report ─────────────────────────────────────
-// ── Phase 8b: Debt Strategy Advisor ──────────────────────────────────────────
-async function openDebtStrategy(){
-  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
-  const debts=normalizeDebts();
-  if(!debts.length){showToast('No active debts found','info');return;}
-  const box=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-
-  const sorted={
-    avalanche:[...debts].sort((a,b)=>b.apr-a.apr),
-    snowball:[...debts].sort((a,b)=>a.balance-b.balance)
-  };
-  const totalDebt=debts.reduce((s,d)=>s+d.balance,0);
-  const totalInt=debts.reduce((s,d)=>s+d.balance*(d.apr/100/12),0);
-
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Debt Strategy Advisor</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
-    <div class="modal-body">
-      <div class="debt-strategy-grid">
-        <div class="debt-strat-card">
-          <div class="debt-strat-title">❄ Avalanche</div>
-          <div class="debt-strat-stat">Pay highest APR first.<br>Saves the most in interest.<br>Attack order:<br>${sorted.avalanche.map(d=>`${esc(d.name)} (${d.apr}%)`).join(' → ')}</div>
-        </div>
-        <div class="debt-strat-card">
-          <div class="debt-strat-title">⛄ Snowball</div>
-          <div class="debt-strat-stat">Pay smallest balance first.<br>Builds momentum with quick wins.<br>Attack order:<br>${sorted.snowball.map(d=>`${esc(d.name)} ($${d.balance.toFixed(0)})`).join(' → ')}</div>
-        </div>
-      </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Total debt: <strong class="c-text2">${$f(totalDebt)}</strong> · Est. monthly interest: <strong class="c-text2">${$f(Math.round(totalInt*100)/100)}</strong></div>
-      <div id="debtStratAI" class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
-        <span style="margin-left:8px;font-size:13px;color:var(--text3)">Getting AI recommendation…</span></div>
-    </div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
-
-  const debtCtx=debts.map(d=>`${d.name}: $${d.balance.toFixed(0)} balance, ${d.apr}% APR, min payment $${d.minPayment}/mo`).join('\n');
-  const savRate=()=>{const past=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-3);if(!past.length)return null;const avg=past.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?(inc-sp)/inc:0;});return Math.round(avg.reduce((s,v)=>s+v,0)/avg.length*100);};
-  const sr=savRate();
-  const sys=`You are a debt payoff coach. In 3 plain sentences, recommend either avalanche or snowball method for this specific person — cite their actual debts and amounts. Consider their savings rate if available. No markdown, no lists, just direct advice.`;
-  try{
-    const text=await callGemini(`Debts:\n${debtCtx}${sr!==null?`\nAvg savings rate: ${sr}%`:''}`,sys,{maxTokens:200,temp:0.6});
-    const el=document.getElementById('debtStratAI');
-    if(el){
-      el.className='';
-      el.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:12px 14px"><span class="ai-badge" style="margin-bottom:6px;display:inline-flex">✦ Recommendation</span><div class="ai-narrative" style="margin-top:6px">${esc(text)}</div></div>`;
-    }
-  }catch{}
+// ── Phase 8b: Debt Strategy — now lives in Reports > AI Insights ──────────────
+function openDebtStrategy(){
+  setReportsTab('ai');setTab('reports');
+  setTimeout(()=>runDebtStrategyAI(),100);
 }
 
 // ── Phase 6: Monthly Close AI Report ─────────────────────────────────────────
@@ -3337,11 +3311,7 @@ async function generateMonthReport(mid){
 
 function viewMonthReport(mid){
   const m=getMonth(mid);if(!m?.aiReport)return;
-  const box=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI Report</span> ${esc(m.label)}</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
-    <div class="modal-body"><div class="ai-report-text">${esc(m.aiReport)}</div></div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  setReportsTab('ai');setTab('reports');
 }
 
 // ── Month-End PDF Report ──────────────────────────────────────────────────────
@@ -4612,6 +4582,8 @@ function renderActivePane(){
     const p=document.getElementById('paneReports');if(p)renderReportsTab(p);
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
+  } else if(activeTab==='whatif'){
+    const p=document.getElementById('paneWhatif');if(p)renderWhatIfPane(p);
   }
 }
 
@@ -5478,16 +5450,20 @@ function acctExpandHtml(a){
           onblur="acctAutoSave('${a.id}','creditLimit',this.value)"
           onkeydown="if(event.key==='Enter')this.blur()" />
       </div>
-      <div style="border-left:2px solid var(--border2);padding-left:12px;display:flex;flex-direction:column;gap:4px">
-        <div class="tx-exp-label">Quick Pay</div>
+      <div style="border-left:2px solid var(--border2);padding-left:12px;display:flex;flex-direction:column;gap:6px">
+        <div class="tx-exp-label">Record Payment</div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <input class="tx-exp-sel" type="number" id="acctPayAmt_${a.id}" placeholder="${a.debtMinPayment||'Amount'}" step="0.01" style="width:80px" />
-          <input class="tx-exp-sel" type="date" id="acctPayDate_${a.id}" value="${todayStr()}" style="width:120px" />
-          <select class="tx-exp-sel" id="acctPayFrom_${a.id}" style="width:130px">
+          <input class="tx-exp-sel" type="date" id="acctPayDate_${a.id}" value="${todayStr()}" style="width:130px" />
+          <select class="tx-exp-sel" id="acctPayFrom_${a.id}" style="width:140px">
             <option value="">From account…</option>${fromOpts}
+          </select>
+          <select class="tx-exp-sel" id="acctPayBkt_${a.id}" style="width:130px">
+            <option value="">Bucket (optional)</option>${S.buckets.filter(b=>!b.archived&&b.type!=='vault').map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}
           </select>
           <button class="bkt-create-btn" onclick="acctPayDebt('${a.id}')">Pay</button>
         </div>
+        ${a.debtMinPayment?`<div style="font-size:11px;color:var(--text3)">Min payment: <strong>${$f(a.debtMinPayment)}</strong></div>`:''}
       </div>`;
   }
   h+=`</div></div>`;
@@ -5525,66 +5501,13 @@ function acctMobileHtml(cash,debt,totalCash,totalDebt,dti,mid){
   }
   if(debt.length){
     h+=`<div class="acct-section-label" style="margin-top:20px"><span class="c-red">Debt</span><span class="c-red" style="font-size:12px;font-family:var(--mono);font-weight:400;margin-left:8px">${$f(totalDebt)}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="showDebtPlanner()">📋 Planner</button></div><div class="acct-card-grid">`;
-    debt.forEach(a=>{const bal=acctBalance(a.id);h+=`<div class="acct-card debt" onclick="setActiveAccount('${a.id}')"><div class="acct-card-stripe" style="background:var(--red)"></div><div class="acct-card-body"><div class="acct-card-row1"><span style="font-size:15px">💳</span><span class="acct-card-name">${esc(a.name)}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;flex-shrink:0" onclick="event.stopPropagation();openPayDebtModal('${a.id}')">Pay</button></div><div class="acct-card-bal c-red">${$f(Math.abs(bal))}</div>${a.debtAPR?`<div class="acct-card-sub">${a.debtAPR}% APR</div>`:''}</div></div>`;});
+    debt.forEach(a=>{const bal=acctBalance(a.id);h+=`<div class="acct-card debt" onclick="setActiveAccount('${a.id}')"><div class="acct-card-stripe" style="background:var(--red)"></div><div class="acct-card-body"><div class="acct-card-row1"><span style="font-size:15px">💳</span><span class="acct-card-name">${esc(a.name)}</span><button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;flex-shrink:0" onclick="event.stopPropagation();toggleAcctExpand('${a.id}')">Pay</button></div><div class="acct-card-bal c-red">${$f(Math.abs(bal))}</div>${a.debtAPR?`<div class="acct-card-sub">${a.debtAPR}% APR</div>`:''}</div></div>`;});
     h+=`</div>`;
   }
   h+=`<button class="ov-mobile-only m-settings-btn" style="width:100%;margin-top:16px" onclick="openModal('acct')">+ Add Account</button></div>`;
   return h;
 }
 
-// ── Phase A: Debt Payment Modal ──────────────────────────────
-function openPayDebtModal(aid){
-  const acct=getAcct(aid);if(!acct||acct.type!=='debt')return;
-  const cashAccts=S.accounts.filter(a=>a.type!=='debt');
-  if(!cashAccts.length){showToast('Add a cash account first','info');return;}
-  const today=todayStr();
-  const bal=Math.abs(acctBalance(aid));
-  const fromOpts=cashAccts.map(a=>`<option value="${a.id}">${esc(a.name)} (${$f(acctBalance(a.id))})</option>`).join('');
-  const bktOpts=S.buckets.filter(b=>!b.archived).map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');
-  const box=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head">
-    <div class="modal-title">💳 Pay Debt — ${esc(acct.name)}</div>
-    <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
-  </div>
-  <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:20px">
-    <div style="font-size:13px;color:var(--text2)">Balance: <strong class="c-red">${$f(bal)}</strong>${acct.debtAPR?` · <span style="color:var(--text2)">${acct.debtAPR}% APR</span>`:''}</div>
-    <label style="font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px">Amount
-      <input class="tfi" id="pdAmt" type="number" step="0.01" min="0.01" placeholder="0.00" value="${acct.debtMinPayment||''}" style="width:100%">
-    </label>
-    <label style="font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px">From Account
-      <select class="tfi" id="pdFrom" style="width:100%">${fromOpts}</select>
-    </label>
-    <label style="font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px">Date
-      <input class="tfi" id="pdDate" type="date" value="${today}" style="width:100%">
-    </label>
-    <label style="font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px">Track in Bucket <span style="font-weight:400;color:var(--text3)">(optional)</span>
-      <select class="tfi" id="pdBkt" style="width:100%"><option value="">— none —</option>${bktOpts}</select>
-    </label>
-    ${acct.debtMinPayment?`<div style="font-size:12px;color:var(--text3)">Min payment: <strong>${$f(acct.debtMinPayment)}</strong></div>`:''}
-  </div>
-  <div class="modal-foot">
-    <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-    <button class="btn-save" onclick="confirmPayDebt('${aid}')">Record Payment</button>
-  </div>`;
-  setTimeout(()=>document.getElementById('pdAmt')?.focus(),50);
-}
-function confirmPayDebt(debtAid){
-  const amtEl=document.getElementById('pdAmt');
-  const amt=parseFloat(amtEl?.value);
-  if(!amt||amt<=0){showToast('Enter a valid amount','info');amtEl?.focus();return;}
-  const fromAid=document.getElementById('pdFrom')?.value;
-  if(!fromAid){showToast('Select source account','info');return;}
-  const date=document.getElementById('pdDate')?.value||todayStr();
-  const bucketId=document.getElementById('pdBkt')?.value||null;
-  const debtAcct=getAcct(debtAid);
-  const monthId=dateToMonthId(date);
-  const d=new Date(date+'T12:00:00');addMonth(d.getFullYear(),d.getMonth());
-  const tx={id:uid(),type:'out',desc:`Payment — ${esc(debtAcct.name)}`,amount:amt,date,monthId,
-    accountId:fromAid,debtPaymentAccountId:debtAid,bucketId:bucketId||null,createdAt:Date.now()};
-  S.txs.push(tx);save();render();closeModal();
-  showToast(`${$f(amt)} payment recorded for ${debtAcct.name}`,'save');
-}
 
 function bucketPillHtml(alloc,spent,eff,target,pend,past,avail){
   if(past&&spent===0&&alloc>0)return`<span class="pill pill-missed">Missed</span>`;
@@ -5700,17 +5623,20 @@ function renderBucketsTab(el,mid){
     const catFundAmt=catBuckets.reduce((s,b)=>{const a=bAlloc(mid,b.id),t=bBudget(mid,b.id);return s+(a===0&&t>0?t:0);},0);
     const catAllocColor=catTarget>0?(catAlloc>=catTarget?'var(--green)':catAlloc>0?'var(--amber)':'var(--text3)'):'var(--text3)';
 
-    h+=`<tr class="report-cat-row">
+    const catIsEditing=_catExpand===cat.id;
+    h+=`<tr class="report-cat-row${catIsEditing?' cat-edit-active':''}">
       <td colspan="7" style="color:${color}">
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-weight:700">${esc(cat.name)}</span>
           <span style="margin-left:auto;font-family:var(--mono);color:${catAllocColor}">${$f(catAlloc)}<span style="color:var(--text3);font-weight:400"> / ${$f(catTarget)}</span></span>
           ${!past&&catFundAmt>0?`<button class="bkt-cat-fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
           ${!past?`<button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>`:''}
-          <button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();editCat('${cat.id}')">Edit</button>
+          <button class="bkt-cat-fund-btn${catIsEditing?' active':''}" style="background:none;border-color:var(--border2);color:${catIsEditing?color:'var(--text3)'}" onclick="event.stopPropagation();editCat('${cat.id}')">${catIsEditing?'▲ Done':'Edit'}</button>
         </div>
       </td>
-    </tr>`;
+    </tr>
+    ${catIsEditing?`<tr class="cat-inline-edit-row"><td colspan="7">${catInlineEditHtml(cat)}</td></tr>`:''}
+    `;
 
     sorted.forEach(b=>{
       const skipped=!past&&isBktSkipped(b.id,mid);
@@ -5825,6 +5751,7 @@ function renderReportsTab(el){
     {id:'incomesrc',icon:'💵',label:'Income Sources'},
     {id:'cathistory',icon:'📈',label:'Trends'},
     {id:'networth',icon:'◈',label:'Net Worth'},
+    {id:'ai',icon:'✦',label:'AI Insights'},
   ];
   let content='';
   if(reportsTab==='month')content=reportMonthHtml(mid);
@@ -5835,6 +5762,7 @@ function renderReportsTab(el){
   else if(reportsTab==='incomesrc')content=reportIncomeSourcesHtml(mid);
   else if(reportsTab==='cathistory')content=reportCatHistoryHtml();
   else if(reportsTab==='networth')content=reportNetWorthHtml();
+  else if(reportsTab==='ai')content=reportAIInsightsHtml();
   const navBtns=tabs.map(t=>`<button class="rpt-nav-btn${t.id===reportsTab?' active':''}" onclick="setReportsTab('${t.id}')"><span class="rpt-nav-icon">${t.icon}</span><span>${t.label}</span></button>`).join('');
   const selectOpts=tabs.map(t=>`<option value="${t.id}"${t.id===reportsTab?' selected':''}>${t.icon} ${t.label}</option>`).join('');
   el.innerHTML=`<div class="rpt-pane">
@@ -5851,6 +5779,81 @@ function renderReportsTab(el){
     </div>
   </div>`;
   setTimeout(()=>initReportCharts(reportsTab,mid),60);
+}
+
+// ── AI Insights Report Tab ────────────────────────────────────
+function reportAIInsightsHtml(){
+  const hasAI=aiEnabled();
+  const monthsWithReports=S.months.filter(m=>m.aiReport).sort((a,b)=>b.id.localeCompare(a.id));
+  const debts=normalizeDebts();
+
+  // Month reports section
+  let monthRptHtml='';
+  if(!monthsWithReports.length){
+    monthRptHtml=`<div style="font-size:13px;color:var(--text3);padding:12px 0">No month reports yet. Close a month with AI enabled to generate one.</div>`;
+  } else {
+    monthRptHtml=monthsWithReports.map(m=>`
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:700;color:var(--text1)">${esc(m.label)}</span>
+          <span class="ai-badge" style="font-size:10px">✦ AI</span>
+        </div>
+        <div class="ai-narrative" style="font-size:13px;color:var(--text2);line-height:1.6">${esc(m.aiReport)}</div>
+      </div>`).join('');
+  }
+
+  // Debt strategy section
+  const debtSorted={
+    avalanche:[...debts].sort((a,b)=>b.apr-a.apr),
+    snowball:[...debts].sort((a,b)=>a.balance-b.balance)
+  };
+  const totalDebt=debts.reduce((s,d)=>s+d.balance,0);
+  const totalInt=debts.reduce((s,d)=>s+d.balance*(d.apr/100/12),0);
+  const debtSectionHtml=debts.length?`
+    <div class="debt-strategy-grid" style="margin-bottom:10px">
+      <div class="debt-strat-card">
+        <div class="debt-strat-title">❄ Avalanche</div>
+        <div class="debt-strat-stat">Pay highest APR first. Saves the most in interest.<br>Attack order: ${debtSorted.avalanche.map(d=>`${esc(d.name)} (${d.apr}%)`).join(' → ')}</div>
+      </div>
+      <div class="debt-strat-card">
+        <div class="debt-strat-title">⛄ Snowball</div>
+        <div class="debt-strat-stat">Pay smallest balance first. Builds momentum with quick wins.<br>Attack order: ${debtSorted.snowball.map(d=>`${esc(d.name)} ($${d.balance.toFixed(0)})`).join(' → ')}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Total debt: <strong style="color:var(--text2)">${$f(totalDebt)}</strong> · Est. monthly interest: <strong style="color:var(--text2)">${$f(Math.round(totalInt*100)/100)}</strong></div>
+    <div id="debtStratAI" style="min-height:40px"></div>
+    ${hasAI?`<button class="tbtn" style="margin-top:8px" onclick="runDebtStrategyAI()">✦ Get AI Recommendation</button>`:'<div style="font-size:12px;color:var(--text3)">Enable AI in Settings for recommendations.</div>'}
+  `:`<div style="font-size:13px;color:var(--text3);padding:12px 0">No active debts found.</div>`;
+
+  return`<div style="max-width:700px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <span style="font-size:18px;font-weight:700;color:var(--text1)">AI Insights</span>
+      <span class="ai-badge">✦ AI</span>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Debt Strategy</div>
+    ${debtSectionHtml}
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin:20px 0 8px">Monthly Reports</div>
+    ${monthRptHtml}
+  </div>`;
+}
+
+async function runDebtStrategyAI(){
+  const el=document.getElementById('debtStratAI');
+  if(!el)return;
+  el.className='ai-narrative-loading';
+  el.innerHTML=`<span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><span style="margin-left:8px;font-size:13px;color:var(--text3)">Getting AI recommendation…</span>`;
+  const debts=normalizeDebts();
+  const debtCtx=debts.map(d=>`${d.name}: $${d.balance.toFixed(0)} balance, ${d.apr}% APR, min payment $${d.minPayment}/mo`).join('\n');
+  const savRate=()=>{const past=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-3);if(!past.length)return null;const avg=past.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?(inc-sp)/inc:0;});return Math.round(avg.reduce((s,v)=>s+v,0)/avg.length*100);};
+  const sr=savRate();
+  const sys=`You are a debt payoff coach. In 3 plain sentences, recommend either avalanche or snowball method for this specific person — cite their actual debts and amounts. Consider their savings rate if available. No markdown, no lists, just direct advice.`;
+  try{
+    const text=await callGemini(`Debts:\n${debtCtx}${sr!==null?`\nAvg savings rate: ${sr}%`:''}`,sys,{maxTokens:200,temp:0.6});
+    if(el){
+      el.className='';
+      el.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:12px 14px"><span class="ai-badge" style="margin-bottom:6px;display:inline-flex">✦ Recommendation</span><div class="ai-narrative" style="margin-top:6px">${esc(text)}</div></div>`;
+    }
+  }catch{if(el){el.className='';el.innerHTML=`<div style="color:var(--red);font-size:13px">Could not load recommendation.</div>`;}}
 }
 
 // ── Phase E: CSV Export & Drill-Down ─────────────────────────
@@ -5877,7 +5880,7 @@ function drillCatSpend(catId,mid){
   if(!txs.length){showToast('No transactions for '+cat.name,'info');return;}
   const rows=txs.map(t=>{
     const bkt=getBucket(t.bucketId);
-    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+    return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
       <span style="font-size:12px;color:var(--text3);width:70px;flex-shrink:0">${t.date.slice(5)}</span>
       <span style="flex:1;font-size:13px;color:var(--text1);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.desc)}</span>
       <span style="font-size:11px;color:var(--text3);flex-shrink:0">${bkt?esc(bkt.name):''}</span>
@@ -5885,22 +5888,16 @@ function drillCatSpend(catId,mid){
     </div>`;
   }).join('');
   const total=txs.reduce((s,t)=>s+t.amount,0);
-  const box=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head">
-    <div class="modal-title" style="color:${cat.color||'var(--accent)'}">${esc(cat.name)} Transactions</div>
-    <button class="modal-close" onclick="closeModal()" aria-label="Close">×</button>
-  </div>
-  <div class="modal-body" style="padding:0 20px;max-height:60vh;overflow-y:auto">
-    <div style="padding:12px 0 4px;display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
-      <span>${txs.length} transactions</span><span>Total: <strong class="c-red">${$f(total)}</strong></span>
-    </div>
-    ${rows}
-  </div>
-  <div class="modal-foot">
-    <button class="btn-cancel" onclick="closeModal()">Close</button>
-    <button class="btn-save" style="background:var(--surface2);color:var(--text1)" onclick="closeModal();exportCatCSV('${catId}','${mid}')">⬇ Export</button>
-  </div>`;
+  const body=`<div style="padding:4px 0 8px;display:flex;justify-content:space-between;font-size:12px;color:var(--text3);border-bottom:2px solid var(--border);margin-bottom:4px">
+    <span>${txs.length} transaction${txs.length!==1?'s':''}</span>
+    <span>Total: <strong style="color:var(--red)">${$f(total)}</strong></span>
+  </div>${rows}`;
+  openRSheet(
+    `<span style="color:${cat.color||'var(--accent)'}">${esc(cat.name)}</span> Transactions`,
+    body,
+    `<button class="btn-cancel" onclick="closeRSheet()">Close</button>
+     <button class="btn-save" style="background:var(--surface2);color:var(--text1)" onclick="exportCatCSV('${catId}','${mid}')">⬇ Export</button>`
+  );
 }
 function exportCatCSV(catId,mid){
   const cat=getCat(catId);
@@ -7107,6 +7104,7 @@ let _editingArId=null;
 let _editingPtId=null;
 let _editingPayeeId=null;
 let _bktExpandSplit={};
+let _catExpand=null;
 let _inDetailPanel=false;
 let _vaultXfrReason={};
 let acctSection='cash';
@@ -7534,11 +7532,12 @@ function acctPayDebt(debtAid){
   const fromAid=document.getElementById('acctPayFrom_'+debtAid)?.value;
   if(!fromAid){showToast('Select source account','info');return;}
   const date=document.getElementById('acctPayDate_'+debtAid)?.value||todayStr();
+  const bucketId=document.getElementById('acctPayBkt_'+debtAid)?.value||null;
   const debtAcct=getAcct(debtAid);if(!debtAcct)return;
   const monthId=dateToMonthId(date);
   const d=new Date(date+'T12:00:00');addMonth(d.getFullYear(),d.getMonth());
   S.txs.push({id:uid(),type:'out',desc:`Payment — ${debtAcct.name}`,amount:amt,date,monthId,
-    accountId:fromAid,debtPaymentAccountId:debtAid,bucketId:null,createdAt:Date.now()});
+    accountId:fromAid,debtPaymentAccountId:debtAid,bucketId,createdAt:Date.now()});
   save();render();
   showToast(`${$f(amt)} payment recorded for ${debtAcct.name}`,'save');
 }
@@ -7567,27 +7566,39 @@ function uid(){return '_'+Math.random().toString(36).slice(2,9);}
 let _wiSchedExpanded=new Set();
 
 function toggleWI(){
-  if(S.wiOpen){exitWI();return;}
-  S.wiOpen=true;S.scenario=true;
-  _wiSchedExpanded.clear();
-  const mid=S.activeMonth;
-  const budgets={};
-  S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=bBudget(mid,b.id);});
-  S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
-  document.getElementById('wiStrip').classList.remove('hidden');
-  const wiBtn=document.getElementById('wiBtnTop');if(wiBtn)wiBtn.classList.add('on');
-  renderWI();
+  setTab('whatif');
+}
+
+function renderWhatIfPane(el){
+  if(!el)return;
+  if(!S.wiScenario){
+    const mid=S.activeMonth;
+    const budgets={};
+    S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=bBudget(mid,b.id);});
+    S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
+    S.wiOpen=true;S.scenario=true;
+    document.getElementById('wiStrip')?.classList.remove('hidden');
+    const wiBtn=document.getElementById('wiBtnTop');if(wiBtn)wiBtn.classList.add('on');
+  }
+  el.innerHTML=`<div class="wi-pane-wrap">
+    <div class="wi-pane-hdr">
+      <span class="bkt-pane-title">⚡ What If</span>
+      <span style="flex:1"></span>
+      <button class="tbtn" onclick="wiShowProjector()" style="font-size:12px">📅 Projections</button>
+      ${aiEnabled()?`<button class="tbtn" onclick="wiNarrateScenario()" style="font-size:12px">✦ Narrate</button>`:''}
+      <button class="btn-save" onclick="promoteScenario()">Promote</button>
+      <button class="btn-cancel" onclick="exitWI()">Reset</button>
+    </div>
+    <div class="wi-pane-body">${_wiPanelHTML()}</div>
+    <div id="wiNarrateResult" style="padding:0 20px 20px"></div>
+  </div>`;
 }
 
 function renderWI(){
   if(!S.wiScenario)return;
-  const foot=`
-    <button type="button" class="tbtn c-accent" style="padding:6px 12px;font-size:12px" onclick="wiShowProjector()">📅 Projector</button>
-    ${aiEnabled()?`<button type="button" class="tbtn" style="padding:6px 12px;font-size:12px" onclick="wiNarrateScenario()">✦ Narrate</button>`:''}
-    <span style="flex:1"></span>
-    <button type="button" class="btn-cancel" onclick="exitWI()">Exit</button>
-    <button type="button" class="btn-save" onclick="promoteScenario()">Promote</button>`;
-  openRSheet('⚡ What If',_wiPanelHTML(),foot);
+  if(activeTab==='whatif'){
+    const p=document.getElementById('paneWhatif');if(p)renderWhatIfPane(p);
+  }
 }
 
 async function wiNarrateScenario(){
@@ -7605,20 +7616,21 @@ async function wiNarrateScenario(){
   const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{if(!isWIBucketActive(b.id,mid))return s;return s+(sc.budgets[b.id]??bBudget(mid,b.id));},0);
   const scSurplus=piSc-scAlloc;
   const ctx=`Scenario: "${esc(sc.name)}"\nIncome: ${$f(piSc)} (was ${$f(piReal)})\nBudget changes: ${changes.length?changes.join(', '):'none'}\nSurplus/Deficit: ${scSurplus>=0?'+':''}${$f(scSurplus)}`;
-  const btn=document.getElementById('rsFoot')?.querySelector('button');
-  const narEl=document.getElementById('wi-narrate');
-  const box=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-  box.innerHTML=`<div class="modal-head"><div class="modal-title"><span class="ai-badge">✦ AI</span> Scenario Analysis</div><button class="modal-close" onclick="closeModal()" aria-label="Close">×</button></div>
-    <div class="modal-body" id="wiNarrBody" style="padding:20px;min-height:120px;display:flex;align-items:center;justify-content:center">
-      <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div>
-    </div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
+  const resultEl=document.getElementById('wiNarrateResult');
+  if(resultEl){
+    resultEl.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:14px 16px">
+      <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing scenario…</span></div>
+    </div>`;
+  }
   try{
     const text=await callGemini(ctx,`You are a friendly financial coach. Analyze this budget scenario in 2-3 sentences. Highlight what changed, whether the surplus/deficit is healthy, and one actionable insight. Be encouraging but honest. Do not use markdown formatting.`);
-    const el=document.getElementById('wiNarrBody');
-    if(el)el.innerHTML=`<p style="font-size:14px;line-height:1.7;color:var(--text1)">${esc(text)}</p>`;
-  }catch(err){const el=document.getElementById('wiNarrBody');if(el)el.innerHTML=`<p class="c-red">${esc(err.message)}</p>`;}
+    if(resultEl){
+      resultEl.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:14px 16px">
+        <span class="ai-badge" style="margin-bottom:8px;display:inline-flex">✦ Scenario Analysis</span>
+        <div class="ai-narrative" style="font-size:14px;line-height:1.7;color:var(--text1);margin-top:6px">${esc(text)}</div>
+      </div>`;
+    }
+  }catch(err){if(resultEl)resultEl.innerHTML=`<div style="color:var(--red);font-size:13px;padding:8px 0">${esc(err.message)}</div>`;}
 }
 
 function wiToggleSched(bid){
@@ -7797,9 +7809,8 @@ function exitWI(){
   _wiSchedExpanded.clear();
   document.getElementById('wiStrip')?.classList.add('hidden');
   const btn=document.getElementById('wiBtnTop');if(btn)btn.classList.remove('on');
-  document.getElementById('rsBack')?.classList.remove('show');
-  document.getElementById('rsheet')?.classList.remove('show');
-  render();
+  if(activeTab==='whatif')setTab('overview');
+  else render();
 }
 
 function saveScenario(){
@@ -7810,7 +7821,7 @@ function saveScenario(){
   S.scenarios=S.scenarios.filter(s=>s.id!==S.wiScenario.id);
   S.scenarios.push({...S.wiScenario});
   if(S.scenarios.length>6)S.scenarios=S.scenarios.slice(-6);
-  save();renderWI();
+  save();renderWI();showToast('Scenario saved','save');
 }
 
 function loadScenario(id){
@@ -10120,19 +10131,47 @@ function openModal(tab, lockedCatId){
 }
 
 function editCat(id){
+  _catExpand=(_catExpand===id)?null:id;
+  _rerenderBucketsTab();
+}
+function catInlineEditHtml(cat){
+  const currentColor=_catInlineColor[cat.id]||cat.color||COLORS[0];
+  const swatches=COLORS.map(c=>`<div class="acct-color-opt" style="background:${c};outline:${c===currentColor?'2px solid #fff':'none'};outline-offset:1px;border-radius:50%" onclick="catInlinePickColor('${cat.id}','${c}')"></div>`).join('');
+  return`<div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div id="catInlineSwatch_${cat.id}" style="width:18px;height:18px;border-radius:50%;background:${currentColor};flex-shrink:0;border:2px solid var(--border2)"></div>
+      <input id="catInpName_${cat.id}" class="bkt-name-inp" style="flex:1;min-width:140px;font-size:14px;font-weight:600;padding:4px 8px"
+        value="${esc(cat.name)}"
+        onkeydown="if(event.key==='Enter')saveCatInline('${cat.id}');if(event.key==='Escape')editCat('${cat.id}')" />
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="bkt-create-btn" onclick="saveCatInline('${cat.id}')">Save</button>
+        <button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="editCat('${cat.id}')">Cancel</button>
+        <button class="bkt-cat-fund-btn" style="background:none;border-color:var(--red);color:var(--red)" onclick="delCat('${cat.id}')">Delete</button>
+      </div>
+    </div>
+    <div id="catInlineColors_${cat.id}" style="display:flex;flex-wrap:wrap;gap:5px">${swatches}</div>
+  </div>`;
+}
+function saveCatInline(id){
   const cat=getCat(id);if(!cat)return;
-  // Load existing buckets as editable rows
-  const existingRows = sortedBuckets(id).map(b=>({
-    _id:b.id, name:b.name, type:b.type,
-    budget:String(b.defaultBudget||''), dueDay:b.dueDay||'',
-    recurring:!!b.recurring, rollover:!!b.rollover,
-    goal:String(b.targetAmount||''), goalDate:b.targetDate||'',
-    contrib:b.contribFreq||'monthly'
-  }));
-  M={...M,tab:'cat',catName:cat.name,catColor:cat.color||COLORS[0],
-     catEditId:id,buckets:existingRows.length?existingRows:[mkBkt()],
-     builderCatId:id,bktEditId:null};
-  renderModal();
+  const nameEl=document.getElementById('catInpName_'+id);
+  const name=(nameEl?.value||'').trim();
+  if(!name){showToast('Category name required','info');nameEl?.focus();return;}
+  cat.name=name;
+  cat.color=_catInlineColor[id]||cat.color||COLORS[0];
+  delete _catInlineColor[id];
+  _catExpand=null;
+  save();renderTopbar();renderNav();_rerenderBucketsTab();
+  showToast('Category saved','save');
+}
+let _catInlineColor={};
+function catInlinePickColor(id,color){
+  _catInlineColor[id]=color;
+  const swatch=document.getElementById('catInlineSwatch_'+id);
+  if(swatch){swatch.style.background=color;}
+  document.querySelectorAll(`#catInlineColors_${id} .acct-color-opt`).forEach(el=>{
+    el.style.outline=el.style.background===color?'2px solid #fff':'none';
+  });
 }
 
 function editBucket(id){
@@ -10735,7 +10774,6 @@ function openRSheet(title,bodyHtml,footHtml){
   if(!wasOpen)history.pushState({},'','');
 }
 function closeRSheet(){
-  if(S.wiOpen){exitWI();return;}
   _closeRSheetRaw();
 }
 function _closeRSheetRaw(){
