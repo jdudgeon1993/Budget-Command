@@ -4608,9 +4608,7 @@ function renderActivePane(){
   } else if(activeTab==='settings'){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
   }
-  // Double-RAF: first frame triggers layout recompute after innerHTML change,
-  // second frame sets scroll after the element's scrollHeight is valid again.
-  if(activePaneEl&&savedScroll>0)requestAnimationFrame(()=>requestAnimationFrame(()=>{activePaneEl.scrollTop=savedScroll;}));
+  if(activePaneEl&&savedScroll>0)setTimeout(()=>{activePaneEl.scrollTop=savedScroll;},0);
 }
 
 
@@ -6565,12 +6563,24 @@ function _allocMonthGuard(mid){
   if(diffMonths>2){showToast('Allocations are limited to the current month + 2 months ahead','info');return false;}
   return true;
 }
+function _rerenderBucketsTab(){
+  const el=document.getElementById('paneBuckets');if(!el)return;
+  const saved=el.scrollTop;
+  renderBucketsTab(el,S.activeMonth);
+  if(saved>0)setTimeout(()=>{el.scrollTop=saved;},0);
+}
+
 // ── Vault helpers ────────────────────────────────────────────
 function vaultAccumulated(bid){
   return S.months.reduce((s,mo)=>s+(mo.allocations?.[bid]||0),0);
 }
 function vaultMonthlyContrib(bid){
-  return getBucket(bid)?.defaultBudget||0;
+  const b=getBucket(bid);
+  if(b?.defaultBudget>0)return b.defaultBudget;
+  // Fall back to average of last 3 months with allocations
+  const recent=S.months.slice(-3).map(mo=>mo.allocations?.[bid]||0).filter(v=>v>0);
+  if(recent.length)return recent.reduce((s,v)=>s+v,0)/recent.length;
+  return 0;
 }
 function vaultProjectEnd(bid){
   const now=new Date();
@@ -6592,7 +6602,7 @@ function vaultTransfer(bid,mid){
   if(amt<=0){showToast('Enter a valid amount','info');return;}
   if(!reason){showToast('Choose planned spend or correcting overspend','info');return;}
   const cur=bAlloc(mid,bid);
-  if(amt>cur+0.001){showToast('Amount exceeds vault balance','info');return;}
+  if(amt>Math.round(cur*100)/100+0.01){showToast('Amount exceeds vault balance','info');return;}
   const m=getMonth(mid);if(!m)return;
   if(!m.allocations)m.allocations={};
   m.allocations[bid]=Math.max((m.allocations[bid]||0)-amt,0);
@@ -6755,8 +6765,7 @@ function setBucket(id){
   }
   save();
   if(activeTab!=='buckets'){setTab('buckets');return;}
-  const el=document.getElementById('paneBuckets');
-  if(el)renderBucketsTab(el,S.activeMonth);
+  _rerenderBucketsTab();
 }
 function bktAutoSave(bid,key,val){
   const b=getBucket(bid);if(!b)return;
@@ -6767,8 +6776,7 @@ function bktAutoSave(bid,key,val){
   else{b[key]=val;}
   if(key==='defaultBudget'){S.months.forEach(m=>{if(!m.budgets)m.budgets={};if(m.budgets[bid]===undefined)m.budgets[bid]=b.defaultBudget;});}
   save();
-  const el=document.getElementById('paneBuckets');
-  if(el)renderBucketsTab(el,S.activeMonth);
+  _rerenderBucketsTab();
 }
 function bktSaveTarget(bid,mid,val){
   const b=getBucket(bid);if(!b)return;
@@ -6776,14 +6784,12 @@ function bktSaveTarget(bid,mid,val){
   b.defaultBudget=v;
   const m=getMonth(mid);if(m){if(!m.budgets)m.budgets={};m.budgets[bid]=v;}
   save();
-  const el=document.getElementById('paneBuckets');
-  if(el)renderBucketsTab(el,S.activeMonth);
+  _rerenderBucketsTab();
 }
 function bktToggleSplit(bid){
   _bktExpandSplit[bid]=!_bktExpandSplit[bid];
-  if(!_bktExpandSplit[bid]){const b=getBucket(bid);if(b){b.dueDay2=null;b.dueAmount=null;b.dueAmount2=null;save();}}
-  const el=document.getElementById('paneBuckets');
-  if(el)renderBucketsTab(el,S.activeMonth);
+  if(!_bktExpandSplit[bid]){const b=getBucket(bid);if(b){b.dueDay2=null;b.dueAmount2=null;save();}}
+  _rerenderBucketsTab();
 }
 let _bktCreateColor=COLORS[0];
 let _bktCreateNewCat=false;
@@ -6844,8 +6850,7 @@ function bktDuplicate(id){
   S.buckets.push({...b,id:newId,name:b.name+' (copy)',order:cnt});
   S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[newId]=b.defaultBudget||0;if(!m.allocations)m.allocations={};m.allocations[newId]=0;});
   save();populateTxCats();
-  const el=document.getElementById('paneBuckets');
-  if(el)renderBucketsTab(el,S.activeMonth);
+  _rerenderBucketsTab();
   showToast('Duplicated: '+b.name,'save');
 }
 function bktDotsMenu(bid,mid,past){
@@ -6914,7 +6919,7 @@ function bktInlineEditHtml(b,mid,past){
               <option value="expense">Expense</option>
               <option value="sinking">Sinking (saving)</option>
               <option value="goal">Goal</option>
-              <option value="vault" selected>🔒 Vault</option>
+              <option value="vault"${b.type==='vault'?' selected':''}>🔒 Vault</option>
             </select>
           </div>
           <div class="bkt-inline-field bkt-inline-fullwidth">
