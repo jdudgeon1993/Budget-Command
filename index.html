@@ -1097,13 +1097,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 @media(max-width:1099px){
   /* App: single column, nav at bottom (mobile + tablet) */
   .app{grid-template-columns:1fr;grid-template-rows:1fr auto;}
-  .app-nav{grid-row:2;display:flex;flex-direction:row;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);overflow-x:auto;scrollbar-width:none;}
-  .app-nav::-webkit-scrollbar{display:none;}
+  .app-nav{grid-row:2;display:flex;flex-direction:row;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);}
   .app-main{grid-row:1;position:relative;overflow:hidden;}
   /* Nav buttons: bottom bar style */
   .nav-desktop{display:none !important;}
   .nav-mobile{display:flex !important;}
-  .nav-btn{flex:0 0 auto;min-width:56px;width:auto;flex-direction:column;justify-content:center;align-items:center;padding:10px 8px 8px;border-left:none;border-top:2px solid transparent;gap:3px;min-height:44px;}
+  .nav-btn{flex:1;flex-direction:column;justify-content:center;align-items:center;padding:10px 8px 8px;border-left:none;border-top:2px solid transparent;gap:3px;min-height:44px;}
   .nav-btn.active{border-left-color:transparent;border-top-color:var(--accent);background:none;}
   .nav-icon-txt{display:none;}
   .nav-svg{display:block !important;width:22px;height:22px;}
@@ -2000,22 +1999,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-label">Accounts</span>
       <div class="nav-pip"></div>
     </button>
-    <button class="nav-btn nav-mobile" data-tab="accounts" onclick="setTab('accounts')">
-      <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-      <span class="nav-icon-txt">⬡</span>
-      <span class="nav-label">Accounts</span>
-      <div class="nav-pip"></div>
-    </button>
     <button class="nav-btn nav-desktop" data-tab="reports" onclick="setTab('reports')">
       <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
       <span class="nav-icon-txt">📊</span>
       <span class="nav-label">Reports</span>
-    </button>
-    <button class="nav-btn nav-mobile" data-tab="reports" onclick="setTab('reports')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
-      <span class="nav-icon-txt">📊</span>
-      <span class="nav-label">Reports</span>
-      <div class="nav-pip"></div>
     </button>
     <button class="nav-btn nav-desktop" data-tab="whatif" onclick="setTab('whatif')">
       <svg class="nav-svg" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707M12 21a9 9 0 100-18 9 9 0 000 18z" stroke-linecap="round" stroke-linejoin="round"/></svg>
