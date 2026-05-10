@@ -662,12 +662,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 
 /* Ghost-style inline allocation input — only reveals border on hover/focus */
 .td-alloc{width:104px;padding:4px 6px;}
-.alloc-wrap{display:flex;align-items:center;background:transparent;border:1px solid transparent;border-radius:5px;transition:border-color .15s,background .15s;position:relative;}
+.alloc-wrap{display:flex;align-items:center;background:transparent;border:1px solid transparent;border-radius:6px;transition:border-color .15s,background .15s;position:relative;}
 .alloc-wrap:hover{border-color:var(--border);background:var(--surface2);}
 .alloc-wrap:focus-within{border-color:var(--accent);background:var(--surface2);}
-.alloc-pfx{font-size:11px;color:var(--text3);padding:0 3px 0 4px;font-family:var(--mono);pointer-events:none;opacity:0;transition:opacity .15s;}
+.alloc-pfx{font-size:12px;color:var(--text3);padding:0 2px 0 5px;font-family:var(--mono);pointer-events:none;opacity:0;transition:opacity .15s;}
 .alloc-wrap:hover .alloc-pfx,.alloc-wrap:focus-within .alloc-pfx{opacity:1;}
-.alloc-inp{flex:1;min-width:0;padding:5px 20px 5px 0;background:none;border:none;font-family:var(--mono);font-size:12px;font-weight:500;color:var(--text);text-align:right;}
+.alloc-inp{flex:1;min-width:0;padding:6px 22px 6px 0;background:none;border:none;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text);text-align:right;}
 .alloc-inp:focus{outline:none;}
 .alloc-inp.funded{color:var(--green);}
 .alloc-inp.neg{color:var(--red);}
@@ -675,8 +675,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .td-name{padding:7px 8px 7px 6px;overflow:hidden;}
 .td-name .bn{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .td-name .bt{display:flex;align-items:center;gap:4px;margin-top:2px;}
-.bntag{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:1px 4px;border-radius:3px;background:var(--bg3);color:var(--text3);}
-.bntag.vault{background:rgba(245,158,11,.18);color:#f59e0b;}
+.bntag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 5px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);}
+.bntag.vault{background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.3);}
 .vault-panel{padding:14px 0 0;}
 .vault-stats-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .vault-stat-card{flex:1;min-width:100px;background:var(--surface2);border-radius:8px;padding:10px 12px;border:1px solid rgba(245,158,11,.2);}
@@ -695,11 +695,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .vault-acct-bal{font-family:var(--mono);font-size:13px;font-weight:600;color:#f59e0b;}
 .vault-acct-proj{font-family:var(--mono);font-size:11px;color:var(--text3);}
 .alloc-inp.vault-inp{color:#f59e0b;}
-.bndue{font-size:10px;font-family:var(--mono);}
-.bndue.urgent{color:var(--red);}
-.bndue.soon{color:var(--amber);}
+.bndue{font-size:10px;font-family:var(--mono);padding:1px 5px;border-radius:4px;font-weight:600;}
+.bndue.urgent{color:var(--red);background:var(--rbg);}
+.bndue.soon{color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,transparent);}
 .bndue.ok{color:var(--text3);}
-.bndue.green{color:var(--green);}
+.bndue.green{color:var(--green);background:var(--gbg);}
 
 /* Progress bar — no sub % text, it's shown by the pill */
 .td-bar{width:56px;padding:4px 6px;vertical-align:middle;}
@@ -1169,13 +1169,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-bucket-item{display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--bg2);gap:10px;cursor:pointer;transition:background .1s;}
   .m-bucket-item:active{background:var(--surface);}
   .m-bkt-left{flex:1;min-width:0;}
-  .m-bkt-name{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .m-bkt-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px;}
   .m-bkt-sub{font-size:11px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:5px;}
-  .m-bkt-bar{height:2px;background:var(--border2);border-radius:2px;margin-top:5px;overflow:hidden;}
+  .m-bkt-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:6px;overflow:hidden;}
   .m-bkt-bar-fill{height:100%;border-radius:2px;}
-  .m-bkt-right{text-align:right;flex-shrink:0;min-width:70px;}
-  .m-bkt-alloc{font-family:var(--mono);font-size:14px;font-weight:600;}
-  .m-bkt-pill{font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;margin-top:3px;display:inline-block;letter-spacing:.3px;}
+  .m-bkt-right{text-align:right;flex-shrink:0;min-width:76px;}
+  .m-bkt-alloc{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:-.2px;}
+  .m-bkt-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;margin-top:4px;display:inline-block;letter-spacing:.3px;}
   .m-chevron{color:var(--text3);font-size:16px;flex-shrink:0;}
 
   /* Log form */
@@ -1643,20 +1643,45 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* ── Monthly report ── */
 .report-modal{max-width:600px;width:95vw;}
 .report-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
-.report-table th{padding:6px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-bottom:2px solid var(--border2);}
+.report-table th{padding:7px 12px;text-align:right;font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);border-bottom:2px solid var(--border2);white-space:nowrap;}
 .report-table th:first-child{text-align:left;}
-.report-table td{padding:6px 10px;text-align:right;font-family:var(--mono);border-bottom:1px solid var(--border);}
+.report-table td{padding:6px 12px;text-align:right;font-family:var(--mono);border-bottom:1px solid var(--border);}
 .report-table td:first-child{text-align:left;font-family:var(--sans);font-size:12px;color:var(--text2);}
+/* Bucket list table */
+.bkt-list-table{min-width:400px;}
+.bkt-list-table th:first-child{min-width:180px;}
+.bkt-list-table td:first-child{min-width:160px;padding:8px 10px 8px 6px;}
+.bkt-list-table td:not(:first-child):not(:last-child){padding:6px 12px;white-space:nowrap;}
 .bkt-list-table tr.bkt-list-row{cursor:default;transition:background .1s;}
 .bkt-list-table tr.bkt-list-row:hover{background:var(--surface2);}
-.bkt-list-table tr.bkt-list-row.act{background:color-mix(in srgb,var(--accent) 6%,var(--surface));}
-.bkt-list-table tr.bkt-list-row.skipped{opacity:.4;pointer-events:none;}
+.bkt-list-table tr.bkt-list-row.act{background:color-mix(in srgb,var(--accent) 5%,var(--surface));}
+.bkt-list-table tr.bkt-list-row.skipped{opacity:.38;pointer-events:none;}
 .bkt-list-table tr.bkt-list-row.skipped td:last-child{pointer-events:auto;}
-.bkt-list-table .bkt-row-tags{display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;}
+.bkt-list-table .bkt-row-tags{display:flex;align-items:center;gap:3px;margin-top:3px;flex-wrap:wrap;}
 .bkt-list-table .alloc-wrap{justify-content:flex-end;}
-.bkt-list-table td.alloc-td{padding:3px 10px;}
-@media(max-width:1099px){.bkt-col-hide{display:none;}}
-.report-table .report-cat-row td{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2);font-family:var(--sans);}
+.bkt-list-table td.alloc-td{padding:3px 8px;min-width:110px;}
+.bkt-list-table td.avail-td{font-family:var(--mono);font-size:14px;font-weight:700;padding:6px 14px 6px 12px;}
+/* Spend mini-bar under each row */
+.bkt-spend-bar{height:2px;border-radius:1px;margin-top:5px;background:var(--border2);overflow:hidden;width:100%;max-width:160px;}
+.bkt-spend-bar-fill{height:100%;border-radius:1px;transition:width .4s;}
+@media(max-width:1099px){
+  .bkt-col-hide{display:none;}
+  .bkt-list-table th:first-child{min-width:130px;}
+  .bkt-list-table td:first-child{min-width:120px;}
+  .bkt-list-table td.alloc-td{min-width:90px;}
+}
+/* Category separator rows */
+.report-table .report-cat-row td{
+  padding:10px 12px 7px;
+  background:var(--surface2);
+  font-family:var(--sans);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+  color:var(--text3);
+  border-top:2px solid var(--border2);
+}
+.report-table .report-cat-row:first-child td{border-top:none;}
 .report-table .report-total-row td{font-weight:700;border-top:2px solid var(--border2);background:var(--surface2);}
 .report-copy-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer;}
 /* ── Category Inline Edit ── */
@@ -1677,13 +1702,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-stripe-bar{width:3px;height:28px;border-radius:3px;background:var(--sc);transition:width .2s ease,box-shadow .2s ease;}
 .bkt-stripe-btn:hover .bkt-stripe-bar{width:5px;box-shadow:0 0 7px var(--sc);}
 .bkt-list-row.act .bkt-stripe-bar{width:8px;box-shadow:0 0 10px var(--sc);}
-.bkt-name-inp{background:none;border:none;border-bottom:1px solid transparent;padding:2px 2px;font-size:13px;font-weight:500;color:var(--text1);width:100%;min-width:60px;font-family:var(--sans);transition:border-color .15s;}
+.bkt-name-inp{background:none;border:none;border-bottom:1.5px solid transparent;padding:2px 2px;font-size:14px;font-weight:600;color:var(--text1);width:100%;min-width:80px;font-family:var(--sans);transition:border-color .15s;letter-spacing:-.1px;}
 .bkt-name-inp:hover{border-bottom-color:var(--border2);}
-.bkt-name-inp:focus{border-bottom-color:var(--accent);outline:none;}
+.bkt-name-inp:focus{border-bottom-color:var(--accent);outline:none;background:color-mix(in srgb,var(--accent) 3%,transparent);}
 .bkt-target-wrap{display:flex;align-items:center;background:transparent;border:1px solid transparent;border-radius:5px;transition:border-color .15s,background .15s;}
 .bkt-target-wrap:hover{border-color:var(--border);background:var(--surface2);}
 .bkt-target-wrap:focus-within{border-color:var(--accent);background:var(--surface2);}
-.bkt-target-inp{flex:1;min-width:0;width:72px;padding:5px 6px;background:none;border:none;font-family:var(--mono);font-size:12px;font-weight:500;color:var(--text);text-align:right;}
+.bkt-target-inp{flex:1;min-width:0;width:76px;padding:6px 6px;background:none;border:none;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);text-align:right;}
 .bkt-target-inp:focus{outline:none;}
 .bkt-dots-btn{background:none;border:none;cursor:pointer;padding:3px 7px;border-radius:4px;color:var(--text3);font-size:15px;line-height:1;opacity:.4;}
 .bkt-dots-btn:hover,.bkt-list-row:hover .bkt-dots-btn,.bkt-list-row.act .bkt-dots-btn{opacity:1;}
@@ -3152,11 +3177,11 @@ function _buildCoachSystemPrompt(){
   const wiCtx=S.wiOpen&&S.wiScenario?`\n\nUSER IS IN WHAT IF MODE — Scenario: "${S.wiScenario.name}". The user is exploring a hypothetical budget.`:'';
   const tabCtx=activeTab?`\nCURRENT PAGE: ${activeTab}`:'';
   return`You are an AI financial coach inside Budget Command. ${tone}
-You are advisory only — you provide analysis, insights, and recommendations. You do NOT take actions in the app (no moving money, no allocating funds, no creating buckets). If the user wants to act, guide them to the relevant section.
-Be conversational, direct, specific — always use exact dollar amounts from their data. No markdown (no **, no #, no -). Use plain sentences and line breaks for readability.
-INCOME RULE: "Income received" = logged so far. "Expected total" = full month projection. Always reason from expected total.${tabCtx}${wiCtx}
+You are advisory only — you give analysis and recommendations. You cannot take actions in the app. If the user needs to act, tell them which tab to go to (Buckets, Ledger, Accounts, etc.).
+Style rules: plain conversational sentences, no markdown (no **, no *, no #, no bullet dashes). Use a single blank line between separate points. Keep responses to 3–5 sentences unless the user asks for detail. Lead with the most important insight. Reference exact dollar amounts. Do NOT list every bucket name — focus on the 1–2 that matter most.
+INCOME RULE: "Income received" = logged so far. "Expected total" = full month projection. Always reason from expected total, never flag issues based only on mid-month received income.${tabCtx}${wiCtx}
 
-Current financial snapshot:
+Financial snapshot:
 ${buildBudgetContext(S.activeMonth)}`;
 }
 
@@ -5641,6 +5666,7 @@ function renderBucketsTab(el,mid){
                     onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.orig;this.blur();}" />`
               }
               ${tags.length||dueChip?`<div class="bkt-row-tags">${tags.join('')}${dueChip}</div>`:''}
+              ${eff>0?`<div class="bkt-spend-bar"><div class="bkt-spend-bar-fill" style="width:${Math.min(100,Math.round(pctRaw*100))}%;background:${pctRaw>1?'var(--red)':pctRaw>.75?'var(--amber)':'var(--accent)'}"></div></div>`:''}
             </div>
             ${skipped?`<button class="bkt-skip-tag" onclick="toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</button>`:''}
           </div>
@@ -5669,7 +5695,7 @@ function renderBucketsTab(el,mid){
         </td>
         <td class="bkt-col-hide" style="color:${roll>0?'var(--accent)':'var(--text3)'}">${roll>0?$f(roll):'—'}</td>
         <td class="bkt-col-hide" style="color:${spent>0?'var(--text2)':'var(--text3)'}">${spent>0?$f(spent):'—'}</td>
-        <td style="color:${availColor};font-weight:600">${eff>0||spent>0?$f(avail):'—'}</td>
+        <td class="avail-td" style="color:${availColor}">${eff>0||spent>0?$f(avail):'—'}</td>
         <td style="padding:3px 5px;text-align:center">
           <div class="bkt-dots-wrap">
             <button id="bktDots_${b.id}" class="bkt-dots-btn" onclick="bktDotsMenu('${b.id}','${mid}',${past})" title="More actions">···</button>
