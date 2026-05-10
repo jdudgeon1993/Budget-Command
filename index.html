@@ -3310,7 +3310,9 @@ async function sendCoachMsg(prefill){
     return;
   }
   const s=getAISettings();
-  const inp=document.getElementById('coachInp')||document.getElementById('coachInpMobile');
+  const inp=isMobile()
+    ?document.getElementById('coachInpMobile')
+    :document.getElementById('coachInp');
   const sendBtns=[document.getElementById('coachSend'),document.getElementById('coachSendMobile')].filter(Boolean);
   const text=(prefill||inp?.value||'').trim();
   if(!text)return;
@@ -3360,7 +3362,7 @@ async function sendCoachMsg(prefill){
     renderCoachMessages();
   }finally{
     sendBtns.forEach(b=>b.disabled=false);
-    (document.getElementById('coachInp')||document.getElementById('coachInpMobile'))?.focus();
+    (isMobile()?document.getElementById('coachInpMobile'):document.getElementById('coachInp'))?.focus();
   }
 }
 
@@ -7443,6 +7445,7 @@ function txAutoSave(id,key,val){
   else tx[key]=val||null;
   save();
   renderTxList();
+  renderTopbar();
   showToast('Saved','save');
 }
 function txDotsMenu(e,id){
