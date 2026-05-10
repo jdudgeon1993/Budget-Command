@@ -1218,12 +1218,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-submit{width:100%;padding:15px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:16px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;}
   .m-submit:active{background:var(--accent2);}
 
-  /* Toast */
-  #mToast{position:fixed;bottom:calc(70px + env(safe-area-inset-bottom));left:16px;right:16px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:13px 16px;display:flex;align-items:center;gap:10px;z-index:999;transform:translateY(20px);opacity:0;transition:transform .2s,opacity .2s;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.4);}
-  #mToast.show{transform:translateY(0);opacity:1;}
-  #mToast-icon{font-size:18px;flex-shrink:0;}
-  #mToast-text{flex:1;font-size:13px;line-height:1.4;}
-  #mToast-amt{font-family:var(--mono);font-size:14px;font-weight:500;flex-shrink:0;}
 
   /* Bucket detail */
   .m-det-hero{padding:20px 16px 16px;background:var(--bg2);border-bottom:1px solid var(--border);}
@@ -1402,7 +1396,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* Desktop: keep month nav hidden, hide mobile-only DOM */
 @media(min-width:1100px){
   .tb-month-nav{display:none !important;}
-  #mToast,#mSheetOverlay,#mSheet{display:none!important;}
+  #mSheetOverlay,#mSheet{display:none!important;}
   .ov-mobile-only{display:none!important;}
   .cc-presave-body{display:block!important;}
 }
@@ -1513,7 +1507,28 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .settings-section{margin-bottom:20px;}
 .settings-section:last-child{margin-bottom:0;}
 .settings-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
-.acct-order-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;}
+/* Settings page redesign */
+.sett-wrap{max-width:720px;margin:0 auto;padding-bottom:48px;}
+.sett-page-hdr{padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+.sett-page-title{font-size:19px;font-weight:700;color:var(--text);}
+.sett-card{border:1px solid var(--border);border-radius:var(--rl);margin:16px 16px 0;overflow:hidden;}
+.sett-card-hdr{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:11px;background:var(--bg);}
+.sett-card-icon{font-size:15px;line-height:1.3;flex-shrink:0;}
+.sett-card-titles{flex:1;min-width:0;}
+.sett-card-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px;}
+.sett-card-desc{font-size:12px;color:var(--text3);margin-top:3px;line-height:1.4;}
+.sett-card-body{padding:16px 18px;background:var(--surface);}
+.sett-card-body+.sett-card-body{border-top:1px solid var(--border);}
+.sett-sub-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;}
+.sett-sub-desc{font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;}
+.sett-count{font-size:10px;font-weight:600;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1px 7px;color:var(--text3);text-transform:none;letter-spacing:0;vertical-align:middle;}
+.sett-danger-body{background:var(--rbg);}
+.sett-pc-card{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:11px 14px;margin-bottom:8px;}
+.sett-pc-card-hdr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;}
+.sett-pc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;}
+.sett-ai-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0;margin-top:5px;}
+/* Account order */
+.acct-order-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;}
 .acct-order-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .acct-order-name{flex:1;font-size:14px;}
 
@@ -1579,20 +1594,31 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .emi-sym{font-family:var(--mono);font-weight:700;color:var(--accent);font-size:14px;min-width:18px;text-align:center;}
 .emi-label{font-size:12px;flex:1;}
 .emi-hint{font-family:var(--mono);font-size:11px;color:var(--text3);}
-/* Desktop toast */
-#dToastWrap{position:fixed;top:60px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:9990;pointer-events:none;}
-@media(max-width:1099px){#dToastWrap{top:auto;bottom:calc(68px + env(safe-area-inset-bottom));left:16px;right:16px;}}
-.d-toast{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.35);animation:dToastIn .2s ease;min-width:180px;max-width:320px;pointer-events:auto;}
-.d-toast-undo{margin-left:auto;background:none;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:6px;flex-shrink:0;}
-.d-toast.out{animation:dToastOut .3s ease forwards;}
-.d-toast-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.d-toast-dot.in{background:var(--green);}
-.d-toast-dot.out{background:var(--red);}
-.d-toast-dot.xfr{background:var(--purple);}
-.d-toast-dot.save{background:var(--accent);}
-.d-toast-dot.info{background:var(--amber);}
-@keyframes dToastIn{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:translateX(0);}}
-@keyframes dToastOut{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(12px);}}
+/* Toast */
+#dToastWrap{position:fixed;top:68px;right:16px;width:300px;display:flex;flex-direction:column;gap:7px;z-index:9990;pointer-events:none;}
+@media(max-width:1099px){#dToastWrap{top:auto;bottom:calc(72px + env(safe-area-inset-bottom));left:12px;right:12px;width:auto;}}
+.d-toast{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:dToastIn .18s ease;pointer-events:auto;line-height:1.35;}
+.d-toast.t-in{border-left-color:var(--green);}
+.d-toast.t-out{border-left-color:var(--red);}
+.d-toast.t-xfr{border-left-color:var(--purple);}
+.d-toast.t-save{border-left-color:var(--accent);}
+.d-toast.t-info{border-left-color:var(--amber);}
+.d-toast-icon{font-size:13px;flex-shrink:0;width:16px;text-align:center;}
+.d-toast.t-in .d-toast-icon{color:var(--green);}
+.d-toast.t-out .d-toast-icon{color:var(--red);}
+.d-toast.t-xfr .d-toast-icon{color:var(--purple);}
+.d-toast.t-save .d-toast-icon{color:var(--accent);}
+.d-toast.t-info .d-toast-icon{color:var(--amber);}
+.d-toast-msg{flex:1;min-width:0;}
+.d-toast-undo{margin-left:6px;background:none;border:1px solid currentColor;font-size:11px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:5px;flex-shrink:0;opacity:.75;transition:opacity .1s;}
+.d-toast-undo:hover{opacity:1;}
+.d-toast.out{animation:dToastOut .25s ease forwards;}
+@keyframes dToastIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:translateX(0);}}
+@keyframes dToastOut{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(10px);}}
+@media(max-width:1099px){
+  @keyframes dToastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes dToastOut{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(8px);}}
+}
 /* Sync indicator in topbar */
 #syncStatus{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;padding:3px 8px;border-radius:10px;transition:all .3s;}
 #syncStatus.synced{background:var(--gbg);color:var(--green);}
@@ -1964,12 +1990,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   </div>
 </header>
 
-<!-- WI STRIP -->
-<div class="strip wi hidden" id="wiStrip">
-  ⚡ Scenario mode — changes won't affect real data
-  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="setTab('whatif')">View Scenario</button>
-  <button class="tbtn" style="font-size:11px;padding:3px 9px;color:var(--red);border-color:var(--red)" onclick="exitWI()">Reset</button>
-</div>
 <div class="strip off-month-past hidden" id="offMonthStrip">
   <span id="offMonthMsg"></span>
   <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="jumpToToday()">Go to Today</button>
@@ -2223,7 +2243,7 @@ async function authInit(){
           normalizeCatOrder();normalizeBktOrder();
         }
         // Always reset WI session — must not persist across page loads
-        S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+        S.wiOpen=false;S.wiScenario=null;
         if(!S.scenarios)S.scenarios=[];
         setSyncStatus('synced','Synced');
         init();
@@ -2262,7 +2282,7 @@ async function authInit(){
         normalizeCatOrder();normalizeBktOrder();
       }
       // Always reset WI session — must not persist across page loads
-      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+      S.wiOpen=false;S.wiScenario=null;
       if(!S.scenarios)S.scenarios=[];
       setSyncStatus('synced','Synced');
       init();
@@ -2368,12 +2388,11 @@ async function signOut(){
   // Clear in-memory state only — localStorage stays as backup for next login
   // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
-     activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
+     activeAccount:null,scenarios:[],wiScenario:null,
      wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[],paydayTransfers:[]};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
-  document.getElementById('wiStrip')?.classList.add('hidden');
   updateAuthBtn();
   setSyncStatus('offline','Not signed in');
   showAuthSignIn();
@@ -2429,8 +2448,6 @@ let S={
   activeMonth:null,
   activeBucket:null,
   activeAccount:null,
-  scenario:false,
-  scenarioBudgets:{},
   scenarios:[],
   wiScenario:null,
   wiOpen:false,
@@ -3974,7 +3991,6 @@ function monthIncome(mid){
 
 function bAlloc(mid,bid){const m=getMonth(mid);return m?(m.allocations[bid]||0):0;}
 function bBudget(mid,bid){
-  if(S.scenario&&S.wiScenario?.budgets?.[bid]!==undefined)return S.wiScenario.budgets[bid];
   const m=getMonth(mid);return m?(m.budgets[bid]||0):0;
 }
 // ── Paycheck helpers ──────────────────────────────────────────────────────────
@@ -4043,7 +4059,7 @@ function lastPastMonths(n){
 }
 // Is a bucket scheduled active in the current WI scenario for a given month?
 function isWIBucketActive(bucketId,monthId){
-  if(!S.scenario||!S.wiScenario?.bucketSchedule?.[bucketId])return true;
+  if(!S.wiScenario?.bucketSchedule?.[bucketId])return true;
   const s=S.wiScenario.bucketSchedule[bucketId];
   return(!s.onFrom||compareMid(monthId,s.onFrom)>=0)&&(!s.offFrom||compareMid(monthId,s.offFrom)<0);
 }
@@ -6048,7 +6064,7 @@ function exportCatCSV(catId,mid){
 
 function renderSettingsTab(el){
   if(!el)return;
-  const _settingsScroll=el.scrollTop; // save scroll before rebuild (P7-C)
+  const savedScroll=el.scrollTop;
 
   const acctItems=S.accounts.map((a,i)=>`<div class="acct-order-item">
     <div class="acct-order-dot" style="background:${a.color}"></div>
@@ -6078,12 +6094,12 @@ function renderSettingsTab(el){
   const pcRows=[1,2,3].map(n=>{
     const pc=(S.paychecks||[])[n-1]||{};
     const req=n===1;
-    return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin-bottom:8px">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:7px">💰 Income ${n}${req?' (required)':' (optional)'}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
+    return `<div class="sett-pc-card">
+      <div class="sett-pc-card-hdr" style="color:${req?'var(--accent)':'var(--text3)'}">Income ${n}${req?' · required':' · optional'}</div>
+      <div class="sett-pc-grid">
         <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
-        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
-        <div><label class="fl">Anchor Date <span class="c-text3" style="font-weight:400">(a known pay date)</span></label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
+        <div><label class="fl">Amount</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
+        <div><label class="fl">Anchor Date</label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
         <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
           <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
           <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
@@ -6096,107 +6112,162 @@ function renderSettingsTab(el){
 
   const lastExp=localStorage.getItem('bcc_last_export');
   const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+  const ai=getAISettings();
+  const aiConnected=aiEnabled();
+  const billCount=(S.recurringBills||[]).length;
+  const payeeCount=(S.payees||[]).length;
 
-  el.innerHTML=`<div class="month-hdr"><div class="month-title">Settings</div>
-    <button class="tbtn" style="margin-left:auto" onclick="openGlobalSearch()" title="Search transactions">🔍 Search</button>
-  </div>
-
-  <!-- ── 1. Income Sources ──────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Income Sources</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Your regular paychecks — powers the Paycheck Projector, projected income, and the allocation rules below.</div>
-    ${pcRows}
-    <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
-  </div>
-
-  <!-- ── 2. On Payday ───────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">On Payday</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:14px">When you log a paycheck, these rules suggest how to split it across your buckets — giving every dollar a job before you spend it. You review and confirm each time.</div>
-    ${allocationRulesHtml()}
-  </div>
-
-  <!-- ── 3. Payday Transfers ──────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Payday Transfers</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:14px">Automatic bank transfers that happen every payday — like moving $500 to savings. These reduce your available cash in the Paycheck Projector so it shows exactly how much you really have to spend.</div>
-    ${paydayTransfersHtml()}
-  </div>
-
-  <!-- ── 4. Budget Setup ────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Budget Setup</div>
-    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Account Order</div>
-    ${acctItems||'<div class="c-text3" style="font-size:13px">No accounts yet</div>'}
-    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Recurring Bills <span style="font-weight:400">${(S.recurringBills||[]).length} set up</span></div>
-      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
-      ${recurringBillsHtml()}
+  el.innerHTML=`<div class="sett-wrap">
+    <div class="sett-page-hdr">
+      <div class="sett-page-title">Settings</div>
     </div>
-  </div>
 
-  <!-- ── 4. Payees ──────────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Payees</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:8px">Saved automatically when you log transactions. Tap ✎ to rename; link a default bucket so the right category is pre-selected next time.</div>
-    ${payeeItems||'<div class="c-text3" style="font-size:13px">No payees saved yet.</div>'}
-  </div>
-
-  ${(()=>{
-    const ai=getAISettings();
-    const statusDot=aiEnabled()?`<span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-left:4px" title="Connected"></span>`:'';
-    return`<div class="settings-section">
-    <div class="settings-section-title">AI Coach <span class="ai-badge">✦ Gemini</span>${statusDot}</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:12px">Connect your Gemini API key to unlock AI-powered coaching, narrative summaries, and smart suggestions. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Get a free key →</a></div>
-    <label class="fl">API Key</label>
-    <input class="fi mono" id="aiKeyInp" type="password" placeholder="AIza…" value="${esc(ai.geminiKey||'')}" style="margin-bottom:10px" />
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div>
-        <label class="fl">Model</label>
-        <select class="fi" id="aiModelSel">
-          <option value="gemini-2.0-flash"${(ai.model||'gemini-2.0-flash')==='gemini-2.0-flash'?' selected':''}>Gemini 2.0 Flash — fast · free tier</option>
-          <option value="gemini-1.5-flash"${ai.model==='gemini-1.5-flash'?' selected':''}>Gemini 1.5 Flash</option>
-          <option value="gemini-1.5-pro"${ai.model==='gemini-1.5-pro'?' selected':''}>Gemini 1.5 Pro — smarter · paid</option>
-        </select>
+    <!-- Income Sources -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">💰</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Income Sources</div>
+          <div class="sett-card-desc">Your regular paychecks — powers the Paycheck Projector, projected income, and allocation rules</div>
+        </div>
       </div>
-      <div>
-        <label class="fl">Coach Tone</label>
-        <select class="fi" id="aiToneSel">
-          <option value="encouraging"${(ai.tone||'encouraging')==='encouraging'?' selected':''}>Encouraging</option>
-          <option value="analytical"${ai.tone==='analytical'?' selected':''}>Analytical</option>
-          <option value="toughLove"${ai.tone==='toughLove'?' selected':''}>Tough Love</option>
-        </select>
+      <div class="sett-card-body">
+        ${pcRows}
+        <button class="btn-save" style="margin-top:4px" onclick="savePaycheckSettings()">Save Income Sources</button>
       </div>
     </div>
-    <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;margin-bottom:12px">
-      <input type="checkbox" id="aiEnabledChk" style="accent-color:var(--accent)" ${ai.enabled!==false?'checked':''}>
-      Enable AI coaching on Overview tab
-    </label>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn-save" onclick="saveAISettingsFromUI()">Save AI Settings</button>
-      <button class="tbtn" id="aiTestBtn" onclick="testGeminiConnection()">Test Connection</button>
-    </div>
-    <div id="aiTestOut" style="font-size:12px;margin-top:8px;min-height:18px"></div>
-  </div>`;})()}
 
-  <!-- ── 6. Data ────────────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Data</div>
-    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Export / Import</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Last exported: <strong class="c-text2">${expLabel}</strong></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-      <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
-      <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
-      <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
+    <!-- On Payday -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">⚡</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">On Payday</div>
+          <div class="sett-card-desc">Rules and transfers that run automatically when you log a paycheck</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Allocation Rules</div>
+        <div class="sett-sub-desc">Split each paycheck across your buckets — giving every dollar a job before you spend it. You review and confirm each time.</div>
+        ${allocationRulesHtml()}
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Payday Transfers</div>
+        <div class="sett-sub-desc">Automatic bank transfers on payday (e.g. moving $500 to savings). Reduces your available cash in the Paycheck Projector.</div>
+        ${paydayTransfersHtml()}
+      </div>
     </div>
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-      <div class="c-red" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Danger Zone</div>
-      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Permanently delete all data and start fresh. Cannot be undone.</div>
-      <button class="tbtn c-rb" onclick="confirmFreshStart()">↺ Fresh Start</button>
+
+    <!-- Budget Setup -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">📋</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Budget Setup</div>
+          <div class="sett-card-desc">Account display order and scheduled recurring transactions</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Account Order</div>
+        <div class="sett-sub-desc" style="margin-bottom:10px">Drag or use arrows to set the order accounts appear throughout the app</div>
+        ${acctItems||'<div class="c-text3" style="font-size:13px">No accounts yet</div>'}
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title" style="margin-bottom:4px">Recurring Bills <span class="sett-count">${billCount}</span></div>
+        <div class="sett-sub-desc">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
+        ${recurringBillsHtml()}
+      </div>
     </div>
+
+    <!-- Payees -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">👤</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Payees <span class="sett-count">${payeeCount}</span></div>
+          <div class="sett-card-desc">Saved automatically when you log transactions. Rename or link a default bucket for faster entry.</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        ${payeeItems||'<div class="c-text3" style="font-size:13px">No payees saved yet — they\'ll appear here as you log transactions.</div>'}
+      </div>
+    </div>
+
+    <!-- AI Coach -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">✦</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">AI Coach <span class="ai-badge">Gemini</span></div>
+          <div class="sett-card-desc">Smart coaching, narrative summaries, and budget suggestions. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Get a free API key →</a></div>
+        </div>
+        ${aiConnected?'<span class="sett-ai-dot" title="Connected"></span>':''}
+      </div>
+      <div class="sett-card-body">
+        <div class="fi-row" style="margin-bottom:10px">
+          <div class="fg">
+            <label class="fl">API Key</label>
+            <input class="fi mono" id="aiKeyInp" type="password" placeholder="AIza…" value="${esc(ai.geminiKey||'')}" />
+          </div>
+        </div>
+        <div class="fi-row" style="margin-bottom:10px">
+          <div class="fg">
+            <label class="fl">Model</label>
+            <select class="fi" id="aiModelSel">
+              <option value="gemini-2.0-flash"${(ai.model||'gemini-2.0-flash')==='gemini-2.0-flash'?' selected':''}>Gemini 2.0 Flash — fast · free tier</option>
+              <option value="gemini-1.5-flash"${ai.model==='gemini-1.5-flash'?' selected':''}>Gemini 1.5 Flash</option>
+              <option value="gemini-1.5-pro"${ai.model==='gemini-1.5-pro'?' selected':''}>Gemini 1.5 Pro — smarter · paid</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Coach Tone</label>
+            <select class="fi" id="aiToneSel">
+              <option value="encouraging"${(ai.tone||'encouraging')==='encouraging'?' selected':''}>Encouraging</option>
+              <option value="analytical"${ai.tone==='analytical'?' selected':''}>Analytical</option>
+              <option value="toughLove"${ai.tone==='toughLove'?' selected':''}>Tough Love</option>
+            </select>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;margin-bottom:14px">
+          <input type="checkbox" id="aiEnabledChk" style="accent-color:var(--accent)" ${ai.enabled!==false?'checked':''}>
+          Enable AI coaching on Overview tab
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn-save" onclick="saveAISettingsFromUI()">Save AI Settings</button>
+          <button class="tbtn" id="aiTestBtn" onclick="testGeminiConnection()">Test Connection</button>
+        </div>
+        <div id="aiTestOut" style="font-size:12px;margin-top:8px;min-height:18px"></div>
+      </div>
+    </div>
+
+    <!-- Data -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">📁</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Data</div>
+          <div class="sett-card-desc">Backup, restore, and manage your budget data</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Export / Import</div>
+        <div class="sett-sub-desc">Last exported: <strong style="color:var(--text2)">${expLabel}</strong></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
+          <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
+          <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
+        </div>
+      </div>
+      <div class="sett-card-body sett-danger-body">
+        <div class="sett-sub-title c-red" style="margin-bottom:4px">Danger Zone</div>
+        <div class="sett-sub-desc">Permanently delete all data and start fresh. This cannot be undone.</div>
+        <button class="tbtn c-rb" onclick="confirmFreshStart()">↺ Fresh Start</button>
+      </div>
+    </div>
+
   </div>`;
 
-  if(_settingsScroll>0)el.scrollTop=_settingsScroll; // restore scroll (P7-C)
+  if(savedScroll>0)el.scrollTop=savedScroll;
   if(_editingPayeeId)setTimeout(()=>{const i=document.getElementById('payeeRenameInp');if(i){i.focus();i.select();}},30);
 }
 
@@ -7726,8 +7797,7 @@ function renderWhatIfPane(el){
     const budgets={};
     S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=bBudget(mid,b.id);});
     S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
-    S.wiOpen=true;S.scenario=true;
-    document.getElementById('wiStrip')?.classList.remove('hidden');
+    S.wiOpen=true;
   }
   el.innerHTML=`<div class="wi-pane-wrap">
     <div class="wi-pane-hdr">
@@ -8009,9 +8079,8 @@ function _wiRightHtml(){
 }
 
 function exitWI(){
-  S.scenario=false;S.wiScenario=null;S.wiOpen=false;
+  S.wiScenario=null;S.wiOpen=false;
   _wiSchedExpanded.clear();
-  document.getElementById('wiStrip')?.classList.add('hidden');
   if(activeTab==='whatif')setTab('overview');
   else render();
 }
@@ -8031,7 +8100,6 @@ function loadScenario(id){
   const sc=S.scenarios?.find(s=>s.id===id);
   if(!sc)return;
   S.wiScenario=JSON.parse(JSON.stringify(sc));
-  S.scenario=true;
   renderWI();renderActivePane();
 }
 
@@ -10038,7 +10106,7 @@ function applyPaydayActions(monthId){
   }
   const ic=_pendingRules.filter(r=>r.on).length;
   save();closeModal();render();
-  if(ic){const msg=`${ic} allocation${ic!==1?'s':''}`;showToast(`Applied: ${msg}`,'save');mShowToast('alloc',`Applied: ${msg}`,'');}
+  if(ic)showToast(`Applied: ${ic} allocation${ic!==1?'s':''}`, 'save');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -10209,7 +10277,7 @@ function confirmFreshStart(){
     'Erase Everything',
     ()=>{
       localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
+      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
       ensureMonth();S.activeMonth=currentMonthId();
       save();
       startWizard();
@@ -11154,11 +11222,10 @@ function importData(event){
           S=Object.assign({
             accounts:[],cats:[],buckets:[],months:[],txs:[],
             activeMonth:null,activeBucket:null,activeAccount:null,
-            scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],recurringBills:[],
+            scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],recurringBills:[],
           },imported);
           S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
           normalizeCatOrder();normalizeBktOrder();
-          if(!S.scenarioBudgets)S.scenarioBudgets={};
           if(!S.payees)S.payees=[];
           if(!S.allocationRules)S.allocationRules=[];
                   save();ensureMonth();
@@ -11204,7 +11271,7 @@ document.addEventListener('keydown', e => {
 
   // ── Always available ──────────────────────────────
   if(e.key==='Escape'){
-    if(S.wiOpen){exitWI();return;}
+    if(S.wiScenario&&activeTab==='whatif'){exitWI();return;}
     if(modalOpen){closeModal();return;}
     if(wizOpen){closeWizard();return;}
     // Escape from bucket detail → back to overview
@@ -11339,26 +11406,26 @@ function toggleExprMenu(btn){
 }
 
 // Desktop + mobile toast notification
-function showToast(msg, type='save'){
+const _TOAST_ICON={in:'↓',out:'↑',xfr:'⇄',save:'✓',info:'!'};
+function showToast(msg,type='save'){
   const wrap=document.getElementById('dToastWrap');if(!wrap)return;
   const t=document.createElement('div');
-  t.className='d-toast';
-  t.innerHTML=`<div class="d-toast-dot ${type}"></div><span>${esc(msg)}</span>`;
+  t.className=`d-toast t-${type}`;
+  t.innerHTML=`<span class="d-toast-icon">${_TOAST_ICON[type]||'✓'}</span><span class="d-toast-msg">${esc(msg)}</span>`;
   wrap.appendChild(t);
-  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),350);},2800);
+  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),280);},3200);
 }
-function showUndoToast(msg, type='out', undoFn){
+function showUndoToast(msg,type='out',undoFn){
   const wrap=document.getElementById('dToastWrap');if(!wrap)return;
   const t=document.createElement('div');
-  t.className='d-toast';
-  t.innerHTML=`<div class="d-toast-dot ${type}"></div><span style="flex:1">${esc(msg)}</span><button class="d-toast-undo">Undo</button>`;
+  t.className=`d-toast t-${type}`;
+  t.innerHTML=`<span class="d-toast-icon">${_TOAST_ICON[type]||'✓'}</span><span class="d-toast-msg">${esc(msg)}</span><button class="d-toast-undo">Undo</button>`;
   wrap.appendChild(t);
   let done=false;
-  const dismiss=()=>{t.classList.add('out');setTimeout(()=>t.remove(),350);};
+  const dismiss=()=>{t.classList.add('out');setTimeout(()=>t.remove(),280);};
   const timer=setTimeout(()=>{if(!done){done=true;dismiss();}},6000);
   t.querySelector('.d-toast-undo').addEventListener('click',()=>{
-    if(done)return;done=true;clearTimeout(timer);dismiss();
-    if(undoFn)undoFn();
+    if(done)return;done=true;clearTimeout(timer);dismiss();undoFn?.();
   });
 }
 
@@ -11718,7 +11785,7 @@ function mSaveAllBulk(){
   });
   if(!saved){showToast('Please fill in at least one complete row (description, amount, account, bucket)','info');return;}
   save();mBulkRows=[];mBulkMode=false;
-  render();mShowToast('check','Saved '+saved+' transaction'+(saved!==1?'s':''),'');
+  render();showToast('Saved '+saved+' transaction'+(saved!==1?'s':''),'save');
 }
 
 // ── Add single tx from mobile ─────────────────────────────────────────────────
@@ -11757,7 +11824,7 @@ function mAddTx(){
   // Get bucket name for toast
   const bktName=getBucket(bkt)?.name||'';
   const amtStr=(t==='in'?'+':t==='xfr'?'⇄':'-')+$f(amt);
-  mShowToast(t==='in'?'in':t==='xfr'?'xfr':'out', desc, amtStr+(bktName?' · '+bktName:''));
+  showToast(desc+' '+amtStr+(bktName?' · '+bktName:''), t==='in'?'in':t==='xfr'?'xfr':'out');
 
   // Prompt allocation rules on new income
   if(t==='in')setTimeout(()=>promptAllocationRules(amt,monthId),400);
@@ -11883,23 +11950,6 @@ function mCloseSheet(){
   document.getElementById('mSheet').classList.remove('show');
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-let mToastTimer=null;
-function mShowToast(type,text,amt){
-  const toast=document.getElementById('mToast');
-  const icon=document.getElementById('mToast-icon');
-  const textEl=document.getElementById('mToast-text');
-  const amtEl=document.getElementById('mToast-amt');
-  if(!toast)return;
-  icon.textContent=type==='in'?'↓':type==='out'?'↑':type==='xfr'?'⇄':type==='alloc'?'◎':'✓';
-  icon.style.color=type==='in'?'var(--green)':type==='out'?'var(--red)':type==='xfr'?'var(--purple)':type==='alloc'?'var(--accent)':'var(--green)';
-  textEl.textContent=text;
-  amtEl.textContent=amt;
-  amtEl.style.color=type==='in'?'var(--green)':type==='out'?'var(--red)':'var(--text2)';
-  toast.classList.add('show');
-  if(mToastTimer)clearTimeout(mToastTimer);
-  mToastTimer=setTimeout(()=>toast.classList.remove('show'),2500);
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function mCatOptions(selectedCatId){
@@ -11926,12 +11976,6 @@ function mAcctOptions(selectedId){
 </script>
 
 
-<!-- Toast -->
-<div id="mToast">
-  <div id="mToast-icon">✓</div>
-  <div id="mToast-text"></div>
-  <div id="mToast-amt"></div>
-</div>
 
 <!-- Edit bottom sheet -->
 <div class="m-sheet-overlay" id="mSheetOverlay" onclick="mCloseSheet()"></div>
