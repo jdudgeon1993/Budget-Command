@@ -1513,7 +1513,28 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .settings-section{margin-bottom:20px;}
 .settings-section:last-child{margin-bottom:0;}
 .settings-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
-.acct-order-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;}
+/* Settings page redesign */
+.sett-wrap{max-width:720px;margin:0 auto;padding-bottom:48px;}
+.sett-page-hdr{padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+.sett-page-title{font-size:19px;font-weight:700;color:var(--text);}
+.sett-card{border:1px solid var(--border);border-radius:var(--rl);margin:16px 16px 0;overflow:hidden;}
+.sett-card-hdr{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:11px;background:var(--bg);}
+.sett-card-icon{font-size:15px;line-height:1.3;flex-shrink:0;}
+.sett-card-titles{flex:1;min-width:0;}
+.sett-card-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px;}
+.sett-card-desc{font-size:12px;color:var(--text3);margin-top:3px;line-height:1.4;}
+.sett-card-body{padding:16px 18px;background:var(--surface);}
+.sett-card-body+.sett-card-body{border-top:1px solid var(--border);}
+.sett-sub-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:4px;}
+.sett-sub-desc{font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;}
+.sett-count{font-size:10px;font-weight:600;font-family:var(--mono);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1px 7px;color:var(--text3);text-transform:none;letter-spacing:0;vertical-align:middle;}
+.sett-danger-body{background:var(--rbg);}
+.sett-pc-card{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:11px 14px;margin-bottom:8px;}
+.sett-pc-card-hdr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;}
+.sett-pc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;}
+.sett-ai-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0;margin-top:5px;}
+/* Account order */
+.acct-order-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;}
 .acct-order-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .acct-order-name{flex:1;font-size:14px;}
 
@@ -6038,7 +6059,7 @@ function exportCatCSV(catId,mid){
 
 function renderSettingsTab(el){
   if(!el)return;
-  const _settingsScroll=el.scrollTop; // save scroll before rebuild (P7-C)
+  const savedScroll=el.scrollTop;
 
   const acctItems=S.accounts.map((a,i)=>`<div class="acct-order-item">
     <div class="acct-order-dot" style="background:${a.color}"></div>
@@ -6068,12 +6089,12 @@ function renderSettingsTab(el){
   const pcRows=[1,2,3].map(n=>{
     const pc=(S.paychecks||[])[n-1]||{};
     const req=n===1;
-    return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin-bottom:8px">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:7px">💰 Income ${n}${req?' (required)':' (optional)'}</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px">
+    return `<div class="sett-pc-card">
+      <div class="sett-pc-card-hdr" style="color:${req?'var(--accent)':'var(--text3)'}">Income ${n}${req?' · required':' · optional'}</div>
+      <div class="sett-pc-grid">
         <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
-        <div><label class="fl">Amount ($)</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
-        <div><label class="fl">Anchor Date <span class="c-text3" style="font-weight:400">(a known pay date)</span></label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
+        <div><label class="fl">Amount</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
+        <div><label class="fl">Anchor Date</label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
         <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
           <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
           <option value="14"${(!pc.freq||pc.freq===14)?' selected':''}>Bi-weekly</option>
@@ -6086,107 +6107,162 @@ function renderSettingsTab(el){
 
   const lastExp=localStorage.getItem('bcc_last_export');
   const expLabel=lastExp?new Date(parseInt(lastExp)).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+  const ai=getAISettings();
+  const aiConnected=aiEnabled();
+  const billCount=(S.recurringBills||[]).length;
+  const payeeCount=(S.payees||[]).length;
 
-  el.innerHTML=`<div class="month-hdr"><div class="month-title">Settings</div>
-    <button class="tbtn" style="margin-left:auto" onclick="openGlobalSearch()" title="Search transactions">🔍 Search</button>
-  </div>
-
-  <!-- ── 1. Income Sources ──────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Income Sources</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Your regular paychecks — powers the Paycheck Projector, projected income, and the allocation rules below.</div>
-    ${pcRows}
-    <button class="btn-save" onclick="savePaycheckSettings()">Save Income Sources</button>
-  </div>
-
-  <!-- ── 2. On Payday ───────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">On Payday</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:14px">When you log a paycheck, these rules suggest how to split it across your buckets — giving every dollar a job before you spend it. You review and confirm each time.</div>
-    ${allocationRulesHtml()}
-  </div>
-
-  <!-- ── 3. Payday Transfers ──────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Payday Transfers</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:14px">Automatic bank transfers that happen every payday — like moving $500 to savings. These reduce your available cash in the Paycheck Projector so it shows exactly how much you really have to spend.</div>
-    ${paydayTransfersHtml()}
-  </div>
-
-  <!-- ── 4. Budget Setup ────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Budget Setup</div>
-    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Account Order</div>
-    ${acctItems||'<div class="c-text3" style="font-size:13px">No accounts yet</div>'}
-    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-      <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Recurring Bills <span style="font-weight:400">${(S.recurringBills||[]).length} set up</span></div>
-      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
-      ${recurringBillsHtml()}
+  el.innerHTML=`<div class="sett-wrap">
+    <div class="sett-page-hdr">
+      <div class="sett-page-title">Settings</div>
     </div>
-  </div>
 
-  <!-- ── 4. Payees ──────────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Payees</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:8px">Saved automatically when you log transactions. Tap ✎ to rename; link a default bucket so the right category is pre-selected next time.</div>
-    ${payeeItems||'<div class="c-text3" style="font-size:13px">No payees saved yet.</div>'}
-  </div>
-
-  ${(()=>{
-    const ai=getAISettings();
-    const statusDot=aiEnabled()?`<span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-left:4px" title="Connected"></span>`:'';
-    return`<div class="settings-section">
-    <div class="settings-section-title">AI Coach <span class="ai-badge">✦ Gemini</span>${statusDot}</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:12px">Connect your Gemini API key to unlock AI-powered coaching, narrative summaries, and smart suggestions. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Get a free key →</a></div>
-    <label class="fl">API Key</label>
-    <input class="fi mono" id="aiKeyInp" type="password" placeholder="AIza…" value="${esc(ai.geminiKey||'')}" style="margin-bottom:10px" />
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div>
-        <label class="fl">Model</label>
-        <select class="fi" id="aiModelSel">
-          <option value="gemini-2.0-flash"${(ai.model||'gemini-2.0-flash')==='gemini-2.0-flash'?' selected':''}>Gemini 2.0 Flash — fast · free tier</option>
-          <option value="gemini-1.5-flash"${ai.model==='gemini-1.5-flash'?' selected':''}>Gemini 1.5 Flash</option>
-          <option value="gemini-1.5-pro"${ai.model==='gemini-1.5-pro'?' selected':''}>Gemini 1.5 Pro — smarter · paid</option>
-        </select>
+    <!-- Income Sources -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">💰</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Income Sources</div>
+          <div class="sett-card-desc">Your regular paychecks — powers the Paycheck Projector, projected income, and allocation rules</div>
+        </div>
       </div>
-      <div>
-        <label class="fl">Coach Tone</label>
-        <select class="fi" id="aiToneSel">
-          <option value="encouraging"${(ai.tone||'encouraging')==='encouraging'?' selected':''}>Encouraging</option>
-          <option value="analytical"${ai.tone==='analytical'?' selected':''}>Analytical</option>
-          <option value="toughLove"${ai.tone==='toughLove'?' selected':''}>Tough Love</option>
-        </select>
+      <div class="sett-card-body">
+        ${pcRows}
+        <button class="btn-save" style="margin-top:4px" onclick="savePaycheckSettings()">Save Income Sources</button>
       </div>
     </div>
-    <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;margin-bottom:12px">
-      <input type="checkbox" id="aiEnabledChk" style="accent-color:var(--accent)" ${ai.enabled!==false?'checked':''}>
-      Enable AI coaching on Overview tab
-    </label>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn-save" onclick="saveAISettingsFromUI()">Save AI Settings</button>
-      <button class="tbtn" id="aiTestBtn" onclick="testGeminiConnection()">Test Connection</button>
-    </div>
-    <div id="aiTestOut" style="font-size:12px;margin-top:8px;min-height:18px"></div>
-  </div>`;})()}
 
-  <!-- ── 6. Data ────────────────────────────────────────── -->
-  <div class="settings-section">
-    <div class="settings-section-title">Data</div>
-    <div class="c-text3" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Export / Import</div>
-    <div class="c-text3" style="font-size:12px;margin-bottom:10px">Last exported: <strong class="c-text2">${expLabel}</strong></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-      <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
-      <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
-      <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
+    <!-- On Payday -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">⚡</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">On Payday</div>
+          <div class="sett-card-desc">Rules and transfers that run automatically when you log a paycheck</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Allocation Rules</div>
+        <div class="sett-sub-desc">Split each paycheck across your buckets — giving every dollar a job before you spend it. You review and confirm each time.</div>
+        ${allocationRulesHtml()}
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Payday Transfers</div>
+        <div class="sett-sub-desc">Automatic bank transfers on payday (e.g. moving $500 to savings). Reduces your available cash in the Paycheck Projector.</div>
+        ${paydayTransfersHtml()}
+      </div>
     </div>
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-      <div class="c-red" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Danger Zone</div>
-      <div class="c-text3" style="font-size:12px;margin-bottom:10px">Permanently delete all data and start fresh. Cannot be undone.</div>
-      <button class="tbtn c-rb" onclick="confirmFreshStart()">↺ Fresh Start</button>
+
+    <!-- Budget Setup -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">📋</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Budget Setup</div>
+          <div class="sett-card-desc">Account display order and scheduled recurring transactions</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Account Order</div>
+        <div class="sett-sub-desc" style="margin-bottom:10px">Drag or use arrows to set the order accounts appear throughout the app</div>
+        ${acctItems||'<div class="c-text3" style="font-size:13px">No accounts yet</div>'}
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title" style="margin-bottom:4px">Recurring Bills <span class="sett-count">${billCount}</span></div>
+        <div class="sett-sub-desc">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
+        ${recurringBillsHtml()}
+      </div>
     </div>
+
+    <!-- Payees -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">👤</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Payees <span class="sett-count">${payeeCount}</span></div>
+          <div class="sett-card-desc">Saved automatically when you log transactions. Rename or link a default bucket for faster entry.</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        ${payeeItems||'<div class="c-text3" style="font-size:13px">No payees saved yet — they\'ll appear here as you log transactions.</div>'}
+      </div>
+    </div>
+
+    <!-- AI Coach -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">✦</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">AI Coach <span class="ai-badge">Gemini</span></div>
+          <div class="sett-card-desc">Smart coaching, narrative summaries, and budget suggestions. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Get a free API key →</a></div>
+        </div>
+        ${aiConnected?'<span class="sett-ai-dot" title="Connected"></span>':''}
+      </div>
+      <div class="sett-card-body">
+        <div class="fi-row" style="margin-bottom:10px">
+          <div class="fg">
+            <label class="fl">API Key</label>
+            <input class="fi mono" id="aiKeyInp" type="password" placeholder="AIza…" value="${esc(ai.geminiKey||'')}" />
+          </div>
+        </div>
+        <div class="fi-row" style="margin-bottom:10px">
+          <div class="fg">
+            <label class="fl">Model</label>
+            <select class="fi" id="aiModelSel">
+              <option value="gemini-2.0-flash"${(ai.model||'gemini-2.0-flash')==='gemini-2.0-flash'?' selected':''}>Gemini 2.0 Flash — fast · free tier</option>
+              <option value="gemini-1.5-flash"${ai.model==='gemini-1.5-flash'?' selected':''}>Gemini 1.5 Flash</option>
+              <option value="gemini-1.5-pro"${ai.model==='gemini-1.5-pro'?' selected':''}>Gemini 1.5 Pro — smarter · paid</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="fl">Coach Tone</label>
+            <select class="fi" id="aiToneSel">
+              <option value="encouraging"${(ai.tone||'encouraging')==='encouraging'?' selected':''}>Encouraging</option>
+              <option value="analytical"${ai.tone==='analytical'?' selected':''}>Analytical</option>
+              <option value="toughLove"${ai.tone==='toughLove'?' selected':''}>Tough Love</option>
+            </select>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;margin-bottom:14px">
+          <input type="checkbox" id="aiEnabledChk" style="accent-color:var(--accent)" ${ai.enabled!==false?'checked':''}>
+          Enable AI coaching on Overview tab
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn-save" onclick="saveAISettingsFromUI()">Save AI Settings</button>
+          <button class="tbtn" id="aiTestBtn" onclick="testGeminiConnection()">Test Connection</button>
+        </div>
+        <div id="aiTestOut" style="font-size:12px;margin-top:8px;min-height:18px"></div>
+      </div>
+    </div>
+
+    <!-- Data -->
+    <div class="sett-card">
+      <div class="sett-card-hdr">
+        <span class="sett-card-icon">📁</span>
+        <div class="sett-card-titles">
+          <div class="sett-card-title">Data</div>
+          <div class="sett-card-desc">Backup, restore, and manage your budget data</div>
+        </div>
+      </div>
+      <div class="sett-card-body">
+        <div class="sett-sub-title">Export / Import</div>
+        <div class="sett-sub-desc">Last exported: <strong style="color:var(--text2)">${expLabel}</strong></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-save" onclick="exportData()">⬇ Download Backup</button>
+          <button class="tbtn" onclick="document.getElementById('importFileDT').click()">⬆ Import from File</button>
+          <input type="file" id="importFileDT" accept=".json" style="display:none" onchange="importData(event)" />
+        </div>
+      </div>
+      <div class="sett-card-body sett-danger-body">
+        <div class="sett-sub-title c-red" style="margin-bottom:4px">Danger Zone</div>
+        <div class="sett-sub-desc">Permanently delete all data and start fresh. This cannot be undone.</div>
+        <button class="tbtn c-rb" onclick="confirmFreshStart()">↺ Fresh Start</button>
+      </div>
+    </div>
+
   </div>`;
 
-  if(_settingsScroll>0)el.scrollTop=_settingsScroll; // restore scroll (P7-C)
+  if(savedScroll>0)el.scrollTop=savedScroll;
   if(_editingPayeeId)setTimeout(()=>{const i=document.getElementById('payeeRenameInp');if(i){i.focus();i.select();}},30);
 }
 
