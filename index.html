@@ -3118,14 +3118,30 @@ Match bucketName exactly from the list. Infer from context if obvious. Use null 
 }
 
 // ── Gemini free-tier rate limiter ─────────────────────────────────────────────
-// Free tier: 15 RPM, 1 500 RPD (per-minute window is the binding constraint)
-const _RL_RPM=15;
-const _RL_WIN=60000; // 1-minute sliding window
-let _aiCallLog=[]; // timestamps of every AI request made this session
+// Free tier: 15 RPM · 1,500 RPD
+// RPM: in-memory rolling 60s window (resets automatically)
+// RPD: persisted to localStorage, resets at midnight
+const _RL_RPM=15, _RL_RPD=1500;
+const _RL_WIN=60000;
+const _RL_DAY_KEY='bcc_ai_rpd';
+let _aiCallLog=[];   // timestamps for the rolling minute window
 let _rlTickTimer=null;
+
+function _rlDayData(){
+  const today=todayStr();
+  try{
+    const d=JSON.parse(localStorage.getItem(_RL_DAY_KEY)||'{}');
+    if(d.date===today)return d;
+  }catch{}
+  return{date:today,count:0};
+}
 
 function _rlRecord(){
   _aiCallLog.push(Date.now());
+  // Persist daily count
+  const d=_rlDayData();
+  d.count=(d.count||0)+1;
+  try{localStorage.setItem(_RL_DAY_KEY,JSON.stringify(d));}catch{}
   _rlUpdateUI();
   _rlEnsureTicking();
 }
@@ -3133,15 +3149,19 @@ function _rlRecord(){
 function _rlStatus(){
   const now=Date.now();
   _aiCallLog=_aiCallLog.filter(t=>t>now-_RL_WIN);
-  const used=_aiCallLog.length;
-  const blocked=used>=_RL_RPM;
+  // Per-minute
+  const minUsed=_aiCallLog.length;
+  const minBlocked=minUsed>=_RL_RPM;
   const resetsIn=_aiCallLog.length
     ?Math.max(0,Math.ceil((_aiCallLog[0]+_RL_WIN-now)/1000))
     :0;
-  const pct=Math.min(100,Math.round(used/_RL_RPM*100));
-  const color=used>=_RL_RPM?'var(--red)':used>=Math.ceil(_RL_RPM*.75)?'var(--amber)':'var(--accent)';
-  const cls=used>=_RL_RPM?'block':used>=Math.ceil(_RL_RPM*.75)?'warn':'';
-  return{used,max:_RL_RPM,blocked,resetsIn,pct,color,cls};
+  // Per-day
+  const{count:dayUsed}=_rlDayData();
+  const dayBlocked=dayUsed>=_RL_RPD;
+  // Composite block
+  const blocked=minBlocked||dayBlocked;
+  return{minUsed,minMax:_RL_RPM,minBlocked,resetsIn,
+         dayUsed,dayMax:_RL_RPD,dayBlocked,blocked};
 }
 
 function _rlCanSend(){return !_rlStatus().blocked;}
@@ -3150,32 +3170,55 @@ function _rlEnsureTicking(){
   if(_rlTickTimer)return;
   _rlTickTimer=setInterval(()=>{
     _rlUpdateUI();
-    const{used}=_rlStatus();
-    if(used===0){clearInterval(_rlTickTimer);_rlTickTimer=null;}
+    const{minUsed,dayBlocked}=_rlStatus();
+    if(minUsed===0&&!dayBlocked){clearInterval(_rlTickTimer);_rlTickTimer=null;}
   },1000);
 }
 
 function _rlUpdateUI(){
-  const{used,max,blocked,resetsIn,pct,color,cls}=_rlStatus();
-  const show=used>0;
-  // Update all rate widgets (desktop panel + mobile pane)
+  const{minUsed,minMax,minBlocked,resetsIn,dayUsed,dayMax,dayBlocked,blocked}=_rlStatus();
+  const show=minUsed>0||dayUsed>0;
+
+  // Minute bar color / label
+  const minPct=Math.min(100,Math.round(minUsed/minMax*100));
+  const minColor=minBlocked?'var(--red)':minUsed>=Math.ceil(minMax*.75)?'var(--amber)':'var(--accent)';
+  const minCls=minBlocked?'block':minUsed>=Math.ceil(minMax*.75)?'warn':'';
+
+  // Day bar color
+  const dayPct=Math.min(100,Math.round(dayUsed/dayMax*100));
+  const dayColor=dayBlocked?'var(--red)':dayUsed>=dayMax*.75?'var(--amber)':'var(--accent)';
+  const dayCls=dayBlocked?'block':dayUsed>=dayMax*.75?'warn':'';
+
   document.querySelectorAll('.coach-rate-wrap').forEach(wrap=>{
     wrap.style.display=show?'':'none';
-    const fill=wrap.querySelector('.coach-rate-fill');
-    const count=wrap.querySelector('.coach-rate-count');
+    // Minute row
+    const minFill=wrap.querySelector('.rl-min-fill');
+    const minCount=wrap.querySelector('.rl-min-count');
+    if(minFill){minFill.style.width=minPct+'%';minFill.style.background=minColor;}
+    if(minCount){minCount.textContent=`${minUsed} / ${minMax} per min`;minCount.className='coach-rate-count'+(minCls?' '+minCls:'');}
+    // Day row
+    const dayFill=wrap.querySelector('.rl-day-fill');
+    const dayCount=wrap.querySelector('.rl-day-count');
+    if(dayFill){dayFill.style.width=dayPct+'%';dayFill.style.background=dayColor;}
+    if(dayCount){dayCount.textContent=`${dayUsed} / ${dayMax} today`;dayCount.className='coach-rate-count'+(dayCls?' '+dayCls:'');}
+    // Countdown
     const reset=wrap.querySelector('.coach-rate-reset');
-    if(fill){fill.style.width=pct+'%';fill.style.background=color;}
-    if(count){count.textContent=`${used} / ${max} per minute`;count.className='coach-rate-count'+(cls?' '+cls:'');}
-    if(reset){reset.style.display=blocked?'':'none';reset.textContent=`Cooling down — resets in ${resetsIn}s`;}
+    if(reset){
+      reset.style.display=minBlocked?'':'none';
+      reset.textContent=`Per-minute limit — resets in ${resetsIn}s`;
+    }
   });
-  // Blocked banner
+
+  // Blocked banner (minute takes priority, then day)
   document.querySelectorAll('.coach-blocked-banner').forEach(b=>{
     b.style.display=blocked?'':'none';
-    b.textContent=`⏳ Rate limit reached — resets in ${resetsIn}s`;
+    b.textContent=minBlocked
+      ?`⏳ Per-minute limit reached — resets in ${resetsIn}s`
+      :`🚫 Daily limit reached (${dayMax} requests) — resets at midnight`;
   });
-  // Toggle send buttons
+
   [document.getElementById('coachSend'),document.getElementById('coachSendMobile')]
-    .filter(Boolean).forEach(b=>{ b.disabled=blocked; });
+    .filter(Boolean).forEach(b=>{b.disabled=blocked;});
 }
 
 // ── AI Coach — unified conversational assistant ────────────────────────────────
@@ -3267,7 +3310,9 @@ async function sendCoachMsg(prefill){
     return;
   }
   const s=getAISettings();
-  const inp=document.getElementById('coachInp')||document.getElementById('coachInpMobile');
+  const inp=isMobile()
+    ?document.getElementById('coachInpMobile')
+    :document.getElementById('coachInp');
   const sendBtns=[document.getElementById('coachSend'),document.getElementById('coachSendMobile')].filter(Boolean);
   const text=(prefill||inp?.value||'').trim();
   if(!text)return;
@@ -3317,7 +3362,7 @@ async function sendCoachMsg(prefill){
     renderCoachMessages();
   }finally{
     sendBtns.forEach(b=>b.disabled=false);
-    (document.getElementById('coachInp')||document.getElementById('coachInpMobile'))?.focus();
+    (isMobile()?document.getElementById('coachInpMobile'):document.getElementById('coachInp'))?.focus();
   }
 }
 
@@ -3344,10 +3389,15 @@ function renderCoachPane(el){
   <div id="coachChipsMobile" class="coach-chips"></div>
   <div class="coach-rate-wrap" style="display:none">
     <div class="coach-rate-row">
-      <span class="coach-rate-label">API Usage</span>
-      <span class="coach-rate-count">0 / 15 per minute</span>
+      <span class="coach-rate-label">Per minute</span>
+      <span class="coach-rate-count rl-min-count">0 / 15</span>
     </div>
-    <div class="coach-rate-track"><div class="coach-rate-fill" style="width:0%"></div></div>
+    <div class="coach-rate-track"><div class="coach-rate-fill rl-min-fill" style="width:0%"></div></div>
+    <div class="coach-rate-row" style="margin-top:5px">
+      <span class="coach-rate-label">Today</span>
+      <span class="coach-rate-count rl-day-count">0 / 1500</span>
+    </div>
+    <div class="coach-rate-track"><div class="coach-rate-fill rl-day-fill" style="width:0%"></div></div>
     <div class="coach-rate-reset" style="display:none"></div>
   </div>
   <div class="coach-blocked-banner" style="display:none"></div>
@@ -7002,7 +7052,7 @@ function bktInlineEditHtml(b,mid,past){
       <option value="3weekly"${b.payFreq==='3weekly'?' selected':''}>Every 3 weeks</option>
     </select>
   </div>
-  ${b.dueDay?`<div class="bkt-inline-field">
+  ${(b.dueDay||b.payFreq)?`<div class="bkt-inline-field">
     <div class="bkt-inline-label">Pay Amount</div>
     <input class="bkt-inline-input" type="number" value="${b.dueAmount||''}" placeholder="per payment"
       onblur="bktAutoSave('${b.id}','dueAmount',this.value)" onkeydown="if(event.key==='Enter')this.blur()" />
@@ -7395,6 +7445,7 @@ function txAutoSave(id,key,val){
   else tx[key]=val||null;
   save();
   renderTxList();
+  renderTopbar();
   showToast('Saved','save');
 }
 function txDotsMenu(e,id){
@@ -8158,8 +8209,10 @@ function wiRunProjector(){
         }
       } else {
         // Sinking/goal buckets: spread across pay dates in this month (aligns to user's paycheck cadence)
-        // Regular undated buckets: place on the 1st as a discretionary estimate
+        // Regular undated but weekly/biweekly buckets: distribute using day-1 anchor
+        // Regular undated monthly buckets: place on the 1st as a discretionary estimate
         const isSinkGoal=bType==='sinking'||bType==='goal';
+        const freq=b.payFreq;
         if(isSinkGoal){
           const ymStr=`${wY2}-${String(wM2+1).padStart(2,'0')}`;
           const mPayDates=[...new Set(payEvents.filter(e=>e.kind==='pay'&&e.date.slice(0,7)===ymStr).map(e=>e.date))].sort();
@@ -8168,6 +8221,19 @@ function wiRunProjector(){
             mPayDates.forEach(pd=>{if(pd>=startStr&&pd<=endStr)outflows.push({date:pd,desc:b.name,amount:perPay,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll});});
           } else {
             const ds=dStr(1);if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll});
+          }
+        } else if(freq&&freq!=='monthly'){
+          const stepDays=freq==='weekly'?7:freq==='biweekly'?14:21;
+          const monthEnd=new Date(wY2,wM2+1,0);
+          const monthStart=new Date(wY2,wM2,1);
+          let d=new Date(wY2,wM2,1);
+          let countInMonth=0;let tmp=new Date(d);
+          while(tmp<=monthEnd){countInMonth++;tmp=new Date(tmp.getTime()+stepDays*864e5);}
+          const payAmt=b.dueAmount||(countInMonth>0?Math.round(bAmt/countInMonth*100)/100:bAmt);
+          while(d<=monthEnd){
+            const ds=d.toISOString().split('T')[0];
+            if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:payAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
+            d=new Date(d.getTime()+stepDays*864e5);
           }
         } else {
           const ds=dStr(1);
@@ -8210,7 +8276,7 @@ function wiRunProjector(){
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
   // ── Undated bucket warning (regular buckets only — sinking/goal spread to pay dates) ──
-  const undatedBkts=allBkts.filter(b=>bktAmt(b)>0&&!b.dueDay&&(b.type||'regular')==='regular');
+  const undatedBkts=allBkts.filter(b=>bktAmt(b)>0&&!b.dueDay&&(b.type||'regular')==='regular'&&(!b.payFreq||b.payFreq==='monthly'));
 
   // ── Bonus-paycheck detection ──────────────────────────────────────────────
   const normalPerMonth={7:4,14:2,15:2,30:1};
@@ -11678,10 +11744,15 @@ function mAcctOptions(selectedId){
   <!-- Rate limit indicator — hidden until first call -->
   <div class="coach-rate-wrap" style="display:none">
     <div class="coach-rate-row">
-      <span class="coach-rate-label">API Usage</span>
-      <span class="coach-rate-count">0 / 15 per minute</span>
+      <span class="coach-rate-label">Per minute</span>
+      <span class="coach-rate-count rl-min-count">0 / 15</span>
     </div>
-    <div class="coach-rate-track"><div class="coach-rate-fill" style="width:0%"></div></div>
+    <div class="coach-rate-track"><div class="coach-rate-fill rl-min-fill" style="width:0%"></div></div>
+    <div class="coach-rate-row" style="margin-top:5px">
+      <span class="coach-rate-label">Today</span>
+      <span class="coach-rate-count rl-day-count">0 / 1500</span>
+    </div>
+    <div class="coach-rate-track"><div class="coach-rate-fill rl-day-fill" style="width:0%"></div></div>
     <div class="coach-rate-reset" style="display:none"></div>
   </div>
   <div class="coach-blocked-banner" style="display:none"></div>
