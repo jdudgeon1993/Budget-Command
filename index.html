@@ -453,6 +453,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 @media(max-width:1099px){.coach-panel{display:none!important;}}
 /* Coach mobile pane — needs flex column so msgs area scrolls, input sticks to bottom */
 #paneCoach{overflow-y:hidden!important;padding:0!important;}
+/* Rate-limit indicator */
+.coach-rate-wrap{padding:6px 14px 7px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+.coach-rate-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.coach-rate-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.coach-rate-count{font-size:10px;font-family:var(--mono);font-weight:600;color:var(--text3);transition:color .2s;}
+.coach-rate-count.warn{color:var(--amber);}
+.coach-rate-count.block{color:var(--red);}
+.coach-rate-track{height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.coach-rate-fill{height:100%;border-radius:2px;transition:width .35s,background .35s;}
+.coach-rate-reset{font-size:10px;color:var(--red);font-weight:600;margin-top:4px;text-align:center;font-family:var(--mono);}
+.coach-blocked-banner{padding:8px 14px;background:color-mix(in srgb,var(--red) 8%,var(--bg));border-bottom:1px solid color-mix(in srgb,var(--red) 20%,var(--border));font-size:12px;color:var(--red);text-align:center;font-weight:500;flex-shrink:0;}
 
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
@@ -2802,6 +2813,7 @@ async function callGemini(userPrompt,sysPrompt='',opts={}){
     generationConfig:{maxOutputTokens:opts.maxTokens||400,temperature:opts.temp??0.7}
   };
   if(sysPrompt)body.system_instruction={parts:[{text:sysPrompt}]};
+  _rlRecord();
   const doFetch=()=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
   let res=await doFetch();
   if(res.status===429){
@@ -3105,6 +3117,67 @@ Match bucketName exactly from the list. Infer from context if obvious. Use null 
   }finally{btn.disabled=false;btn.textContent='→';}
 }
 
+// ── Gemini free-tier rate limiter ─────────────────────────────────────────────
+// Free tier: 15 RPM, 1 500 RPD (per-minute window is the binding constraint)
+const _RL_RPM=15;
+const _RL_WIN=60000; // 1-minute sliding window
+let _aiCallLog=[]; // timestamps of every AI request made this session
+let _rlTickTimer=null;
+
+function _rlRecord(){
+  _aiCallLog.push(Date.now());
+  _rlUpdateUI();
+  _rlEnsureTicking();
+}
+
+function _rlStatus(){
+  const now=Date.now();
+  _aiCallLog=_aiCallLog.filter(t=>t>now-_RL_WIN);
+  const used=_aiCallLog.length;
+  const blocked=used>=_RL_RPM;
+  const resetsIn=_aiCallLog.length
+    ?Math.max(0,Math.ceil((_aiCallLog[0]+_RL_WIN-now)/1000))
+    :0;
+  const pct=Math.min(100,Math.round(used/_RL_RPM*100));
+  const color=used>=_RL_RPM?'var(--red)':used>=Math.ceil(_RL_RPM*.75)?'var(--amber)':'var(--accent)';
+  const cls=used>=_RL_RPM?'block':used>=Math.ceil(_RL_RPM*.75)?'warn':'';
+  return{used,max:_RL_RPM,blocked,resetsIn,pct,color,cls};
+}
+
+function _rlCanSend(){return !_rlStatus().blocked;}
+
+function _rlEnsureTicking(){
+  if(_rlTickTimer)return;
+  _rlTickTimer=setInterval(()=>{
+    _rlUpdateUI();
+    const{used}=_rlStatus();
+    if(used===0){clearInterval(_rlTickTimer);_rlTickTimer=null;}
+  },1000);
+}
+
+function _rlUpdateUI(){
+  const{used,max,blocked,resetsIn,pct,color,cls}=_rlStatus();
+  const show=used>0;
+  // Update all rate widgets (desktop panel + mobile pane)
+  document.querySelectorAll('.coach-rate-wrap').forEach(wrap=>{
+    wrap.style.display=show?'':'none';
+    const fill=wrap.querySelector('.coach-rate-fill');
+    const count=wrap.querySelector('.coach-rate-count');
+    const reset=wrap.querySelector('.coach-rate-reset');
+    if(fill){fill.style.width=pct+'%';fill.style.background=color;}
+    if(count){count.textContent=`${used} / ${max} per minute`;count.className='coach-rate-count'+(cls?' '+cls:'');}
+    if(reset){reset.style.display=blocked?'':'none';reset.textContent=`Cooling down — resets in ${resetsIn}s`;}
+  });
+  // Blocked banner
+  document.querySelectorAll('.coach-blocked-banner').forEach(b=>{
+    b.style.display=blocked?'':'none';
+    b.textContent=`⏳ Rate limit reached — resets in ${resetsIn}s`;
+  });
+  // Toggle send buttons
+  [document.getElementById('coachSend'),document.getElementById('coachSendMobile')]
+    .filter(Boolean).forEach(b=>{ b.disabled=blocked; });
+}
+
 // ── AI Coach — unified conversational assistant ────────────────────────────────
 let _coachOpen=false;
 let _chatHistory=[];
@@ -3117,6 +3190,7 @@ function toggleCoach(){
     document.getElementById('navCoachBtn')?.classList.add('coach-active');
     _refreshCoachChips('coachChips');
     renderCoachMessages();
+    _rlUpdateUI();
     setTimeout(()=>document.getElementById('coachInp')?.focus(),320);
   } else {
     _coachOpen=false;
@@ -3187,6 +3261,11 @@ ${buildBudgetContext(S.activeMonth)}`;
 
 async function sendCoachMsg(prefill){
   if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
+  if(!_rlCanSend()){
+    const{resetsIn}=_rlStatus();
+    showToast(`Rate limit reached — resets in ${resetsIn}s`,'info');
+    return;
+  }
   const s=getAISettings();
   const inp=document.getElementById('coachInp')||document.getElementById('coachInpMobile');
   const sendBtns=[document.getElementById('coachSend'),document.getElementById('coachSendMobile')].filter(Boolean);
@@ -3194,6 +3273,7 @@ async function sendCoachMsg(prefill){
   if(!text)return;
   if(inp){inp.value='';inp.style.height='auto';}
   sendBtns.forEach(b=>b.disabled=true);
+  _rlRecord();
 
   // Cap history at 40 entries (20 exchanges) — trim oldest pair
   if(_chatHistory.length>=40)_chatHistory.splice(0,2);
@@ -3262,6 +3342,15 @@ function renderCoachPane(el){
     <button class="pane-hdr-action" onclick="clearCoach()">↺ Clear</button>
   </div>
   <div id="coachChipsMobile" class="coach-chips"></div>
+  <div class="coach-rate-wrap" style="display:none">
+    <div class="coach-rate-row">
+      <span class="coach-rate-label">API Usage</span>
+      <span class="coach-rate-count">0 / 15 per minute</span>
+    </div>
+    <div class="coach-rate-track"><div class="coach-rate-fill" style="width:0%"></div></div>
+    <div class="coach-rate-reset" style="display:none"></div>
+  </div>
+  <div class="coach-blocked-banner" style="display:none"></div>
   <div id="coachMsgsMobile" class="coach-msgs"></div>
   <div class="coach-inp-row">
     <textarea class="coach-inp" id="coachInpMobile" placeholder="Ask anything…" rows="1"
@@ -3270,6 +3359,7 @@ function renderCoachPane(el){
   </div>`;
   _refreshCoachChips('coachChipsMobile');
   renderCoachMessages();
+  _rlUpdateUI();
   setTimeout(()=>document.getElementById('coachInpMobile')?.focus(),100);
 }
 
@@ -11585,6 +11675,16 @@ function mAcctOptions(selectedId){
     <button class="coach-hdr-btn" onclick="toggleCoach()" title="Close" style="font-size:18px">×</button>
   </div>
   <div id="coachChips" class="coach-chips"></div>
+  <!-- Rate limit indicator — hidden until first call -->
+  <div class="coach-rate-wrap" style="display:none">
+    <div class="coach-rate-row">
+      <span class="coach-rate-label">API Usage</span>
+      <span class="coach-rate-count">0 / 15 per minute</span>
+    </div>
+    <div class="coach-rate-track"><div class="coach-rate-fill" style="width:0%"></div></div>
+    <div class="coach-rate-reset" style="display:none"></div>
+  </div>
+  <div class="coach-blocked-banner" style="display:none"></div>
   <div id="coachMsgs" class="coach-msgs">
     <div class="chat-empty">Ask me anything about your finances.<br>I have full context of your budget, accounts, and spending history.</div>
   </div>
