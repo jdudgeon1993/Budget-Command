@@ -11304,7 +11304,7 @@ function mRenderLog(){
         <button class="m-type-btn${t==='xfr'?' sel-xfr':''}" onclick="mSetLogType('xfr')">⇄ Transfer</button>
       </div>
       ${recentPayees.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0">
-        ${recentPayees.map((p,i)=>`<button class="tbtn" style="font-size:11px;padding:3px 10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="var el=document.getElementById('mLogDesc');if(el){el.value=window._mPayees[${i}]||'';document.getElementById('mLogAmt')?.focus();}" title="${esc(p)}">${esc(p)}</button>`).join('')}
+        ${recentPayees.map((p,i)=>`<button class="tbtn" style="font-size:11px;padding:3px 10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="(function(){var name=window._mPayees[${i}]||'';var el=document.getElementById('mLogDesc');if(el)el.value=name;var py=(S.payees||[]).find(function(x){return x.name===name});if(py&&py.defaultBucketId){var b=getBucket(py.defaultBucketId);if(b){var cs=document.getElementById('mLogCat');if(cs)cs.value=b.catId;syncMobileBuckets(b.catId,py.defaultBucketId);}}document.getElementById('mLogAmt')?.focus();})()" title="${esc(p)}">${esc(p)}</button>`).join('')}
       </div>`:''}
       <div class="m-field">
         <div class="m-field-label">Description</div>
@@ -11329,7 +11329,7 @@ function mRenderLog(){
       ${t==='out'?`
       <div class="m-field">
         <div class="m-field-label">Category</div>
-        <select class="m-select" id="mLogCat" onchange="mStickyLog.catId=this.value;mRenderLog()">${catOpts}</select>
+        <select class="m-select" id="mLogCat" onchange="syncMobileBuckets(this.value)">${catOpts}</select>
       </div>
       <div class="m-field">
         <div class="m-field-label">Bucket</div>
@@ -11376,6 +11376,7 @@ Match bucketName exactly from the list. Use null if unsure.`;
     if(p.type==='in'||p.type==='xfr')mStickyLog.type=p.type;else mStickyLog.type='out';
     if(bkt){mStickyLog.catId=bkt.catId;mStickyLog.bktId=bkt.id;}
     mRenderLog();
+    setTimeout(wireMobilePayee,0);
     setTimeout(()=>{
       const v=(id,val)=>{const e=document.getElementById(id);if(e&&val!=null)e.value=val;};
       v('mLogDesc',p.desc||text);v('mLogAmt',p.amount||'');if(p.date)v('mLogDate',p.date);
@@ -11388,16 +11389,24 @@ Match bucketName exactly from the list. Use null if unsure.`;
 }
 
 function mSetLogType(t){mStickyLog.type=t;mRenderLog();setTimeout(wireMobilePayee,0);}
+
+// Update only the bucket dropdown — called on category change to avoid a full re-render
+function syncMobileBuckets(catId,bktId=''){
+  mStickyLog.catId=catId;
+  if(bktId)mStickyLog.bktId=bktId;
+  const bsel=document.getElementById('mLogBkt');
+  if(bsel)bsel.innerHTML=mBktOptions(catId,bktId||mStickyLog.bktId||'');
+}
+
 function wireMobilePayee(){
   setupPayeeAutocomplete('mLogDesc',p=>{
     const inp=document.getElementById('mLogDesc');if(inp)inp.value=p.name;
     if(p.defaultBucketId){
       const b=getBucket(p.defaultBucketId);
       if(b){
-        mStickyLog.catId=b.catId;
-        mStickyLog.bktId=p.defaultBucketId;
-        mRenderLog();
-        setTimeout(wireMobilePayee,0);
+        const catSel=document.getElementById('mLogCat');
+        if(catSel)catSel.value=b.catId;
+        syncMobileBuckets(b.catId,p.defaultBucketId);
       }
     }
   });
@@ -11517,6 +11526,7 @@ function mAddTx(){
 
   // Re-render log (sticky fields preserved, desc+amt cleared)
   mRenderLog();
+  setTimeout(wireMobilePayee,0);
   // Update topbar and active pane
   renderTopbar();
   renderActivePane();
