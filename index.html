@@ -1964,12 +1964,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   </div>
 </header>
 
-<!-- WI STRIP -->
-<div class="strip wi hidden" id="wiStrip">
-  ⚡ Scenario mode — changes won't affect real data
-  <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="setTab('whatif')">View Scenario</button>
-  <button class="tbtn" style="font-size:11px;padding:3px 9px;color:var(--red);border-color:var(--red)" onclick="exitWI()">Reset</button>
-</div>
 <div class="strip off-month-past hidden" id="offMonthStrip">
   <span id="offMonthMsg"></span>
   <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;" onclick="jumpToToday()">Go to Today</button>
@@ -2223,7 +2217,7 @@ async function authInit(){
           normalizeCatOrder();normalizeBktOrder();
         }
         // Always reset WI session — must not persist across page loads
-        S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+        S.wiOpen=false;S.wiScenario=null;
         if(!S.scenarios)S.scenarios=[];
         setSyncStatus('synced','Synced');
         init();
@@ -2262,7 +2256,7 @@ async function authInit(){
         normalizeCatOrder();normalizeBktOrder();
       }
       // Always reset WI session — must not persist across page loads
-      S.wiOpen=false;S.scenario=false;S.wiScenario=null;
+      S.wiOpen=false;S.wiScenario=null;
       if(!S.scenarios)S.scenarios=[];
       setSyncStatus('synced','Synced');
       init();
@@ -2368,12 +2362,11 @@ async function signOut(){
   // Clear in-memory state only — localStorage stays as backup for next login
   // (Supabase is the source of truth; local cache is restored on next sign-in)
   S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,
-     activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,
+     activeAccount:null,scenarios:[],wiScenario:null,
      wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[],paydayTransfers:[]};
   _supaUser=null;
   _appInitialized=false;
   _pendingSync=false;
-  document.getElementById('wiStrip')?.classList.add('hidden');
   updateAuthBtn();
   setSyncStatus('offline','Not signed in');
   showAuthSignIn();
@@ -2429,8 +2422,6 @@ let S={
   activeMonth:null,
   activeBucket:null,
   activeAccount:null,
-  scenario:false,
-  scenarioBudgets:{},
   scenarios:[],
   wiScenario:null,
   wiOpen:false,
@@ -3974,7 +3965,6 @@ function monthIncome(mid){
 
 function bAlloc(mid,bid){const m=getMonth(mid);return m?(m.allocations[bid]||0):0;}
 function bBudget(mid,bid){
-  if(S.scenario&&S.wiScenario?.budgets?.[bid]!==undefined)return S.wiScenario.budgets[bid];
   const m=getMonth(mid);return m?(m.budgets[bid]||0):0;
 }
 // ── Paycheck helpers ──────────────────────────────────────────────────────────
@@ -4043,7 +4033,7 @@ function lastPastMonths(n){
 }
 // Is a bucket scheduled active in the current WI scenario for a given month?
 function isWIBucketActive(bucketId,monthId){
-  if(!S.scenario||!S.wiScenario?.bucketSchedule?.[bucketId])return true;
+  if(!S.wiScenario?.bucketSchedule?.[bucketId])return true;
   const s=S.wiScenario.bucketSchedule[bucketId];
   return(!s.onFrom||compareMid(monthId,s.onFrom)>=0)&&(!s.offFrom||compareMid(monthId,s.offFrom)<0);
 }
@@ -7726,8 +7716,7 @@ function renderWhatIfPane(el){
     const budgets={};
     S.buckets.filter(b=>!b.archived).forEach(b=>{budgets[b.id]=bBudget(mid,b.id);});
     S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
-    S.wiOpen=true;S.scenario=true;
-    document.getElementById('wiStrip')?.classList.remove('hidden');
+    S.wiOpen=true;
   }
   el.innerHTML=`<div class="wi-pane-wrap">
     <div class="wi-pane-hdr">
@@ -8009,9 +7998,8 @@ function _wiRightHtml(){
 }
 
 function exitWI(){
-  S.scenario=false;S.wiScenario=null;S.wiOpen=false;
+  S.wiScenario=null;S.wiOpen=false;
   _wiSchedExpanded.clear();
-  document.getElementById('wiStrip')?.classList.add('hidden');
   if(activeTab==='whatif')setTab('overview');
   else render();
 }
@@ -8031,7 +8019,6 @@ function loadScenario(id){
   const sc=S.scenarios?.find(s=>s.id===id);
   if(!sc)return;
   S.wiScenario=JSON.parse(JSON.stringify(sc));
-  S.scenario=true;
   renderWI();renderActivePane();
 }
 
@@ -10209,7 +10196,7 @@ function confirmFreshStart(){
     'Erase Everything',
     ()=>{
       localStorage.removeItem(KEY);localStorage.removeItem('buckets_v5');
-      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
+      S={accounts:[],cats:[],buckets:[],months:[],txs:[],activeMonth:null,activeBucket:null,activeAccount:null,scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:false,payees:[],allocationRules:[],recurringBills:[]};
       ensureMonth();S.activeMonth=currentMonthId();
       save();
       startWizard();
@@ -11154,11 +11141,10 @@ function importData(event){
           S=Object.assign({
             accounts:[],cats:[],buckets:[],months:[],txs:[],
             activeMonth:null,activeBucket:null,activeAccount:null,
-            scenario:false,scenarioBudgets:{},scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],recurringBills:[],
+            scenarios:[],wiScenario:null,wiOpen:false,txFilter:'all',onboarded:true,payees:[],allocationRules:[],recurringBills:[],
           },imported);
           S.months.forEach(m=>{if(!m.allocations)m.allocations={};});
           normalizeCatOrder();normalizeBktOrder();
-          if(!S.scenarioBudgets)S.scenarioBudgets={};
           if(!S.payees)S.payees=[];
           if(!S.allocationRules)S.allocationRules=[];
                   save();ensureMonth();
@@ -11204,7 +11190,7 @@ document.addEventListener('keydown', e => {
 
   // ── Always available ──────────────────────────────
   if(e.key==='Escape'){
-    if(S.wiOpen){exitWI();return;}
+    if(S.wiScenario&&activeTab==='whatif'){exitWI();return;}
     if(modalOpen){closeModal();return;}
     if(wizOpen){closeWizard();return;}
     // Escape from bucket detail → back to overview
