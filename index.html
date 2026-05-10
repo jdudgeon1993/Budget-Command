@@ -423,19 +423,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .nl-inp::placeholder{color:var(--text3);}
 .nl-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .nl-btn:disabled{opacity:.5;cursor:not-allowed;}
-/* Chat Drawer */
-.chat-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;opacity:0;pointer-events:none;transition:opacity .25s;}
-.chat-overlay.open{opacity:1;pointer-events:all;}
-.chat-drawer{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100vw;background:var(--bg2);border-left:1px solid var(--border);z-index:1101;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:-6px 0 32px rgba(0,0,0,.3);}
-.chat-drawer.open{transform:translateX(0);}
-.chat-hdr{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
-.chat-hdr-title{font-weight:700;font-size:14px;flex:1;color:var(--text);}
-.chat-hdr-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:4px 8px;border-radius:6px;}
-.chat-hdr-btn:hover{color:var(--text);background:var(--bg3);}
-.chat-suggestions{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0;}
+/* Coach Panel — desktop right-side slide-in */
+.coach-panel{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100vw;background:var(--bg2);border-left:1px solid var(--border);z-index:500;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:-6px 0 32px rgba(0,0,0,.25);}
+.coach-panel.open{transform:translateX(0);}
+.coach-hdr{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.coach-hdr-title{font-weight:700;font-size:14px;flex:1;color:var(--text);}
+.coach-hdr-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:4px 8px;border-radius:6px;transition:color .12s;}
+.coach-hdr-btn:hover{color:var(--text);background:var(--bg3);}
+.coach-chips{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0;}
 .chat-chip{background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;}
 .chat-chip:hover{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg3));}
-.chat-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.coach-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.coach-msgs::-webkit-scrollbar{display:none;}
 .chat-msg.user{align-items:flex-end;display:flex;flex-direction:column;}
 .chat-msg.model{align-items:flex-start;display:flex;flex-direction:column;}
 .chat-bubble{max-width:87%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;}
@@ -443,34 +442,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .chat-msg.model .chat-bubble{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;}
 .chat-typing{display:flex;align-items:center;gap:5px;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;}
 .chat-empty{text-align:center;color:var(--text3);font-size:13px;padding:30px 16px;line-height:1.7;}
-.chat-action-card{background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));border-radius:10px;padding:12px 14px;margin-top:7px;max-width:90%;}
-.chat-action-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--accent);margin-bottom:7px;}
-.chat-action-row{font-size:13px;color:var(--text1);padding:5px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;}
-.chat-action-row:last-of-type{border:none;}
-.chat-action-btns{display:flex;gap:7px;margin-top:10px;}
-.chat-action-apply{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;}
-.chat-action-dismiss{background:transparent;color:var(--text3);border:1px solid var(--border2);border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;}
-.chat-applied{font-size:12px;color:var(--green);padding:6px 0 0;max-width:90%;}
-.chat-inp-row{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
-.chat-inp{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);outline:none;resize:none;min-height:42px;max-height:130px;font-family:inherit;line-height:1.5;transition:border-color .15s;}
-.chat-inp:focus{border-color:var(--accent);}
-.chat-send{background:var(--accent);color:#fff;border:none;border-radius:10px;width:42px;height:42px;font-size:19px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
-.chat-send:disabled{opacity:.4;cursor:not-allowed;}
-.tb-chat-btn{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--border2));}
-.tb-chat-btn.active{background:color-mix(in srgb,var(--accent) 12%,transparent);}
-@media(max-width:640px){.chat-drawer{width:100vw;}}
-/* Mobile: coach drawer becomes bottom sheet */
-@media(max-width:1099px){
-  .chat-drawer{top:auto;left:0;right:0;width:100%;max-width:100%;height:auto;min-height:220px;max-height:72vh;border-left:none;border-radius:16px 16px 0 0;transform:translateY(100%);box-shadow:0 -6px 32px rgba(0,0,0,.35);padding-bottom:env(safe-area-inset-bottom);}
-  .chat-drawer.open{transform:translateY(0);}
-  .chat-drawer::before{content:'';display:block;width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 2px;flex-shrink:0;}
-  .chat-msgs{flex:1;min-height:0;overflow-y:auto;}
-  .chat-hdr{padding-top:6px;}
-}
-/* Chat FAB — mobile only */
-.chat-fab{display:none;position:fixed;bottom:calc(68px + env(safe-area-inset-bottom));right:16px;z-index:600;background:var(--accent);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.35);align-items:center;justify-content:center;transition:transform .15s;}
-.chat-fab:active{transform:scale(.92);}
-@media(max-width:1099px){.chat-fab{display:none!important;}}
+.coach-inp-row{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
+.coach-inp{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);outline:none;resize:none;min-height:42px;max-height:130px;font-family:inherit;line-height:1.5;transition:border-color .15s;}
+.coach-inp:focus{border-color:var(--accent);}
+.coach-send{background:var(--accent);color:#fff;border:none;border-radius:10px;width:42px;height:42px;font-size:19px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.coach-send:disabled{opacity:.4;cursor:not-allowed;}
+/* Coach nav button — desktop active state */
+.nav-btn#navCoachBtn.coach-active{color:var(--accent);border-left-color:var(--accent);background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent);}
+/* Hide desktop coach panel on mobile (coach is a full-screen tab there) */
+@media(max-width:1099px){.coach-panel{display:none!important;}}
+/* Coach mobile pane — needs flex column so msgs area scrolls, input sticks to bottom */
+#paneCoach{overflow-y:hidden!important;padding:0!important;}
 
 /* Pre-save panel */
 .cc-presave-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
@@ -1895,7 +1877,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   </div>
   <div class="tb-right">
     <div class="tb-sync" id="tbSyncStatus"><div class="tb-sync-dot off" id="tbSyncDot"></div><span id="tbSyncLabel">Offline</span></div>
-    <button class="tbtn tb-chat-btn" id="chatBtn" onclick="openChat()" title="AI Coach">✦ Coach</button>
     <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
     <button class="tbtn tb-new-btn" onclick="openModal('new')" id="tbNewBtn">+ New</button>
   </div>
@@ -1910,9 +1891,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
         <button class="tbtn primary" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="openModal('new')">+ New</button>
         <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('accounts')">⬡ Accounts</button>
         <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('reports')">📊 Reports</button>
-        <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('whatif')">⚡ What If</button>
         <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('settings')">⚙ Settings</button>
-        <button class="tbtn tb-chat-btn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="openChat()">✦ Coach</button>
       </div>
       <div class="tb-mob-rts-wrap">
         <span class="tb-mob-date" id="tbMobDate"></span>
@@ -1996,6 +1975,17 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-icon-txt">⚙</span>
       <span class="nav-label">Settings</span>
     </button>
+    <!-- Coach — desktop sidebar toggle, mobile tab -->
+    <button class="nav-btn nav-desktop" id="navCoachBtn" onclick="toggleCoach()">
+      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span class="nav-icon-txt">✦</span>
+      <span class="nav-label">Coach</span>
+    </button>
+    <button class="nav-btn nav-mobile" data-tab="coach" onclick="setTab('coach')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span class="nav-label">Coach</span>
+      <div class="nav-pip"></div>
+    </button>
     <!-- Spacer + theme toggle — desktop only -->
     <div class="nav-spacer nav-desktop"></div>
     <div class="nav-foot nav-desktop">
@@ -2022,6 +2012,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="tab-pane" id="paneReports"></div>
     <div class="tab-pane" id="paneSettings"></div>
     <div class="tab-pane" id="paneWhatif"></div>
+    <div class="tab-pane" id="paneCoach"></div>
   </main>
 
   <!-- DETAIL PANEL: bucket or account detail, slides over main -->
@@ -2654,7 +2645,7 @@ function daysUntilDue(b,y,m){
   const freq=b.payFreq;
   if(!freq||freq==='monthly'){const d=resolveDue(b,y,m);if(d===null)return null;const due=new Date(y,m,d),now=new Date();now.setHours(0,0,0,0);return Math.round((due-now)/864e5);}
   const stepDays=freq==='weekly'?7:freq==='biweekly'?14:21;
-  const anchorDay=b.dueDay==='eom'?28:parseInt(b.dueDay);
+  const anchorDay=b.dueDay==='eom'?lastDay(y,m):parseInt(b.dueDay);
   const now=new Date();now.setHours(0,0,0,0);
   let anchor=new Date(y,m,Math.min(anchorDay,lastDay(y,m)));
   while(anchor>now)anchor=new Date(anchor.getTime()-stepDays*864e5);
@@ -3090,132 +3081,113 @@ Match bucketName exactly from the list. Infer from context if obvious. Use null 
   }finally{btn.disabled=false;btn.textContent='→';}
 }
 
-// ── Phase 4: Conversational Chat ─────────────────────────────────────────────
+// ── AI Coach — unified conversational assistant ────────────────────────────────
+let _coachOpen=false;
 let _chatHistory=[];
 
-function openChat(){
-  if(!aiEnabled()){showToast('Add your Gemini key in Settings → AI Coach','info');return;}
-  document.getElementById('chatDrawer')?.classList.add('open');
-  document.getElementById('chatOverlay')?.classList.add('open');
-  document.getElementById('chatBtn')?.classList.add('active');
-  refreshChatSuggestions();
-  renderChatMessages();
-  setTimeout(()=>document.getElementById('chatInp')?.focus(),320);
+function toggleCoach(){
+  if(!_coachOpen){
+    if(!aiEnabled()){showToast('Add your Gemini key in Settings → AI Coach','info');return;}
+    _coachOpen=true;
+    document.getElementById('coachPanel')?.classList.add('open');
+    document.getElementById('navCoachBtn')?.classList.add('coach-active');
+    _refreshCoachChips('coachChips');
+    renderCoachMessages();
+    setTimeout(()=>document.getElementById('coachInp')?.focus(),320);
+  } else {
+    _coachOpen=false;
+    document.getElementById('coachPanel')?.classList.remove('open');
+    document.getElementById('navCoachBtn')?.classList.remove('coach-active');
+  }
 }
 
-function closeChat(){
-  document.getElementById('chatDrawer')?.classList.remove('open');
-  document.getElementById('chatOverlay')?.classList.remove('open');
-  document.getElementById('chatBtn')?.classList.remove('active');
-}
-
-function refreshChatSuggestions(){
-  const el=document.getElementById('chatSuggestions');
-  if(!el)return;
-  const mid=S.activeMonth;
-  const aom=ageOfMoney();
+function _buildCoachChips(mid){
+  const chips=[];
   const debts=normalizeDebts();
   const rts=mid?readyToSpend(mid):0;
+  const aom=ageOfMoney();
   const unfundedBkts=mid?S.buckets.filter(b=>!b.archived&&bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0):[];
-  const chips=[];
-  // Action-oriented chips first
-  if(rts>0&&unfundedBkts.length)chips.push('Allocate my remaining funds across unfunded buckets');
-  if(unfundedBkts.length===0&&rts>0)chips.push(`I have $${rts.toFixed(0)} left — where should it go?`);
-  if(debts.length)chips.push(`Make a debt payoff plan for my ${debts[0].name}`);
-  // Advisory chips
+  if(unfundedBkts.length===0&&rts>0)chips.push(`I have ${$f(rts)} unallocated — where should it go?`);
+  if(debts.length)chips.push('Help me make a debt payoff plan');
   if(aom!==null&&aom<20)chips.push('Why do I feel paycheck to paycheck?');
-  if(mid){
-    const m=getMonth(mid);
-    if(m){
-      const daysLeft=new Date(m.year,m.month+1,0).getDate()-new Date().getDate();
-      chips.push(daysLeft<=7?'Am I on track to finish the month?':'How is my budget looking this month?');
-    }
-  }
+  chips.push('How is my budget looking this month?');
   chips.push('What should I cut to save more?');
   chips.push('Explain my budget health score');
+  return chips;
+}
+
+function _refreshCoachChips(elId){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  const chips=_buildCoachChips(S.activeMonth);
   el.innerHTML=chips.slice(0,5).map(c=>
-    `<button class="chat-chip" onclick="sendChatMsg(${JSON.stringify(c)})">${esc(c)}</button>`
+    `<button class="chat-chip" onclick="sendCoachMsg(${JSON.stringify(c)})">${esc(c)}</button>`
   ).join('');
 }
 
-function renderChatMessages(){
-  const el=document.getElementById('chatMsgs');
-  if(!el)return;
-  if(!_chatHistory.length){
-    el.innerHTML=`<div class="chat-empty">Ask me anything about your budget — or tell me to <em>do</em> something. I can allocate funds, set income, and more.</div>`;
-    return;
-  }
-  el.innerHTML=_chatHistory.map((m,i)=>{
-    const raw=m.parts[0]?.text||'';
-    // Strip action block from display text
-    const display=raw.replace(/```budget-actions[\s\S]*?```/g,'').trim();
-    const safe=display.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    let actionHtml='';
-    if(m._actions?.length){
-      if(m._actionsApplied){
-        actionHtml=`<div class="chat-applied">✓ ${(m._actionReport||['Done']).join(' · ')}</div>`;
-      } else {
-        actionHtml=`<div class="chat-action-card">
-          <div class="chat-action-lbl">✦ Ready to apply</div>
-          ${m._actions.map(_actionPreviewHtml).join('')}
-          <div class="chat-action-btns">
-            <button class="chat-action-apply" onclick="executeChatActions(${i})">✓ Apply</button>
-            <button class="chat-action-dismiss" onclick="dismissChatActions(${i})">Dismiss</button>
-          </div>
-        </div>`;
-      }
+function renderCoachMessages(){
+  ['coachMsgs','coachMsgsMobile'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(!_chatHistory.length){
+      el.innerHTML=`<div class="chat-empty">Ask me anything about your finances — I have full context of your budget, accounts, and spending history.</div>`;
+      return;
     }
-    return`<div class="chat-msg ${m.role}">
-      <div class="chat-bubble">${m.role==='user'?esc(raw):safe}</div>
-      ${actionHtml}
-    </div>`;
-  }).join('');
-  el.scrollTop=el.scrollHeight;
+    el.innerHTML=_chatHistory.map(m=>{
+      const raw=m.parts[0]?.text||'';
+      const safe=raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      return`<div class="chat-msg ${m.role}"><div class="chat-bubble">${m.role==='user'?esc(raw):safe}</div></div>`;
+    }).join('');
+    el.scrollTop=el.scrollHeight;
+  });
 }
 
-async function sendChatMsg(prefill){
-  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
-  const inp=document.getElementById('chatInp');
-  const send=document.getElementById('chatSend');
-  const text=(prefill||inp?.value||'').trim();
-  if(!text)return;
-  if(inp){inp.value='';inp.style.height='auto';}
-  if(send)send.disabled=true;
-
-  _chatHistory.push({role:'user',parts:[{text}]});
-  renderChatMessages();
-
-  const msgs=document.getElementById('chatMsgs');
-  if(msgs){
-    const t=document.createElement('div');
-    t.id='chatTyping';t.className='chat-msg model';
-    t.innerHTML=`<div class="chat-typing"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div>`;
-    msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;
-  }
-
+function _buildCoachSystemPrompt(){
   const s=getAISettings();
-  const wiCtx=S.wiOpen&&S.wiScenario?`\n\nUSER IS IN WHAT IF MODE — Scenario: "${S.wiScenario.name}". The user is exploring a hypothetical budget, not their live data.`:'';
-  const actionProtocol=`
-
-ACTION PROTOCOL — You can take real actions in the app. When the user asks you to DO something (allocate money, set income, etc.), include at the END of your reply:
-\`\`\`budget-actions
-[{"action":"ACTION","field":"value",...}]
-\`\`\`
-
-Available actions:
-• allocate — Set a bucket's allocation. Fields: action, bucketId (exact [ID] from data), bucketName, amount, mid (optional, defaults to current)
-• set_income — Set projected income for a month. Fields: action, amount, mid (optional), label (optional)
-• navigate — Open a tab. Fields: action, tab (one of: overview, buckets, ledger, accounts, reports, settings)
-
-Rules: Only include the code block when user explicitly asks you to act. Explain what you're doing in plain text first. Always use exact bucketId values (the [_xxxxxxx] IDs from the bucket list). You can include multiple actions in the array. NEVER delete data.`;
-
-  const sys=`You are a powerful AI financial assistant inside Budget Command. You have complete, real-time access to the user's financial data. Be conversational, direct, specific — always use exact dollar amounts from their data. No markdown (no **, no #, no -). Use plain sentences.
-INCOME RULE: "Income received" = logged so far. "Expected total" = full month projection. Always reason from expected total, not received. Never flag unaffordability based on mid-month received income alone.${wiCtx}${actionProtocol}
+  const toneMap={
+    encouraging:'Be warm, supportive, and celebratory of wins.',
+    analytical:'Be precise, data-driven, and objective. Use numbers.',
+    toughLove:'Be direct and honest — do not sugarcoat. No fluff.'
+  };
+  const tone=toneMap[s.tone||'encouraging'];
+  const wiCtx=S.wiOpen&&S.wiScenario?`\n\nUSER IS IN WHAT IF MODE — Scenario: "${S.wiScenario.name}". The user is exploring a hypothetical budget.`:'';
+  const tabCtx=activeTab?`\nCURRENT PAGE: ${activeTab}`:'';
+  return`You are an AI financial coach inside Budget Command. ${tone}
+You are advisory only — you provide analysis, insights, and recommendations. You do NOT take actions in the app (no moving money, no allocating funds, no creating buckets). If the user wants to act, guide them to the relevant section.
+Be conversational, direct, specific — always use exact dollar amounts from their data. No markdown (no **, no #, no -). Use plain sentences and line breaks for readability.
+INCOME RULE: "Income received" = logged so far. "Expected total" = full month projection. Always reason from expected total.${tabCtx}${wiCtx}
 
 Current financial snapshot:
 ${buildBudgetContext(S.activeMonth)}`;
+}
 
-  // Strip extra metadata fields before sending to API
+async function sendCoachMsg(prefill){
+  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
+  const s=getAISettings();
+  const inp=document.getElementById('coachInp')||document.getElementById('coachInpMobile');
+  const sendBtns=[document.getElementById('coachSend'),document.getElementById('coachSendMobile')].filter(Boolean);
+  const text=(prefill||inp?.value||'').trim();
+  if(!text)return;
+  if(inp){inp.value='';inp.style.height='auto';}
+  sendBtns.forEach(b=>b.disabled=true);
+
+  // Cap history at 40 entries (20 exchanges) — trim oldest pair
+  if(_chatHistory.length>=40)_chatHistory.splice(0,2);
+
+  _chatHistory.push({role:'user',parts:[{text}]});
+  renderCoachMessages();
+
+  // Typing indicator in both possible containers
+  ['coachMsgs','coachMsgsMobile'].forEach(id=>{
+    const c=document.getElementById(id);
+    if(!c)return;
+    const t=document.createElement('div');
+    t.id='coachTyping_'+id;t.className='chat-msg model';
+    t.innerHTML=`<div class="chat-bubble"><div class="chat-typing"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span></div></div>`;
+    c.appendChild(t);c.scrollTop=c.scrollHeight;
+  });
+
+  const sys=_buildCoachSystemPrompt();
   const apiContents=_chatHistory.map(({role,parts})=>({role,parts}));
 
   try{
@@ -3225,89 +3197,61 @@ ${buildBudgetContext(S.activeMonth)}`;
       body:JSON.stringify({
         system_instruction:{parts:[{text:sys}]},
         contents:apiContents,
-        generationConfig:{maxOutputTokens:900,temperature:0.8}
+        generationConfig:{maxOutputTokens:800,temperature:0.75}
       }),
       signal:AbortSignal.timeout(25000)
     });
-    document.getElementById('chatTyping')?.remove();
+    document.querySelectorAll('[id^="coachTyping_"]').forEach(el=>el.remove());
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e?.error?.message||`HTTP ${res.status}`);}
     const data=await res.json();
     const reply=data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||"I couldn't generate a response — please try again.";
-    const actions=parseChatActionBlock(reply);
-    const entry={role:'model',parts:[{text:reply}]};
-    if(actions.length)entry._actions=actions;
-    _chatHistory.push(entry);
-    renderChatMessages();
+    _chatHistory.push({role:'model',parts:[{text:reply}]});
+    renderCoachMessages();
   }catch(err){
-    document.getElementById('chatTyping')?.remove();
+    document.querySelectorAll('[id^="coachTyping_"]').forEach(el=>el.remove());
     _chatHistory.push({role:'model',parts:[{text:`Something went wrong: ${err.message}`}]});
-    renderChatMessages();
+    renderCoachMessages();
   }finally{
-    if(send)send.disabled=false;
-    document.getElementById('chatInp')?.focus();
+    sendBtns.forEach(b=>b.disabled=false);
+    (document.getElementById('coachInp')||document.getElementById('coachInpMobile'))?.focus();
   }
 }
 
-function clearChat(){
+function clearCoach(){
   _chatHistory=[];
-  renderChatMessages();
-  refreshChatSuggestions();
+  renderCoachMessages();
+  _refreshCoachChips('coachChips');
+  _refreshCoachChips('coachChipsMobile');
 }
 
-// ── AI Action Protocol ─────────────────────────────────────────────────────
-function parseChatActionBlock(text){
-  const m=text.match(/```budget-actions\s*([\s\S]*?)```/);
-  if(!m)return[];
-  try{const p=JSON.parse(m[1].trim());return Array.isArray(p)?p:[p];}catch{return[];}
-}
-function _actionPreviewHtml(act){
-  if(act.action==='allocate')return`<div class="chat-action-row">📊 Allocate <strong>$${parseFloat(act.amount).toFixed(2)}</strong> → <strong>${esc(act.bucketName||act.bucketId)}</strong></div>`;
-  if(act.action==='set_income')return`<div class="chat-action-row">💰 Set projected income to <strong>$${parseFloat(act.amount).toFixed(2)}</strong>${act.label?' ('+esc(act.label)+')':''}</div>`;
-  if(act.action==='navigate')return`<div class="chat-action-row">🔗 Open <strong>${esc(act.tab)}</strong> tab</div>`;
-  return`<div class="chat-action-row">⚡ ${esc(act.action)}</div>`;
-}
-function executeChatActions(idx){
-  const entry=_chatHistory[idx];if(!entry?._actions?.length)return;
-  const mid=S.activeMonth;
-  const report=[];let needsSave=false;let nav=null;
-  entry._actions.forEach(act=>{
-    try{
-      if(act.action==='allocate'){
-        const aMid=act.mid||mid;const m=getMonth(aMid);
-        if(!m){report.push(`⚠ Month not found`);return;}
-        if(m.closed){report.push(`⚠ ${m.label} is closed`);return;}
-        if(!m.allocations)m.allocations={};
-        const amt=Math.max(parseFloat(act.amount)||0,0);
-        m.allocations[act.bucketId]=amt;
-        report.push(`✓ ${act.bucketName||act.bucketId}: $${amt.toFixed(2)}`);
-        needsSave=true;
-      } else if(act.action==='set_income'){
-        const aMid=act.mid||mid;const m=getMonth(aMid);
-        if(!m){report.push(`⚠ Month not found`);return;}
-        m.projectedIncome=parseFloat(act.amount)||null;
-        report.push(`✓ Income set to $${parseFloat(act.amount).toFixed(2)}`);
-        needsSave=true;
-      } else if(act.action==='navigate'){
-        nav=act.tab;
-        report.push(`✓ Navigating to ${act.tab}`);
-      }
-    }catch(e){report.push(`⚠ Error: ${e.message}`);}
-  });
-  entry._actionsApplied=true;entry._actionReport=report;
-  if(needsSave){save();render();}
-  if(nav)setTimeout(()=>setTab(nav),300);
-  renderChatMessages();
-  if(report.length)showToast(report.slice(0,2).join(' · '),'save');
-}
-function dismissChatActions(idx){
-  const e=_chatHistory[idx];if(e){e._actionsApplied=true;e._actionReport=['Dismissed'];}
-  renderChatMessages();
+// ── Mobile Coach pane renderer ─────────────────────────────────────────────────
+function renderCoachPane(el){
+  if(!aiEnabled()){
+    el.innerHTML=`<div class="pane-hdr"><div class="pane-hdr-title">✦ AI Coach</div></div>
+      <div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:14px;line-height:1.7">
+        Add your Gemini key in <span onclick="setTab('settings')" style="color:var(--accent);cursor:pointer;font-weight:600">Settings → AI Coach</span> to start chatting.
+      </div>`;
+    return;
+  }
+  el.innerHTML=`<div class="pane-hdr" style="flex-shrink:0">
+    <div class="pane-hdr-title">✦ AI Coach</div>
+    <button class="pane-hdr-action" onclick="clearCoach()">↺ Clear</button>
+  </div>
+  <div id="coachChipsMobile" class="coach-chips"></div>
+  <div id="coachMsgsMobile" class="coach-msgs"></div>
+  <div class="coach-inp-row">
+    <textarea class="coach-inp" id="coachInpMobile" placeholder="Ask anything…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCoachMsg();}this.style.height='auto';this.style.height=Math.min(this.scrollHeight,130)+'px'"></textarea>
+    <button class="coach-send" id="coachSendMobile" onclick="sendCoachMsg()">↑</button>
+  </div>`;
+  _refreshCoachChips('coachChipsMobile');
+  renderCoachMessages();
+  setTimeout(()=>document.getElementById('coachInpMobile')?.focus(),100);
 }
 
-// ── Phase 8b: Debt Strategy — now lives in Reports > AI Insights ──────────────
 function openDebtStrategy(){
-  setReportsTab('ai');setTab('reports');
-  setTimeout(()=>runDebtStrategyAI(),100);
+  if(isMobile())setTab('coach');
+  else{if(!_coachOpen)toggleCoach();}
 }
 
 // ── Phase 6: Monthly Close AI Report ─────────────────────────────────────────
@@ -3323,7 +3267,7 @@ async function generateMonthReport(mid){
 
 function viewMonthReport(mid){
   const m=getMonth(mid);if(!m?.aiReport)return;
-  setReportsTab('ai');setTab('reports');
+  openRSheet(`${esc(m.label)} Report`,`<div class="ai-narrative" style="padding:8px 0">${esc(m.aiReport)}</div>`,`<button class="btn-cancel" onclick="closeRSheet()">Close</button>`);
 }
 
 // ── Month-End PDF Report ──────────────────────────────────────────────────────
@@ -3935,7 +3879,7 @@ function rolloverBal(bid,mid){
 // "Saved" for a sinking fund = current available balance (rollover + this month's alloc − spent)
 function sinkingSaved(bid,mid){return rolloverBal(bid,mid)+bAlloc(mid,bid)-bSpent(mid,bid);}
 // Contribution per pay-period given a monthly target amount
-function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m/4.33).toFixed(2);if(b.contribFreq==='biweekly')return+(m*12/26).toFixed(2);return m;}
+function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m*12/52).toFixed(2);if(b.contribFreq==='biweekly')return+(m*12/26).toFixed(2);return m;}
 
 // ═══════════════════════════════════════════════════════
 // FORMAT
@@ -4546,6 +4490,8 @@ function renderNav(){
 function setTab(tab){
   // Log is mobile-only; redirect desktop to ledger
   if(tab==='log'&&!isMobile())tab='ledger';
+  // Coach is mobile-tab / desktop-panel — on desktop, open the panel instead
+  if(tab==='coach'&&!isMobile()){if(!_coachOpen)toggleCoach();return;}
   // Animate out current pane
   const curPane=document.getElementById('pane'+capitalize(activeTab));
   curPane?.classList.add('slide-left');
@@ -4555,6 +4501,8 @@ function setTab(tab){
   activeTab=tab;
   // Clear state on tab change
   if(tab==='ledger'||tab==='log'){S.activeAccount=null;S.activeBucket=null;}
+  // Refresh coach chips if panel is open (context-aware)
+  if(_coachOpen)_refreshCoachChips('coachChips');
   // Update nav
   renderNav();
   // Swap panes
@@ -4591,6 +4539,8 @@ function renderActivePane(){
     const p=document.getElementById('paneSettings');if(p)renderSettingsTab(p);
   } else if(activeTab==='whatif'){
     const p=document.getElementById('paneWhatif');if(p)renderWhatIfPane(p);
+  } else if(activeTab==='coach'){
+    const p=document.getElementById('paneCoach');if(p)renderCoachPane(p);
   }
 }
 
@@ -5759,7 +5709,6 @@ function renderReportsTab(el){
     {id:'incomesrc',icon:'💵',label:'Income Sources'},
     {id:'cathistory',icon:'📈',label:'Trends'},
     {id:'networth',icon:'◈',label:'Net Worth'},
-    {id:'ai',icon:'✦',label:'AI Insights'},
   ];
   let content='';
   if(reportsTab==='month')content=reportMonthHtml(mid);
@@ -5770,7 +5719,6 @@ function renderReportsTab(el){
   else if(reportsTab==='incomesrc')content=reportIncomeSourcesHtml(mid);
   else if(reportsTab==='cathistory')content=reportCatHistoryHtml();
   else if(reportsTab==='networth')content=reportNetWorthHtml();
-  else if(reportsTab==='ai')content=reportAIInsightsHtml();
   const navBtns=tabs.map(t=>`<button class="rpt-nav-btn${t.id===reportsTab?' active':''}" onclick="setReportsTab('${t.id}')"><span class="rpt-nav-icon">${t.icon}</span><span>${t.label}</span></button>`).join('');
   const selectOpts=tabs.map(t=>`<option value="${t.id}"${t.id===reportsTab?' selected':''}>${t.icon} ${t.label}</option>`).join('');
   el.innerHTML=`<div class="rpt-pane">
@@ -5789,80 +5737,6 @@ function renderReportsTab(el){
   setTimeout(()=>initReportCharts(reportsTab,mid),60);
 }
 
-// ── AI Insights Report Tab ────────────────────────────────────
-function reportAIInsightsHtml(){
-  const hasAI=aiEnabled();
-  const monthsWithReports=S.months.filter(m=>m.aiReport).sort((a,b)=>b.id.localeCompare(a.id));
-  const debts=normalizeDebts();
-
-  // Month reports section
-  let monthRptHtml='';
-  if(!monthsWithReports.length){
-    monthRptHtml=`<div style="font-size:13px;color:var(--text3);padding:12px 0">No month reports yet. Close a month with AI enabled to generate one.</div>`;
-  } else {
-    monthRptHtml=monthsWithReports.map(m=>`
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="font-size:13px;font-weight:700;color:var(--text1)">${esc(m.label)}</span>
-          <span class="ai-badge" style="font-size:10px">✦ AI</span>
-        </div>
-        <div class="ai-narrative" style="font-size:13px;color:var(--text2);line-height:1.6">${esc(m.aiReport)}</div>
-      </div>`).join('');
-  }
-
-  // Debt strategy section
-  const debtSorted={
-    avalanche:[...debts].sort((a,b)=>b.apr-a.apr),
-    snowball:[...debts].sort((a,b)=>a.balance-b.balance)
-  };
-  const totalDebt=debts.reduce((s,d)=>s+d.balance,0);
-  const totalInt=debts.reduce((s,d)=>s+d.balance*(d.apr/100/12),0);
-  const debtSectionHtml=debts.length?`
-    <div class="debt-strategy-grid" style="margin-bottom:10px">
-      <div class="debt-strat-card">
-        <div class="debt-strat-title">❄ Avalanche</div>
-        <div class="debt-strat-stat">Pay highest APR first. Saves the most in interest.<br>Attack order: ${debtSorted.avalanche.map(d=>`${esc(d.name)} (${d.apr}%)`).join(' → ')}</div>
-      </div>
-      <div class="debt-strat-card">
-        <div class="debt-strat-title">⛄ Snowball</div>
-        <div class="debt-strat-stat">Pay smallest balance first. Builds momentum with quick wins.<br>Attack order: ${debtSorted.snowball.map(d=>`${esc(d.name)} ($${d.balance.toFixed(0)})`).join(' → ')}</div>
-      </div>
-    </div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Total debt: <strong style="color:var(--text2)">${$f(totalDebt)}</strong> · Est. monthly interest: <strong style="color:var(--text2)">${$f(Math.round(totalInt*100)/100)}</strong></div>
-    <div id="debtStratAI" style="min-height:40px"></div>
-    ${hasAI?`<button class="tbtn" style="margin-top:8px" onclick="runDebtStrategyAI()">✦ Get AI Recommendation</button>`:'<div style="font-size:12px;color:var(--text3)">Enable AI in Settings for recommendations.</div>'}
-  `:`<div style="font-size:13px;color:var(--text3);padding:12px 0">No active debts found.</div>`;
-
-  return`<div style="max-width:700px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <span style="font-size:18px;font-weight:700;color:var(--text1)">AI Insights</span>
-      <span class="ai-badge">✦ AI</span>
-    </div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px">Debt Strategy</div>
-    ${debtSectionHtml}
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin:20px 0 8px">Monthly Reports</div>
-    ${monthRptHtml}
-  </div>`;
-}
-
-async function runDebtStrategyAI(){
-  const el=document.getElementById('debtStratAI');
-  if(!el)return;
-  el.className='ai-narrative-loading';
-  el.innerHTML=`<span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><span style="margin-left:8px;font-size:13px;color:var(--text3)">Getting AI recommendation…</span>`;
-  const debts=normalizeDebts();
-  const debtCtx=debts.map(d=>`${d.name}: $${d.balance.toFixed(0)} balance, ${d.apr}% APR, min payment $${d.minPayment}/mo`).join('\n');
-  const savRate=()=>{const past=S.months.filter(mo=>monthStatus(mo.id)==='past').slice(-3);if(!past.length)return null;const avg=past.map(mo=>{const inc=monthIncome(mo.id);const sp=S.buckets.reduce((s,b)=>s+bSpent(mo.id,b.id),0);return inc>0?(inc-sp)/inc:0;});return Math.round(avg.reduce((s,v)=>s+v,0)/avg.length*100);};
-  const sr=savRate();
-  const sys=`You are a debt payoff coach. In 3 plain sentences, recommend either avalanche or snowball method for this specific person — cite their actual debts and amounts. Consider their savings rate if available. No markdown, no lists, just direct advice.`;
-  try{
-    const text=await callGemini(`Debts:\n${debtCtx}${sr!==null?`\nAvg savings rate: ${sr}%`:''}`,sys,{maxTokens:200,temp:0.6});
-    if(el){
-      el.className='';
-      el.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:12px 14px"><span class="ai-badge" style="margin-bottom:6px;display:inline-flex">✦ Recommendation</span><div class="ai-narrative" style="margin-top:6px">${esc(text)}</div></div>`;
-    }
-  }catch{if(el){el.className='';el.innerHTML=`<div style="color:var(--red);font-size:13px">Could not load recommendation.</div>`;}}
-}
 
 // ── Phase E: CSV Export & Drill-Down ─────────────────────────
 function exportCSV(){
@@ -6234,10 +6108,10 @@ function renderBucketDetail(mid,past,m){
   if(isSink&&sinkData){
     const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
     h+=`<div class="sink-stats">
-      <div class="stat-cell md"><div class="stat-label">Saved</div><div class="stat-val sm c-green">${$f(saved)}</div></div>
+      <div class="stat-cell md"><div class="stat-label">${saved<0?'Deficit':'Saved'}</div><div class="stat-val sm ${saved>=0?'c-green':'c-red'}">${$f(Math.abs(saved))}${saved<0?' owed':''}</div></div>
       <div class="stat-cell md"><div class="stat-label">Goal</div><div class="stat-val sm">${$f(tgt)}</div></div>
       <div class="stat-cell md"><div class="stat-label">Months Left</div><div class="stat-val sm">${mLeft||'—'}</div></div>
-      <div class="stat-cell md"><div class="stat-label">Need/mo</div><div class="stat-val sm c-red">${$f(mNeed)}</div></div>
+      <div class="stat-cell md"><div class="stat-label">Need/mo</div><div class="stat-val sm ${mNeed>0?'c-red':'c-green'}">${mNeed>0?$f(mNeed):'On track'}</div></div>
     </div>
     <div class="det-block"><div class="det-block-title">Contribution Schedule</div>
       <div class="det-row"><span class="det-row-label">Monthly target</span><span class="det-row-val">${$f(b.defaultBudget||0)}</span></div>
@@ -6606,17 +6480,15 @@ function vaultMonthlyContrib(bid){
     return recent.length?recent.reduce((s,v)=>s+v,0)/recent.length:0;
   }
   const pcs=(S.paychecks||[]).filter(pc=>pc.amount&&pc.anchorDate);
+  // Paychecks per month: semi-monthly (freq=15) = exactly 2; others = 30.44/freq
+  const freqPerMonth=pc=>pc.freq===15?2:30.44/(pc.freq||14);
   return rules.reduce((total,r)=>{
     if(r.type==='pct'){
-      // pct of each paycheck × how many of that paycheck fire per month
-      const pctTotal=pcs.reduce((s,pc)=>s+(r.value/100)*pc.amount*(30.44/(pc.freq||14)),0);
+      const pctTotal=pcs.reduce((s,pc)=>s+(r.value/100)*pc.amount*freqPerMonth(pc),0);
       return total+pctTotal;
     }
     if(r.type==='fixed'){
-      // fixed amount fires once per paycheck event per month
-      const paychecksPerMonth=pcs.length
-        ?pcs.reduce((s,pc)=>s+(30.44/(pc.freq||14)),0)
-        :2.17; // biweekly default if no paychecks configured
+      const paychecksPerMonth=pcs.length?pcs.reduce((s,pc)=>s+freqPerMonth(pc),0):2.17;
       return total+r.value*paychecksPerMonth;
     }
     return total;
@@ -7581,7 +7453,6 @@ function renderWhatIfPane(el){
     <div class="wi-pane-hdr">
       <span class="bkt-pane-title">⚡ What If</span>
       <span style="flex:1"></span>
-      ${aiEnabled()?`<button class="tbtn" onclick="wiNarrateScenario()" style="font-size:12px">✦ AI Narrate</button>`:''}
       <button class="btn-save" onclick="promoteScenario()">Promote to Budget</button>
       <button class="btn-cancel" onclick="exitWI()">Reset</button>
     </div>
@@ -7589,7 +7460,6 @@ function renderWhatIfPane(el){
       <div class="wi-pane-left">${_wiLeftHtml()}</div>
       <div class="wi-pane-right">
         ${_wiRightHtml()}
-        <div id="wiNarrateResult" style="padding:0 20px 20px"></div>
       </div>
     </div>
   </div>`;
@@ -7602,37 +7472,6 @@ function renderWI(){
   }
 }
 
-async function wiNarrateScenario(){
-  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
-  const mid=S.activeMonth;const sc=S.wiScenario;if(!sc)return;
-  const piReal=monthProjectedIncome(mid)||0;
-  const piSc=sc.incomeOverrides[mid]!==undefined?sc.incomeOverrides[mid]:piReal;
-  const changes=S.buckets.filter(b=>!b.archived&&sc.budgets[b.id]!==undefined).map(b=>{
-    const real=getMonth(mid)?.budgets[b.id]||0;
-    const val=sc.budgets[b.id];
-    const diff=val-real;
-    if(diff===0)return null;
-    return`${b.name}: ${diff>0?'+':''}${$f(diff)}`;
-  }).filter(Boolean);
-  const scAlloc=S.buckets.filter(b=>!b.archived).reduce((s,b)=>{if(!isWIBucketActive(b.id,mid))return s;return s+(sc.budgets[b.id]??bBudget(mid,b.id));},0);
-  const scSurplus=piSc-scAlloc;
-  const ctx=`Scenario: "${esc(sc.name)}"\nIncome: ${$f(piSc)} (was ${$f(piReal)})\nBudget changes: ${changes.length?changes.join(', '):'none'}\nSurplus/Deficit: ${scSurplus>=0?'+':''}${$f(scSurplus)}`;
-  const resultEl=document.getElementById('wiNarrateResult');
-  if(resultEl){
-    resultEl.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:14px 16px">
-      <div class="ai-narrative-loading"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><span style="margin-left:8px;font-size:13px;color:var(--text3)">Analyzing scenario…</span></div>
-    </div>`;
-  }
-  try{
-    const text=await callGemini(ctx,`You are a friendly financial coach. Analyze this budget scenario in 2-3 sentences. Highlight what changed, whether the surplus/deficit is healthy, and one actionable insight. Be encouraging but honest. Do not use markdown formatting.`);
-    if(resultEl){
-      resultEl.innerHTML=`<div style="background:color-mix(in srgb,var(--accent) 6%,var(--bg3));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));border-radius:var(--rl);padding:14px 16px">
-        <span class="ai-badge" style="margin-bottom:8px;display:inline-flex">✦ Scenario Analysis</span>
-        <div class="ai-narrative" style="font-size:14px;line-height:1.7;color:var(--text1);margin-top:6px">${esc(text)}</div>
-      </div>`;
-    }
-  }catch(err){if(resultEl)resultEl.innerHTML=`<div style="color:var(--red);font-size:13px;padding:8px 0">${esc(err.message)}</div>`;}
-}
 
 function wiToggleSched(bid){
   if(_wiSchedExpanded.has(bid)){_wiSchedExpanded.delete(bid);}else{_wiSchedExpanded.add(bid);}
@@ -7936,7 +7775,7 @@ function wiProjectorHtml(result,standalone){
   const psv=fs.scenarioId||'';
   // Best-practice cushion: 1.5× average weekly bills from actual bucket data, floored at $200
   const _totalMonthlyBills=S.buckets.filter(b=>!b.archived&&(b.defaultBudget||0)>0).reduce((s,b)=>s+(b.defaultBudget||0),0);
-  const _cushionDefault=Math.max(200,Math.round(_totalMonthlyBills/4.33*1.5/10)*10);
+  const _cushionDefault=Math.max(200,Math.round(_totalMonthlyBills*12/52*1.5/10)*10);
   const cushionVal=fs.cushion!==undefined?fs.cushion:String(_cushionDefault);
   const extraVal=fs.extra!==undefined?fs.extra:'0';
   // Determine which optional paycheck rows to show
@@ -8175,12 +8014,15 @@ function wiRunProjector(){
         if(freq&&freq!=='monthly'){
           const stepDays=freq==='weekly'?7:freq==='biweekly'?14:21;
           const anchorDay=b.dueDay==='eom'?new Date(wY2,wM2+1,0).getDate():Math.min(parseInt(b.dueDay),new Date(wY2,wM2+1,0).getDate());
-          const payAmt=b.dueAmount||bAmt;
           const monthEnd=new Date(wY2,wM2+1,0);
           const monthStart=new Date(wY2,wM2,1);
-          // Find the earliest anchor occurrence at or after the start of month
+          // Find the earliest anchor occurrence within this month
           let d=new Date(wY2,wM2,anchorDay);
           while(new Date(d.getTime()-stepDays*864e5)>=monthStart)d=new Date(d.getTime()-stepDays*864e5);
+          // Count occurrences in this calendar month for fallback amount split
+          let countInMonth=0;let tmp=new Date(d);
+          while(tmp<=monthEnd){countInMonth++;tmp=new Date(tmp.getTime()+stepDays*864e5);}
+          const payAmt=b.dueAmount||(countInMonth>0?Math.round(bAmt/countInMonth*100)/100:bAmt);
           // Emit all occurrences within this calendar month
           while(d<=monthEnd){
             const ds=d.toISOString().split('T')[0];
@@ -9027,9 +8869,9 @@ function avgMonthlyNetPayment(acctId){
     if(t.accountId===acctId&&t.type==='out')
       outByMonth[t.monthId]=(outByMonth[t.monthId]||0)+t.amount;
   });
-  const payments=monthIds.map(mid=>(inByMonth[mid]||0)-(outByMonth[mid]||0)).filter(p=>p!==0);
-  if(!payments.length)return 0;
-  return Math.round(payments.reduce((s,p)=>s+p,0)/payments.length*100)/100;
+  // Always divide by total months (3) for conservative projection — avoids overstating payoff ability
+  const total=monthIds.reduce((s,mid)=>s+Math.max(0,(inByMonth[mid]||0)-(outByMonth[mid]||0)),0);
+  return Math.round(total/monthIds.length*100)/100;
 }
 function renderDebtTracker(a){
   const balance=acctBalance(a.id); // positive = amount owed (debt acctBalance always returns positive)
@@ -10287,7 +10129,7 @@ function MrowTypeChange(i,v){
 function contribTip(row){
   const m=parseFloat(row.budget)||0;
   if(!m)return'';
-  const per=row.contrib==='weekly'?+(m/4.33).toFixed(2):row.contrib==='biweekly'?+(m/2).toFixed(2):m;
+  const per=row.contrib==='weekly'?+(m*12/52).toFixed(2):row.contrib==='biweekly'?+(m*12/26).toFixed(2):m;
   return `<div class="contrib-tip">💡 Put aside <strong>${$f(per)}</strong> per ${row.contrib==='weekly'?'week':row.contrib==='biweekly'?'paycheck':'month'}</div>`;
 }
 
@@ -10366,7 +10208,7 @@ function renderModal(){
     let catOpts=S.cats.length?'<option value="">Select category...</option>':'<option value="">Create a category first</option>';
     sortedCats().forEach(c=>catOpts+=`<option value="${c.id}"${c.id===M.bktCat?' selected':''}>${esc(c.name)}</option>`);
     let contribPreview='';
-    if(isSink&&M.bktBudget){const mn=parseFloat(M.bktBudget)||0;const per=M.bktContrib==='weekly'?+(mn/4.33).toFixed(2):M.bktContrib==='biweekly'?+(mn/2).toFixed(2):mn;contribPreview=`<div class="contrib-preview">💡 Put aside <strong>${$f(per)}</strong> per ${M.bktContrib==='weekly'?'week':M.bktContrib==='biweekly'?'paycheck':'month'}</div>`;}
+    if(isSink&&M.bktBudget){const mn=parseFloat(M.bktBudget)||0;const per=M.bktContrib==='weekly'?+(mn*12/52).toFixed(2):M.bktContrib==='biweekly'?+(mn*12/26).toFixed(2):mn;contribPreview=`<div class="contrib-preview">💡 Put aside <strong>${$f(per)}</strong> per ${M.bktContrib==='weekly'?'week':M.bktContrib==='biweekly'?'paycheck':'month'}</div>`;}
     body=`
       <div class="fg">
         <label class="fl" for="mBktName">Bucket Name</label>
@@ -10439,7 +10281,7 @@ function renderModal(){
         <label class="fl" for="mBktContrib">Contribution Frequency</label>
         <select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()">
           <option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option>
-          <option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month (per paycheck)</option>
+          <option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Bi-weekly (every 2 weeks)</option>
           <option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option>
         </select>
         ${contribPreview}
@@ -11709,26 +11551,22 @@ function mAcctOptions(selectedId){
 <!-- Desktop toast container -->
 <div id="dToastWrap"></div>
 
-<!-- Chat FAB (mobile) -->
-<button class="chat-fab" onclick="openChat()" title="AI Coach">✦</button>
-
-<!-- AI Chat Drawer -->
-<div class="chat-overlay" id="chatOverlay" onclick="closeChat()"></div>
-<div class="chat-drawer" id="chatDrawer">
-  <div class="chat-hdr">
+<!-- Desktop Coach Panel -->
+<div id="coachPanel" class="coach-panel">
+  <div class="coach-hdr">
     <span class="ai-badge">✦ AI Coach</span>
-    <span class="chat-hdr-title">Budget Command</span>
-    <button class="chat-hdr-btn" onclick="clearChat()" title="Clear conversation">↺</button>
-    <button class="chat-hdr-btn" onclick="closeChat()" title="Close" style="font-size:18px">×</button>
+    <span class="coach-hdr-title">Budget Command</span>
+    <button class="coach-hdr-btn" onclick="clearCoach()" title="Clear conversation">↺</button>
+    <button class="coach-hdr-btn" onclick="toggleCoach()" title="Close" style="font-size:18px">×</button>
   </div>
-  <div class="chat-suggestions" id="chatSuggestions"></div>
-  <div class="chat-msgs" id="chatMsgs">
+  <div id="coachChips" class="coach-chips"></div>
+  <div id="coachMsgs" class="coach-msgs">
     <div class="chat-empty">Ask me anything about your finances.<br>I have full context of your budget, accounts, and spending history.</div>
   </div>
-  <div class="chat-inp-row">
-    <textarea class="chat-inp" id="chatInp" placeholder="Ask anything…" rows="1"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}this.style.height='auto';this.style.height=Math.min(this.scrollHeight,130)+'px'"></textarea>
-    <button class="chat-send" id="chatSend" onclick="sendChatMsg()">↑</button>
+  <div class="coach-inp-row">
+    <textarea class="coach-inp" id="coachInp" placeholder="Ask anything…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCoachMsg();}this.style.height='auto';this.style.height=Math.min(this.scrollHeight,130)+'px'"></textarea>
+    <button class="coach-send" id="coachSend" onclick="sendCoachMsg()">↑</button>
   </div>
 </div>
 
