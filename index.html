@@ -454,15 +454,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* Coach mobile pane — needs flex column so msgs area scrolls, input sticks to bottom */
 #paneCoach{overflow-y:hidden!important;padding:0!important;}
 /* Rate-limit indicator */
-.coach-rate-wrap{padding:6px 14px 7px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;}
-.coach-rate-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
-.coach-rate-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
-.coach-rate-count{font-size:10px;font-family:var(--mono);font-weight:600;color:var(--text3);transition:color .2s;}
+.coach-rate-wrap{padding:7px 14px 8px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+.coach-rate-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.coach-rate-row:last-of-type{margin-bottom:0;}
+.coach-rate-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);width:48px;flex-shrink:0;}
+.coach-rate-count{font-size:10px;font-family:var(--mono);font-weight:700;color:var(--text2);width:58px;text-align:right;flex-shrink:0;transition:color .2s;}
 .coach-rate-count.warn{color:var(--amber);}
 .coach-rate-count.block{color:var(--red);}
-.coach-rate-track{height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.coach-rate-track{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
 .coach-rate-fill{height:100%;border-radius:2px;transition:width .35s,background .35s;}
-.coach-rate-reset{font-size:10px;color:var(--red);font-weight:600;margin-top:4px;text-align:center;font-family:var(--mono);}
+.coach-rate-reset{font-size:10px;color:var(--red);font-weight:600;margin-top:5px;text-align:center;font-family:var(--mono);}
 .coach-blocked-banner{padding:8px 14px;background:color-mix(in srgb,var(--red) 8%,var(--bg));border-bottom:1px solid color-mix(in srgb,var(--red) 20%,var(--border));font-size:12px;color:var(--red);text-align:center;font-weight:500;flex-shrink:0;}
 
 /* Pre-save panel */
@@ -3229,12 +3230,12 @@ function _rlUpdateUI(){
   const show=minUsed>0||dayUsed>0;
 
   // Minute bar color / label
-  const minPct=Math.min(100,Math.round(minUsed/minMax*100));
+  const minPct=Math.min(100,Math.max(minUsed>0?2:0,Math.round(minUsed/minMax*100)));
   const minColor=minBlocked?'var(--red)':minUsed>=Math.ceil(minMax*.75)?'var(--amber)':'var(--accent)';
   const minCls=minBlocked?'block':minUsed>=Math.ceil(minMax*.75)?'warn':'';
 
   // Day bar color
-  const dayPct=Math.min(100,Math.round(dayUsed/dayMax*100));
+  const dayPct=Math.min(100,Math.max(dayUsed>0?2:0,Math.round(dayUsed/dayMax*100)));
   const dayColor=dayBlocked?'var(--red)':dayUsed>=dayMax*.75?'var(--amber)':'var(--accent)';
   const dayCls=dayBlocked?'block':dayUsed>=dayMax*.75?'warn':'';
 
@@ -3244,12 +3245,12 @@ function _rlUpdateUI(){
     const minFill=wrap.querySelector('.rl-min-fill');
     const minCount=wrap.querySelector('.rl-min-count');
     if(minFill){minFill.style.width=minPct+'%';minFill.style.background=minColor;}
-    if(minCount){minCount.textContent=`${minUsed} / ${minMax} per min`;minCount.className='coach-rate-count'+(minCls?' '+minCls:'');}
+    if(minCount){minCount.textContent=`${minUsed}/${minMax}`;minCount.className='coach-rate-count'+(minCls?' '+minCls:'');}
     // Day row
     const dayFill=wrap.querySelector('.rl-day-fill');
     const dayCount=wrap.querySelector('.rl-day-count');
     if(dayFill){dayFill.style.width=dayPct+'%';dayFill.style.background=dayColor;}
-    if(dayCount){dayCount.textContent=`${dayUsed} / ${dayMax} today`;dayCount.className='coach-rate-count'+(dayCls?' '+dayCls:'');}
+    if(dayCount){dayCount.textContent=`${dayUsed}/${dayMax}`;dayCount.className='coach-rate-count'+(dayCls?' '+dayCls:'');}
     // Countdown
     const reset=wrap.querySelector('.coach-rate-reset');
     if(reset){
@@ -3471,15 +3472,15 @@ function renderCoachPane(el){
   <div id="coachChipsMobile" class="coach-chips"></div>
   <div class="coach-rate-wrap" style="display:none">
     <div class="coach-rate-row">
-      <span class="coach-rate-label">Per minute</span>
-      <span class="coach-rate-count rl-min-count">0 / 15</span>
+      <span class="coach-rate-label">MIN</span>
+      <div class="coach-rate-track"><div class="coach-rate-fill rl-min-fill" style="width:0%"></div></div>
+      <span class="coach-rate-count rl-min-count">0/15</span>
     </div>
-    <div class="coach-rate-track"><div class="coach-rate-fill rl-min-fill" style="width:0%"></div></div>
-    <div class="coach-rate-row" style="margin-top:5px">
-      <span class="coach-rate-label">Today</span>
-      <span class="coach-rate-count rl-day-count">0 / 1500</span>
+    <div class="coach-rate-row">
+      <span class="coach-rate-label">TODAY</span>
+      <div class="coach-rate-track"><div class="coach-rate-fill rl-day-fill" style="width:0%"></div></div>
+      <span class="coach-rate-count rl-day-count">0/1500</span>
     </div>
-    <div class="coach-rate-track"><div class="coach-rate-fill rl-day-fill" style="width:0%"></div></div>
     <div class="coach-rate-reset" style="display:none"></div>
   </div>
   <div class="coach-blocked-banner" style="display:none"></div>
@@ -12036,15 +12037,15 @@ function mAcctOptions(selectedId){
   <!-- Rate limit indicator — hidden until first call -->
   <div class="coach-rate-wrap" style="display:none">
     <div class="coach-rate-row">
-      <span class="coach-rate-label">Per minute</span>
-      <span class="coach-rate-count rl-min-count">0 / 15</span>
+      <span class="coach-rate-label">MIN</span>
+      <div class="coach-rate-track"><div class="coach-rate-fill rl-min-fill" style="width:0%"></div></div>
+      <span class="coach-rate-count rl-min-count">0/15</span>
     </div>
-    <div class="coach-rate-track"><div class="coach-rate-fill rl-min-fill" style="width:0%"></div></div>
-    <div class="coach-rate-row" style="margin-top:5px">
-      <span class="coach-rate-label">Today</span>
-      <span class="coach-rate-count rl-day-count">0 / 1500</span>
+    <div class="coach-rate-row">
+      <span class="coach-rate-label">TODAY</span>
+      <div class="coach-rate-track"><div class="coach-rate-fill rl-day-fill" style="width:0%"></div></div>
+      <span class="coach-rate-count rl-day-count">0/1500</span>
     </div>
-    <div class="coach-rate-track"><div class="coach-rate-fill rl-day-fill" style="width:0%"></div></div>
     <div class="coach-rate-reset" style="display:none"></div>
   </div>
   <div class="coach-blocked-banner" style="display:none"></div>
