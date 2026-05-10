@@ -1218,12 +1218,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-submit{width:100%;padding:15px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);font-size:16px;font-family:var(--sans);font-weight:600;cursor:pointer;transition:background .12s;}
   .m-submit:active{background:var(--accent2);}
 
-  /* Toast */
-  #mToast{position:fixed;bottom:calc(70px + env(safe-area-inset-bottom));left:16px;right:16px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:13px 16px;display:flex;align-items:center;gap:10px;z-index:999;transform:translateY(20px);opacity:0;transition:transform .2s,opacity .2s;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.4);}
-  #mToast.show{transform:translateY(0);opacity:1;}
-  #mToast-icon{font-size:18px;flex-shrink:0;}
-  #mToast-text{flex:1;font-size:13px;line-height:1.4;}
-  #mToast-amt{font-family:var(--mono);font-size:14px;font-weight:500;flex-shrink:0;}
 
   /* Bucket detail */
   .m-det-hero{padding:20px 16px 16px;background:var(--bg2);border-bottom:1px solid var(--border);}
@@ -1402,7 +1396,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* Desktop: keep month nav hidden, hide mobile-only DOM */
 @media(min-width:1100px){
   .tb-month-nav{display:none !important;}
-  #mToast,#mSheetOverlay,#mSheet{display:none!important;}
+  #mSheetOverlay,#mSheet{display:none!important;}
   .ov-mobile-only{display:none!important;}
   .cc-presave-body{display:block!important;}
 }
@@ -1600,20 +1594,31 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .emi-sym{font-family:var(--mono);font-weight:700;color:var(--accent);font-size:14px;min-width:18px;text-align:center;}
 .emi-label{font-size:12px;flex:1;}
 .emi-hint{font-family:var(--mono);font-size:11px;color:var(--text3);}
-/* Desktop toast */
-#dToastWrap{position:fixed;top:60px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:9990;pointer-events:none;}
-@media(max-width:1099px){#dToastWrap{top:auto;bottom:calc(68px + env(safe-area-inset-bottom));left:16px;right:16px;}}
-.d-toast{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.35);animation:dToastIn .2s ease;min-width:180px;max-width:320px;pointer-events:auto;}
-.d-toast-undo{margin-left:auto;background:none;border:1px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:6px;flex-shrink:0;}
-.d-toast.out{animation:dToastOut .3s ease forwards;}
-.d-toast-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.d-toast-dot.in{background:var(--green);}
-.d-toast-dot.out{background:var(--red);}
-.d-toast-dot.xfr{background:var(--purple);}
-.d-toast-dot.save{background:var(--accent);}
-.d-toast-dot.info{background:var(--amber);}
-@keyframes dToastIn{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:translateX(0);}}
-@keyframes dToastOut{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(12px);}}
+/* Toast */
+#dToastWrap{position:fixed;top:68px;right:16px;width:300px;display:flex;flex-direction:column;gap:7px;z-index:9990;pointer-events:none;}
+@media(max-width:1099px){#dToastWrap{top:auto;bottom:calc(72px + env(safe-area-inset-bottom));left:12px;right:12px;width:auto;}}
+.d-toast{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:dToastIn .18s ease;pointer-events:auto;line-height:1.35;}
+.d-toast.t-in{border-left-color:var(--green);}
+.d-toast.t-out{border-left-color:var(--red);}
+.d-toast.t-xfr{border-left-color:var(--purple);}
+.d-toast.t-save{border-left-color:var(--accent);}
+.d-toast.t-info{border-left-color:var(--amber);}
+.d-toast-icon{font-size:13px;flex-shrink:0;width:16px;text-align:center;}
+.d-toast.t-in .d-toast-icon{color:var(--green);}
+.d-toast.t-out .d-toast-icon{color:var(--red);}
+.d-toast.t-xfr .d-toast-icon{color:var(--purple);}
+.d-toast.t-save .d-toast-icon{color:var(--accent);}
+.d-toast.t-info .d-toast-icon{color:var(--amber);}
+.d-toast-msg{flex:1;min-width:0;}
+.d-toast-undo{margin-left:6px;background:none;border:1px solid currentColor;font-size:11px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:5px;flex-shrink:0;opacity:.75;transition:opacity .1s;}
+.d-toast-undo:hover{opacity:1;}
+.d-toast.out{animation:dToastOut .25s ease forwards;}
+@keyframes dToastIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:translateX(0);}}
+@keyframes dToastOut{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(10px);}}
+@media(max-width:1099px){
+  @keyframes dToastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes dToastOut{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(8px);}}
+}
 /* Sync indicator in topbar */
 #syncStatus{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;padding:3px 8px;border-radius:10px;transition:all .3s;}
 #syncStatus.synced{background:var(--gbg);color:var(--green);}
@@ -10101,7 +10106,7 @@ function applyPaydayActions(monthId){
   }
   const ic=_pendingRules.filter(r=>r.on).length;
   save();closeModal();render();
-  if(ic){const msg=`${ic} allocation${ic!==1?'s':''}`;showToast(`Applied: ${msg}`,'save');mShowToast('alloc',`Applied: ${msg}`,'');}
+  if(ic)showToast(`Applied: ${ic} allocation${ic!==1?'s':''}`, 'save');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -11401,26 +11406,26 @@ function toggleExprMenu(btn){
 }
 
 // Desktop + mobile toast notification
-function showToast(msg, type='save'){
+const _TOAST_ICON={in:'↓',out:'↑',xfr:'⇄',save:'✓',info:'!'};
+function showToast(msg,type='save'){
   const wrap=document.getElementById('dToastWrap');if(!wrap)return;
   const t=document.createElement('div');
-  t.className='d-toast';
-  t.innerHTML=`<div class="d-toast-dot ${type}"></div><span>${esc(msg)}</span>`;
+  t.className=`d-toast t-${type}`;
+  t.innerHTML=`<span class="d-toast-icon">${_TOAST_ICON[type]||'✓'}</span><span class="d-toast-msg">${esc(msg)}</span>`;
   wrap.appendChild(t);
-  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),350);},2800);
+  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),280);},3200);
 }
-function showUndoToast(msg, type='out', undoFn){
+function showUndoToast(msg,type='out',undoFn){
   const wrap=document.getElementById('dToastWrap');if(!wrap)return;
   const t=document.createElement('div');
-  t.className='d-toast';
-  t.innerHTML=`<div class="d-toast-dot ${type}"></div><span style="flex:1">${esc(msg)}</span><button class="d-toast-undo">Undo</button>`;
+  t.className=`d-toast t-${type}`;
+  t.innerHTML=`<span class="d-toast-icon">${_TOAST_ICON[type]||'✓'}</span><span class="d-toast-msg">${esc(msg)}</span><button class="d-toast-undo">Undo</button>`;
   wrap.appendChild(t);
   let done=false;
-  const dismiss=()=>{t.classList.add('out');setTimeout(()=>t.remove(),350);};
+  const dismiss=()=>{t.classList.add('out');setTimeout(()=>t.remove(),280);};
   const timer=setTimeout(()=>{if(!done){done=true;dismiss();}},6000);
   t.querySelector('.d-toast-undo').addEventListener('click',()=>{
-    if(done)return;done=true;clearTimeout(timer);dismiss();
-    if(undoFn)undoFn();
+    if(done)return;done=true;clearTimeout(timer);dismiss();undoFn?.();
   });
 }
 
@@ -11780,7 +11785,7 @@ function mSaveAllBulk(){
   });
   if(!saved){showToast('Please fill in at least one complete row (description, amount, account, bucket)','info');return;}
   save();mBulkRows=[];mBulkMode=false;
-  render();mShowToast('check','Saved '+saved+' transaction'+(saved!==1?'s':''),'');
+  render();showToast('Saved '+saved+' transaction'+(saved!==1?'s':''),'save');
 }
 
 // ── Add single tx from mobile ─────────────────────────────────────────────────
@@ -11819,7 +11824,7 @@ function mAddTx(){
   // Get bucket name for toast
   const bktName=getBucket(bkt)?.name||'';
   const amtStr=(t==='in'?'+':t==='xfr'?'⇄':'-')+$f(amt);
-  mShowToast(t==='in'?'in':t==='xfr'?'xfr':'out', desc, amtStr+(bktName?' · '+bktName:''));
+  showToast(desc+' '+amtStr+(bktName?' · '+bktName:''), t==='in'?'in':t==='xfr'?'xfr':'out');
 
   // Prompt allocation rules on new income
   if(t==='in')setTimeout(()=>promptAllocationRules(amt,monthId),400);
@@ -11945,23 +11950,6 @@ function mCloseSheet(){
   document.getElementById('mSheet').classList.remove('show');
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-let mToastTimer=null;
-function mShowToast(type,text,amt){
-  const toast=document.getElementById('mToast');
-  const icon=document.getElementById('mToast-icon');
-  const textEl=document.getElementById('mToast-text');
-  const amtEl=document.getElementById('mToast-amt');
-  if(!toast)return;
-  icon.textContent=type==='in'?'↓':type==='out'?'↑':type==='xfr'?'⇄':type==='alloc'?'◎':'✓';
-  icon.style.color=type==='in'?'var(--green)':type==='out'?'var(--red)':type==='xfr'?'var(--purple)':type==='alloc'?'var(--accent)':'var(--green)';
-  textEl.textContent=text;
-  amtEl.textContent=amt;
-  amtEl.style.color=type==='in'?'var(--green)':type==='out'?'var(--red)':'var(--text2)';
-  toast.classList.add('show');
-  if(mToastTimer)clearTimeout(mToastTimer);
-  mToastTimer=setTimeout(()=>toast.classList.remove('show'),2500);
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function mCatOptions(selectedCatId){
@@ -11988,12 +11976,6 @@ function mAcctOptions(selectedId){
 </script>
 
 
-<!-- Toast -->
-<div id="mToast">
-  <div id="mToast-icon">✓</div>
-  <div id="mToast-text"></div>
-  <div id="mToast-amt"></div>
-</div>
 
 <!-- Edit bottom sheet -->
 <div class="m-sheet-overlay" id="mSheetOverlay" onclick="mCloseSheet()"></div>
