@@ -2895,10 +2895,10 @@ function buildBudgetContext(mid){
     const saved=Math.max(sinkingSaved(b.id,mid),0);
     const tgt=b.targetAmount;
     const pct=Math.round(saved/tgt*100);
-    return`  [${b.id}] ${b.name}: $${saved.toFixed(0)}/$${tgt} (${pct}%)${b.targetDate?' — target date '+b.targetDate:''}`;
+    return`  ${b.name}: $${saved.toFixed(0)}/$${tgt} (${pct}%)${b.targetDate?' — target date '+b.targetDate:''}`;
   }).join('\n');
 
-  // Bucket lines — include IDs for action protocol, rollover, type
+  // Bucket lines — names only (advisory coach doesn't need IDs)
   const bktLines=activeBkts.filter(b=>bBudget(mid,b.id)>0||bSpent(mid,b.id)>0||bAlloc(mid,b.id)>0).map(b=>{
     const alloc=bAlloc(mid,b.id),spent=bSpent(mid,b.id),budget=bBudget(mid,b.id);
     const roll=rolloverBal(b.id,mid);
@@ -2906,7 +2906,7 @@ function buildBudgetContext(mid){
     const over=spent>eff+0.01?'[OVERSPENT]':'';
     const gap=alloc<budget&&budget>0?`[needs $${(budget-alloc).toFixed(0)} more]`:'';
     const rollStr=roll>0?` | rollover +$${roll.toFixed(0)}`:'';
-    return`  [${b.id}] ${b.name} (${b.type||'regular'}): budget $${budget} | alloc $${alloc}${rollStr} | spent $${spent.toFixed(0)} ${over}${gap}`;
+    return`  ${b.name} (${b.type||'regular'}): budget $${budget} | alloc $${alloc}${rollStr} | spent $${spent.toFixed(0)} ${over}${gap}`;
   }).join('\n');
 
   const incomeBlock=projIncome!=null
@@ -2930,9 +2930,8 @@ ${billLines?'Recurring bills:\n'+billLines:''}
 ${schedLines.length?'Upcoming scheduled transactions:\n'+schedLines.join('\n'):''}
 ${ruleLines?'Allocation rules (on-payday bucket splits):\n'+ruleLines:''}
 ${goalLines?'Savings goals:\n'+goalLines:''}
-Buckets (use exact [ID] for actions):
-${bktLines}
-CURRENT_MONTH_ID: ${mid}`;
+Buckets:
+${bktLines}`;
 }
 
 // ── Unified AI Coach (narrative + alerts in one call) ─────────────────────────
