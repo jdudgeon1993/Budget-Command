@@ -2653,7 +2653,7 @@ function daysUntilDue(b,y,m){
   const freq=b.payFreq;
   if(!freq||freq==='monthly'){const d=resolveDue(b,y,m);if(d===null)return null;const due=new Date(y,m,d),now=new Date();now.setHours(0,0,0,0);return Math.round((due-now)/864e5);}
   const stepDays=freq==='weekly'?7:freq==='biweekly'?14:21;
-  const anchorDay=b.dueDay==='eom'?28:parseInt(b.dueDay);
+  const anchorDay=b.dueDay==='eom'?lastDay(y,m):parseInt(b.dueDay);
   const now=new Date();now.setHours(0,0,0,0);
   let anchor=new Date(y,m,Math.min(anchorDay,lastDay(y,m)));
   while(anchor>now)anchor=new Date(anchor.getTime()-stepDays*864e5);
@@ -3934,7 +3934,7 @@ function rolloverBal(bid,mid){
 // "Saved" for a sinking fund = current available balance (rollover + this month's alloc − spent)
 function sinkingSaved(bid,mid){return rolloverBal(bid,mid)+bAlloc(mid,bid)-bSpent(mid,bid);}
 // Contribution per pay-period given a monthly target amount
-function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m/4.33).toFixed(2);if(b.contribFreq==='biweekly')return+(m*12/26).toFixed(2);return m;}
+function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m*12/52).toFixed(2);if(b.contribFreq==='biweekly')return+(m*12/26).toFixed(2);return m;}
 
 // ═══════════════════════════════════════════════════════
 // FORMAT
@@ -6233,10 +6233,10 @@ function renderBucketDetail(mid,past,m){
   if(isSink&&sinkData){
     const {saved,tgt,mLeft,mNeed,contrib}=sinkData;
     h+=`<div class="sink-stats">
-      <div class="stat-cell md"><div class="stat-label">Saved</div><div class="stat-val sm c-green">${$f(saved)}</div></div>
+      <div class="stat-cell md"><div class="stat-label">${saved<0?'Deficit':'Saved'}</div><div class="stat-val sm ${saved>=0?'c-green':'c-red'}">${$f(Math.abs(saved))}${saved<0?' owed':''}</div></div>
       <div class="stat-cell md"><div class="stat-label">Goal</div><div class="stat-val sm">${$f(tgt)}</div></div>
       <div class="stat-cell md"><div class="stat-label">Months Left</div><div class="stat-val sm">${mLeft||'—'}</div></div>
-      <div class="stat-cell md"><div class="stat-label">Need/mo</div><div class="stat-val sm c-red">${$f(mNeed)}</div></div>
+      <div class="stat-cell md"><div class="stat-label">Need/mo</div><div class="stat-val sm ${mNeed>0?'c-red':'c-green'}">${mNeed>0?$f(mNeed):'On track'}</div></div>
     </div>
     <div class="det-block"><div class="det-block-title">Contribution Schedule</div>
       <div class="det-row"><span class="det-row-label">Monthly target</span><span class="det-row-val">${$f(b.defaultBudget||0)}</span></div>
@@ -6605,17 +6605,15 @@ function vaultMonthlyContrib(bid){
     return recent.length?recent.reduce((s,v)=>s+v,0)/recent.length:0;
   }
   const pcs=(S.paychecks||[]).filter(pc=>pc.amount&&pc.anchorDate);
+  // Paychecks per month: semi-monthly (freq=15) = exactly 2; others = 30.44/freq
+  const freqPerMonth=pc=>pc.freq===15?2:30.44/(pc.freq||14);
   return rules.reduce((total,r)=>{
     if(r.type==='pct'){
-      // pct of each paycheck × how many of that paycheck fire per month
-      const pctTotal=pcs.reduce((s,pc)=>s+(r.value/100)*pc.amount*(30.44/(pc.freq||14)),0);
+      const pctTotal=pcs.reduce((s,pc)=>s+(r.value/100)*pc.amount*freqPerMonth(pc),0);
       return total+pctTotal;
     }
     if(r.type==='fixed'){
-      // fixed amount fires once per paycheck event per month
-      const paychecksPerMonth=pcs.length
-        ?pcs.reduce((s,pc)=>s+(30.44/(pc.freq||14)),0)
-        :2.17; // biweekly default if no paychecks configured
+      const paychecksPerMonth=pcs.length?pcs.reduce((s,pc)=>s+freqPerMonth(pc),0):2.17;
       return total+r.value*paychecksPerMonth;
     }
     return total;
@@ -7935,7 +7933,7 @@ function wiProjectorHtml(result,standalone){
   const psv=fs.scenarioId||'';
   // Best-practice cushion: 1.5× average weekly bills from actual bucket data, floored at $200
   const _totalMonthlyBills=S.buckets.filter(b=>!b.archived&&(b.defaultBudget||0)>0).reduce((s,b)=>s+(b.defaultBudget||0),0);
-  const _cushionDefault=Math.max(200,Math.round(_totalMonthlyBills/4.33*1.5/10)*10);
+  const _cushionDefault=Math.max(200,Math.round(_totalMonthlyBills*12/52*1.5/10)*10);
   const cushionVal=fs.cushion!==undefined?fs.cushion:String(_cushionDefault);
   const extraVal=fs.extra!==undefined?fs.extra:'0';
   // Determine which optional paycheck rows to show
@@ -8174,12 +8172,15 @@ function wiRunProjector(){
         if(freq&&freq!=='monthly'){
           const stepDays=freq==='weekly'?7:freq==='biweekly'?14:21;
           const anchorDay=b.dueDay==='eom'?new Date(wY2,wM2+1,0).getDate():Math.min(parseInt(b.dueDay),new Date(wY2,wM2+1,0).getDate());
-          const payAmt=b.dueAmount||bAmt;
           const monthEnd=new Date(wY2,wM2+1,0);
           const monthStart=new Date(wY2,wM2,1);
-          // Find the earliest anchor occurrence at or after the start of month
+          // Find the earliest anchor occurrence within this month
           let d=new Date(wY2,wM2,anchorDay);
           while(new Date(d.getTime()-stepDays*864e5)>=monthStart)d=new Date(d.getTime()-stepDays*864e5);
+          // Count occurrences in this calendar month for fallback amount split
+          let countInMonth=0;let tmp=new Date(d);
+          while(tmp<=monthEnd){countInMonth++;tmp=new Date(tmp.getTime()+stepDays*864e5);}
+          const payAmt=b.dueAmount||(countInMonth>0?Math.round(bAmt/countInMonth*100)/100:bAmt);
           // Emit all occurrences within this calendar month
           while(d<=monthEnd){
             const ds=d.toISOString().split('T')[0];
@@ -9026,9 +9027,9 @@ function avgMonthlyNetPayment(acctId){
     if(t.accountId===acctId&&t.type==='out')
       outByMonth[t.monthId]=(outByMonth[t.monthId]||0)+t.amount;
   });
-  const payments=monthIds.map(mid=>(inByMonth[mid]||0)-(outByMonth[mid]||0)).filter(p=>p!==0);
-  if(!payments.length)return 0;
-  return Math.round(payments.reduce((s,p)=>s+p,0)/payments.length*100)/100;
+  // Always divide by total months (3) for conservative projection — avoids overstating payoff ability
+  const total=monthIds.reduce((s,mid)=>s+Math.max(0,(inByMonth[mid]||0)-(outByMonth[mid]||0)),0);
+  return Math.round(total/monthIds.length*100)/100;
 }
 function renderDebtTracker(a){
   const balance=acctBalance(a.id); // positive = amount owed (debt acctBalance always returns positive)
@@ -10286,7 +10287,7 @@ function MrowTypeChange(i,v){
 function contribTip(row){
   const m=parseFloat(row.budget)||0;
   if(!m)return'';
-  const per=row.contrib==='weekly'?+(m/4.33).toFixed(2):row.contrib==='biweekly'?+(m/2).toFixed(2):m;
+  const per=row.contrib==='weekly'?+(m*12/52).toFixed(2):row.contrib==='biweekly'?+(m*12/26).toFixed(2):m;
   return `<div class="contrib-tip">💡 Put aside <strong>${$f(per)}</strong> per ${row.contrib==='weekly'?'week':row.contrib==='biweekly'?'paycheck':'month'}</div>`;
 }
 
@@ -10365,7 +10366,7 @@ function renderModal(){
     let catOpts=S.cats.length?'<option value="">Select category...</option>':'<option value="">Create a category first</option>';
     sortedCats().forEach(c=>catOpts+=`<option value="${c.id}"${c.id===M.bktCat?' selected':''}>${esc(c.name)}</option>`);
     let contribPreview='';
-    if(isSink&&M.bktBudget){const mn=parseFloat(M.bktBudget)||0;const per=M.bktContrib==='weekly'?+(mn/4.33).toFixed(2):M.bktContrib==='biweekly'?+(mn/2).toFixed(2):mn;contribPreview=`<div class="contrib-preview">💡 Put aside <strong>${$f(per)}</strong> per ${M.bktContrib==='weekly'?'week':M.bktContrib==='biweekly'?'paycheck':'month'}</div>`;}
+    if(isSink&&M.bktBudget){const mn=parseFloat(M.bktBudget)||0;const per=M.bktContrib==='weekly'?+(mn*12/52).toFixed(2):M.bktContrib==='biweekly'?+(mn*12/26).toFixed(2):mn;contribPreview=`<div class="contrib-preview">💡 Put aside <strong>${$f(per)}</strong> per ${M.bktContrib==='weekly'?'week':M.bktContrib==='biweekly'?'paycheck':'month'}</div>`;}
     body=`
       <div class="fg">
         <label class="fl" for="mBktName">Bucket Name</label>
@@ -10438,7 +10439,7 @@ function renderModal(){
         <label class="fl" for="mBktContrib">Contribution Frequency</label>
         <select class="fi" id="mBktContrib" onchange="M.bktContrib=this.value;MsnapBkt();renderModal()">
           <option value="monthly"${M.bktContrib==='monthly'?' selected':''}>Monthly</option>
-          <option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Twice a month (per paycheck)</option>
+          <option value="biweekly"${M.bktContrib==='biweekly'?' selected':''}>Bi-weekly (every 2 weeks)</option>
           <option value="weekly"${M.bktContrib==='weekly'?' selected':''}>Weekly</option>
         </select>
         ${contribPreview}
