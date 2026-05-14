@@ -6520,24 +6520,16 @@ function renderAcctTxList(aid){
   const {balMap,schedMap}=calcAccountRunningBal(aid);
   let h='';
 
-  if(scheduled.length){
-    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
-    scheduled.forEach(tx=>{
-      h+=txRowHtml(tx,false,true,schedMap.get(tx.id)??null);
-    });
-    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Posted</div>`;
-  }
-
   const groups={};
   posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
-  Object.keys(groups).sort((a,b)=>new Date(a)-new Date(b)).forEach(date=>{
+  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
     h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
     groups[date].sort((a,b)=>b.amount-a.amount).forEach(tx=>{
       h+=txRowHtml(tx,false,false,balMap.get(tx.id)??null);
     });
   });
 
-  // Scheduled at bottom — chronologically after all posted
+  // Scheduled at bottom — they're future-dated, so chronologically last
   if(scheduled.length){
     if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Upcoming</div>`;
     h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
@@ -6771,7 +6763,7 @@ function renderTxList(){
     balBadge.style.display='none';
   }
 
-  txs=[...txs].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
   const list=document.getElementById('txList');
   if(!txs.length){list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${esc(search)}"`:''}.<br>${past?'Month is closed.':'Log one above.'}</div>`;return;}
 
@@ -6805,8 +6797,8 @@ function renderTxList(){
   posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
   let h='';
 
-  // Posted: oldest first so running balance counts down naturally as you read top→bottom
-  Object.keys(groups).sort((a,b)=>new Date(a)-new Date(b)).forEach(date=>{
+  // Posted: newest first (most recent at top — no scrolling to find latest)
+  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
     h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
     groups[date].sort((a,b)=>b.amount-a.amount).forEach(tx=>{
       const rb=runBals.balMap.has(tx.id)?runBals.balMap.get(tx.id):null;
@@ -6814,7 +6806,7 @@ function renderTxList(){
     });
   });
 
-  // Scheduled at the bottom — they're in the future, so chronologically after all posted
+  // Scheduled at the bottom — future-dated, so after all posted
   if(scheduled.length){
     if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Upcoming</div>`;
     h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
