@@ -8521,7 +8521,7 @@ function wiRunProjector(){
       activeIntRules.forEach(r=>{
         const b=getBucket(r.bucketId);
         const amt=r.type==='pct'?Math.round(ev.amount*(r.value/100)*100)/100:r.value;
-        if(amt>0)commitEvents.push({date:ev.date,desc:b.name,amount:amt,kind:'commit',catColor:S.cats.find(c=>c.id===b.catId)?.color||null,ruleName:r.name});
+        if(amt>0)commitEvents.push({date:ev.date,desc:b.name,amount:amt,kind:'commit',isVault:b.type==='vault',catColor:S.cats.find(c=>c.id===b.catId)?.color||null,ruleName:r.name});
       });
     });
   }}
@@ -8529,7 +8529,7 @@ function wiRunProjector(){
   // ── Build all outflows (current-month-aware + debt min payments) ──────────
   const outflows=[];
   const activeMid=S.activeMonth;
-  const allBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,S.activeMonth));
+  const allBkts=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,S.activeMonth)&&b.type!=='vault');
   {let wY2=startDate.getFullYear(),wM2=startDate.getMonth();
   const endY2=endDate.getFullYear(),endMM2=endDate.getMonth();
   while(wY2<endY2||(wY2===endY2&&wM2<=endMM2)){
@@ -8689,6 +8689,7 @@ function wiRunProjector(){
     payEvents.filter(e=>e.date>=p.start&&e.date<=p.end&&e.kind==='pay').forEach(e=>{_pr+=e.amount;});
     payEvents.filter(e=>e.date>=p.start&&e.date<=p.end&&e.kind==='ext_deduct').forEach(e=>{_pr-=e.amount;});
     outflows.filter(o=>o.date>=p.start&&o.date<=p.end).forEach(o=>_pr-=o.amount);
+    commitEvents.filter(e=>e.date>=p.start&&e.date<=p.end&&e.isVault).forEach(e=>{_pr-=e.amount;});
     return _pr;
   });}
   const minFwdPeriod=periodEndBals.map((_,i)=>Math.min(...periodEndBals.slice(i)));
@@ -8701,8 +8702,9 @@ function wiRunProjector(){
   const isSavingsFlow=o=>o.bktType==='sinking'||o.bktType==='goal'||o.bktRollover;
   const totalPlanned=outflows.filter(isSavingsFlow).reduce((s,o)=>s+o.amount,0);
   const totalExpenses=totalSpend-totalPlanned;
-  const totalCommitted=commitEvents.reduce((s,e)=>s+e.amount,0);
-  const projectedEnd=startBal+totalIncome-totalTransfers-totalSpend;
+  const totalVaultCommits=commitEvents.filter(e=>e.isVault).reduce((s,e)=>s+e.amount,0);
+  const totalCommitted=commitEvents.filter(e=>!e.isVault).reduce((s,e)=>s+e.amount,0);
+  const projectedEnd=startBal+totalIncome-totalTransfers-totalSpend-totalVaultCommits;
 
   // Pre-compute savings overview rows
   const intSavRows=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived).map(r=>{
@@ -8751,6 +8753,10 @@ function wiRunProjector(){
           <td style="padding:5px 14px;color:var(--text2)">Auto-Transfers <span style="font-size:10px;color:var(--amber)">(payday)</span></td>
           <td style="padding:5px 14px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--amber)">-${$f(totalTransfers)}</td>
         </tr>`:''}
+        ${totalVaultCommits>0?`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:5px 14px;color:var(--text2)">Vault Savings 🔒 <span style="font-size:10px;color:var(--text3)">(payday)</span></td>
+          <td style="padding:5px 14px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--accent)">-${$f(totalVaultCommits)}</td>
+        </tr>`:''}
         <tr style="border-bottom:1px solid var(--border)">
           <td style="padding:5px 14px;color:var(--text2)">Expenses</td>
           <td style="padding:5px 14px;text-align:right;font-family:var(--mono);font-weight:600;color:var(--red)">-${$f(totalSpend)}</td>
@@ -8785,10 +8791,13 @@ function wiRunProjector(){
     const pPay=payEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
     const pOut=outflows.filter(o=>o.date>=p.start&&o.date<=p.end);
     const pCommit=commitEvents.filter(e=>e.date>=p.start&&e.date<=p.end);
+    const pVaultCommit=pCommit.filter(e=>e.isVault);
+    const pNonVaultCommit=pCommit.filter(e=>!e.isVault);
     const pInAmt=pPay.filter(e=>e.kind==='pay').reduce((s,e)=>s+e.amount,0);
     const pXfrAmt=pPay.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
     const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0);
-    const pCommitAmt=pCommit.reduce((s,e)=>s+e.amount,0);
+    const pVaultAmt=pVaultCommit.reduce((s,e)=>s+e.amount,0);
+    const pCommitAmt=pNonVaultCommit.reduce((s,e)=>s+e.amount,0);
     const periodStartBal=running;
     running=periodEndBals[pIdx];
     cumulativeOut+=pOutAmt;
@@ -8843,13 +8852,23 @@ function wiRunProjector(){
           <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--amber)">-${$f(e.amount)}</span>
         </div>`;
       });
+      // Vault savings — cash deducted on payday and set aside
+      pVaultCommit.forEach(e=>{
+        ledgerBal-=e.amount;
+        bodyHtml+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px;flex-shrink:0">🔒</span>
+          <span style="flex:1;font-size:13px">${esc(e.desc)}</span>
+          <span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,.4);border-radius:3px;padding:0 4px;margin-right:4px">vault savings</span>
+          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent)">-${$f(e.amount)}</span>
+        </div>`;
+      });
       bodyHtml+=runBalRow(ledgerBal);
     }
 
-    // 2. Bucket Allocations (no cash movement)
-    if(pCommit.length){
+    // 2. Bucket Allocations (no cash movement — non-vault rules only)
+    if(pNonVaultCommit.length){
       const allocMap={};
-      pCommit.forEach(e=>{if(!allocMap[e.desc])allocMap[e.desc]={amount:0,catColor:e.catColor};allocMap[e.desc].amount+=e.amount;});
+      pNonVaultCommit.forEach(e=>{if(!allocMap[e.desc])allocMap[e.desc]={amount:0,catColor:e.catColor};allocMap[e.desc].amount+=e.amount;});
       let intTotalCur=0,intTotalAmt=0;
       // Build data first, then HTML
       const allocEntries=Object.entries(allocMap).map(([name,{amount,catColor}])=>{
@@ -8915,6 +8934,7 @@ function wiRunProjector(){
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
           ${pInAmt>0?`<span class="c-green" style="font-size:12px;font-family:var(--mono)">+${$f(pInAmt)}</span>`:''}
           ${pXfrAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--amber)">-${$f(pXfrAmt)}</span>`:''}
+          ${pVaultAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent)">-${$f(pVaultAmt)} 🔒</span>`:''}
           ${pOutAmt>0?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pOutAmt)}</span>`:''}
           <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
         </div>
@@ -8940,6 +8960,7 @@ function wiRunProjector(){
     <span class="c-text3">Income: <strong class="c-green">+${$f(totalIncome)}</strong></span>
     <span class="c-text3">Bills: <strong class="c-red">-${$f(totalExpenses)}</strong></span>
     ${totalPlanned>0?`<span class="c-text3">Planned: <strong style="color:var(--accent)">-${$f(totalPlanned)}</strong></span>`:''}
+    ${totalVaultCommits>0?`<span class="c-text3">Vault: <strong style="color:var(--accent)">🔒${$f(totalVaultCommits)}</strong></span>`:''}
     ${totalCommitted>0?`<span class="c-text3">Committed: <strong style="color:var(--text2)">📋${$f(totalCommitted)}</strong></span>`:''}
     ${shortfallCount?`<span class="c-red" style="font-weight:700">⚠ ${shortfallCount} shortfall period${shortfallCount!==1?'s':''}</span>`:'<span class="c-green">✓ No shortfalls</span>'}
     <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:${endColor};margin-left:auto">End: ${$f(running)}</span>
