@@ -585,6 +585,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .acct-inline-inp:hover{border-color:var(--border2);}
 .acct-inline-inp:focus{border-color:var(--accent);background:var(--surface);outline:none;}
 .acct-type-sel{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;font-size:11px;color:var(--text3);width:100%;cursor:pointer;}
+.acct-month-sel{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;}
 .acct-bal-cell{font-family:var(--mono);font-size:13px;font-weight:500;text-align:right;width:90px;flex-shrink:0;}
 .acct-color-dot{width:18px;height:18px;border-radius:50%;cursor:pointer;flex-shrink:0;border:2px solid transparent;transition:border-color .15s;}
 .acct-color-dot:hover{border-color:var(--text2);}
@@ -1039,6 +1040,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 @keyframes txFlash{0%,100%{background:transparent;}50%{background:var(--abg);}}
 .tx-sched:hover{background:color-mix(in srgb,var(--abg) 80%,var(--bg3) 20%);}
 .tx-sched-badge{font-size:10px;font-weight:700;color:var(--amber);font-family:var(--mono);letter-spacing:.3px;flex-shrink:0;}
+.tx-unassigned{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(245,158,11,.15);color:#d97706;border:1px solid rgba(245,158,11,.35);letter-spacing:.2px;flex-shrink:0;}
 
 /* ═══ ACCESSIBILITY — focus rings for keyboard navigation ═══ */
 *:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
@@ -4824,7 +4826,7 @@ function openDetail(type,id){
          <button class="btn-save" onclick="editBucket('${id}')">Edit</button>`);
     } else if(type==='account'){
       const a=getAcct(id);if(!a)return;
-      S.activeAccount=id;S.activeBucket=null;
+      S.activeAccount=id;S.activeBucket=null;_acctViewMonth=null;
       openRSheet(a.name,'',
         `<button class="btn-cancel" onclick="closeRSheet()">Close</button>
          <button class="btn-save" onclick="editAcct('${a.id}')">Edit Account</button>`);
@@ -4848,7 +4850,7 @@ function openDetail(type,id){
     scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));
   } else if(type==='account'){
     const a=getAcct(id);if(!a)return;
-    S.activeAccount=id;S.activeBucket=null;
+    S.activeAccount=id;S.activeBucket=null;_acctViewMonth=null;
     title.textContent=a.name;
     act.textContent='Edit';act.onclick=()=>editAcct(id);
     scroll.style.cssText='flex:1;overflow-y:auto;padding:0;';
@@ -5650,7 +5652,7 @@ function acctExpandHtml(a){
       </div>
       <div class="tx-exp-field">
         <div class="tx-exp-label">Opening Balance</div>
-        <input class="tx-exp-sel" type="number" step="0.01" value="${openBal||''}" placeholder="0.00"
+        <input class="tx-exp-sel" type="number" step="0.01" value="${openBal?(parseFloat(openBal)).toFixed(2):''}" placeholder="0.00"
           onblur="acctAutoSave('${a.id}','openingBalance',parseFloat(this.value)||0)"
           onkeydown="if(event.key==='Enter')this.blur()" />
       </div>`;
@@ -5664,13 +5666,13 @@ function acctExpandHtml(a){
       </div>
       <div class="tx-exp-field">
         <div class="tx-exp-label">Min Payment</div>
-        <input class="tx-exp-sel" type="number" step="0.01" value="${a.debtMinPayment||''}" placeholder="—"
+        <input class="tx-exp-sel" type="number" step="0.01" value="${a.debtMinPayment?(parseFloat(a.debtMinPayment)).toFixed(2):''}" placeholder="—"
           onblur="acctAutoSave('${a.id}','debtMinPayment',this.value)"
           onkeydown="if(event.key==='Enter')this.blur()" />
       </div>
       <div class="tx-exp-field">
         <div class="tx-exp-label">Credit Limit</div>
-        <input class="tx-exp-sel" type="number" step="0.01" value="${a.creditLimit||''}" placeholder="—"
+        <input class="tx-exp-sel" type="number" step="0.01" value="${a.creditLimit?(parseFloat(a.creditLimit)).toFixed(2):''}" placeholder="—"
           onblur="acctAutoSave('${a.id}','creditLimit',this.value)"
           onkeydown="if(event.key==='Enter')this.blur()" />
       </div>
@@ -6099,7 +6101,7 @@ function renderSettingsTab(el){
       <div class="sett-pc-card-hdr" style="color:${req?'var(--accent)':'var(--text3)'}">Income ${n}${req?' · required':' · optional'}</div>
       <div class="sett-pc-grid">
         <div><label class="fl">Label</label><input class="fi" id="pcs${n}Label" value="${esc(pc.label||'')}" placeholder="${n===1?'My Paycheck':n===2?'Spouse / Partner':'Other Income'}" /></div>
-        <div><label class="fl">Amount</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount||''}" placeholder="0.00" step="0.01" /></div>
+        <div><label class="fl">Amount</label><input class="fi mono" id="pcs${n}Amt" type="number" value="${pc.amount?parseFloat(pc.amount).toFixed(2):''}" placeholder="0.00" step="0.01" /></div>
         <div><label class="fl">Anchor Date</label><input class="fi" id="pcs${n}Date" type="date" value="${pc.anchorDate||''}" /></div>
         <div><label class="fl">Frequency</label><select class="fi" id="pcs${n}Freq">
           <option value="7"${pc.freq===7?' selected':''}>Weekly</option>
@@ -6330,22 +6332,35 @@ function bhStartEdit(mid){
 function renderAccountView(el,mid){
   const a=getAcct(S.activeAccount);if(!a){clearActive();return;}
   const bal=acctBalance(a.id);
-  const past=mid?monthStatus(mid)==='past':false;
   const isDebtAcct=a.type==='debt';
-  // Debt accounts: include tagged payment transactions alongside their own transactions
-  const allTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id||(isDebtAcct&&t.debtPaymentAccountId===a.id))
-    .sort((x,y)=>new Date(y.date)-new Date(x.date)||y.id.localeCompare(x.id));
-  const posted=allTxs.filter(t=>!isScheduled(t));
-  const scheduled=allTxs.filter(t=>isScheduled(t)).sort((x,y)=>new Date(x.date)-new Date(y.date));
+
+  // Use the selected month for the ledger view; default to the active month
+  const selectedMid=_acctViewMonth||mid||S.activeMonth;
+  const selectedMonth=S.months.find(m=>m.id===selectedMid);
+  const past=selectedMid?monthStatus(selectedMid)==='past':false;
+
+  // All transactions for this account (all months) used for balance/stats
+  const allAcctTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id||(isDebtAcct&&t.debtPaymentAccountId===a.id));
   const {balMap,schedMap}=calcAccountRunningBal(a.id);
 
-  // For debt: totalIn = payments made, totalOut = interest charges
+  // Filter to selected month for the ledger display
+  const monthTxs=allAcctTxs.filter(t=>t.monthId===selectedMid)
+    .sort((x,y)=>new Date(y.date)-new Date(x.date)||y.id.localeCompare(x.id));
+  const postedMonth=monthTxs.filter(t=>!isScheduled(t));
+  const scheduledMonth=monthTxs.filter(t=>isScheduled(t)).sort((x,y)=>new Date(x.date)-new Date(y.date));
+
+  // All-time stats for the balance block
+  const allPosted=allAcctTxs.filter(t=>!isScheduled(t));
   const totalIn=isDebtAcct
-    ?posted.filter(t=>t.debtPaymentAccountId===a.id||(t.toAccountId===a.id&&t.type==='xfr')).reduce((s,t)=>s+t.amount,0)
-    :posted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
+    ?allPosted.filter(t=>t.debtPaymentAccountId===a.id||(t.toAccountId===a.id&&t.type==='xfr')).reduce((s,t)=>s+t.amount,0)
+    :allPosted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
   const totalOut=isDebtAcct
-    ?posted.filter(t=>t.accountId===a.id&&t.type==='out'&&t.interestCharge).reduce((s,t)=>s+t.amount,0)
-    :posted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
+    ?allPosted.filter(t=>t.accountId===a.id&&t.type==='out'&&t.interestCharge).reduce((s,t)=>s+t.amount,0)
+    :allPosted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
+
+  // Month selector options (most recent first)
+  const monthOpts=[...S.months].sort((a,b)=>b.year!==a.year?b.year-a.year:b.month-a.month)
+    .map(m=>`<option value="${m.id}"${m.id===selectedMid?' selected':''}>${m.label||mLabel(m.year,m.month)}</option>`).join('');
 
   let h=`<button class="back-btn" onclick="goBackToAcctList()">← ${acctSection==='debt'?'Debt':'Cash & Savings'}</button>
   <div class="acct-hdr">
@@ -6362,31 +6377,49 @@ function renderAccountView(el,mid){
     <div class="stat-cell"><div class="stat-label">${isDebtAcct?'Interest Charged':'Total Out (all time)'}</div><div class="stat-val dim">${$f(totalOut)}</div></div>
   </div>`;
 
-  if(scheduled.length){
+  // Month selector bar
+  h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface2)">
+    <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Month</span>
+    <select class="acct-month-sel" onchange="setAcctViewMonth(this.value)">${monthOpts}</select>
+    ${past?`<span style="font-size:11px;color:var(--text3);margin-left:auto">Read-only — closed month</span>`:''}
+  </div>`;
+
+  if(scheduledMonth.length){
     h+=`<div class="det-block">
     <div class="det-block-title c-accent">Scheduled / Upcoming</div>
     <div class="tx-list" style="padding:0">`;
-    scheduled.forEach(tx=>{
+    scheduledMonth.forEach(tx=>{
       h+=txRowHtml(tx,past,true,schedMap.get(tx.id)??null,true);
     });
     h+=`</div></div>`;
   }
 
   h+=`<div class="det-block" style="padding:0">
-    <div class="det-block-title" style="padding:10px 14px 8px">All Transactions</div>
+    <div class="det-block-title" style="padding:10px 14px 8px">${selectedMonth?selectedMonth.label||mLabel(selectedMonth.year,selectedMonth.month):'Transactions'}</div>
     <div class="tx-list" style="padding:0">`;
-  if(!posted.length){
-    h+=`<div class="c-text3" style="padding:20px 0;text-align:center;font-size:13px">No posted transactions yet</div>`;
+
+  if(!postedMonth.length){
+    h+=`<div class="c-text3" style="padding:20px 0;text-align:center;font-size:13px">No posted transactions for this month.</div>`;
   } else {
-    posted.slice(0,100).forEach(tx=>{
-      h+=txRowHtml(tx,past,false,balMap.get(tx.id)??null,true);
+    // Group by date, sort dates newest first, within each date sort smallest → largest amount
+    const groups={};
+    postedMonth.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+    Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
+      h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
+      groups[date].sort((a,b)=>a.amount-b.amount).forEach(tx=>{
+        h+=txRowHtml(tx,past,false,balMap.get(tx.id)??null,true);
+      });
     });
-    if(posted.length>100){
-      h+=`<div class="c-text3" style="padding:12px 14px;font-size:12px;text-align:center">Showing 100 of ${posted.length} transactions</div>`;
-    }
   }
   h+=`</div></div>`;
   el.innerHTML=h;
+}
+function setAcctViewMonth(mid){
+  _acctViewMonth=mid;
+  const el=document.getElementById('acctLsMain');
+  if(!el)return;
+  const wrap=el.querySelector('.acct-detail-wrap');
+  if(wrap)renderAccountView(wrap,S.activeMonth);
 }
 
 function renderBucketDetail(mid,past,m){
@@ -6656,7 +6689,7 @@ function renderTxList(){
 
   Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
     h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
-    groups[date].forEach(tx=>{
+    groups[date].sort((a,b)=>a.amount-b.amount).forEach(tx=>{
       const rb=runBals.balMap.has(tx.id)?runBals.balMap.get(tx.id):null;
       h+=txRowHtml(tx,past,false,rb);
     });
@@ -6701,6 +6734,7 @@ function txRowHtml(tx,past,sched,runBal=null){
   if(tx.type==='xfr'&&toAcct)metaParts.push(`<span class="c-purple">→ ${esc(toAcct.name)}</span>`);
   if(tx.recurring)metaParts.push(`<span class="c-accent">↻</span>`);
   if(tx.debtPaymentAccountId){const d=getAcct(tx.debtPaymentAccountId);if(d)metaParts.push(`<span class="tx-debt-pay-badge">↓ ${esc(d.name)}</span>`);}
+  if(tx.type==='out'&&!tx.bucketId&&!tx.autoGenerated&&!isOpening)metaParts.push(`<span class="tx-unassigned">! Unassigned</span>`);
   const metaHtml=metaParts.length?metaParts.join('<span class="tx-dot2"></span>'):'<span class="c-text3">—</span>';
   const balLine=runBal!==null
     ?`<div class="tx-run-bal${sched?' proj':runBal<0?' neg':''}">${sched?'~':''}${$f(runBal)}</div>`
@@ -6718,7 +6752,7 @@ function txRowHtml(tx,past,sched,runBal=null){
         <div class="tx-meta" style="margin-top:2px">${metaHtml}</div>
       </div>
       <span class="tx-type-pill ${tx.type}">${tx.type==='in'?'In':tx.type==='xfr'?'Xfr':'Out'}</span>
-      <input class="tx-inline-inp tx-amt-inp ${amtCls}" type="number" step="0.01" value="${tx.amount}" style="width:90px"
+      <input class="tx-inline-inp tx-amt-inp ${amtCls}" type="number" step="0.01" value="${parseFloat(tx.amount||0).toFixed(2)}" style="width:90px"
         onfocus="this.select();this.dataset.orig=this.value"
         onblur="if(parseFloat(this.value)>0&&this.value!==this.dataset.orig)txAutoSave('${tx.id}','amount',this.value)"
         onkeydown="if(event.key==='Enter')this.blur()" />
@@ -7328,6 +7362,7 @@ let _vaultXfrReason={};
 let acctSection='cash';
 let activeAcctExpand=null;
 let _acctCreateColor=COLORS[0];
+let _acctViewMonth=null; // selected month in account detail ledger
 let _ledgerPayee='';
 let _confirmCallback=null;
 let _txSearchTimer=null;
@@ -7577,7 +7612,7 @@ function openTxEditModal(id){
     `<div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
       <div class="fg"><label class="fl">Description</label><input class="fi" id="etDesc" value="${esc(tx.desc)}" /></div>
       <div class="fi-row" style="gap:8px">
-        <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="etAmt" type="number" step="0.01" value="${tx.amount}" /></div>
+        <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="etAmt" type="number" step="0.01" value="${parseFloat(tx.amount||0).toFixed(2)}" /></div>
         <div class="fg"><label class="fl">Date</label><input class="fi" id="etDate" type="date" value="${tx.date}" /></div>
       </div>
       <div class="fg"><label class="fl">Account</label><select class="fi" id="etAcct">${acctOpts}</select></div>
@@ -7711,11 +7746,12 @@ function acctDotsMenu(e,id){
   setTimeout(()=>document.addEventListener('click',txCloseDotsMenu,{once:true}),10);
 }
 function openAcctDetail(id){
-  S.activeAccount=id;activeAcctExpand=null;save();
+  S.activeAccount=id;activeAcctExpand=null;_acctViewMonth=null;save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
 }
 function goBackToAcctList(expandId){
   S.activeAccount=null;
+  _acctViewMonth=null;
   if(expandId)activeAcctExpand=expandId;
   save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
@@ -10200,7 +10236,7 @@ function recurringBillsHtml(){
         <div class="fg"><label class="fl">Description</label><input class="fi" id="rbDesc" placeholder="e.g. Netflix" value="${editing?esc(editing.desc):''}" /></div>
       </div>
       <div class="fi-row" style="margin-bottom:8px;gap:8px">
-        <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="rbAmt" type="number" min="0" step="0.01" placeholder="0.00" value="${editing?editing.amount:''}" /></div>
+        <div class="fg"><label class="fl">Amount</label><input class="fi mono" id="rbAmt" type="number" min="0" step="0.01" placeholder="0.00" value="${editing?parseFloat(editing.amount||0).toFixed(2):''}" /></div>
         <div class="fg"><label class="fl">Day of Month</label><input class="fi mono" id="rbDay" type="number" min="1" max="31" placeholder="15" value="${editing?editing.dayOfMonth:''}" /></div>
       </div>
       <div class="fi-row" style="margin-bottom:8px">
@@ -11898,7 +11934,7 @@ function mEditTxSheet(id){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div><div class="m-field-label" style="margin-bottom:6px">Amount</div>
-        <input class="m-input mono" id="sAmt" type="number" value="${tx.amount}" inputmode="decimal" /></div>
+        <input class="m-input mono" id="sAmt" type="number" value="${parseFloat(tx.amount||0).toFixed(2)}" inputmode="decimal" /></div>
       <div><div class="m-field-label" style="margin-bottom:6px">Date</div>
         <input class="m-input" id="sDate" type="date" value="${tx.date}" /></div>
     </div>
