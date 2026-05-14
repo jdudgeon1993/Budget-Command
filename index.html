@@ -6333,20 +6333,16 @@ function renderAccountView(el,mid){
   const bal=acctBalance(a.id);
   const past=mid?monthStatus(mid)==='past':false;
   const isDebtAcct=a.type==='debt';
-  const allTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id||(isDebtAcct&&t.debtPaymentAccountId===a.id))
-    .sort((x,y)=>new Date(y.date)-new Date(x.date)||y.id.localeCompare(x.id));
-  const posted=allTxs.filter(t=>!isScheduled(t));
-  const scheduled=allTxs.filter(t=>isScheduled(t)).sort((x,y)=>new Date(x.date)-new Date(y.date));
-  const {balMap,schedMap}=calcAccountRunningBal(a.id);
-
+  const allTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id||(isDebtAcct&&t.debtPaymentAccountId===a.id));
+  const postedAll=allTxs.filter(t=>!isScheduled(t));
   const totalIn=isDebtAcct
-    ?posted.filter(t=>t.debtPaymentAccountId===a.id||(t.toAccountId===a.id&&t.type==='xfr')).reduce((s,t)=>s+t.amount,0)
-    :posted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
+    ?postedAll.filter(t=>t.debtPaymentAccountId===a.id||(t.toAccountId===a.id&&t.type==='xfr')).reduce((s,t)=>s+t.amount,0)
+    :postedAll.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
   const totalOut=isDebtAcct
-    ?posted.filter(t=>t.accountId===a.id&&t.type==='out'&&t.interestCharge).reduce((s,t)=>s+t.amount,0)
-    :posted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
+    ?postedAll.filter(t=>t.accountId===a.id&&t.type==='out'&&t.interestCharge).reduce((s,t)=>s+t.amount,0)
+    :postedAll.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
 
-  let h=`<button class="back-btn" onclick="goBackToAcctList()">← ${acctSection==='debt'?'Debt':'Cash & Savings'}</button>
+  el.innerHTML=`<button class="back-btn" onclick="goBackToAcctList()">← ${acctSection==='debt'?'Debt':'Cash & Savings'}</button>
   <div class="acct-hdr">
     <div style="width:12px;height:12px;border-radius:50%;background:${a.color};flex-shrink:0"></div>
     <div class="acct-hdr-name">${esc(a.name)}</div>
@@ -6359,39 +6355,104 @@ function renderAccountView(el,mid){
     <div class="stat-cell hi"><div class="stat-label">${isDebtAcct?'Amount Owed':'Available in Account'}</div><div class="stat-val ${bal>=0?'green':'red'}" style="font-size:22px">${$f(bal)}</div><div class="stat-sub">${a.type==='budget'?'your spending ceiling here':isDebtAcct?'opening balance − payments + interest':a.type==='savings'?'parked — not in RTS pool':'physical balance'}</div></div>
     <div class="stat-cell"><div class="stat-label">${isDebtAcct?'Payments Made':'Total In (all time)'}</div><div class="stat-val dim">${$f(totalIn)}</div></div>
     <div class="stat-cell"><div class="stat-label">${isDebtAcct?'Interest Charged':'Total Out (all time)'}</div><div class="stat-val dim">${$f(totalOut)}</div></div>
+  </div>
+  <div style="margin:0 -24px;border-top:1px solid var(--border)">
+    <div class="ledger-list-head">
+      <span class="ledger-list-title">${esc(a.name)}</span>
+      <span class="rp-bal-badge${bal<0?' neg':''}">${$f(bal)}</span>
+      <div class="ledger-filters">
+        <button class="rfbtn${_avFilter==='all'?' active':''}" onclick="avSetFilter('all')">All</button>
+        <button class="rfbtn${_avFilter==='in'?' active':''}" onclick="avSetFilter('in')">↓ In</button>
+        <button class="rfbtn${_avFilter==='out'?' active':''}" onclick="avSetFilter('out')">↑ Out</button>
+        <button class="rfbtn${_avFilter==='xfr'?' active':''}" onclick="avSetFilter('xfr')">⇄</button>
+      </div>
+    </div>
+    <div style="position:relative">
+      <input class="ledger-search" id="avSearch" placeholder="Search transactions…"
+        oninput="document.getElementById('avSearchClear').style.display=this.value?'block':'none';renderAcctTxList('${a.id}')" />
+      <button id="avSearchClear" onclick="document.getElementById('avSearch').value='';document.getElementById('avSearchClear').style.display='none';renderAcctTxList('${a.id}')"
+        class="c-text3" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px" title="Clear search">×</button>
+    </div>
+    <div id="avSummaryBar" style="flex-shrink:0"></div>
+    <div id="avTxList"></div>
   </div>`;
+  renderAcctTxList(a.id);
+}
 
-  if(scheduled.length){
-    h+=`<div class="det-block">
-    <div class="det-block-title c-accent">Scheduled / Upcoming</div>
-    <div class="tx-list" style="padding:0">`;
-    scheduled.forEach(tx=>{
-      h+=txRowHtml(tx,past,true,schedMap.get(tx.id)??null,true);
-    });
-    h+=`</div></div>`;
-  }
+function avSetFilter(f){
+  _avFilter=f;
+  ['all','in','out','xfr'].forEach(x=>{
+    const btn=document.querySelector(`[onclick="avSetFilter('${x}')"]`);
+    if(btn)btn.className='rfbtn'+(x===f?' active':'');
+  });
+  const a=getAcct(S.activeAccount);
+  if(a)renderAcctTxList(a.id);
+}
 
-  h+=`<div class="det-block" style="padding:0">
-    <div class="det-block-title" style="padding:10px 14px 8px">All Transactions</div>
-    <div class="tx-list" style="padding:0">`;
-  if(!posted.length){
-    h+=`<div class="c-text3" style="padding:20px 0;text-align:center;font-size:13px">No posted transactions yet</div>`;
-  } else {
-    // Group by date (newest first), within each date sort smallest → largest amount
-    const groups={};
-    posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
-    Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
-      h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
-      groups[date].sort((a,b)=>a.amount-b.amount).forEach(tx=>{
-        h+=txRowHtml(tx,past,false,balMap.get(tx.id)??null,true);
-      });
-    });
-    if(posted.length>100){
-      h+=`<div class="c-text3" style="padding:12px 14px;font-size:12px;text-align:center">Showing latest 100 of ${posted.length} transactions</div>`;
+function renderAcctTxList(aid){
+  const list=document.getElementById('avTxList');if(!list)return;
+  const a=getAcct(aid);if(!a)return;
+  const isDebtAcct=a.type==='debt';
+
+  let txs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid||(isDebtAcct&&t.debtPaymentAccountId===aid));
+  if(_avFilter==='in')txs=txs.filter(t=>t.type==='in');
+  if(_avFilter==='out')txs=txs.filter(t=>t.type==='out');
+  if(_avFilter==='xfr')txs=txs.filter(t=>t.type==='xfr');
+
+  const search=(document.getElementById('avSearch')?.value||'').toLowerCase();
+  if(search)txs=txs.filter(t=>t.desc.toLowerCase().includes(search)||(getBucket(t.bucketId)?.name||'').toLowerCase().includes(search));
+  const clearBtn=document.getElementById('avSearchClear');
+  if(clearBtn)clearBtn.style.display=search?'block':'none';
+
+  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  const today=todayStr();
+  const scheduled=txs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const posted=txs.filter(t=>t.date<=today);
+
+  // Summary bar — same style as main ledger
+  const summaryBar=document.getElementById('avSummaryBar');
+  if(summaryBar){
+    if(posted.length||scheduled.length){
+      const sIn=posted.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+      const sOut=posted.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+      const sNet=sIn-sOut;
+      summaryBar.innerHTML=`<div style="display:flex;gap:14px;align-items:center;padding:5px 14px;font-size:11px;background:var(--bg3);border-bottom:1px solid var(--border)">
+        <span>↓ <strong class="c-green" style="font-family:var(--mono)">${$f(sIn)}</strong></span>
+        <span>↑ <strong class="c-red" style="font-family:var(--mono)">${$f(sOut)}</strong></span>
+        <span class="c-text3" style="margin-left:auto">${posted.length} posted</span>
+        <span style="font-family:var(--mono);font-weight:700;color:${sNet>=0?'var(--green)':'var(--red)'}">${sNet>=0?'+':''}${$f(sNet)}</span>
+      </div>`;
+    } else {
+      summaryBar.innerHTML='';
     }
   }
-  h+=`</div></div>`;
-  el.innerHTML=h;
+
+  if(!txs.length){
+    list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${esc(search)}"`:''}.</div>`;
+    return;
+  }
+
+  const {balMap,schedMap}=calcAccountRunningBal(aid);
+  let h='';
+
+  if(scheduled.length){
+    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
+    scheduled.forEach(tx=>{
+      h+=txRowHtml(tx,false,true,schedMap.get(tx.id)??null);
+    });
+    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Posted</div>`;
+  }
+
+  const groups={};
+  posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
+    h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
+    groups[date].sort((a,b)=>a.amount-b.amount).forEach(tx=>{
+      h+=txRowHtml(tx,false,false,balMap.get(tx.id)??null);
+    });
+  });
+  list.innerHTML=h;
 }
 
 function renderBucketDetail(mid,past,m){
@@ -7334,6 +7395,7 @@ let _vaultXfrReason={};
 let acctSection='cash';
 let activeAcctExpand=null;
 let _acctCreateColor=COLORS[0];
+let _avFilter='all'; // filter state for account detail tx list
 let _ledgerPayee='';
 let _confirmCallback=null;
 let _txSearchTimer=null;
@@ -7717,11 +7779,12 @@ function acctDotsMenu(e,id){
   setTimeout(()=>document.addEventListener('click',txCloseDotsMenu,{once:true}),10);
 }
 function openAcctDetail(id){
-  S.activeAccount=id;activeAcctExpand=null;save();
+  S.activeAccount=id;activeAcctExpand=null;_avFilter='all';save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
 }
 function goBackToAcctList(expandId){
   S.activeAccount=null;
+  _avFilter='all';
   if(expandId)activeAcctExpand=expandId;
   save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
