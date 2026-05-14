@@ -8301,6 +8301,40 @@ function wiToggleSavingsGrowth(){
   if(ti)ti.textContent=isOpen?'▶ Show Savings Growth':'▼ Hide Savings Growth';
 }
 
+function oteRowsHtml(otes){
+  return (otes||[]).map((o,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 120px 95px 105px 28px;gap:6px;margin-bottom:6px;align-items:end">
+      <div><label class="fl">Name</label><input class="fi" id="oteName${i}" value="${esc(o.name||'')}" placeholder="Car repair, Vacation…" /></div>
+      <div><label class="fl">Date</label><input class="fi" id="oteDate${i}" type="date" value="${o.date||''}" /></div>
+      <div><label class="fl">Amount ($)</label><input class="fi mono" id="oteAmt${i}" type="number" step="0.01" min="0" value="${o.amt||''}" placeholder="0.00" /></div>
+      <div><label class="fl">Repeats</label><select class="fi" id="oteRepeat${i}"><option value="once"${(!o.repeat||o.repeat==='once')?' selected':''}>One-time</option><option value="weekly"${o.repeat==='weekly'?' selected':''}>Weekly</option><option value="biweekly"${o.repeat==='biweekly'?' selected':''}>Biweekly</option><option value="monthly"${o.repeat==='monthly'?' selected':''}>Monthly</option></select></div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:2px"><button onclick="wiRemoveOte(${i})" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button></div>
+    </div>`).join('');
+}
+function _oteSync(){
+  const prev=_projectorFormState||{};
+  const otes=prev.otes||[];
+  _projectorFormState=_projectorFormState||{};
+  _projectorFormState.otes=otes.map((_,i)=>({
+    name:document.getElementById(`oteName${i}`)?.value||'',
+    date:document.getElementById(`oteDate${i}`)?.value||'',
+    amt:document.getElementById(`oteAmt${i}`)?.value||'',
+    repeat:document.getElementById(`oteRepeat${i}`)?.value||'once'
+  }));
+}
+function wiAddOte(){
+  _oteSync();
+  (_projectorFormState.otes=_projectorFormState.otes||[]).push({name:'',date:'',amt:'',repeat:'once'});
+  const el=document.getElementById('oteRows');
+  if(el)el.innerHTML=oteRowsHtml(_projectorFormState.otes);
+}
+function wiRemoveOte(i){
+  _oteSync();
+  (_projectorFormState.otes=_projectorFormState.otes||[]).splice(i,1);
+  const el=document.getElementById('oteRows');
+  if(el)el.innerHTML=oteRowsHtml(_projectorFormState.otes);
+}
+
 function wiProjectorHtml(result,standalone){
   const backFn=standalone?'closeModal()':'closeRSheet()';
   const backBtn=standalone
@@ -8325,9 +8359,6 @@ function wiProjectorHtml(result,standalone){
   // Determine which optional paycheck rows to show
   const showPc2=!!(fs['pc2Amt']||fs['pc2Date']||(S.paychecks||[]).length>=2||fs.showPc2);
   const showPc3=!!(fs['pc3Amt']||fs['pc3Date']||(S.paychecks||[]).length>=3||fs.showPc3);
-  // One-time expense state
-  const showOte2=!!(fs.ote1Date&&fs.ote1Amt);
-  const showOte3=!!(fs.ote2Date&&fs.ote2Amt);
 
   // Paycheck row builder — pre-fills from stored form state, then S.paychecks, then smart next date
   const pcRow=(n,req)=>{
@@ -8407,13 +8438,9 @@ function wiProjectorHtml(result,standalone){
     ${showPc2?(showPc3?pcRow(3,false):`<div id="addPcWrap3" style="margin-bottom:8px"><button class="tbtn c-text3" style="font-size:12px;padding:5px 12px;width:100%" onclick="document.getElementById('addPcWrap3').style.display='none';document.getElementById('pcExpandWrap3').style.display='block';(_projectorFormState=_projectorFormState||{}).showPc3=true">+ Add third income source</button></div><div id="pcExpandWrap3" style="display:none">${pcRow(3,false)}</div>`):''}
 
     <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:12px">
-      <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">💸 One-Time Expenses <span style="font-weight:400;font-style:italic">(optional — model a repair, trip, or purchase)</span></div>
-      ${[1,2,3].filter(n=>n===1||n===2&&showOte2||n===3&&showOte3).map(n=>`
-      <div style="display:grid;grid-template-columns:130px 1fr 110px;gap:8px;margin-bottom:6px" id="oteRow${n}">
-        <div><label class="fl">Date</label><input class="fi" id="ote${n}Date" type="date" value="${fs['ote'+n+'Date']||''}" /></div>
-        <div><label class="fl">Description</label><input class="fi" id="ote${n}Desc" placeholder="e.g. Car repair, Vacation" value="${esc(fs['ote'+n+'Desc']||'')}" /></div>
-        <div><label class="fl">Amount ($)</label><input class="fi mono" id="ote${n}Amt" type="number" step="0.01" min="0" value="${fs['ote'+n+'Amt']||''}" placeholder="0.00" /></div>
-      </div>`).join('')}
+      <div class="c-text3" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">💸 Planned Expenses <span style="font-weight:400;font-style:italic">(optional — model a repair, trip, subscription, or any recurring cost)</span></div>
+      <div id="oteRows">${oteRowsHtml(fs.otes||[])}</div>
+      <button class="tbtn c-accent" style="font-size:12px;padding:4px 12px;width:100%;margin-top:2px" onclick="wiAddOte()">+ Add planned expense</button>
     </div>
 
     <div style="display:flex;gap:8px;margin-top:4px">
@@ -8457,11 +8484,7 @@ function wiRunProjector(){
     _projectorFormState['pc'+n+'Date']=document.getElementById('pc'+n+'Date')?.value||'';
     _projectorFormState['pc'+n+'Freq']=document.getElementById('pc'+n+'Freq')?.value||'14';
   }
-  for(let n=1;n<=3;n++){
-    _projectorFormState['ote'+n+'Date']=document.getElementById('ote'+n+'Date')?.value||'';
-    _projectorFormState['ote'+n+'Desc']=document.getElementById('ote'+n+'Desc')?.value||'';
-    _projectorFormState['ote'+n+'Amt']=document.getElementById('ote'+n+'Amt')?.value||'';
-  }
+  {const prevOtes=prev.otes||[];_projectorFormState.otes=prevOtes.map((_,i)=>({name:document.getElementById(`oteName${i}`)?.value||'',date:document.getElementById(`oteDate${i}`)?.value||'',amt:document.getElementById(`oteAmt${i}`)?.value||'',repeat:document.getElementById(`oteRepeat${i}`)?.value||'once'})).filter(o=>o.name||o.date||o.amt);}
 
   // Projection window: start from earliest paycheck date
   // Always start from today — bills before today are already in the current balance
@@ -8645,12 +8668,24 @@ function wiRunProjector(){
     }
   });
   if(extraWeekly>0){let eD=new Date(startDate);while(eD<=endDate){outflows.push({date:eD.toISOString().split('T')[0],desc:'Extra spending',amount:extraWeekly,src:'discretionary',catColor:null});eD.setDate(eD.getDate()+7);}}
-  for(let n=1;n<=3;n++){
-    const oteDate=document.getElementById('ote'+n+'Date')?.value;
-    const oteAmt=parseFloat(document.getElementById('ote'+n+'Amt')?.value||'0');
-    const oteDesc=document.getElementById('ote'+n+'Desc')?.value||'One-time expense';
-    if(oteDate&&oteAmt>0&&oteDate>=startStr&&oteDate<=endStr)outflows.push({date:oteDate,desc:oteDesc,amount:oteAmt,src:'onetime',catColor:null});
-  }
+  (_projectorFormState.otes||[]).forEach(o=>{
+    const amt=parseFloat(o.amt)||0;
+    if(!o.date||amt<=0)return;
+    const desc=o.name||'Planned expense';
+    const repeat=o.repeat||'once';
+    if(repeat==='once'){
+      if(o.date>=startStr&&o.date<=endStr)outflows.push({date:o.date,desc,amount:amt,src:'onetime',repeat,catColor:null});
+    } else {
+      const step=repeat==='weekly'?7:repeat==='biweekly'?14:0;
+      let d=new Date(o.date+'T12:00:00');
+      while(true){
+        const ds=d.toISOString().split('T')[0];
+        if(ds>endStr)break;
+        if(ds>=startStr)outflows.push({date:ds,desc,amount:amt,src:'onetime',repeat,catColor:null});
+        if(step>0)d.setDate(d.getDate()+step);else d.setMonth(d.getMonth()+1);
+      }
+    }
+  });
   outflows.sort((a,b)=>a.date.localeCompare(b.date));
 
   // ── Undated bucket warning (regular buckets only — sinking/goal spread to pay dates) ──
@@ -8908,7 +8943,7 @@ function wiRunProjector(){
         expByDay[date].forEach(o=>{
           ledgerBal-=o.amount;
           const isSav=isSavingsFlow(o);
-          const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`:o.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:o.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:o.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">one-time</span>`:'';
+          const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`:o.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:o.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:o.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">${o.repeat&&o.repeat!=='once'?o.repeat:'one-time'}</span>`:'';
           const dot=isSav?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`:`<span style="width:9px;height:9px;border-radius:50%;background:${o.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
           bodyHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">${dot}<span style="flex:1;font-size:13px">${esc(o.desc)}${badge}</span><span style="font-family:var(--mono);font-size:13px;text-align:right;color:${isSav?'var(--accent)':'var(--red)'}">-${$f(o.amount)}</span></div>`;
         });
