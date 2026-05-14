@@ -585,7 +585,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .acct-inline-inp:hover{border-color:var(--border2);}
 .acct-inline-inp:focus{border-color:var(--accent);background:var(--surface);outline:none;}
 .acct-type-sel{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:4px 6px;font-size:11px;color:var(--text3);width:100%;cursor:pointer;}
-.acct-month-sel{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;}
 .acct-bal-cell{font-family:var(--mono);font-size:13px;font-weight:500;text-align:right;width:90px;flex-shrink:0;}
 .acct-color-dot{width:18px;height:18px;border-radius:50%;cursor:pointer;flex-shrink:0;border:2px solid transparent;transition:border-color .15s;}
 .acct-color-dot:hover{border-color:var(--text2);}
@@ -4826,7 +4825,7 @@ function openDetail(type,id){
          <button class="btn-save" onclick="editBucket('${id}')">Edit</button>`);
     } else if(type==='account'){
       const a=getAcct(id);if(!a)return;
-      S.activeAccount=id;S.activeBucket=null;_acctViewMonth=null;
+      S.activeAccount=id;S.activeBucket=null;
       openRSheet(a.name,'',
         `<button class="btn-cancel" onclick="closeRSheet()">Close</button>
          <button class="btn-save" onclick="editAcct('${a.id}')">Edit Account</button>`);
@@ -4850,7 +4849,7 @@ function openDetail(type,id){
     scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));
   } else if(type==='account'){
     const a=getAcct(id);if(!a)return;
-    S.activeAccount=id;S.activeBucket=null;_acctViewMonth=null;
+    S.activeAccount=id;S.activeBucket=null;
     title.textContent=a.name;
     act.textContent='Edit';act.onclick=()=>editAcct(id);
     scroll.style.cssText='flex:1;overflow-y:auto;padding:0;';
@@ -6332,35 +6331,20 @@ function bhStartEdit(mid){
 function renderAccountView(el,mid){
   const a=getAcct(S.activeAccount);if(!a){clearActive();return;}
   const bal=acctBalance(a.id);
+  const past=mid?monthStatus(mid)==='past':false;
   const isDebtAcct=a.type==='debt';
-
-  // Use the selected month for the ledger view; default to the active month
-  const selectedMid=_acctViewMonth||mid||S.activeMonth;
-  const selectedMonth=S.months.find(m=>m.id===selectedMid);
-  const past=selectedMid?monthStatus(selectedMid)==='past':false;
-
-  // All transactions for this account (all months) used for balance/stats
-  const allAcctTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id||(isDebtAcct&&t.debtPaymentAccountId===a.id));
+  const allTxs=S.txs.filter(t=>t.accountId===a.id||t.toAccountId===a.id||(isDebtAcct&&t.debtPaymentAccountId===a.id))
+    .sort((x,y)=>new Date(y.date)-new Date(x.date)||y.id.localeCompare(x.id));
+  const posted=allTxs.filter(t=>!isScheduled(t));
+  const scheduled=allTxs.filter(t=>isScheduled(t)).sort((x,y)=>new Date(x.date)-new Date(y.date));
   const {balMap,schedMap}=calcAccountRunningBal(a.id);
 
-  // Filter to selected month for the ledger display
-  const monthTxs=allAcctTxs.filter(t=>t.monthId===selectedMid)
-    .sort((x,y)=>new Date(y.date)-new Date(x.date)||y.id.localeCompare(x.id));
-  const postedMonth=monthTxs.filter(t=>!isScheduled(t));
-  const scheduledMonth=monthTxs.filter(t=>isScheduled(t)).sort((x,y)=>new Date(x.date)-new Date(y.date));
-
-  // All-time stats for the balance block
-  const allPosted=allAcctTxs.filter(t=>!isScheduled(t));
   const totalIn=isDebtAcct
-    ?allPosted.filter(t=>t.debtPaymentAccountId===a.id||(t.toAccountId===a.id&&t.type==='xfr')).reduce((s,t)=>s+t.amount,0)
-    :allPosted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
+    ?posted.filter(t=>t.debtPaymentAccountId===a.id||(t.toAccountId===a.id&&t.type==='xfr')).reduce((s,t)=>s+t.amount,0)
+    :posted.filter(t=>t.type!=='opening'&&((t.accountId===a.id&&t.type==='in')||(t.toAccountId===a.id&&t.type==='xfr'))).reduce((s,t)=>s+t.amount,0);
   const totalOut=isDebtAcct
-    ?allPosted.filter(t=>t.accountId===a.id&&t.type==='out'&&t.interestCharge).reduce((s,t)=>s+t.amount,0)
-    :allPosted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
-
-  // Month selector options (most recent first)
-  const monthOpts=[...S.months].sort((a,b)=>b.year!==a.year?b.year-a.year:b.month-a.month)
-    .map(m=>`<option value="${m.id}"${m.id===selectedMid?' selected':''}>${m.label||mLabel(m.year,m.month)}</option>`).join('');
+    ?posted.filter(t=>t.accountId===a.id&&t.type==='out'&&t.interestCharge).reduce((s,t)=>s+t.amount,0)
+    :posted.filter(t=>t.type!=='opening'&&t.accountId===a.id&&(t.type==='out'||t.type==='xfr')).reduce((s,t)=>s+t.amount,0);
 
   let h=`<button class="back-btn" onclick="goBackToAcctList()">← ${acctSection==='debt'?'Debt':'Cash & Savings'}</button>
   <div class="acct-hdr">
@@ -6377,49 +6361,37 @@ function renderAccountView(el,mid){
     <div class="stat-cell"><div class="stat-label">${isDebtAcct?'Interest Charged':'Total Out (all time)'}</div><div class="stat-val dim">${$f(totalOut)}</div></div>
   </div>`;
 
-  // Month selector bar
-  h+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface2)">
-    <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Month</span>
-    <select class="acct-month-sel" onchange="setAcctViewMonth(this.value)">${monthOpts}</select>
-    ${past?`<span style="font-size:11px;color:var(--text3);margin-left:auto">Read-only — closed month</span>`:''}
-  </div>`;
-
-  if(scheduledMonth.length){
+  if(scheduled.length){
     h+=`<div class="det-block">
     <div class="det-block-title c-accent">Scheduled / Upcoming</div>
     <div class="tx-list" style="padding:0">`;
-    scheduledMonth.forEach(tx=>{
+    scheduled.forEach(tx=>{
       h+=txRowHtml(tx,past,true,schedMap.get(tx.id)??null,true);
     });
     h+=`</div></div>`;
   }
 
   h+=`<div class="det-block" style="padding:0">
-    <div class="det-block-title" style="padding:10px 14px 8px">${selectedMonth?selectedMonth.label||mLabel(selectedMonth.year,selectedMonth.month):'Transactions'}</div>
+    <div class="det-block-title" style="padding:10px 14px 8px">All Transactions</div>
     <div class="tx-list" style="padding:0">`;
-
-  if(!postedMonth.length){
-    h+=`<div class="c-text3" style="padding:20px 0;text-align:center;font-size:13px">No posted transactions for this month.</div>`;
+  if(!posted.length){
+    h+=`<div class="c-text3" style="padding:20px 0;text-align:center;font-size:13px">No posted transactions yet</div>`;
   } else {
-    // Group by date, sort dates newest first, within each date sort smallest → largest amount
+    // Group by date (newest first), within each date sort smallest → largest amount
     const groups={};
-    postedMonth.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
+    posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
     Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
       h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
       groups[date].sort((a,b)=>a.amount-b.amount).forEach(tx=>{
         h+=txRowHtml(tx,past,false,balMap.get(tx.id)??null,true);
       });
     });
+    if(posted.length>100){
+      h+=`<div class="c-text3" style="padding:12px 14px;font-size:12px;text-align:center">Showing latest 100 of ${posted.length} transactions</div>`;
+    }
   }
   h+=`</div></div>`;
   el.innerHTML=h;
-}
-function setAcctViewMonth(mid){
-  _acctViewMonth=mid;
-  const el=document.getElementById('acctLsMain');
-  if(!el)return;
-  const wrap=el.querySelector('.acct-detail-wrap');
-  if(wrap)renderAccountView(wrap,S.activeMonth);
 }
 
 function renderBucketDetail(mid,past,m){
@@ -7362,7 +7334,6 @@ let _vaultXfrReason={};
 let acctSection='cash';
 let activeAcctExpand=null;
 let _acctCreateColor=COLORS[0];
-let _acctViewMonth=null; // selected month in account detail ledger
 let _ledgerPayee='';
 let _confirmCallback=null;
 let _txSearchTimer=null;
@@ -7746,12 +7717,11 @@ function acctDotsMenu(e,id){
   setTimeout(()=>document.addEventListener('click',txCloseDotsMenu,{once:true}),10);
 }
 function openAcctDetail(id){
-  S.activeAccount=id;activeAcctExpand=null;_acctViewMonth=null;save();
+  S.activeAccount=id;activeAcctExpand=null;save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
 }
 function goBackToAcctList(expandId){
   S.activeAccount=null;
-  _acctViewMonth=null;
   if(expandId)activeAcctExpand=expandId;
   save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
