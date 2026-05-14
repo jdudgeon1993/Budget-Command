@@ -4825,7 +4825,7 @@ function openDetail(type,id){
          <button class="btn-save" onclick="editBucket('${id}')">Edit</button>`);
     } else if(type==='account'){
       const a=getAcct(id);if(!a)return;
-      S.activeAccount=id;S.activeBucket=null;
+      S.activeAccount=id;S.activeBucket=null;_avFilter='all';_avViewMonth=null;
       openRSheet(a.name,'',
         `<button class="btn-cancel" onclick="closeRSheet()">Close</button>
          <button class="btn-save" onclick="editAcct('${a.id}')">Edit Account</button>`);
@@ -4849,7 +4849,7 @@ function openDetail(type,id){
     scroll.innerHTML=renderBucketDetail(mid,past,getMonth(mid));
   } else if(type==='account'){
     const a=getAcct(id);if(!a)return;
-    S.activeAccount=id;S.activeBucket=null;
+    S.activeAccount=id;S.activeBucket=null;_avFilter='all';_avViewMonth=null;
     title.textContent=a.name;
     act.textContent='Edit';act.onclick=()=>editAcct(id);
     scroll.style.cssText='flex:1;overflow-y:auto;padding:0;';
@@ -6367,6 +6367,13 @@ function renderAccountView(el,mid){
         <button class="rfbtn${_avFilter==='xfr'?' active':''}" onclick="avSetFilter('xfr')">⇄</button>
       </div>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--surface2);border-bottom:1px solid var(--border)">
+      <span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">Month</span>
+      <select id="avMonthSel" class="tfi-sel" style="flex:1;font-size:12px;padding:4px 8px" onchange="setAvViewMonth(this.value)">
+        <option value="" ${_avViewMonth===''?' selected':''}>All time</option>
+        ${[...S.months].sort((x,y)=>y.year!==x.year?y.year-x.year:y.month-x.month).map(m=>`<option value="${m.id}"${(_avViewMonth||S.activeMonth)===m.id?' selected':''}>${m.label||mLabel(m.year,m.month)}</option>`).join('')}
+      </select>
+    </div>
     <div style="position:relative">
       <input class="ledger-search" id="avSearch" placeholder="Search transactions…"
         oninput="document.getElementById('avSearchClear').style.display=this.value?'block':'none';renderAcctTxList('${a.id}')" />
@@ -6388,13 +6395,26 @@ function avSetFilter(f){
   const a=getAcct(S.activeAccount);
   if(a)renderAcctTxList(a.id);
 }
+function setAvViewMonth(mid){
+  _avViewMonth=mid; // '' = all time, or a specific month ID
+  const a=getAcct(S.activeAccount);
+  if(a)renderAcctTxList(a.id);
+}
 
 function renderAcctTxList(aid){
   const list=document.getElementById('avTxList');if(!list)return;
   const a=getAcct(aid);if(!a)return;
   const isDebtAcct=a.type==='debt';
 
-  let txs=S.txs.filter(t=>t.accountId===aid||t.toAccountId===aid||(isDebtAcct&&t.debtPaymentAccountId===aid));
+  // _avViewMonth: null = current active month, '' = all time, else specific month ID
+  const viewMid=_avViewMonth===null?S.activeMonth:_avViewMonth;
+
+  let txs=S.txs.filter(t=>{
+    const acctMatch=t.accountId===aid||t.toAccountId===aid||(isDebtAcct&&t.debtPaymentAccountId===aid);
+    if(!acctMatch)return false;
+    if(viewMid)return t.monthId===viewMid; // specific month
+    return true; // all time
+  });
   if(_avFilter==='in')txs=txs.filter(t=>t.type==='in');
   if(_avFilter==='out')txs=txs.filter(t=>t.type==='out');
   if(_avFilter==='xfr')txs=txs.filter(t=>t.type==='xfr');
@@ -6597,10 +6617,11 @@ function calcAccountRunningBal(aid){
   const schedMap=new Map();
 
   // Posted: walk backwards from current cleared balance.
-  // Sort must exactly match renderAccountView's display order so balMap[id] lines up correctly.
+  // Sort MUST exactly match the display order (newest date first, smallest amount first within a day)
+  // so each balMap[id] maps to the correct row.
   const posted=S.txs.filter(t=>
     (t.accountId===aid||t.toAccountId===aid||t.debtPaymentAccountId===aid)&&t.type!=='opening'&&!isScheduled(t)
-  ).sort((a,b)=>new Date(b.date)-new Date(a.date)||b.id.localeCompare(a.id));
+  ).sort((a,b)=>new Date(b.date)-new Date(a.date)||a.amount-b.amount);
   let bal=cleared;
   posted.forEach(t=>{
     balMap.set(t.id,bal);
@@ -7395,7 +7416,8 @@ let _vaultXfrReason={};
 let acctSection='cash';
 let activeAcctExpand=null;
 let _acctCreateColor=COLORS[0];
-let _avFilter='all'; // filter state for account detail tx list
+let _avFilter='all';   // filter state for account detail tx list
+let _avViewMonth=null; // null = use S.activeMonth, '' = all time, or a specific month ID
 let _ledgerPayee='';
 let _confirmCallback=null;
 let _txSearchTimer=null;
@@ -7779,12 +7801,13 @@ function acctDotsMenu(e,id){
   setTimeout(()=>document.addEventListener('click',txCloseDotsMenu,{once:true}),10);
 }
 function openAcctDetail(id){
-  S.activeAccount=id;activeAcctExpand=null;_avFilter='all';save();
+  S.activeAccount=id;activeAcctExpand=null;_avFilter='all';_avViewMonth=null;save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
 }
 function goBackToAcctList(expandId){
   S.activeAccount=null;
   _avFilter='all';
+  _avViewMonth=null;
   if(expandId)activeAcctExpand=expandId;
   save();
   const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
