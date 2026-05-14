@@ -8186,6 +8186,7 @@ function saveScenario(){
   S.scenarios=S.scenarios.filter(s=>s.id!==S.wiScenario.id);
   S.scenarios.push({...S.wiScenario});
   if(S.scenarios.length>6)S.scenarios=S.scenarios.slice(-6);
+  if(_projectorFormState)_projectorFormState.scenarioId=S.wiScenario.id;
   save();renderWI();showToast('Scenario saved','save');
 }
 
@@ -8255,6 +8256,7 @@ function savePaycheckSettings(){
   S.paychecks=pcs;
   _projectorFormState=null; // reset so projector re-reads from new paycheck data
   _projectorLastResult=null;
+  try{localStorage.removeItem('_projFS');}catch(e){}
   save();
   const btn=document.querySelector('[onclick="savePaycheckSettings()"]');
   if(btn){const orig=btn.textContent;btn.textContent='✓ Saved!';btn.disabled=true;setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1500);}
@@ -8270,6 +8272,7 @@ function wiShowProjector(){
 function wiResetProjector(){
   _projectorFormState=null;
   _projectorLastResult=null;
+  try{localStorage.removeItem('_projFS');}catch(e){}
   renderWI();
 }
 
@@ -8365,9 +8368,12 @@ function wiProjectorHtml(result,standalone){
     const pc=(S.paychecks||[])[n-1]||{};
     const labelVal=fs['pc'+n+'Label']!==undefined?fs['pc'+n+'Label']:(pc.label||'');
     const amtVal=fs['pc'+n+'Amt']!==undefined?fs['pc'+n+'Amt']:(pc.amount||'');
-    // Smart date: use stored form value, or compute next upcoming pay date from anchor+freq
-    const dateVal=fs['pc'+n+'Date']!==undefined?fs['pc'+n+'Date']:nextPayDateFrom(pc.anchorDate,pc.freq||14);
     const freqNum=fs['pc'+n+'Freq']!==undefined?parseInt(fs['pc'+n+'Freq']):(pc.freq||14);
+    // Smart date: use stored form value if still upcoming; auto-advance past dates to next occurrence
+    const _storedDate=fs['pc'+n+'Date'];
+    const dateVal=_storedDate!==undefined
+      ?(_storedDate&&_storedDate<todayStr()?nextPayDateFrom(_storedDate,freqNum):_storedDate)
+      :nextPayDateFrom(pc.anchorDate,pc.freq||14);
     return `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${req?'var(--accent)':'var(--text3)'};margin-bottom:8px">
@@ -8393,10 +8399,12 @@ function wiProjectorHtml(result,standalone){
   const scOpts=`<option value=""${psv===''?' selected':''}>Actual Budget (default)</option>`
     +savedScenarios.map(s=>`<option value="${s.id}"${psv===s.id?' selected':''}>${esc(s.name)}</option>`).join('');
 
+  const _lastRunLabel=(!result&&_projectorFormState?.runAt)?new Date(_projectorFormState.runAt).toLocaleString('default',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
   return `${headTitle}${bodyWrap}
     <div class="c-text3" style="font-size:12px;margin-bottom:12px">
       Projects week-by-week cash flow using your budget bucket due dates, recurring bills, and scheduled transactions. Add up to 3 income sources.
     </div>
+    ${_lastRunLabel?`<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;margin-bottom:10px;font-size:12px;display:flex;align-items:center;gap:8px"><span>📅</span><span class="c-text2">Last run <strong>${_lastRunLabel}</strong> — form pre-filled, press Generate to restore.</span></div>`:''}
     ${(S.paychecks||[]).length?`<div class="c-accent" style="font-size:11px;background:var(--abg);border:1px solid var(--accent);border-radius:6px;padding:6px 10px;margin-bottom:10px">💰 Pre-filled from your saved Income Sources — dates auto-set to next upcoming pay date.</div>`:''}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
@@ -8485,6 +8493,8 @@ function wiRunProjector(){
     _projectorFormState['pc'+n+'Freq']=document.getElementById('pc'+n+'Freq')?.value||'14';
   }
   {const prevOtes=prev.otes||[];_projectorFormState.otes=prevOtes.map((_,i)=>({name:document.getElementById(`oteName${i}`)?.value||'',date:document.getElementById(`oteDate${i}`)?.value||'',amt:document.getElementById(`oteAmt${i}`)?.value||'',repeat:document.getElementById(`oteRepeat${i}`)?.value||'once'})).filter(o=>o.name||o.date||o.amt);}
+  _projectorFormState.runAt=Date.now();
+  try{localStorage.setItem('_projFS',JSON.stringify(_projectorFormState));}catch(e){}
 
   // Projection window: start from earliest paycheck date
   // Always start from today — bills before today are already in the current balance
@@ -9089,20 +9099,24 @@ function wiRunProjector(){
 
 function promoteScenario(){
   if(!S.wiScenario)return;
+  const now=new Date();
+  const affectedMonths=S.months.filter(m=>m.year>now.getFullYear()||(m.year===now.getFullYear()&&m.month>=now.getMonth()));
+  const changedBktIds=Object.keys(S.wiScenario.budgets).filter(bid=>{const b=getBucket(bid);return b&&!b.archived;});
+  const moLabel=affectedMonths.length===1?'1 month':`${affectedMonths.length} months`;
+  const bktLabel=changedBktIds.length===1?'1 bucket':`${changedBktIds.length} buckets`;
   showConfirmModal(
-    'Apply Scenario?',
-    'Updates budget targets for the current and all future months.',
-    'Apply',
+    `Promote "${S.wiScenario.name}"?`,
+    `This will overwrite budget targets for ${bktLabel} across ${moLabel} (current month onward) and update all default amounts. This cannot be undone.`,
+    'Promote to Budget',
     ()=>{
-      const now=new Date();
-      S.months.forEach(m=>{
-        if(m.year>now.getFullYear()||(m.year===now.getFullYear()&&m.month>=now.getMonth())){
-          Object.keys(S.wiScenario.budgets).forEach(bid=>{m.budgets[bid]=S.wiScenario.budgets[bid];});
-          if(S.wiScenario.incomeOverrides[m.id]!==undefined)m.projectedIncome=S.wiScenario.incomeOverrides[m.id];
-        }
+      affectedMonths.forEach(m=>{
+        changedBktIds.forEach(bid=>{m.budgets[bid]=S.wiScenario.budgets[bid];});
+        if(S.wiScenario.incomeOverrides[m.id]!==undefined)m.projectedIncome=S.wiScenario.incomeOverrides[m.id];
       });
       S.buckets.forEach(b=>{if(S.wiScenario.budgets[b.id]!==undefined)b.defaultBudget=S.wiScenario.budgets[b.id];});
+      const _name=S.wiScenario.name||'Scenario';
       exitWI();save();render();
+      showToast(`Promoted "${_name}" to budget`,'save');
     }
   );
 }
@@ -11653,6 +11667,8 @@ function init(){
 document.addEventListener('DOMContentLoaded',()=>{
   // Apply saved theme immediately
   applyTheme(localStorage.getItem('bcc_theme')||'dark');
+  // Restore projector form state so pre-filled values survive page refresh
+  try{const _s=localStorage.getItem('_projFS');if(_s)_projectorFormState=JSON.parse(_s);}catch(e){}
 
   // Show update banner if app version changed since last visit
   const lastVersion=localStorage.getItem('bcc_app_version');
