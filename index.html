@@ -5212,6 +5212,52 @@ function renderOverviewTab(el,mid){
     </div>
   </div>`;
 
+  // ── Notifications: budget health alerts (right after hero so they're actionable) ──
+  // Desktop hint bars
+  if(!past){
+    if(rts<0)h+=`<div class="hint-bar info ov-desktop-only">💰 ${$f(Math.abs(rts))} over-allocated — assign less to buckets or add income. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Adjust →</button></div>`;
+    else if(rts===0&&alloc>0)h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
+    else if(unfundedCnt>0&&rts>0)h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
+  }
+  // Near-limit bucket alerts (present month only)
+  if(st==='present'&&!closed){
+    const nearLimit=nearLimitBuckets(mid);
+    if(nearLimit.length){
+      const names=nearLimit.slice(0,3).map(({b,pct})=>`<strong>${esc(b.name)}</strong> (${Math.round(pct*100)}%)`).join(', ')+(nearLimit.length>3?`…`:'');
+      h+=`<div class="hint-bar warn cc-near-limit">⚠ Nearing limit: ${names}${nearLimit.length>3?` +${nearLimit.length-3} more`:''} — consider adjusting allocations. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;white-space:nowrap" onclick="setTab('buckets')">View →</button></div>`;
+    }
+  }
+  // Critical buckets (over/overdue) — desktop hint bar + mobile card
+  const criticalItems=urgency.filter(u=>u.type==='over'||u.type==='overdue');
+  if(!past&&criticalItems.length){
+    const names=criticalItems.slice(0,3).map(u=>esc(u.b.name)).join(', ')+(criticalItems.length>3?'…':'');
+    h+=`<div class="hint-bar warn ov-desktop-only">⚠ ${criticalItems.length} bucket${criticalItems.length!==1?'s':''} need attention: ${names} <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">View Buckets →</button></div>`;
+  }
+  // Mobile "Needs Attention" card
+  if(urgency.length){
+    let urgHtml='';
+    urgency.slice(0,5).forEach(u=>{
+      const cat=getCat(u.b.catId);const color=cat?.color||'var(--accent)';
+      let dotColor='var(--text3)',sub='';
+      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
+      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
+      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
+      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
+      urgHtml+=`<div class="cc-tx-row" onclick="openDetail('bucket','${u.b.id}')">
+        <div class="cc-tx-dot" style="background:${dotColor}"></div>
+        <div class="cc-tx-info">
+          <div class="cc-tx-payee">${esc(u.b.name)}</div>
+          <div class="cc-tx-meta" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div>
+        </div>
+        <span style="color:var(--text3);font-size:16px">›</span>
+      </div>`;
+    });
+    h+=`<div class="card card-pad ov-mobile-only cc-needs-attn">
+      <div class="cc-card-hdr"><span class="cc-card-title">Needs Attention</span></div>
+      ${urgHtml}
+    </div>`;
+  }
+
   // ── Coaching panel (current month only) ───────────────────────────────────
   if(st==='present'){
     h+=coachingPanelHtml(mid);
@@ -5390,52 +5436,6 @@ function renderOverviewTab(el,mid){
         ${nwAcctRows}
       </div>
     </div>`;
-  }
-
-  // ── Needs Attention — mobile card (critical items) ─────────────────────────
-  const criticalItems=urgency.filter(u=>u.type==='over'||u.type==='overdue');
-  if(urgency.length){
-    let urgHtml='';
-    urgency.slice(0,5).forEach(u=>{
-      const cat=getCat(u.b.catId);const color=cat?.color||'var(--accent)';
-      let dotColor='var(--text3)',sub='';
-      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
-      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
-      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
-      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
-      urgHtml+=`<div class="cc-tx-row" onclick="openDetail('bucket','${u.b.id}')">
-        <div class="cc-tx-dot" style="background:${dotColor}"></div>
-        <div class="cc-tx-info">
-          <div class="cc-tx-payee">${esc(u.b.name)}</div>
-          <div class="cc-tx-meta" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div>
-        </div>
-        <span style="color:var(--text3);font-size:16px">›</span>
-      </div>`;
-    });
-    h+=`<div class="card card-pad ov-mobile-only cc-needs-attn">
-      <div class="cc-card-hdr"><span class="cc-card-title">Needs Attention</span></div>
-      ${urgHtml}
-    </div>`;
-  }
-
-  // ── Phase F: 80% near-limit bucket alerts ────────────────────────────────
-  if(st==='present'&&!closed){
-    const nearLimit=nearLimitBuckets(mid);
-    if(nearLimit.length){
-      const names=nearLimit.slice(0,3).map(({b,pct})=>`<strong>${esc(b.name)}</strong> (${Math.round(pct*100)}%)`).join(', ')+(nearLimit.length>3?`…`:'');
-      h+=`<div class="hint-bar warn cc-near-limit">⚠ Nearing limit: ${names}${nearLimit.length>3?` +${nearLimit.length-3} more`:''} — consider adjusting allocations. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;white-space:nowrap" onclick="setTab('buckets')">View →</button></div>`;
-    }
-  }
-
-  // ── Desktop hint bars for critical items ──────────────────────────────────
-  if(!past){
-    if(rts<0)h+=`<div class="hint-bar info ov-desktop-only">💰 ${$f(Math.abs(rts))} over-allocated — assign less to buckets or add income. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Adjust →</button></div>`;
-    else if(rts===0&&alloc>0)h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
-    else if(unfundedCnt>0&&rts>0)h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
-    if(criticalItems.length){
-      const names=criticalItems.slice(0,3).map(u=>esc(u.b.name)).join(', ')+(criticalItems.length>3?'…':'');
-      h+=`<div class="hint-bar warn ov-desktop-only">⚠ ${criticalItems.length} bucket${criticalItems.length!==1?'s':''} need attention: ${names} <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">View Buckets →</button></div>`;
-    }
   }
 
   // ── Mobile quick actions ──────────────────────────────────────────────────
@@ -6488,7 +6488,7 @@ function renderAcctTxList(aid){
   const clearBtn=document.getElementById('avSearchClear');
   if(clearBtn)clearBtn.style.display=search?'block':'none';
 
-  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  txs=[...txs].sort((a,b)=>new Date(a.date)-new Date(b.date));
 
   const today=todayStr();
   const scheduled=txs.filter(t=>t.date>today).sort((a,b)=>new Date(a.date)-new Date(b.date));
@@ -6530,12 +6530,22 @@ function renderAcctTxList(aid){
 
   const groups={};
   posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
-  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
+  Object.keys(groups).sort((a,b)=>new Date(a)-new Date(b)).forEach(date=>{
     h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
-    groups[date].sort((a,b)=>a.amount-b.amount).forEach(tx=>{
+    groups[date].sort((a,b)=>b.amount-a.amount).forEach(tx=>{
       h+=txRowHtml(tx,false,false,balMap.get(tx.id)??null);
     });
   });
+
+  // Scheduled at bottom — chronologically after all posted
+  if(scheduled.length){
+    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Upcoming</div>`;
+    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
+    scheduled.forEach(tx=>{
+      h+=txRowHtml(tx,false,true,schedMap.get(tx.id)??null);
+    });
+  }
+
   list.innerHTML=h;
 }
 
@@ -6680,9 +6690,9 @@ function calcAccountRunningBal(aid){
   const balMap=new Map();
   const schedMap=new Map();
 
-  // Posted: walk backwards from current cleared balance.
-  // Sort MUST exactly match the display order (newest date first, smallest amount first within a day)
-  // so each balMap[id] maps to the correct row.
+  // Posted: walk backwards from current cleared balance (newest→oldest, smallest-first within day).
+  // Display shows oldest-first / largest-first within day — the reversed within-day order is intentional:
+  // backward walk smallest-first correctly produces balance-after-tx values for a largest-first display.
   const posted=S.txs.filter(t=>
     (t.accountId===aid||t.toAccountId===aid||t.debtPaymentAccountId===aid)&&t.type!=='opening'&&!isScheduled(t)
   ).sort((a,b)=>new Date(b.date)-new Date(a.date)||a.amount-b.amount);
@@ -6761,7 +6771,7 @@ function renderTxList(){
     balBadge.style.display='none';
   }
 
-  txs=[...txs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  txs=[...txs].sort((a,b)=>new Date(a.date)-new Date(b.date));
   const list=document.getElementById('txList');
   if(!txs.length){list.innerHTML=`<div class="tx-empty">No transactions${search?` matching "${esc(search)}"`:''}.<br>${past?'Month is closed.':'Log one above.'}</div>`;return;}
 
@@ -6795,23 +6805,25 @@ function renderTxList(){
   posted.forEach(t=>{if(!groups[t.date])groups[t.date]=[];groups[t.date].push(t);});
   let h='';
 
-  // Scheduled section at the top
+  // Posted: oldest first so running balance counts down naturally as you read top→bottom
+  Object.keys(groups).sort((a,b)=>new Date(a)-new Date(b)).forEach(date=>{
+    h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
+    groups[date].sort((a,b)=>b.amount-a.amount).forEach(tx=>{
+      const rb=runBals.balMap.has(tx.id)?runBals.balMap.get(tx.id):null;
+      h+=txRowHtml(tx,past,false,rb);
+    });
+  });
+
+  // Scheduled at the bottom — they're in the future, so chronologically after all posted
   if(scheduled.length){
+    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Upcoming</div>`;
     h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
     scheduled.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(tx=>{
       const projBal=runBals.schedMap.has(tx.id)?runBals.schedMap.get(tx.id):null;
       h+=txRowHtml(tx,past,true,projBal);
     });
-    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Posted</div>`;
   }
 
-  Object.keys(groups).sort((a,b)=>new Date(b)-new Date(a)).forEach(date=>{
-    h+=`<div class="tx-date-hdr" data-date="${date}">${ld(date)}</div>`;
-    groups[date].sort((a,b)=>a.amount-b.amount).forEach(tx=>{
-      const rb=runBals.balMap.has(tx.id)?runBals.balMap.get(tx.id):null;
-      h+=txRowHtml(tx,past,false,rb);
-    });
-  });
   list.innerHTML=h;
   list._srch=search;
   list._srchVer=_stateVer;
