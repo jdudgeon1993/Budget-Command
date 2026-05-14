@@ -2801,14 +2801,14 @@ function calcNetWorth(){
   return S.accounts.reduce((s,a)=>s+(a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)),0);
 }
 function ageOfMoney(){
-  // Days = budget balance / avg daily spend over last 90 days
-  // 90-day window smooths seasonal variance (vacations, holidays, quarterly bills)
-  // Concept: how many days does your current budget balance represent at your spending rate?
-  // Green ≥30d (a full month ahead), amber 10–29d, red <10d (near paycheck-to-paycheck)
+  // Numerator: 14-day rolling average balance (smooths paycheck spikes & bill-payment dips)
+  // Denominator: 90-day average daily spend (smooths seasonal variance)
   const today=new Date();
-  const ninetyDaysAgo=new Date(today-90*24*60*60*1000);
-  const ninetyStr=ninetyDaysAgo.toISOString().split('T')[0];
   const todStr=todayStr();
+
+  // 90-day avg daily spend
+  const d90=new Date(today-90*24*60*60*1000);
+  const ninetyStr=d90.toISOString().split('T')[0];
   const recentOut=S.txs.filter(t=>
     t.type==='out'&&!isScheduled(t)&&
     t.date>=ninetyStr&&t.date<=todStr&&
@@ -2816,9 +2816,38 @@ function ageOfMoney(){
   ).reduce((s,t)=>s+t.amount,0);
   const dailyAvg=recentOut/90;
   if(dailyAvg<=0)return null;
-  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
-  if(budgetBal<=0)return 0;
-  return Math.round(budgetBal/dailyAvg);
+
+  // Current budget balance
+  const curBudgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  if(curBudgetBal<=0)return 0;
+
+  // Reconstruct ending balance for each of the last 14 days, then average them
+  const d14=new Date(today);d14.setDate(d14.getDate()-13);
+  const startStr=d14.toISOString().split('T')[0];
+  const budgetTxs=S.txs.filter(t=>{
+    if(isScheduled(t)||t.date<startStr||t.date>todStr)return false;
+    return getAcct(t.accountId)?.type==='budget'||getAcct(t.toAccountId)?.type==='budget';
+  });
+  // Net effect on budget accounts per date (positive = money in, negative = money out)
+  const netByDate={};
+  budgetTxs.forEach(t=>{
+    const acct=getAcct(t.accountId);const toAcct=getAcct(t.toAccountId);
+    let net=0;
+    if(acct?.type==='budget'){if(t.type==='in')net+=t.amount;else if(t.type==='out')net-=t.amount;else if(t.type==='xfr')net-=t.amount;}
+    if(toAcct?.type==='budget'&&t.type==='xfr')net+=t.amount;
+    netByDate[t.date]=(netByDate[t.date]||0)+net;
+  });
+  // Build date array: days[0] = 13 days ago, days[13] = today
+  const days=[];
+  for(let i=13;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);days.push(d.toISOString().split('T')[0]);}
+  // Walk backward from today's known balance: balances[13]=today, balances[i]=today minus net of days after i
+  const balances=new Array(14);
+  balances[13]=curBudgetBal;
+  let cumNet=0;
+  for(let i=12;i>=0;i--){cumNet+=netByDate[days[i+1]]||0;balances[i]=curBudgetBal-cumNet;}
+  const avgBal=balances.reduce((s,v)=>s+v,0)/14;
+  if(avgBal<=0)return 0;
+  return Math.round(avgBal/dailyAvg);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2831,6 +2860,16 @@ function ageOfMoney(){
 
 // All key budget stats for the current month.
 // Used by renderOverviewTab (unified overview — all breakpoints).
+// ── Net Worth collapsible toggle ─────────────────────────────────────────────
+function toggleNwPanel(){
+  _nwPanelOpen=!_nwPanelOpen;
+  try{localStorage.setItem('_nwOpen',_nwPanelOpen?'1':'0');}catch(e){}
+  const body=document.getElementById('nwCollapseBody');
+  const arrow=document.getElementById('nwCollapseArrow');
+  if(body)body.style.display=_nwPanelOpen?'block':'none';
+  if(arrow)arrow.textContent=_nwPanelOpen?'▼':'▶';
+}
+
 // ── Bucket skip-month ────────────────────────────────────────────────────────
 const isBktSkipped=(bid,mid)=>{const m=getMonth(mid);return !!(m?.skippedBuckets?.includes(bid));};
 function toggleSkipBucket(bid,mid){
@@ -5132,7 +5171,7 @@ function renderOverviewTab(el,mid){
         </div>
         <div class="cc-nm-stat">
           <div class="cc-nm-stat-lbl">Net Worth</div>
-          <div class="cc-nm-stat-val" style="color:${nw>=0?'var(--text)':'var(--red)'}">${$f(nw)}</div>
+          <div class="cc-nm-stat-val" style="color:${nw>=0?'var(--green)':'var(--text2)'}">${$f(nw)}</div>
         </div>
         <div class="cc-nm-stat">
           <div class="cc-nm-stat-lbl">Funded</div>
@@ -5143,35 +5182,28 @@ function renderOverviewTab(el,mid){
   }
 
   // ── Hero stat cards (desktop only — hidden on mobile) ─────────────────────
-  const rtsBadgeCls=rts>0?'pos':rts<0?'neg':'zero';
-  const rtsBadgeTxt=rts>0?`▲ ${$f(rts)} free`:rts<0?`▼ ${$f(Math.abs(rts))} short`:'✓ balanced';
-  const nwBadgeCls=nw>=0?'pos':'neg';
+  // RTS coloring: balanced=green (every dollar has a job), negative=amber (softer than red for new users)
+  const rtsValColor=rts>0?'var(--accent)':rts<0?'var(--amber)':alloc>0?'var(--green)':'var(--text2)';
+  const rtsBadgeCls=rts>0?'pos':rts<0?'neg':alloc>0?'pos':'zero';
+  const rtsBadgeTxt=rts>0?`▲ ${$f(rts)} free`:rts<0?`▼ ${$f(Math.abs(rts))} over`:alloc>0?'✓ every dollar has a job':'—';
 
   h+=`<div class="cc-hero-row">
     <div class="cc-hero-card primary">
       <div class="cc-hero-label">${st==='future'?'Available Pool':'Ready to Spend'}</div>
-      <div class="cc-hero-val" id="heroRtsVal" style="color:${rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)'}">${$f(Math.abs(rts))}</div>
+      <div class="cc-hero-val" id="heroRtsVal" style="color:${rtsValColor}">${$f(Math.abs(rts))}</div>
       <div class="cc-hero-sub">
         <span class="cc-hero-badge ${rtsBadgeCls}" id="heroRtsBadge">${st==='future'?'give every dollar a job':rtsBadgeTxt}</span>
       </div>
     </div>
     <div class="cc-hero-card">
-      <div class="cc-hero-label">Monthly Spend</div>
+      <div class="cc-hero-label">Monthly Spend Pace</div>
       <div class="cc-hero-val">${totalSpent>0?$f(totalSpent):'—'}</div>
       <div class="cc-hero-sub" style="flex-direction:column;align-items:flex-start;gap:3px">
         <span>${alloc>0?`of ${$f(alloc)} budget`:'no budget set'}</span>
         ${paceLbl?`<span style="font-size:10px;color:${paceClr}">${paceLbl}${spendRateLbl?' · '+spendRateLbl:''}</span>`:''}
-        ${st==='present'&&totalSpent>0&&timePct>0.05?`<span style="font-size:10px;color:var(--text3)">Run rate: <strong style="color:${(totalSpent/timePct)>alloc&&alloc>0?'var(--red)':'var(--text2)'}">~${$f(Math.round(totalSpent/timePct))}</strong> projected</span>`:''}
+        ${st==='present'&&totalSpent>0&&timePct>0.05?`<span style="font-size:10px;color:var(--text3)">Run rate: <strong style="color:${(totalSpent/timePct)>alloc&&alloc>0?'var(--amber)':'var(--text2)'}">~${$f(Math.round(totalSpent/timePct))}</strong> projected</span>`:''}
       </div>
       ${alloc>0?`<div class="cc-progress-track"><div class="cc-progress-fill" style="width:${spendBarW}%;background:${spendBarClr}"></div></div>`:''}
-    </div>
-    <div class="cc-hero-card">
-      <div class="cc-hero-label">Net Worth</div>
-      <div class="cc-hero-val" style="color:${nw>=0?'var(--green)':'var(--red)'}">${$f(nw)}</div>
-      <div class="cc-hero-sub">
-        <span class="cc-hero-badge ${nwBadgeCls}">${nw>=0?'▲':'▼'} all accounts</span>
-      </div>
-      ${sprkHtml}
     </div>
     <div class="cc-hero-card">
       <div class="cc-hero-label">Age of Money</div>
@@ -5331,6 +5363,35 @@ function renderOverviewTab(el,mid){
 
   h+=`</div></div>`; // close cc-right + cc-grid
 
+  // ── Net Worth collapsible (collapsed by default — less prominent for new users) ───
+  {
+    const nwArrow=_nwPanelOpen?'▼':'▶';
+    const nwBodyStyle=_nwPanelOpen?'':'display:none';
+    const nwTrendHtml=sprkHtml?`<div style="padding:0 16px 4px">${sprkHtml}</div>`:'';
+    let nwAcctRows='';
+    const assets=S.accounts.filter(a=>a.type!=='debt');
+    const debts=S.accounts.filter(a=>a.type==='debt');
+    if(assets.length){
+      nwAcctRows+=`<div style="padding:4px 16px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Assets</div>`;
+      assets.forEach(a=>{const b=acctBalance(a.id);nwAcctRows+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 16px"><span style="width:8px;height:8px;border-radius:50%;background:${a.color||'var(--accent)'};flex-shrink:0"></span><span style="flex:1;font-size:13px;color:var(--text2)">${esc(a.name)}</span><span style="font-family:var(--mono);font-size:13px;color:${b>=0?'var(--green)':'var(--red)'}">${$f(b)}</span></div>`;});
+    }
+    if(debts.length){
+      nwAcctRows+=`<div style="padding:4px 16px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Liabilities</div>`;
+      debts.forEach(a=>{const b=acctBalance(a.id);nwAcctRows+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 16px"><span style="width:8px;height:8px;border-radius:50%;background:${a.color||'var(--red)'};flex-shrink:0"></span><span style="flex:1;font-size:13px;color:var(--text2)">${esc(a.name)}</span><span style="font-family:var(--mono);font-size:13px;color:var(--red)">-${$f(b)}</span></div>`;});
+    }
+    h+=`<div class="card" style="margin-bottom:14px;overflow:hidden">
+      <button onclick="toggleNwPanel()" style="width:100%;display:flex;align-items:center;gap:10px;padding:11px 16px;background:none;border:none;cursor:pointer;text-align:left">
+        <span id="nwCollapseArrow" style="font-size:10px;color:var(--text3);transition:transform .15s">${nwArrow}</span>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">Net Worth</span>
+        <span style="margin-left:auto;font-family:var(--mono);font-size:15px;font-weight:700;color:${nw>=0?'var(--green)':'var(--red)'}">${$f(nw)}</span>
+      </button>
+      <div id="nwCollapseBody" style="border-top:1px solid var(--border);padding-bottom:10px${_nwPanelOpen?'':';display:none'}">
+        ${nwTrendHtml}
+        ${nwAcctRows}
+      </div>
+    </div>`;
+  }
+
   // ── Needs Attention — mobile card (critical items) ─────────────────────────
   const criticalItems=urgency.filter(u=>u.type==='over'||u.type==='overdue');
   if(urgency.length){
@@ -5368,12 +5429,12 @@ function renderOverviewTab(el,mid){
 
   // ── Desktop hint bars for critical items ──────────────────────────────────
   if(!past){
-    if(rts<0)h+=`<div class="hint-bar warn ov-desktop-only">⚠ Budget short by ${$f(Math.abs(rts))} — obligations exceed balance.</div>`;
+    if(rts<0)h+=`<div class="hint-bar info ov-desktop-only">💰 ${$f(Math.abs(rts))} over-allocated — assign less to buckets or add income. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Adjust →</button></div>`;
     else if(rts===0&&alloc>0)h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
     else if(unfundedCnt>0&&rts>0)h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
     if(criticalItems.length){
       const names=criticalItems.slice(0,3).map(u=>esc(u.b.name)).join(', ')+(criticalItems.length>3?'…':'');
-      h+=`<div class="hint-bar warn ov-desktop-only">🔴 ${criticalItems.length} bucket${criticalItems.length!==1?'s':''} need attention: ${names} <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">View Buckets →</button></div>`;
+      h+=`<div class="hint-bar warn ov-desktop-only">⚠ ${criticalItems.length} bucket${criticalItems.length!==1?'s':''} need attention: ${names} <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">View Buckets →</button></div>`;
     }
   }
 
@@ -7428,6 +7489,7 @@ let _catHistMonths=6;
 let _debtExtra=200;
 let _projectorLastResult=null;
 let _projectorFormState=null;
+let _nwPanelOpen=false;
 
 function setTxType(t){
   txType=t;
@@ -11672,6 +11734,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   applyTheme(localStorage.getItem('bcc_theme')||'dark');
   // Restore projector form state so pre-filled values survive page refresh
   try{const _s=localStorage.getItem('_projFS');if(_s)_projectorFormState=JSON.parse(_s);}catch(e){}
+  // Restore NW panel open state
+  try{_nwPanelOpen=localStorage.getItem('_nwOpen')==='1';}catch(e){}
 
   // Show update banner if app version changed since last visit
   const lastVersion=localStorage.getItem('bcc_app_version');
