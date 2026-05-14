@@ -8754,7 +8754,7 @@ function wiRunProjector(){
   // Pre-compute savings overview rows
   const intSavRows=(S.allocationRules||[]).filter(r=>r.active!==false&&getBucket(r.bucketId)&&!getBucket(r.bucketId).archived).map(r=>{
     const b=getBucket(r.bucketId);
-    const curBal=Math.max(0,sinkingSaved(b.id,S.activeMonth));
+    const curBal=b.type==='vault'?vaultAccumulated(b.id):Math.max(0,sinkingSaved(b.id,S.activeMonth));
     const contrib=commitEvents.filter(e=>e.desc===b.name).reduce((s,e)=>s+e.amount,0);
     return{label:b.name,curBal,contrib,afterBal:curBal+contrib};
   });
@@ -9025,7 +9025,7 @@ function wiRunProjector(){
     const thCells=projMths.map(m=>`<th class="c-text3" style="text-align:right;padding:5px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap">${m.label}</th>`).join('');
 
     const rows=savingsBkts.map(b=>{
-      const curBal=Math.max(0,sinkingSaved(b.id,S.activeMonth));
+      const curBal=b.type==='vault'?vaultAccumulated(b.id):Math.max(0,sinkingSaved(b.id,S.activeMonth));
       let runBal=curBal;
       const bRules=rulesActive.filter(r=>r.bucketId===b.id);
       const tgt=b.targetAmount||0;
