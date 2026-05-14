@@ -1714,20 +1714,22 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* Bucket list table */
 .bkt-list-table{min-width:400px;}
 .bkt-list-table th:first-child{min-width:180px;}
-.bkt-list-table td:first-child{min-width:160px;padding:8px 10px 8px 6px;}
-.bkt-list-table td:not(:first-child):not(:last-child){padding:6px 12px;white-space:nowrap;}
+.bkt-list-table td:first-child{min-width:160px;padding:5px 8px 5px 0;}
+.bkt-list-table td:not(:first-child):not(:last-child){padding:5px 12px;white-space:nowrap;}
 .bkt-list-table tr.bkt-list-row{cursor:default;transition:background .1s;}
 .bkt-list-table tr.bkt-list-row:hover{background:var(--surface2);}
 .bkt-list-table tr.bkt-list-row.act{background:color-mix(in srgb,var(--accent) 5%,var(--surface));}
 .bkt-list-table tr.bkt-list-row.skipped{opacity:.38;pointer-events:none;}
 .bkt-list-table tr.bkt-list-row.skipped td:last-child{pointer-events:auto;}
-.bkt-list-table .bkt-row-tags{display:flex;align-items:center;gap:3px;margin-top:3px;flex-wrap:wrap;}
+.bkt-list-table tr.bkt-list-row.bkt-status-paid{background:rgba(16,185,129,0.07);}
+.bkt-list-table tr.bkt-list-row.bkt-status-over{background:rgba(239,68,68,0.07);}
+.bkt-list-table .bkt-row-tags{display:none;}
 .bkt-list-table .alloc-wrap{justify-content:flex-end;}
 .bkt-list-table td.alloc-td{padding:3px 8px;min-width:110px;}
-.bkt-list-table td.avail-td{font-family:var(--mono);font-size:14px;font-weight:700;padding:6px 14px 6px 12px;}
+.bkt-list-table td.avail-td{font-family:var(--mono);font-size:14px;font-weight:700;padding:5px 14px 5px 12px;}
 /* Spend mini-bar under each row */
-.bkt-spend-bar{height:2px;border-radius:1px;margin-top:5px;background:var(--border2);overflow:hidden;width:100%;max-width:160px;}
-.bkt-spend-bar-fill{height:100%;border-radius:1px;transition:width .4s;}
+.bkt-spend-bar{display:none;}
+.bkt-spend-bar-fill{display:none;}
 @media(max-width:1099px){
   .bkt-col-hide{display:none;}
   .bkt-list-table th:first-child{min-width:130px;}
@@ -1736,7 +1738,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 }
 /* Category separator rows */
 .report-table .report-cat-row td{
-  padding:10px 12px 7px;
+  padding:7px 12px 6px;
   background:var(--surface2);
   font-family:var(--sans);
   font-size:10px;
@@ -1762,10 +1764,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-inline-input:focus{border-color:var(--accent);outline:none;}
 .bkt-inline-toggles{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
 .bkt-inline-tog{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:var(--text2);user-select:none;}
-.bkt-stripe-btn{background:none;border:none;cursor:pointer;padding:4px 8px 4px 2px;display:flex;align-items:center;flex-shrink:0;border-radius:4px;}
-.bkt-stripe-bar{width:3px;height:28px;border-radius:3px;background:var(--sc);transition:width .2s ease,box-shadow .2s ease;}
-.bkt-stripe-btn:hover .bkt-stripe-bar{width:5px;box-shadow:0 0 7px var(--sc);}
-.bkt-list-row.act .bkt-stripe-bar{width:8px;box-shadow:0 0 10px var(--sc);}
+.bkt-stripe-btn{background:none;border:none;cursor:pointer;padding:0 7px 0 0;display:flex;align-items:stretch;flex-shrink:0;border-radius:0;align-self:stretch;}
+.bkt-stripe-bar{width:3px;border-radius:2px;background:var(--sc);transition:width .15s ease,box-shadow .15s ease;min-height:18px;}
+.bkt-stripe-btn:hover .bkt-stripe-bar{width:4px;box-shadow:0 0 5px var(--sc);}
+.bkt-list-row.act .bkt-stripe-bar{width:4px;box-shadow:0 0 7px var(--sc);}
 .bkt-name-inp{background:none;border:none;border-bottom:1.5px solid transparent;padding:2px 2px;font-size:14px;font-weight:600;color:var(--text1);width:100%;min-width:80px;font-family:var(--sans);transition:border-color .15s;letter-spacing:-.1px;}
 .bkt-name-inp:hover{border-bottom-color:var(--border2);}
 .bkt-name-inp:focus{border-bottom-color:var(--accent);outline:none;background:color-mix(in srgb,var(--accent) 3%,transparent);}
@@ -5895,24 +5897,25 @@ function renderBucketsTab(el,mid){
       if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span class="bntag" style="color:${tc}">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
 
       const isExpanded=S.activeBucket===b.id;
-      h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}">
+      const rowStatusCls=due1Paid?' bkt-status-paid':pctRaw>1?' bkt-status-over':'';
+      h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}${rowStatusCls}">
         <td>
-          <div style="display:flex;align-items:center;gap:4px">
-            <button class="bkt-stripe-btn" style="--sc:${isVault?'#f59e0b':color}" onclick="setBucket('${b.id}')" title="Toggle settings">
+          <div style="display:flex;align-items:center;gap:0">
+            <button class="bkt-stripe-btn" style="--sc:${isVault?'#f59e0b':color}" onclick="setBucket('${b.id}')" title="Edit details">
               <span class="bkt-stripe-bar"></span>
             </button>
-            <div style="flex:1;min-width:0">
+            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:5px;overflow:hidden">
               ${past
-                ? `<div style="font-size:13px;color:var(--text1);font-weight:500">${esc(b.name)}</div>`
-                : `<input class="bkt-name-inp" value="${esc(b.name)}" title="Rename"
+                ? `<span style="font-size:13px;color:var(--text1);font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</span>`
+                : `<input class="bkt-name-inp" style="flex:1;min-width:40px;width:auto" value="${esc(b.name)}" title="Rename"
                     onblur="if(this.value.trim()&&this.value.trim()!==this.dataset.orig)bktAutoSave('${b.id}','name',this.value.trim())"
                     onfocus="this.dataset.orig=this.value"
                     onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.orig;this.blur();}" />`
               }
-              ${tags.length||dueChip?`<div class="bkt-row-tags">${tags.join('')}${dueChip}</div>`:''}
-              ${eff>0?`<div class="bkt-spend-bar"><div class="bkt-spend-bar-fill" style="width:${Math.min(100,Math.round(pctRaw*100))}%;background:${pctRaw>1?'var(--red)':pctRaw>.75?'var(--amber)':'var(--accent)'}"></div></div>`:''}
+              ${dueChip}
+              ${isVault?`<span style="font-size:10px;color:#f59e0b;flex-shrink:0">🔒</span>`:''}
+              ${skipped?`<button class="bkt-skip-tag" style="flex-shrink:0" onclick="toggleSkipBucket('${b.id}','${mid}')">⏭</button>`:''}
             </div>
-            ${skipped?`<button class="bkt-skip-tag" onclick="toggleSkipBucket('${b.id}','${mid}')">⏭ skipped</button>`:''}
           </div>
         </td>
         <td class="bkt-col-hide">
