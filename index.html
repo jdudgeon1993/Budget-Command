@@ -685,6 +685,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .td-name .bt{display:flex;align-items:center;gap:4px;margin-top:2px;}
 .bntag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 5px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);}
 .bntag.vault{background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.3);}
+.bntag.pos{color:var(--green);background:var(--gbg);border-color:var(--gb);}
+.bntag.neg{color:var(--red);background:var(--rbg);border-color:var(--rb);}
+/* Budget table — category header row */
+.bkt-cat-row-inner{display:flex;align-items:center;gap:8px;}
+.bkt-cat-row-name{font-weight:700;}
+.bkt-cat-alloc-right{margin-left:auto;font-family:var(--mono);}
+.bkt-cat-target-txt{color:var(--text3);font-weight:400;}
+.bkt-cat-fund-btn.ghost{background:none;border-color:var(--border2);color:var(--text3);}
+/* Budget table — bucket name cell */
+.bkt-name-cell{display:flex;align-items:center;gap:0;}
+.bkt-name-inner{flex:1;min-width:0;display:flex;align-items:center;gap:5px;overflow:hidden;}
+.bkt-name-ro{font-size:13px;color:var(--text1);font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bkt-vault-icon{font-size:10px;color:var(--amber);flex-shrink:0;}
+/* Shared read-only monospace cell (target / alloc past month) */
+.bkt-mono-val{font-family:var(--mono);font-size:12px;color:var(--text2);}
+/* Actions column TD */
+.bkt-dots-td{padding:3px 5px;text-align:center;}
 .vault-panel{padding:14px 0 0;}
 .vault-stats-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .vault-stat-card{flex:1;min-width:100px;background:var(--surface2);border-radius:8px;padding:10px 12px;border:1px solid rgba(245,158,11,.2);}
@@ -1795,7 +1812,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-stripe-bar{width:3px;border-radius:2px;background:var(--sc);transition:width .15s ease,box-shadow .15s ease;min-height:18px;}
 .bkt-stripe-btn:hover .bkt-stripe-bar{width:4px;box-shadow:0 0 5px var(--sc);}
 .bkt-list-row.act .bkt-stripe-bar{width:4px;box-shadow:0 0 7px var(--sc);}
-.bkt-name-inp{background:none;border:none;border-bottom:1.5px solid transparent;padding:2px 2px;font-size:14px;font-weight:600;color:var(--text1);width:100%;min-width:80px;font-family:var(--sans);transition:border-color .15s;letter-spacing:-.1px;}
+.bkt-name-inp{background:none;border:none;border-bottom:1.5px solid transparent;padding:2px 2px;font-size:14px;font-weight:600;color:var(--text1);flex:1;min-width:40px;width:auto;font-family:var(--sans);transition:border-color .15s;letter-spacing:-.1px;}
 .bkt-name-inp:hover{border-bottom-color:var(--border2);}
 .bkt-name-inp:focus{border-bottom-color:var(--accent);outline:none;background:color-mix(in srgb,var(--accent) 3%,transparent);}
 .bkt-target-wrap{display:flex;align-items:center;background:transparent;border:1px solid transparent;border-radius:5px;transition:border-color .15s,background .15s;}
@@ -1803,6 +1820,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .bkt-target-wrap:focus-within{border-color:var(--accent);background:var(--surface2);}
 .bkt-target-inp{flex:1;min-width:0;width:76px;padding:6px 6px;background:none;border:none;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);text-align:right;}
 .bkt-target-inp:focus{outline:none;}
+.bkt-dots-td{padding:3px 5px!important;text-align:center!important;font-family:var(--sans)!important;}
 .bkt-dots-btn{background:none;border:none;cursor:pointer;padding:3px 7px;border-radius:4px;color:var(--text3);font-size:15px;line-height:1;opacity:.4;}
 .bkt-dots-btn:hover,.bkt-list-row:hover .bkt-dots-btn,.bkt-list-row.act .bkt-dots-btn{opacity:1;}
 .bkt-dots-wrap{position:relative;display:inline-block;}
@@ -5987,13 +6005,13 @@ function renderBucketsTab(el,mid){
   let grandTarget=0,grandAlloc=0,grandSpent=0,grandAvail=0;
   h+=`<div class="tbl-wrap"><table class="data-table bkt-table">
     <thead><tr>
-      <th style="text-align:left">Bucket</th>
-      <th class="bkt-col-hide">Target</th>
-      <th>Allocated</th>
-      <th class="bkt-col-hide">Rollover</th>
-      <th class="bkt-col-hide">Spent</th>
-      <th>Available</th>
-      <th style="width:32px;padding:0"></th>
+      <th>Bucket</th>
+      <th class="bkt-col-hide r">Target</th>
+      <th class="r">Allocated</th>
+      <th class="bkt-col-hide r">Rollover</th>
+      <th class="bkt-col-hide r">Spent</th>
+      <th class="r">Available</th>
+      <th class="bkt-dots-td" style="width:32px"></th>
     </tr></thead>
     <tbody>`;
 
@@ -6016,12 +6034,12 @@ function renderBucketsTab(el,mid){
     const catIsEditing=_catExpand===cat.id;
     h+=`<tr class="report-cat-row${catIsEditing?' cat-edit-active':''}">
       <td colspan="7" style="color:${color}">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-weight:700">${esc(cat.name)}</span>
-          <span style="margin-left:auto;font-family:var(--mono);color:${catAllocColor}">${$f(catAlloc)}<span style="color:var(--text3);font-weight:400"> / ${$f(catTarget)}</span></span>
+        <div class="bkt-cat-row-inner">
+          <span class="bkt-cat-row-name">${esc(cat.name)}</span>
+          <span class="bkt-cat-alloc-right" style="color:${catAllocColor}">${$f(catAlloc)}<span class="bkt-cat-target-txt"> / ${$f(catTarget)}</span></span>
           ${!past&&catFundAmt>0?`<button class="bkt-cat-fund-btn" onclick="event.stopPropagation();fundCategory('${cat.id}','${mid}')">Fund ${$f(catFundAmt)}</button>`:''}
-          ${!past?`<button class="bkt-cat-fund-btn" style="background:none;border-color:var(--border2);color:var(--text3)" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>`:''}
-          <button class="bkt-cat-fund-btn${catIsEditing?' active':''}" style="background:none;border-color:var(--border2);color:${catIsEditing?color:'var(--text3)'}" onclick="event.stopPropagation();editCat('${cat.id}')">${catIsEditing?'▲ Done':'Edit'}</button>
+          ${!past?`<button class="bkt-cat-fund-btn ghost" onclick="event.stopPropagation();openModal('bkt','${cat.id}')">+ Bucket</button>`:''}
+          <button class="bkt-cat-fund-btn ghost${catIsEditing?' active':''}"${catIsEditing?` style="color:${color}"`:''} onclick="event.stopPropagation();editCat('${cat.id}')">${catIsEditing?'▲ Done':'Edit'}</button>
         </div>
       </td>
     </tr>
@@ -6057,33 +6075,33 @@ function renderBucketsTab(el,mid){
       if(b.recurring)tags.push(`<span class="bntag">↻</span>`);
       if(b.payFreq&&b.payFreq!=='monthly'){const fl=b.payFreq==='weekly'?'wkly':b.payFreq==='biweekly'?'2wk':'3wk';tags.push(`<span class="bntag">${fl}</span>`);}
       if(roll>0)tags.push(`<span class="bntag">+${$f(roll)} rolled</span>`);
-      if(trend&&Math.abs(trend.pct)>=10){const tc=trend.pct>0?'var(--red)':'var(--green)';tags.push(`<span class="bntag" style="color:${tc}">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
+      if(trend&&Math.abs(trend.pct)>=10){tags.push(`<span class="bntag ${trend.pct>0?'neg':'pos'}">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
 
       const isExpanded=S.activeBucket===b.id;
       const rowStatusCls=due1Paid?' bkt-status-paid':pctRaw>1?' bkt-status-over':'';
       h+=`<tr class="bkt-list-row${isExpanded?' act':''}${skipped?' skipped':''}${rowStatusCls}">
         <td>
-          <div style="display:flex;align-items:center;gap:0">
-            <button class="bkt-stripe-btn" style="--sc:${isVault?'#f59e0b':color}" onclick="setBucket('${b.id}')" title="Edit details">
+          <div class="bkt-name-cell">
+            <button class="bkt-stripe-btn" style="--sc:${isVault?'var(--amber)':color}" onclick="setBucket('${b.id}')" title="Edit details">
               <span class="bkt-stripe-bar"></span>
             </button>
-            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:5px;overflow:hidden">
+            <div class="bkt-name-inner">
               ${past
-                ? `<span style="font-size:13px;color:var(--text1);font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</span>`
-                : `<input class="bkt-name-inp" style="flex:1;min-width:40px;width:auto" value="${esc(b.name)}" title="Rename"
+                ? `<span class="bkt-name-ro">${esc(b.name)}</span>`
+                : `<input class="bkt-name-inp" value="${esc(b.name)}" title="Rename"
                     onblur="if(this.value.trim()&&this.value.trim()!==this.dataset.orig)bktAutoSave('${b.id}','name',this.value.trim())"
                     onfocus="this.dataset.orig=this.value"
                     onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=this.dataset.orig;this.blur();}" />`
               }
               ${dueChip}
-              ${isVault?`<span style="font-size:10px;color:#f59e0b;flex-shrink:0">🔒</span>`:''}
-              ${skipped?`<button class="bkt-skip-tag" style="flex-shrink:0" onclick="toggleSkipBucket('${b.id}','${mid}')">⏭</button>`:''}
+              ${isVault?`<span class="bkt-vault-icon">🔒</span>`:''}
+              ${skipped?`<button class="bkt-skip-tag" onclick="toggleSkipBucket('${b.id}','${mid}')">⏭</button>`:''}
             </div>
           </div>
         </td>
         <td class="bkt-col-hide">
           ${past
-            ? `<span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${target?$f(target):'—'}</span>`
+            ? `<span class="bkt-mono-val">${target?$f(target):'—'}</span>`
             : `<div class="bkt-target-wrap">
                 <input class="bkt-target-inp" type="number" value="${b.defaultBudget||''}" placeholder="—"
                   onblur="bktSaveTarget('${b.id}','${mid}',this.value)"
@@ -6092,7 +6110,7 @@ function renderBucketsTab(el,mid){
           }
         </td>
         <td class="alloc-td">
-          ${past?`<span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${$f(alloc)}</span>`:`
+          ${past?`<span class="bkt-mono-val">${$f(alloc)}</span>`:`
           <div class="alloc-wrap">
             <span class="alloc-pfx">$</span>
             <input class="alloc-inp ${allocCls}${isVault?' vault-inp':''}" type="text" inputmode="decimal"
@@ -6106,7 +6124,7 @@ function renderBucketsTab(el,mid){
         <td class="bkt-col-hide" style="color:${roll>0?'var(--accent)':'var(--text3)'}">${roll>0?$f(roll):'—'}</td>
         <td class="bkt-col-hide" style="color:${spent>0?'var(--text2)':'var(--text3)'}">${spent>0?$f(spent):'—'}</td>
         <td class="avail-td" style="color:${availColor}">${eff>0||spent>0?$f(avail):'—'}</td>
-        <td style="padding:3px 5px;text-align:center">
+        <td class="bkt-dots-td">
           <div class="bkt-dots-wrap">
             <button id="bktDots_${b.id}" class="bkt-dots-btn" onclick="bktDotsMenu('${b.id}','${mid}',${past})" title="More actions">···</button>
           </div>
@@ -6124,7 +6142,7 @@ function renderBucketsTab(el,mid){
     <td>${grandAlloc?$f(grandAlloc):'—'}</td>
     <td class="bkt-col-hide">—</td>
     <td class="bkt-col-hide">${grandSpent?$f(grandSpent):'—'}</td>
-    <td style="color:${rtsColor};font-weight:700">${$f(rts)}</td>
+    <td style="color:${rtsColor}">${$f(rts)}</td>
     <td></td>
   </tr>`;
   h+=`</tbody></table></div>`;
