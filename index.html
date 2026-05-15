@@ -8655,6 +8655,8 @@ function wiRunProjector(){
       const catColor=S.cats.find(c=>c.id===b.catId)?.color||null;
       const bType=b.type||'regular';
       const bRoll=!!b.rollover;
+      // Pre-funded: bucket is fully allocated this month — cash is already earmarked, no action needed
+      const preFunded=isCurMo&&bBudget(activeMid,b.id)>0&&bAlloc(activeMid,b.id)>=bBudget(activeMid,b.id);
       if(b.dueDay){
         const freq=b.payFreq;
         if(freq&&freq!=='monthly'){
@@ -8672,7 +8674,7 @@ function wiRunProjector(){
           // Emit all occurrences within this calendar month
           while(d<=monthEnd){
             const ds=d.toISOString().split('T')[0];
-            if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:payAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
+            if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:payAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll,preFunded});
             d=new Date(d.getTime()+stepDays*864e5);
           }
         } else if(b.dueDay2){
@@ -8680,12 +8682,12 @@ function wiRunProjector(){
           const pay2=b.dueAmount2||bAmt/2;
           const pay1=b.dueAmount||(bAmt-pay2);
           const ds1=dStr(b.dueDay);
-          if(ds1>=startStr&&ds1<=endStr)outflows.push({date:ds1,desc:b.name+' (1/2)',amount:pay1,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
+          if(ds1>=startStr&&ds1<=endStr)outflows.push({date:ds1,desc:b.name+' (1/2)',amount:pay1,src:'bucket',catColor,bktType:bType,bktRollover:bRoll,preFunded});
           const ds2=dStr(b.dueDay2);
-          if(ds2>=startStr&&ds2<=endStr)outflows.push({date:ds2,desc:b.name+' (2/2)',amount:pay2,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
+          if(ds2>=startStr&&ds2<=endStr)outflows.push({date:ds2,desc:b.name+' (2/2)',amount:pay2,src:'bucket',catColor,bktType:bType,bktRollover:bRoll,preFunded});
         } else {
           const ds=dStr(b.dueDay);
-          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
+          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll,preFunded});
         }
       } else {
         // Sinking/goal buckets: spread across pay dates in this month (aligns to user's paycheck cadence)
@@ -8698,9 +8700,9 @@ function wiRunProjector(){
           const mPayDates=[...new Set(payEvents.filter(e=>e.kind==='pay'&&e.date.slice(0,7)===ymStr).map(e=>e.date))].sort();
           if(mPayDates.length){
             const perPay=Math.round(bAmt/mPayDates.length*100)/100;
-            mPayDates.forEach(pd=>{if(pd>=startStr&&pd<=endStr)outflows.push({date:pd,desc:b.name,amount:perPay,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll});});
+            mPayDates.forEach(pd=>{if(pd>=startStr&&pd<=endStr)outflows.push({date:pd,desc:b.name,amount:perPay,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll,preFunded});});
           } else {
-            const ds=dStr(1);if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll});
+            const ds=dStr(1);if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'sinking-contrib',catColor,bktType:bType,bktRollover:bRoll,preFunded});
           }
         } else if(freq&&freq!=='monthly'){
           const stepDays=freq==='weekly'?7:freq==='biweekly'?14:21;
@@ -8712,12 +8714,12 @@ function wiRunProjector(){
           const payAmt=b.dueAmount||(countInMonth>0?Math.round(bAmt/countInMonth*100)/100:bAmt);
           while(d<=monthEnd){
             const ds=d.toISOString().split('T')[0];
-            if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:payAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll});
+            if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:payAmt,src:'bucket',catColor,bktType:bType,bktRollover:bRoll,preFunded});
             d=new Date(d.getTime()+stepDays*864e5);
           }
         } else {
           const ds=dStr(1);
-          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor,bktType:bType,bktRollover:bRoll});
+          if(ds>=startStr&&ds<=endStr)outflows.push({date:ds,desc:b.name,amount:bAmt,src:'discretionary',catColor,bktType:bType,bktRollover:bRoll,preFunded});
         }
       }
     });
@@ -8844,7 +8846,7 @@ function wiRunProjector(){
     ?`<div style="background:var(--abg2,var(--surface));border:1px solid var(--amber);border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:12px"><span class="c-amber" style="font-weight:700">⚠ ${undatedBkts.length} bucket${undatedBkts.length!==1?'s':''} without due date</span><span class="c-text3"> — placed on the 1st as estimate: ${undatedBkts.map(b=>esc(b.name)).join(', ')}</span><div class="c-text3" style="font-size:11px;margin-top:3px">Set due dates in Bucket Editor for accurate placement.</div></div>`:'';
 
   // Current-month awareness notice
-  const curMoNote=S.activeMonth?`<div style="background:var(--gbg);border:1px solid var(--gb);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px"><span class="c-green" style="font-weight:700">✓ Smart mode</span><span class="c-text3">Bills already paid this month are excluded. Amounts show only what still needs to be funded.</span></div>`:'';
+  const curMoNote=S.activeMonth?`<div style="background:var(--gbg);border:1px solid var(--gb);border-radius:6px;padding:6px 12px;margin-bottom:8px;font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="c-green" style="font-weight:700;flex-shrink:0">✓ Smart mode</span><span class="c-text3">Paid bills excluded · Fully funded buckets shown as <strong style="color:var(--green)">✓ pre-funded</strong> · Paychecks with no obligations flagged as <strong style="color:var(--green)">★ surplus</strong></span></div>`:'';
 
   // ── Overview label
   const durationLabel=monthsRaw==='eoy'?'End of Year':`${months} Month${months!==1?'s':''}`;
@@ -8910,6 +8912,9 @@ function wiRunProjector(){
     const pInAmt=pPay.filter(e=>e.kind==='pay').reduce((s,e)=>s+e.amount,0);
     const pXfrAmt=pPay.filter(e=>e.kind==='ext_deduct').reduce((s,e)=>s+e.amount,0);
     const pOutAmt=pOut.reduce((s,o)=>s+o.amount,0);
+    const pPreFundedAmt=pOut.filter(o=>o.preFunded).reduce((s,o)=>s+o.amount,0);
+    const pObligationAmt=pOut.filter(o=>!o.preFunded).reduce((s,o)=>s+o.amount,0);
+    const isSurplus=p.type==='paycheck'&&pInAmt>0&&pObligationAmt===0;
     const pVaultAmt=pVaultCommit.reduce((s,e)=>s+e.amount,0);
     const pCommitAmt=pNonVaultCommit.reduce((s,e)=>s+e.amount,0);
     const periodStartBal=running;
@@ -9022,16 +9027,31 @@ function wiRunProjector(){
         expByDay[date].forEach(o=>{
           ledgerBal-=o.amount;
           const isSav=isSavingsFlow(o);
-          const badge=isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`:o.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`:o.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`:o.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">${o.repeat&&o.repeat!=='once'?o.repeat:'one-time'}</span>`:'';
-          const dot=isSav?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`:`<span style="width:9px;height:9px;border-radius:50%;background:${o.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
-          bodyHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">${dot}<span style="flex:1;font-size:13px">${esc(o.desc)}${badge}</span><span style="font-family:var(--mono);font-size:13px;text-align:right;color:${isSav?'var(--accent)':'var(--red)'}">-${$f(o.amount)}</span></div>`;
+          const isPre=!!o.preFunded;
+          const amtColor=isSav?'var(--accent)':isPre?'var(--green)':'var(--red)';
+          const badge=isPre
+            ?`<span style="font-size:9px;color:var(--green);border:1px solid var(--gb);border-radius:3px;padding:0 4px;margin-left:4px">✓ pre-funded</span>`
+            :isSav?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`
+            :o.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`
+            :o.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`
+            :o.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">${o.repeat&&o.repeat!=='once'?o.repeat:'one-time'}</span>`
+            :'';
+          const dot=isSav
+            ?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`
+            :isPre
+            ?`<span style="font-size:11px;flex-shrink:0;line-height:1;color:var(--green)">✓</span>`
+            :`<span style="width:9px;height:9px;border-radius:50%;background:${o.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
+          bodyHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center;opacity:${isPre?'0.8':'1'}">${dot}<span style="flex:1;font-size:13px">${esc(o.desc)}${badge}</span><span style="font-family:var(--mono);font-size:13px;text-align:right;color:${amtColor}">-${$f(o.amount)}</span></div>`;
         });
         bodyHtml+=runBalRow(ledgerBal);
       });
       bodyHtml+=`</div>`;
     }
 
-    if(!bodyHtml)bodyHtml=`<div class="c-text3" style="font-size:12px;padding:8px 0">No events this period.</div>`;
+    if(!bodyHtml){
+      if(isSurplus)bodyHtml=`<div style="font-size:12px;padding:8px 0;color:var(--green);font-weight:600">★ No obligations this period — this paycheck is free cash.</div>`;
+      else bodyHtml=`<div class="c-text3" style="font-size:12px;padding:8px 0">No events this period.</div>`;
+    }
 
     html+=`<div style="border:1px solid ${periodEndBals[pIdx]<0?'var(--rb)':'var(--border)'};border-radius:12px;overflow:hidden;margin-bottom:12px">
       <div onclick="wiToggleWeek('${pId}')" role="button" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;-webkit-user-select:none;background:${p.type==='paycheck'?'var(--surface)':'var(--bg2)'}">
@@ -9041,6 +9061,7 @@ function wiRunProjector(){
             <span class="c-text" style="font-size:13px;font-weight:700">${headerTitle}</span>
             ${p.isBonus?`<span class="c-green" style="font-size:10px;font-weight:700;background:rgba(16,185,129,.12);border:1px solid var(--gb);border-radius:4px;padding:1px 5px">⭐ Bonus</span>`:''}
             ${periodEndBals[pIdx]<0?`<span class="c-red" style="font-size:10px;font-weight:700;border:1px solid var(--rb);border-radius:4px;padding:1px 5px">⚠ Shortfall</span>`:''}
+            ${isSurplus?`<span class="c-green" style="font-size:10px;font-weight:700;background:rgba(16,185,129,.12);border:1px solid var(--gb);border-radius:4px;padding:1px 5px">★ Surplus</span>`:''}
           </div>
           ${headerSubtitle?`<div class="c-text3" style="font-size:11px;margin-top:1px">${esc(headerSubtitle)}</div>`:''}
           <div class="c-text3" style="font-size:11px;margin-top:1px">${pStartFmt}${pEndFmt?' → '+pEndFmt:''}</div>
@@ -9049,7 +9070,8 @@ function wiRunProjector(){
           ${pInAmt>0?`<span class="c-green" style="font-size:12px;font-family:var(--mono)">+${$f(pInAmt)}</span>`:''}
           ${pXfrAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--amber)">-${$f(pXfrAmt)}</span>`:''}
           ${pVaultAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--accent)">-${$f(pVaultAmt)} 🔒</span>`:''}
-          ${pOutAmt>0?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pOutAmt)}</span>`:''}
+          ${pPreFundedAmt>0?`<span style="font-size:12px;font-family:var(--mono);color:var(--green)">✓ -${$f(pPreFundedAmt)}</span>`:''}
+          ${pObligationAmt>0?`<span class="c-red" style="font-size:12px;font-family:var(--mono)">-${$f(pObligationAmt)}</span>`:''}
           <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:${periodEndBals[pIdx]>=0?'var(--green)':'var(--red)'}">${$f(periodEndBals[pIdx])}</span>
         </div>
         <span id="pwt_${pId}" class="c-text3" style="font-size:11px;width:12px;flex-shrink:0;text-align:center">${autoOpen?'▼':'▶'}</span>
