@@ -992,12 +992,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* Date group headers */
 .tx-date-hdr{padding:5px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:30px;z-index:2;}
 /* Bank-statement row grid */
-.tx-row{display:grid;grid-template-columns:14px 96px 1fr 150px 130px 104px 52px;align-items:center;border-bottom:1px solid var(--border);transition:background .1s;cursor:default;}
+.tx-row{display:grid;grid-template-columns:14px 96px 1fr 150px 130px 104px 52px;align-items:center;border-bottom:1px solid var(--border);transition:background .1s;cursor:default;scroll-margin-top:56px;}
 .tx-row.srch-hide{display:none!important;}
 .tx-date-hdr.srch-hide{display:none!important;}
 .tx-row:hover{background:var(--surface2);}
 /* Grid cells */
-.tx-indicator{width:3px;border-radius:2px;align-self:stretch;min-height:32px;}
 .tx-cell{padding:9px 10px;min-width:0;vertical-align:middle;}
 .tx-cell.r{text-align:right;}
 .tx-cell-date{font-size:12px;color:var(--text3);}
@@ -1068,6 +1067,16 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tx-sched:hover{background:color-mix(in srgb,var(--abg) 80%,var(--bg3) 20%);}
 .tx-sched-badge{font-size:10px;font-weight:700;color:var(--amber);font-family:var(--mono);letter-spacing:.3px;flex-shrink:0;}
 .tx-unassigned{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(245,158,11,.15);color:#d97706;border:1px solid rgba(245,158,11,.35);letter-spacing:.2px;flex-shrink:0;}
+/* ── Ledger shared-personality classes ── */
+.tx-indicator{width:3px;border-radius:2px;align-self:stretch;min-height:32px;background:var(--tc);}
+.tx-recon{font-size:10px;padding:0 3px;}
+.tx-dots-wrap{position:relative;}
+.tx-summary{display:flex;gap:14px;align-items:center;padding:5px 14px;font-size:11px;background:var(--bg3);border-bottom:1px solid var(--border);}
+.tx-summary strong{font-family:var(--mono);}
+.tx-summary-count{margin-left:auto;color:var(--text3);}
+.tx-summary-net{font-family:var(--mono);font-weight:700;}
+.tx-upcoming-hdr{padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);}
+.tx-sched-note{font-weight:400;opacity:.7;}
 
 /* ═══ ACCESSIBILITY — focus rings for keyboard navigation ═══ */
 *:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
@@ -6638,11 +6647,11 @@ function renderAcctTxList(aid){
       const sIn=posted.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
       const sOut=posted.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
       const sNet=sIn-sOut;
-      summaryBar.innerHTML=`<div style="display:flex;gap:14px;align-items:center;padding:5px 14px;font-size:11px;background:var(--bg3);border-bottom:1px solid var(--border)">
-        <span>↓ <strong class="c-green" style="font-family:var(--mono)">${$f(sIn)}</strong></span>
-        <span>↑ <strong class="c-red" style="font-family:var(--mono)">${$f(sOut)}</strong></span>
-        <span class="c-text3" style="margin-left:auto">${posted.length} posted</span>
-        <span style="font-family:var(--mono);font-weight:700;color:${sNet>=0?'var(--green)':'var(--red)'}">${sNet>=0?'+':''}${$f(sNet)}</span>
+      summaryBar.innerHTML=`<div class="tx-summary">
+        <span class="c-green">↓ <strong>${$f(sIn)}</strong></span>
+        <span class="c-red">↑ <strong>${$f(sOut)}</strong></span>
+        <span class="tx-summary-count">${posted.length} posted</span>
+        <span class="tx-summary-net" style="color:${sNet>=0?'var(--green)':'var(--red)'}">${sNet>=0?'+':''}${$f(sNet)}</span>
       </div>`;
     } else {
       summaryBar.innerHTML='';
@@ -6668,8 +6677,8 @@ function renderAcctTxList(aid){
 
   // Scheduled at bottom — they're future-dated, so chronologically last
   if(scheduled.length){
-    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Upcoming</div>`;
-    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
+    if(posted.length)h+=`<div class="tx-upcoming-hdr">Upcoming</div>`;
+    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span class="tx-sched-note">(not yet affecting balances)</span></div>`;
     scheduled.forEach(tx=>{
       h+=txRowHtml(tx,false,true,schedMap.get(tx.id)??null);
     });
@@ -6916,11 +6925,11 @@ function renderTxList(){
       const sIn=posted.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
       const sOut=posted.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
       const sNet=sIn-sOut;
-      summaryBar.innerHTML=`<div style="display:flex;gap:14px;align-items:center;padding:5px 14px;font-size:11px;background:var(--bg3);border-bottom:1px solid var(--border)">
-        <span>↓ <strong class="c-green" style="font-family:var(--mono)">${$f(sIn)}</strong></span>
-        <span>↑ <strong class="c-red" style="font-family:var(--mono)">${$f(sOut)}</strong></span>
-        <span class="c-text3" style="margin-left:auto">${posted.length} posted</span>
-        <span style="font-family:var(--mono);font-weight:700;color:${sNet>=0?'var(--green)':'var(--red)'}">${sNet>=0?'+':''}${$f(sNet)}</span>
+      summaryBar.innerHTML=`<div class="tx-summary">
+        <span class="c-green">↓ <strong>${$f(sIn)}</strong></span>
+        <span class="c-red">↑ <strong>${$f(sOut)}</strong></span>
+        <span class="tx-summary-count">${posted.length} posted</span>
+        <span class="tx-summary-net" style="color:${sNet>=0?'var(--green)':'var(--red)'}">${sNet>=0?'+':''}${$f(sNet)}</span>
       </div>`;
     } else {
       summaryBar.innerHTML='';
@@ -6945,8 +6954,8 @@ function renderTxList(){
 
   // Scheduled at the bottom — future-dated, so after all posted
   if(scheduled.length){
-    if(posted.length)h+=`<div class="c-text3" style="padding:4px 12px 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border)">Upcoming</div>`;
-    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span style="font-weight:400;opacity:.7">(not yet affecting balances)</span></div>`;
+    if(posted.length)h+=`<div class="tx-upcoming-hdr">Upcoming</div>`;
+    h+=`<div class="tx-scheduled-hdr">⏱ Scheduled <span class="tx-sched-note">(not yet affecting balances)</span></div>`;
     scheduled.sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(tx=>{
       const projBal=runBals.schedMap.has(tx.id)?runBals.schedMap.get(tx.id):null;
       h+=txRowHtml(tx,past,true,projBal);
@@ -7001,9 +7010,8 @@ function txRowHtml(tx,past,sched,runBal=null){
   const catCell=cat?`<span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`:'<span class="dim">—</span>';
 
   if(useInline){
-    // Desktop inline-edit: bank-statement grid columns
-    const catLabel=cat?`<span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`:'<span style="color:var(--text3)">—</span>';
-    const acctLabel=acct?`<span class="tx-meta-acct">${esc(acct.name)}</span>`:'<span style="color:var(--text3)">—</span>';
+    const catLabel=cat?`<span class="tx-meta-cat" style="color:${color}">${esc(cat.name)}</span>`:'<span class="dim">—</span>';
+    const acctLabel=acct?`<span class="tx-meta-acct">${esc(acct.name)}</span>`:'<span class="dim">—</span>';
     return `<div class="tx-row${isOpen?' tx-open':''}" data-txid="${tx.id}" ${srchAttr}>
       <button class="tx-stripe-btn" style="--tc:${tc}" onclick="setActiveTx('${tx.id}')"><span class="tx-stripe-bar"></span></button>
       <div class="tx-cell tx-cell-date">
@@ -7026,15 +7034,15 @@ function txRowHtml(tx,past,sched,runBal=null){
         ${balLine}
       </div>
       <div class="tx-cell tx-cell-acts">
-        ${tx.reconciled?'<span title="Reconciled" class="c-green" style="font-size:10px">✓</span>':''}
-        <div style="position:relative"><button class="tx-dots-btn" onclick="txDotsMenu(event,'${tx.id}')" title="More">···</button></div>
+        ${tx.reconciled?`<span class="c-green tx-recon" title="Reconciled">✓</span>`:''}
+        <div class="tx-dots-wrap"><button class="tx-dots-btn" onclick="txDotsMenu(event,'${tx.id}')" title="More">···</button></div>
       </div>
     </div>
     ${isOpen?txExpandHtml(tx):''}`;
   }
-  // Read-only / mobile / past / scheduled — bank-statement grid
+  // Read-only / mobile / past / scheduled
   return `<div class="tx-row${sched?' tx-sched':''}" data-txid="${tx.id}" ${srchAttr}>
-    <div class="tx-indicator" style="background:${tc}"></div>
+    <div class="tx-indicator" style="--tc:${tc}"></div>
     <div class="tx-cell tx-cell-date">${ldShort(tx.date)}</div>
     <div class="tx-cell tx-cell-desc">
       <div class="tx-name">${esc(tx.desc)}${aiEnabled()&&txAnomalyFlag(tx)?`<button class="tx-anomaly" onclick="event.stopPropagation();explainAnomaly('${tx.id}')" title="Unusual amount">⚠</button>`:''}</div>
@@ -7047,7 +7055,7 @@ function txRowHtml(tx,past,sched,runBal=null){
       ${balLine}
     </div>
     <div class="tx-cell tx-cell-acts">
-      ${tx.reconciled?'<span title="Reconciled" class="c-green" style="font-size:10px;padding:0 3px">✓</span>':''}
+      ${tx.reconciled?`<span class="c-green tx-recon" title="Reconciled">✓</span>`:''}
       ${!tx.autoGenerated?(!tx.reconciled?`<button class="ib" onclick="openTxEditModal('${tx.id}')" aria-label="Edit" title="Edit">✎</button><button class="ib del" onclick="delTx('${tx.id}')" aria-label="Delete" title="Delete">×</button>`:`<button class="ib" onclick="openTxEditModal('${tx.id}')" title="Edit">✎</button>`):''}
     </div>
   </div>`;
