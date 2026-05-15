@@ -1422,18 +1422,16 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* ═══ WI 2.0 ═══ */
 /* ─── What If pane (full nav tab) ──────────────────── */
 .wi-pane-wrap{display:flex;flex-direction:column;height:100%;}
-.wi-pane-hdr{display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.wi-pane-hdr{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
 .wi-pane-cols{display:grid;grid-template-columns:420px 1fr;flex:1;min-height:0;}
 .wi-pane-left{overflow-y:auto;border-right:1px solid var(--border);}
 .wi-pane-right{overflow-y:auto;display:flex;flex-direction:column;min-width:0;}
+.wi-full-view{flex:1;overflow-y:auto;min-height:0;}
 @media(max-width:1099px){.wi-pane-cols{grid-template-columns:1fr;}.wi-pane-left{border-right:none;border-bottom:1px solid var(--border);max-height:50vh;}.wi-pane-right{flex:1;}}
-.wi-proj-section{border-top:1px solid var(--border);}
-.wi-proj-toggle{display:flex;align-items:center;gap:8px;padding:12px 20px;cursor:pointer;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);user-select:none;}
-.wi-proj-toggle:hover{color:var(--text2);background:var(--surface2);}
-.wi-proj-toggle .wi-proj-arrow{font-size:10px;transition:transform .2s;}
-.wi-proj-toggle .wi-proj-arrow.open{transform:rotate(90deg);}
-.wi-proj-body{display:none;padding:0 16px 16px;}
-.wi-proj-body.open{display:block;}
+.wi-view-toggle{display:flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px;}
+.wi-view-btn{background:none;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;}
+.wi-view-btn:hover{color:var(--text2);}
+.wi-view-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.2);}
 .wi-section{padding:14px 20px;border-bottom:1px solid var(--border);}
 .wi-field-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;}
 /* WI impact banner */
@@ -7949,11 +7947,12 @@ function toggleWI(){
   setTab('whatif');
 }
 
-let _wiShowProjector=false;
+let _wiActiveView='scenario'; // 'scenario' | 'projector'
 function renderWhatIfPane(el){
   if(!el)return;
+  const isProj=_wiActiveView==='projector';
   const ls=el.querySelector('.wi-pane-left')?.scrollTop||0;
-  const rs=el.querySelector('.wi-pane-right')?.scrollTop||0;
+  const rs=(el.querySelector('.wi-pane-right')||el.querySelector('.wi-full-view'))?.scrollTop||0;
   if(!S.wiScenario){
     const mid=S.activeMonth;
     const budgets={};
@@ -7961,23 +7960,30 @@ function renderWhatIfPane(el){
     S.wiScenario={id:uid(),name:'Scenario 1',incomeOverrides:{},budgets,createdAt:Date.now()};
     S.wiOpen=true;
   }
+  const toggleHtml=`<div class="wi-view-toggle">
+    <button class="wi-view-btn${!isProj?' active':''}" onclick="_wiActiveView='scenario';renderWI()">📊 6-Month</button>
+    <button class="wi-view-btn${isProj?' active':''}" onclick="_wiActiveView='projector';renderWI()">📅 Paycheck</button>
+  </div>`;
+  const bodyHtml=isProj
+    ?`<div class="wi-full-view">${wiProjectorHtml(_projectorLastResult||null,'inline')}</div>`
+    :`<div class="wi-pane-cols"><div class="wi-pane-left">${_wiLeftHtml()}</div><div class="wi-pane-right">${_wiRightHtml()}</div></div>`;
   el.innerHTML=`<div class="wi-pane-wrap">
     <div class="wi-pane-hdr">
       <span class="bkt-pane-title">⚡ What If</span>
+      ${toggleHtml}
       <span style="flex:1"></span>
       <button class="btn-save" onclick="promoteScenario()">Promote to Budget</button>
       <button class="btn-cancel" onclick="exitWI()">Reset</button>
     </div>
-    <div class="wi-pane-cols">
-      <div class="wi-pane-left">${_wiLeftHtml()}</div>
-      <div class="wi-pane-right">
-        ${_wiRightHtml()}
-      </div>
-    </div>
+    ${bodyHtml}
   </div>`;
   requestAnimationFrame(()=>{
-    if(ls){const l=el.querySelector('.wi-pane-left');if(l)l.scrollTop=ls;}
-    if(rs){const r=el.querySelector('.wi-pane-right');if(r)r.scrollTop=rs;}
+    if(isProj){
+      if(rs){const v=el.querySelector('.wi-full-view');if(v)v.scrollTop=rs;}
+    } else {
+      if(ls){const l=el.querySelector('.wi-pane-left');if(l)l.scrollTop=ls;}
+      if(rs){const r=el.querySelector('.wi-pane-right');if(r)r.scrollTop=rs;}
+    }
   });
 }
 
@@ -8225,18 +8231,6 @@ function _wiRightHtml(){
     h+=`</div></div>`;
   }
 
-  // Inline Paycheck Projections
-  const projOpen=_wiShowProjector;
-  h+=`<div class="wi-proj-section">
-    <div class="wi-proj-toggle" onclick="_wiShowProjector=!_wiShowProjector;renderWI()">
-      <span class="wi-proj-arrow${projOpen?' open':''}">▶</span>
-      <span>📅 Paycheck Projections</span>
-    </div>
-    <div class="wi-proj-body${projOpen?' open':''}">
-      ${projOpen?wiProjectorHtml(_projectorLastResult||null,false):''}
-    </div>
-  </div>`;
-
   return h;
 }
 
@@ -8408,15 +8402,18 @@ function wiRemoveOte(i){
 }
 
 function wiProjectorHtml(result,standalone){
-  const backFn=standalone?'closeModal()':'closeRSheet()';
-  const backBtn=standalone
+  // standalone: true=modal, false=rsheet panel, 'inline'=full-width inside What If tab
+  const isInline=standalone==='inline';
+  const backFn=standalone===true?'closeModal()':'closeRSheet()';
+  const backBtn=standalone===true
     ?`<button class="modal-x" onclick="${backFn}">&#x2715;</button>`
     :`<button class="tbtn" onclick="${backFn}" style="padding:4px 10px;font-size:12px">← Back to What If</button>`;
-  const headTitle=standalone
+  const headTitle=isInline?''
+    :standalone===true
     ?`<div class="modal-head"><div class="modal-title">📅 Paycheck Projector</div>${backBtn}</div>`
     :`<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">${backBtn}<div class="c-text" style="font-size:13px;font-weight:700">📅 Paycheck Projector</div><div></div></div>`;
-  const bodyWrap=standalone?`<div class="modal-body">`:`<div style="padding:14px 16px;overflow-y:auto;max-height:72vh">`;
-  const footHtml=standalone?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
+  const bodyWrap=standalone===true?`<div class="modal-body">`:`<div style="padding:14px 16px${isInline?'':';overflow-y:auto;max-height:72vh'}">`;
+  const footHtml=standalone===true?`<div class="modal-foot"><button class="btn-cancel" onclick="${backFn}">Close</button></div>`:'';
   // Use stored form state if available (preserves user edits after re-render)
   const fs=_projectorFormState||{};
   const sysCashBal=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
@@ -9020,6 +9017,25 @@ function wiRunProjector(){
     const oblOut=pOut.filter(o=>!o.preFunded);
     const preOut=pOut.filter(o=>o.preFunded);
 
+    // Pre-funded clearings first: context — these are already covered by prior paycheck savings
+    if(preOut.length){
+      const preByDay={},preDayOrd=[];
+      preOut.forEach(o=>{if(!preByDay[o.date]){preByDay[o.date]=[];preDayOrd.push(o.date);}preByDay[o.date].push(o);});
+      bodyHtml+=`<div style="margin-bottom:10px;padding:6px 10px 6px;background:rgba(16,185,129,.05);border:1px solid var(--gb);border-radius:8px">`;
+      bodyHtml+=`<div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:.5px;margin-bottom:6px;text-transform:uppercase">✓ Pre-funded clearings · already saved</div>`;
+      preDayOrd.forEach(date=>{
+        const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'long',day:'numeric'});
+        bodyHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;padding:4px 0 2px;border-top:1px solid rgba(16,185,129,.2)">${dayLabel}</div>`;
+        preByDay[date].forEach(o=>{
+          ledgerBal-=o.amount;
+          bodyHtml+=`<div style="display:flex;gap:8px;padding:2px 0;align-items:center;opacity:0.8"><span style="font-size:11px;flex-shrink:0;line-height:1;color:var(--green)">✓</span><span style="flex:1;font-size:12px;color:var(--text2)">${esc(o.desc)}</span><span style="font-family:var(--mono);font-size:12px;text-align:right;color:var(--green)">-${$f(o.amount)}</span></div>`;
+        });
+        bodyHtml+=runBalRow(ledgerBal);
+      });
+      bodyHtml+=`</div>`;
+    }
+
+    // Obligations: what this paycheck must fund
     if(oblOut.length){
       const oblByDay={},oblDayOrd=[];
       oblOut.forEach(o=>{if(!oblByDay[o.date]){oblByDay[o.date]=[];oblDayOrd.push(o.date);}oblByDay[o.date].push(o);});
@@ -9047,24 +9063,6 @@ function wiRunProjector(){
       bodyHtml+=`</div>`;
     } else if(p.type==='paycheck'&&pInAmt>0){
       bodyHtml+=`<div style="font-size:12px;padding:8px 4px;color:var(--green);font-weight:600">★ No new budget obligations this period — this paycheck is free cash.</div>`;
-    }
-
-    // Pre-funded clearings: cash still exits but was already saved for in a prior paycheck
-    if(preOut.length){
-      const preByDay={},preDayOrd=[];
-      preOut.forEach(o=>{if(!preByDay[o.date]){preByDay[o.date]=[];preDayOrd.push(o.date);}preByDay[o.date].push(o);});
-      bodyHtml+=`<div style="margin-top:10px;padding:6px 10px 6px;background:rgba(16,185,129,.05);border:1px solid var(--gb);border-radius:8px">`;
-      bodyHtml+=`<div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:.5px;margin-bottom:6px;text-transform:uppercase">✓ Pre-funded clearings · already saved</div>`;
-      preDayOrd.forEach(date=>{
-        const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'long',day:'numeric'});
-        bodyHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;padding:4px 0 2px;border-top:1px solid rgba(16,185,129,.2)">${dayLabel}</div>`;
-        preByDay[date].forEach(o=>{
-          ledgerBal-=o.amount;
-          bodyHtml+=`<div style="display:flex;gap:8px;padding:2px 0;align-items:center;opacity:0.8"><span style="font-size:11px;flex-shrink:0;line-height:1;color:var(--green)">✓</span><span style="flex:1;font-size:12px;color:var(--text2)">${esc(o.desc)}</span><span style="font-family:var(--mono);font-size:12px;text-align:right;color:var(--green)">-${$f(o.amount)}</span></div>`;
-        });
-        bodyHtml+=runBalRow(ledgerBal);
-      });
-      bodyHtml+=`</div>`;
     }
 
     if(!bodyHtml){
