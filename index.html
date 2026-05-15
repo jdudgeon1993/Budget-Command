@@ -8653,7 +8653,7 @@ function wiRunProjector(){
       const bType=b.type||'regular';
       const bRoll=!!b.rollover;
       // Pre-funded: bucket is fully allocated this month — cash is already earmarked, no action needed
-      const preFunded=isCurMo&&bBudget(activeMid,b.id)>0&&bAlloc(activeMid,b.id)>=bBudget(activeMid,b.id);
+      const preFunded=bBudget(loopMid,b.id)>0&&bAlloc(loopMid,b.id)>=bBudget(loopMid,b.id);
       if(b.dueDay){
         const freq=b.payFreq;
         if(freq&&freq!=='monthly'){
