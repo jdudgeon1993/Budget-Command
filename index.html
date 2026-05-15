@@ -9013,55 +9013,76 @@ function wiRunProjector(){
       </div>`;
     }
 
-    // 3. Split expenses: obligations (must fund now) vs pre-funded clearings (already saved)
+    // 3. Group expenses by month — within each month: pre-funded card first, then obligations
     const oblOut=pOut.filter(o=>!o.preFunded);
-    const preOut=pOut.filter(o=>o.preFunded);
+    const moGroups={},moOrder=[];
+    pOut.forEach(o=>{
+      const mo=o.date.slice(0,7);
+      if(!moGroups[mo]){moGroups[mo]={pre:[],obl:[]};moOrder.push(mo);}
+      if(o.preFunded)moGroups[mo].pre.push(o);
+      else moGroups[mo].obl.push(o);
+    });
+    const multiMo=moOrder.length>1;
 
-    // Pre-funded clearings first: context — these are already covered by prior paycheck savings
-    if(preOut.length){
-      const preByDay={},preDayOrd=[];
-      preOut.forEach(o=>{if(!preByDay[o.date]){preByDay[o.date]=[];preDayOrd.push(o.date);}preByDay[o.date].push(o);});
-      bodyHtml+=`<div style="margin-bottom:10px;padding:6px 10px 6px;background:rgba(16,185,129,.05);border:1px solid var(--gb);border-radius:8px">`;
-      bodyHtml+=`<div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:.5px;margin-bottom:6px;text-transform:uppercase">✓ Pre-funded clearings · already saved</div>`;
-      preDayOrd.forEach(date=>{
-        const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'long',day:'numeric'});
-        bodyHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;padding:4px 0 2px;border-top:1px solid rgba(16,185,129,.2)">${dayLabel}</div>`;
-        preByDay[date].forEach(o=>{
-          ledgerBal-=o.amount;
-          bodyHtml+=`<div style="display:flex;gap:8px;padding:2px 0;align-items:center;opacity:0.8"><span style="font-size:11px;flex-shrink:0;line-height:1;color:var(--green)">✓</span><span style="flex:1;font-size:12px;color:var(--text2)">${esc(o.desc)}</span><span style="font-family:var(--mono);font-size:12px;text-align:right;color:var(--green)">-${$f(o.amount)}</span></div>`;
-        });
-        bodyHtml+=runBalRow(ledgerBal);
-      });
-      bodyHtml+=`</div>`;
-    }
+    moOrder.forEach((mo,moIdx)=>{
+      const {pre,obl}=moGroups[mo];
+      if(multiMo){
+        const moLabel=new Date(mo+'-15T12:00:00').toLocaleDateString('default',{month:'long',year:'numeric'});
+        const isFirst=moIdx===0;
+        bodyHtml+=`<div style="display:flex;align-items:center;gap:8px;padding:${isFirst?'4px':'12px'} 0 6px">
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">${moLabel}</span>
+          <span style="flex:1;height:1px;background:var(--border)"></span>
+        </div>`;
+      }
 
-    // Obligations: what this paycheck must fund
-    if(oblOut.length){
-      const oblByDay={},oblDayOrd=[];
-      oblOut.forEach(o=>{if(!oblByDay[o.date]){oblByDay[o.date]=[];oblDayOrd.push(o.date);}oblByDay[o.date].push(o);});
-      bodyHtml+=`<div style="padding:4px 0 0">`;
-      oblDayOrd.forEach(date=>{
-        const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'long',day:'numeric'});
-        bodyHtml+=`<div class="c-text3" style="font-size:11px;font-weight:700;padding:6px 0 3px;border-top:1px solid var(--border)">${dayLabel}</div>`;
-        oblByDay[date].forEach(o=>{
-          ledgerBal-=o.amount;
-          const isSav=isSavingsFlow(o);
-          const amtColor=isSav?'var(--accent)':'var(--red)';
-          const badge=isSav
-            ?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`
-            :o.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`
-            :o.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`
-            :o.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">${o.repeat&&o.repeat!=='once'?o.repeat:'one-time'}</span>`
-            :'';
-          const dot=isSav
-            ?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`
-            :`<span style="width:9px;height:9px;border-radius:50%;background:${o.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
-          bodyHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">${dot}<span style="flex:1;font-size:13px">${esc(o.desc)}${badge}</span><span style="font-family:var(--mono);font-size:13px;text-align:right;color:${amtColor}">-${$f(o.amount)}</span></div>`;
+      // Pre-funded card for this month
+      if(pre.length){
+        const preByDay={},preDayOrd=[];
+        pre.forEach(o=>{if(!preByDay[o.date]){preByDay[o.date]=[];preDayOrd.push(o.date);}preByDay[o.date].push(o);});
+        bodyHtml+=`<div style="margin-bottom:8px;padding:6px 10px;background:rgba(16,185,129,.05);border:1px solid var(--gb);border-radius:8px">`;
+        bodyHtml+=`<div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:.5px;margin-bottom:6px;text-transform:uppercase">✓ Pre-funded clearings · already saved</div>`;
+        preDayOrd.forEach(date=>{
+          const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'long',day:'numeric'});
+          bodyHtml+=`<div class="c-text3" style="font-size:10px;font-weight:700;padding:4px 0 2px;border-top:1px solid rgba(16,185,129,.2)">${dayLabel}</div>`;
+          pre.filter(o=>o.date===date).forEach(o=>{
+            ledgerBal-=o.amount;
+            bodyHtml+=`<div style="display:flex;gap:8px;padding:2px 0;align-items:center;opacity:0.8"><span style="font-size:11px;flex-shrink:0;line-height:1;color:var(--green)">✓</span><span style="flex:1;font-size:12px;color:var(--text2)">${esc(o.desc)}</span><span style="font-family:var(--mono);font-size:12px;text-align:right;color:var(--green)">-${$f(o.amount)}</span></div>`;
+          });
+          bodyHtml+=runBalRow(ledgerBal);
         });
-        bodyHtml+=runBalRow(ledgerBal);
-      });
-      bodyHtml+=`</div>`;
-    } else if(p.type==='paycheck'&&pInAmt>0){
+        bodyHtml+=`</div>`;
+      }
+
+      // Obligations for this month
+      if(obl.length){
+        const oblByDay={},oblDayOrd=[];
+        obl.forEach(o=>{if(!oblByDay[o.date]){oblByDay[o.date]=[];oblDayOrd.push(o.date);}oblByDay[o.date].push(o);});
+        bodyHtml+=`<div style="padding:2px 0 0">`;
+        oblDayOrd.forEach(date=>{
+          const dayLabel=new Date(date+'T12:00:00').toLocaleDateString('default',{weekday:'short',month:'long',day:'numeric'});
+          bodyHtml+=`<div class="c-text3" style="font-size:11px;font-weight:700;padding:6px 0 3px;border-top:1px solid var(--border)">${dayLabel}</div>`;
+          obl.filter(o=>o.date===date).forEach(o=>{
+            ledgerBal-=o.amount;
+            const isSav=isSavingsFlow(o);
+            const amtColor=isSav?'var(--accent)':'var(--red)';
+            const badge=isSav
+              ?`<span style="font-size:9px;color:var(--accent);border:1px solid rgba(0,212,170,0.4);border-radius:3px;padding:0 4px;margin-left:4px">planned</span>`
+              :o.src==='debt'?`<span class="c-red" style="font-size:9px;border:1px solid var(--rb);border-radius:3px;padding:0 4px;margin-left:4px">min pay</span>`
+              :o.src==='discretionary'?`<span class="c-text3" style="font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;margin-left:4px">variable</span>`
+              :o.src==='onetime'?`<span class="c-amber" style="font-size:9px;border:1px solid var(--ab);border-radius:3px;padding:0 4px;margin-left:4px">${o.repeat&&o.repeat!=='once'?o.repeat:'one-time'}</span>`
+              :'';
+            const dot=isSav
+              ?`<span style="font-size:11px;flex-shrink:0;line-height:1">📈</span>`
+              :`<span style="width:9px;height:9px;border-radius:50%;background:${o.catColor||'var(--border2)'};flex-shrink:0;margin-top:2px"></span>`;
+            bodyHtml+=`<div style="display:flex;gap:8px;padding:3px 0;align-items:center">${dot}<span style="flex:1;font-size:13px">${esc(o.desc)}${badge}</span><span style="font-family:var(--mono);font-size:13px;text-align:right;color:${amtColor}">-${$f(o.amount)}</span></div>`;
+          });
+          bodyHtml+=runBalRow(ledgerBal);
+        });
+        bodyHtml+=`</div>`;
+      }
+    });
+
+    if(!oblOut.length&&p.type==='paycheck'&&pInAmt>0){
       bodyHtml+=`<div style="font-size:12px;padding:8px 4px;color:var(--green);font-weight:600">★ No new budget obligations this period — this paycheck is free cash.</div>`;
     }
 
