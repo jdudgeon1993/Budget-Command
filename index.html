@@ -207,9 +207,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ov-mnav-add:hover{opacity:.7;}
 
 /* Ledger tab */
-.ledger-layout{display:flex;flex-direction:column;}
+.ledger-layout{display:flex;flex-direction:column;height:100%;overflow:hidden;}
 .ledger-form-col{display:none;}
-.ledger-add-bar{position:sticky;top:0;z-index:10;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.ledger-add-bar{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;}
 .ledger-add-row1{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .ledger-add-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;}
 .ledger-add-inp{flex:1;min-width:100px;padding:7px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);}
@@ -220,7 +220,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ledger-add-sel:focus{border-color:var(--accent);outline:none;}
 .ledger-add-btn{padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .ledger-add-btn:hover{background:var(--accent2);}
-.ledger-list-col{display:flex;flex-direction:column;}
+.ledger-list-col{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 @media(max-width:1099px){
   .ledger-add-inp.sm{flex:0 0 80px;}
 }
@@ -880,9 +880,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .add-acct-form{display:flex;gap:6px;align-items:flex-end;margin-bottom:4px;}
 
 /* ═══ MODAL ═══ */
+/* Modal entry animations */
+@keyframes modal-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes modal-slide-up{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;}
 .overlay.hidden{display:none;}
+.overlay:not(.hidden) .modal{animation:modal-slide-up .22s cubic-bezier(.4,0,.2,1);}
 .modal{background:var(--bg2);border-radius:var(--rl);width:100%;max-width:440px;border:1px solid var(--border2);box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;max-height:92vh;display:flex;flex-direction:column;}
+@media(max-width:1099px){
+  .overlay{align-items:flex-end;padding:0;}
+  .modal{border-radius:16px 16px 0 0;max-width:100%;width:100%;max-height:92vh;}
+  .overlay:not(.hidden) .modal{animation:modal-slide-up .28s cubic-bezier(.4,0,.2,1);}
+}
 .modal-head{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .modal-title{font-size:15px;font-weight:600;}
 .modal-x{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 4px;transition:color .12s;}
@@ -1046,8 +1055,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
   .tx-row{grid-template-columns:10px 64px 1fr 88px 38px;}
   .tx-col-hdrs .col-sm,.tx-row .col-sm{display:none;}
   .tx-cell-acts{opacity:1;}
-  .tx-col-hdrs{top:44px;}
-  .tx-date-hdr{top:74px;}
+  /* top:0/30px correct — ledger-list-col is now the scroll container */
 }
 /* Account balance badge in ledger header */
 .rp-bal-badge{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green);background:var(--gbg);padding:2px 7px;border-radius:10px;letter-spacing:-.3px;}
@@ -7833,7 +7841,16 @@ function addTx(){
   showToast(`${isEdit?'Updated':'Added'} ${typeLabel}: ${desc}${sched?' (scheduled)':''}`, txType==='in'?'in':txType==='xfr'?'xfr':'out');
   document.getElementById('txDesc').value='';
   document.getElementById('txAmt').value='';
+  // Auto-open inline expand on the new tx so bucket can be assigned immediately
+  if(!isEdit&&!sched&&txType==='out')activeTx=tx.id;
   render();
+  // Scroll new transaction into view
+  if(!isEdit){
+    requestAnimationFrame(()=>{
+      const el=document.querySelector(`.tx-row[data-txid="${tx.id}"]`);
+      if(el)el.scrollIntoView({block:'nearest',behavior:'smooth'});
+    });
+  }
   // Prompt allocation rules on new income
   if(!isEdit&&txType==='in'&&!sched)setTimeout(()=>promptAllocationRules(amt,monthId),400);
 }
