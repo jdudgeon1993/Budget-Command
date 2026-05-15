@@ -613,6 +613,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
   .acct-ls-btn{flex-direction:row;padding:7px 14px;border-radius:20px;white-space:nowrap;width:auto;flex-shrink:0;}
   .acct-ls-btn.active{background:linear-gradient(135deg,rgba(0,212,170,0.18),rgba(0,212,170,0.06));}
   .acct-ls-main{overflow-y:auto;flex:1;min-height:0;}
+  .acct-table-hdr,.acct-row{grid-template-columns:14px 1fr 100px 36px 80px;}
   .acct-th-type,.acct-col-type{display:none;}
   .acct-detail-btn{opacity:1;}
   .acct-bal-cell{min-width:70px;}
@@ -9615,8 +9616,8 @@ function reportNetWorthHtml(){
       const cells=bals.map(b=>`<td style="color:${b>=0?'var(--text)':'var(--red)'}">${$f(b)}</td>`).join('');
       return `<tr><td>${mo.label}</td>${cells}<td style="color:${total>=0?'var(--green)':'var(--red)'};font-weight:700">${$f(total)}</td></tr>`;
     }).join('');
-    histTable=`<div class="nw-history"><table class="nw-table">
-      <thead><tr><th>Month</th>${cols}<th>Net Worth</th></tr></thead>
+    histTable=`<div class="tbl-wrap" style="padding:0 0 16px"><table class="data-table">
+      <thead><tr><th>Month</th>${cols}<th class="r">Net Worth</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
   }
