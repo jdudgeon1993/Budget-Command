@@ -1595,28 +1595,37 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .emi-label{font-size:12px;flex:1;}
 .emi-hint{font-family:var(--mono);font-size:11px;color:var(--text3);}
 /* Toast */
-#dToastWrap{position:fixed;top:68px;right:16px;width:300px;display:flex;flex-direction:column;gap:7px;z-index:9990;pointer-events:none;}
+#dToastWrap{position:fixed;top:68px;right:16px;width:320px;display:flex;flex-direction:column;gap:8px;z-index:9990;pointer-events:none;}
 @media(max-width:1099px){#dToastWrap{top:auto;bottom:calc(72px + env(safe-area-inset-bottom));left:12px;right:12px;width:auto;}}
-.d-toast{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:10px 13px;font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:dToastIn .18s ease;pointer-events:auto;line-height:1.35;}
-.d-toast.t-in{border-left-color:var(--green);}
-.d-toast.t-out{border-left-color:var(--red);}
-.d-toast.t-xfr{border-left-color:var(--purple);}
-.d-toast.t-save{border-left-color:var(--accent);}
-.d-toast.t-info{border-left-color:var(--amber);}
-.d-toast-icon{font-size:13px;flex-shrink:0;width:16px;text-align:center;}
-.d-toast.t-in .d-toast-icon{color:var(--green);}
-.d-toast.t-out .d-toast-icon{color:var(--red);}
-.d-toast.t-xfr .d-toast-icon{color:var(--purple);}
-.d-toast.t-save .d-toast-icon{color:var(--accent);}
-.d-toast.t-info .d-toast-icon{color:var(--amber);}
-.d-toast-msg{flex:1;min-width:0;}
-.d-toast-undo{margin-left:6px;background:none;border:1px solid currentColor;font-size:11px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:5px;flex-shrink:0;opacity:.75;transition:opacity .1s;}
+.d-toast{background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.4);animation:dToastIn .22s cubic-bezier(.34,1.3,.64,1);pointer-events:auto;cursor:pointer;position:relative;}
+.d-toast-body{display:flex;align-items:center;gap:10px;padding:11px 12px 11px 11px;}
+.d-toast-icon-wrap{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.d-toast-content{flex:1;min-width:0;}
+.d-toast-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.3;}
+.d-toast-sub{font-size:11px;color:var(--text3);line-height:1.35;margin-top:1px;}
+.d-toast-close{color:var(--text3);font-size:16px;line-height:1;padding:2px 4px;flex-shrink:0;opacity:.45;transition:opacity .1s;background:none;border:none;cursor:pointer;}
+.d-toast-close:hover{opacity:1;}
+.d-toast-undo{flex-shrink:0;background:none;border:1px solid currentColor;font-size:11px;font-weight:700;cursor:pointer;padding:3px 9px;border-radius:5px;transition:opacity .1s;opacity:.75;}
 .d-toast-undo:hover{opacity:1;}
-.d-toast.out{animation:dToastOut .25s ease forwards;}
-@keyframes dToastIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:translateX(0);}}
-@keyframes dToastOut{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(10px);}}
+.d-toast-bar{height:2px;}
+.d-toast-bar-fill{height:2px;transform-origin:left;animation:toastProgress linear forwards;}
+.d-toast.t-save .d-toast-icon-wrap{background:rgba(16,185,129,.15);color:var(--green);}
+.d-toast.t-save .d-toast-bar-fill,.d-toast.t-in .d-toast-bar-fill{background:var(--green);}
+.d-toast.t-in .d-toast-icon-wrap{background:rgba(16,185,129,.15);color:var(--green);}
+.d-toast.t-out .d-toast-icon-wrap{background:rgba(239,68,68,.12);color:var(--red);}
+.d-toast.t-out .d-toast-bar-fill{background:var(--red);}
+.d-toast.t-xfr .d-toast-icon-wrap{background:rgba(139,92,246,.12);color:var(--purple);}
+.d-toast.t-xfr .d-toast-bar-fill{background:var(--purple);}
+.d-toast.t-info .d-toast-icon-wrap{background:rgba(245,158,11,.12);color:var(--amber);}
+.d-toast.t-info .d-toast-bar-fill{background:var(--amber);}
+.d-toast.t-error .d-toast-icon-wrap{background:rgba(239,68,68,.14);color:var(--red);}
+.d-toast.t-error .d-toast-bar-fill{background:var(--red);}
+.d-toast.out{animation:dToastOut .22s ease forwards;}
+@keyframes dToastIn{from{opacity:0;transform:translateX(14px) scale(.96);}to{opacity:1;transform:translateX(0) scale(1);}}
+@keyframes dToastOut{from{opacity:1;transform:translateX(0);}to{opacity:0;transform:translateX(18px);}}
+@keyframes toastProgress{from{transform:scaleX(1);}to{transform:scaleX(0);}}
 @media(max-width:1099px){
-  @keyframes dToastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes dToastIn{from{opacity:0;transform:translateY(12px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
   @keyframes dToastOut{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(8px);}}
 }
 /* Sync indicator in topbar */
@@ -11703,27 +11712,39 @@ function toggleExprMenu(btn){
 }
 
 // Desktop + mobile toast notification
-const _TOAST_ICON={in:'↓',out:'↑',xfr:'⇄',save:'✓',info:'!'};
-function showToast(msg,type='save'){
+const _TOAST_ICON={save:'✓',in:'↓',out:'↑',xfr:'⇄',info:'ℹ',error:'✕'};
+const _TOAST_DURATION={save:3200,in:3200,out:3200,xfr:3200,info:4500,error:7000};
+const _TOAST_MAX=4;
+function showToast(msg,type='save',opts={}){
   const wrap=document.getElementById('dToastWrap');if(!wrap)return;
+  while(wrap.children.length>=_TOAST_MAX){
+    const old=wrap.firstChild;old.classList.add('out');setTimeout(()=>old.remove(),220);
+  }
+  const dur=opts.duration||_TOAST_DURATION[type]||3200;
+  const sub=opts.sub||null;
   const t=document.createElement('div');
   t.className=`d-toast t-${type}`;
-  t.innerHTML=`<span class="d-toast-icon">${_TOAST_ICON[type]||'✓'}</span><span class="d-toast-msg">${esc(msg)}</span>`;
+  t.innerHTML=`<div class="d-toast-body"><div class="d-toast-icon-wrap">${_TOAST_ICON[type]||'✓'}</div><div class="d-toast-content"><div class="d-toast-title">${esc(msg)}</div>${sub?`<div class="d-toast-sub">${esc(sub)}</div>`:''}</div><button class="d-toast-close" aria-label="Dismiss">×</button></div><div class="d-toast-bar"><div class="d-toast-bar-fill" style="animation-duration:${dur}ms"></div></div>`;
   wrap.appendChild(t);
-  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),280);},3200);
+  const dismiss=()=>{if(t._gone)return;t._gone=true;clearTimeout(t._timer);t.classList.add('out');setTimeout(()=>t.remove(),230);};
+  t._timer=setTimeout(dismiss,dur);
+  t.addEventListener('click',dismiss);
+  t.querySelector('.d-toast-close').addEventListener('click',e=>{e.stopPropagation();dismiss();});
 }
 function showUndoToast(msg,type='out',undoFn){
   const wrap=document.getElementById('dToastWrap');if(!wrap)return;
+  while(wrap.children.length>=_TOAST_MAX){
+    const old=wrap.firstChild;old.classList.add('out');setTimeout(()=>old.remove(),220);
+  }
+  const dur=5500;
   const t=document.createElement('div');
   t.className=`d-toast t-${type}`;
-  t.innerHTML=`<span class="d-toast-icon">${_TOAST_ICON[type]||'✓'}</span><span class="d-toast-msg">${esc(msg)}</span><button class="d-toast-undo">Undo</button>`;
+  t.innerHTML=`<div class="d-toast-body"><div class="d-toast-icon-wrap">${_TOAST_ICON[type]||'✓'}</div><div class="d-toast-content"><div class="d-toast-title">${esc(msg)}</div></div><button class="d-toast-undo">Undo</button></div><div class="d-toast-bar"><div class="d-toast-bar-fill" style="animation-duration:${dur}ms"></div></div>`;
   wrap.appendChild(t);
   let done=false;
-  const dismiss=()=>{t.classList.add('out');setTimeout(()=>t.remove(),280);};
-  const timer=setTimeout(()=>{if(!done){done=true;dismiss();}},6000);
-  t.querySelector('.d-toast-undo').addEventListener('click',()=>{
-    if(done)return;done=true;clearTimeout(timer);dismiss();undoFn?.();
-  });
+  const dismiss=()=>{if(done)return;done=true;clearTimeout(timer);t.classList.add('out');setTimeout(()=>t.remove(),230);};
+  const timer=setTimeout(dismiss,dur);
+  t.querySelector('.d-toast-undo').addEventListener('click',()=>{dismiss();undoFn?.();});
 }
 
 function showConfirmModal(title,body,confirmLabel,fn,destructive=false){
