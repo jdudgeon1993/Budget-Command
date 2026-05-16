@@ -12032,15 +12032,20 @@ function init(){
   // Log tab is mobile-only; correct saved state on desktop
   if(activeTab==='log'&&!isMobile())activeTab='ledger';
   if(activeTab==='export')activeTab='settings';
-  // Default to dashboard on desktop
-  if(!isMobile()&&(activeTab==='buckets'||activeTab==='dashboard'))activeTab='dashboard';
-  render();
-  // Apply dash-mode and back button on init
+  // Desktop always lands on dashboard
+  if(!isMobile())activeTab='dashboard';
+  // Apply dash-mode BEFORE render so sidebar never flashes in
   const appEl=document.getElementById('app')||document.querySelector('.app');
   if(appEl){
     if(activeTab==='dashboard'&&!isMobile()){appEl.classList.add('dash-mode');}
     else{appEl.classList.remove('dash-mode');}
   }
+  // Activate dashboard pane immediately
+  if(activeTab==='dashboard'){
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('paneDashboard')?.classList.add('active');
+  }
+  render();
   const backBtn=document.getElementById('dhBackBtn');
   if(backBtn)backBtn.style.display=(activeTab!=='dashboard'&&!isMobile())?'inline-flex':'none';
   populateTxCats();
@@ -12075,6 +12080,10 @@ document.addEventListener('DOMContentLoaded',()=>{
         _layoutIsMobile=nowMobile;
         // Correct tab state that is mobile-only or desktop-only
         if(!nowMobile&&activeTab==='log')activeTab='ledger';
+        if(!nowMobile)activeTab='dashboard';
+        const _rAppEl=document.getElementById('app')||document.querySelector('.app');
+        if(_rAppEl){_rAppEl.classList.toggle('dash-mode',activeTab==='dashboard'&&!nowMobile);}
+        if(activeTab==='dashboard'){document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));document.getElementById('paneDashboard')?.classList.add('active');}
         render();
       } else {
         renderNav();
