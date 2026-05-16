@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Budget Command</title>
+<title>Cura</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -222,6 +222,35 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
   header.topbar{height:56px;}
   .tb-mob-wrap,.tb-mob-r1,.tb-mob-r2,.tb-mobile-wrap,.tb-accounts{display:none!important;}
   .tb-logo-dot{display:none;}
+}
+/* Cura desktop header */
+.dash-header{display:none;}
+@media(min-width:1100px){
+  header.topbar{display:none!important;}
+  .dash-header{
+    display:flex;
+    align-items:center;
+    height:52px;
+    padding:0 28px;
+    background:var(--bg);
+    border-bottom:3px solid var(--border);
+    position:sticky;top:0;z-index:100;flex-shrink:0;
+    background-image:linear-gradient(rgba(100,180,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(100,180,255,.04) 1px,transparent 1px);
+    background-size:80px 80px,80px 80px;
+  }
+  .dh-left{display:flex;align-items:center;gap:16px;}
+  .dh-wordmark{font-family:var(--display);font-size:32px;letter-spacing:.16em;color:var(--text);line-height:1;}
+  .dh-dot{width:7px;height:7px;background:var(--amber);flex-shrink:0;}
+  .dh-month-nav{display:flex;align-items:center;gap:0;margin-left:8px;}
+  .dh-month-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:6px 10px;transition:color .12s;line-height:1;}
+  .dh-month-btn:hover{color:var(--accent);}
+  .dh-month-label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--text3);padding:0 4px;cursor:pointer;}
+  .dh-spacer{flex:1;}
+  .dh-right{display:flex;align-items:center;gap:20px;}
+  .dh-sync{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--green);letter-spacing:.14em;}
+  .dh-sync-dot{width:6px;height:6px;background:var(--green);border-radius:50%;}
+  .dh-action{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.14em;cursor:pointer;padding:5px 10px;border:1px solid transparent;border-radius:1px;transition:border-color .15s,color .15s;background:none;}
+  .dh-action:hover{border-color:var(--border);color:var(--accent);}
 }
 @media(max-width:1099px){
   .ledger-add-inp.sm{flex:0 0 80px;}
@@ -2065,11 +2094,34 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 </head>
 <body>
 
+<!-- Cura desktop header -->
+<header class="dash-header" id="dashHeader">
+  <div class="dh-left">
+    <div class="dh-wordmark">CURA</div>
+    <div class="dh-dot"></div>
+    <div class="dh-month-nav">
+      <button class="dh-month-btn" onclick="sidebarNavMonth(-1)" aria-label="Previous month">‹</button>
+      <span class="dh-month-label" id="dhMonthLabel">MAY · 2026</span>
+      <button class="dh-month-btn" onclick="sidebarNavMonth(1)" aria-label="Next month">›</button>
+    </div>
+  </div>
+  <div class="dh-spacer"></div>
+  <div class="dh-right">
+    <div class="dh-sync" id="dhSync" style="display:none">
+      <div class="dh-sync-dot"></div>
+      <span>Synced</span>
+    </div>
+    <button class="dh-action dash-back-btn" id="dhBackBtn" onclick="setTab('dashboard')" style="display:none">← Dashboard</button>
+    <button class="dh-action" id="dhAuthBtn" onclick="authAction()" style="display:none"></button>
+    <button class="dh-action" onclick="setTab('settings')">Settings</button>
+  </div>
+</header>
+
 <!-- TOPBAR -->
 <header class="topbar" id="topbar">
   <div class="tb-logo nav-desktop">
     <div class="tb-logo-mark">BC</div>
-    <div class="tb-logo-text">Budget<br>Command</div>
+    <div class="tb-logo-text">Cura</div>
   </div>
   <!-- Month navigation — visible in topbar on mobile -->
   <div class="tb-month-nav" id="tbMonthNav">
@@ -2110,7 +2162,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <!-- Mobile header: 2-row sticky layout (≤1099px) -->
   <div class="tb-mobile-wrap" id="tbMobileWrap">
     <div class="tb-mob-r1">
-      <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Budget Command</div>
+      <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Cura</div>
       <button class="tb-mob-user" id="tbMobUser" onclick="authAction()"></button>
     </div>
     <div class="tb-mob-r2">
@@ -2447,7 +2499,7 @@ function showAuthRegister(){
   document.getElementById('authSignInForm').style.display='none';
   document.getElementById('authRegisterForm').style.display='';
   document.getElementById('authTitle').textContent='Create account';
-  document.getElementById('authSub').textContent='Set up your Budget Command account.';
+  document.getElementById('authSub').textContent='Set up your Cura account.';
   document.getElementById('authMsg').style.display='none';
   document.getElementById('authRegEmail')?.focus();
 }
@@ -3291,7 +3343,7 @@ async function testGeminiConnection(){
   const prev=getAISettings();
   saveAISettings({...prev,geminiKey:key,model:document.getElementById('aiModelSel')?.value||'gemini-2.0-flash'});
   try{
-    const reply=await callGemini('Reply with exactly the words: Budget Command AI is ready',undefined,{maxTokens:20,temp:0});
+    const reply=await callGemini('Reply with exactly the words: Cura AI is ready',undefined,{maxTokens:20,temp:0});
     out.innerHTML=`<span style="color:var(--green)">✓ ${esc(reply)}</span>`;
   }catch(err){
     out.innerHTML=`<span style="color:var(--red)">✗ ${esc(err.message)}</span>`;
@@ -3519,7 +3571,7 @@ function _buildCoachSystemPrompt(){
   const tone=toneMap[s.tone||'encouraging'];
   const wiCtx=S.wiOpen&&S.wiScenario?`\n\nUSER IS IN WHAT IF MODE — Scenario: "${S.wiScenario.name}". The user is exploring a hypothetical budget.`:'';
   const tabCtx=activeTab?`\nCURRENT PAGE: ${activeTab}`:'';
-  return`You are an AI financial coach inside Budget Command. ${tone}
+  return`You are an AI financial coach inside Cura. ${tone}
 You are advisory only — you give analysis and recommendations. You cannot take actions in the app. If the user needs to act, tell them which tab to go to (Buckets, Ledger, Accounts, etc.).
 Style rules: plain conversational sentences, no markdown (no **, no *, no #, no bullet dashes). Use a single blank line between separate points. Keep responses to 3–5 sentences unless the user asks for detail. Lead with the most important insight. Reference exact dollar amounts. Do NOT list every bucket name — focus on the 1–2 that matter most.
 INCOME RULE: "Income received" = logged so far. "Expected total" = full month projection. Always reason from expected total, never flag issues based only on mid-month received income.${tabCtx}${wiCtx}
@@ -3760,7 +3812,7 @@ function buildMonthEndReportHtml(mid){
   return`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;padding:40px;max-width:800px;margin:0 auto;background:#fff">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:32px;padding-bottom:16px;border-bottom:3px solid #111827">
     <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;margin-bottom:6px">Monthly Budget Report</div><div style="font-size:30px;font-weight:700;color:#111827;letter-spacing:-0.5px">${esc(m.label)}</div></div>
-    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Budget Command</div></div>
+    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Cura</div></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
     ${metrics.map(s=>`<div style="padding:14px 10px;border:1px solid #e5e7eb;border-radius:8px;text-align:center"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#9ca3af;margin-bottom:6px">${s.label}</div><div style="font-size:17px;font-weight:700;font-family:${mono};color:${s.color}">${s.val}</div></div>`).join('')}
@@ -3771,7 +3823,7 @@ function buildMonthEndReportHtml(mid){
   ${debtAccts.length?`<div style="margin-bottom:28px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px">Debt Balances</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden"><tbody>${debtRows}</tbody></table></div>`:''}
   ${rollBkts.length?`<div style="margin-bottom:28px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px">Rollover Balances (Carrying Forward)</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden"><tbody>${rollRows}</tbody></table></div>`:''}
   ${notesHtml}${aiHtml}
-  <div style="margin-top:40px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center">Budget Command · ${esc(m.label)} Budget Report · Generated ${today}</div>
+  <div style="margin-top:40px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center">Cura · ${esc(m.label)} Budget Report · Generated ${today}</div>
 </div>`;
 }
 
@@ -11197,7 +11249,7 @@ function importData(event){
       const parsed=JSON.parse(e.target.result);
       const imported=parsed.data||parsed;
       if(!Array.isArray(imported.accounts)&&!Array.isArray(imported.cats)){
-        showToast('Invalid backup file — this does not look like a Budget Command export','info');
+        showToast('Invalid backup file — this does not look like a Cura export','info');
         event.target.value='';return;
       }
       const exportDate=parsed.exportedAt?new Date(parsed.exportedAt).toLocaleString():'unknown date';
@@ -11738,7 +11790,7 @@ function mAcctOptions(selectedId){
   <div class="auth-box">
     <div class="auth-logo">
       <div class="auth-logo-dot"></div>
-      <span class="auth-logo-text">Budget Command</span>
+      <span class="auth-logo-text">Cura</span>
     </div>
     <div class="auth-title" id="authTitle">Sign in</div>
     <div class="auth-sub" id="authSub">Your budget data syncs across all your devices.</div>
@@ -11775,7 +11827,7 @@ function mAcctOptions(selectedId){
 <div id="coachPanel" class="coach-panel">
   <div class="coach-hdr">
     <span class="ai-badge">✦ AI Coach</span>
-    <span class="coach-hdr-title">Budget Command</span>
+    <span class="coach-hdr-title">Cura</span>
     <button class="coach-hdr-btn" onclick="clearCoach()" title="Clear conversation">↺</button>
     <button class="coach-hdr-btn" onclick="toggleCoach()" title="Close" style="font-size:18px">×</button>
   </div>
