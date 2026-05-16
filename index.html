@@ -182,7 +182,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* Ledger tab */
 .ledger-layout{display:flex;flex-direction:column;height:100%;overflow:hidden;}
 .ledger-form-col{display:none;}
-.ledger-add-bar{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;}
+.ledger-add-bar{padding:10px 20px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;}
 .ledger-add-row1{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .ledger-add-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;}
 .ledger-add-inp{flex:1;min-width:100px;padding:7px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:6px;font-size:13px;color:var(--text);font-family:var(--sans);}
@@ -216,8 +216,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
   .ledger-add-inp.sm{flex:0 0 80px;}
   .bkt-create-sel{flex:1;}
 }
-.ledger-list-head{padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px;}
-.ledger-list-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);flex:1;}
+.ledger-list-head{padding:0 20px;height:44px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px;background:var(--bg2);}
+.ledger-list-title{font-size:13px;font-weight:600;letter-spacing:-.2px;color:var(--text);flex:1;}
 .ledger-filters{display:flex;gap:3px;}
 .ledger-search{width:100%;padding:8px 12px;background:var(--surface2);border:none;border-top:1px solid var(--border);font-size:13px;font-family:var(--sans);color:var(--text);outline:none;}
 .ledger-search:focus{border-top-color:var(--accent);}
@@ -513,7 +513,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* ── New Accounts tab — Reports-style two-panel layout ── */
 .acct-list-pane{display:grid;grid-template-columns:180px 1fr;height:100%;min-height:0;}
 .acct-ls-sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
-.acct-ls-hdr{padding:20px 16px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);flex-shrink:0;}
+.acct-ls-hdr{padding:0 16px;height:44px;display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.2px;flex-shrink:0;border-bottom:1px solid var(--border);}
 .acct-ls-nav{display:flex;flex-direction:column;gap:1px;padding:0 8px 12px;flex:1;}
 .acct-ls-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;background:none;border-radius:8px;color:var(--text2);cursor:pointer;font-size:12px;font-family:var(--sans);text-align:left;width:100%;transition:all .12s;line-height:1.3;}
 .acct-ls-btn:hover{background:var(--surface2);color:var(--text);}
@@ -551,7 +551,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 /* Create bar */
 .acct-create-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border2);background:var(--surface2);position:sticky;top:0;z-index:5;}
 /* Detail view wrapper */
-.acct-detail-wrap{padding:20px 24px;display:flex;flex-direction:column;gap:0;}
+.acct-detail-wrap{padding:20px;display:flex;flex-direction:column;gap:0;}
 /* Detail btn */
 .acct-detail-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:13px;padding:4px 6px;border-radius:4px;flex-shrink:0;opacity:.4;transition:opacity .1s;}
 .acct-row:hover .acct-detail-btn{opacity:1;}
@@ -1051,8 +1051,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* ═══ UNIFIED SHELL ═══ */
 .app-nav{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;padding:0;flex-shrink:0;}
 .app-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);position:relative;}
-.tab-pane{display:none;flex:1;flex-direction:column;overflow-y:auto;padding:24px 28px;}
+.tab-pane{display:none;flex:1;flex-direction:column;overflow-y:auto;padding:0;}
 .tab-pane.active{display:flex;}
+/* ─── Shared section chrome ─── */
+.sec-hdr{display:flex;align-items:center;gap:10px;padding:0 20px;height:44px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:2;}
+.sec-title{font-size:13px;font-weight:600;letter-spacing:-.2px;color:var(--text);}
+.tab-inner{padding:16px 20px;}
 /* Nav brand — desktop */
 .nav-brand{display:flex;align-items:center;gap:12px;padding:22px 20px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .nav-brand-mark{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-.5px;}
@@ -1425,7 +1429,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* ═══ WI 2.0 ═══ */
 /* ─── What If pane (full nav tab) ──────────────────── */
 .wi-pane-wrap{display:flex;flex-direction:column;height:100%;}
-.wi-pane-hdr{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.wi-pane-hdr{display:flex;align-items:center;gap:10px;padding:0 20px;min-height:44px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--bg2);}
 .wi-pane-cols{display:grid;grid-template-columns:420px 1fr;flex:1;min-height:0;}
 .wi-pane-left{overflow-y:auto;border-right:1px solid var(--border);}
 .wi-pane-right{overflow-y:auto;display:flex;flex-direction:column;min-width:0;}
@@ -1512,8 +1516,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .settings-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px;}
 /* Settings page redesign */
 .sett-wrap{max-width:720px;margin:0 auto;padding-bottom:48px;}
-.sett-page-hdr{padding:20px 20px 16px;border-bottom:1px solid var(--border);}
-.sett-page-title{font-size:19px;font-weight:700;color:var(--text);}
+.sett-page-hdr{display:flex;align-items:center;padding:0 20px;height:44px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:2;}
+.sett-page-title{font-size:13px;font-weight:600;letter-spacing:-.2px;color:var(--text);}
 .sett-card{border:1px solid var(--border);border-radius:var(--rl);margin:16px 16px 0;overflow:hidden;}
 .sett-card-hdr{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:11px;background:var(--bg);}
 .sett-card-icon{font-size:15px;line-height:1.3;flex-shrink:0;}
@@ -1953,14 +1957,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .rpt-pane{display:grid;grid-template-columns:180px 1fr;grid-template-rows:1fr;height:100%;min-height:0;}
 .rpt-sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;grid-row:1;}
 .rpt-mob-topbar{display:none;}
-.rpt-sidebar-hdr{padding:20px 16px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);flex-shrink:0;}
+.rpt-sidebar-hdr{padding:0 16px;height:44px;display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.2px;flex-shrink:0;border-bottom:1px solid var(--border);}
 .rpt-nav{display:flex;flex-direction:column;gap:1px;padding:0 8px 16px;flex:1;}
 .rpt-nav-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;background:none;border-radius:8px;color:var(--text2);cursor:pointer;font-size:12px;font-family:var(--sans);text-align:left;width:100%;transition:all .12s;line-height:1.3;}
 .rpt-nav-btn:hover{background:var(--surface2);color:var(--text);}
 .rpt-nav-btn.active{background:linear-gradient(90deg,rgba(0,212,170,0.1),transparent);color:var(--accent);font-weight:600;}
 .rpt-nav-icon{font-size:13px;flex-shrink:0;width:18px;text-align:center;}
 .rpt-main{overflow-y:auto;display:flex;flex-direction:column;min-height:0;grid-row:1;}
-.rpt-main-inner{padding:24px 28px;display:flex;flex-direction:column;gap:16px;flex:1;}
+.rpt-main-inner{padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;}
 .rpt-chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;}
 .rpt-chart-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:12px;}
 /* ════════════════════════════════════════════
@@ -5493,15 +5497,15 @@ function renderBucketsTab(el,mid){
   const bMidIdx=S.months.findIndex(mn=>mn.id===mid);
   const bPrevM=bMidIdx>0?S.months[bMidIdx-1]:null;
   const bNextM=bMidIdx>=0&&bMidIdx<S.months.length-1?S.months[bMidIdx+1]:null;
-  let h=`<div class="month-hdr">
-    <span class="month-title">${m.label}</span>
+  let h=`<div class="sec-hdr">
+    <span class="sec-title">${m.label}</span>
     ${!bNextM?`<button class="tbtn" style="font-size:11px;padding:3px 7px" onclick="addNextMonth()" title="Add next month">+</button>`:''}
     <span class="chip chip-${st}">${chipTxt}</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Recurring Bills">⏱ Bills</button>
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openModal('cat')">+ Category</button>
     </div>
-  </div>`;
+  </div><div class="tab-inner">`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
   if(st==='future')h+=`<div class="hint-bar info">📅 Planning month — the RTS shown is your <strong>current available pool</strong> (today's cash minus all present &amp; future commitments). Pre-saving here reduces your current month's RTS.</div>`;
   if(!past&&unalloc>0&&rts>0)
@@ -5535,7 +5539,7 @@ function renderBucketsTab(el,mid){
     h+=`<div class="empty-wrap" style="min-height:160px;padding:30px 0;">
       <div class="empty-title" style="font-size:15px">No buckets yet</div>
       <div class="empty-sub" style="font-size:13px;margin-bottom:14px">Use the form above to add your first bucket.</div>
-    </div>`;_setBucketInner(el,h);return;
+    </div></div>`;_setBucketInner(el,h);return;
   }
   // Bucket list table — Excel-style list grouped by category
   let grandTarget=0,grandAlloc=0,grandSpent=0,grandAvail=0;
@@ -5681,7 +5685,7 @@ function renderBucketsTab(el,mid){
     <td style="color:${rtsColor}">${$f(rts)}</td>
     <td></td>
   </tr>`;
-  h+=`</tbody></table></div>`;
+  h+=`</tbody></table></div></div>`;
   _setBucketInner(el,h);
   setTimeout(wireAllocKeys,50);
 }
@@ -5713,7 +5717,7 @@ function renderReportsTab(el){
   const monthOpts2=S.months.map(m=>`<option value="${m.id}"${m.id===mid?' selected':''}>${esc(m.label)}</option>`).join('');
   el.innerHTML=`<div class="rpt-pane">
     <div class="rpt-sidebar">
-      <div class="rpt-sidebar-hdr" style="display:flex;align-items:center;justify-content:space-between">Reports<button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="exportCSV()" title="Export transactions to CSV">⬇ CSV</button></div>
+      <div class="rpt-sidebar-hdr" style="justify-content:space-between"><span class="sec-title">Reports</span><button class="tbtn" style="font-size:11px;padding:3px 8px" onclick="exportCSV()" title="Export transactions to CSV">⬇ CSV</button></div>
       <nav class="rpt-nav">${navBtns}</nav>
     </div>
     <div class="rpt-mob-topbar" style="flex-wrap:wrap;gap:6px">
@@ -5839,10 +5843,10 @@ function renderSettingsTab(el){
   const billCount=(S.recurringBills||[]).length;
   const payeeCount=(S.payees||[]).length;
 
-  el.innerHTML=`<div class="sett-wrap">
-    <div class="sett-page-hdr">
-      <div class="sett-page-title">Settings</div>
-    </div>
+  el.innerHTML=`<div class="sett-page-hdr">
+    <span class="sett-page-title">Settings</span>
+  </div>
+  <div class="sett-wrap">
 
     <!-- Income Sources -->
     <div class="sett-card">
@@ -7656,7 +7660,7 @@ function renderWhatIfPane(el){
     :`<div class="wi-pane-cols"><div class="wi-pane-left">${_wiLeftHtml()}</div><div class="wi-pane-right">${_wiRightHtml()}</div></div>`;
   el.innerHTML=`<div class="wi-pane-wrap">
     <div class="wi-pane-hdr">
-      <span class="bkt-pane-title">⚡ What If</span>
+      <span class="sec-title">⚡ What If</span>
       ${toggleHtml}
       <span style="flex:1"></span>
       <button class="btn-save" onclick="promoteScenario()">Promote to Budget</button>
