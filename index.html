@@ -194,6 +194,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ledger-add-btn{padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:13px;font-family:var(--sans);font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .ledger-add-btn:hover{background:var(--accent2);}
 .ledger-list-col{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+/* Desktop: topbar is redundant — sidebar owns brand + month nav + New */
+@media(min-width:1100px){header.topbar{display:none!important;}}
 @media(max-width:1099px){
   .ledger-add-inp.sm{flex:0 0 80px;}
 }
@@ -2092,8 +2094,9 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <!-- Month navigation — desktop sidebar -->
     <div class="sb-monnav nav-desktop">
       <button class="sb-monnav-btn" onclick="sidebarNavMonth(-1)" aria-label="Previous month">‹</button>
-      <span class="sb-monnav-label" id="sbMonthLabel" onclick="jumpToToday()" title="Click to go to current month">—</span>
+      <span class="sb-monnav-label" id="sbMonthLabel" onclick="jumpToToday()" title="Go to current month">—</span>
       <button class="sb-monnav-btn" onclick="sidebarNavMonth(1)" aria-label="Next month">›</button>
+      <button class="sb-monnav-wi" onclick="openModal('new')" title="New transaction" style="border-left:1px solid var(--border);color:var(--accent);font-weight:700">+</button>
     </div>
     <!-- Navigation buttons -->
     <button class="nav-btn" data-tab="buckets" onclick="setTab('buckets')">
@@ -4659,14 +4662,18 @@ function renderSidebarVitals(){
   if(sdot)sdot.className='sb-util-dot'+(supaOk?'':' off');
   if(slbl)slbl.textContent=supaOk?'Synced':'Not signed in';
 
-  // ── Buckets smart stat: RTS ──
+  // ── Buckets smart stat: unfunded bucket count (unique — vitals has RTS $) ──
   const bktStat=document.getElementById('sbStat-buckets');
   if(bktStat){
-    if(!hasBudget||rts===null){bktStat.textContent='';bktStat.className='sb-nav-stat';}
-    else{bktStat.textContent='RTS '+(rts>=0?$f(rts):$f(Math.abs(rts))+' short');bktStat.className='sb-nav-stat'+(rts>0?' pos':rts<0?' neg':'');}
+    if(!mid||!S.buckets.length){bktStat.textContent='';bktStat.className='sb-nav-stat';}
+    else{
+      const unfunded=S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid)&&bAlloc(mid,b.id)===0&&bBudget(mid,b.id)>0).length;
+      if(unfunded>0){bktStat.textContent=unfunded+' unfunded';bktStat.className='sb-nav-stat neg';}
+      else{bktStat.textContent='all funded';bktStat.className='sb-nav-stat pos';}
+    }
   }
 
-  // ── Ledger smart stat: month net ──
+  // ── Ledger smart stat: month net (unique — not in vitals) ──
   const ldgStat=document.getElementById('sbStat-ledger');
   if(ldgStat){
     if(!mid){ldgStat.textContent='';ldgStat.className='sb-nav-stat';}
@@ -4680,9 +4687,13 @@ function renderSidebarVitals(){
     }
   }
 
-  // ── Accounts smart stat: total cash ──
+  // ── Accounts smart stat: total debt (unique — vitals has Total Cash) ──
   const acctStat=document.getElementById('sbStat-accounts');
-  if(acctStat){acctStat.textContent=$f(tc);acctStat.className='sb-nav-stat';}
+  if(acctStat){
+    const totalDebt=S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+Math.abs(acctBalance(a.id)),0);
+    if(totalDebt>0){acctStat.textContent='-'+$f(totalDebt)+' debt';acctStat.className='sb-nav-stat neg';}
+    else{acctStat.textContent='';acctStat.className='sb-nav-stat';}
+  }
 }
 
 function renderTopbar(){
