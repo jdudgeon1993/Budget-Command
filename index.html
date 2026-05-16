@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Imperium Fisci</title>
+<title>Budget Command</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -2044,7 +2044,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 <!-- TOPBAR -->
 <header class="topbar" id="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium Fisci</div>
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget Command</div>
   <!-- Month navigation — visible in topbar on mobile -->
   <div class="tb-month-nav" id="tbMonthNav">
     <button class="tb-month-arrow" onclick="prevMonth()" aria-label="Previous month">&#8249;</button>
@@ -2057,7 +2057,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <!-- Mobile header: 2-row sticky layout (≤1099px) -->
   <div class="tb-mobile-wrap" id="tbMobileWrap">
     <div class="tb-mob-r1">
-      <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Imperium Fisci</div>
+      <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Budget Command</div>
       <button class="tb-mob-user" id="tbMobUser" onclick="authAction()"></button>
     </div>
     <div class="tb-mob-r2">
@@ -2407,7 +2407,7 @@ function showAuthRegister(){
   document.getElementById('authSignInForm').style.display='none';
   document.getElementById('authRegisterForm').style.display='';
   document.getElementById('authTitle').textContent='Create account';
-  document.getElementById('authSub').textContent='Set up your Imperium Fisci account.';
+  document.getElementById('authSub').textContent='Set up your Budget Command account.';
   document.getElementById('authMsg').style.display='none';
   document.getElementById('authRegEmail')?.focus();
 }
@@ -3720,7 +3720,7 @@ function buildMonthEndReportHtml(mid){
   return`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;padding:40px;max-width:800px;margin:0 auto;background:#fff">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:32px;padding-bottom:16px;border-bottom:3px solid #111827">
     <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;margin-bottom:6px">Monthly Budget Report</div><div style="font-size:30px;font-weight:700;color:#111827;letter-spacing:-0.5px">${esc(m.label)}</div></div>
-    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Imperium Fisci</div></div>
+    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Budget Command</div></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
     ${metrics.map(s=>`<div style="padding:14px 10px;border:1px solid #e5e7eb;border-radius:8px;text-align:center"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#9ca3af;margin-bottom:6px">${s.label}</div><div style="font-size:17px;font-weight:700;font-family:${mono};color:${s.color}">${s.val}</div></div>`).join('')}
@@ -3731,7 +3731,7 @@ function buildMonthEndReportHtml(mid){
   ${debtAccts.length?`<div style="margin-bottom:28px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px">Debt Balances</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden"><tbody>${debtRows}</tbody></table></div>`:''}
   ${rollBkts.length?`<div style="margin-bottom:28px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px">Rollover Balances (Carrying Forward)</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden"><tbody>${rollRows}</tbody></table></div>`:''}
   ${notesHtml}${aiHtml}
-  <div style="margin-top:40px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center">Imperium Fisci · ${esc(m.label)} Budget Report · Generated ${today}</div>
+  <div style="margin-top:40px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center">Budget Command · ${esc(m.label)} Budget Report · Generated ${today}</div>
 </div>`;
 }
 
@@ -5495,7 +5495,7 @@ function renderBucketsTab(el,mid){
     ${!bNextM?`<button class="tbtn" style="font-size:11px;padding:3px 7px" onclick="addNextMonth()" title="Add next month">+</button>`:''}
     <span class="chip chip-${st}">${chipTxt}</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Recurring Bills">⏱ Bills</button>
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Manage in Settings → Recurring Bills">⏱ Sched</button>
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openModal('cat')">+ Category</button>
     </div>
   </div><div class="tab-inner">`;
@@ -5869,7 +5869,7 @@ function renderSettingsTab(el){
         </div>
       </div>
       <div class="sett-card-body">
-        <div class="sett-sub-title">Allocation Rules</div>
+        <div class="sett-sub-title" id="settAllocRulesAnchor">Allocation Rules</div>
         <div class="sett-sub-desc">Split each paycheck across your buckets — giving every dollar a job before you spend it. You review and confirm each time.</div>
         ${allocationRulesHtml()}
       </div>
@@ -5895,7 +5895,7 @@ function renderSettingsTab(el){
         ${acctItems||'<div class="c-text3" style="font-size:13px">No accounts yet</div>'}
       </div>
       <div class="sett-card-body">
-        <div class="sett-sub-title" style="margin-bottom:4px">Recurring Bills <span class="sett-count">${billCount}</span></div>
+        <div class="sett-sub-title" id="settBillsAnchor" style="margin-bottom:4px">Recurring Bills <span class="sett-count">${billCount}</span></div>
         <div class="sett-sub-desc">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
         ${recurringBillsHtml()}
       </div>
@@ -9800,7 +9800,13 @@ function reportCatHistoryHtml(){
 // ═══════════════════════════════════════════════════════
 // INCOME ALLOCATION RULES (Phase 7)
 // ═══════════════════════════════════════════════════════
-function openAllocationRules(){setTab('settings');}
+function openAllocationRules(){
+  setTab('settings');
+  setTimeout(()=>{
+    const el=document.getElementById('settAllocRulesAnchor');
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  },120);
+}
 function allocationRulesHtml(){
   const rules=S.allocationRules||[];
   const editing=_editingArId?rules.find(r=>r.id===_editingArId):null;
@@ -10084,7 +10090,13 @@ function refreshRecurringBill(id){
   generateRecurringTxs();
 }
 
-function openRecurringBills(){setTab('settings');}
+function openRecurringBills(){
+  setTab('settings');
+  setTimeout(()=>{
+    const el=document.getElementById('settBillsAnchor');
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  },120);
+}
 
 function recurringBillsHtml(){
   const bills=S.recurringBills||[];
@@ -10355,7 +10367,15 @@ function mkBkt(){
 }
 
 function openModal(tab, lockedCatId){
-  if(tab==='acct'){
+  if(tab==='new'||tab==='tx'){
+    // Navigate to ledger and focus the add-transaction form
+    setTab('ledger');
+    setTimeout(()=>{
+      const el=document.getElementById('txDesc');
+      if(el){el.focus();el.scrollIntoView({behavior:'smooth',block:'center'});}
+    },120);
+    return;
+  } else if(tab==='acct'){
     M={...M,tab:'acct',acctName:'',acctColor:COLORS[0],acctType:'budget',acctBal:'',acctEditId:null};
   } else if(tab==='bkt' && lockedCatId){
     // Bulk builder for specific category
@@ -11922,7 +11942,7 @@ function mAcctOptions(selectedId){
   <div class="auth-box">
     <div class="auth-logo">
       <div class="auth-logo-dot"></div>
-      <span class="auth-logo-text">Imperium Fisci</span>
+      <span class="auth-logo-text">Budget Command</span>
     </div>
     <div class="auth-title" id="authTitle">Sign in</div>
     <div class="auth-sub" id="authSub">Your budget data syncs across all your devices.</div>
