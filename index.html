@@ -2226,11 +2226,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .dash-back-btn:hover{color:var(--accent);border-color:var(--border2);}
 }
 
-/* Dashboard layout — sidebar hidden in dash mode */
+/* Dashboard layout — .app hidden, paneDashboard shown full-width */
 @media(min-width:1100px){
-  .app.dash-mode{grid-template-columns:0 1fr;}
-  .app.dash-mode nav{display:none!important;}
-  .app.dash-mode .app-main{width:100%;}
+  #paneDashboard{display:none;flex-direction:column;flex:1;overflow-y:auto;}
+  #paneDashboard.dash-active{display:flex!important;}
+  .app.dash-active{display:none!important;}
 }
 </style>
 </head>
@@ -2410,9 +2410,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
   <!-- MAIN: unified tab panes -->
   <main class="app-main" id="appMain">
-    <div class="tab-pane active" id="paneDashboard">
-      <div class="dash-canvas" id="dashCanvas"></div>
-    </div>
     <div class="tab-pane" id="paneBuckets"></div>
     <div class="tab-pane" id="paneLedger"></div>
     <div class="tab-pane" id="paneAccounts"></div>
@@ -2432,6 +2429,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="detail-scroll" id="detailScroll"></div>
   </div>
 
+</div>
+
+<!-- DASHBOARD: lives outside .app, full-width on desktop -->
+<div id="paneDashboard" style="display:none">
+  <div class="dash-canvas" id="dashCanvas"></div>
 </div>
 
 <!-- MODAL -->
@@ -2769,6 +2771,18 @@ function updateAuthBtn(){
     } else {
       mobUser.textContent='Sign in';
       mobUser.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
+    }
+  }
+  // Cura desktop header auth button
+  const dhBtn=document.getElementById('dhAuthBtn');
+  if(dhBtn&&supaReady()){
+    dhBtn.style.display='';
+    if(_supaUser){
+      dhBtn.textContent=(_supaUser.email?.split('@')[0]||'Account')+' ·  Sign out';
+      dhBtn.onclick=authAction;
+    } else {
+      dhBtn.textContent='Sign in';
+      dhBtn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
     }
   }
 }
@@ -5224,12 +5238,12 @@ function setTab(tab){
   }
   // Render content
   renderActivePane();
-  // Toggle dash-mode (hide sidebar on dashboard)
-  const appEl=document.getElementById('app')||document.querySelector('.app');
-  if(appEl){
-    if(tab==='dashboard'&&!isMobile()){appEl.classList.add('dash-mode');}
-    else{appEl.classList.remove('dash-mode');}
-  }
+  // Dashboard is outside .app — swap visibility directly
+  const appEl=document.getElementById('app');
+  const dashEl=document.getElementById('paneDashboard');
+  const onDash=tab==='dashboard'&&!isMobile();
+  if(appEl)appEl.classList.toggle('dash-active',onDash);
+  if(dashEl)dashEl.classList.toggle('dash-active',onDash);
   // Show/hide back button in desktop header
   const backBtn=document.getElementById('dhBackBtn');
   if(backBtn)backBtn.style.display=(tab!=='dashboard'&&!isMobile())?'inline-flex':'none';
@@ -12034,17 +12048,14 @@ function init(){
   if(activeTab==='export')activeTab='settings';
   // Desktop always lands on dashboard
   if(!isMobile())activeTab='dashboard';
-  // Apply dash-mode BEFORE render so sidebar never flashes in
-  const appEl=document.getElementById('app')||document.querySelector('.app');
-  if(appEl){
-    if(activeTab==='dashboard'&&!isMobile()){appEl.classList.add('dash-mode');}
-    else{appEl.classList.remove('dash-mode');}
-  }
-  // Activate dashboard pane immediately
-  if(activeTab==='dashboard'){
-    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-    document.getElementById('paneDashboard')?.classList.add('active');
-  }
+  // Swap .app / paneDashboard BEFORE render so nothing flashes
+  const appEl=document.getElementById('app');
+  const dashEl=document.getElementById('paneDashboard');
+  const onDash=activeTab==='dashboard'&&!isMobile();
+  if(appEl)appEl.classList.toggle('dash-active',onDash);
+  if(dashEl)dashEl.classList.toggle('dash-active',onDash);
+  const backBtn=document.getElementById('dhBackBtn');
+  if(backBtn)backBtn.style.display=(activeTab!=='dashboard'&&!isMobile())?'inline-flex':'none';
   render();
   const backBtn=document.getElementById('dhBackBtn');
   if(backBtn)backBtn.style.display=(activeTab!=='dashboard'&&!isMobile())?'inline-flex':'none';
@@ -12081,9 +12092,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         // Correct tab state that is mobile-only or desktop-only
         if(!nowMobile&&activeTab==='log')activeTab='ledger';
         if(!nowMobile)activeTab='dashboard';
-        const _rAppEl=document.getElementById('app')||document.querySelector('.app');
-        if(_rAppEl){_rAppEl.classList.toggle('dash-mode',activeTab==='dashboard'&&!nowMobile);}
-        if(activeTab==='dashboard'){document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));document.getElementById('paneDashboard')?.classList.add('active');}
+        const _rAppEl=document.getElementById('app');
+        const _rDashEl=document.getElementById('paneDashboard');
+        const _rOnDash=activeTab==='dashboard'&&!nowMobile;
+        if(_rAppEl)_rAppEl.classList.toggle('dash-active',_rOnDash);
+        if(_rDashEl)_rDashEl.classList.toggle('dash-active',_rOnDash);
         render();
       } else {
         renderNav();
