@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Imperium Fisci</title>
+<title>Budget Command</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -120,8 +120,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .strip.warn{background:var(--bg3);border-bottom:1px solid var(--red);color:var(--red);}
 .strip.off-month-past{background:var(--bg3);border-bottom:1px solid var(--amber);color:var(--amber);}
 .strip.off-month-future{background:var(--bg3);border-bottom:1px solid var(--border2);color:var(--accent2);}
-.tb-month-sel.past{border-color:rgba(251,191,36,0.6);}
-.tb-month-sel.future{border-color:rgba(59,130,246,0.6);}
+.tb-month-sel.past{border-color:var(--amber);}
+.tb-month-sel.future{border-color:var(--border2);}
 
 /* ═══ LAYOUT ═══ */
 .app{display:grid;grid-template-columns:240px 1fr;flex:1;overflow:hidden;min-height:0;}
@@ -467,7 +467,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .bkt-cat-alloc-txt{font-size:12px;font-family:var(--mono);font-weight:500;}
 .bkt-cat-fund-btn{font-family:var(--mono);font-size:9px;padding:3px 10px;background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text3);cursor:pointer;font-weight:400;letter-spacing:.1em;text-transform:uppercase;transition:border-color .12s,color .12s;white-space:nowrap;}
 .bkt-cat-fund-btn:hover{border-color:var(--accent);color:var(--accent);}
-.bkt-cat-fund-btn:hover{background:var(--gb);}
 .bkt-cat-bar{height:2px;background:var(--border2);border-radius:1px;margin-bottom:4px;overflow:hidden;}
 .bkt-cat-bar-fill{height:100%;border-radius:1px;transition:width .4s;}
 .bkt-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
@@ -675,8 +674,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .vault-xfr-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;}
 .vault-why-row{display:flex;gap:8px;margin-bottom:10px;}
 .vault-why-btn{flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s;text-align:center;}
-.vault-why-btn.sel-planned{background:rgba(0,212,170,.15);border-color:var(--accent);color:var(--accent);font-weight:600;}
-.vault-why-btn.sel-overspend{background:rgba(239,68,68,.15);border-color:var(--red);color:var(--red);font-weight:600;}
+.vault-why-btn.sel-planned{background:rgba(125,211,252,0.08);border-color:var(--accent);color:var(--accent);}
+.vault-why-btn.sel-overspend{background:rgba(204,51,51,0.08);border-color:var(--red);color:var(--red);}
 .vault-acct-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;}
 .vault-acct-row:hover{background:var(--surface2);}
 .vault-acct-name{flex:1;font-size:13px;font-weight:500;}
@@ -1573,8 +1572,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .auth-btn:hover{background:var(--accent2);}
 .auth-btn:disabled{opacity:.5;cursor:not-allowed;}
 .auth-msg{font-size:13px;text-align:center;padding:8px;border-radius:var(--r);margin-top:4px;}
-.auth-msg.success{background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
-.auth-msg.error{background:var(--rbg);color:var(--red);border:1px solid var(--rb);}
+.auth-msg.success{background:none;color:var(--green);border-left:3px solid var(--green);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.auth-msg.error{background:none;color:var(--red);border-left:3px solid var(--red);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
 .auth-skip{display:block;text-align:center;font-size:12px;color:var(--text3);margin-top:16px;cursor:pointer;text-decoration:underline;}
 .auth-skip:hover{color:var(--text2);}
 /* Update banner */
@@ -1617,7 +1616,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .d-toast.t-xfr .d-toast-bar-fill{background:var(--accent2);}
 .d-toast.t-info .d-toast-icon-wrap{background:rgba(240,224,64,.1);color:var(--amber);}
 .d-toast.t-info .d-toast-bar-fill{background:var(--amber);}
-.d-toast.t-error .d-toast-icon-wrap{background:rgba(239,68,68,.14);color:var(--red);}
+.d-toast.t-error .d-toast-icon-wrap{background:rgba(204,51,51,.12);color:var(--red);}
 .d-toast.t-error .d-toast-bar-fill{background:var(--red);}
 .d-toast.out{animation:dToastOut .22s ease forwards;}
 @keyframes dToastIn{from{opacity:0;transform:translateX(14px) scale(.96);}to{opacity:1;transform:translateX(0) scale(1);}}
@@ -1898,7 +1897,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .mc-disc{font-size:11px;font-weight:700;padding:1px 7px;border-radius:8px;flex-shrink:0;}
 .mc-disc.zero{background:var(--gbg);color:var(--green);}
 .mc-disc.nonzero{background:var(--rbg);color:var(--red);}
-.chip-closed{background:var(--gbg);color:var(--green);border:1px solid var(--gb);}
+.chip-closed{background:none;color:var(--green);border:1px solid var(--green);}
 /* month-close success screen */
 .mc-success-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0;}
 .mc-success-stat{padding:14px 12px;background:var(--bg3);border-radius:var(--r);text-align:center;}
@@ -1943,8 +1942,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* Report layout — used by renderReportsTab insight callouts */
 .rpt-desc{font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);}
 .rpt-insight{background:var(--bg3);border-left:3px solid var(--border2);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--text2);line-height:1.6;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start;}
-.rpt-insight.warn{background:var(--abg);border-color:var(--ab);color:var(--amber);}
-.rpt-insight.good{background:var(--gbg);border-color:var(--gb);color:var(--green);}
+.rpt-insight.warn{background:none;border-left-color:var(--amber);color:var(--amber);}
+.rpt-insight.good{background:none;border-left-color:var(--green);color:var(--green);}
 .rpt-insight-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
 
 /* ═══ REPORTS PANE LAYOUT ═══ */
@@ -1969,7 +1968,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
    PROJECTOR period body — shared CSS classes
    ════════════════════════════════════════════ */
 .pj-period{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;}
-.pj-period.deficit{border-color:var(--rb);}
+.pj-period.deficit{border-color:var(--red);}
 .pj-period-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;-webkit-user-select:none;}
 .pj-period-hdr.paycheck{background:var(--surface);}
 .pj-period-hdr.expense{background:var(--bg2);}
@@ -1987,7 +1986,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 /* Day headers within period body */
 .pj-day-hdr{font-size:11px;font-weight:700;color:var(--text3);padding:6px 0 3px;border-top:1px solid var(--border);}
 .pj-day-hdr:first-child{border-top:none;}
-.pj-pre-hdr .pj-day-hdr{border-top-color:rgba(16,185,129,.2);}
+.pj-pre-hdr .pj-day-hdr{border-top-color:rgba(42,159,96,.2);}
 /* Row items */
 .pj-row{display:flex;gap:8px;padding:3px 0;align-items:center;}
 .pj-row-icon{font-size:11px;flex-shrink:0;line-height:1;}
@@ -1995,19 +1994,19 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .pj-row-desc{flex:1;font-size:13px;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pj-row-amt{font-family:var(--mono);font-size:13px;text-align:right;flex-shrink:0;}
 /* Pre-funded card */
-.pj-pre-card{margin-bottom:8px;padding:6px 10px;background:rgba(16,185,129,.05);border:1px solid var(--gb);border-radius:8px;}
-.pj-pre-card-hdr{font-size:10px;font-weight:700;color:var(--green);letter-spacing:.5px;margin-bottom:6px;text-transform:uppercase;}
+.pj-pre-card{margin-bottom:8px;padding:6px 10px;background:none;border-left:3px solid var(--green);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:var(--r);}
+.pj-pre-card-hdr{font-family:var(--mono);font-size:9px;font-weight:400;color:var(--green);letter-spacing:.12em;margin-bottom:6px;text-transform:uppercase;}
 .pj-pre-row .pj-row-icon{color:var(--green);}
 .pj-pre-row .pj-row-desc{font-size:12px;color:var(--text2);}
 .pj-pre-row .pj-row-amt{font-size:12px;color:var(--green);}
 /* Badge pills */
 .pj-badge{font-size:9px;border-radius:3px;padding:0 4px;margin-left:4px;border:1px solid var(--border2);color:var(--text3);white-space:nowrap;flex-shrink:0;}
-.pj-badge.planned{color:var(--accent);border-color:rgba(0,212,170,.4);}
-.pj-badge.debt{color:var(--red);border-color:var(--rb);}
+.pj-badge.planned{color:var(--accent);border-color:var(--accent2);}
+.pj-badge.debt{color:var(--red);border-color:var(--red);}
 .pj-badge.variable{color:var(--text3);border-color:var(--border2);}
-.pj-badge.onetime{color:var(--amber);border-color:var(--ab);}
-.pj-badge.auto{color:var(--amber);border-color:var(--ab);}
-.pj-badge.vault{color:var(--accent);border-color:rgba(0,212,170,.4);}
+.pj-badge.onetime{color:var(--amber);border-color:var(--amber);}
+.pj-badge.auto{color:var(--amber);border-color:var(--amber);}
+.pj-badge.vault{color:var(--accent);border-color:var(--border2);}
 .pj-badge.noalloc{font-size:9px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;color:var(--text3);}
 /* Running balance row */
 .pj-run-bal{display:flex;align-items:center;padding:3px 0 4px;border-bottom:1px solid var(--border);}
@@ -2045,7 +2044,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 <!-- TOPBAR -->
 <header class="topbar" id="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Imperium Fisci</div>
+  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget Command</div>
   <!-- Month navigation — visible in topbar on mobile -->
   <div class="tb-month-nav" id="tbMonthNav">
     <button class="tb-month-arrow" onclick="prevMonth()" aria-label="Previous month">&#8249;</button>
@@ -2058,7 +2057,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <!-- Mobile header: 2-row sticky layout (≤1099px) -->
   <div class="tb-mobile-wrap" id="tbMobileWrap">
     <div class="tb-mob-r1">
-      <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Imperium Fisci</div>
+      <div class="tb-mob-logo-text"><div class="tb-logo-dot"></div>Budget Command</div>
       <button class="tb-mob-user" id="tbMobUser" onclick="authAction()"></button>
     </div>
     <div class="tb-mob-r2">
@@ -2408,7 +2407,7 @@ function showAuthRegister(){
   document.getElementById('authSignInForm').style.display='none';
   document.getElementById('authRegisterForm').style.display='';
   document.getElementById('authTitle').textContent='Create account';
-  document.getElementById('authSub').textContent='Set up your Imperium Fisci account.';
+  document.getElementById('authSub').textContent='Set up your Budget Command account.';
   document.getElementById('authMsg').style.display='none';
   document.getElementById('authRegEmail')?.focus();
 }
@@ -3721,7 +3720,7 @@ function buildMonthEndReportHtml(mid){
   return`<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;padding:40px;max-width:800px;margin:0 auto;background:#fff">
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:32px;padding-bottom:16px;border-bottom:3px solid #111827">
     <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#9ca3af;margin-bottom:6px">Monthly Budget Report</div><div style="font-size:30px;font-weight:700;color:#111827;letter-spacing:-0.5px">${esc(m.label)}</div></div>
-    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Imperium Fisci</div></div>
+    <div style="text-align:right"><div style="font-size:10px;color:#9ca3af">Generated ${today}</div><div style="font-size:11px;font-weight:600;color:#374151;margin-top:3px">Budget Command</div></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
     ${metrics.map(s=>`<div style="padding:14px 10px;border:1px solid #e5e7eb;border-radius:8px;text-align:center"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#9ca3af;margin-bottom:6px">${s.label}</div><div style="font-size:17px;font-weight:700;font-family:${mono};color:${s.color}">${s.val}</div></div>`).join('')}
@@ -3732,7 +3731,7 @@ function buildMonthEndReportHtml(mid){
   ${debtAccts.length?`<div style="margin-bottom:28px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px">Debt Balances</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden"><tbody>${debtRows}</tbody></table></div>`:''}
   ${rollBkts.length?`<div style="margin-bottom:28px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b7280;margin-bottom:10px">Rollover Balances (Carrying Forward)</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden"><tbody>${rollRows}</tbody></table></div>`:''}
   ${notesHtml}${aiHtml}
-  <div style="margin-top:40px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center">Imperium Fisci · ${esc(m.label)} Budget Report · Generated ${today}</div>
+  <div style="margin-top:40px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center">Budget Command · ${esc(m.label)} Budget Report · Generated ${today}</div>
 </div>`;
 }
 
@@ -5496,7 +5495,7 @@ function renderBucketsTab(el,mid){
     ${!bNextM?`<button class="tbtn" style="font-size:11px;padding:3px 7px" onclick="addNextMonth()" title="Add next month">+</button>`:''}
     <span class="chip chip-${st}">${chipTxt}</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Recurring Bills">⏱ Bills</button>
+      <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Manage in Settings → Recurring Bills">⏱ Sched</button>
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openModal('cat')">+ Category</button>
     </div>
   </div><div class="tab-inner">`;
@@ -5870,7 +5869,7 @@ function renderSettingsTab(el){
         </div>
       </div>
       <div class="sett-card-body">
-        <div class="sett-sub-title">Allocation Rules</div>
+        <div class="sett-sub-title" id="settAllocRulesAnchor">Allocation Rules</div>
         <div class="sett-sub-desc">Split each paycheck across your buckets — giving every dollar a job before you spend it. You review and confirm each time.</div>
         ${allocationRulesHtml()}
       </div>
@@ -5896,7 +5895,7 @@ function renderSettingsTab(el){
         ${acctItems||'<div class="c-text3" style="font-size:13px">No accounts yet</div>'}
       </div>
       <div class="sett-card-body">
-        <div class="sett-sub-title" style="margin-bottom:4px">Recurring Bills <span class="sett-count">${billCount}</span></div>
+        <div class="sett-sub-title" id="settBillsAnchor" style="margin-bottom:4px">Recurring Bills <span class="sett-count">${billCount}</span></div>
         <div class="sett-sub-desc">Bills auto-appear as scheduled transactions. Log the real transaction when it posts — the placeholder clears automatically.</div>
         ${recurringBillsHtml()}
       </div>
@@ -5984,7 +5983,7 @@ function renderSettingsTab(el){
       <div class="sett-card-body sett-danger-body">
         <div class="sett-sub-title c-red" style="margin-bottom:4px">Danger Zone</div>
         <div class="sett-sub-desc">Permanently delete all data and start fresh. This cannot be undone.</div>
-        <button class="tbtn c-rb" onclick="confirmFreshStart()">↺ Fresh Start</button>
+        <button class="tbtn c-red" onclick="confirmFreshStart()">↺ Fresh Start</button>
       </div>
     </div>
 
@@ -9801,7 +9800,13 @@ function reportCatHistoryHtml(){
 // ═══════════════════════════════════════════════════════
 // INCOME ALLOCATION RULES (Phase 7)
 // ═══════════════════════════════════════════════════════
-function openAllocationRules(){setTab('settings');}
+function openAllocationRules(){
+  setTab('settings');
+  setTimeout(()=>{
+    const el=document.getElementById('settAllocRulesAnchor');
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  },120);
+}
 function allocationRulesHtml(){
   const rules=S.allocationRules||[];
   const editing=_editingArId?rules.find(r=>r.id===_editingArId):null;
@@ -10085,7 +10090,13 @@ function refreshRecurringBill(id){
   generateRecurringTxs();
 }
 
-function openRecurringBills(){setTab('settings');}
+function openRecurringBills(){
+  setTab('settings');
+  setTimeout(()=>{
+    const el=document.getElementById('settBillsAnchor');
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  },120);
+}
 
 function recurringBillsHtml(){
   const bills=S.recurringBills||[];
@@ -10356,7 +10367,15 @@ function mkBkt(){
 }
 
 function openModal(tab, lockedCatId){
-  if(tab==='acct'){
+  if(tab==='new'||tab==='tx'){
+    // Navigate to ledger and focus the add-transaction form
+    setTab('ledger');
+    setTimeout(()=>{
+      const el=document.getElementById('txDesc');
+      if(el){el.focus();el.scrollIntoView({behavior:'smooth',block:'center'});}
+    },120);
+    return;
+  } else if(tab==='acct'){
     M={...M,tab:'acct',acctName:'',acctColor:COLORS[0],acctType:'budget',acctBal:'',acctEditId:null};
   } else if(tab==='bkt' && lockedCatId){
     // Bulk builder for specific category
@@ -11923,7 +11942,7 @@ function mAcctOptions(selectedId){
   <div class="auth-box">
     <div class="auth-logo">
       <div class="auth-logo-dot"></div>
-      <span class="auth-logo-text">Imperium Fisci</span>
+      <span class="auth-logo-text">Budget Command</span>
     </div>
     <div class="auth-title" id="authTitle">Sign in</div>
     <div class="auth-sub" id="authSub">Your budget data syncs across all your devices.</div>
