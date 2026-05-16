@@ -5428,308 +5428,263 @@ function jumpToToday(){
 function renderDashboard(){
   const el=document.getElementById('dashCanvas');
   if(!el)return;
-  const mid=S.currentMonth||S.activeMonth;
-  const m=S.months.find(x=>x.id===mid)||{};
-  const txs=S.txs.filter(t=>t.monthId===mid);
+  const mid=S.activeMonth;
+  const txs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening');
   const accts=S.accounts||[];
   const cats=S.categories||[];
-  const bkts=S.buckets||[];
-
-  // RTS
-  const income=txs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
-  const activeBkts=bkts.filter(b=>!b.archived);
-  const allBktAlloc=activeBkts.reduce((s,b)=>s+bAlloc(mid,b.id),0);
-  const rts=income-allBktAlloc;
-  const totalSpent=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
-  const cash=accts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const bkts=(S.buckets||[]).filter(b=>!b.archived);
   const today=new Date();
+  const mStatus=monthStatus(mid)||'present';
+
+  // ── RTS ──
+  const income=txs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+  const alloc=bkts.reduce((s,b)=>s+bAlloc(mid,b.id),0);
+  const rts=income-alloc;
+  const totalSpent=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+
+  // ── Month progress ──
   const daysInMonth=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
   const dayOfMonth=today.getDate();
   const monthPct=Math.round((dayOfMonth/daysInMonth)*100);
-  const mStatus=typeof monthStatus==='function'?monthStatus(mid):'present';
 
-  // Bucket count / zeroed
-  const zeroed=activeBkts.length?Math.round((activeBkts.filter(b=>(bAlloc(mid,b.id)-bSpent(mid,b.id))>=0).length/activeBkts.length)*100):100;
+  // ── Accounts ──
+  const budgetAccts=accts.filter(a=>a.type==='budget'||a.onBudget!==false);
+  const debtAccts=accts.filter(a=>a.type==='debt');
+  const totalDebt=debtAccts.reduce((s,a)=>s+acctBalance(a.id),0);
+  const cash=budgetAccts.reduce((s,a)=>s+acctBalance(a.id),0);
 
-  // Top accounts (up to 4)
-  const topAccts=accts.slice(0,4);
+  // ── Buckets needing attention ──
+  const attentionBkts=bkts.map(b=>{
+    const al=bAlloc(mid,b.id),sp=bSpent(mid,b.id),bg=bBudget(mid,b.id)||0;
+    const over=sp>al&&al>0;
+    const unfunded=al===0&&bg>0;
+    const partial=al>0&&al<bg&&!over;
+    const pct=al>0?sp/al:0;
+    return{b,al,sp,bg,over,unfunded,partial,pct};
+  }).filter(x=>x.over||x.unfunded||(x.partial&&x.pct>0.8))
+    .sort((a,b)=>(b.over?2:b.unfunded?1:0)-(a.over?2:a.unfunded?1:0))
+    .slice(0,5);
+  const allFunded=attentionBkts.length===0;
 
-  // Top buckets (up to 6, by allocated desc)
-  const topBkts=activeBkts.filter(b=>bAlloc(mid,b.id)>0||bBudget(mid,b.id)>0).slice().sort((a,b)=>bAlloc(mid,b.id)-bAlloc(mid,a.id)).reverse().slice(0,6);
+  // ── Recent ledger (5) ──
+  const recentTxs=txs.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
 
-  // Recent ledger (last 7 txs)
-  const recentTxs=txs.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,7);
-
-  // AI coach insights (from cache if available)
+  // ── AI coach ──
   const cacheKey=`coach_${mid}`;
-  const aiData=(typeof _aiCache!=='undefined'&&_aiCache)&&_aiCache[cacheKey];
+  const aiData=(typeof _aiCache!=='undefined'&&_aiCache)?_aiCache[cacheKey]:null;
 
-  // Horizon: 6 past months + now + 5 future (12 total)
-  const horizonMonths=[];
+  // ── Horizon (12 months) ──
   const todayY=today.getFullYear(),todayM=today.getMonth();
-  for(let i=-6;i<=5;i++){
+  const horizonMonths=[];
+  for(let i=-5;i<=6;i++){
     let hy=todayY,hm=todayM+i;
     while(hm<0){hm+=12;hy--;}while(hm>11){hm-=12;hy++;}
     const hMid=`m_${hy}_${hm}`;
+    const mObj=S.months.find(x=>x.id===hMid);
     const mTxs=S.txs.filter(t=>t.monthId===hMid);
     const mIn=mTxs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
-    const hMAlloc=(() => {
-      const mObj=S.months.find(x=>x.id===hMid);
-      if(!mObj)return 0;
-      return S.buckets.filter(b=>!b.archived).reduce((s,b)=>s+(mObj.allocations?.[b.id]||0),0);
-    })();
-    const mRts=mIn-hMAlloc;
-    horizonMonths.push({mId:hMid,label:new Date(hy,hm,1).toLocaleString('default',{month:'short'}),rts:mRts,isNow:i===0,isPast:i<0});
+    const mAlloc=mObj?bkts.reduce((s,b)=>s+(mObj.allocations?.[b.id]||0),0):0;
+    // Paychecks mode: use projected income from month object if available
+    const projIncome=mObj?.projectedIncome||mIn;
+    const barVal=_horizonMode==='paychecks'?projIncome:Math.max(0,mIn-mAlloc);
+    horizonMonths.push({
+      label:new Date(hy,hm,1).toLocaleString('default',{month:'short'}),
+      barVal,mIn,mAlloc,rts:mIn-mAlloc,
+      isNow:i===0,isPast:i<0
+    });
   }
-  const maxRts=Math.max(...horizonMonths.map(h=>Math.abs(h.rts)),1);
+  const maxBar=Math.max(...horizonMonths.map(h=>h.barVal),1);
 
-  // Category spend vs last month — find previous month ID
+  // ── Category spend vs last month ──
   let prevMid='';
   {const idx=S.months.findIndex(x=>x.id===mid);if(idx>0)prevMid=S.months[idx-1].id;}
-  const prevTxs=S.txs.filter(t=>t.monthId===prevMid&&t.type==='out');
-  const curTxs=txs.filter(t=>t.type==='out');
-  const catSpend=cats.slice(0,5).map(c=>{
-    const cur=curTxs.filter(t=>t.catId===c.id).reduce((s,t)=>s+t.amount,0);
-    const prev=prevTxs.filter(t=>t.catId===c.id).reduce((s,t)=>s+t.amount,0);
-    return{name:c.name,cur,prev,delta:cur-prev};
+  const prevTxsOut=S.txs.filter(t=>t.monthId===prevMid&&t.type==='out');
+  const curTxsOut=txs.filter(t=>t.type==='out');
+  const catSpend=cats.map(c=>{
+    const cur=curTxsOut.filter(t=>t.catId===c.id).reduce((s,t)=>s+t.amount,0);
+    const prev=prevTxsOut.filter(t=>t.catId===c.id).reduce((s,t)=>s+t.amount,0);
+    return{name:c.name,cur,prev,delta:cur-prev,id:c.id};
   }).filter(c=>c.cur>0||c.prev>0).slice(0,5);
 
+  // ── Helper to build a card ──
+  const EXP=_dashExpanded;
+  const hasExp=EXP!==null;
+
+  function card(key,spanCls,headTitle,headLink,headLinkFn,summaryHtml,expandedHtml,footBtns=''){
+    const isExp=EXP===key;
+    const cls=`dc${spanCls?' '+spanCls:''}${isExp?' dc-expanded':''}`;
+    const expandBtn=`<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
+    return`<div class="${cls}">
+      <div class="dc-head" onclick="${isExp?`collapseCard()`:`expandCard('${key}')`}" style="cursor:pointer">
+        <span class="dc-title">${headTitle}</span>
+        <span class="dc-link">${headLink}</span>
+      </div>
+      <div class="dc-body">${isExp?expandedHtml:summaryHtml}</div>
+      <div class="dc-foot">${expandBtn}${footBtns}</div>
+    </div>`;
+  }
+
+  // ── RTS card summary ──
+  const rtsSummary=`
+    <div class="dc-rts-num ${rts<0?'neg':rts>0?'pos':''}">${$f(Math.abs(rts))}</div>
+    <div class="dc-rts-sub">${rts<0?'Deficit this month':'Safe to spend today'}</div>
+    <div class="dc-meta">
+      <div class="dc-meta-item"><span class="dc-meta-label">Income</span><span class="dc-meta-val good">${$f(income)}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Allocated</span><span class="dc-meta-val">${$f(alloc)}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Buckets</span><span class="dc-meta-val">${bkts.length}</span></div>
+    </div>
+    ${mStatus==='present'?`<div class="dc-bar-wrap">
+      <div class="dc-bar-labels"><span>Month progress</span><span>${dayOfMonth} / ${daysInMonth} days</span></div>
+      <div class="dc-bar-track"><div class="dc-bar-fill" style="width:${monthPct}%"></div></div>
+    </div>`:''}`;
+
+  // RTS expanded = full buckets section (for allocating)
+  const rtsExpanded=`<div class="dc-sect-wrap" id="dashExpRts"></div>`;
+
+  // ── Accounts card ──
+  const acctSummary=`
+    ${budgetAccts.slice(0,4).map(a=>`
+      <div class="dc-acct-row">
+        <div><div class="dc-acct-name">${esc(a.name)}</div><div class="dc-acct-type">${a.type||'Checking'}</div></div>
+        <div class="dc-acct-bal ${acctBalance(a.id)<0?'neg':''}">${$f(Math.abs(acctBalance(a.id)))}</div>
+      </div>`).join('')}
+    ${debtAccts.length?`<div class="dc-acct-row" style="border-top:2px solid var(--border);margin-top:4px;padding-top:8px">
+      <div><div class="dc-acct-name" style="color:var(--text3)">Total Debt</div><div class="dc-acct-type">${debtAccts.length} account${debtAccts.length>1?'s':''}</div></div>
+      <div class="dc-acct-bal neg">${$f(Math.abs(totalDebt))}</div>
+    </div>`:''}`;
+  const acctExpanded=`<div class="dc-sect-wrap" id="dashExpAcct"></div>`;
+
+  // ── Buckets attention card ──
+  const bktSummary=allFunded
+    ?`<div style="padding:12px 0">
+        <div style="font-family:var(--display);font-size:22px;color:var(--green)">✓ All Funded</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.14em;margin-top:6px;text-transform:uppercase">${$f(rts)} ready to spend</div>
+        ${rts>0?`<button class="dc-btn primary" style="margin-top:12px" onclick="setTab('buckets')">Plan next month →</button>`:''}
+      </div>`
+    :`<table class="dc-table">
+        <tbody>${attentionBkts.map(({b,al,sp,bg,over,unfunded})=>{
+          const cat=cats.find(c=>c.id===b.catId);
+          const left=al-sp;
+          const statusCls=over?'over':unfunded?'':al>0&&al<bg?'warn':'';
+          const statusLbl=over?'Over':unfunded?'Unfunded':al>0&&al<bg?`${Math.round(al/bg*100)}%`:'';
+          return`<tr>
+            <td class="dc-td-bold" style="padding:7px 0 7px 0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</td>
+            <td style="font-family:var(--mono);font-size:8px;color:var(--text3);padding:0 8px">${esc(cat?.name||'—')}</td>
+            <td class="dc-td-num" style="color:${over?'var(--red)':unfunded?'var(--amber)':'var(--text)'};text-align:right;padding-right:0">${over?'-'+$f(sp-al):unfunded?$f(bg):$f(left)}</td>
+            <td style="width:60px;padding-left:8px"><span class="dc-mini-pct ${statusCls}">${statusLbl}</span></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+  const bktExpanded=`<div class="dc-sect-wrap" id="dashExpBkt"></div>`;
+
+  // ── Ledger card ──
+  const ledgerSummary=recentTxs.length?recentTxs.map(t=>{
+    const bkt=(S.buckets||[]).find(b=>b.id===t.bucketId);
+    const cat=cats.find(c=>c.id===t.catId);
+    const label=bkt?.name||cat?.name||(t.type==='in'?'Income':'Uncategorized');
+    const d=new Date(t.date+'T12:00:00');
+    const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const amtClr=t.type==='in'?'var(--green)':t.type==='xfr'?'var(--text3)':'var(--text)';
+    return`<div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--bg2);gap:8px">
+      <span class="dc-td-date" style="flex-shrink:0;width:44px">${dateStr}</span>
+      <span class="dc-td-bold" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${esc(t.desc||t.payee||'—')}</span>
+      <span style="font-family:var(--mono);font-size:8px;color:var(--text3);flex-shrink:0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span>
+      <span class="dc-td-num" style="color:${amtClr};flex-shrink:0;font-size:14px">${t.type==='in'?'+':t.type==='xfr'?'⇄':'-'}${$f(t.amount)}</span>
+    </div>`;
+  }).join(''):`<div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:12px 0">No transactions this month</div>`;
+  const ledgerExpanded=`<div class="dc-sect-wrap" id="dashExpLedger"></div>`;
+
+  // ── AI Coach card ──
+  const aiSummary=aiData&&aiData.alerts&&aiData.alerts.length
+    ?aiData.alerts.slice(0,3).map(a=>`
+        <div class="dc-bubble">
+          <div class="dc-bubble-label" style="color:${a.type==='alert'?'var(--red)':a.type==='good'?'var(--green)':a.type==='warn'?'var(--amber)':'var(--text3)'}">${a.type==='alert'?'⚑ Alert':a.type==='good'?'✓ On track':a.type==='warn'?'◎ Forecast':'◈ Insight'}</div>
+          <div class="dc-bubble-text">${esc(a.msg||a.text||'')}</div>
+        </div>`).join('')
+    :`<div class="dc-bubble">
+        <div class="dc-bubble-label" style="color:var(--text3)">◈ Coach</div>
+        <div class="dc-bubble-text">${aiEnabled()?'Loading insights…':'Add your Gemini API key in Settings → AI Coach to enable.'}</div>
+      </div>`;
+  const aiExpanded=`<div class="dc-sect-wrap" id="dashExpAi"></div>`;
+
+  // ── Horizon card ──
+  const horizonToggle=`<div style="display:flex;gap:4px;margin-left:auto">
+    <button class="dc-btn ${_horizonMode==='rts'?'primary':''}" onclick="event.stopPropagation();_horizonMode='rts';renderDashboard()" style="padding:2px 8px;font-size:8px">RTS</button>
+    <button class="dc-btn ${_horizonMode==='paychecks'?'primary':''}" onclick="event.stopPropagation();_horizonMode='paychecks';renderDashboard()" style="padding:2px 8px;font-size:8px">Income</button>
+  </div>`;
+  const horizonSummary=`
+    <div style="display:flex;align-items:center;margin-bottom:8px">${horizonToggle}</div>
+    <div class="dc-proj-bars">
+      ${horizonMonths.map(h=>{
+        const heightPct=maxBar>0?Math.max(4,Math.round(h.barVal/maxBar*100)):4;
+        const cls=h.isNow?'now':h.isPast?'past':'future';
+        return`<div class="dc-proj-bar ${cls}" style="height:${heightPct}%" title="${h.label}: ${$f(h.barVal)}"></div>`;
+      }).join('')}
+    </div>
+    <div class="dc-proj-labels">${horizonMonths.map(h=>`<div class="dc-proj-lbl ${h.isNow?'now':''}">${h.label}</div>`).join('')}</div>
+    <div class="dc-meta" style="margin-top:10px">
+      <div class="dc-meta-item"><span class="dc-meta-label">RTS Now</span><span class="dc-meta-val ${rts<0?'neg':''}">${$f(Math.abs(rts))}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Cash</span><span class="dc-meta-val">${$f(cash)}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val">${$f(totalSpent)}</span></div>
+    </div>`;
+  const horizonExpanded=`<div class="dc-sect-wrap" id="dashExpHorizon"></div>`;
+
+  // ── Reports card ──
+  const reportsSummary=catSpend.length
+    ?`<table class="dc-table"><thead><tr><th style="padding-left:0">Category</th><th class="r" style="padding-right:0">vs last mo.</th></tr></thead><tbody>
+        ${catSpend.map(c=>`<tr>
+          <td class="dc-td-bold" style="padding-left:0">${esc(c.name)}</td>
+          <td class="dc-td-num" style="padding-right:0;color:${c.delta>0?'var(--red)':c.delta<0?'var(--green)':'var(--text3)'}">${c.delta>0?'↑':c.delta<0?'↓':'—'} ${c.delta!==0?$f(Math.abs(c.delta)):'$0'}</td>
+        </tr>`).join('')}
+      </tbody></table>`
+    :`<div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:12px 0">No data yet</div>`;
+  const reportsExpanded=`<div class="dc-sect-wrap" id="dashExpReports"></div>`;
+
+  // ── BUILD GRID ──
   el.innerHTML=`
-    <!-- RTS featured card -->
-    <div class="dc featured" onclick="setTab('buckets')">
-      <div class="dc-head">
-        <span class="dc-title">Ready to spend</span>
-        <span class="dc-link">Buckets ›</span>
-      </div>
-      <div class="dc-body">
-        <div class="dc-rts-num ${rts<0?'neg':rts>0?'pos':''}">${$f(Math.abs(rts))}</div>
-        <div class="dc-rts-sub">${rts<0?'Deficit this month':'Safe to spend today'}</div>
-        <div class="dc-meta">
-          <div class="dc-meta-item">
-            <span class="dc-meta-label">Income</span>
-            <span class="dc-meta-val good">${$f(income)}</span>
-          </div>
-          <div class="dc-meta-item">
-            <span class="dc-meta-label">Allocated</span>
-            <span class="dc-meta-val">${$f(allBktAlloc)}</span>
-          </div>
-          <div class="dc-meta-item">
-            <span class="dc-meta-label">Buckets</span>
-            <span class="dc-meta-val">${activeBkts.length}</span>
-          </div>
-          <div class="dc-meta-item">
-            <span class="dc-meta-label">On track</span>
-            <span class="dc-meta-val ${zeroed===100?'good':zeroed>=80?'':'warn'}">${zeroed}%</span>
-          </div>
-        </div>
-        ${mStatus==='present'?`<div class="dc-bar-wrap">
-          <div class="dc-bar-labels"><span>Month progress</span><span>${dayOfMonth} / ${daysInMonth} days</span></div>
-          <div class="dc-bar-track"><div class="dc-bar-fill" style="width:${monthPct}%"></div></div>
-        </div>`:''}
-      </div>
-      <div class="dc-foot">
-        <button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>
-      </div>
-    </div>
-
-    <!-- Accounts card -->
-    <div class="dc span2" onclick="setTab('accounts')">
-      <div class="dc-head">
-        <span class="dc-title">Accounts</span>
-        <span class="dc-link">All accounts ›</span>
-      </div>
-      <div class="dc-body">
-        ${topAccts.length?topAccts.map(a=>{const bal=acctBalance(a.id);return`
-          <div class="dc-acct-row">
-            <div>
-              <div class="dc-acct-name">${esc(a.name)}</div>
-              <div class="dc-acct-type">${a.type||'Checking'} · ${a.onBudget===false?'Off-budget':'Active'}</div>
-            </div>
-            <div class="dc-acct-bal ${bal<0?'neg':a.onBudget===false?'pos':''}">${$f(Math.abs(bal))}</div>
-          </div>`;}).join(''):'<div style="color:var(--text3);font-family:var(--mono);font-size:10px;padding:8px 0">No accounts yet</div>'}
-      </div>
-      <div class="dc-foot">
-        <button class="dc-btn" onclick="event.stopPropagation();openModal('acct')">Add account ›</button>
-        <button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>
-      </div>
-    </div>
-
-    <!-- Strike rule -->
+    ${card('rts','',         'Ready to spend','Buckets ›','buckets',   rtsSummary,   rtsExpanded,   `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`)}
+    ${card('accounts','span2','Accounts',       'All ›',    'accounts',  acctSummary,  acctExpanded,  `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`)}
     <div class="dc-rule"></div>
-
-    <!-- Buckets table card -->
-    <div class="dc span3" onclick="setTab('buckets')">
-      <div class="dc-head">
-        <span class="dc-title">Buckets</span>
-        <span class="dc-link">Manage buckets ›</span>
-      </div>
-      <div class="dc-body np">
-        <table class="dc-table">
-          <thead><tr>
-            <th style="width:26%;padding-left:16px">Bucket</th>
-            <th style="width:18%">Category</th>
-            <th class="r" style="width:13%">Allocated</th>
-            <th class="r" style="width:13%">Spent</th>
-            <th style="width:22%">Progress</th>
-            <th class="r" style="width:8%;padding-right:16px">Left</th>
-          </tr></thead>
-          <tbody>
-            ${topBkts.length?topBkts.map(b=>{
-              const cat=cats.find(c=>c.id===b.catId);
-              const alloc=bAlloc(mid,b.id);
-              const spent=bSpent(mid,b.id);
-              const left=alloc-spent;
-              const pct=alloc>0?Math.min(100,Math.round(spent/alloc*100)):0;
-              const cls=pct>=100?'over':pct>=80?'warn':'';
-              return`<tr>
-                <td class="dc-td-bold" style="padding-left:16px">${esc(b.name)}</td>
-                <td style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em">${esc(cat?.name||'—')}</td>
-                <td class="dc-td-num">${$f(alloc)}</td>
-                <td class="dc-td-num" style="${spent>alloc?'color:var(--red)':''}">${$f(spent)}</td>
-                <td><div class="dc-mini-bar">
-                  <div class="dc-mini-track"><div class="dc-mini-fill ${cls}" style="width:${pct}%"></div></div>
-                  <span class="dc-mini-pct ${cls}">${pct>=100?'Over':pct+'%'}</span>
-                </div></td>
-                <td class="dc-td-num" style="padding-right:16px;${left<0?'color:var(--red)':''}">${left<0?'-':''}${$f(Math.abs(left))}</td>
-              </tr>`;
-            }).join(''):'<tr><td colspan="6" style="padding:16px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text3)">No buckets this month</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-      <div class="dc-foot">
-        <button class="dc-btn" onclick="event.stopPropagation();openModal('bkt')">Add bucket ›</button>
-        <button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">All buckets ›</button>
-      </div>
-    </div>
-
-    <!-- Ledger card -->
-    <div class="dc span2" onclick="setTab('ledger')">
-      <div class="dc-head">
-        <span class="dc-title">Recent ledger</span>
-        <span class="dc-link">Full ledger ›</span>
-      </div>
-      <div class="dc-body np">
-        <table class="dc-table">
-          <thead><tr>
-            <th style="width:14%;padding-left:16px">Date</th>
-            <th style="width:32%">Payee</th>
-            <th style="width:26%">Bucket</th>
-            <th class="r" style="width:28%;padding-right:16px">Amount</th>
-          </tr></thead>
-          <tbody>
-            ${recentTxs.length?recentTxs.map(t=>{
-              const bkt=bkts.find(b=>b.id===t.bucketId);
-              const cat=cats.find(c=>c.id===t.catId);
-              const label=bkt?.name||cat?.name||(t.type==='in'?'Income':'Uncategorized');
-              const d=new Date(t.date+'T12:00:00');
-              const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-              return`<tr>
-                <td class="dc-td-date" style="padding-left:16px">${dateStr}</td>
-                <td class="dc-td-bold">${esc(t.desc||t.payee||'—')}</td>
-                <td style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em">${esc(label)}</td>
-                <td class="dc-td-num" style="padding-right:16px;color:${t.type==='in'?'var(--green)':t.type==='xfr'?'var(--text3)':'var(--text)'}">${t.type==='in'?'+':t.type==='xfr'?'⇄':'-'}${$f(t.amount)}</td>
-              </tr>`;
-            }).join(''):'<tr><td colspan="4" style="padding:16px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text3)">No transactions yet</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-      <div class="dc-foot">
-        <button class="dc-btn" onclick="event.stopPropagation();setTab('ledger')">Add transaction ›</button>
-        <button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>
-      </div>
-    </div>
-
-    <!-- AI Coach card -->
-    <div class="dc" onclick="setTab('coach')">
-      <div class="dc-head">
-        <span class="dc-title">✦ AI Coach</span>
-        <span class="dc-link">Open coach ›</span>
-      </div>
-      <div class="dc-body">
-        ${aiData&&aiData.alerts&&aiData.alerts.length?aiData.alerts.slice(0,3).map(a=>`
-          <div class="dc-bubble">
-            <div class="dc-bubble-label" style="color:${a.type==='alert'?'var(--red)':a.type==='good'?'var(--green)':a.type==='warn'?'var(--amber)':'var(--text3)'}">${a.type==='alert'?'⚑ Alert':a.type==='good'?'✓ On track':a.type==='warn'?'◎ Forecast':'◈ Insight'}</div>
-            <div class="dc-bubble-text">${esc(a.msg||a.text||'')}</div>
-          </div>`).join(''):`
-          <div class="dc-bubble">
-            <div class="dc-bubble-label" style="color:var(--text3)">◈ AI Coach</div>
-            <div class="dc-bubble-text">${(typeof aiEnabled==='function'&&aiEnabled())?'Loading insights…':'Add your Gemini API key in Settings to enable AI coaching.'}</div>
-          </div>`}
-      </div>
-      <div class="dc-foot">
-        <button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>
-      </div>
-    </div>
-
-    <!-- Horizon card -->
-    <div class="dc span2" onclick="setTab('whatif')">
-      <div class="dc-head">
-        <span class="dc-title">12-month horizon</span>
-        <span class="dc-link">What If ›</span>
-      </div>
-      <div class="dc-body">
-        <div class="dc-proj-bars">
-          ${horizonMonths.map(h=>{
-            const heightPct=maxRts>0?Math.max(4,Math.round(Math.abs(h.rts)/maxRts*100)):4;
-            return`<div class="dc-proj-bar ${h.isNow?'now':h.isPast?'past':'future'}" style="height:${heightPct}%" title="${h.label}: ${$f(h.rts)}"></div>`;
-          }).join('')}
-        </div>
-        <div class="dc-proj-labels">
-          ${horizonMonths.map(h=>`<div class="dc-proj-lbl ${h.isNow?'now':''}">${h.label}</div>`).join('')}
-        </div>
-        <div class="dc-meta" style="margin-top:12px">
-          <div class="dc-meta-item">
-            <span class="dc-meta-label">Current RTS</span>
-            <span class="dc-meta-val ${rts<0?'neg':''}">${$f(Math.abs(rts))}</span>
-          </div>
-          <div class="dc-meta-item">
-            <span class="dc-meta-label">Cash</span>
-            <span class="dc-meta-val">${$f(cash)}</span>
-          </div>
-          <div class="dc-meta-item">
-            <span class="dc-meta-label">Spent</span>
-            <span class="dc-meta-val">${$f(totalSpent)}</span>
-          </div>
-        </div>
-      </div>
-      <div class="dc-foot">
-        <button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">What if scenarios ›</button>
-      </div>
-    </div>
-
-    <!-- Reports card -->
-    <div class="dc" onclick="setTab('reports')">
-      <div class="dc-head">
-        <span class="dc-title">Reports</span>
-        <span class="dc-link">Full reports ›</span>
-      </div>
-      <div class="dc-body np">
-        <table class="dc-table">
-          <thead><tr>
-            <th style="padding-left:16px">Category</th>
-            <th class="r" style="padding-right:16px">vs last mo.</th>
-          </tr></thead>
-          <tbody>
-            ${catSpend.length?catSpend.map(c=>`
-              <tr>
-                <td class="dc-td-bold" style="padding-left:16px">${esc(c.name)}</td>
-                <td class="dc-td-num" style="padding-right:16px;color:${c.delta>0?'var(--red)':c.delta<0?'var(--green)':'var(--text3)'}">${c.delta>0?'↑':c.delta<0?'↓':'—'} ${c.delta!==0?$f(Math.abs(c.delta)):'$0'}</td>
-              </tr>`).join(''):'<tr><td colspan="2" style="padding:16px;font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center">No data yet</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-      <div class="dc-foot">
-        <button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>
-      </div>
-    </div>
+    ${card('buckets','span3','Buckets',        allFunded?'✓ Funded':'⚑ Attention','buckets', bktSummary, bktExpanded, `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'All buckets ›':'Fix issues ›'}</button>`)}
+    ${card('ledger','span2', 'Recent ledger', 'Full ledger ›','ledger',  ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`)}
+    ${card('ai','',          '✦ AI Coach',    'Open ›',   'coach',     aiSummary,    aiExpanded,    `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`)}
+    ${card('horizon','span2','12-month horizon','What If ›','whatif',  horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`)}
+    ${card('reports','',     'Reports',       'Full ›',   'reports',   reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`)}
   `;
+
+  // Toggle has-expanded class on canvas
+  el.classList.toggle('has-expanded',hasExp);
+
+  // If a card is expanded, populate its section container
+  if(EXP){
+    requestAnimationFrame(()=>{
+      const sectMap={
+        rts:'dashExpRts', accounts:'dashExpAcct', buckets:'dashExpBkt',
+        ledger:'dashExpLedger', ai:'dashExpAi', horizon:'dashExpHorizon', reports:'dashExpReports'
+      };
+      const sectEl=document.getElementById(sectMap[EXP]);
+      if(!sectEl)return;
+      const m=S.activeMonth;
+      if(EXP==='rts'||EXP==='buckets')renderBucketsTab(sectEl,m);
+      else if(EXP==='ledger')renderLedgerTab(sectEl,m);
+      else if(EXP==='accounts')renderAccountsTab(sectEl,m);
+      else if(EXP==='ai')renderCoachPane(sectEl);
+      else if(EXP==='horizon'||EXP==='reports')renderReportsTab(sectEl);
+    });
+  }
 
   // Update desktop header month label
   const dhMonth=document.getElementById('dhMonthLabel');
   if(dhMonth){
     const mObj=S.months.find(x=>x.id===mid);
-    if(mObj)dhMonth.textContent=mObj.label.toUpperCase().replace(' ','· ');
+    if(mObj){
+      const parts=mObj.label.split(' ');
+      dhMonth.textContent=parts.length>=2?parts[0].toUpperCase()+' · '+parts[1]:mObj.label.toUpperCase();
+    }
   }
+  // Update sync dot
+  const dhSync=document.getElementById('dhSync');
+  if(dhSync)dhSync.style.display=(typeof _supaUser!=='undefined'&&_supaUser)?'flex':'none';
 }
 
 // Returns the active section container for the current platform
