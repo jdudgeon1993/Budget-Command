@@ -2226,11 +2226,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .dash-back-btn:hover{color:var(--accent);border-color:var(--border2);}
 }
 
-/* Dashboard layout — .app hidden, paneDashboard shown full-width */
+/* Desktop: permanent hard separation — .app never exists, paneDashboard always does */
 @media(min-width:1100px){
-  #paneDashboard{display:none;flex-direction:column;flex:1;overflow-y:auto;}
-  #paneDashboard.dash-active{display:flex!important;}
-  .app.dash-active{display:none!important;}
+  .app{display:none!important;}
+  header.topbar{display:none!important;}
+  #paneDashboard{display:flex!important;flex-direction:column;flex:1;overflow:hidden;min-height:0;}
+  #dashGrid{display:flex;flex-direction:column;overflow-y:auto;flex:1;}
+  #dashSect{display:none;flex:1;flex-direction:column;overflow-y:auto;min-height:0;}
+  #dashSect.open{display:flex;}
 }
 </style>
 </head>
@@ -2432,8 +2435,9 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 </div>
 
 <!-- DASHBOARD: lives outside .app, full-width on desktop -->
-<div id="paneDashboard" style="display:none">
-  <div class="dash-canvas" id="dashCanvas"></div>
+<div id="paneDashboard">
+  <div id="dashGrid"><div class="dash-canvas" id="dashCanvas"></div></div>
+  <div id="dashSect"></div>
 </div>
 
 <!-- MODAL -->
@@ -5210,57 +5214,71 @@ const _tabScroll={};
 
 function setTab(tab){
   closeMoreSheet();
-  // Log no longer exists; redirect to ledger
   if(tab==='log')tab='ledger';
-  // Coach is mobile-tab / desktop-panel — on desktop, open the panel instead
+
+  // ── DESKTOP PATH: everything stays inside paneDashboard, .app never touched ──
+  if(!isMobile()){
+    if(tab==='coach'){if(!_coachOpen)toggleCoach();return;}
+    activeTab=tab;
+    renderNav();
+    closeDetail(true);
+    if(tab==='ledger'){S.activeAccount=null;S.activeBucket=null;}
+    if(_coachOpen)_refreshCoachChips('coachChips');
+    const grid=document.getElementById('dashGrid');
+    const sect=document.getElementById('dashSect');
+    const backBtn=document.getElementById('dhBackBtn');
+    if(tab==='dashboard'){
+      if(grid)grid.style.display='';
+      if(sect){sect.classList.remove('open');sect.innerHTML='';}
+      if(backBtn)backBtn.style.display='none';
+      renderDashboard();
+    } else {
+      if(grid)grid.style.display='none';
+      if(sect)sect.classList.add('open');
+      if(backBtn)backBtn.style.display='inline-flex';
+      renderDeskSection(tab);
+    }
+    save();
+    return;
+  }
+
+  // ── MOBILE PATH: pane swap inside .app ──
   if(tab==='coach'&&!isMobile()){if(!_coachOpen)toggleCoach();return;}
-  // Save current pane scroll before switching
   const curPane=document.getElementById('pane'+capitalize(activeTab));
   if(curPane)_tabScroll[activeTab]=curPane.scrollTop;
-  // Animate out current pane
   curPane?.classList.add('slide-left');
   setTimeout(()=>curPane?.classList.remove('slide-left'),300);
-  // Close any open detail
   closeDetail(true);
   activeTab=tab;
-  // Clear state on tab change
   if(tab==='ledger'){S.activeAccount=null;S.activeBucket=null;}
-  // Refresh coach chips if panel is open (context-aware)
   if(_coachOpen)_refreshCoachChips('coachChips');
-  // Update nav
   renderNav();
-  // Swap panes — restore scroll if we've been here before
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   const newPane=document.getElementById('pane'+capitalize(tab));
   if(newPane){
     newPane.classList.add('active');
     requestAnimationFrame(()=>{newPane.scrollTop=_tabScroll[tab]||0;});
   }
-  // Render content
   renderActivePane();
-  // Dashboard is outside .app — swap visibility directly
-  const appEl=document.getElementById('app');
-  const dashEl=document.getElementById('paneDashboard');
-  const onDash=tab==='dashboard'&&!isMobile();
-  if(appEl)appEl.classList.toggle('dash-active',onDash);
-  if(dashEl)dashEl.classList.toggle('dash-active',onDash);
-  // Show/hide back button in desktop header
-  const backBtn=document.getElementById('dhBackBtn');
-  if(backBtn)backBtn.style.display=(tab!=='dashboard'&&!isMobile())?'inline-flex':'none';
   save();
 }
 
 function setReportsTab(t){
   reportsTab=t;
+  if(!isMobile()){renderDeskSection('reports');return;}
   const p=document.getElementById('paneReports');
   if(p)renderReportsTab(p);
 }
 
 function renderActivePane(){
+  // Desktop: all sections render into #dashSect, dashboard into dashGrid
+  if(!isMobile()){
+    if(activeTab==='dashboard')renderDashboard();
+    else renderDeskSection(activeTab);
+    return;
+  }
   const mid=S.activeMonth;
-  if(activeTab==='dashboard'){
-    renderDashboard();
-  } else if(activeTab==='buckets'){
+  if(activeTab==='buckets'){
     // Buckets writes to #paneBucketsInner (child), never el itself — scroll preserved natively.
     const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);
   } else if(activeTab==='ledger'){
@@ -5702,6 +5720,29 @@ function renderDashboard(){
     const mObj=S.months.find(x=>x.id===mid);
     if(mObj)dhMonth.textContent=mObj.label.toUpperCase().replace(' ','· ');
   }
+}
+
+// Returns the active section container for the current platform
+function _sectEl(tab){
+  if(!isMobile())return document.getElementById('dashSect');
+  return document.getElementById('pane'+capitalize(tab||activeTab));
+}
+function rerenderSettings(){const el=_sectEl('settings');if(el)renderSettingsTab(el);}
+function rerenderBuckets(){if(!isMobile()){renderDeskSection('buckets');return;}const el=document.getElementById('paneBuckets');if(el)renderBucketsTab(el,S.activeMonth);}
+
+// Desktop section renderer — routes to the shared #dashSect container
+function renderDeskSection(tab){
+  const el=document.getElementById('dashSect');
+  if(!el)return;
+  el.innerHTML='';
+  const mid=S.activeMonth;
+  if(tab==='buckets')renderBucketsTab(el,mid);
+  else if(tab==='ledger')renderLedgerTab(el,mid);
+  else if(tab==='accounts')renderAccountsTab(el,mid);
+  else if(tab==='reports')renderReportsTab(el);
+  else if(tab==='settings')renderSettingsTab(el);
+  else if(tab==='whatif')renderWhatIfPane(el);
+  else if(tab==='coach')renderCoachPane(el);
 }
 
 function renderLedgerTab(el,mid){
@@ -6392,15 +6433,15 @@ function renderSettingsTab(el){
     if(_editingPayeeId===p.id){
       return `<div class="payee-settings-row">
         <input class="fi" id="payeeRenameInp" value="${esc(p.name)}" style="flex:1;min-width:0"
-          onkeydown="if(event.key==='Enter')commitRenamePayee('${p.id}');else if(event.key==='Escape'){_editingPayeeId=null;renderSettingsTab(document.getElementById('paneSettings'));}" />
+          onkeydown="if(event.key==='Enter')commitRenamePayee('${p.id}');else if(event.key==='Escape'){_editingPayeeId=null;rerenderSettings();}" />
         <button class="ib" onclick="commitRenamePayee('${p.id}')" title="Save">✓</button>
-        <button class="ib" onclick="_editingPayeeId=null;renderSettingsTab(document.getElementById('paneSettings'))" title="Cancel">✕</button>
+        <button class="ib" onclick="_editingPayeeId=null;rerenderSettings()" title="Cancel">✕</button>
       </div>`;
     }
     return `<div class="payee-settings-row">
       <span class="payee-settings-name">${esc(p.name)}</span>
       ${bkt?`<span class="payee-settings-bkt">${esc(bkt.name)}</span>`:'<span class="payee-settings-bkt muted">no default</span>'}
-      <button class="ib" onclick="_editingPayeeId='${p.id}';renderSettingsTab(document.getElementById('paneSettings'))" title="Rename">✎</button>
+      <button class="ib" onclick="_editingPayeeId='${p.id}';rerenderSettings()" title="Rename">✎</button>
       <button class="ib del" onclick="deletePayeeWithUndo('${p.id}')" title="Delete">×</button>
     </div>`;
   }).join('');
@@ -7226,6 +7267,7 @@ function _allocMonthGuard(mid){
   return true;
 }
 function _rerenderBucketsTab(){
+  if(!isMobile()){renderDeskSection('buckets');return;}
   const el=document.getElementById('paneBuckets');if(!el)return;
   renderBucketsTab(el,S.activeMonth);
 }
@@ -7821,24 +7863,24 @@ function payeeSuggestions(prefix){
 }
 function deletePayee(id){
   S.payees=S.payees.filter(p=>p.id!==id);save();
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
 }
 function deletePayeeWithUndo(id){
   const p=S.payees.find(x=>x.id===id);if(!p)return;
   S.payees=S.payees.filter(x=>x.id!==id);save();
-  renderSettingsTab(document.getElementById('paneSettings'));
-  showUndoToast(`Removed payee: ${p.name}`,'out',()=>{S.payees.push(p);save();renderSettingsTab(document.getElementById('paneSettings'));showToast('Restored','save');});
+  rerenderSettings();
+  showUndoToast(`Removed payee: ${p.name}`,'out',()=>{S.payees.push(p);save();rerenderSettings();showToast('Restored','save');});
 }
 function renamePayee(id,newName){
   const p=S.payees.find(x=>x.id===id);if(!p||!newName.trim())return;
   p.name=newName.trim();save();_editingPayeeId=null;
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
 }
 function commitRenamePayee(id){
   const inp=document.getElementById('payeeRenameInp');
   const newName=inp?inp.value.trim():'';
   if(newName)renamePayee(id,newName);
-  else{_editingPayeeId=null;renderSettingsTab(document.getElementById('paneSettings'));}
+  else{_editingPayeeId=null;rerenderSettings();}
 }
 
 // Autocomplete UI — used by both desktop #txDesc and mobile #mLogDesc
@@ -9501,7 +9543,7 @@ function moveAcct(id,dir){
   const swap=idx+dir;
   if(swap<0||swap>=S.accounts.length)return;
   const tmp=S.accounts[idx];S.accounts[idx]=S.accounts[swap];S.accounts[swap]=tmp;
-  save();renderSettingsTab(document.getElementById('paneSettings'));renderTopbar();
+  save();rerenderSettings();renderTopbar();
 }
 
 function openSettings(){setTab('settings');}
@@ -10442,14 +10484,14 @@ function allocationRulesHtml(){
         <div class="fg"><label class="fl">Value</label><input class="fi mono" id="newRuleVal" type="number" placeholder="5" value="${editing?editing.value:''}" /></div>
       </div>
       <div style="display:flex;gap:8px">
-        ${editing?`<button class="btn-cancel" onclick="_editingArId=null;renderSettingsTab(document.getElementById('paneSettings'))">Cancel</button>`:''}
+        ${editing?`<button class="btn-cancel" onclick="_editingArId=null;rerenderSettings()">Cancel</button>`:''}
         <button class="btn-primary" onclick="saveAllocationRule()">${editing?'Update Rule':'Add Rule'}</button>
       </div>
     </div>`;
 }
 function editAllocationRule(id){
   _editingArId=id;
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
 }
 function saveAllocationRule(){
   const name=document.getElementById('newRuleName')?.value.trim();
@@ -10467,13 +10509,13 @@ function saveAllocationRule(){
     S.allocationRules.push({id:'_ar'+Math.random().toString(36).slice(2,9),name:name||'Rule',bucketId,type,value,active:true});
   }
   save();
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
 }
 function addAllocationRule(){saveAllocationRule();}
 function deleteAllocationRule(id){
   S.allocationRules=(S.allocationRules||[]).filter(r=>r.id!==id);
   save();
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
 }
 function toggleAllocationRule(id,active){
   const r=(S.allocationRules||[]).find(x=>x.id===id);
@@ -10511,12 +10553,12 @@ function paydayTransfersHtml(){
         <div class="fg"><label class="fl">Value</label><input class="fi mono" id="newPtVal" type="number" placeholder="500" value="${editing?editing.value:''}" /></div>
       </div>
       <div style="display:flex;gap:8px">
-        ${editing?`<button class="btn-cancel" onclick="_editingPtId=null;renderSettingsTab(document.getElementById('paneSettings'))">Cancel</button>`:''}
+        ${editing?`<button class="btn-cancel" onclick="_editingPtId=null;rerenderSettings()">Cancel</button>`:''}
         <button class="btn-primary" onclick="savePaydayTransfer()">${editing?'Update Transfer':'Add Transfer'}</button>
       </div>
     </div>`;
 }
-function editPaydayTransfer(id){_editingPtId=id;renderSettingsTab(document.getElementById('paneSettings'));}
+function editPaydayTransfer(id){_editingPtId=id;rerenderSettings();}
 function savePaydayTransfer(){
   const name=document.getElementById('newPtName')?.value.trim();
   const type=document.getElementById('newPtType')?.value||'fixed';
@@ -10531,11 +10573,11 @@ function savePaydayTransfer(){
   } else {
     S.paydayTransfers.push({id:'_pt'+Math.random().toString(36).slice(2,9),name,type,value,active:true});
   }
-  save();renderSettingsTab(document.getElementById('paneSettings'));
+  save();rerenderSettings();
 }
 function deletePaydayTransfer(id){
   S.paydayTransfers=(S.paydayTransfers||[]).filter(t=>t.id!==id);
-  save();renderSettingsTab(document.getElementById('paneSettings'));
+  save();rerenderSettings();
 }
 function togglePaydayTransfer(id,active){
   const t=(S.paydayTransfers||[]).find(x=>x.id===id);
@@ -10730,7 +10772,7 @@ function recurringBillsHtml(){
         <div class="fg"><label class="fl">Bucket</label><select class="fi" id="rbBkt">${bktOpts}</select></div>
       </div>
       <div style="display:flex;gap:8px">
-        ${editing?`<button class="btn-cancel" onclick="_editingRbId=null;renderSettingsTab(document.getElementById('paneSettings'))">Cancel</button>`:''}
+        ${editing?`<button class="btn-cancel" onclick="_editingRbId=null;rerenderSettings()">Cancel</button>`:''}
         <button class="btn-primary" onclick="saveRecurringBill()">${editing?'Update Bill':'Add Bill'}</button>
       </div>
     </div>`;
@@ -10738,7 +10780,7 @@ function recurringBillsHtml(){
 
 function editRecurringBill(id){
   _editingRbId=id;
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
 }
 function saveRecurringBill(){
   const desc=document.getElementById('rbDesc')?.value.trim();
@@ -10764,7 +10806,7 @@ function saveRecurringBill(){
   }
   save();
   showToast((wasEditing?'Updated':'Added')+' recurring bill: '+desc,'save');
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
   render();
 }
 // keep old name as alias for any inline onclick references
@@ -10777,7 +10819,7 @@ function deleteRecurringBill(id){
   save();
   showToast('Deleted recurring bill'+(bill?' : '+bill.desc:''),'out');
   render();
-  renderSettingsTab(document.getElementById('paneSettings'));
+  rerenderSettings();
 }
 
 function toggleRecurringBill(id,active){
@@ -12043,25 +12085,15 @@ let _resizeTimer=null;
 function init(){
   if(!_appInitialized)return;
   document.getElementById('authScreen')?.classList.add('hidden');
-  // Log tab is mobile-only; correct saved state on desktop
-  if(activeTab==='log'&&!isMobile())activeTab='ledger';
-  if(activeTab==='export')activeTab='settings';
-  // Desktop always lands on dashboard; mobile always lands on buckets
-  if(!isMobile())activeTab='dashboard';
-  else if(activeTab==='dashboard')activeTab='buckets';
-  // Activate the correct pane before render
-  if(activeTab!=='dashboard'){
+  // Desktop always on dashboard; mobile corrects invalid saved states
+  if(!isMobile()){
+    activeTab='dashboard';
+  } else {
+    if(activeTab==='log'||activeTab==='export'||activeTab==='dashboard')activeTab='buckets';
+    // Activate correct mobile pane before render
     document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
     document.getElementById('pane'+capitalize(activeTab))?.classList.add('active');
   }
-  // Swap .app / paneDashboard BEFORE render so nothing flashes
-  const appEl=document.getElementById('app');
-  const dashEl=document.getElementById('paneDashboard');
-  const onDash=activeTab==='dashboard'&&!isMobile();
-  if(appEl)appEl.classList.toggle('dash-active',onDash);
-  if(dashEl)dashEl.classList.toggle('dash-active',onDash);
-  const backBtn=document.getElementById('dhBackBtn');
-  if(backBtn)backBtn.style.display=(activeTab!=='dashboard'&&!isMobile())?'inline-flex':'none';
   render();
   populateTxCats();
   updateTxFormForType();
@@ -12093,14 +12125,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       const nowMobile=isMobile();
       if(nowMobile!==_layoutIsMobile){
         _layoutIsMobile=nowMobile;
-        // Correct tab state that is mobile-only or desktop-only
-        if(!nowMobile&&activeTab==='log')activeTab='ledger';
+        // Desktop always lands on dashboard; CSS handles .app visibility
         if(!nowMobile)activeTab='dashboard';
-        const _rAppEl=document.getElementById('app');
-        const _rDashEl=document.getElementById('paneDashboard');
-        const _rOnDash=activeTab==='dashboard'&&!nowMobile;
-        if(_rAppEl)_rAppEl.classList.toggle('dash-active',_rOnDash);
-        if(_rDashEl)_rDashEl.classList.toggle('dash-active',_rOnDash);
+        else if(activeTab==='dashboard')activeTab='buckets';
         render();
       } else {
         renderNav();
