@@ -5487,7 +5487,7 @@ function renderDashboard(){
           </div>
           <div class="dc-meta-item">
             <span class="dc-meta-label">Buckets</span>
-            <span class="dc-meta-val">${mbkts.length}</span>
+            <span class="dc-meta-val">${activeBkts.length}</span>
           </div>
           <div class="dc-meta-item">
             <span class="dc-meta-label">On track</span>
@@ -12046,8 +12046,14 @@ function init(){
   // Log tab is mobile-only; correct saved state on desktop
   if(activeTab==='log'&&!isMobile())activeTab='ledger';
   if(activeTab==='export')activeTab='settings';
-  // Desktop always lands on dashboard
+  // Desktop always lands on dashboard; mobile always lands on buckets
   if(!isMobile())activeTab='dashboard';
+  else if(activeTab==='dashboard')activeTab='buckets';
+  // Activate the correct pane before render
+  if(activeTab!=='dashboard'){
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    document.getElementById('pane'+capitalize(activeTab))?.classList.add('active');
+  }
   // Swap .app / paneDashboard BEFORE render so nothing flashes
   const appEl=document.getElementById('app');
   const dashEl=document.getElementById('paneDashboard');
