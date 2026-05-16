@@ -88,9 +88,31 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .card-divider{height:1px;background:var(--border);margin:14px 0;}
 
 /* ═══ TOPBAR ═══ */
-.topbar{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:stretch;flex-shrink:0;z-index:100;overflow:hidden;}
-.tb-logo{display:flex;align-items:center;gap:8px;padding:0 20px;border-right:1px solid var(--border);font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;white-space:nowrap;flex-shrink:0;width:240px;}
+.topbar{background:var(--bg2);border-bottom:3px solid var(--border);display:flex;align-items:stretch;flex-shrink:0;z-index:100;overflow:hidden;height:54px;position:relative;background-image:linear-gradient(rgba(100,180,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(100,180,255,0.04) 1px,transparent 1px);background-size:80px 80px,80px 80px;}
+.tb-logo{display:flex;align-items:center;gap:10px;padding:0 20px;border-right:3px solid var(--border);white-space:nowrap;flex-shrink:0;width:240px;}
+.tb-logo-mark{width:28px;height:28px;border:2px solid var(--accent);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:13px;letter-spacing:.06em;color:var(--accent);flex-shrink:0;}
+.tb-logo-text{font-family:var(--display);font-size:13px;letter-spacing:.1em;color:var(--text2);line-height:1.1;}
 .tb-logo-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+/* Cockpit header cells */
+.ck-div{width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:8px 0;}
+.ck-cell{display:flex;flex-direction:column;justify-content:center;padding:0 20px;flex-shrink:0;}
+.ck-cell.rts{border-left:3px solid var(--accent);padding-left:17px;}
+.ck-label{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);line-height:1;margin-bottom:3px;}
+.ck-val{font-family:var(--display);font-size:22px;letter-spacing:.04em;line-height:1;color:var(--text);}
+.ck-val.rts-val{color:var(--accent);font-size:26px;}
+.ck-val.pos{color:var(--green);}
+.ck-val.neg{color:var(--red);}
+.ck-month-nav{display:flex;align-items:center;gap:0;padding:0 16px;flex-shrink:0;border-right:1px solid var(--border);}
+.ck-month-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:6px 10px;transition:color .12s;line-height:1;flex-shrink:0;}
+.ck-month-btn:hover{color:var(--accent);}
+.ck-month-label{font-family:var(--display);font-size:16px;letter-spacing:.1em;color:var(--text2);padding:0 8px;min-width:110px;text-align:center;cursor:pointer;transition:color .12s;}
+.ck-month-label:hover{color:var(--accent);}
+.ck-chip{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r);border:1px solid;margin-left:4px;align-self:center;}
+.ck-chip.present{color:var(--green);border-color:var(--green);}
+.ck-chip.past{color:var(--text3);border-color:var(--border);}
+.ck-chip.future{color:var(--accent2);border-color:var(--border2);}
+.ck-spacer{flex:1;}
+.ck-actions{display:flex;align-items:center;gap:8px;padding:0 16px;border-left:1px solid var(--border);flex-shrink:0;}
 
 .tb-accounts{display:flex;align-items:stretch;gap:0;overflow-x:auto;scrollbar-width:none;border-right:1px solid var(--border);}
 .tb-accounts::-webkit-scrollbar{display:none;}
@@ -195,8 +217,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .ledger-add-btn{padding:6px 16px;background:none;color:var(--accent);border:2px solid var(--accent);border-radius:var(--r);font-family:var(--mono);font-size:9px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background .12s,color .12s;}
 .ledger-add-btn:hover{background:var(--accent);color:var(--bg);}
 .ledger-list-col{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-/* Desktop: topbar is redundant — sidebar owns brand + month nav + New */
-@media(min-width:1100px){header.topbar{display:none!important;}}
+/* Desktop: topbar becomes cockpit instrument strip */
+@media(min-width:1100px){
+  header.topbar{height:56px;}
+  .tb-mob-wrap,.tb-mob-r1,.tb-mob-r2,.tb-mobile-wrap,.tb-accounts{display:none!important;}
+  .tb-logo-dot{display:none;}
+}
 @media(max-width:1099px){
   .ledger-add-inp.sm{flex:0 0 80px;}
 }
@@ -584,7 +610,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .sb-monnav-label:hover{color:var(--accent);}
 .sb-monnav-wi{background:none;border:none;cursor:pointer;font-size:14px;padding:8px 10px;border-left:3px solid var(--border);color:var(--accent);font-family:var(--display);font-weight:400;letter-spacing:.06em;transition:all .12s;flex-shrink:0;white-space:nowrap;}
 .sb-monnav-wi:hover{color:var(--text);background:rgba(125,211,252,0.06);}
-.sb-monnav-wi.on{color:var(--amber);background:var(--abg);}
+.sb-monnav-wi.on{color:var(--amber);background:none;border-left-color:var(--amber);}
 
 /* ═══ SIDEBAR ACTIONS ═══ */
 .sb-actions{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
@@ -709,11 +735,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .td-pill{width:54px;padding:4px 6px;text-align:right;}
 .pill{display:inline-block;font-family:var(--mono);font-size:8px;font-weight:400;padding:2px 5px;border-radius:var(--r);letter-spacing:.1em;text-transform:uppercase;}
 .pill-funded{background:none;color:var(--green);border:1px solid var(--green);}
-.pill-partial{background:none;color:var(--amber);border:1px solid var(--amber);}
+.pill-partial{background:none;color:var(--text2);border:1px solid var(--border2);}
 .pill-empty{background:none;color:var(--text3);border:1px solid var(--border);}
 .pill-over{background:none;color:var(--red);border:1px solid var(--red);}
 .pill-done{background:none;color:var(--green);border:1px solid var(--green);}
-.pill-pending{background:none;color:var(--amber);border:1px solid var(--amber);}
+.pill-pending{background:none;color:var(--text2);border:1px solid var(--border2);}
 .pill-missed{background:none;color:var(--red);border:1px solid var(--red);}
 
 /* ═══ UNIFIED BUCKET ROWS ═══ */
@@ -751,7 +777,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .rb-row-name{flex:1;font-size:13px;}
 .rb-row-amt{font-family:var(--mono);font-size:12px;color:var(--text2);min-width:60px;text-align:right;}
 .rb-row-day{font-size:11px;color:var(--text3);}
-.m-bkt-pill.pill-pending{background:var(--abg);color:var(--amber);}
+.m-bkt-pill.pill-pending{background:none;color:var(--text2);}
 
 /* ═══ BUCKET DETAIL ═══ */
 .det-notes{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;word-break:break-word;}
@@ -976,7 +1002,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .tx-meta-bkt{color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tx-dot2{width:3px;height:3px;border-radius:50%;background:var(--border2);display:inline-block;flex-shrink:0;}
 .tx-amt{font-family:var(--display);font-size:16px;letter-spacing:.04em;line-height:1;flex-shrink:0;}
-.tx-amt.out{color:var(--red);}
+.tx-amt.out{color:var(--text);}
 .tx-amt.in{color:var(--green);}
 .tx-amt.xfr{color:var(--accent2);}
 /* Inline editing row */
@@ -989,7 +1015,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .tx-inline-inp:focus{border-color:var(--accent);background:var(--bg3);outline:none;}
 .tx-desc-inp{font-weight:500;}
 .tx-amt-inp{text-align:right;font-family:var(--display);font-size:15px;letter-spacing:.04em;}
-.tx-amt-inp.out{color:var(--red);}
+.tx-amt-inp.out{color:var(--text);}
 .tx-amt-inp.in{color:var(--green);}
 .tx-amt-inp.xfr{color:var(--accent2);}
 .tx-date-inp{font-size:12px;color:var(--text2);width:100%;}
@@ -1098,10 +1124,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .sb-nav-stat.pos{color:var(--green);}
 .sb-nav-stat.neg{color:var(--red);}
 /* Sidebar vitals as metric cards */
-.sb-vitals{border-top:3px solid var(--border);padding:10px 0;flex-shrink:0;}
-.sb-vital-row{display:flex;align-items:flex-end;justify-content:space-between;padding:4px 20px;}
+.sb-vitals{border-top:3px solid var(--border);flex-shrink:0;padding-bottom:8px;}
+.sb-rts-block{padding:10px 20px 8px;border-bottom:1px solid var(--border);}
+.sb-rts-label{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+.sb-rts-val{font-family:var(--display);font-size:28px;letter-spacing:.04em;line-height:1;color:var(--accent);}
+.sb-rts-val.neg{color:var(--red);}
+.sb-vital-row{display:flex;align-items:flex-end;justify-content:space-between;padding:3px 20px;}
 .sb-vital-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);}
-.sb-vital-val{font-family:var(--display);font-size:18px;letter-spacing:.04em;line-height:1;color:var(--text);}
+.sb-vital-val{font-family:var(--display);font-size:16px;letter-spacing:.04em;line-height:1;color:var(--text2);}
 .sb-vital-val.pos{color:var(--green);}
 .sb-vital-val.neg{color:var(--red);}
 .sb-vital-val.dim{color:var(--text3);}
@@ -1289,11 +1319,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-tx-meta{font-size:12px;color:var(--text3);margin-top:2px;}
   .m-tx-r{text-align:right;flex-shrink:0;}
   .m-tx-amt{font-family:var(--display);font-size:18px;letter-spacing:.04em;text-align:right;}
-  .m-tx-amt.out{color:var(--red);}
+  .m-tx-amt.out{color:var(--text);}
   .m-tx-amt.in{color:var(--green);}
   .m-tx-amt.xfr{color:var(--accent2);}
   .m-tx-run-bal{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px;text-align:right;}
-  .m-tx-run-bal.proj{color:var(--amber);}
+  .m-tx-run-bal.proj{color:var(--text3);}
   .m-tx-run-bal.neg{color:var(--red);}
 
   /* Edit bottom sheet */
@@ -2044,7 +2074,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 <!-- TOPBAR -->
 <header class="topbar" id="topbar">
-  <div class="tb-logo"><div class="tb-logo-dot"></div>Budget Command</div>
+  <div class="tb-logo nav-desktop">
+    <div class="tb-logo-mark">BC</div>
+    <div class="tb-logo-text">Budget<br>Command</div>
+  </div>
   <!-- Month navigation — visible in topbar on mobile -->
   <div class="tb-month-nav" id="tbMonthNav">
     <button class="tb-month-arrow" onclick="prevMonth()" aria-label="Previous month">&#8249;</button>
@@ -2053,6 +2086,33 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   </div>
   <div class="tb-right" style="margin-left:auto">
     <button class="tbtn tb-new-btn" onclick="openModal('new')" id="tbNewBtn">+ New</button>
+  </div>
+  <!-- Desktop cockpit cells — hidden on mobile -->
+  <div class="ck-month-nav nav-desktop">
+    <button class="ck-month-btn" onclick="sidebarNavMonth(-1)" aria-label="Previous month">‹</button>
+    <span class="ck-month-label" id="ckMonthLabel" onclick="jumpToToday()" title="Go to current month">—</span>
+    <button class="ck-month-btn" onclick="sidebarNavMonth(1)" aria-label="Next month">›</button>
+    <span class="ck-chip past" id="ckMonthChip">—</span>
+  </div>
+  <div class="ck-div nav-desktop"></div>
+  <div class="ck-cell rts nav-desktop">
+    <div class="ck-label">Ready to Spend</div>
+    <div class="ck-val rts-val" id="ckRTS">—</div>
+  </div>
+  <div class="ck-div nav-desktop"></div>
+  <div class="ck-cell nav-desktop">
+    <div class="ck-label">Cash</div>
+    <div class="ck-val" id="ckCash">—</div>
+  </div>
+  <div class="ck-div nav-desktop"></div>
+  <div class="ck-cell nav-desktop">
+    <div class="ck-label">Allocated</div>
+    <div class="ck-val" id="ckAlloc">—</div>
+  </div>
+  <div class="ck-spacer nav-desktop"></div>
+  <div class="ck-actions nav-desktop">
+    <button class="tbtn primary" onclick="openModal('new')" style="padding:5px 14px">+ New</button>
+    <button class="sb-util-auth nav-desktop" id="ckAuthBtn" onclick="authAction()" style="display:none"></button>
   </div>
   <!-- Mobile header: 2-row sticky layout (≤1099px) -->
   <div class="tb-mobile-wrap" id="tbMobileWrap">
@@ -2147,11 +2207,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <!-- Vitals panel — desktop only -->
     <div class="nav-spacer nav-desktop"></div>
     <div class="sb-vitals nav-desktop">
-      <div class="sb-vital-row">
-        <span class="sb-vital-label">RTS</span>
-        <span class="sb-vital-val dim" id="sbVitalRTS">—</span>
+      <div class="sb-rts-block">
+        <div class="sb-rts-label">Ready to Spend</div>
+        <div class="sb-rts-val" id="sbVitalRTS">—</div>
       </div>
-      <div class="sb-vital-row">
+      <div class="sb-vital-row" style="margin-top:6px">
         <span class="sb-vital-label">Cash</span>
         <span class="sb-vital-val" id="sbVitalCash">—</span>
       </div>
@@ -4626,8 +4686,8 @@ function renderSidebarVitals(){
   const rts=hasBudget?todayReadyToSpend():null;
   const rtsEl=document.getElementById('sbVitalRTS');
   if(rtsEl){
-    if(rts===null){rtsEl.textContent='—';rtsEl.className='sb-vital-val dim';}
-    else{rtsEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');rtsEl.className='sb-vital-val'+(rts>0?' pos':rts<0?' neg':' dim');}
+    if(rts===null){rtsEl.textContent='—';rtsEl.className='sb-rts-val';}
+    else{rtsEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');rtsEl.className='sb-rts-val'+(rts<0?' neg':'');}
   }
 
   // ── Total Cash vital ──
@@ -4643,6 +4703,27 @@ function renderSidebarVitals(){
     else{aomEl.textContent=aom+'d';aomEl.className='sb-vital-val'+(aom>=30?' pos':aom>=14?'':' neg');}
   }
 
+  // ── Cockpit header ──
+  const ckRTS=document.getElementById('ckRTS');
+  const ckCash=document.getElementById('ckCash');
+  const ckAlloc=document.getElementById('ckAlloc');
+  const ckMonth=document.getElementById('ckMonthLabel');
+  const ckChip=document.getElementById('ckMonthChip');
+  const ckAuth=document.getElementById('ckAuthBtn');
+  const m_ck=mid?getMonth(mid):null;
+  if(ckMonth)ckMonth.textContent=m_ck?(m_ck.label||'—').toUpperCase():'—';
+  const st_ck=mid?monthStatus(mid):'present';
+  if(ckChip){ckChip.className='ck-chip '+st_ck;ckChip.textContent=st_ck==='past'?'Closed':st_ck==='future'?'Upcoming':'Current';}
+  const rts_ck=mid?readyToSpend(mid):0;
+  const cash_ck=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
+  const alloc_ck=mid?totalAllocated(mid):0;
+  if(ckRTS){ckRTS.textContent=$f(Math.abs(rts_ck));ckRTS.className='ck-val rts-val'+(rts_ck<0?' neg':'');}
+  if(ckCash){ckCash.textContent=$f(cash_ck);ckCash.className='ck-val'+(cash_ck<0?' neg':cash_ck>0?' pos':'');}
+  if(ckAlloc){ckAlloc.textContent=$f(alloc_ck);}
+  // Mirror auth button visibility
+  const sbAuth=document.getElementById('sbAuthBtn');
+  if(ckAuth&&sbAuth){ckAuth.style.display=sbAuth.style.display;ckAuth.textContent=sbAuth.textContent;ckAuth.className=sbAuth.className+' nav-desktop';}
+
   // ── Month label ──
   const monthLbl=document.getElementById('sbMonthLabel');
   if(monthLbl){
@@ -4650,6 +4731,8 @@ function renderSidebarVitals(){
     const st=mid?monthStatus(mid):'';
     monthLbl.textContent=m?(m.label||mLabel(m.year,m.month)):'—';
     monthLbl.style.color=st==='past'?'var(--amber)':st==='future'?'var(--blue)':'';
+    const ckMonthLbl=document.getElementById('ckMonthLabel');
+    if(ckMonthLbl)ckMonthLbl.textContent=monthLbl.textContent.toUpperCase();
   }
 
   // ── Sync status ──
