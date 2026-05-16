@@ -1249,13 +1249,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-bkt-pill{font-family:var(--mono);font-size:8px;font-weight:400;padding:2px 6px;border-radius:var(--r);margin-top:4px;display:inline-block;letter-spacing:.1em;text-transform:uppercase;}
   .m-chevron{color:var(--text3);font-size:16px;flex-shrink:0;}
 
-  /* Log form */
-  .m-log-form{display:flex;flex-direction:column;gap:0;flex:1;overflow-y:auto;}
-  .m-type-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin:14px 16px 0;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
-  .m-type-btn{padding:11px 0;background:var(--bg2);border:none;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;font-weight:400;color:var(--text3);cursor:pointer;transition:color .12s,border-color .12s;text-align:center;}
-  .m-type-btn.sel-out{background:none;color:var(--red);border-bottom:2px solid var(--red);}
-  .m-type-btn.sel-in{background:none;color:var(--green);border-bottom:2px solid var(--green);}
-  .m-type-btn.sel-xfr{background:none;color:var(--accent);border-bottom:2px solid var(--accent);}
   .m-field{padding:0 16px;margin-top:14px;}
   .m-field-label{font-family:var(--mono);font-size:9px;font-weight:400;text-transform:uppercase;letter-spacing:.14em;color:var(--text3);margin-bottom:6px;}
   .m-input{width:100%;padding:13px 14px;background:var(--bg);border:2px solid var(--border);border-radius:var(--r);font-size:16px;font-family:var(--sans);color:var(--text);transition:border-color .12s;}
@@ -1342,11 +1335,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .m-sink-label{font-family:var(--mono);font-size:9px;font-weight:400;text-transform:uppercase;letter-spacing:.14em;color:var(--text3);margin-bottom:3px;}
   .m-sink-val{font-family:var(--display);font-size:20px;letter-spacing:.04em;}
 
-  /* Bulk entry mobile */
-  .m-bulk-row{background:var(--bg2);border:3px solid var(--border);border-radius:var(--r);padding:12px 14px;margin:0 16px 10px;display:flex;flex-direction:column;gap:8px;}
-  .m-bulk-row-top{display:flex;gap:8px;align-items:center;}
-  .m-bulk-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0;line-height:1;flex-shrink:0;}
-  .m-bulk-del:active{color:var(--red);}
+  /* More drop-up sheet */
+  .more-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:299;}
+  .more-sheet{position:fixed;bottom:57px;left:0;right:0;background:var(--bg2);border-top:3px solid var(--border);z-index:300;padding:8px 0;}
+  .more-sheet-item{display:flex;align-items:center;gap:14px;width:100%;padding:14px 24px;background:none;border:none;color:var(--text);font-family:var(--sans);font-size:15px;font-weight:600;cursor:pointer;text-align:left;}
+  .more-sheet-item:active{background:rgba(125,211,252,0.06);}
+  .more-sheet-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
+  .more-sheet-label{letter-spacing:.04em;}
 
   /* ── Unified overview: mobile adaptations ── */
   .ov-desktop-only{display:none!important;}
@@ -1417,8 +1412,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-mob-logo-text{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;flex:1;}
   .tb-mob-user{font-size:11px;color:var(--text3);font-family:var(--mono);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:8px;background:none;border:none;cursor:pointer;}
   .tb-mob-r2{display:flex;align-items:center;height:40px;padding:0 10px;gap:0;}
-  .tb-mob-actions{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;}
-  .tb-mob-actions::-webkit-scrollbar{display:none;}
   .tb-mob-rts-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;padding-left:8px;}
   .tb-mob-date{font-size:10px;color:var(--text3);font-family:var(--mono);}
   .tb-mob-rts-chip{font-family:var(--mono);font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--gbg);border:1px solid var(--gb);color:var(--green);white-space:nowrap;}
@@ -2121,12 +2114,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <button class="tb-mob-user" id="tbMobUser" onclick="authAction()"></button>
     </div>
     <div class="tb-mob-r2">
-      <div class="tb-mob-actions">
-        <button class="tbtn primary" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="openModal('new')">+ New</button>
-        <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('accounts')">⬡ Accounts</button>
-        <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('reports')">📊 Reports</button>
-        <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0;" onclick="setTab('settings')">⚙ Settings</button>
-      </div>
       <div class="tb-mob-rts-wrap">
         <span class="tb-mob-date" id="tbMobDate"></span>
         <span class="tb-mob-rts-chip zero" id="tbMobRTS">—</span>
@@ -2167,10 +2154,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
         <span class="sb-nav-stat" id="sbStat-buckets"></span>
       </span>
     </button>
-    <button class="nav-btn nav-mobile" data-tab="log" onclick="setTab('log')">
-      <span class="nav-icon-txt">✚</span>
-      <span class="nav-label">Log</span>
-    </button>
     <button class="nav-btn" data-tab="ledger" onclick="setTab('ledger')">
       <span class="nav-icon-txt">≡</span>
       <span class="nav-label-wrap">
@@ -2201,6 +2184,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-icon-txt">✦</span>
       <span class="nav-label">Coach</span>
     </button>
+    <button class="nav-btn nav-mobile" id="navMoreBtn" onclick="toggleMoreSheet()">
+      <span class="nav-icon">···</span>
+      <span class="nav-label">More</span>
+    </button>
     <button class="nav-btn nav-mobile" data-tab="coach" onclick="setTab('coach')">
       <span class="nav-label">Coach</span>
     </button>
@@ -2230,13 +2217,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   <!-- MAIN: unified tab panes -->
   <main class="app-main" id="appMain">
     <div class="tab-pane active" id="paneBuckets"></div>
-    <div class="tab-pane" id="paneLog">
-      <div class="pane-hdr" id="logPaneHdr">
-        <div class="pane-hdr-title" id="logTitle">Log Transaction</div>
-        <button class="pane-hdr-action" id="bulkToggle" onclick="toggleBulk()">Bulk</button>
-      </div>
-      <div class="pane-scroll" id="logScroll"></div>
-    </div>
     <div class="tab-pane" id="paneLedger"></div>
     <div class="tab-pane" id="paneAccounts"></div>
     <div class="tab-pane" id="paneReports"></div>
@@ -3657,7 +3637,7 @@ function renderCoachPane(el){
   if(!aiEnabled()){
     el.innerHTML=`<div class="pane-hdr"><div class="pane-hdr-title">✦ AI Coach</div></div>
       <div style="padding:32px 20px;text-align:center;color:var(--text3);font-size:14px;line-height:1.7">
-        Add your Gemini key in <span onclick="setTab('settings')" style="color:var(--accent);cursor:pointer;font-weight:600">Settings → AI Coach</span> to start chatting.
+        Add your Gemini key in <span onclick="setTab('settings');setTimeout(()=>{const el=document.getElementById('aiKeyInp');if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.focus();}},150)" style="color:var(--accent);cursor:pointer;font-weight:600">Settings → AI Coach</span> to start chatting.
       </div>`;
     return;
   }
@@ -5006,8 +4986,9 @@ function renderNav(){
 const _tabScroll={};
 
 function setTab(tab){
-  // Log is mobile-only; redirect desktop to ledger
-  if(tab==='log'&&!isMobile())tab='ledger';
+  closeMoreSheet();
+  // Log no longer exists; redirect to ledger
+  if(tab==='log')tab='ledger';
   // Coach is mobile-tab / desktop-panel — on desktop, open the panel instead
   if(tab==='coach'&&!isMobile()){if(!_coachOpen)toggleCoach();return;}
   // Save current pane scroll before switching
@@ -5020,7 +5001,7 @@ function setTab(tab){
   closeDetail(true);
   activeTab=tab;
   // Clear state on tab change
-  if(tab==='ledger'||tab==='log'){S.activeAccount=null;S.activeBucket=null;}
+  if(tab==='ledger'){S.activeAccount=null;S.activeBucket=null;}
   // Refresh coach chips if panel is open (context-aware)
   if(_coachOpen)_refreshCoachChips('coachChips');
   // Update nav
@@ -5048,8 +5029,6 @@ function renderActivePane(){
   if(activeTab==='buckets'){
     // Buckets writes to #paneBucketsInner (child), never el itself — scroll preserved natively.
     const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);
-  } else if(activeTab==='log'){
-    renderLogPane();
   } else if(activeTab==='ledger'){
     const p=document.getElementById('paneLedger');if(p)renderLedgerTab(p,mid);
   } else if(activeTab==='accounts'){
@@ -5183,17 +5162,6 @@ function jumpToToday(){
   renderActivePane();
 }
 
-
-function renderLogPane(){
-  mRenderLog();
-  setTimeout(wireMobilePayee,0);
-}
-
-function toggleBulk(){
-  mBulkMode=!mBulkMode;
-  if(mBulkMode&&!mBulkRows.length)mAddBulkRow();
-  mRenderLog();
-}
 
 function renderLedgerTab(el,mid){
   // Save form state before rebuilding DOM (P4-A date, P4-B type, P4-C dropdowns)
@@ -11429,6 +11397,20 @@ function toggleExprMenu(btn){
 const _TOAST_ICON={save:'✓',in:'↓',out:'↑',xfr:'⇄',info:'ℹ',error:'✕'};
 const _TOAST_DURATION={save:3200,in:3200,out:3200,xfr:3200,info:4500,error:7000};
 const _TOAST_MAX=4;
+function toggleMoreSheet(){
+  const sheet=document.getElementById('moreSheet');
+  const bd=document.getElementById('moreBackdrop');
+  const open=sheet.style.display!=='none';
+  sheet.style.display=open?'none':'block';
+  bd.style.display=open?'none':'block';
+}
+function closeMoreSheet(){
+  const sheet=document.getElementById('moreSheet');
+  const bd=document.getElementById('moreBackdrop');
+  if(sheet)sheet.style.display='none';
+  if(bd)bd.style.display='none';
+}
+
 function showToast(msg,type='save',opts={}){
   const wrap=document.getElementById('dToastWrap');if(!wrap)return;
   while(wrap.children.length>=_TOAST_MAX){
@@ -11584,11 +11566,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 // MOBILE SYSTEM
 // ═══════════════════════════════════════════════════════
 // Mobile state
-let mBulkMode=false;
-let mBulkRows=[];          // [{desc,amt,type,acctId,catId,bktId,toAcctId,date}]
-let mStickyLog={           // persist between submissions
-  type:'out', acctId:'', catId:'', bktId:'', toAcctId:''
-};
 
 // ── Init mobile ──────────────────────────────────────────────────────────────
 let _mInitialized=false;
@@ -11607,271 +11584,7 @@ function mInit(){
 
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
 
-// ── Log ───────────────────────────────────────────────────────────────────────
-function mRenderLog(){
-  const el=document.getElementById('logScroll');
-  if(!el)return;
-  const bulkBtn=document.getElementById('bulkToggle');
-  const titleEl=document.getElementById('logTitle');
-  if(bulkBtn)bulkBtn.textContent=mBulkMode?'Single':'Bulk';
-  if(titleEl)titleEl.textContent=mBulkMode?'Bulk Entry':'Log Transaction';
 
-  if(mBulkMode){mRenderBulkLog(el);return;}
-
-  const t=mStickyLog.type||'out';
-  const catOpts=mCatOptions(mStickyLog.catId);
-  const bktOpts=mBktOptions(mStickyLog.catId,mStickyLog.bktId);
-  const acctOpts=mAcctOptions(mStickyLog.acctId);
-  const toAcctOpts=mAcctOptions(mStickyLog.toAcctId);
-  const debtAccts=S.accounts.filter(a=>a.type==='debt');
-  const dpOpts='<option value="">— not a debt payment —</option>'+debtAccts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
-  const today=new Date().toISOString().split('T')[0];
-
-  // Recent payees for quick chips (last 5 unique)
-  const recentPayees=[...new Set(S.txs.filter(t=>t.type==='out'&&t.desc&&!t.autoGenerated).sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t=>t.desc))].slice(0,5);
-  window._mPayees=recentPayees;
-
-  el.innerHTML=`
-    <div class="m-log-form">
-      ${aiEnabled()?`<div style="display:flex;gap:8px;padding:10px 0 4px">
-        <input class="m-input" id="mNLInp" placeholder="✦ e.g. $45 groceries at Trader Joe's…" style="flex:1;font-size:13px" onkeydown="if(event.key==='Enter')parseMobileNL()" />
-        <button class="m-submit" id="mNLBtn" style="width:44px;min-width:44px;padding:0;font-size:18px;flex-shrink:0" onclick="parseMobileNL()">→</button>
-      </div>`:''}
-      <div class="m-type-row">
-        <button class="m-type-btn${t==='out'?' sel-out':''}" onclick="mSetLogType('out')">↑ Out</button>
-        <button class="m-type-btn${t==='in'?' sel-in':''}" onclick="mSetLogType('in')">↓ In</button>
-        <button class="m-type-btn${t==='xfr'?' sel-xfr':''}" onclick="mSetLogType('xfr')">⇄ Transfer</button>
-      </div>
-      ${recentPayees.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0">
-        ${recentPayees.map((p,i)=>`<button class="tbtn" style="font-size:11px;padding:3px 10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="(function(){var name=window._mPayees[${i}]||'';var el=document.getElementById('mLogDesc');if(el)el.value=name;var py=(S.payees||[]).find(function(x){return x.name===name});if(py&&py.defaultBucketId){var b=getBucket(py.defaultBucketId);if(b){var cs=document.getElementById('mLogCat');if(cs)cs.value=b.catId;syncMobileBuckets(b.catId,py.defaultBucketId);}}document.getElementById('mLogAmt')?.focus();})()" title="${esc(p)}">${esc(p)}</button>`).join('')}
-      </div>`:''}
-      <div class="m-field">
-        <div class="m-field-label">Description</div>
-        <input class="m-input" id="mLogDesc" placeholder="What was this for?" />
-      </div>
-      <div class="m-field">
-        <div class="m-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <div class="m-field-label">Amount</div>
-            <input class="m-input mono" id="mLogAmt" type="number" placeholder="0.00" inputmode="decimal" min="0" step="0.01" />
-          </div>
-          <div>
-            <div class="m-field-label">Date</div>
-            <input class="m-input" id="mLogDate" type="date" value="${today}" />
-          </div>
-        </div>
-      </div>
-      <div class="m-field">
-        <div class="m-field-label">Account</div>
-        <select class="m-select" id="mLogAcct" onchange="mStickyLog.acctId=this.value">${acctOpts}</select>
-      </div>
-      ${t==='out'?`
-      <div class="m-field">
-        <div class="m-field-label">Category</div>
-        <select class="m-select" id="mLogCat" onchange="syncMobileBuckets(this.value)">${catOpts}</select>
-      </div>
-      <div class="m-field">
-        <div class="m-field-label">Bucket</div>
-        <select class="m-select" id="mLogBkt" onchange="mStickyLog.bktId=this.value">${bktOpts}</select>
-      </div>
-      ${debtAccts.length?`<div class="m-field">
-        <div class="m-field-label">Debt Payment <span style="font-size:11px;color:var(--text3);font-weight:400">(optional)</span></div>
-        <select class="m-select" id="mLogDebtPay">${dpOpts}</select>
-      </div>`:''}`:''}
-      ${t==='xfr'?`
-      <div class="m-field">
-        <div class="m-field-label">To Account</div>
-        <select class="m-select" id="mLogXfrTo" onchange="mStickyLog.toAcctId=this.value">${toAcctOpts}</select>
-      </div>`:''}
-      <div class="m-rec-row">
-        <button class="m-rec-toggle" id="mRecToggle" onclick="this.classList.toggle('on')"></button>
-        <span class="m-rec-label">Recurring monthly</span>
-      </div>
-      <div class="m-submit-wrap">
-        <button class="m-submit" onclick="mAddTx()">Add Transaction</button>
-      </div>
-    </div>`;
-}
-
-// ── Phase C: Mobile NL parsing ───────────────────────────────
-async function parseMobileNL(){
-  if(!aiEnabled()){showToast('Enable AI in Settings first','info');return;}
-  const inp=document.getElementById('mNLInp');
-  const btn=document.getElementById('mNLBtn');
-  const text=(inp?.value||'').trim();if(!text)return;
-  btn.disabled=true;btn.textContent='…';
-  const bucketList=S.buckets.filter(b=>!b.archived).map(b=>b.name).join(', ');
-  const sys=`Parse a natural language transaction into JSON. Return ONLY valid JSON, no markdown.
-Format: {"type":"out","amount":number,"desc":"merchant/description","bucketName":"exact bucket name or null","date":"YYYY-MM-DD or null"}
-Available buckets: ${bucketList}
-Today: ${todayStr()}
-Match bucketName exactly from the list. Use null if unsure.`;
-  try{
-    const raw=await callGemini(`Parse: "${text}"`,sys,{maxTokens:120,temp:0.1});
-    let p={};try{p=JSON.parse(raw.replace(/```json\n?|```/g,'').trim());}catch{}
-    let bkt=null;
-    if(p.bucketName)bkt=S.buckets.find(b=>!b.archived&&b.name.toLowerCase()===p.bucketName.toLowerCase())||S.buckets.find(b=>!b.archived&&b.name.toLowerCase().includes((p.bucketName||'').toLowerCase()));
-    if(!bkt&&p.desc){const pee=(S.payees||[]).find(py=>py.name.toLowerCase()===p.desc.toLowerCase()&&py.defaultBucketId);if(pee)bkt=getBucket(pee.defaultBucketId);}
-    if(p.type==='in'||p.type==='xfr')mStickyLog.type=p.type;else mStickyLog.type='out';
-    if(bkt){mStickyLog.catId=bkt.catId;mStickyLog.bktId=bkt.id;}
-    mRenderLog();
-    setTimeout(wireMobilePayee,0);
-    setTimeout(()=>{
-      const v=(id,val)=>{const e=document.getElementById(id);if(e&&val!=null)e.value=val;};
-      v('mLogDesc',p.desc||text);v('mLogAmt',p.amount||'');if(p.date)v('mLogDate',p.date);
-      document.getElementById('mLogAmt')?.select();
-    },60);
-    if(inp)inp.value='';
-    showToast('Parsed — review and confirm ✓','save');
-  }catch(err){showToast('Could not parse: '+err.message,'info');
-  }finally{if(btn){btn.disabled=false;btn.textContent='→';}}
-}
-
-function mSetLogType(t){mStickyLog.type=t;mRenderLog();setTimeout(wireMobilePayee,0);}
-
-// Update only the bucket dropdown — called on category change to avoid a full re-render
-function syncMobileBuckets(catId,bktId=''){
-  mStickyLog.catId=catId;
-  if(bktId)mStickyLog.bktId=bktId;
-  const bsel=document.getElementById('mLogBkt');
-  if(bsel)bsel.innerHTML=mBktOptions(catId,bktId||mStickyLog.bktId||'');
-}
-
-function wireMobilePayee(){
-  setupPayeeAutocomplete('mLogDesc',p=>{
-    const inp=document.getElementById('mLogDesc');if(inp)inp.value=p.name;
-    if(p.defaultBucketId){
-      const b=getBucket(p.defaultBucketId);
-      if(b){
-        const catSel=document.getElementById('mLogCat');
-        if(catSel)catSel.value=b.catId;
-        syncMobileBuckets(b.catId,p.defaultBucketId);
-      }
-    }
-  });
-}
-function mToggleBulk(){toggleBulk();}
-
-function mRenderBulkLog(el){
-  if(!mBulkRows.length)mAddBulkRow();
-  let h='<div style="padding:12px 16px 0">';
-  mBulkRows.forEach((row,i)=>{
-    const catOpts=mCatOptions(row.catId);
-    const bktOpts=mBktOptions(row.catId,row.bktId);
-    const acctOpts=mAcctOptions(row.acctId);
-    h+=`<div class="m-bulk-row">
-      <div class="m-bulk-row-top">
-        <input class="m-input" style="flex:1" placeholder="Description..." value="${row.desc||''}"
-          oninput="mBulkRows[${i}].desc=this.value" />
-        <input class="m-input mono" style="width:90px;flex:0 0 90px;text-align:right" type="number"
-          placeholder="0.00" inputmode="decimal" value="${row.amt||''}"
-          oninput="mBulkRows[${i}].amt=this.value" />
-        <button class="m-bulk-del" onclick="mBulkRows.splice(${i},1);if(!mBulkRows.length)mAddBulkRow();mRenderLog()">×</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <select class="m-select" style="font-size:14px;padding:9px 10px"
-          onchange="mBulkRows[${i}].acctId=this.value">${acctOpts}</select>
-        <div class="m-type-row" style="margin:0">
-          <button class="m-type-btn${(row.type||'out')==='out'?' sel-out':''}" style="font-size:11px;padding:9px 0"
-            onclick="mBulkRows[${i}].type='out';mRenderLog()">↑ Out</button>
-          <button class="m-type-btn${(row.type||'out')==='in'?' sel-in':''}" style="font-size:11px;padding:9px 0"
-            onclick="mBulkRows[${i}].type='in';mRenderLog()">↓ In</button>
-          <button class="m-type-btn${(row.type||'out')==='xfr'?' sel-xfr':''}" style="font-size:11px;padding:9px 0"
-            onclick="mBulkRows[${i}].type='xfr';mRenderLog()">⇄</button>
-        </div>
-      </div>
-      ${(row.type||'out')==='out'?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <select class="m-select" style="font-size:14px;padding:9px 10px"
-          onchange="mBulkRows[${i}].catId=this.value;mRenderLog()">${catOpts}</select>
-        <select class="m-select" style="font-size:14px;padding:9px 10px"
-          onchange="mBulkRows[${i}].bktId=this.value">${bktOpts}</select>
-      </div>`:''}
-    </div>`;
-  });
-  h+=`</div>
-  <div style="padding:0 16px 8px">
-    <button class="m-submit c-text2" style="background:var(--surface2);border:1px solid var(--border)"
-      onclick="mAddBulkRow()">+ Add Row</button>
-  </div>
-  <div class="m-submit-wrap">
-    <button class="m-submit" onclick="mSaveAllBulk()">Save All (${mBulkRows.length})</button>
-  </div>`;
-  el.innerHTML=h;
-}
-
-function mAddBulkRow(){
-  mBulkRows.push({desc:'',amt:'',type:mStickyLog.type||'out',acctId:mStickyLog.acctId,catId:mStickyLog.catId,bktId:mStickyLog.bktId,toAcctId:''});
-}
-
-function mSaveAllBulk(){
-  const today=new Date().toISOString().split('T')[0];
-  let saved=0;
-  mBulkRows.forEach(row=>{
-    const desc=(row.desc||'').trim();
-    const amt=parseFloat(row.amt)||0;
-    if(!desc||!amt||!row.acctId)return;
-    if((row.type||'out')==='out'&&!row.bktId)return;
-    const monthId=dateToMonthId(today);
-    const d=new Date(today+'T12:00:00');
-    addMonth(d.getFullYear(),d.getMonth());
-    S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:row.acctId,toAccountId:row.toAcctId||null,monthId,bucketId:row.bktId||null,desc,amount:amt,type:row.type||'out',date:today,recurring:false});
-    saved++;
-  });
-  if(!saved){showToast('Please fill in at least one complete row (description, amount, account, bucket)','info');return;}
-  save();mBulkRows=[];mBulkMode=false;
-  render();showToast('Saved '+saved+' transaction'+(saved!==1?'s':''),'save');
-}
-
-// ── Add single tx from mobile ─────────────────────────────────────────────────
-function mAddTx(){
-  const desc=document.getElementById('mLogDesc')?.value.trim();
-  const amt=parseFloat(document.getElementById('mLogAmt')?.value);
-  const date=document.getElementById('mLogDate')?.value;
-  const acctId=document.getElementById('mLogAcct')?.value;
-  const t=mStickyLog.type||'out';
-  const bkt=t==='out'?document.getElementById('mLogBkt')?.value:null;
-  const toAcct=t==='xfr'?document.getElementById('mLogXfrTo')?.value:null;
-  const debtPayId=t==='out'?(document.getElementById('mLogDebtPay')?.value||null):null;
-  const rec=document.getElementById('mRecToggle')?.classList.contains('on')||false;
-
-  if(!desc){document.getElementById('mLogDesc')?.focus();mShakeInput('mLogDesc');return;}
-  if(!amt||amt<=0){mShakeInput('mLogAmt');return;}
-  if(!acctId){mShakeInput('mLogAcct');return;}
-  if(t==='out'&&!bkt){mShakeInput('mLogBkt');return;}
-  if(t==='xfr'&&!toAcct){mShakeInput('mLogXfrTo');return;}
-
-  // Persist sticky fields
-  mStickyLog.acctId=acctId;
-  if(bkt){mStickyLog.bktId=bkt;}
-  if(document.getElementById('mLogCat'))mStickyLog.catId=document.getElementById('mLogCat').value;
-
-  const monthId=dateToMonthId(date);
-  const d=new Date(date+'T12:00:00');
-  addMonth(d.getFullYear(),d.getMonth());
-
-  S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:acctId,toAccountId:toAcct||null,monthId,bucketId:bkt||null,desc,amount:amt,type:t,date,recurring:rec,debtPaymentAccountId:debtPayId||null});
-  upsertPayee(desc, bkt);
-  save();
-  markAICoachStale(monthId);
-  if(bkt)setTimeout(()=>checkGoalCelebrations(monthId),100);
-
-  // Get bucket name for toast
-  const bktName=getBucket(bkt)?.name||'';
-  const amtStr=(t==='in'?'+':t==='xfr'?'⇄':'-')+$f(amt);
-  showToast(desc+' '+amtStr+(bktName?' · '+bktName:''), t==='in'?'in':t==='xfr'?'xfr':'out');
-
-  // Prompt allocation rules on new income
-  if(t==='in')setTimeout(()=>promptAllocationRules(amt,monthId),400);
-
-  // Re-render log (sticky fields preserved, desc+amt cleared)
-  mRenderLog();
-  setTimeout(wireMobilePayee,0);
-  // Update topbar and active pane
-  renderTopbar();
-  renderActivePane();
-  // Refocus description for quick next entry
-  setTimeout(()=>document.getElementById('mLogDesc')?.focus(),100);
-}
 
 function mShakeInput(id){
   const el=document.getElementById(id);
@@ -12097,6 +11810,27 @@ function mAcctOptions(selectedId){
   🚀 App updated!
   <button onclick="window.location.reload(true)">Refresh now</button>
   <button onclick="document.getElementById('updateBanner').classList.add('hidden')" style="background:rgba(255,255,255,.15)">Later</button>
+</div>
+
+<!-- Mobile More drop-up sheet -->
+<div class="more-backdrop" id="moreBackdrop" onclick="closeMoreSheet()" style="display:none"></div>
+<div class="more-sheet" id="moreSheet" style="display:none">
+  <button class="more-sheet-item" onclick="setTab('whatif');closeMoreSheet()">
+    <span class="more-sheet-icon">⚖</span>
+    <span class="more-sheet-label">What If</span>
+  </button>
+  <button class="more-sheet-item" onclick="setTab('reports');closeMoreSheet()">
+    <span class="more-sheet-icon">📊</span>
+    <span class="more-sheet-label">Reports</span>
+  </button>
+  <button class="more-sheet-item" onclick="setTab('accounts');closeMoreSheet()">
+    <span class="more-sheet-icon">⬡</span>
+    <span class="more-sheet-label">Accounts</span>
+  </button>
+  <button class="more-sheet-item" onclick="setTab('settings');closeMoreSheet()">
+    <span class="more-sheet-icon">⚙</span>
+    <span class="more-sheet-label">Settings</span>
+  </button>
 </div>
 </body>
 </html>
