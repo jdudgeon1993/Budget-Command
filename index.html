@@ -39,9 +39,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 ════════════════════════════════════════════════════════ */
 
 /* Uppercase section labels */
-.u-label,.stat-label,.tb-total-label,.tb-rts-label,.bh-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
+.u-label,.stat-label,.bh-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);}
 .u-label,.stat-label{margin-bottom:3px;}
-.tb-total-label,.tb-rts-label{margin-bottom:1px;}
 .bh-label{white-space:nowrap;}
 
 /* Stat grid containers — border-gap layout */
@@ -106,20 +105,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .ac-bal.neg{color:var(--red);}
 .ac-type{font-size:9px;color:var(--text3);}
 
-.tb-total{display:flex;flex-direction:column;justify-content:center;padding:0 20px;border-right:1px solid var(--border);min-width:140px;flex-shrink:0;}
-.tb-total-val{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-.5px;color:var(--text);}
-
-.tb-rts{display:flex;flex-direction:column;justify-content:center;padding:0 20px;border-right:1px solid var(--border);flex-shrink:0;}
-.tb-rts-val{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-.5px;}
-.tb-rts-val.pos{color:var(--green);}
-.tb-rts-val.neg{color:var(--red);}
-.tb-rts-val.zero{color:var(--text3);}
-
-
-.tb-right{display:flex;align-items:center;gap:10px;padding:0 20px;margin-left:auto;flex-shrink:0;}
-.tb-sync{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;white-space:nowrap;}
-.tb-sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
-.tb-sync-dot.off{background:var(--border2);}
+.tb-right{display:flex;align-items:center;gap:10px;padding:0 16px;margin-left:auto;flex-shrink:0;}
 .tb-actions{display:flex;align-items:center;gap:6px;padding:0 14px;border-left:1px solid var(--border);flex-shrink:0;}
 .tbtn{background:none;border:1px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:var(--r);font-size:12px;font-family:var(--sans);font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;}
 .tbtn:hover{border-color:var(--accent);color:var(--text);background:var(--bg3);}
@@ -1145,13 +1131,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:6px 8px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
   .tb-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
   .tb-month-arrow:active{background:var(--surface);}
-  .tb-total{display:none !important;}
-  .tb-rts-label{display:none;}
-  .tb-rts-val{font-size:13px;padding:4px 10px;border-radius:20px;background:var(--gbg);border:1px solid var(--gb);}
-  .tb-rts-val.neg{background:var(--rbg);border-color:var(--rb);}
-  .tb-rts-val.zero{background:var(--bg3);border-color:var(--border2);}
   .tb-new-btn{display:inline-flex !important;}
-  .tb-sync{display:none;}
   /* Ledger: hide form column (use Log tab instead) */
   /* ledger-layout is already column by default */
   .tx-acts{opacity:1;}
@@ -1382,7 +1362,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
   /* ── Mobile topbar: 2-row sticky header ── */
   .topbar{height:auto;flex-direction:column;}
-  .tb-logo,.tb-total,.tb-rts,.tb-right,.tb-month-nav{display:none!important;}
+  .tb-logo,.tb-right,.tb-month-nav{display:none!important;}
   .tb-mobile-wrap{display:flex!important;flex-direction:column;}
   .tb-mob-r1{display:flex;align-items:center;height:46px;padding:0 14px;border-bottom:1px solid var(--border);}
   .tb-mob-logo-text{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:-.2px;flex:1;}
@@ -2072,18 +2052,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <select class="tb-month-sel" id="tbMonthSel" onchange="setMonthFromSel(this.value)" aria-label="Active month"></select>
     <button class="tb-month-arrow" onclick="nextMonth()" aria-label="Next month">&#8250;</button>
   </div>
-  <!-- Desktop stats -->
-  <div class="tb-total">
-    <div class="tb-total-label">Total Cash</div>
-    <div class="tb-total-val" id="tbTotal">—</div>
-  </div>
-  <div class="tb-rts">
-    <div class="tb-rts-label" id="tbRtsLabel">Ready to Spend</div>
-    <div class="tb-rts-val zero" id="tbRTS">—</div>
-  </div>
-  <div class="tb-right">
-    <div class="tb-sync" id="tbSyncStatus"><div class="tb-sync-dot off" id="tbSyncDot"></div><span id="tbSyncLabel">Offline</span></div>
-    <button class="tbtn" id="authBtn" onclick="authAction()" style="display:none"></button>
+  <div class="tb-right" style="margin-left:auto">
     <button class="tbtn tb-new-btn" onclick="openModal('new')" id="tbNewBtn">+ New</button>
   </div>
   <!-- Mobile header: 2-row sticky layout (≤1099px) -->
@@ -2124,50 +2093,37 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <div class="nav-brand-mark">IF</div>
       <div class="nav-brand-text">Imperium<br>Fisci</div>
     </div>
-    <button class="nav-btn active" data-tab="overview" onclick="setTab('overview')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      <span class="nav-icon-txt">◈</span>
-      <span class="nav-label">Overview</span>
-      <div class="nav-pip"></div>
-    </button>
+    <!-- Navigation buttons -->
     <button class="nav-btn" data-tab="buckets" onclick="setTab('buckets')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       <span class="nav-icon-txt">▣</span>
-      <span class="nav-label">Buckets</span>
-      <div class="nav-pip"></div>
+      <span class="nav-label-wrap">
+        <span class="nav-label">Buckets</span>
+        <span class="sb-nav-stat" id="sbStat-buckets"></span>
+      </span>
     </button>
     <button class="nav-btn nav-mobile" data-tab="log" onclick="setTab('log')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       <span class="nav-icon-txt">✚</span>
       <span class="nav-label">Log</span>
-      <div class="nav-pip"></div>
     </button>
     <button class="nav-btn" data-tab="ledger" onclick="setTab('ledger')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       <span class="nav-icon-txt">≡</span>
-      <span class="nav-label">Ledger</span>
-      <div class="nav-pip"></div>
+      <span class="nav-label-wrap">
+        <span class="nav-label">Ledger</span>
+        <span class="sb-nav-stat" id="sbStat-ledger"></span>
+      </span>
     </button>
-    <button class="nav-btn nav-mobile" data-tab="whatif" onclick="setTab('whatif')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707M12 21a9 9 0 100-18 9 9 0 000 18z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="nav-icon-txt">⚡</span>
-      <span class="nav-label">What If</span>
-      <div class="nav-pip"></div>
-    </button>
-    <!-- Desktop-only nav items -->
     <button class="nav-btn nav-desktop" data-tab="accounts" onclick="setTab('accounts')">
-      <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
       <span class="nav-icon-txt">⬡</span>
-      <span class="nav-label">Accounts</span>
-      <div class="nav-pip"></div>
+      <span class="nav-label-wrap">
+        <span class="nav-label">Accounts</span>
+        <span class="sb-nav-stat" id="sbStat-accounts"></span>
+      </span>
     </button>
     <button class="nav-btn nav-desktop" data-tab="reports" onclick="setTab('reports')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
       <span class="nav-icon-txt">📊</span>
       <span class="nav-label">Reports</span>
     </button>
-    <button class="nav-btn nav-desktop" data-tab="whatif" onclick="setTab('whatif')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707M12 21a9 9 0 100-18 9 9 0 000 18z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <button class="nav-btn" data-tab="whatif" onclick="setTab('whatif')">
       <span class="nav-icon-txt">⚡</span>
       <span class="nav-label">What If</span>
     </button>
@@ -2175,20 +2131,33 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-icon-txt">⚙</span>
       <span class="nav-label">Settings</span>
     </button>
-    <!-- Coach — desktop sidebar toggle, mobile tab -->
     <button class="nav-btn nav-desktop" id="navCoachBtn" onclick="toggleCoach()">
-      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
       <span class="nav-icon-txt">✦</span>
       <span class="nav-label">Coach</span>
     </button>
     <button class="nav-btn nav-mobile" data-tab="coach" onclick="setTab('coach')">
-      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
       <span class="nav-label">Coach</span>
-      <div class="nav-pip"></div>
     </button>
-    <!-- Spacer + theme toggle — desktop only -->
+    <!-- Vitals panel — desktop only -->
     <div class="nav-spacer nav-desktop"></div>
+    <div class="sb-vitals nav-desktop">
+      <div class="sb-vital-row">
+        <span class="sb-vital-label">RTS</span>
+        <span class="sb-vital-val dim" id="sbVitalRTS">—</span>
+      </div>
+      <div class="sb-vital-row">
+        <span class="sb-vital-label">Cash</span>
+        <span class="sb-vital-val" id="sbVitalCash">—</span>
+      </div>
+      <div class="sb-vital-row">
+        <span class="sb-vital-label">Age of Money</span>
+        <span class="sb-vital-val dim" id="sbVitalAoM">—</span>
+      </div>
+    </div>
+    <!-- Footer: sync · auth · theme — desktop only -->
     <div class="nav-foot nav-desktop">
+      <div class="sb-util-sync"><div class="sb-util-dot off" id="sbSyncDot"></div><span id="sbSyncLabel">Not signed in</span></div>
+      <button class="sb-util-auth" id="sbAuthBtn" onclick="authAction()" style="display:none"></button>
       <button class="nav-theme-btn" onclick="cycleTheme()" id="navThemeBtn">
         <span class="nav-theme-icon" id="navThemeIcon">◐</span>
         <span class="nav-label" id="navThemeLabel">Light Mode</span>
@@ -2198,8 +2167,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
   <!-- MAIN: unified tab panes -->
   <main class="app-main" id="appMain">
-    <div class="tab-pane active" id="paneOverview"></div>
-    <div class="tab-pane" id="paneBuckets"></div>
+    <div class="tab-pane active" id="paneBuckets"></div>
     <div class="tab-pane" id="paneLog">
       <div class="pane-hdr" id="logPaneHdr">
         <div class="pane-hdr-title" id="logTitle">Log Transaction</div>
@@ -2305,25 +2273,23 @@ function setSyncStatus(state, label){
     if(!supaReady()){el.style.display='none';}
     else{el.style.display='';el.className='';el.classList.add(state);el.textContent=label;}
   }
-  // New topbar sync elements
-  const dot=document.getElementById('tbSyncDot');
-  const lbl=document.getElementById('tbSyncLabel');
+  // Sidebar sync elements
+  const dot=document.getElementById('sbSyncDot');
+  const lbl=document.getElementById('sbSyncLabel');
   if(!dot||!lbl)return;
   if(state==='synced'){
-    dot.className='tb-sync-dot';
-    dot.style.background=''; // clear any amber/red inline override
+    dot.className='sb-util-dot';
     lbl.textContent='Synced';
   } else if(state==='syncing'){
-    dot.className='tb-sync-dot';
+    dot.className='sb-util-dot';
     dot.style.background='var(--amber)';
     lbl.textContent='Syncing…';
   } else if(state==='error'){
-    dot.className='tb-sync-dot';
+    dot.className='sb-util-dot';
     dot.style.background='var(--red)';
-    lbl.textContent=label;
+    lbl.textContent=label||'Sync error';
   } else {
-    // offline / not signed in
-    dot.className='tb-sync-dot off';
+    dot.className='sb-util-dot off';
     dot.style.background='';
     lbl.textContent='Not signed in';
   }
@@ -2529,7 +2495,7 @@ function authAction(){
 
 function updateAuthBtn(){
   if(!supaReady())return;
-  const btns=[document.getElementById('authBtn'),document.getElementById('mAuthBtn')];
+  const btns=[document.getElementById('mAuthBtn')];
   btns.forEach(btn=>{
     if(!btn)return;
     btn.style.display='';
@@ -2542,6 +2508,19 @@ function updateAuthBtn(){
       btn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
     }
   });
+  // Sidebar auth button
+  const sbBtn=document.getElementById('sbAuthBtn');
+  if(sbBtn){
+    sbBtn.style.display='';
+    if(_supaUser){
+      sbBtn.textContent='⬡ '+(_supaUser.email?.split('@')[0]||'Account');
+      sbBtn.title='Signed in as '+_supaUser.email+' — click to sign out';
+      sbBtn.onclick=authAction;
+    } else {
+      sbBtn.textContent='Sign in';
+      sbBtn.onclick=()=>document.getElementById('authScreen').classList.remove('hidden');
+    }
+  }
   const mobUser=document.getElementById('tbMobUser');
   if(mobUser){
     if(_supaUser){
@@ -2973,8 +2952,6 @@ function ageOfMoney(){
 // add it here so fixing it once fixes it everywhere.
 // ═══════════════════════════════════════════════════════
 
-// All key budget stats for the current month.
-// Used by renderOverviewTab (unified overview — all breakpoints).
 // ── Net Worth collapsible toggle ─────────────────────────────────────────────
 function toggleNwPanel(){
   _nwPanelOpen=!_nwPanelOpen;
@@ -4031,25 +4008,6 @@ function coachingPanelHtml(mid){
   return h;
 }
 
-function computePoolStats(mid){
-  const rts=readyToSpend(mid);
-  const alloc=totalAllocated(mid);
-  const income=monthIncome(mid);
-  const activeBkts=S.buckets.filter(b=>!b.archived);
-  const totalSpent=activeBkts.reduce((s,b)=>s+bSpent(mid,b.id),0);
-  const budgetBal=S.accounts.filter(a=>a.type==='budget').reduce((s,a)=>s+acctBalance(a.id),0);
-  const nw=calcNetWorth();
-  const aom=ageOfMoney();
-  const aomCls=aom===null?'dim':aom>=30?'green':aom>=10?'amber':'red';
-  const aomSub=aom===null?'no recent spend':aom>=30?'well buffered':aom>=10?'getting tight':'near paycheck-to-paycheck';
-  const trackBkts=activeBkts.filter(b=>!isBktSkipped(b.id,mid));
-  const fundedCnt=trackBkts.filter(b=>bBudget(mid,b.id)>0&&bAlloc(mid,b.id)>=bBudget(mid,b.id)).length;
-  const partialCnt=trackBkts.filter(b=>bAlloc(mid,b.id)>0&&(bBudget(mid,b.id)<=0||bAlloc(mid,b.id)<bBudget(mid,b.id))).length;
-  const unfundedCnt=trackBkts.filter(b=>bAlloc(mid,b.id)===0).length;
-  const bktHealthCls=fundedCnt===trackBkts.length?'green':unfundedCnt>partialCnt+fundedCnt?'red':'amber';
-  return {rts,alloc,income,activeBkts,totalSpent,budgetBal,nw,aom,aomCls,aomSub,fundedCnt,partialCnt,unfundedCnt,bktHealthCls};
-}
-
 // Projected income vs. allocation health for a month.
 // Returns null when no projected income is set.
 // Used by renderBudgetHealth.
@@ -4626,6 +4584,7 @@ function reopenMonth(mid){
 function render(){
   renderTopbar();
   renderNav();
+  renderSidebarVitals();
   renderActivePane();
   if(S.wiOpen)renderWI();
 }
@@ -4657,44 +4616,82 @@ function closeReportsMenu(){
   document.querySelectorAll('.reports-drop-menu.open').forEach(m=>m.classList.remove('open'));
 }
 
-function renderTopbar(){
-  // Total cash
-  document.getElementById('tbTotal').textContent=$f(totalCash());
+function renderSidebarVitals(){
+  const hasBudget=S.accounts.some(a=>a.type==='budget');
+  const mid=S.activeMonth;
 
+  // ── RTS vital ──
+  const rts=hasBudget?todayReadyToSpend():null;
+  const rtsEl=document.getElementById('sbVitalRTS');
+  if(rtsEl){
+    if(rts===null){rtsEl.textContent='—';rtsEl.className='sb-vital-val dim';}
+    else{rtsEl.textContent=rts===0?'$0.00':$f(Math.abs(rts))+(rts<0?' short':'');rtsEl.className='sb-vital-val'+(rts>0?' pos':rts<0?' neg':' dim');}
+  }
+
+  // ── Total Cash vital ──
+  const tc=totalCash();
+  const tcEl=document.getElementById('sbVitalCash');
+  if(tcEl){tcEl.textContent=$f(tc);tcEl.className='sb-vital-val'+(tc<0?' neg':'');}
+
+  // ── Age of Money vital ──
+  const aom=ageOfMoney();
+  const aomEl=document.getElementById('sbVitalAoM');
+  if(aomEl){
+    if(aom===null||aom===undefined){aomEl.textContent='—';aomEl.className='sb-vital-val dim';}
+    else{aomEl.textContent=aom+'d';aomEl.className='sb-vital-val'+(aom>=30?' pos':aom>=14?'':' neg');}
+  }
+
+  // ── Sync status ──
+  const supaOk=supaReady()&&!!_supaUser;
+  const sdot=document.getElementById('sbSyncDot');
+  const slbl=document.getElementById('sbSyncLabel');
+  if(sdot)sdot.className='sb-util-dot'+(supaOk?'':' off');
+  if(slbl)slbl.textContent=supaOk?'Synced':'Not signed in';
+
+  // ── Buckets smart stat: RTS ──
+  const bktStat=document.getElementById('sbStat-buckets');
+  if(bktStat){
+    if(!hasBudget||rts===null){bktStat.textContent='';bktStat.className='sb-nav-stat';}
+    else{bktStat.textContent='RTS '+(rts>=0?$f(rts):$f(Math.abs(rts))+' short');bktStat.className='sb-nav-stat'+(rts>0?' pos':rts<0?' neg':'');}
+  }
+
+  // ── Ledger smart stat: month net ──
+  const ldgStat=document.getElementById('sbStat-ledger');
+  if(ldgStat){
+    if(!mid){ldgStat.textContent='';ldgStat.className='sb-nav-stat';}
+    else{
+      const txs=S.txs.filter(t=>t.monthId===mid&&!isScheduled(t)&&t.type!=='opening');
+      const netIn=txs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+      const netOut=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+      const net=netIn-netOut;
+      if(netIn||netOut){ldgStat.textContent=(net>0?'+':'')+$f(net);ldgStat.className='sb-nav-stat'+(net>0?' pos':net<0?' neg':'');}
+      else{ldgStat.textContent='';ldgStat.className='sb-nav-stat';}
+    }
+  }
+
+  // ── Accounts smart stat: total cash ──
+  const acctStat=document.getElementById('sbStat-accounts');
+  if(acctStat){acctStat.textContent=$f(tc);acctStat.className='sb-nav-stat';}
+}
+
+function renderTopbar(){
   // RTS — always reflects TODAY's position regardless of which month is being viewed
   const mid=S.activeMonth;
   const rts=S.accounts.some(a=>a.type==='budget')?todayReadyToSpend():0;
-  const rEl=document.getElementById('tbRTS');
-  const lEl=document.getElementById('tbRtsLabel');
   const mobRts=document.getElementById('tbMobRTS');
   // Mobile date always renders regardless of month state
   const mobDate=document.getElementById('tbMobDate');
   if(mobDate&&!mobDate.textContent){const n=new Date();mobDate.textContent=n.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
   if(!S.accounts.some(a=>a.type==='budget')){
-    if(rEl){rEl.className='tb-rts-val zero';rEl.textContent='—';}
     if(mobRts){mobRts.className='tb-mob-rts-chip zero';mobRts.textContent='—';}
     return;
   }
   const rtsChipTxt=rts>0?`${$f(rts)} free`:rts<0?`${$f(Math.abs(rts))} short`:'✓ balanced';
   const scheduledOutCl=S.txs.filter(t=>isScheduled(t)&&t.type!=='opening'&&t.type!=='in'&&getAcct(t.accountId)?.type!=='debt').reduce((s,t)=>s+t.amount,0);
-  if(rEl){
-    rEl.className='tb-rts-val '+(rts>0?'pos':rts<0?'neg':'zero');
-    rEl.textContent=rts===0?'✓ $0.00':$f(Math.abs(rts))+(rts<0?' short':'');
-    rEl.title=scheduledOutCl>0?`⏱ ${$f(scheduledOutCl)} scheduled — After: ${$f(rts-scheduledOutCl)}`:'Budget cash minus remaining unfulfilled obligations';
-  }
   if(mobRts){
     mobRts.className='tb-mob-rts-chip '+(rts>0?'':rts<0?'neg':'zero');
     mobRts.textContent=rtsChipTxt;
   }
-  if(lEl)lEl.innerHTML=scheduledOutCl>0?`Ready to Spend <span class="c-amber" style="font-size:9px;font-weight:400;display:block">⏱ ${$f(scheduledOutCl)} scheduled</span>`:'Ready to Spend';
-
-  // Sync status dot — use _supaUser (not S.userId which is never populated)
-  const dot=document.getElementById('tbSyncDot');
-  const lbl=document.getElementById('tbSyncLabel');
-  const supaOk=supaReady()&&!!_supaUser;
-  if(dot){dot.className='tb-sync-dot'+(supaOk?'':' off');}
-  if(lbl)lbl.textContent=supaOk?'Synced':'Not signed in';
-
   // WI button state
   // Auth button
   updateAuthBtn();
@@ -4726,7 +4723,7 @@ function renderTopbar(){
 }
 
 // ── Unified nav + tab routing ─────────────────────────────────────────────────
-let activeTab='overview';
+let activeTab='buckets';
 let reportsTab='month';
 let reportsMid=null;
 const _chartInst={};
@@ -4946,9 +4943,7 @@ function setReportsTab(t){
 
 function renderActivePane(){
   const mid=S.activeMonth;
-  if(activeTab==='overview'){
-    const p=document.getElementById('paneOverview');if(p)renderOverviewTab(p,mid);
-  } else if(activeTab==='buckets'){
+  if(activeTab==='buckets'){
     // Buckets writes to #paneBucketsInner (child), never el itself — scroll preserved natively.
     const p=document.getElementById('paneBuckets');if(p)renderBucketsTab(p,mid);
   } else if(activeTab==='log'){
@@ -5096,490 +5091,6 @@ function toggleBulk(){
   mBulkMode=!mBulkMode;
   if(mBulkMode&&!mBulkRows.length)mAddBulkRow();
   mRenderLog();
-}
-
-function renderOverviewTab(el,mid){
-  if(!S.accounts.length&&!S.cats.length){
-    el.innerHTML=`<div class="empty-wrap">
-      <div class="empty-icon">⬡</div>
-      <div class="empty-title">Imperium Fisci</div>
-      <div class="empty-sub">Start by adding your accounts and their current balances, then create budget categories and buckets.</div>
-      <button class="empty-btn" onclick="startWizard()">Get Started</button>
-    </div>`;return;
-  }
-  const midIdx=mid?S.months.findIndex(m=>m.id===mid):-1;
-  const prevM=midIdx>0?S.months[midIdx-1]:null;
-  const nextM=midIdx>=0&&midIdx<S.months.length-1?S.months[midIdx+1]:null;
-  if(!mid){
-    el.innerHTML=`<div class="month-hdr ov-month-hdr">
-      <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" disabled>‹</button>
-      <span class="month-title" style="margin:0 10px">No Month</span>
-      <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)">›</button>
-    </div>`;return;
-  }
-  const m=getMonth(mid);
-  const st=monthStatus(mid);
-  const past=st==='past';
-  const closed=!!(m&&m.closed);
-  const {rts,alloc,income,totalSpent,budgetBal,nw,aom,aomCls,aomSub,activeBkts,fundedCnt,partialCnt,unfundedCnt,bktHealthCls}=computePoolStats(mid);
-  const chipClass=closed?'chip-closed':st==='present'?'chip-present':past?'chip-past':'chip-future';
-  const chipTxt=closed?'✓ Closed':st==='present'?'Current':past?'Past':'Upcoming';
-
-  // ── Build category spend breakdown ────────────────────────────────────────
-  const catSpend=[];
-  S.cats.forEach(cat=>{
-    const buckets=S.buckets.filter(b=>b.catId===cat.id&&!b.archived);
-    const spent=buckets.reduce((s,b)=>s+bSpent(mid,b.id),0);
-    const budgeted=buckets.reduce((s,b)=>s+bBudget(mid,b.id),0);
-    if(spent>0||budgeted>0)catSpend.push({cat,spent,budgeted});
-  });
-  catSpend.sort((a,b)=>b.spent-a.spent);
-  const maxCatSpend=catSpend.reduce((m,c)=>Math.max(m,c.spent),0);
-
-  // ── Build recent transactions (grouped by date) ───────────────────────────
-  const allMonthTxs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening'&&!isScheduled(t))
-    .sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const recentTxs=allMonthTxs.slice(0,10);
-  const txByDate={};
-  recentTxs.forEach(t=>{
-    const dk=t.date;
-    if(!txByDate[dk])txByDate[dk]=[];
-    txByDate[dk].push(t);
-  });
-
-  // ── Build upcoming bills ──────────────────────────────────────────────────
-  const billEntries=activeBkts.filter(b=>b.dueDay).map(b=>{
-    const d=daysUntilDue(b,m.year,m.month);
-    const bm2=computeBucketMetrics(b.id,mid);
-    const paid=bm2?bm2.due1Paid:false;
-    return {b,d,paid};
-  }).filter(({d,paid})=>d!==null&&(paid?d>=0&&d<=14:d<=14)).sort((a,b)=>a.d-b.d);
-
-  // ── Build urgency list ────────────────────────────────────────────────────
-  const urgency=[];
-  if(m){
-    S.buckets.filter(b=>!b.archived&&!isBktSkipped(b.id,mid)).forEach(b=>{
-      const days=daysUntilDue(b,m.year,m.month);
-      const balloc=bAlloc(mid,b.id);const bspent=bSpent(mid,b.id);
-      const avail=balloc+rolloverBal(b.id,mid)-bspent;
-      if(avail<0)urgency.push({type:'over',b,avail,days,priority:0});
-      else if(days!==null&&days<=0&&balloc===0)urgency.push({type:'overdue',b,avail,days,priority:1});
-      else if(days!==null&&days<=3&&balloc===0)urgency.push({type:'due-soon',b,avail,days,priority:2});
-      else if(balloc===0&&bBudget(mid,b.id)>0)urgency.push({type:'unfunded',b,avail,days,priority:3});
-    });
-    urgency.sort((a,b)=>a.priority-b.priority||((a.days??999)-(b.days??999)));
-  }
-
-  // ── Spend metrics ─────────────────────────────────────────────────────────
-  const spendPct=alloc>0?Math.min(totalSpent/alloc,1):0;
-  const spendBarW=Math.round(spendPct*100);
-  const spendBarClr=spendPct>=1?'var(--red)':spendPct>=0.8?'var(--amber)':'var(--accent)';
-  const ccChipClass=closed?'closed':st==='present'?'present':past?'past':'future';
-  const ccChipTxt=closed?'✓ Closed':st==='present'?'Current':past?'Past':'Upcoming';
-
-  // ── Pace & time metrics ───────────────────────────────────────────────────
-  const daysInMonth=new Date(m.year,m.month+1,0).getDate();
-  const dayOfMonth=st==='present'?new Date().getDate():daysInMonth;
-  const daysLeft=daysInMonth-dayOfMonth;
-  const timePct=dayOfMonth/daysInMonth;
-  const paceRatio=timePct>0?(spendPct/timePct):0; // >1 means spending faster than time passing
-  const paceClr=paceRatio>1.15?'var(--red)':paceRatio>1.05?'var(--amber)':'var(--text3)';
-  const paceLbl=st==='present'?`Day ${dayOfMonth} of ${daysInMonth} · ${Math.round(timePct*100)}% through`:(past?'Month complete':'');
-  const spendRateLbl=alloc>0&&spendPct>0?`${Math.round(spendPct*100)}% of budget used`:'';
-  const sprkHtml=nwSparklineHtml();
-
-  // ── START BUILDING HTML ───────────────────────────────────────────────────
-  let h=`<div class="cc-wrap">`;
-
-  // ── Header (desktop only — mobile topbar handles month nav) ───────────────
-  h+=`<div class="cc-header">
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!prevM?'disabled':''}>‹</button>
-    <span class="cc-month-title">${m.label}</span>
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)">›</button>
-    ${!nextM?`<button class="ov-mnav-add" onclick="addNextMonth()">+</button>`:''}
-    <span class="cc-chip ${ccChipClass}">${ccChipTxt}</span>
-    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-      ${past&&!closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openMonthClose('${mid}')">🔒 Close Month</button>`:''}
-      ${closed?`<button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="reopenMonth('${mid}')">↩ Reopen</button>`:''}
-    </div>
-  </div>`;
-
-  // ── Status notices ────────────────────────────────────────────────────────
-  if(closed)h+=`<div class="hint-bar success">🔒 ${esc(m.label)} is closed. Transactions are locked. <span style="cursor:pointer;text-decoration:underline;color:var(--text3)" onclick="reopenMonth('${mid}')">Reopen</span></div>`;
-  else if(past)h+=`<div class="hint-bar info">Past month. <button class="tbtn" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="openMonthClose('${mid}')">🔒 Close &amp; Reconcile →</button></div>`;
-
-  // ── Unclosed past month nudge (only on current month) ────────────────────
-  if(st==='present'){
-    const unclosedPast=S.months.filter(mo=>monthStatus(mo.id)==='past'&&!mo.closed).sort((a,b)=>compareMid(a.id,b.id));
-    if(unclosedPast.length){
-      const mo=unclosedPast[0];
-      const uncatCnt=S.txs.filter(t=>t.monthId===mo.id&&!t.bucketId&&t.type==='out'&&!t.interestCharge&&!t.autoGenerated&&!isScheduled(t)).length;
-      const unreconCnt=S.accounts.reduce((n,a)=>n+S.txs.filter(t=>(t.accountId===a.id||t.toAccountId===a.id)&&t.monthId===mo.id&&t.type!=='opening'&&!isScheduled(t)&&!t.reconciled).length,0);
-      const issues=[];
-      if(uncatCnt>0)issues.push(`${uncatCnt} uncategorized tx${uncatCnt!==1?'s':''}`);
-      if(unreconCnt>0)issues.push('unreconciled accounts');
-      const healthBadge=issues.length
-        ?`<span style="font-size:11px;color:var(--amber);font-weight:600">⚠ ${issues.join(', ')}</span>`
-        :`<span style="font-size:11px;color:var(--green);font-weight:600">✓ Ready to close</span>`;
-      const extraLbl=unclosedPast.length>1?`<span class="c-text3" style="font-size:11px">+${unclosedPast.length-1} more open</span>`:'';
-      h+=`<div class="hint-bar warn" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px">
-        <span style="font-size:13px">📅</span>
-        <span style="font-weight:600;font-size:13px">${esc(mo.label)} is still open</span>
-        ${healthBadge}${extraLbl}
-        <button class="tbtn" style="font-size:11px;padding:3px 10px;margin-left:auto;white-space:nowrap" onclick="openMonthClose('${mo.id}')">🔒 Close &amp; Reconcile →</button>
-      </div>`;
-    }
-
-    // ── Month-end close reminder (3 or fewer days remaining) ─────────────────
-    if(!closed&&daysLeft<=3&&daysLeft>=0){
-      const dayMsg=daysLeft===0?'Last day of the month':daysLeft===1?'1 day left this month':`${daysLeft} days left this month`;
-      h+=`<div class="hint-bar info" style="display:flex;align-items:center;gap:8px">
-        <span>📅</span><span><strong>${dayMsg}</strong> — categorize remaining transactions and close when ready.</span>
-        <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;white-space:nowrap" onclick="openMonthClose('${mid}')">Close Month →</button>
-      </div>`;
-    }
-
-    // ── Possibly missed recurring bills ───────────────────────────────────────
-    const missedBills=potentiallyMissedBills();
-    if(missedBills.length){
-      const names=missedBills.slice(0,3).map(({bill,mo})=>`${esc(bill.desc)} (${esc(mo.label)})`).join(', ')+(missedBills.length>3?'…':'');
-      h+=`<div class="hint-bar warn" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span>⚠</span><span><strong>${missedBills.length} possibly unpaid bill${missedBills.length>1?'s':''}:</strong> ${names} — no spending recorded in linked bucket.</span>
-        <button class="tbtn" style="font-size:11px;padding:3px 9px;margin-left:auto;white-space:nowrap" onclick="setTab('ledger')">Record Payment →</button>
-      </div>`;
-    }
-  }
-
-  // ── Phase B: Onboarding checklist ────────────────────────────────────────
-  h+=onboardingChecklistHtml();
-
-  // ── Mobile "Your Next Move" card (replaces hero grid + coaching panel) ────
-  {
-    const nba=nextBestAction(mid);
-    const spendPctTxt=alloc>0?Math.round(spendPct*100)+'%':'—';
-    const rtsColor=rts>0?'var(--accent)':rts<0?'var(--red)':'var(--text2)';
-    h+=`<div class="card cc-next-move-card">
-      <div style="padding:10px 16px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
-        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)">✦ Your Next Move</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)">${m.label}</span>
-      </div>
-      <div class="cc-nm-action">
-        <span class="cc-nm-icon">${nba?.icon||'✅'}</span>
-        <span class="cc-nm-msg">${nba?.msg||'All caught up.'}</span>
-        ${nba?.fn?`<button class="tbtn cc-nm-btn" onclick="${nba.fn}">${nba.lbl}</button>`:''}
-      </div>
-      <div class="cc-nm-stats">
-        <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Ready to Spend</div>
-          <div class="cc-nm-stat-val" style="color:${rtsColor}">${$f(Math.abs(rts))}</div>
-        </div>
-        <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Income</div>
-          <div class="cc-nm-stat-val" style="color:var(--green)">${income>0?$f(income):'—'}</div>
-        </div>
-        <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Spent</div>
-          <div class="cc-nm-stat-val">${spendPctTxt}</div>
-        </div>
-        <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Age of Money</div>
-          <div class="cc-nm-stat-val" style="color:var(--${aomCls})">${aom!==null?aom+'d':'—'}</div>
-        </div>
-        <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Net Worth</div>
-          <div class="cc-nm-stat-val" style="color:${nw>=0?'var(--green)':'var(--text2)'}">${$f(nw)}</div>
-        </div>
-        <div class="cc-nm-stat">
-          <div class="cc-nm-stat-lbl">Funded</div>
-          <div class="cc-nm-stat-val">${fundedCnt}<span style="font-size:11px;color:var(--text3)">/${activeBkts.length}</span></div>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  // ── Hero stat cards (desktop only — hidden on mobile) ─────────────────────
-  // RTS coloring: balanced=green (every dollar has a job), negative=amber (softer than red for new users)
-  const rtsValColor=rts>0?'var(--accent)':rts<0?'var(--amber)':alloc>0?'var(--green)':'var(--text2)';
-  const rtsBadgeCls=rts>0?'pos':rts<0?'neg':alloc>0?'pos':'zero';
-  const rtsBadgeTxt=rts>0?`▲ ${$f(rts)} free`:rts<0?`▼ ${$f(Math.abs(rts))} over`:alloc>0?'✓ every dollar has a job':'—';
-
-  h+=`<div class="cc-hero-row">
-    <div class="cc-hero-card primary">
-      <div class="cc-hero-label">${st==='future'?'Available Pool':'Ready to Spend'}</div>
-      <div class="cc-hero-val" id="heroRtsVal" style="color:${rtsValColor}">${$f(Math.abs(rts))}</div>
-      <div class="cc-hero-sub">
-        <span class="cc-hero-badge ${rtsBadgeCls}" id="heroRtsBadge">${st==='future'?'give every dollar a job':rtsBadgeTxt}</span>
-      </div>
-    </div>
-    <div class="cc-hero-card">
-      <div class="cc-hero-label">Monthly Spend Pace</div>
-      <div class="cc-hero-val">${totalSpent>0?$f(totalSpent):'—'}</div>
-      <div class="cc-hero-sub" style="flex-direction:column;align-items:flex-start;gap:3px">
-        <span>${alloc>0?`of ${$f(alloc)} budget`:'no budget set'}</span>
-        ${paceLbl?`<span style="font-size:10px;color:${paceClr}">${paceLbl}${spendRateLbl?' · '+spendRateLbl:''}</span>`:''}
-        ${st==='present'&&totalSpent>0&&timePct>0.05?`<span style="font-size:10px;color:var(--text3)">Run rate: <strong style="color:${(totalSpent/timePct)>alloc&&alloc>0?'var(--amber)':'var(--text2)'}">~${$f(Math.round(totalSpent/timePct))}</strong> projected</span>`:''}
-      </div>
-      ${alloc>0?`<div class="cc-progress-track"><div class="cc-progress-fill" style="width:${spendBarW}%;background:${spendBarClr}"></div></div>`:''}
-    </div>
-    <div class="cc-hero-card">
-      <div class="cc-hero-label">Age of Money</div>
-      <div class="cc-hero-val" style="color:var(--${aomCls})">${aom!==null?aom+'d':'—'}</div>
-      <div class="cc-hero-sub"><span class="cc-hero-badge ${aomCls}">${aomSub}</span></div>
-    </div>
-  </div>`;
-
-  // ── Notifications: budget health alerts (right after hero so they're actionable) ──
-  // Desktop hint bars
-  if(!past){
-    if(rts<0)h+=`<div class="hint-bar info ov-desktop-only">💰 ${$f(Math.abs(rts))} over-allocated — assign less to buckets or add income. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Adjust →</button></div>`;
-    else if(rts===0&&alloc>0)h+=`<div class="hint-bar success ov-desktop-only">✓ Every dollar has a job. Budget balanced.</div>`;
-    else if(unfundedCnt>0&&rts>0)h+=`<div class="hint-bar info ov-desktop-only">💡 ${$f(rts)} ready to allocate — ${unfundedCnt} bucket${unfundedCnt!==1?'s':''} waiting. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">Go to Buckets →</button></div>`;
-  }
-  // Near-limit bucket alerts (present month only)
-  if(st==='present'&&!closed){
-    const nearLimit=nearLimitBuckets(mid);
-    if(nearLimit.length){
-      const names=nearLimit.slice(0,3).map(({b,pct})=>`<strong>${esc(b.name)}</strong> (${Math.round(pct*100)}%)`).join(', ')+(nearLimit.length>3?`…`:'');
-      h+=`<div class="hint-bar warn cc-near-limit">⚠ Nearing limit: ${names}${nearLimit.length>3?` +${nearLimit.length-3} more`:''} — consider adjusting allocations. <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px;white-space:nowrap" onclick="setTab('buckets')">View →</button></div>`;
-    }
-  }
-  // Critical buckets (over/overdue) — desktop hint bar + mobile card
-  const criticalItems=urgency.filter(u=>u.type==='over'||u.type==='overdue');
-  if(!past&&criticalItems.length){
-    const names=criticalItems.slice(0,3).map(u=>esc(u.b.name)).join(', ')+(criticalItems.length>3?'…':'');
-    h+=`<div class="hint-bar warn ov-desktop-only">⚠ ${criticalItems.length} bucket${criticalItems.length!==1?'s':''} need attention: ${names} <button class="tbtn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="setTab('buckets')">View Buckets →</button></div>`;
-  }
-  // Mobile "Needs Attention" card
-  if(urgency.length){
-    let urgHtml='';
-    urgency.slice(0,5).forEach(u=>{
-      const cat=getCat(u.b.catId);const color=cat?.color||'var(--accent)';
-      let dotColor='var(--text3)',sub='';
-      if(u.type==='over'){sub=`Overspent ${$f(Math.abs(u.avail))}`;dotColor='var(--red)';}
-      else if(u.type==='overdue'){sub=`${Math.abs(u.days)}d overdue · unfunded`;dotColor='var(--red)';}
-      else if(u.type==='due-soon'){sub=`Due in ${u.days}d · unfunded`;dotColor='var(--amber)';}
-      else{sub=`Unfunded · ${$f(bBudget(mid,u.b.id))} target`;dotColor='var(--text3)';}
-      urgHtml+=`<div class="cc-tx-row" onclick="openDetail('bucket','${u.b.id}')">
-        <div class="cc-tx-dot" style="background:${dotColor}"></div>
-        <div class="cc-tx-info">
-          <div class="cc-tx-payee">${esc(u.b.name)}</div>
-          <div class="cc-tx-meta" style="color:${color}">${esc(cat?.name||'')} · ${sub}</div>
-        </div>
-        <span style="color:var(--text3);font-size:16px">›</span>
-      </div>`;
-    });
-    h+=`<div class="card card-pad ov-mobile-only cc-needs-attn">
-      <div class="cc-card-hdr"><span class="cc-card-title">Needs Attention</span></div>
-      ${urgHtml}
-    </div>`;
-  }
-
-  // ── Coaching panel (current month only) ───────────────────────────────────
-  if(st==='present'){
-    h+=coachingPanelHtml(mid);
-  } else if(st==='past'&&m?.aiReport){
-    h+=`<div class="card card-pad" style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span class="ai-badge">✦ AI Report</span>
-        <span style="font-size:12px;color:var(--text3);font-weight:600">${esc(m.label)}</span>
-        <button class="tbtn" style="font-size:10px;padding:2px 8px;margin-left:auto" onclick="viewMonthReport('${mid}')">Expand</button>
-      </div>
-      <div class="ai-report-text" style="-webkit-line-clamp:3;-webkit-box-orient:vertical;display:-webkit-box;overflow:hidden">${esc(m.aiReport)}</div>
-    </div>`;
-  }
-
-  // ── Main grid: left + right columns ──────────────────────────────────────
-  h+=`<div class="cc-grid"><div class="cc-left">`;
-
-  // ── LEFT: Category spend breakdown card ───────────────────────────────────
-  let catHtml='';
-  if(!catSpend.length){
-    catHtml=`<div class="cc-empty">No spending recorded yet</div>`;
-  } else {
-    catSpend.slice(0,8).forEach(({cat,spent,budgeted})=>{
-      const barPct=maxCatSpend>0?Math.round(spent/maxCatSpend*100):0;
-      const overBudget=budgeted>0&&spent>budgeted;
-      catHtml+=`<div class="cc-cat-row">
-        <div class="cc-cat-dot" style="background:${cat.color||'var(--accent)'}"></div>
-        <span class="cc-cat-name">${esc(cat.name)}</span>
-        <div class="cc-cat-bar-wrap"><div class="cc-cat-bar" style="width:${barPct}%;background:${overBudget?'var(--red)':cat.color||'var(--accent)'}"></div></div>
-        <span class="cc-cat-amt">${$f(spent)}</span>
-        ${budgeted>0?`<span class="cc-cat-pct" style="color:${overBudget?'var(--red)':'var(--text3)'}">${Math.round(spent/budgeted*100)}%</span>`:'<span class="cc-cat-pct"></span>'}
-      </div>`;
-    });
-  }
-  h+=`<div class="card card-pad">
-    <div class="cc-card-hdr">
-      <span class="cc-card-title">Spending by Category</span>
-      <span class="cc-card-action" onclick="setTab('buckets')">Buckets →</span>
-    </div>
-    ${catHtml}
-  </div>`;
-
-  // ── LEFT: Recent transactions card ────────────────────────────────────────
-  let txHtml='';
-  if(!recentTxs.length){
-    txHtml=`<div class="cc-empty">No transactions this month</div>`;
-  } else {
-    Object.keys(txByDate).forEach(dk=>{
-      txHtml+=`<div class="cc-tx-date-hdr">${ld(dk)}</div>`;
-      txByDate[dk].forEach(t=>{
-        const isIn=t.type==='in';const isXfr=t.type==='xfr';
-        const cat=getCat(getBucket(t.bucketId)?.catId);
-        const dot=cat?.color||'var(--border2)';
-        const amtCls=isIn?'var(--green)':isXfr?'var(--text2)':'var(--red)';
-        const pfx=isIn?'+':isXfr?'±':'-';
-        const bkt=getBucket(t.bucketId);
-        txHtml+=`<div class="cc-tx-row" onclick="mEditTxSheet('${t.id}')">
-          <div class="cc-tx-dot" style="background:${dot}"></div>
-          <div class="cc-tx-info">
-            <div class="cc-tx-payee">${esc(t.desc)}</div>
-            <div class="cc-tx-meta">${bkt?esc(bkt.name):'Unassigned'} · ${getAcct(t.accountId)?.name||''}</div>
-          </div>
-          <span class="cc-tx-amt" style="color:${amtCls}">${pfx}${$f(t.amount)}</span>
-        </div>`;
-      });
-    });
-  }
-  h+=`<div class="card card-pad">
-    <div class="cc-card-hdr">
-      <span class="cc-card-title">Recent Transactions</span>
-      ${allMonthTxs.length>10?`<span class="cc-card-action" onclick="setTab('ledger')">All ${allMonthTxs.length} →</span>`:''}
-    </div>
-    ${txHtml}
-  </div>`;
-
-  h+=`</div><div class="cc-right">`;
-
-  // ── RIGHT: Accounts card ──────────────────────────────────────────────────
-  let acctHtml='';
-  S.accounts.forEach(a=>{
-    const ab=acctBalance(a.id);
-    const isDebt=a.type==='debt';
-    acctHtml+=`<div class="cc-acct-row" onclick="setActiveAccount('${a.id}')">
-      <div class="cc-acct-dot" style="background:${a.color||'var(--accent)'}"></div>
-      <div style="flex:1;min-width:0">
-        <div class="cc-acct-name">${esc(a.name)}</div>
-        <div class="cc-acct-type">${a.type||'checking'}</div>
-      </div>
-      <span class="cc-acct-bal" style="color:${isDebt?'var(--red)':ab>=0?'var(--green)':'var(--red)'}">${isDebt?'-':''}${$f(Math.abs(ab))}</span>
-    </div>`;
-  });
-  h+=`<div class="card card-pad">
-    <div class="cc-card-hdr">
-      <span class="cc-card-title">Accounts</span>
-      <span class="cc-card-action" onclick="setTab('accounts')">All →</span>
-    </div>
-    ${acctHtml||`<div class="cc-empty">No accounts</div>`}
-  </div>`;
-
-  // ── RIGHT: Upcoming bills card ────────────────────────────────────────────
-  let billHtml='';
-  if(!billEntries.length){
-    billHtml=`<div class="cc-empty">No bills due in the next 14 days</div>`;
-  } else {
-    billEntries.forEach(({b,d,paid})=>{
-      const urgCls=paid?'var(--green)':d<0?'var(--red)':d===0?'var(--red)':d<=3?'var(--amber)':'var(--text3)';
-      const label=paid?'✓ paid':d<0?`${Math.abs(d)}d overdue`:d===0?'today':`${d}d`;
-      const cat=getCat(b.catId);
-      billHtml+=`<div class="cc-bill-row" onclick="openDetail('bucket','${b.id}')">
-        <div class="cc-bill-dot" style="background:${cat?.color||'var(--accent)'}"></div>
-        <span class="cc-bill-name">${esc(b.name)}</span>
-        <span class="cc-bill-due" style="color:${urgCls}">${label}</span>
-        ${b.dueAmount?`<span class="cc-bill-amt">${$f(b.dueAmount)}</span>`:''}
-      </div>`;
-    });
-  }
-  h+=`<div class="card card-pad">
-    <div class="cc-card-hdr"><span class="cc-card-title">Upcoming Bills</span></div>
-    ${billHtml}
-  </div>`;
-
-  // ── RIGHT: Goals card ─────────────────────────────────────────────────────
-  const goalBkts=S.buckets.filter(b=>b.type==='goal'&&!b.archived);
-  if(goalBkts.length){
-    let goalsHtml='';
-    goalBkts.forEach(b=>{
-      const saved=Math.max(sinkingSaved(b.id,mid),0);
-      const tgt=b.targetAmount||0;
-      const pct=tgt>0?Math.min(Math.round(saved/tgt*100),100):0;
-      const cat=getCat(b.catId);
-      const barColor=pct>=100?'var(--green)':(cat?.color||'var(--accent)');
-      goalsHtml+=`<div class="cc-goal-row" onclick="setBucket('${b.id}')">
-        <div class="cc-goal-top">
-          <span class="cc-goal-name">${esc(b.name)}</span>
-          <span class="cc-goal-pct" style="color:${pct>=100?'var(--green)':'var(--text3)'}">${pct}%</span>
-          <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${$f(saved)}${tgt?` / ${$f(tgt)}`:''}</span>
-        </div>
-        <div class="cc-goal-track"><div class="cc-goal-fill" style="width:${pct}%;background:${barColor}"></div></div>
-      </div>`;
-    });
-    h+=`<div class="card card-pad">
-      <div class="cc-card-hdr">
-        <span class="cc-card-title">Goals</span>
-        <span class="cc-card-action" onclick="setTab('buckets')">Manage →</span>
-      </div>
-      ${goalsHtml}
-    </div>`;
-  }
-
-  h+=`</div></div>`; // close cc-right + cc-grid
-
-  // ── Net Worth collapsible (collapsed by default — less prominent for new users) ───
-  {
-    const nwArrow=_nwPanelOpen?'▼':'▶';
-    const nwBodyStyle=_nwPanelOpen?'':'display:none';
-    const nwTrendHtml=sprkHtml?`<div style="padding:0 16px 4px">${sprkHtml}</div>`:'';
-    let nwAcctRows='';
-    const assets=S.accounts.filter(a=>a.type!=='debt');
-    const debts=S.accounts.filter(a=>a.type==='debt');
-    if(assets.length){
-      nwAcctRows+=`<div style="padding:4px 16px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Assets</div>`;
-      assets.forEach(a=>{const b=acctBalance(a.id);nwAcctRows+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 16px"><span style="width:8px;height:8px;border-radius:50%;background:${a.color||'var(--accent)'};flex-shrink:0"></span><span style="flex:1;font-size:13px;color:var(--text2)">${esc(a.name)}</span><span style="font-family:var(--mono);font-size:13px;color:${b>=0?'var(--green)':'var(--red)'}">${$f(b)}</span></div>`;});
-    }
-    if(debts.length){
-      nwAcctRows+=`<div style="padding:4px 16px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Liabilities</div>`;
-      debts.forEach(a=>{const b=acctBalance(a.id);nwAcctRows+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 16px"><span style="width:8px;height:8px;border-radius:50%;background:${a.color||'var(--red)'};flex-shrink:0"></span><span style="flex:1;font-size:13px;color:var(--text2)">${esc(a.name)}</span><span style="font-family:var(--mono);font-size:13px;color:var(--red)">-${$f(b)}</span></div>`;});
-    }
-    h+=`<div class="card" style="margin-bottom:14px;overflow:hidden">
-      <button onclick="toggleNwPanel()" style="width:100%;display:flex;align-items:center;gap:10px;padding:11px 16px;background:none;border:none;cursor:pointer;text-align:left">
-        <span id="nwCollapseArrow" style="font-size:10px;color:var(--text3);transition:transform .15s">${nwArrow}</span>
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)">Net Worth</span>
-        <span style="margin-left:auto;font-family:var(--mono);font-size:15px;font-weight:700;color:${nw>=0?'var(--green)':'var(--red)'}">${$f(nw)}</span>
-      </button>
-      <div id="nwCollapseBody" style="border-top:1px solid var(--border);padding-bottom:10px${_nwPanelOpen?'':';display:none'}">
-        ${nwTrendHtml}
-        ${nwAcctRows}
-      </div>
-    </div>`;
-  }
-
-  // ── Mobile quick actions ──────────────────────────────────────────────────
-  h+=`<div class="m-settings-row ov-mobile-only">
-    <button class="m-settings-btn" onclick="setTab('buckets')">▣ Buckets</button>
-    <button class="m-settings-btn" onclick="setTab('accounts')">⬡ Accounts</button>
-    <button class="m-settings-btn" onclick="setTab('settings')">⚙ Settings</button>
-  </div>`;
-
-  // ── Future month pre-save panel (current month only, when surplus exists) ──
-  if(st==='present'&&rts>0){
-    const pw=presaveWidgetHtml(mid);
-    if(pw){
-      // Wrap in cc-presave-wrap for flex ordering; on mobile a toggle summary sits above the card
-      h+=`<div class="cc-presave-wrap">
-        <div class="cc-presave-toggle ov-mobile-only" onclick="this.closest('.cc-presave-wrap').classList.toggle('open')" role="button">
-          <span>📈 Park Surplus</span>
-          <span class="cc-presave-caret">▸</span>
-        </div>
-        <div class="cc-presave-body">${pw}</div>
-      </div>`;
-    }
-  }
-
-  h+=`</div>`; // close cc-wrap
-
-  el.innerHTML=h;
-  if(st==='present'){scheduleAICoachDebounced(mid);}
 }
 
 function renderLedgerTab(el,mid){
@@ -7316,7 +6827,7 @@ function fundCategory(catId,mid){
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
-function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;const op=document.getElementById('paneOverview');if(op)op.scrollTop=0;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
+function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
 function setBucket(id){
   if(!_bktExpandSplit)_bktExpandSplit={};
   if(id){
@@ -8393,7 +7904,7 @@ function _wiRightHtml(){
 function exitWI(){
   S.wiScenario=null;S.wiOpen=false;
   _wiSchedExpanded.clear();
-  if(activeTab==='whatif')setTab('overview');
+  if(activeTab==='whatif')setTab('buckets');
   else render();
 }
 
@@ -11992,7 +11503,7 @@ function mInit(){
     window.addEventListener('popstate',()=>{
       if(document.getElementById('rsheet')?.classList.contains('show')){closeRSheet();}
       else if(document.getElementById('detailPanel')?.classList.contains('active')){closeDetail();}
-      else if(activeTab!=='overview'){setTab('overview');}
+      else if(activeTab!=='buckets'){setTab('buckets');}
     });
     _mInitialized=true;
   }
