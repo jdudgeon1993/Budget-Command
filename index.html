@@ -2235,6 +2235,14 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   #dashSect{display:none;flex:1;flex-direction:column;overflow-y:auto;min-height:0;}
   #dashSect.open{display:flex;}
 }
+/* ── CARD EXPAND ── */
+.dc.dc-expanded{grid-column:1 / -1!important;cursor:default;}
+.dc.dc-expanded .dc-body{max-height:80vh;overflow-y:auto;}
+.dc.dc-expanded .dc-foot{opacity:1!important;}
+.dc-expand-btn{margin-right:auto;}
+.dash-canvas.has-expanded .dc:not(.dc-expanded){opacity:0.55;pointer-events:none;}
+.dash-canvas.has-expanded .dc:not(.dc-expanded):hover{opacity:0.65;}
+.dc-sect-wrap{display:flex;flex-direction:column;flex:1;min-height:0;}
 </style>
 </head>
 <body>
@@ -5033,6 +5041,8 @@ function renderTopbar(){
 
 // ── Unified nav + tab routing ─────────────────────────────────────────────────
 let activeTab='dashboard';
+let _dashExpanded=null; // which card is expanded: null | 'rts'|'accounts'|'buckets'|'ledger'|'ai'|'horizon'|'reports'
+let _horizonMode='rts'; // 'rts' | 'paychecks'
 let reportsTab='month';
 let reportsMid=null;
 const _chartInst={};
@@ -5729,6 +5739,12 @@ function _sectEl(tab){
 }
 function rerenderSettings(){const el=_sectEl('settings');if(el)renderSettingsTab(el);}
 function rerenderBuckets(){if(!isMobile()){renderDeskSection('buckets');return;}const el=document.getElementById('paneBuckets');if(el)renderBucketsTab(el,S.activeMonth);}
+
+function expandCard(key){
+  _dashExpanded=(_dashExpanded===key)?null:key;
+  renderDashboard();
+}
+function collapseCard(){_dashExpanded=null;renderDashboard();}
 
 // Desktop section renderer — routes to the shared #dashSect container
 function renderDeskSection(tab){
