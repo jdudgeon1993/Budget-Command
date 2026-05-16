@@ -44,8 +44,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .bh-label{white-space:nowrap;}
 
 /* Stat grid containers — border-gap layout */
-.pool-strip,.ov-stats-row,.det-nums,.sink-stats,.stat-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);overflow:hidden;}
-.pool-strip{grid-template-columns:1fr 1fr 1fr 1fr;border-radius:var(--rl);margin-bottom:8px;}
+.det-nums,.sink-stats,.stat-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);overflow:hidden;}
 .det-nums{grid-template-columns:repeat(3,1fr);border-radius:var(--r);margin-bottom:18px;}
 .sink-stats{grid-template-columns:repeat(4,1fr);border-radius:var(--r);margin-bottom:18px;}
 .stat-grid{border-radius:var(--r);margin-bottom:16px;}
@@ -57,12 +56,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .stat-cell.md{padding:11px 13px;}
 .stat-cell.lg{padding:13px 15px;}
 .stat-cell.hi{background:var(--surface2);}
-.pool-strip .stat-cell.hi{border-right:2px solid var(--border);}
+
 
 /* Stat values */
 .stat-val{font-family:var(--mono);font-size:16px;font-weight:500;letter-spacing:-.4px;}
 .stat-val.sm{font-size:14px;}
-.pool-strip .stat-cell.hi .stat-val{font-size:18px;font-weight:600;}
 
 /* Stat value color modifiers */
 .stat-val.green{color:var(--green);}
@@ -1299,7 +1297,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
   /* ── Unified overview: mobile adaptations ── */
   .ov-desktop-only{display:none!important;}
-  .ov-month-hdr{display:none!important;} /* topbar handles month nav on mobile */
+  .sb-nav-stat{display:none!important;}
   .ov-stats-row .stat-cell{padding:10px 8px;}
   .ov-widgets{grid-template-columns:1fr;gap:0;}
   .ov-widget{border:none;border-radius:0;border-top:1px solid var(--border);padding:12px 16px;}
@@ -1315,10 +1313,8 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .als-type{display:block;font-size:9px;margin-top:3px;}
   .als-bal{display:block;font-size:16px;font-weight:500;letter-spacing:-.4px;margin-top:8px;}
   .hint-bar{margin:0;border-radius:0;border-left:none;border-right:none;}
-  /* Budget health bar + pool strip: 14px side margin to match card gutters */
+  /* Budget health bar: 14px side margin to match card gutters */
   .bh-wrap{margin:0 14px 10px;}
-  .pool-strip{grid-template-columns:1fr 1fr;margin-left:14px;margin-right:14px;}
-  .ov-stats-row{grid-template-columns:1fr 1fr;margin:12px 14px 16px;}
 
   /* ── Accounts tab: mobile layout ── */
   .acct-pane-wrap{padding:12px 14px 24px;}
@@ -2092,6 +2088,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <div class="nav-brand nav-desktop">
       <div class="nav-brand-mark">IF</div>
       <div class="nav-brand-text">Imperium<br>Fisci</div>
+    </div>
+    <!-- Month navigation — desktop sidebar -->
+    <div class="sb-monnav nav-desktop">
+      <button class="sb-monnav-btn" onclick="sidebarNavMonth(-1)" aria-label="Previous month">‹</button>
+      <span class="sb-monnav-label" id="sbMonthLabel" onclick="jumpToToday()" title="Click to go to current month">—</span>
+      <button class="sb-monnav-btn" onclick="sidebarNavMonth(1)" aria-label="Next month">›</button>
     </div>
     <!-- Navigation buttons -->
     <button class="nav-btn" data-tab="buckets" onclick="setTab('buckets')">
@@ -4641,6 +4643,15 @@ function renderSidebarVitals(){
     else{aomEl.textContent=aom+'d';aomEl.className='sb-vital-val'+(aom>=30?' pos':aom>=14?'':' neg');}
   }
 
+  // ── Month label ──
+  const monthLbl=document.getElementById('sbMonthLabel');
+  if(monthLbl){
+    const m=mid?S.months.find(mn=>mn.id===mid):null;
+    const st=mid?monthStatus(mid):'';
+    monthLbl.textContent=m?(m.label||mLabel(m.year,m.month)):'—';
+    monthLbl.style.color=st==='past'?'var(--amber)':st==='future'?'var(--blue)':'';
+  }
+
   // ── Sync status ──
   const supaOk=supaReady()&&!!_supaUser;
   const sdot=document.getElementById('sbSyncDot');
@@ -5471,12 +5482,10 @@ function renderBucketsTab(el,mid){
   const bMidIdx=S.months.findIndex(mn=>mn.id===mid);
   const bPrevM=bMidIdx>0?S.months[bMidIdx-1]:null;
   const bNextM=bMidIdx>=0&&bMidIdx<S.months.length-1?S.months[bMidIdx+1]:null;
-  let h=`<div class="month-hdr ov-desktop-only" style="margin-bottom:20px">
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(-1)" ${!bPrevM?'disabled':''} title="${bPrevM?bPrevM.label:'No previous month'}">‹</button>
-    <span class="month-title" style="margin:0 10px">${m.label}</span>
-    <button class="ov-mnav-btn" onclick="sidebarNavMonth(1)" title="${bNextM?bNextM.label:'Add next month'}">›</button>
-    ${!bNextM?`<button class="ov-mnav-add" onclick="addNextMonth()" title="Add next month" style="margin-left:4px">+</button>`:''}
-    <span class="chip chip-${st}" style="margin-left:8px">${chipTxt}</span>
+  let h=`<div class="month-hdr">
+    <span class="month-title">${m.label}</span>
+    ${!bNextM?`<button class="tbtn" style="font-size:11px;padding:3px 7px" onclick="addNextMonth()" title="Add next month">+</button>`:''}
+    <span class="chip chip-${st}">${chipTxt}</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openRecurringBills()" title="Recurring Bills">⏱ Bills</button>
       <button class="tbtn" style="font-size:11px;padding:4px 9px" onclick="openModal('cat')">+ Category</button>
