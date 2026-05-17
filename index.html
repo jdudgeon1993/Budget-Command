@@ -11750,15 +11750,15 @@ function exportData(){
   URL.revokeObjectURL(url);
   // Record last export time
   localStorage.setItem('bcc_last_export', Date.now().toString());
-  renderNav();
-  // Brief confirmation
+  // Brief visual confirmation on the button
   const btn=event?.currentTarget;
   if(btn){
     const orig=btn.innerHTML;
+    btn.innerHTML='✓ Exported!';
     btn.style.color='var(--green)';
-    btn.querySelector('span').textContent='✓ Exported!';
-    setTimeout(()=>{btn.style.color='';renderNav();},2000);
+    setTimeout(()=>{btn.innerHTML=orig;btn.style.color='';},2000);
   }
+  renderNav();
 }
 
 function importData(event){
