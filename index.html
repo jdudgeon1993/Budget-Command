@@ -2109,114 +2109,159 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   background-image:linear-gradient(rgba(100,180,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(100,180,255,.03) 1px,transparent 1px),linear-gradient(rgba(100,180,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(100,180,255,.015) 1px,transparent 1px);
   background-size:80px 80px,80px 80px,20px 20px,20px 20px;
 }
+/* ── DASHBOARD CARD BASE ── */
 .dc{
   background:var(--surface);border:3px solid var(--border);border-radius:var(--r);
-  overflow:hidden;cursor:pointer;transition:border-color .2s,opacity .2s;
+  overflow:visible; /* never clip content — each card sizes to its own content */
+  cursor:pointer;transition:border-color .2s,box-shadow .2s,opacity .2s;
   display:flex;flex-direction:column;position:relative;z-index:1;
   min-height:160px;
 }
-.dc:hover{border-color:var(--border2);}
-.dc.featured{border-color:var(--border2);}
-.dc.featured::after{
-  content:'';position:absolute;top:-3px;right:-3px;
-  width:16px;height:16px;
+.dc:hover{border-color:var(--border2);box-shadow:0 4px 20px rgba(0,0,0,.25);}
+/* Featured card (RTS) — accent border + amber corner tick */
+.dc.featured{border-color:var(--accent);box-shadow:0 0 0 1px rgba(58,127,193,.12);}
+.dc.featured::before{
+  content:'';position:absolute;top:0;right:0;z-index:3;
+  width:18px;height:18px;pointer-events:none;
   border-top:3px solid var(--amber);border-right:3px solid var(--amber);
-  pointer-events:none;
+  border-radius:0 var(--r) 0 0;
 }
 .dc.span2{grid-column:span 2;}
 .dc.span3{grid-column:span 3;}
+
+/* Coloured status strip across very top of card */
+.dc-strip{height:3px;width:100%;flex-shrink:0;transition:background .3s;}
+.dc-strip.good{background:var(--green);}
+.dc-strip.neg{background:var(--red);}
+.dc-strip.warn{background:var(--amber);}
+.dc-strip.blue{background:var(--border2);}
+.dc-strip.dim{background:var(--border);}
+
+/* Card header */
 .dc-head{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 16px 9px;border-bottom:1px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;gap:8px;
+  padding:9px 16px 8px;border-bottom:1px solid var(--border);flex-shrink:0;
 }
-.dc-title{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.18em;text-transform:uppercase;}
-.dc-link{font-family:var(--mono);font-size:9px;color:var(--border);letter-spacing:.12em;display:flex;align-items:center;gap:4px;transition:color .15s;text-transform:uppercase;}
+.dc-title{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.18em;text-transform:uppercase;flex:1;min-width:0;}
+/* Badge pill in card header */
+.dc-badge{
+  font-family:var(--mono);font-size:8px;letter-spacing:.08em;
+  padding:2px 7px;border-radius:10px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text3);flex-shrink:0;white-space:nowrap;
+}
+.dc-badge.good{color:var(--green);border-color:rgba(42,159,96,.35);background:rgba(42,159,96,.06);}
+.dc-badge.warn{color:var(--amber);border-color:rgba(240,224,64,.35);background:rgba(240,224,64,.06);}
+.dc-badge.neg{color:var(--red);border-color:rgba(204,51,51,.35);background:rgba(204,51,51,.06);}
+.dc-link{font-family:var(--mono);font-size:9px;color:var(--border);letter-spacing:.12em;display:flex;align-items:center;gap:4px;transition:color .15s;text-transform:uppercase;flex-shrink:0;}
 .dc:hover .dc-link{color:var(--text3);}
-.dc-body{padding:14px 16px;flex:1;}
+
+/* Card body — grows to fit content, never clips */
+.dc-body{padding:14px 16px;flex:1;min-width:0;overflow:visible;}
 .dc-body.np{padding:0;}
+
+/* Card footer — hidden until hover */
 .dc-foot{
   padding:8px 16px;border-top:1px solid var(--border);
   display:flex;align-items:center;justify-content:flex-end;gap:8px;
-  opacity:0;transition:opacity .2s;background:var(--bg2);
+  opacity:0;transition:opacity .2s;background:var(--bg2);flex-shrink:0;
 }
 .dc:hover .dc-foot{opacity:1;}
 .dc-btn{
   font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.12em;
   border:1px solid var(--border);background:transparent;padding:4px 10px;
-  border-radius:var(--r);cursor:pointer;text-transform:uppercase;transition:border-color .15s,color .15s;
+  border-radius:var(--r);cursor:pointer;text-transform:uppercase;
+  transition:border-color .15s,color .15s;white-space:nowrap;
 }
 .dc-btn:hover{border-color:var(--border2);color:var(--accent);}
 .dc-btn.primary{border-color:var(--border2);color:var(--accent);background:rgba(58,127,193,.08);}
 .dc-btn.primary:hover{background:rgba(58,127,193,.16);}
 
-/* RTS card */
-.dc-rts-num{font-family:var(--display);font-size:64px;color:var(--text);letter-spacing:.03em;line-height:1;}
+/* ── RTS CARD ── */
+.dc-rts-num{font-family:var(--display);font-size:52px;color:var(--text);letter-spacing:.03em;line-height:1;}
 .dc-rts-num.pos{color:var(--accent);}
 .dc-rts-num.neg{color:var(--red);}
-.dc-rts-sub{font-family:var(--sans);font-size:11px;color:var(--text3);letter-spacing:.14em;text-transform:uppercase;margin-top:2px;}
-.dc-meta{display:flex;gap:20px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
-.dc-meta-item{display:flex;flex-direction:column;gap:3px;}
-.dc-meta-label{font-family:var(--mono);font-size:9px;color:var(--border2);letter-spacing:.14em;text-transform:uppercase;}
-.dc-meta-val{font-family:var(--display);font-size:20px;color:var(--accent);letter-spacing:.05em;}
+.dc-rts-sub{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.16em;text-transform:uppercase;margin-top:5px;}
+.dc-meta{display:flex;gap:0;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.dc-meta-item{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;padding-right:10px;}
+.dc-meta-item:last-child{padding-right:0;}
+.dc-meta-label{font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.14em;text-transform:uppercase;}
+.dc-meta-val{font-family:var(--display);font-size:18px;color:var(--accent);letter-spacing:.04em;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dc-meta-val.good{color:var(--green);}
 .dc-meta-val.warn{color:var(--amber);}
 .dc-meta-val.neg{color:var(--red);}
+.dc-meta-val.dim{color:var(--text3);}
 .dc-bar-wrap{margin-top:12px;}
 .dc-bar-labels{display:flex;justify-content:space-between;margin-bottom:5px;}
-.dc-bar-labels span{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;}
-.dc-bar-track{height:5px;background:var(--bg);border:1px solid var(--border);border-radius:1px;}
-.dc-bar-fill{height:100%;background:var(--border2);border-radius:1px;transition:width .6s ease;}
+.dc-bar-labels span{font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;}
+.dc-bar-track{height:6px;background:var(--bg);border:1px solid var(--border);border-radius:2px;overflow:hidden;}
+.dc-bar-fill{height:100%;background:var(--border2);border-radius:2px;transition:width .6s ease;}
 .dc-bar-fill.warn{background:var(--amber);}
 .dc-bar-fill.over{background:var(--red);}
 
-/* Account rows */
-.dc-acct-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);}
+/* ── ACCOUNT ROWS ── */
+.dc-acct-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:8px;}
 .dc-acct-row:last-child{border-bottom:none;}
-.dc-acct-name{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.04em;}
-.dc-acct-type{font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.12em;margin-top:2px;}
-.dc-acct-bal{font-family:var(--display);font-size:22px;color:var(--text);letter-spacing:.04em;}
+.dc-acct-left{flex:1;min-width:0;}
+.dc-acct-name{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dc-acct-type{font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.1em;margin-top:2px;text-transform:uppercase;}
+.dc-acct-bal{font-family:var(--display);font-size:18px;letter-spacing:.04em;flex-shrink:0;}
 .dc-acct-bal.pos{color:var(--green);}
 .dc-acct-bal.neg{color:var(--red);}
+.dc-acct-bal.dim{color:var(--text3);}
 
-/* Data tables */
+/* ── DATA TABLES ── */
 .dc-table{width:100%;border-collapse:collapse;table-layout:fixed;}
 .dc-table thead th{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.14em;text-transform:uppercase;padding:9px 10px 8px;text-align:left;border-bottom:1px solid var(--border);font-weight:400;background:var(--bg);}
 .dc-table thead th.r{text-align:right;}
 .dc-table tbody td{font-family:var(--sans);font-size:13px;color:var(--text2);padding:7px 10px;border-bottom:1px solid var(--bg2);vertical-align:middle;}
 .dc-table tbody tr:last-child td{border-bottom:none;}
 .dc-table tbody tr:hover td{background:rgba(7,17,32,.5);}
-.dc-td-bold{font-weight:700;color:var(--text);}
+.dc-td-bold{font-weight:600;color:var(--text);}
 .dc-td-num{font-family:var(--display);font-size:15px;letter-spacing:.04em;text-align:right;}
 .dc-td-date{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.1em;}
-.dc-mini-bar{display:flex;align-items:center;gap:8px;}
-.dc-mini-track{flex:1;height:4px;background:var(--bg);border-radius:1px;border:1px solid var(--border);}
-.dc-mini-fill{height:100%;border-radius:1px;background:var(--border2);}
-.dc-mini-fill.warn{background:var(--amber);}
-.dc-mini-fill.over{background:var(--red);}
-.dc-mini-pct{font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.08em;min-width:36px;text-align:right;}
-.dc-mini-pct.warn{color:var(--amber);}
-.dc-mini-pct.over{color:var(--red);}
+/* Status badge pills in bucket table */
+.dc-pill{
+  font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 7px;border-radius:2px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text3);display:inline-block;white-space:nowrap;
+}
+.dc-pill.over{color:var(--red);border-color:rgba(204,51,51,.4);background:rgba(204,51,51,.08);}
+.dc-pill.warn{color:var(--amber);border-color:rgba(240,224,64,.4);background:rgba(240,224,64,.08);}
+.dc-pill.good{color:var(--green);border-color:rgba(42,159,96,.4);background:rgba(42,159,96,.08);}
+.dc-pill.due{color:var(--text2);border-color:var(--border2);background:rgba(58,127,193,.06);}
 
-/* AI coach bubbles */
-.dc-bubble{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;margin-bottom:7px;}
+/* ── AI COACH BUBBLES ── */
+.dc-bubble{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;}
 .dc-bubble:last-child{margin-bottom:0;}
-.dc-bubble-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;margin-bottom:3px;text-transform:uppercase;}
-.dc-bubble-text{font-family:var(--sans);font-size:12px;color:var(--text2);line-height:1.45;}
+.dc-bubble-label{font-family:var(--mono);font-size:9px;letter-spacing:.14em;margin-bottom:4px;text-transform:uppercase;}
+.dc-bubble-text{font-family:var(--sans);font-size:12px;color:var(--text2);line-height:1.5;}
 
-/* Horizon bars */
-.dc-proj-bars{display:flex;align-items:flex-end;gap:5px;height:72px;}
+/* ── HORIZON BARS ── */
+.dc-proj-bars{display:flex;align-items:flex-end;gap:4px;height:96px;}
 .dc-proj-bar{flex:1;border-radius:1px 1px 0 0;background:var(--border);min-height:4px;}
 .dc-proj-bar.past{background:#1a3358;}
-.dc-proj-bar.now{background:var(--border2);}
-.dc-proj-bar.future{background:#122240;border:1px dashed var(--border);border-bottom:none;}
-.dc-proj-labels{display:flex;gap:5px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px;}
-.dc-proj-lbl{flex:1;font-family:var(--mono);font-size:8px;color:var(--border2);letter-spacing:.06em;text-align:center;text-transform:uppercase;}
+.dc-proj-bar.now{background:var(--accent);box-shadow:0 0 8px rgba(58,127,193,.5);}
+.dc-proj-bar.future{background:#0e1d35;border:1px dashed rgba(58,127,193,.25);border-bottom:none;}
+.dc-proj-labels{display:flex;gap:4px;margin-top:5px;border-top:1px solid var(--border);padding-top:5px;}
+.dc-proj-lbl{flex:1;font-family:var(--mono);font-size:7px;color:var(--border2);letter-spacing:.04em;text-align:center;text-transform:uppercase;}
 .dc-proj-lbl.now{color:var(--accent);}
 
-/* Strike rule divider */
-.dc-rule{height:3px;background:var(--amber);grid-column:span 3;border-radius:1px;opacity:.5;margin:2px 0;}
+/* ── SECTION DIVIDER LABELS ── */
+.dc-rule{display:none;} /* hidden — replaced by section labels */
+.dc-section{
+  grid-column:span 3;display:flex;align-items:center;gap:12px;
+  padding:4px 2px;margin-top:4px;
+}
+.dc-section-lbl{font-family:var(--mono);font-size:8px;letter-spacing:.22em;color:var(--border2);text-transform:uppercase;white-space:nowrap;}
+.dc-section-line{flex:1;height:1px;background:var(--border);}
 
-/* Back-to-dashboard button in section headers (desktop) */
+/* ── EMPTY STATE ── */
+.dc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 12px;gap:8px;text-align:center;}
+.dc-empty-icon{font-family:var(--mono);font-size:20px;color:var(--border2);}
+.dc-empty-text{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;line-height:1.7;}
+.dc-empty-cta{font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-top:2px;cursor:pointer;border:none;background:none;padding:0;text-decoration:underline;text-underline-offset:2px;}
+
+/* ── BACK BTN ── */
 .dash-back-btn{display:none;}
 @media(min-width:1100px){
   .dash-back-btn{
@@ -2224,13 +2269,12 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     font-family:var(--mono);font-size:9px;letter-spacing:.14em;
     color:var(--text3);border:1px solid var(--border);background:none;
     padding:4px 10px;border-radius:var(--r);cursor:pointer;
-    text-transform:uppercase;transition:color .15s,border-color .15s;
-    margin-right:10px;
+    text-transform:uppercase;transition:color .15s,border-color .15s;margin-right:10px;
   }
   .dash-back-btn:hover{color:var(--accent);border-color:var(--border2);}
 }
 
-/* Desktop: permanent hard separation — .app never exists, paneDashboard always does */
+/* ── DESKTOP LAYOUT ── */
 @media(min-width:1100px){
   .app{display:none!important;}
   header.topbar{display:none!important;}
@@ -2239,13 +2283,15 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   #dashSect{display:none;flex:1;flex-direction:column;overflow-y:auto;min-height:0;}
   #dashSect.open{display:flex;}
 }
+
 /* ── CARD EXPAND ── */
-.dc.dc-expanded{grid-column:1 / -1!important;cursor:default;height:80vh;min-height:0;}
+.dc.dc-expanded{grid-column:1 / -1!important;cursor:default;height:80vh;min-height:0;overflow:hidden;}
 .dc.dc-expanded .dc-body{flex:1 1 0;overflow-y:auto;max-height:none;padding:0;min-height:0;}
 .dc.dc-expanded .dc-foot{opacity:1!important;}
 .dc-expand-btn{margin-right:auto;}
-.dash-canvas.has-expanded .dc:not(.dc-expanded){opacity:0.55;pointer-events:none;}
-.dash-canvas.has-expanded .dc:not(.dc-expanded):hover{opacity:0.65;}
+.dash-canvas.has-expanded .dc:not(.dc-expanded){opacity:0.45;pointer-events:none;}
+.dash-canvas.has-expanded .dc:not(.dc-expanded):hover{opacity:0.6;}
+.dash-canvas.has-expanded .dc-section{opacity:0.3;}
 .dc-sect-wrap{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;}
 </style>
 </head>
@@ -5450,7 +5496,7 @@ function renderDashboard(){
   const txs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening');
   const accts=S.accounts||[];
   const cats=S.cats||[];
-  const bkts=(S.buckets||[]).filter(b=>!b.archived);
+  const bkts=(S.buckets||[]).filter(b=>!b.archived&&b.type!=='vault');
   const today=new Date();
   const mStatus=monthStatus(mid)||'present';
 
@@ -5465,24 +5511,37 @@ function renderDashboard(){
   const dayOfMonth=today.getDate();
   const monthPct=Math.round((dayOfMonth/daysInMonth)*100);
 
-  // ── Accounts ──
-  const budgetAccts=accts.filter(a=>a.type==='budget'||a.onBudget!==false);
+  // ── Accounts — exclude debt accounts from cash total ──
+  const budgetAccts=accts.filter(a=>a.type!=='debt');
   const debtAccts=accts.filter(a=>a.type==='debt');
   const totalDebt=debtAccts.reduce((s,a)=>s+acctBalance(a.id),0);
   const cash=budgetAccts.reduce((s,a)=>s+acctBalance(a.id),0);
+  const netPosition=cash-totalDebt;
 
-  // ── Buckets needing attention ──
+  // ── Buckets needing attention — due-date aware ──
+  const todayDay=today.getDate();
   const attentionBkts=bkts.map(b=>{
     const al=bAlloc(mid,b.id),sp=bSpent(mid,b.id),bg=bBudget(mid,b.id)||0;
     const over=sp>al&&al>0;
     const unfunded=al===0&&bg>0;
-    const partial=al>0&&al<bg&&!over;
     const pct=al>0?sp/al:0;
-    return{b,al,sp,bg,over,unfunded,partial,pct};
-  }).filter(x=>x.over||x.unfunded||(x.partial&&x.pct>0.8))
-    .sort((a,b)=>(b.over?2:b.unfunded?1:0)-(a.over?2:a.unfunded?1:0))
-    .slice(0,5);
+    // Fully done: allocated to target AND spent — no action needed
+    const fullyDone=bg>0&&al>=bg*0.99&&sp>=al*0.99;
+    const runningLow=!over&&!fullyDone&&al>0&&pct>0.8;
+    // Due date logic (present month only)
+    let pastDue=false,dueSoon=false;
+    if(mStatus==='present'&&b.dueDay){
+      const dd=b.dueDay==='eom'?daysInMonth:Math.min(parseInt(b.dueDay),daysInMonth);
+      if(todayDay>dd&&sp<al*0.5)pastDue=true;
+      else if(dd-todayDay<=5&&dd>=todayDay&&al===0)dueSoon=true;
+    }
+    const severity=over?4:pastDue?3:unfunded?2:dueSoon?2:runningLow?1:0;
+    return{b,al,sp,bg,over,unfunded,pastDue,dueSoon,runningLow,pct,fullyDone,severity};
+  }).filter(x=>x.severity>0)
+    .sort((a,b)=>b.severity-a.severity)
+    .slice(0,8);
   const allFunded=attentionBkts.length===0;
+  const criticalCount=attentionBkts.filter(x=>x.over||x.pastDue).length;
 
   // ── Recent ledger (5) ──
   const recentTxs=txs.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
@@ -5528,13 +5587,16 @@ function renderDashboard(){
   const EXP=_dashExpanded;
   const hasExp=EXP!==null;
 
-  function card(key,spanCls,headTitle,headLink,headLinkFn,summaryHtml,expandedHtml,footBtns=''){
+  // card(key, spanCls, headTitle, badgeHtml, headLink, summaryHtml, expandedHtml, footBtns, stripCls)
+  function card(key,spanCls,headTitle,badgeHtml,headLink,summaryHtml,expandedHtml,footBtns='',stripCls='dim'){
     const isExp=EXP===key;
     const cls=`dc${spanCls?' '+spanCls:''}${isExp?' dc-expanded':''}`;
     const expandBtn=`<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
     return`<div class="${cls}">
+      <div class="dc-strip ${stripCls}"></div>
       <div class="dc-head" onclick="${isExp?`collapseCard()`:`expandCard('${key}')`}" style="cursor:pointer">
         <span class="dc-title">${headTitle}</span>
+        ${badgeHtml?`<span class="dc-badge ${stripCls==='neg'?'neg':stripCls==='warn'?'warn':stripCls==='good'?'good':''}">${badgeHtml}</span>`:''}
         <span class="dc-link">${headLink}</span>
       </div>
       <div class="dc-body">${isExp?expandedHtml:summaryHtml}</div>
@@ -5543,58 +5605,76 @@ function renderDashboard(){
   }
 
   // ── RTS card summary ──
+  const rtsStripCls=rts<0?'neg':rts>0?'good':'blue';
   const rtsSummary=`
     <div class="dc-rts-num ${rts<0?'neg':rts>0?'pos':''}">${$f(Math.abs(rts))}</div>
-    <div class="dc-rts-sub">${rts<0?'Deficit this month':'Safe to spend today'}</div>
+    <div class="dc-rts-sub">${rts<0?'Deficit this month — reduce allocations':'Safe to spend · budget on track'}</div>
     <div class="dc-meta">
       <div class="dc-meta-item"><span class="dc-meta-label">Income</span><span class="dc-meta-val good">${$f(income)}</span></div>
-      <div class="dc-meta-item"><span class="dc-meta-label">Allocated</span><span class="dc-meta-val">${$f(alloc)}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Allocated</span><span class="dc-meta-val ${alloc>income?'neg':''}">${$f(alloc)}</span></div>
       <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val ${totalSpent>income?'neg':''}">${$f(totalSpent)}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Remaining</span><span class="dc-meta-val ${rts<0?'neg':'good'}">${$f(Math.abs(rts))}</span></div>
     </div>
     ${mStatus==='present'?`<div class="dc-bar-wrap">
       <div class="dc-bar-labels"><span>Month progress</span><span>${dayOfMonth} / ${daysInMonth} days</span></div>
       <div class="dc-bar-track"><div class="dc-bar-fill${monthPct>=90?' over':monthPct>=75?' warn':''}" style="width:${monthPct}%"></div></div>
     </div>`:''}`;
-
-  // RTS expanded = full buckets section (for allocating)
   const rtsExpanded=`<div class="dc-sect-wrap" id="dashExpRts"></div>`;
 
   // ── Accounts card ──
   const acctSummary=`
-    ${budgetAccts.slice(0,3).map(a=>`
+    ${budgetAccts.slice(0,3).map(a=>{const bal=acctBalance(a.id);return`
       <div class="dc-acct-row">
-        <div><div class="dc-acct-name">${esc(a.name)}</div><div class="dc-acct-type">${a.type||'Checking'}</div></div>
-        <div class="dc-acct-bal ${acctBalance(a.id)<0?'neg':'pos'}">${$f(Math.abs(acctBalance(a.id)))}</div>
-      </div>`).join('')}
-    ${budgetAccts.length>1?`<div class="dc-acct-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:6px">
-      <div><div class="dc-acct-name" style="color:var(--text3)">Total Cash</div><div class="dc-acct-type">${budgetAccts.length} accounts</div></div>
+        <div class="dc-acct-left"><div class="dc-acct-name">${esc(a.name)}</div><div class="dc-acct-type">${a.type||'budget'}</div></div>
+        <div class="dc-acct-bal ${bal<0?'neg':'pos'}">${$f(Math.abs(bal))}</div>
+      </div>`;}).join('')}
+    ${budgetAccts.length>1?`<div class="dc-acct-row" style="border-top:2px solid var(--border);margin-top:4px;padding-top:6px">
+      <div class="dc-acct-left"><div class="dc-acct-name" style="color:var(--text3)">Total Cash</div><div class="dc-acct-type">${budgetAccts.length} accounts</div></div>
       <div class="dc-acct-bal ${cash<0?'neg':'pos'}">${$f(Math.abs(cash))}</div>
     </div>`:''}
-    ${debtAccts.length?`<div class="dc-acct-row" style="border-top:2px solid var(--border);margin-top:4px;padding-top:8px">
-      <div><div class="dc-acct-name" style="color:var(--text3)">Total Debt</div><div class="dc-acct-type">${debtAccts.length} account${debtAccts.length>1?'s':''}</div></div>
+    ${debtAccts.length?`<div class="dc-acct-row" style="border-top:1px solid var(--border);padding-top:6px;margin-top:4px">
+      <div class="dc-acct-left"><div class="dc-acct-name" style="color:var(--text3)">Total Debt</div><div class="dc-acct-type">${debtAccts.length} account${debtAccts.length>1?'s':''}</div></div>
       <div class="dc-acct-bal neg">${$f(Math.abs(totalDebt))}</div>
+    </div>
+    <div class="dc-acct-row">
+      <div class="dc-acct-left"><div class="dc-acct-name" style="color:var(--text3)">Net Position</div><div class="dc-acct-type">cash − debt</div></div>
+      <div class="dc-acct-bal ${netPosition<0?'neg':'pos'}">${$f(Math.abs(netPosition))}</div>
     </div>`:''}`;
   const acctExpanded=`<div class="dc-sect-wrap" id="dashExpAcct"></div>`;
 
   // ── Buckets attention card ──
   const bktSummary=allFunded
-    ?`<div style="padding:12px 0">
-        <div style="font-family:var(--display);font-size:22px;color:var(--green)">✓ All Funded</div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.14em;margin-top:6px;text-transform:uppercase">${$f(rts)} ready to spend</div>
-        ${rts>0?`<button class="dc-btn primary" style="margin-top:12px" onclick="setTab('buckets')">Plan next month →</button>`:''}
+    ?`<div class="dc-empty">
+        <div class="dc-empty-icon">✓</div>
+        <div class="dc-empty-text">All buckets funded<br>${$f(rts)} ready to spend</div>
+        ${rts>0?`<button class="dc-empty-cta" onclick="event.stopPropagation();setTab('buckets')">Plan next month →</button>`:''}
       </div>`
     :`<table class="dc-table">
-        <thead><tr><th style="padding-left:0">Bucket</th><th>Category</th><th class="r">Amount</th><th class="r" style="width:64px">Status</th></tr></thead>
-        <tbody>${attentionBkts.map(({b,al,sp,bg,over,unfunded})=>{
+        <thead><tr>
+          <th style="padding-left:0;width:28%">Bucket</th>
+          <th style="width:20%">Category</th>
+          <th class="r" style="width:15%">Budget</th>
+          <th class="r" style="width:15%">Allocated</th>
+          <th class="r" style="width:14%">Spent</th>
+          <th class="r" style="width:8%">Status</th>
+        </tr></thead>
+        <tbody>${attentionBkts.map(({b,al,sp,bg,over,unfunded,pastDue,dueSoon,runningLow,pct})=>{
           const cat=cats.find(c=>c.id===b.catId);
-          const left=al-sp;
-          const statusCls=over?'over':unfunded?'warn':al>0&&al<bg?'warn':'';
-          const statusLbl=over?'Over':unfunded?'Unfunded':al>0&&al<bg?`${Math.round(al/bg*100)}%`:'';
+          let pillCls,pillLbl;
+          if(over){pillCls='over';pillLbl='Over';}
+          else if(pastDue){pillCls='over';pillLbl='Past Due';}
+          else if(unfunded){pillCls='warn';pillLbl='Unfunded';}
+          else if(dueSoon){pillCls='due';pillLbl='Due Soon';}
+          else{pillCls='warn';pillLbl=`${Math.round(pct*100)}% used`;}
+          const amtColor=over||pastDue?'var(--red)':unfunded||dueSoon?'var(--amber)':'var(--text)';
+          const displayAmt=over?'-'+$f(sp-al):unfunded?$f(bg):$f(al-sp);
           return`<tr>
-            <td class="dc-td-bold" style="padding:7px 0 7px 0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</td>
-            <td style="font-family:var(--mono);font-size:8px;color:var(--text3);padding:0 8px">${esc(cat?.name||'—')}</td>
-            <td class="dc-td-num" style="color:${over?'var(--red)':unfunded?'var(--amber)':'var(--text)'};text-align:right;padding-right:0">${over?'-'+$f(sp-al):unfunded?$f(bg):$f(left)}</td>
-            <td style="width:60px;padding-left:8px"><span class="dc-mini-pct ${statusCls}">${statusLbl}</span></td>
+            <td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</td>
+            <td style="font-family:var(--mono);font-size:8px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cat?.name||'—')}</td>
+            <td class="dc-td-num" style="color:var(--text3)">${bg?$f(bg):'—'}</td>
+            <td class="dc-td-num">${$f(al)}</td>
+            <td class="dc-td-num" style="color:${amtColor}">${displayAmt}</td>
+            <td style="text-align:right;padding-right:0"><span class="dc-pill ${pillCls}">${pillLbl}</span></td>
           </tr>`;
         }).join('')}</tbody>
       </table>`;
@@ -5624,9 +5704,10 @@ function renderDashboard(){
           <div class="dc-bubble-label" style="color:${a.type==='alert'?'var(--red)':a.type==='good'?'var(--green)':a.type==='warn'?'var(--amber)':'var(--text3)'}">${a.type==='alert'?'⚑ Alert':a.type==='good'?'✓ On track':a.type==='warn'?'◎ Forecast':'◈ Insight'}</div>
           <div class="dc-bubble-text">${esc(a.msg||a.text||'')}</div>
         </div>`).join('')
-    :`<div class="dc-bubble">
-        <div class="dc-bubble-label" style="color:var(--text3)">◈ Coach</div>
-        <div class="dc-bubble-text">${aiEnabled()?'Loading insights…':'Add your Gemini API key in Settings → AI Coach to enable.'}</div>
+    :`<div class="dc-empty">
+        <div class="dc-empty-icon">✦</div>
+        <div class="dc-empty-text">${aiEnabled()?'Generating insights…':'AI Coach not connected'}</div>
+        ${!aiEnabled()?`<button class="dc-empty-cta" onclick="event.stopPropagation();setTab('settings')">Enable in Settings →</button>`:''}
       </div>`;
   const aiExpanded=`<div class="dc-sect-wrap" id="dashExpAi"></div>`;
 
@@ -5656,26 +5737,36 @@ function renderDashboard(){
   const reportsSummary=catSpend.length
     ?`<table class="dc-table"><thead><tr><th style="padding-left:0">Category</th><th class="r" style="padding-right:0">Spent · Trend</th></tr></thead><tbody>
         ${catSpend.map(c=>`<tr>
-          <td class="dc-td-bold" style="padding-left:0">${esc(c.name)}</td>
+          <td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</td>
           <td style="text-align:right;padding-right:0">
             <div class="dc-td-num">${$f(c.cur)}</div>
             <div style="font-family:var(--mono);font-size:8px;margin-top:1px;color:${c.delta>0?'var(--red)':c.delta<0?'var(--green)':'var(--text3)'}">${c.delta>0?'↑ +'+$f(Math.abs(c.delta)):c.delta<0?'↓ -'+$f(Math.abs(c.delta)):'— flat'}</div>
           </td>
         </tr>`).join('')}
       </tbody></table>`
-    :`<div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:12px 0">No data yet</div>`;
+    :`<div class="dc-empty">
+        <div class="dc-empty-icon">◑</div>
+        <div class="dc-empty-text">No spending data yet<br>Categorize transactions<br>to see trends</div>
+        <button class="dc-empty-cta" onclick="event.stopPropagation();setTab('ledger')">Go to Ledger →</button>
+      </div>`;
   const reportsExpanded=`<div class="dc-sect-wrap" id="dashExpReports"></div>`;
 
   // ── BUILD GRID ──
+  const bktBadgeCls=criticalCount>0?'neg':allFunded?'good':'warn';
+  const bktBadgeLbl=allFunded?'✓ All funded':`${attentionBkts.length} need${attentionBkts.length===1?' attention':'s attention'}`;
+
   el.innerHTML=`
-    ${card('rts','span2 featured','Ready to spend','Buckets ›','buckets',   rtsSummary,   rtsExpanded,   `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`)}
-    ${card('accounts','',         'Accounts',       'All ›',    'accounts',  acctSummary,  acctExpanded,  `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`)}
-    <div class="dc-rule"></div>
-    ${card('buckets','span3','Buckets',        allFunded?'✓ Funded':'⚑ Attention','buckets', bktSummary, bktExpanded, `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'All buckets ›':'Fix issues ›'}</button>`)}
-    ${card('ledger','span2', 'Recent ledger', 'Full ledger ›','ledger',  ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`)}
-    ${card('reports','',     'Spending',      'Full ›',   'reports',   reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`)}
-    ${card('horizon','span2','12-month horizon','What If ›','whatif',  horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`)}
-    ${card('ai','',          '✦ AI Coach',    'Open ›',   'coach',     aiSummary,    aiExpanded,    `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`)}
+    <div class="dc-section"><span class="dc-section-lbl">Financial position</span><span class="dc-section-line"></span></div>
+    ${card('rts','span2 featured','Ready to Spend','','Buckets ›',rtsSummary,rtsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`,rtsStripCls)}
+    ${card('accounts','','Accounts','','All ›',acctSummary,acctExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`,'blue')}
+    <div class="dc-section"><span class="dc-section-lbl">Budget status</span><span class="dc-section-line"></span></div>
+    ${card('buckets','span3','Buckets',bktBadgeLbl,'Manage ›',bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'good':criticalCount>0?'neg':'warn')}
+    <div class="dc-section"><span class="dc-section-lbl">Activity</span><span class="dc-section-line"></span></div>
+    ${card('ledger','span2','Recent Ledger','','Full ledger ›',ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`,'blue')}
+    ${card('reports','','Spending','','Reports ›',reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`,'blue')}
+    <div class="dc-section"><span class="dc-section-lbl">Outlook</span><span class="dc-section-line"></span></div>
+    ${card('horizon','span2','12-Month Horizon','','What If ›',horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'blue')}
+    ${card('ai','','✦ AI Coach','','Open ›',aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'dim')}
   `;
 
   // Toggle has-expanded class on canvas
