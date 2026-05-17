@@ -7256,7 +7256,8 @@ function _rerenderBucketsTab(){
 }
 function _setBucketInner(el,h){
   // Write content to a stable child div so el.scrollTop is never reset.
-  let inner=document.getElementById('paneBucketsInner');
+  // Scope lookup to el so desktop expand cards don't write into the hidden mobile pane.
+  let inner=el.querySelector('#paneBucketsInner');
   if(!inner){
     el.innerHTML='';
     inner=document.createElement('div');
