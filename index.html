@@ -5226,9 +5226,15 @@ function _chartCatHistory(){
       scales:{x:{..._scaleX(c),stacked:true},y:{..._scaleY(c),stacked:true}}}});
 }
 
+const _moreSheetTabs=new Set(['accounts','reports','whatif','settings']);
 function renderNav(){
   document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
-    btn.classList.toggle('active',btn.dataset.tab===activeTab);
+    if(btn.id==='navMoreBtn'){
+      // Highlight More button when active tab is any tab accessible via the More sheet (mobile only)
+      btn.classList.toggle('active',isMobile()&&_moreSheetTabs.has(activeTab));
+    } else {
+      btn.classList.toggle('active',btn.dataset.tab===activeTab);
+    }
   });
 }
 
