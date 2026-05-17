@@ -5549,11 +5549,11 @@ function renderDashboard(){
     <div class="dc-meta">
       <div class="dc-meta-item"><span class="dc-meta-label">Income</span><span class="dc-meta-val good">${$f(income)}</span></div>
       <div class="dc-meta-item"><span class="dc-meta-label">Allocated</span><span class="dc-meta-val">${$f(alloc)}</span></div>
-      <div class="dc-meta-item"><span class="dc-meta-label">Buckets</span><span class="dc-meta-val">${bkts.length}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val ${totalSpent>income?'neg':''}">${$f(totalSpent)}</span></div>
     </div>
     ${mStatus==='present'?`<div class="dc-bar-wrap">
       <div class="dc-bar-labels"><span>Month progress</span><span>${dayOfMonth} / ${daysInMonth} days</span></div>
-      <div class="dc-bar-track"><div class="dc-bar-fill" style="width:${monthPct}%"></div></div>
+      <div class="dc-bar-track"><div class="dc-bar-fill${monthPct>=90?' over':monthPct>=75?' warn':''}" style="width:${monthPct}%"></div></div>
     </div>`:''}`;
 
   // RTS expanded = full buckets section (for allocating)
@@ -5561,11 +5561,15 @@ function renderDashboard(){
 
   // ── Accounts card ──
   const acctSummary=`
-    ${budgetAccts.slice(0,4).map(a=>`
+    ${budgetAccts.slice(0,3).map(a=>`
       <div class="dc-acct-row">
         <div><div class="dc-acct-name">${esc(a.name)}</div><div class="dc-acct-type">${a.type||'Checking'}</div></div>
-        <div class="dc-acct-bal ${acctBalance(a.id)<0?'neg':''}">${$f(Math.abs(acctBalance(a.id)))}</div>
+        <div class="dc-acct-bal ${acctBalance(a.id)<0?'neg':'pos'}">${$f(Math.abs(acctBalance(a.id)))}</div>
       </div>`).join('')}
+    ${budgetAccts.length>1?`<div class="dc-acct-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:6px">
+      <div><div class="dc-acct-name" style="color:var(--text3)">Total Cash</div><div class="dc-acct-type">${budgetAccts.length} accounts</div></div>
+      <div class="dc-acct-bal ${cash<0?'neg':'pos'}">${$f(Math.abs(cash))}</div>
+    </div>`:''}
     ${debtAccts.length?`<div class="dc-acct-row" style="border-top:2px solid var(--border);margin-top:4px;padding-top:8px">
       <div><div class="dc-acct-name" style="color:var(--text3)">Total Debt</div><div class="dc-acct-type">${debtAccts.length} account${debtAccts.length>1?'s':''}</div></div>
       <div class="dc-acct-bal neg">${$f(Math.abs(totalDebt))}</div>
@@ -5580,10 +5584,11 @@ function renderDashboard(){
         ${rts>0?`<button class="dc-btn primary" style="margin-top:12px" onclick="setTab('buckets')">Plan next month →</button>`:''}
       </div>`
     :`<table class="dc-table">
+        <thead><tr><th style="padding-left:0">Bucket</th><th>Category</th><th class="r">Amount</th><th class="r" style="width:64px">Status</th></tr></thead>
         <tbody>${attentionBkts.map(({b,al,sp,bg,over,unfunded})=>{
           const cat=cats.find(c=>c.id===b.catId);
           const left=al-sp;
-          const statusCls=over?'over':unfunded?'':al>0&&al<bg?'warn':'';
+          const statusCls=over?'over':unfunded?'warn':al>0&&al<bg?'warn':'';
           const statusLbl=over?'Over':unfunded?'Unfunded':al>0&&al<bg?`${Math.round(al/bg*100)}%`:'';
           return`<tr>
             <td class="dc-td-bold" style="padding:7px 0 7px 0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</td>
@@ -5649,10 +5654,13 @@ function renderDashboard(){
 
   // ── Reports card ──
   const reportsSummary=catSpend.length
-    ?`<table class="dc-table"><thead><tr><th style="padding-left:0">Category</th><th class="r" style="padding-right:0">vs last mo.</th></tr></thead><tbody>
+    ?`<table class="dc-table"><thead><tr><th style="padding-left:0">Category</th><th class="r" style="padding-right:0">Spent · Trend</th></tr></thead><tbody>
         ${catSpend.map(c=>`<tr>
           <td class="dc-td-bold" style="padding-left:0">${esc(c.name)}</td>
-          <td class="dc-td-num" style="padding-right:0;color:${c.delta>0?'var(--red)':c.delta<0?'var(--green)':'var(--text3)'}">${c.delta>0?'↑':c.delta<0?'↓':'—'} ${c.delta!==0?$f(Math.abs(c.delta)):'$0'}</td>
+          <td style="text-align:right;padding-right:0">
+            <div class="dc-td-num">${$f(c.cur)}</div>
+            <div style="font-family:var(--mono);font-size:8px;margin-top:1px;color:${c.delta>0?'var(--red)':c.delta<0?'var(--green)':'var(--text3)'}">${c.delta>0?'↑ +'+$f(Math.abs(c.delta)):c.delta<0?'↓ -'+$f(Math.abs(c.delta)):'— flat'}</div>
+          </td>
         </tr>`).join('')}
       </tbody></table>`
     :`<div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:12px 0">No data yet</div>`;
@@ -5660,14 +5668,14 @@ function renderDashboard(){
 
   // ── BUILD GRID ──
   el.innerHTML=`
-    ${card('rts','',         'Ready to spend','Buckets ›','buckets',   rtsSummary,   rtsExpanded,   `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`)}
-    ${card('accounts','span2','Accounts',       'All ›',    'accounts',  acctSummary,  acctExpanded,  `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`)}
+    ${card('rts','span2 featured','Ready to spend','Buckets ›','buckets',   rtsSummary,   rtsExpanded,   `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`)}
+    ${card('accounts','',         'Accounts',       'All ›',    'accounts',  acctSummary,  acctExpanded,  `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`)}
     <div class="dc-rule"></div>
     ${card('buckets','span3','Buckets',        allFunded?'✓ Funded':'⚑ Attention','buckets', bktSummary, bktExpanded, `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'All buckets ›':'Fix issues ›'}</button>`)}
     ${card('ledger','span2', 'Recent ledger', 'Full ledger ›','ledger',  ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`)}
-    ${card('ai','',          '✦ AI Coach',    'Open ›',   'coach',     aiSummary,    aiExpanded,    `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`)}
+    ${card('reports','',     'Spending',      'Full ›',   'reports',   reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`)}
     ${card('horizon','span2','12-month horizon','What If ›','whatif',  horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`)}
-    ${card('reports','',     'Reports',       'Full ›',   'reports',   reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`)}
+    ${card('ai','',          '✦ AI Coach',    'Open ›',   'coach',     aiSummary,    aiExpanded,    `<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`)}
   `;
 
   // Toggle has-expanded class on canvas
