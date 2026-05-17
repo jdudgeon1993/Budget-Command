@@ -5665,16 +5665,16 @@ function renderDashboard(){
   const EXP=_dashExpanded;
   const hasExp=EXP!==null;
 
-  // card(key, spanCls, headTitle, badgeHtml, headLink, summaryHtml, expandedHtml, footBtns, stripCls)
-  function card(key,spanCls,headTitle,badgeHtml,headLink,summaryHtml,expandedHtml,footBtns='',stripCls='dim'){
+  // card(key, spanCls, headTitle, badgeHtml, headLink, summaryHtml, expandedHtml, footBtns, statusCls)
+  function card(key,spanCls,headTitle,badgeHtml,headLink,summaryHtml,expandedHtml,footBtns='',statusCls='s-dim'){
     const isExp=EXP===key;
-    const cls=`dc${spanCls?' '+spanCls:''}${isExp?' dc-expanded':''}`;
+    const cls=`dc ${spanCls?spanCls+' ':''}${statusCls}${isExp?' dc-expanded':''}`;
+    const badgeCls=statusCls==='s-neg'?'neg':statusCls==='s-warn'?'warn':statusCls==='s-good'?'good':'';
     const expandBtn=`<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
     return`<div class="${cls}">
-      <div class="dc-strip ${stripCls}"></div>
       <div class="dc-head" onclick="${isExp?`collapseCard()`:`expandCard('${key}')`}" style="cursor:pointer">
         <span class="dc-title">${headTitle}</span>
-        ${badgeHtml?`<span class="dc-badge ${stripCls==='neg'?'neg':stripCls==='warn'?'warn':stripCls==='good'?'good':''}">${badgeHtml}</span>`:''}
+        ${badgeHtml?`<span class="dc-badge ${badgeCls}">${badgeHtml}</span>`:''}
         <span class="dc-link">${headLink}</span>
       </div>
       <div class="dc-body">${isExp?expandedHtml:summaryHtml}</div>
@@ -5683,8 +5683,9 @@ function renderDashboard(){
   }
 
   // ── RTS card summary ──
-  const rtsStripCls=rts<0?'neg':rts>0?'good':'blue';
+  const rtsStatusCls=rts<0?'s-neg':rts>0?'s-good':'s-blue';
   const rtsSummary=`
+    <div class="dc-rts-kicker">${mStatus==='present'?`Day ${dayOfMonth} of ${daysInMonth}`:mStatus==='past'?'Past month':'Future month'}</div>
     <div class="dc-rts-num ${rts<0?'neg':rts>0?'pos':''}">${$f(Math.abs(rts))}</div>
     <div class="dc-rts-sub">${rts<0?'Deficit this month — reduce allocations':'Safe to spend · budget on track'}</div>
     <div class="dc-meta">
@@ -5834,17 +5835,16 @@ function renderDashboard(){
   const bktBadgeLbl=allFunded?'✓ All funded':`${attentionBkts.length} need${attentionBkts.length===1?' attention':'s attention'}`;
 
   el.innerHTML=`
-    <div class="dc-section"><span class="dc-section-lbl">Financial position</span><span class="dc-section-line"></span></div>
-    ${card('rts','span2 featured','Ready to Spend','','Buckets ›',rtsSummary,rtsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`,rtsStripCls)}
-    ${card('accounts','','Accounts','','All ›',acctSummary,acctExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`,'blue')}
-    <div class="dc-section"><span class="dc-section-lbl">Budget status</span><span class="dc-section-line"></span></div>
-    ${card('buckets','span3','Buckets',bktBadgeLbl,'Manage ›',bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'good':criticalCount>0?'neg':'warn')}
-    <div class="dc-section"><span class="dc-section-lbl">Activity</span><span class="dc-section-line"></span></div>
-    ${card('ledger','span2','Recent Ledger','','Full ledger ›',ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`,'blue')}
-    ${card('reports','','Spending','','Reports ›',reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`,'blue')}
-    <div class="dc-section"><span class="dc-section-lbl">Outlook</span><span class="dc-section-line"></span></div>
-    ${card('horizon','span2','12-Month Horizon','','What If ›',horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'blue')}
-    ${card('ai','','✦ AI Coach','','Open ›',aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'dim')}
+    ${card('rts','span2 featured','Ready to Spend','','Allocate ›',rtsSummary,rtsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`,rtsStatusCls)}
+    ${card('accounts','','Accounts','','All ›',acctSummary,acctExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`,'s-blue')}
+    <div class="dc-spacer"></div>
+    ${card('buckets','span3','Buckets',bktBadgeLbl,'Manage ›',bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
+    <div class="dc-spacer"></div>
+    ${card('ledger','span2','Recent Ledger','','Full ledger ›',ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`,'s-blue')}
+    ${card('reports','','Spending','','Reports ›',reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`,'s-blue')}
+    <div class="dc-spacer"></div>
+    ${card('horizon','span2','12-Month Horizon','','What If ›',horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'s-blue')}
+    ${card('ai','','✦ AI Coach','','Open ›',aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'s-dim')}
   `;
 
   // Toggle has-expanded class on canvas
