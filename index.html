@@ -146,7 +146,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .tb-month-sel.future{border-color:var(--border2);}
 
 /* ═══ LAYOUT ═══ */
-.app{display:grid;grid-template-columns:240px 1fr;flex:1 1 0%;overflow:hidden;min-height:0;position:relative;}
+.app{flex:1 1 0%;overflow:hidden;min-height:0;position:relative;}
 
 .cat-block{margin-bottom:2px;}
 .cat-row{display:flex;align-items:center;padding:5px 16px;gap:8px;cursor:default;user-select:none;}
@@ -1214,7 +1214,6 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   .tb-month-sel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--sans);font-size:14px;font-weight:500;padding:6px 8px;cursor:pointer;appearance:none;-webkit-appearance:none;flex:1;text-align:center;}
   .tb-month-arrow{background:none;border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);font-size:16px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
   .tb-month-arrow:active{background:var(--surface);}
-  .tb-new-btn{display:inline-flex !important;}
   /* Ledger: hide form column (use Log tab instead) */
   /* ledger-layout is already column by default */
   .tx-acts{opacity:1;}
@@ -5267,7 +5266,6 @@ function setTab(tab){
   }
 
   // ── MOBILE PATH: pane swap inside .app ──
-  if(tab==='coach'&&!isMobile()){if(!_coachOpen)toggleCoach();return;}
   const curPane=document.getElementById('pane'+capitalize(activeTab));
   if(curPane)_tabScroll[activeTab]=curPane.scrollTop;
   curPane?.classList.add('slide-left');
@@ -5445,7 +5443,7 @@ function renderDashboard(){
   const mid=S.activeMonth;
   const txs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening');
   const accts=S.accounts||[];
-  const cats=S.categories||[];
+  const cats=S.cats||[];
   const bkts=(S.buckets||[]).filter(b=>!b.archived);
   const today=new Date();
   const mStatus=monthStatus(mid)||'present';
