@@ -146,7 +146,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .tb-month-sel.future{border-color:var(--border2);}
 
 /* ═══ LAYOUT ═══ */
-.app{display:grid;grid-template-columns:240px 1fr;flex:1 1 0%;overflow:hidden;min-height:0;}
+.app{display:grid;grid-template-columns:240px 1fr;flex:1 1 0%;overflow:hidden;min-height:0;position:relative;}
 
 .cat-block{margin-bottom:2px;}
 .cat-row{display:flex;align-items:center;padding:5px 16px;gap:8px;cursor:default;user-select:none;}
@@ -1188,10 +1188,13 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .tb-mobile-wrap{display:none;}
 
 @media(max-width:1099px){
-  /* App: single column, nav at bottom (mobile + tablet) */
-  .app{grid-template-columns:1fr;grid-template-rows:1fr auto;height:0;}
-  .app-nav{grid-row:2;display:flex;flex-direction:row;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);}
-  .app-main{grid-row:1;position:relative;overflow:hidden;}
+  /* Hide desktop-only panels — must be explicit to prevent them leaking into body flex */
+  #paneDashboard{display:none!important;}
+  header.dash-header{display:none!important;}
+  /* App: flex column — more reliable than grid+height:0 across mobile browsers */
+  .app{display:flex!important;flex-direction:column;position:relative;}
+  .app-nav{order:2;flex-shrink:0;display:flex;flex-direction:row;border-right:none;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);}
+  .app-main{order:1;flex:1 1 0%;min-height:0;position:relative;overflow:hidden;}
   /* Nav buttons: bottom bar style */
   .nav-desktop{display:none !important;}
   .nav-mobile{display:flex !important;}
@@ -2356,17 +2359,21 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
     <!-- Navigation buttons -->
     <button class="nav-btn" data-tab="buckets" onclick="setTab('buckets')">
       <span class="nav-icon-txt">▣</span>
+      <svg class="nav-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       <span class="nav-label-wrap">
         <span class="nav-label">Buckets</span>
         <span class="sb-nav-stat" id="sbStat-buckets"></span>
       </span>
+      <span class="nav-pip"></span>
     </button>
     <button class="nav-btn" data-tab="ledger" onclick="setTab('ledger')">
       <span class="nav-icon-txt">≡</span>
+      <svg class="nav-svg" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       <span class="nav-label-wrap">
         <span class="nav-label">Ledger</span>
         <span class="sb-nav-stat" id="sbStat-ledger"></span>
       </span>
+      <span class="nav-pip"></span>
     </button>
     <button class="nav-btn nav-desktop" data-tab="accounts" onclick="setTab('accounts')">
       <span class="nav-icon-txt">⬡</span>
@@ -2392,11 +2399,16 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
       <span class="nav-label">Coach</span>
     </button>
     <button class="nav-btn nav-mobile" id="navMoreBtn" onclick="toggleMoreSheet()">
-      <span class="nav-icon">···</span>
+      <svg class="nav-svg" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+      <span class="nav-icon-txt">···</span>
       <span class="nav-label">More</span>
+      <span class="nav-pip"></span>
     </button>
     <button class="nav-btn nav-mobile" data-tab="coach" onclick="setTab('coach')">
+      <svg class="nav-svg" viewBox="0 0 24 24"><path d="M12 3c0 0-1 3-3 5s-5 3-5 3 3 1 5 3 3 5 3 5 1-3 3-5 5-3 5-3-3-1-5-3-3-5-3-5z"/></svg>
+      <span class="nav-icon-txt">✦</span>
       <span class="nav-label">Coach</span>
+      <span class="nav-pip"></span>
     </button>
     <!-- Vitals panel — desktop only -->
     <div class="nav-spacer nav-desktop"></div>
