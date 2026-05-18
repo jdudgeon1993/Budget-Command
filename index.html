@@ -2723,7 +2723,8 @@ async function authInit(){
         if(!S.accounts.length){startWizard();}
       }
     } else if(event==='TOKEN_REFRESHED'){
-      // Session silently renewed — push any pending offline changes
+      // Session silently renewed — update user reference and push pending changes
+      if(session)_supaUser=session.user;
       if(_supaUser&&_pendingSync){
         setSyncStatus('syncing','Syncing…');
         await supabase_push();
@@ -2976,6 +2977,27 @@ function save(){
   }
 }
 
+function _isAuthError(err){
+  if(!err)return false;
+  return err.status===401||err.status===403||err.code==='PGRST301'||
+    !!(err.message&&(err.message.includes('JWT')||err.message.includes('not authenticated')||err.message.includes('invalid claim')||err.message.includes('session_not_found')));
+}
+
+async function _handleStaleSession(){
+  // Verify session is genuinely invalid before forcing re-login
+  const client=supaClient();
+  const {error}=await client.auth.getUser();
+  if(error){
+    _supaUser=null;
+    _appInitialized=false;
+    setSyncStatus('offline','Session expired — please sign in again');
+    updateAuthBtn();
+    showAuthSignIn();
+    document.getElementById('authScreen').classList.remove('hidden');
+  }
+  // If getUser() succeeds, the token refreshed on its own — no action needed
+}
+
 async function supabase_push(){
   if(!supaReady()||!_supaUser)return;
   const client=supaClient();
@@ -2994,6 +3016,7 @@ async function supabase_push(){
 
   if(error){
     clearTimeout(abortTimer);
+    if(_isAuthError(error)){await _handleStaleSession();return;}
     console.warn('Supabase push error:',error.message,'(code:'+error.code+')');
     setSyncStatus('error','Sync error — see console');
     return;
@@ -3024,12 +3047,8 @@ async function supabase_push(){
 
 // ── Load: Supabase is the source of truth, localStorage is offline fallback ──
 async function loadFromSupabase(){
-  if(!supaReady())return false;
+  if(!supaReady()||!_supaUser)return false;
   const client=supaClient();
-
-  const {data:sessionData}=await client.auth.getSession();
-  if(!sessionData?.session?.user)return false;
-  _supaUser=sessionData.session.user;
 
   const {data,error}=await client
     .from('bcc_budget_state')
@@ -3039,6 +3058,7 @@ async function loadFromSupabase(){
 
   if(error){
     console.warn('Supabase load error:',error.message,'(code:'+error.code+')');
+    if(_isAuthError(error)){await _handleStaleSession();return false;}
     if(error.code==='42P01'||error.message.includes('does not exist')){
       setSyncStatus('error','Table missing — run SQL setup');
       return false;
@@ -3195,7 +3215,7 @@ function addNextMonth(){
   if(pi!=null)nm.projectedIncome=pi;
   S.months.push(nm);
   S.months.sort((a,b)=>a.year!==b.year?a.year-b.year:a.month-b.month);
-  save();render();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();
 }
 
 function _ensureMonthForWI(y,m){
@@ -3370,7 +3390,7 @@ function toggleSkipBucket(bid,mid){
   if(!m.skippedBuckets)m.skippedBuckets=[];
   const idx=m.skippedBuckets.indexOf(bid);
   if(idx>=0)m.skippedBuckets.splice(idx,1);else m.skippedBuckets.push(bid);
-  save();renderTopbar();renderNav();renderActivePane();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();
 }
 
 // ── AI / Gemini Foundation ────────────────────────────────────────────────────
@@ -4594,7 +4614,7 @@ function monthProjectedIncome(mid){
 function setProjectedIncome(mid,val){
   const m=getMonth(mid);if(!m)return;
   m.projectedIncome=val>0?val:null;
-  save();render();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();
 }
 // Future-dated transactions are "scheduled" — shown in ledger but excluded from all balance/spend math
 const todayStr=()=>new Date().toISOString().split('T')[0];
@@ -5178,6 +5198,7 @@ function renderTopbar(){
 let activeTab='dashboard';
 let _dashExpanded=null; // which card is expanded: null | 'rts'|'accounts'|'buckets'|'ledger'|'ai'|'horizon'|'reports'
 let _horizonMode='rts'; // 'rts' | 'paychecks'
+const _cardBodyCache={}; // {[key]: {summary, expanded}} — populated by renderDashboard, used by expandCard
 let reportsTab='month';
 let reportsMid=null;
 const _chartInst={};
@@ -5389,7 +5410,6 @@ function setTab(tab){
       if(backBtn)backBtn.style.display='inline-flex';
       renderDeskSection(tab);
     }
-    save();
     return;
   }
 
@@ -5410,7 +5430,6 @@ function setTab(tab){
     requestAnimationFrame(()=>{newPane.scrollTop=_tabScroll[tab]||0;});
   }
   renderActivePane();
-  save();
 }
 
 function setReportsTab(t){
@@ -5670,9 +5689,10 @@ function renderDashboard(){
     const badgeCls=statusCls==='s-neg'?'neg':statusCls==='s-warn'?'warn':statusCls==='s-good'?'good':'';
     const expandBtn=noExpand?'':
       `<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
-    const headOnClick=noExpand?'':`onclick="${isExp?`collapseCard()`:`expandCard('${key}')`}"`;
+    const headOnClick=noExpand?'':`onclick="expandCard('${key}')"`;
     const showFoot=footBtns||!noExpand;
-    return`<div class="${cls}">
+    if(!noExpand)_cardBodyCache[key]={summary:summaryHtml,expanded:expandedHtml};
+    return`<div class="${cls}" data-card-key="${key}">
       <div class="dc-head" ${headOnClick} style="cursor:${noExpand?'default':'pointer'}">
         <span class="dc-title">${headTitle}</span>
         ${badgeHtml?`<span class="dc-badge ${badgeCls}">${badgeHtml}</span>`:''}
@@ -5793,8 +5813,8 @@ function renderDashboard(){
 
   // ── Horizon card ──
   const horizonToggle=`<div style="display:flex;gap:4px;margin-left:auto">
-    <button class="dc-btn ${_horizonMode==='rts'?'primary':''}" onclick="event.stopPropagation();_horizonMode='rts';renderDashboard()" style="padding:2px 8px;font-size:8px">RTS</button>
-    <button class="dc-btn ${_horizonMode==='paychecks'?'primary':''}" onclick="event.stopPropagation();_horizonMode='paychecks';renderDashboard()" style="padding:2px 8px;font-size:8px">Income</button>
+    <button class="dc-btn ${_horizonMode==='rts'?'primary':''}" onclick="event.stopPropagation();_horizonMode='rts';refreshHorizonCard()" style="padding:2px 8px;font-size:8px">RTS</button>
+    <button class="dc-btn ${_horizonMode==='paychecks'?'primary':''}" onclick="event.stopPropagation();_horizonMode='paychecks';refreshHorizonCard()" style="padding:2px 8px;font-size:8px">Income</button>
   </div>`;
   const horizonSummary=`
     <div style="display:flex;align-items:center;margin-bottom:8px">${horizonToggle}</div>
@@ -5849,26 +5869,8 @@ function renderDashboard(){
     ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'s-dim')}
   `;
 
-  // Toggle has-expanded class on canvas
-  el.classList.remove('has-expanded');
-
-  // If a card is expanded, populate its section container
-  if(EXP){
-    requestAnimationFrame(()=>{
-      const sectMap={
-        rts:'dashExpRts', accounts:'dashExpAcct', buckets:'dashExpBkt',
-        ledger:'dashExpLedger', ai:'dashExpAi', horizon:'dashExpHorizon', reports:'dashExpReports'
-      };
-      const sectEl=document.getElementById(sectMap[EXP]);
-      if(!sectEl)return;
-      const m=S.activeMonth;
-      if(EXP==='rts'||EXP==='buckets')renderBucketsTab(sectEl,m);
-      else if(EXP==='ledger')renderLedgerTab(sectEl,m);
-      else if(EXP==='accounts')renderAccountsTab(sectEl,m);
-      else if(EXP==='ai')renderCoachPane(sectEl);
-      else if(EXP==='horizon'||EXP==='reports')renderReportsTab(sectEl);
-    });
-  }
+  // If a card is expanded after full rebuild, repopulate its section on next frame
+  if(EXP){requestAnimationFrame(()=>_populateExpandedSection(EXP));}
 
   // Update desktop header month label
   const dhMonth=document.getElementById('dhMonthLabel');
@@ -5892,11 +5894,93 @@ function _sectEl(tab){
 function rerenderSettings(){const el=_sectEl('settings');if(el)renderSettingsTab(el);}
 function rerenderBuckets(){if(!isMobile()){renderDeskSection('buckets');return;}const el=document.getElementById('paneBuckets');if(el)renderBucketsTab(el,S.activeMonth);}
 
-function expandCard(key){
-  _dashExpanded=(_dashExpanded===key)?null:key;
-  renderDashboard();
+function _populateExpandedSection(key){
+  const sectMap={rts:'dashExpRts',accounts:'dashExpAcct',buckets:'dashExpBkt',ledger:'dashExpLedger',ai:'dashExpAi',horizon:'dashExpHorizon',reports:'dashExpReports'};
+  const sectEl=document.getElementById(sectMap[key]);
+  if(!sectEl)return;
+  const m=S.activeMonth;
+  if(key==='rts'||key==='buckets')renderBucketsTab(sectEl,m);
+  else if(key==='ledger')renderLedgerTab(sectEl,m);
+  else if(key==='accounts')renderAccountsTab(sectEl,m);
+  else if(key==='ai')renderCoachPane(sectEl);
+  else if(key==='horizon'||key==='reports')renderReportsTab(sectEl);
 }
-function collapseCard(){_dashExpanded=null;renderDashboard();}
+
+function refreshHorizonCard(){
+  // Recompute and swap only the horizon card body — no full dashboard rebuild
+  const cardEl=document.querySelector('[data-card-key="horizon"]');
+  if(!cardEl||_dashExpanded==='horizon'){renderDashboard();return;}
+  const today=new Date();
+  const mid=S.activeMonth;
+  const txs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening');
+  const bkts=(S.buckets||[]).filter(b=>!b.archived&&b.type!=='vault');
+  const income=txs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+  const alloc=bkts.reduce((s,b)=>s+bAlloc(mid,b.id),0);
+  const rts=income-alloc;
+  const cash=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
+  const totalSpent=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
+  const todayY=today.getFullYear(),todayM=today.getMonth();
+  const horizonMonths=[];
+  for(let i=-5;i<=6;i++){
+    let hy=todayY,hm=todayM+i;
+    while(hm<0){hm+=12;hy--;}while(hm>11){hm-=12;hy++;}
+    const hMid=`m_${hy}_${hm}`;
+    const mObj=S.months.find(x=>x.id===hMid);
+    const mTxs=S.txs.filter(t=>t.monthId===hMid);
+    const mIn=mTxs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
+    const mAlloc=mObj?bkts.reduce((s,b)=>s+(mObj.allocations?.[b.id]||0),0):0;
+    const projIncome=mObj?.projectedIncome||mIn;
+    const barVal=_horizonMode==='paychecks'?projIncome:Math.max(0,mIn-mAlloc);
+    horizonMonths.push({label:new Date(hy,hm,1).toLocaleString('default',{month:'short'}),barVal,mIn,mAlloc,rts:mIn-mAlloc,isNow:i===0,isPast:i<0});
+  }
+  const maxBar=Math.max(...horizonMonths.map(h=>h.barVal),1);
+  const horizonToggle=`<div style="display:flex;gap:4px;margin-left:auto">
+    <button class="dc-btn ${_horizonMode==='rts'?'primary':''}" onclick="event.stopPropagation();_horizonMode='rts';refreshHorizonCard()" style="padding:2px 8px;font-size:8px">RTS</button>
+    <button class="dc-btn ${_horizonMode==='paychecks'?'primary':''}" onclick="event.stopPropagation();_horizonMode='paychecks';refreshHorizonCard()" style="padding:2px 8px;font-size:8px">Income</button>
+  </div>`;
+  const newSummary=`
+    <div style="display:flex;align-items:center;margin-bottom:8px">${horizonToggle}</div>
+    <div class="dc-proj-bars">
+      ${horizonMonths.map(h=>{const heightPct=maxBar>0?Math.max(4,Math.round(h.barVal/maxBar*100)):4;const cls=h.isNow?'now':h.isPast?'past':'future';return`<div class="dc-proj-bar ${cls}" style="height:${heightPct}%" title="${h.label}: ${$f(h.barVal)}"></div>`;}).join('')}
+    </div>
+    <div class="dc-proj-labels">${horizonMonths.map(h=>`<div class="dc-proj-lbl ${h.isNow?'now':''}">${h.label}</div>`).join('')}</div>
+    <div class="dc-meta" style="margin-top:10px">
+      <div class="dc-meta-item"><span class="dc-meta-label">RTS Now</span><span class="dc-meta-val ${rts<0?'neg':''}">${$f(Math.abs(rts))}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Cash</span><span class="dc-meta-val">${$f(cash)}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val">${$f(totalSpent)}</span></div>
+    </div>`;
+  _cardBodyCache['horizon']={..._cardBodyCache['horizon'],summary:newSummary};
+  const body=cardEl.querySelector('.dc-body');
+  if(body)body.innerHTML=newSummary;
+}
+
+function expandCard(key){
+  const wasExp=_dashExpanded===key;
+  // Collapse any currently expanded card
+  if(_dashExpanded){
+    const oldEl=document.querySelector('[data-card-key="'+_dashExpanded+'"]');
+    if(!oldEl){renderDashboard();return;} // DOM out of sync — fall back to full rebuild
+    oldEl.classList.remove('dc-expanded');
+    const oldBody=oldEl.querySelector('.dc-body');
+    if(oldBody&&_cardBodyCache[_dashExpanded])oldBody.innerHTML=_cardBodyCache[_dashExpanded].summary;
+    const oldBtn=oldEl.querySelector('.dc-expand-btn');
+    if(oldBtn)oldBtn.textContent='↗ Expand';
+    _dashExpanded=null;
+  }
+  if(wasExp)return; // was a collapse — done
+  // Expand the new card
+  const cardEl=document.querySelector('[data-card-key="'+key+'"]');
+  if(!cardEl||!_cardBodyCache[key]){renderDashboard();return;} // DOM out of sync — fall back
+  _dashExpanded=key;
+  cardEl.classList.add('dc-expanded');
+  const body=cardEl.querySelector('.dc-body');
+  if(body)body.innerHTML=_cardBodyCache[key].expanded;
+  const btn=cardEl.querySelector('.dc-expand-btn');
+  if(btn)btn.textContent='▲ Collapse';
+  requestAnimationFrame(()=>_populateExpandedSection(key));
+}
+
+function collapseCard(){if(_dashExpanded)expandCard(_dashExpanded);}
 
 // Desktop section renderer — routes to the shared #dashSect container
 function renderDeskSection(tab){
@@ -7506,7 +7590,7 @@ function vaultTransfer(bid,mid){
   if(!S.vaultTransfers)S.vaultTransfers=[];
   S.vaultTransfers.push({id:uid(),fromBucketId:bid,toBucketId:destId,amount:amt,monthId:mid,date:todayStr(),reason});
   delete _vaultXfrReason[bid];
-  save();renderTopbar();renderNav();renderActivePane();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();
   showToast('Vault transfer complete — '+$f(amt)+' moved to '+(getBucket(destId)?.name||'bucket'),'save');
 }
 
@@ -7523,7 +7607,7 @@ function setAlloc(mid,bid,val){
   }
   if(!m.allocations)m.allocations={};
   m.allocations[bid]=newVal;
-  save();renderTopbar();renderNav();renderActivePane();refreshBucketDetail();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();refreshBucketDetail();
   setTimeout(()=>checkGoalCelebrations(mid),100);
 }
 function setPreAlloc(fmid,bid,val){
@@ -7604,7 +7688,7 @@ function commitAlloc(mid,bid){
   if(!_allocMonthGuard(mid))return;
   const val=parseFloat(document.getElementById('aerAlloc')?.value)||0;
   if(!m.allocations)m.allocations={};
-  m.allocations[bid]=val;save();renderTopbar();renderNav();renderActivePane();refreshBucketDetail();
+  m.allocations[bid]=val;save();renderTopbar();renderSidebarVitals();renderActivePane();refreshBucketDetail();
 }
 function updateBudget(bid){
   const m=getMonth(S.activeMonth);if(!m)return;
@@ -7644,13 +7728,13 @@ function fundCategory(catId,mid){
     const target=Math.max(m.budgets[b.id]||b.defaultBudget||0, 0);
     m.allocations[b.id]=target;
   });
-  save();render();
+  save();renderSidebarVitals();renderActivePane();
 }
 
 // ═══════════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════════
-function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;save();render();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
+function setMonth(id){S.activeMonth=id;S.activeBucket=null;S.activeAccount=null;save();renderTopbar();renderSidebarVitals();renderActivePane();setTimeout(()=>{const el=document.querySelector('.mtab.active');if(el)el.scrollIntoView({behavior:'smooth',inline:'nearest'});},50);}
 function setBucket(id){
   if(!_bktExpandSplit)_bktExpandSplit={};
   if(id){
@@ -7732,7 +7816,7 @@ function bktCreateSubmit(mid){
   const cnt=S.buckets.filter(b=>b.catId===catId).length;
   S.buckets.push({id:bid,catId,name,type:'expense',defaultBudget:0,dueDay:null,dueDay2:null,dueAmount:null,dueAmount2:null,payFreq:null,notes:null,recurring:false,rollover:false,archived:false,targetAmount:null,targetDate:null,contribFreq:'monthly',order:cnt,debtAccountId:null});
   S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[bid]=0;if(!m.allocations)m.allocations={};m.allocations[bid]=0;});
-  save();render();populateTxCats();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();populateTxCats();
   showToast('Created: '+name,'save');
 }
 function bktDuplicate(id){
@@ -7934,15 +8018,15 @@ function archiveOrDelete(id){
   if(hasTxs){
     b.archived=true;
     if(S.activeBucket===id)S.activeBucket=null;
-    save();render();populateTxCats();
-    showUndoToast(`Archived: ${b.name}`,'out',()=>{b.archived=false;save();render();populateTxCats();showToast('Restored','save');});
+    save();renderSidebarVitals();renderActivePane();populateTxCats();
+    showUndoToast(`Archived: ${b.name}`,'out',()=>{b.archived=false;save();renderSidebarVitals();renderActivePane();populateTxCats();showToast('Restored','save');});
   } else {
     if(S.celebratedGoals)S.celebratedGoals=S.celebratedGoals.filter(k=>!k.startsWith(id+'_'));
     S.buckets=S.buckets.filter(x=>x.id!==id);
     S.months.forEach(m=>{delete m.budgets[id];if(m.allocations)delete m.allocations[id];});
     if(S.activeBucket===id)S.activeBucket=null;
-    save();render();populateTxCats();
-    showUndoToast(`Deleted: ${b.name}`,'out',()=>{S.buckets.push(b);save();render();populateTxCats();showToast('Restored','save');});
+    save();renderSidebarVitals();renderActivePane();populateTxCats();
+    showUndoToast(`Deleted: ${b.name}`,'out',()=>{S.buckets.push(b);save();renderSidebarVitals();renderActivePane();populateTxCats();showToast('Restored','save');});
   }
 }
 
@@ -8252,7 +8336,7 @@ function saveTxEditModal(id,type){
   if(type==='out')tx.bucketId=document.getElementById('etBkt')?.value||null;
   if(type==='out')tx.debtPaymentAccountId=document.getElementById('etDebtPay')?.value||null;
   if(type==='xfr')tx.toAccountId=document.getElementById('etXfrTo')?.value||null;
-  save();closeRSheet();render();
+  save();closeRSheet();renderSidebarVitals();renderActivePane();
   showToast('Updated: '+tx.desc,'save');
 }
 function delTxFromDetail(id){
@@ -8260,8 +8344,8 @@ function delTxFromDetail(id){
   const _m=tx?getMonth(tx.monthId):null;if(_m?.closed){showToast('Month is closed — reopen to delete','info');return;}
   if(!tx)return;
   S.txs=S.txs.filter(t=>t.id!==id);
-  save();closeRSheet();render();
-  showUndoToast('Deleted: '+tx.desc,'out',()=>{S.txs.push(tx);save();render();showToast('Restored','save');});
+  save();closeRSheet();renderSidebarVitals();renderActivePane();
+  showUndoToast('Deleted: '+tx.desc,'out',()=>{S.txs.push(tx);save();renderSidebarVitals();renderActivePane();showToast('Restored','save');});
 }
 function setActiveTx(id){
   activeTx=(activeTx===id)?null:id;
@@ -8378,7 +8462,7 @@ function acctCreateSubmit(){
   if(type==='debt'&&acctSection==='cash')acctSection='debt';
   else if(type!=='debt'&&acctSection==='debt')acctSection='cash';
   _acctCreateColor=COLORS[0];
-  save();render();updateTxFormForType();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();updateTxFormForType();
   showToast('Added account: '+name,'save');
 }
 function acctCreateToggleColors(e){
@@ -8406,7 +8490,7 @@ function acctPayDebt(debtAid){
   const d=new Date(date+'T12:00:00');addMonth(d.getFullYear(),d.getMonth());
   S.txs.push({id:uid(),type:'out',desc:`Payment — ${debtAcct.name}`,amount:amt,date,monthId,
     accountId:fromAid,debtPaymentAccountId:debtAid,bucketId,createdAt:Date.now()});
-  save();render();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();
   showToast(`${$f(amt)} payment recorded for ${debtAcct.name}`,'save');
 }
 function deleteAcct(id){
@@ -8414,7 +8498,7 @@ function deleteAcct(id){
   const hasTxs=S.txs.some(t=>t.accountId===id||t.toAccountId===id);
   if(hasTxs){showToast('Cannot delete account with transactions — reconcile and remove transactions first','info');return;}
   S.accounts=S.accounts.filter(x=>x.id!==id);
-  save();render();updateTxFormForType();
+  save();renderTopbar();renderSidebarVitals();renderActivePane();updateTxFormForType();
   showToast('Deleted: '+a.name,'out');
 }
 function delTx(id){
@@ -8422,8 +8506,8 @@ function delTx(id){
   const _m=tx?getMonth(tx.monthId):null;if(_m?.closed){showToast('Month is closed — reopen to delete','info');return;}
   if(!tx)return;
   S.txs=S.txs.filter(t=>t.id!==id);
-  save();render();
-  showUndoToast('Deleted: '+tx.desc,'out',()=>{S.txs.push(tx);save();render();showToast('Restored','save');});
+  save();renderSidebarVitals();renderActivePane();
+  showUndoToast('Deleted: '+tx.desc,'out',()=>{S.txs.push(tx);save();renderSidebarVitals();renderActivePane();showToast('Restored','save');});
 }
 
 // ═══════════════════════════════════════════════════════
@@ -9697,7 +9781,7 @@ function promoteScenario(){
       });
       S.buckets.forEach(b=>{if(S.wiScenario.budgets[b.id]!==undefined)b.defaultBudget=S.wiScenario.budgets[b.id];});
       const _name=S.wiScenario.name||'Scenario';
-      exitWI();save();render();
+      exitWI();save();renderTopbar();renderSidebarVitals();renderActivePane();
       showToast(`Promoted "${_name}" to budget`,'save');
     }
   );
@@ -10831,7 +10915,7 @@ function applyPaydayActions(monthId){
     });
   }
   const ic=_pendingRules.filter(r=>r.on).length;
-  save();closeModal();render();
+  save();closeModal();renderSidebarVitals();renderActivePane();
   if(ic)showToast(`Applied: ${ic} allocation${ic!==1?'s':''}`, 'save');
 }
 
@@ -10997,7 +11081,7 @@ function toggleRecurringBill(id,active){
   r.active=active;
   if(!active){S.txs=S.txs.filter(t=>!(t.recurringBillId===id&&t.autoGenerated));}
   else refreshRecurringBill(id);
-  save();render();
+  save();renderSidebarVitals();renderActivePane();
 }
 
 // FRESH START
@@ -11132,7 +11216,7 @@ function finishWizard(){
       S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:a.id,toAccountId:null,monthId,bucketId:null,desc:'Opening Balance',amount:a.balance,type:'opening',date:today,recurring:false});
     }
   });
-  S.onboarded=true;save();closeWizard();render();populateTxCats();updateTxFormForType();
+  S.onboarded=true;save();closeWizard();renderTopbar();renderSidebarVitals();renderActivePane();populateTxCats();updateTxFormForType();
 }
 function closeWizard(){document.getElementById('wizardOverlay').classList.add('hidden');}
 
@@ -11226,7 +11310,7 @@ function saveCatInline(id){
   cat.color=_catInlineColor[id]||cat.color||COLORS[0];
   delete _catInlineColor[id];
   _catExpand=null;
-  save();renderTopbar();renderNav();_rerenderBucketsTab();
+  save();renderSidebarVitals();_rerenderBucketsTab();
   showToast('Category saved','save');
 }
 let _catInlineColor={};
@@ -11664,7 +11748,7 @@ function saveModal(){
         S.txs.push({id:'_'+Math.random().toString(36).slice(2,9),accountId:id,toAccountId:null,monthId:dateToMonthId(today),bucketId:null,desc:'Opening Balance',amount:bal,type:'opening',date:today,recurring:false});
       }
     }
-    save();closeMForm();render();updateTxFormForType();
+    save();closeMForm();renderTopbar();renderSidebarVitals();renderActivePane();updateTxFormForType();
     showToast((M.acctEditId?'Updated':'Added')+' account: '+name,'save');
 
   } else if(M.tab==='bkt'){
@@ -11695,7 +11779,7 @@ function saveModal(){
       S.buckets.push({id,catId,name,type,defaultBudget:budget,dueDay,payFreq,dueAmount,notes,recurring:M.bktRecurring,rollover:M.bktRollover,archived:false,targetAmount:goal,targetDate:tDate,contribFreq:contrib,order:cnt,debtAccountId});
       S.months.forEach(m=>{if(!m.budgets)m.budgets={};m.budgets[id]=budget;if(!m.allocations)m.allocations={};m.allocations[id]=0;});
     }
-    save();closeMForm();render();populateTxCats();
+    save();closeMForm();renderSidebarVitals();renderActivePane();populateTxCats();
     showToast((M.bktEditId?'Updated':'Created')+' bucket: '+name,'save');
 
   } else {
@@ -11730,15 +11814,15 @@ function saveModal(){
         // Category just saved — switch to builder tab and seed an initial row
         M.tab='builder';
         if(!M.buckets?.length)M.buckets=[mkBkt()];
-        render();populateTxCats();renderModal();
+        renderSidebarVitals();renderActivePane();populateTxCats();renderModal();
         showToast('Category created — now add buckets below','save');
       } else {
-        closeMForm();render();populateTxCats();
+        closeMForm();renderSidebarVitals();renderActivePane();populateTxCats();
       }
       return;
     }
 
-    if(!catId){save();closeMForm();render();populateTxCats();return;}
+    if(!catId){save();closeMForm();renderSidebarVitals();renderActivePane();populateTxCats();return;}
 
     // Save all bucket rows that have names
     namedBuckets.forEach((row,idx)=>{
@@ -11763,7 +11847,7 @@ function saveModal(){
       }
     });
 
-    save();closeMForm();render();populateTxCats();
+    save();closeMForm();renderSidebarVitals();renderActivePane();populateTxCats();
   }
 }
 
@@ -11779,7 +11863,7 @@ function Mdelete(){
         S.txs=S.txs.filter(t=>t.accountId!==M.acctEditId&&t.toAccountId!==M.acctEditId);
         S.accounts=S.accounts.filter(a=>a.id!==M.acctEditId);
         if(S.activeAccount===M.acctEditId)S.activeAccount=null;
-        save();closeMForm();render();populateTxCats();updateTxFormForType();
+        save();closeMForm();renderTopbar();renderSidebarVitals();renderActivePane();populateTxCats();updateTxFormForType();
       },
       true
     );
@@ -11799,7 +11883,7 @@ function Mdelete(){
         S.buckets=S.buckets.filter(b=>b.catId!==M.catEditId);
         S.cats=S.cats.filter(c=>c.id!==M.catEditId);
         if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
-        save();closeMForm();render();populateTxCats();updateTxFormForType();
+        save();closeMForm();renderSidebarVitals();renderActivePane();populateTxCats();updateTxFormForType();
       },
       true
     );
@@ -11852,7 +11936,7 @@ function delCat(id){
       S.buckets=S.buckets.filter(b=>b.catId!==id);
       S.cats=S.cats.filter(c=>c.id!==id);
       if(S.activeBucket&&!getBucket(S.activeBucket))S.activeBucket=null;
-      save();render();populateTxCats();
+      save();renderSidebarVitals();renderActivePane();populateTxCats();
     },
     true
   );
@@ -11890,7 +11974,7 @@ function moveCat(id,dir){
   const tmp=sorted[idx].order;
   sorted[idx].order=sorted[swapIdx].order;
   sorted[swapIdx].order=tmp;
-  save();renderNav();renderActivePane();
+  save();renderActivePane();
 }
 
 function moveBkt(id,dir){
@@ -11903,7 +11987,7 @@ function moveBkt(id,dir){
   const tmp=sorted[idx].order;
   sorted[idx].order=sorted[swapIdx].order;
   sorted[swapIdx].order=tmp;
-  save();renderNav();renderActivePane();
+  save();renderActivePane();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -12441,14 +12525,14 @@ function mSaveTxSheet(id,type){
     tx.bucketId=document.getElementById('sBkt')?.value||null;
     tx.debtPaymentAccountId=document.getElementById('sDebtPay')?.value||null;
   }
-  save();mCloseSheet();render();
+  save();mCloseSheet();renderSidebarVitals();renderActivePane();
 }
 
 function mDeleteTxSheet(id){
   const tx=S.txs.find(t=>t.id===id);if(!tx)return;
   S.txs=S.txs.filter(t=>t.id!==id);
-  save();mCloseSheet();render();
-  showUndoToast(`Deleted: ${tx.desc}`,'out',()=>{S.txs.push(tx);save();render();showToast('Restored','save');});
+  save();mCloseSheet();renderSidebarVitals();renderActivePane();
+  showUndoToast(`Deleted: ${tx.desc}`,'out',()=>{S.txs.push(tx);save();renderSidebarVitals();renderActivePane();showToast('Restored','save');});
 }
 
 function mCloseSheet(){
