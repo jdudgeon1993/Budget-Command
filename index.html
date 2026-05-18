@@ -4138,8 +4138,7 @@ async function generateMonthReport(mid){
     if(m2){
       m2.aiReport=text;save();
       showToast(`✦ AI report ready for ${m2.label}`,'save');
-      const rp=document.getElementById('paneReports');
-      if(rp&&rp.classList.contains('active'))renderReportsTab(rp);
+      if(activeTab==='reports'){const rp=_sectEl('reports');if(rp)renderReportsTab(rp);}
     }
   }catch{}
 }
@@ -5474,7 +5473,7 @@ function setTab(tab){
     const backBtn=document.getElementById('dhBackBtn');
     if(tab==='dashboard'){
       if(grid)grid.style.display='';
-      if(sect){sect.classList.remove('open');sect.innerHTML='';}
+      if(sect){sect.classList.remove('open');sect.innerHTML='';sect.style.cssText='';}
       if(backBtn)backBtn.style.display='none';
       renderDashboard();
     } else {
@@ -5829,22 +5828,6 @@ function renderDashboard(){
   }
 
   // ── RTS card summary ──
-  const rtsStatusCls=rts<0?'s-neg':rts>0?'s-good':'s-blue';
-  const rtsSummary=`
-    <div class="dc-rts-kicker">${mStatus==='present'?`Day ${dayOfMonth} of ${daysInMonth}`:mStatus==='past'?'Past month':'Future month'}</div>
-    <div class="dc-rts-num ${rts<0?'neg':rts>0?'pos':''}">${$f(Math.abs(rts))}</div>
-    <div class="dc-rts-sub">${rts<0?'Deficit this month — reduce allocations':'Safe to spend · budget on track'}</div>
-    <div class="dc-meta">
-      <div class="dc-meta-item"><span class="dc-meta-label">Income</span><span class="dc-meta-val good">${$f(income)}</span></div>
-      <div class="dc-meta-item"><span class="dc-meta-label">Allocated</span><span class="dc-meta-val ${alloc>income?'neg':''}">${$f(alloc)}</span></div>
-      <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val ${totalSpent>income?'neg':''}">${$f(totalSpent)}</span></div>
-      <div class="dc-meta-item"><span class="dc-meta-label">Remaining</span><span class="dc-meta-val ${rts<0?'neg':'good'}">${$f(Math.abs(rts))}</span></div>
-    </div>
-    ${mStatus==='present'?`<div class="dc-bar-wrap">
-      <div class="dc-bar-labels"><span>Month progress</span><span>${dayOfMonth} / ${daysInMonth} days</span></div>
-      <div class="dc-bar-track"><div class="dc-bar-fill${monthPct>=90?' over':monthPct>=75?' warn':''}" style="width:${monthPct}%"></div></div>
-    </div>`:''}`;
-  const rtsExpanded=`<div class="dc-sect-wrap" id="dashExpRts"></div>`;
 
   // ── Accounts card ──
   const acctSummary=`
@@ -5865,7 +5848,6 @@ function renderDashboard(){
       <div class="dc-acct-left"><div class="dc-acct-name" style="color:var(--text3)">Net Position</div><div class="dc-acct-type">cash − debt</div></div>
       <div class="dc-acct-bal ${netPosition<0?'neg':'pos'}">${$f(Math.abs(netPosition))}</div>
     </div>`:''}`;
-  const acctExpanded=`<div class="dc-sect-wrap" id="dashExpAcct"></div>`;
 
   // ── Buckets attention card ──
   const bktSummary=allFunded
@@ -5896,7 +5878,6 @@ function renderDashboard(){
           </tr>`;
         }).join('')}</tbody>
       </table>`;
-  const bktExpanded=`<div class="dc-sect-wrap" id="dashExpBkt"></div>`;
 
   // ── Ledger card ──
   const ledgerSummary=recentTxs.length?recentTxs.map(t=>{
@@ -5913,7 +5894,6 @@ function renderDashboard(){
       <span class="dc-td-num" style="color:${amtClr};flex-shrink:0;font-size:14px">${t.type==='in'?'+':t.type==='xfr'?'⇄':'-'}${$f(t.amount)}</span>
     </div>`;
   }).join(''):`<div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:12px 0">No transactions this month</div>`;
-  const ledgerExpanded=`<div class="dc-sect-wrap" id="dashExpLedger"></div>`;
 
   // ── AI Coach card ──
   const aiSummary=aiData&&aiData.alerts&&aiData.alerts.length
@@ -5927,7 +5907,6 @@ function renderDashboard(){
         <div class="dc-empty-text">${aiEnabled()?'Generating insights…':'AI Coach not connected'}</div>
         ${!aiEnabled()?`<button class="dc-empty-cta" onclick="event.stopPropagation();setTab('settings')">Enable in Settings →</button>`:''}
       </div>`;
-  const aiExpanded=`<div class="dc-sect-wrap" id="dashExpAi"></div>`;
 
   // ── Horizon card ──
   const horizonToggle=`<div style="display:flex;gap:4px;margin-left:auto">
@@ -5949,7 +5928,6 @@ function renderDashboard(){
       <div class="dc-meta-item"><span class="dc-meta-label">Cash</span><span class="dc-meta-val">${$f(cash)}</span></div>
       <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val">${$f(totalSpent)}</span></div>
     </div>`;
-  const horizonExpanded=`<div class="dc-sect-wrap" id="dashExpHorizon"></div>`;
 
   // ── Reports card ──
   const _repToggle=`<div style="display:flex;gap:4px;margin-bottom:8px">
@@ -5969,7 +5947,6 @@ function renderDashboard(){
         <div class="dc-empty-icon">◑</div>
         <div class="dc-empty-text">No spending data yet<br>Categorize transactions<br>to see trends</div>
       </div>`;
-  const reportsExpanded=`<div class="dc-sect-wrap" id="dashExpReports"></div>`;
 
   // ── BUILD GRID ──
   const bktBadgeCls=criticalCount>0?'neg':allFunded?'good':'warn';
@@ -6038,7 +6015,7 @@ function _refreshDashReports(){
   if(!body)return;
   // Rebuild summary inline — matches renderDashboard catSpend logic
   const mid=S.activeMonth;
-  const cats=S.categories||[];
+  const cats=S.cats||[];
   const curTxsOut=(S.txs||[]).filter(t=>t.monthId===mid&&t.type==='out');
   const catSpend=cats.map(c=>{
     const cur=curTxsOut.filter(t=>t.catId===c.id).reduce((s,t)=>s+t.amount,0);
@@ -6053,34 +6030,18 @@ function _refreshDashReports(){
       ${catSpend.map(c=>`<tr><td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</td><td class="dc-td-num" style="text-align:right;padding-right:0">${$f(c.cur)}</td></tr>`).join('')}
     </tbody></table>`;
   body.innerHTML=catSpend.length?`${_repToggle}${_dashReportsView==='chart'?_repChart:_repTable}`:body.innerHTML;
-  // Update cache
-  if(_cardBodyCache.reports){_cardBodyCache.reports.summary=body.innerHTML;}
   if(catSpend.length&&_dashReportsView==='chart'){requestAnimationFrame(()=>_renderDashReportsDonut(catSpend));}
 }
 
-function _populateExpandedSection(key){
-  const sectMap={accounts:'dashExpAcct',buckets:'dashExpBkt',ledger:'dashExpLedger',ai:'dashExpAi',horizon:'dashExpHorizon',reports:'dashExpReports'};
-  const sectEl=document.getElementById(sectMap[key]);
-  if(!sectEl)return;
-  const m=S.activeMonth;
-  if(key==='buckets')renderBucketsTab(sectEl,m);
-  else if(key==='ledger')renderLedgerTab(sectEl,m);
-  else if(key==='accounts')renderAccountsTab(sectEl,m);
-  else if(key==='ai')renderCoachPane(sectEl);
-  else if(key==='horizon'||key==='reports')renderReportsTab(sectEl);
-}
 
 function refreshHorizonCard(){
   // Recompute and swap only the horizon card body — no full dashboard rebuild
   const cardEl=document.querySelector('[data-card-key="horizon"]');
-  if(!cardEl||_dashExpanded==='horizon'){renderDashboard();return;}
+  if(!cardEl){renderDashboard();return;}
   const today=new Date();
   const mid=S.activeMonth;
   const txs=S.txs.filter(t=>t.monthId===mid&&t.type!=='opening');
   const bkts=(S.buckets||[]).filter(b=>!b.archived&&b.type!=='vault');
-  const income=txs.filter(t=>t.type==='in').reduce((s,t)=>s+t.amount,0);
-  const alloc=bkts.reduce((s,b)=>s+bAlloc(mid,b.id),0);
-  const rts=income-alloc;
   const cash=S.accounts.filter(a=>a.type!=='debt').reduce((s,a)=>s+acctBalance(a.id),0);
   const totalSpent=txs.filter(t=>t.type==='out').reduce((s,t)=>s+t.amount,0);
   const todayY=today.getFullYear(),todayM=today.getMonth();
@@ -6102,6 +6063,7 @@ function refreshHorizonCard(){
     <button class="dc-btn ${_horizonMode==='rts'?'primary':''}" onclick="event.stopPropagation();_horizonMode='rts';refreshHorizonCard()" style="padding:2px 8px;font-size:8px">RTS</button>
     <button class="dc-btn ${_horizonMode==='paychecks'?'primary':''}" onclick="event.stopPropagation();_horizonMode='paychecks';refreshHorizonCard()" style="padding:2px 8px;font-size:8px">Income</button>
   </div>`;
+  const liveRts=todayReadyToSpend();
   const newSummary=`
     <div style="display:flex;align-items:center;margin-bottom:8px">${horizonToggle}</div>
     <div class="dc-proj-bars">
@@ -6109,11 +6071,10 @@ function refreshHorizonCard(){
     </div>
     <div class="dc-proj-labels">${horizonMonths.map(h=>`<div class="dc-proj-lbl ${h.isNow?'now':''}">${h.label}</div>`).join('')}</div>
     <div class="dc-meta" style="margin-top:10px">
-      <div class="dc-meta-item"><span class="dc-meta-label">RTS Now</span><span class="dc-meta-val ${rts<0?'neg':''}">${$f(Math.abs(rts))}</span></div>
+      <div class="dc-meta-item"><span class="dc-meta-label">RTS Now</span><span class="dc-meta-val ${liveRts<0?'neg':''}">${$f(Math.abs(liveRts))}</span></div>
       <div class="dc-meta-item"><span class="dc-meta-label">Cash</span><span class="dc-meta-val">${$f(cash)}</span></div>
       <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val">${$f(totalSpent)}</span></div>
     </div>`;
-  _cardBodyCache['horizon']={..._cardBodyCache['horizon'],summary:newSummary};
   const body=cardEl.querySelector('.dc-body');
   if(body)body.innerHTML=newSummary;
 }
@@ -6130,7 +6091,7 @@ function collapseCard(){}
 function renderDeskSection(tab){
   const el=document.getElementById('dashSect');
   if(!el)return;
-  el.innerHTML='';
+  el.innerHTML='';el.style.cssText='';
   const mid=S.activeMonth;
   if(tab==='buckets')renderBucketsTab(el,mid);
   else if(tab==='ledger')renderLedgerTab(el,mid);
@@ -6747,7 +6708,7 @@ function renderReportsTab(el){
     </div>
     <div class="rpt-mob-topbar" style="flex-wrap:wrap;gap:6px">
       <select class="fi rpt-mob-select" onchange="setReportsTab(this.value)" style="flex:1;min-width:100px">${selectOpts}</select>
-      <select class="fi" onchange="reportsMid=this.value;renderReportsTab(document.getElementById('paneReports'))" style="flex:1;min-width:100px;font-size:13px">${monthOpts2}</select>
+      <select class="fi" onchange="reportsMid=this.value;renderReportsTab(_sectEl('reports'))" style="flex:1;min-width:100px;font-size:13px">${monthOpts2}</select>
       <button class="tbtn" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="exportCSV()">⬇ CSV</button>
     </div>
     <div class="rpt-main">
@@ -8525,14 +8486,14 @@ function txCloseDotsMenu(){document.querySelectorAll('.tx-dots-menu').forEach(m=
 // ═══════════════════════════════════════════════════════
 function setAcctSection(s){
   acctSection=s;S.activeAccount=null;activeAcctExpand=null;
-  const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
+  const el=_sectEl('accounts');if(el)renderAccountsTab(el,S.activeMonth);
 }
 function setAcctExpand(id){
   activeAcctExpand=(activeAcctExpand===id)?null:id;
   _reRenderAcctTable();
 }
 function _reRenderAcctTable(){
-  const el=document.getElementById('paneAccounts');if(!el)return;
+  const el=_sectEl('accounts');if(!el)return;
   const mainEl=document.getElementById('acctLsMain');
   const prevScroll=mainEl?mainEl.scrollTop:0;
   renderAccountsTab(el,S.activeMonth);
@@ -8587,7 +8548,7 @@ function acctDotsMenu(e,id){
 }
 function openAcctDetail(id){
   S.activeAccount=id;activeAcctExpand=null;_avFilter='all';_avViewMonth=null;save();
-  const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
+  const el=_sectEl('accounts');if(el)renderAccountsTab(el,S.activeMonth);
 }
 function goBackToAcctList(expandId){
   S.activeAccount=null;
@@ -8595,7 +8556,7 @@ function goBackToAcctList(expandId){
   _avViewMonth=null;
   if(expandId)activeAcctExpand=expandId;
   save();
-  const el=document.getElementById('paneAccounts');if(el)renderAccountsTab(el,S.activeMonth);
+  const el=_sectEl('accounts');if(el)renderAccountsTab(el,S.activeMonth);
 }
 function acctCreateSubmit(){
   const name=(document.getElementById('acctCreateName')?.value||'').trim();
@@ -8708,7 +8669,7 @@ function renderWhatIfPane(el){
 function renderWI(){
   if(!S.wiScenario)return;
   if(activeTab==='whatif'){
-    const p=document.getElementById('paneWhatif');if(p)renderWhatIfPane(p);
+    const p=_sectEl('whatif');if(p)renderWhatIfPane(p);
   }
 }
 
