@@ -2871,7 +2871,7 @@ async function signOut(){
   setSyncStatus('offline','Not signed in');
   showAuthSignIn();
   document.getElementById('authScreen').classList.remove('hidden');
-  if(client) client.auth.signOut().catch(err=>console.warn('SignOut error:',err.message));
+  if(client) await client.auth.signOut().catch(err=>console.warn('SignOut error:',err.message));
 }
 
 function authAction(){
@@ -3033,6 +3033,7 @@ async function supabase_push(){
 
   if(verErr){
     console.warn('Supabase verify error:',verErr.message);
+    if(_isAuthError(verErr)){await _handleStaleSession();return;}
     setSyncStatus('error','Sync unverified — see console');
   } else if(!verify){
     console.warn('Supabase write blocked — row not found after upsert. Check RLS policies.');
