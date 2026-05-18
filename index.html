@@ -2437,10 +2437,10 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 
 /* ── CARD EXPAND ── */
 .dc.dc-expanded{cursor:default;border-color:var(--border2);box-shadow:0 8px 40px rgba(0,0,0,.7),0 2px 8px rgba(0,0,0,.5);}
-.dc.dc-expanded .dc-body{overflow-y:auto;max-height:65vh;padding:0;}
+.dc.dc-expanded .dc-body{overflow-y:auto;max-height:none;min-height:340px;padding:0;}
 .dc.dc-expanded .dc-foot{opacity:1!important;}
 .dc-expand-btn{margin-right:auto;}
-.dc-sect-wrap{display:flex;flex-direction:column;min-height:0;}
+.dc-sect-wrap{display:flex;flex-direction:column;min-height:300px;}
 </style>
 </head>
 <body>
@@ -5273,6 +5273,7 @@ let _dashExpanded=null; // which card is expanded: null | 'rts'|'accounts'|'buck
 let _horizonMode='rts'; // 'rts' | 'paychecks'
 const _cardBodyCache={}; // {[key]: {summary, expanded}} — populated by renderDashboard, used by expandCard
 let _stripCfgOpen=false;
+let _dashReportsView='chart'; // 'chart' | 'table'
 let reportsTab='month';
 let reportsMid=null;
 const _chartInst={};
@@ -5822,17 +5823,16 @@ function renderDashboard(){
     const badgeCls=statusCls==='s-neg'?'neg':statusCls==='s-warn'?'warn':statusCls==='s-good'?'good':'';
     const expandBtn=noExpand?'':
       `<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
-    const headOnClick=noExpand?'':`onclick="expandCard('${key}')"`;
-    const showFoot=footBtns||!noExpand;
+    const showFoot=!noExpand;
     if(!noExpand)_cardBodyCache[key]={summary:summaryHtml,expanded:expandedHtml};
     return`<div class="${cls}" data-card-key="${key}">
-      <div class="dc-head" ${headOnClick} style="cursor:${noExpand?'default':'pointer'}">
+      <div class="dc-head" style="cursor:default">
         <span class="dc-title">${headTitle}</span>
         ${badgeHtml?`<span class="dc-badge ${badgeCls}">${badgeHtml}</span>`:''}
         ${headLink?`<span class="dc-link">${headLink}</span>`:''}
       </div>
       <div class="dc-body">${isExp?expandedHtml:summaryHtml}</div>
-      ${showFoot?`<div class="dc-foot">${expandBtn}${footBtns}</div>`:''}
+      ${showFoot?`<div class="dc-foot">${expandBtn}</div>`:''}
     </div>`;
   }
 
@@ -5884,28 +5884,21 @@ function renderDashboard(){
       </div>`
     :`<table class="dc-table">
         <thead><tr>
-          <th style="padding-left:0;width:28%">Bucket</th>
-          <th style="width:20%">Category</th>
-          <th class="r" style="width:15%">Budget</th>
-          <th class="r" style="width:15%">Allocated</th>
-          <th class="r" style="width:14%">Spent</th>
-          <th class="r" style="width:8%">Status</th>
+          <th style="padding-left:0">Bucket</th>
+          <th class="r">Amount</th>
+          <th class="r" style="padding-right:0">Status</th>
         </tr></thead>
         <tbody>${attentionBkts.map(({b,al,sp,bg,over,unfunded,pastDue,dueSoon,runningLow,pct})=>{
-          const cat=cats.find(c=>c.id===b.catId);
           let pillCls,pillLbl;
           if(over){pillCls='over';pillLbl='Over';}
           else if(pastDue){pillCls='over';pillLbl='Past Due';}
           else if(unfunded){pillCls='warn';pillLbl='Unfunded';}
           else if(dueSoon){pillCls='due';pillLbl='Due Soon';}
-          else{pillCls='warn';pillLbl=`${Math.round(pct*100)}% used`;}
+          else{pillCls='warn';pillLbl=`${Math.round(pct*100)}%`;}
           const amtColor=over||pastDue?'var(--red)':unfunded||dueSoon?'var(--amber)':'var(--text)';
-          const displayAmt=over?'-'+$f(sp-al):unfunded?$f(bg):$f(al-sp);
+          const displayAmt=over?'-'+$f(sp-al):unfunded?$f(bg-al):$f(al-sp);
           return`<tr>
-            <td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</td>
-            <td style="font-family:var(--mono);font-size:8px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(cat?.name||'—')}</td>
-            <td class="dc-td-num" style="color:var(--text3)">${bg?$f(bg):'—'}</td>
-            <td class="dc-td-num">${$f(al)}</td>
+            <td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px">${esc(b.name)}</td>
             <td class="dc-td-num" style="color:${amtColor}">${displayAmt}</td>
             <td style="text-align:right;padding-right:0"><span class="dc-pill ${pillCls}">${pillLbl}</span></td>
           </tr>`;
@@ -5960,27 +5953,29 @@ function renderDashboard(){
     </div>
     <div class="dc-proj-labels">${horizonMonths.map(h=>`<div class="dc-proj-lbl ${h.isNow?'now':''}">${h.label}</div>`).join('')}</div>
     <div class="dc-meta" style="margin-top:10px">
-      <div class="dc-meta-item"><span class="dc-meta-label">RTS Now</span><span class="dc-meta-val ${rts<0?'neg':''}">${$f(Math.abs(rts))}</span></div>
+      ${(()=>{const liveRts=todayReadyToSpend();return`<div class="dc-meta-item"><span class="dc-meta-label">RTS Now</span><span class="dc-meta-val ${liveRts<0?'neg':''}">${$f(Math.abs(liveRts))}</span></div>`;})()}
       <div class="dc-meta-item"><span class="dc-meta-label">Cash</span><span class="dc-meta-val">${$f(cash)}</span></div>
       <div class="dc-meta-item"><span class="dc-meta-label">Spent</span><span class="dc-meta-val">${$f(totalSpent)}</span></div>
     </div>`;
   const horizonExpanded=`<div class="dc-sect-wrap" id="dashExpHorizon"></div>`;
 
   // ── Reports card ──
+  const _repToggle=`<div style="display:flex;gap:4px;margin-bottom:8px">
+    <button class="dc-btn ${_dashReportsView==='chart'?'primary':''}" style="padding:2px 8px;font-size:8px" onclick="event.stopPropagation();_dashReportsView='chart';_refreshDashReports()">Chart</button>
+    <button class="dc-btn ${_dashReportsView==='table'?'primary':''}" style="padding:2px 8px;font-size:8px" onclick="event.stopPropagation();_dashReportsView='table';_refreshDashReports()">Table</button>
+  </div>`;
+  const _repChart=`<div style="display:flex;justify-content:center;align-items:center;padding:4px 0"><canvas id="dashReportsDonut" width="160" height="160" style="max-width:160px;max-height:160px"></canvas></div>`;
+  const _repTable=`<table class="dc-table"><thead><tr><th style="padding-left:0">Category</th><th class="r" style="padding-right:0">Spent</th></tr></thead><tbody>
+      ${catSpend.map(c=>`<tr>
+        <td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</td>
+        <td class="dc-td-num" style="text-align:right;padding-right:0">${$f(c.cur)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
   const reportsSummary=catSpend.length
-    ?`<table class="dc-table"><thead><tr><th style="padding-left:0">Category</th><th class="r" style="padding-right:0">Spent · Trend</th></tr></thead><tbody>
-        ${catSpend.map(c=>`<tr>
-          <td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</td>
-          <td style="text-align:right;padding-right:0">
-            <div class="dc-td-num">${$f(c.cur)}</div>
-            <div style="font-family:var(--mono);font-size:8px;margin-top:1px;color:${c.delta>0?'var(--red)':c.delta<0?'var(--green)':'var(--text3)'}">${c.delta>0?'↑ +'+$f(Math.abs(c.delta)):c.delta<0?'↓ -'+$f(Math.abs(c.delta)):'— flat'}</div>
-          </td>
-        </tr>`).join('')}
-      </tbody></table>`
+    ?`${_repToggle}${_dashReportsView==='chart'?_repChart:_repTable}`
     :`<div class="dc-empty">
         <div class="dc-empty-icon">◑</div>
         <div class="dc-empty-text">No spending data yet<br>Categorize transactions<br>to see trends</div>
-        <button class="dc-empty-cta" onclick="event.stopPropagation();setTab('ledger')">Go to Ledger →</button>
       </div>`;
   const reportsExpanded=`<div class="dc-sect-wrap" id="dashExpReports"></div>`;
 
@@ -5991,16 +5986,19 @@ function renderDashboard(){
   const navLink=(tab,label)=>`<span class="dc-link" onclick="event.stopPropagation();setTab('${tab}')" style="cursor:pointer">${label}</span>`;
   el.innerHTML=`
     <div class="dash-strip-wrap" id="dashStripWrap">${buildDashStripHTML()}</div>
-    ${card('accounts','','Accounts','',navLink('accounts','All ›'),acctSummary,acctExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`,'s-blue')}
-    ${card('buckets','span2','Buckets',bktBadgeLbl,navLink('buckets','Manage ›'),bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
-    ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'s-dim')}
-    ${card('ledger','span2','Recent Ledger','',navLink('ledger','Full ledger ›'),ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`,'s-blue')}
-    ${card('reports','','Spending','',navLink('reports','Reports ›'),reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`,'s-blue')}
-    ${card('horizon','','12-Month Horizon','',navLink('whatif','What If ›'),horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'s-blue')}
+    ${card('accounts','','Accounts','',navLink('accounts','All ›'),acctSummary,acctExpanded,'','s-blue')}
+    ${card('buckets','span2','Buckets',bktBadgeLbl,navLink('buckets','Manage ›'),bktSummary,bktExpanded,'',allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
+    ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,aiExpanded,'','s-dim')}
+    ${card('ledger','span2','Recent Ledger','',navLink('ledger','Full ledger ›'),ledgerSummary,ledgerExpanded,'','s-blue')}
+    ${card('reports','','Spending','',navLink('reports','Reports ›'),reportsSummary,reportsExpanded,'','s-blue')}
+    ${card('horizon','','12-Month Horizon','',navLink('whatif','What If ›'),horizonSummary,horizonExpanded,'','s-blue')}
   `;
 
-  // If a card is expanded after full rebuild, repopulate its section on next frame
-  if(EXP){requestAnimationFrame(()=>_populateExpandedSection(EXP));}
+  // Render donut chart for reports card if in chart view
+  requestAnimationFrame(()=>{
+    if(EXP){_populateExpandedSection(EXP);}
+    if(catSpend.length&&_dashReportsView==='chart'){_renderDashReportsDonut(catSpend);}
+  });
 
   // Update desktop header month label
   const dhMonth=document.getElementById('dhMonthLabel');
@@ -6023,6 +6021,53 @@ function _sectEl(tab){
 }
 function rerenderSettings(){const el=_sectEl('settings');if(el)renderSettingsTab(el);}
 function rerenderBuckets(){if(!isMobile()){renderDeskSection('buckets');return;}const el=document.getElementById('paneBuckets');if(el)renderBucketsTab(el,S.activeMonth);}
+
+function _renderDashReportsDonut(catSpend){
+  const cc=_cc();
+  const palette=[cc.accent,cc.green,cc.amber,cc.red,cc.purple,cc.blue,cc.t3,'#e06c75','#56b6c2','#d19a66'];
+  _mkChart('dashReportsDonut',{
+    type:'doughnut',
+    data:{
+      labels:catSpend.map(c=>c.name),
+      datasets:[{data:catSpend.map(c=>c.cur),backgroundColor:palette.slice(0,catSpend.length),borderWidth:0,hoverOffset:4}]
+    },
+    options:{
+      responsive:false,cutout:'68%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${$f(ctx.parsed)}`}}
+      }
+    }
+  });
+}
+function _refreshDashReports(){
+  const el=document.getElementById('dashGrid');
+  if(!el)return;
+  const card=el.querySelector('[data-card-key="reports"]');
+  if(!card)return;
+  const body=card.querySelector('.dc-body');
+  if(!body)return;
+  // Rebuild summary inline — matches renderDashboard catSpend logic
+  const mid=S.activeMonth;
+  const cats=S.categories||[];
+  const curTxsOut=(S.txs||[]).filter(t=>t.monthId===mid&&t.type==='out');
+  const catSpend=cats.map(c=>{
+    const cur=curTxsOut.filter(t=>t.catId===c.id).reduce((s,t)=>s+t.amount,0);
+    return{name:c.name,cur,id:c.id};
+  }).filter(c=>c.cur>0).slice(0,5);
+  const _repToggle=`<div style="display:flex;gap:4px;margin-bottom:8px">
+    <button class="dc-btn ${_dashReportsView==='chart'?'primary':''}" style="padding:2px 8px;font-size:8px" onclick="event.stopPropagation();_dashReportsView='chart';_refreshDashReports()">Chart</button>
+    <button class="dc-btn ${_dashReportsView==='table'?'primary':''}" style="padding:2px 8px;font-size:8px" onclick="event.stopPropagation();_dashReportsView='table';_refreshDashReports()">Table</button>
+  </div>`;
+  const _repChart=`<div style="display:flex;justify-content:center;align-items:center;padding:4px 0"><canvas id="dashReportsDonut" width="160" height="160" style="max-width:160px;max-height:160px"></canvas></div>`;
+  const _repTable=`<table class="dc-table"><thead><tr><th style="padding-left:0">Category</th><th class="r" style="padding-right:0">Spent</th></tr></thead><tbody>
+      ${catSpend.map(c=>`<tr><td class="dc-td-bold" style="padding-left:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</td><td class="dc-td-num" style="text-align:right;padding-right:0">${$f(c.cur)}</td></tr>`).join('')}
+    </tbody></table>`;
+  body.innerHTML=catSpend.length?`${_repToggle}${_dashReportsView==='chart'?_repChart:_repTable}`:body.innerHTML;
+  // Update cache
+  if(_cardBodyCache.reports){_cardBodyCache.reports.summary=body.innerHTML;}
+  if(catSpend.length&&_dashReportsView==='chart'){requestAnimationFrame(()=>_renderDashReportsDonut(catSpend));}
+}
 
 function _populateExpandedSection(key){
   const sectMap={accounts:'dashExpAcct',buckets:'dashExpBkt',ledger:'dashExpLedger',ai:'dashExpAi',horizon:'dashExpHorizon',reports:'dashExpReports'};
