@@ -5269,9 +5269,7 @@ function renderTopbar(){
 
 // ── Unified nav + tab routing ─────────────────────────────────────────────────
 let activeTab='dashboard';
-let _dashExpanded=null; // which card is expanded: null | 'rts'|'accounts'|'buckets'|'ledger'|'ai'|'horizon'|'reports'
 let _horizonMode='rts'; // 'rts' | 'paychecks'
-const _cardBodyCache={}; // {[key]: {summary, expanded}} — populated by renderDashboard, used by expandCard
 let _stripCfgOpen=false;
 let _dashReportsView='chart'; // 'chart' | 'table'
 let reportsTab='month';
@@ -5813,26 +5811,20 @@ function renderDashboard(){
   }).filter(c=>c.cur>0||c.prev>0).slice(0,5);
 
   // ── Helper to build a card ──
-  const EXP=_dashExpanded;
-  const hasExp=EXP!==null;
-
-  // card(key, spanCls, headTitle, badgeHtml, headLink, summaryHtml, expandedHtml, footBtns, statusCls)
-  function card(key,spanCls,headTitle,badgeHtml,headLink,summaryHtml,expandedHtml,footBtns='',statusCls='s-dim',noExpand=false){
-    const isExp=!noExpand&&EXP===key;
-    const cls=`dc ${spanCls?spanCls+' ':''}${statusCls}${isExp?' dc-expanded':''}`;
+  // card(key, spanCls, headTitle, badgeHtml, headLink, summaryHtml, statusCls, noExpand)
+  function card(key,spanCls,headTitle,badgeHtml,headLink,summaryHtml,statusCls='s-dim',noExpand=false){
+    const cls=`dc ${spanCls?spanCls+' ':''}${statusCls}`;
     const badgeCls=statusCls==='s-neg'?'neg':statusCls==='s-warn'?'warn':statusCls==='s-good'?'good':'';
-    const expandBtn=noExpand?'':
-      `<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
-    const showFoot=!noExpand;
-    if(!noExpand)_cardBodyCache[key]={summary:summaryHtml,expanded:expandedHtml};
+    const openBtn=noExpand?'':
+      `<button class="dc-btn dc-expand-btn" onclick="expandCard('${key}')">↗ Open</button>`;
     return`<div class="${cls}" data-card-key="${key}">
       <div class="dc-head" style="cursor:default">
         <span class="dc-title">${headTitle}</span>
         ${badgeHtml?`<span class="dc-badge ${badgeCls}">${badgeHtml}</span>`:''}
         ${headLink?`<span class="dc-link">${headLink}</span>`:''}
       </div>
-      <div class="dc-body">${isExp?expandedHtml:summaryHtml}</div>
-      ${showFoot?`<div class="dc-foot">${expandBtn}</div>`:''}
+      <div class="dc-body">${summaryHtml}</div>
+      ${noExpand?'':`<div class="dc-foot">${openBtn}</div>`}
     </div>`;
   }
 
@@ -5986,19 +5978,16 @@ function renderDashboard(){
   const navLink=(tab,label)=>`<span class="dc-link" onclick="event.stopPropagation();setTab('${tab}')" style="cursor:pointer">${label}</span>`;
   el.innerHTML=`
     <div class="dash-strip-wrap" id="dashStripWrap">${buildDashStripHTML()}</div>
-    ${card('accounts','','Accounts','',navLink('accounts','All ›'),acctSummary,acctExpanded,'','s-blue')}
-    ${card('buckets','span2','Buckets',bktBadgeLbl,navLink('buckets','Manage ›'),bktSummary,bktExpanded,'',allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
-    ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,aiExpanded,'','s-dim')}
-    ${card('ledger','span2','Recent Ledger','',navLink('ledger','Full ledger ›'),ledgerSummary,ledgerExpanded,'','s-blue')}
-    ${card('reports','','Spending','',navLink('reports','Reports ›'),reportsSummary,reportsExpanded,'','s-blue')}
-    ${card('horizon','','12-Month Horizon','',navLink('whatif','What If ›'),horizonSummary,horizonExpanded,'','s-blue')}
+    ${card('accounts','','Accounts','',navLink('accounts','All ›'),acctSummary,'s-blue')}
+    ${card('buckets','span2','Buckets',bktBadgeLbl,navLink('buckets','Manage ›'),bktSummary,allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
+    ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,'s-dim')}
+    ${card('ledger','span2','Recent Ledger','',navLink('ledger','Full ledger ›'),ledgerSummary,'s-blue')}
+    ${card('reports','','Spending','',navLink('reports','Reports ›'),reportsSummary,'s-blue')}
+    ${card('horizon','','12-Month Horizon','',navLink('whatif','What If ›'),horizonSummary,'s-blue')}
   `;
 
   // Render donut chart for reports card if in chart view
-  requestAnimationFrame(()=>{
-    if(EXP){_populateExpandedSection(EXP);}
-    if(catSpend.length&&_dashReportsView==='chart'){_renderDashReportsDonut(catSpend);}
-  });
+  if(catSpend.length&&_dashReportsView==='chart'){requestAnimationFrame(()=>_renderDashReportsDonut(catSpend));}
 
   // Update desktop header month label
   const dhMonth=document.getElementById('dhMonthLabel');
@@ -6130,32 +6119,12 @@ function refreshHorizonCard(){
 }
 
 function expandCard(key){
-  const wasExp=_dashExpanded===key;
-  // Collapse any currently expanded card
-  if(_dashExpanded){
-    const oldEl=document.querySelector('[data-card-key="'+_dashExpanded+'"]');
-    if(!oldEl){renderDashboard();return;} // DOM out of sync — fall back to full rebuild
-    oldEl.classList.remove('dc-expanded');
-    const oldBody=oldEl.querySelector('.dc-body');
-    if(oldBody&&_cardBodyCache[_dashExpanded])oldBody.innerHTML=_cardBodyCache[_dashExpanded].summary;
-    const oldBtn=oldEl.querySelector('.dc-expand-btn');
-    if(oldBtn)oldBtn.textContent='↗ Expand';
-    _dashExpanded=null;
-  }
-  if(wasExp)return; // was a collapse — done
-  // Expand the new card
-  const cardEl=document.querySelector('[data-card-key="'+key+'"]');
-  if(!cardEl||!_cardBodyCache[key]){renderDashboard();return;} // DOM out of sync — fall back
-  _dashExpanded=key;
-  cardEl.classList.add('dc-expanded');
-  const body=cardEl.querySelector('.dc-body');
-  if(body)body.innerHTML=_cardBodyCache[key].expanded;
-  const btn=cardEl.querySelector('.dc-expand-btn');
-  if(btn)btn.textContent='▲ Collapse';
-  requestAnimationFrame(()=>_populateExpandedSection(key));
+  const tabMap={accounts:'accounts',buckets:'buckets',ai:'coach',ledger:'ledger',reports:'reports',horizon:'whatif'};
+  const tab=tabMap[key];
+  if(tab)setTab(tab);
 }
 
-function collapseCard(){if(_dashExpanded)expandCard(_dashExpanded);}
+function collapseCard(){}
 
 // Desktop section renderer — routes to the shared #dashSect container
 function renderDeskSection(tab){
