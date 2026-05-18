@@ -2102,6 +2102,7 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
   padding:20px 24px 32px;
   min-height:calc(100vh - 54px);
   align-content:start;
+  align-items:start;
 }
 .dash-canvas::before{
   content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
@@ -2364,14 +2365,11 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 }
 
 /* ── CARD EXPAND ── */
-.dc.dc-expanded{grid-column:1 / -1!important;cursor:default;height:80vh;min-height:0;overflow:hidden;}
-.dc.dc-expanded .dc-body{flex:1 1 0;overflow-y:auto;max-height:none;padding:0;min-height:0;}
+.dc.dc-expanded{cursor:default;border-color:var(--border2);box-shadow:0 8px 40px rgba(0,0,0,.7),0 2px 8px rgba(0,0,0,.5);}
+.dc.dc-expanded .dc-body{overflow-y:auto;max-height:65vh;padding:0;}
 .dc.dc-expanded .dc-foot{opacity:1!important;}
 .dc-expand-btn{margin-right:auto;}
-.dash-canvas.has-expanded .dc:not(.dc-expanded){opacity:0.4;pointer-events:none;}
-.dash-canvas.has-expanded .dc:not(.dc-expanded):hover{opacity:0.55;}
-.dash-canvas.has-expanded .dc-spacer{opacity:0;}
-.dc-sect-wrap{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;}
+.dc-sect-wrap{display:flex;flex-direction:column;min-height:0;}
 </style>
 </head>
 <body>
@@ -5667,19 +5665,22 @@ function renderDashboard(){
   const hasExp=EXP!==null;
 
   // card(key, spanCls, headTitle, badgeHtml, headLink, summaryHtml, expandedHtml, footBtns, statusCls)
-  function card(key,spanCls,headTitle,badgeHtml,headLink,summaryHtml,expandedHtml,footBtns='',statusCls='s-dim'){
-    const isExp=EXP===key;
+  function card(key,spanCls,headTitle,badgeHtml,headLink,summaryHtml,expandedHtml,footBtns='',statusCls='s-dim',noExpand=false){
+    const isExp=!noExpand&&EXP===key;
     const cls=`dc ${spanCls?spanCls+' ':''}${statusCls}${isExp?' dc-expanded':''}`;
     const badgeCls=statusCls==='s-neg'?'neg':statusCls==='s-warn'?'warn':statusCls==='s-good'?'good':'';
-    const expandBtn=`<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
+    const expandBtn=noExpand?'':
+      `<button class="dc-btn dc-expand-btn" onclick="event.stopPropagation();expandCard('${key}')">${isExp?'▲ Collapse':'↗ Expand'}</button>`;
+    const headOnClick=noExpand?'':`onclick="${isExp?`collapseCard()`:`expandCard('${key}')`}"`;
+    const showFoot=footBtns||!noExpand;
     return`<div class="${cls}">
-      <div class="dc-head" onclick="${isExp?`collapseCard()`:`expandCard('${key}')`}" style="cursor:pointer">
+      <div class="dc-head" ${headOnClick} style="cursor:${noExpand?'default':'pointer'}">
         <span class="dc-title">${headTitle}</span>
         ${badgeHtml?`<span class="dc-badge ${badgeCls}">${badgeHtml}</span>`:''}
-        <span class="dc-link">${headLink}</span>
+        ${headLink?`<span class="dc-link">${headLink}</span>`:''}
       </div>
       <div class="dc-body">${isExp?expandedHtml:summaryHtml}</div>
-      <div class="dc-foot">${expandBtn}${footBtns}</div>
+      ${showFoot?`<div class="dc-foot">${expandBtn}${footBtns}</div>`:''}
     </div>`;
   }
 
@@ -5835,21 +5836,22 @@ function renderDashboard(){
   const bktBadgeCls=criticalCount>0?'neg':allFunded?'good':'warn';
   const bktBadgeLbl=allFunded?'✓ All funded':`${attentionBkts.length} need${attentionBkts.length===1?' attention':'s attention'}`;
 
+  const navLink=(tab,label)=>`<span class="dc-link" onclick="event.stopPropagation();setTab('${tab}')" style="cursor:pointer">${label}</span>`;
   el.innerHTML=`
-    ${card('rts','span2 featured','Ready to Spend','','Allocate ›',rtsSummary,rtsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">Allocate ›</button>`,rtsStatusCls)}
-    ${card('accounts','','Accounts','','All ›',acctSummary,acctExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`,'s-blue')}
+    ${card('rts','span2 featured','Ready to Spend','','',rtsSummary,'','',rtsStatusCls,true)}
+    ${card('accounts','','Accounts','',navLink('accounts','All ›'),acctSummary,acctExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`,'s-blue')}
     <div class="dc-spacer"></div>
-    ${card('buckets','span3','Buckets',bktBadgeLbl,'Manage ›',bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
+    ${card('buckets','span3','Buckets',bktBadgeLbl,navLink('buckets','Manage ›'),bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
     <div class="dc-spacer"></div>
-    ${card('ledger','span2','Recent Ledger','','Full ledger ›',ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`,'s-blue')}
-    ${card('reports','','Spending','','Reports ›',reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`,'s-blue')}
+    ${card('ledger','span2','Recent Ledger','',navLink('ledger','Full ledger ›'),ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`,'s-blue')}
+    ${card('reports','','Spending','',navLink('reports','Reports ›'),reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`,'s-blue')}
     <div class="dc-spacer"></div>
-    ${card('horizon','span2','12-Month Horizon','','What If ›',horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'s-blue')}
-    ${card('ai','','✦ AI Coach','','Open ›',aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'s-dim')}
+    ${card('horizon','span2','12-Month Horizon','',navLink('whatif','What If ›'),horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'s-blue')}
+    ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'s-dim')}
   `;
 
   // Toggle has-expanded class on canvas
-  el.classList.toggle('has-expanded',hasExp);
+  el.classList.remove('has-expanded');
 
   // If a card is expanded, populate its section container
   if(EXP){
