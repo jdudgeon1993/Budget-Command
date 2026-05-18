@@ -2723,7 +2723,8 @@ async function authInit(){
         if(!S.accounts.length){startWizard();}
       }
     } else if(event==='TOKEN_REFRESHED'){
-      // Session silently renewed — push any pending offline changes
+      // Session silently renewed — update user reference and push pending changes
+      if(session)_supaUser=session.user;
       if(_supaUser&&_pendingSync){
         setSyncStatus('syncing','Syncing…');
         await supabase_push();
@@ -2976,6 +2977,27 @@ function save(){
   }
 }
 
+function _isAuthError(err){
+  if(!err)return false;
+  return err.status===401||err.status===403||err.code==='PGRST301'||
+    !!(err.message&&(err.message.includes('JWT')||err.message.includes('not authenticated')||err.message.includes('invalid claim')||err.message.includes('session_not_found')));
+}
+
+async function _handleStaleSession(){
+  // Verify session is genuinely invalid before forcing re-login
+  const client=supaClient();
+  const {error}=await client.auth.getUser();
+  if(error){
+    _supaUser=null;
+    _appInitialized=false;
+    setSyncStatus('offline','Session expired — please sign in again');
+    updateAuthBtn();
+    showAuthSignIn();
+    document.getElementById('authScreen').classList.remove('hidden');
+  }
+  // If getUser() succeeds, the token refreshed on its own — no action needed
+}
+
 async function supabase_push(){
   if(!supaReady()||!_supaUser)return;
   const client=supaClient();
@@ -2994,6 +3016,7 @@ async function supabase_push(){
 
   if(error){
     clearTimeout(abortTimer);
+    if(_isAuthError(error)){await _handleStaleSession();return;}
     console.warn('Supabase push error:',error.message,'(code:'+error.code+')');
     setSyncStatus('error','Sync error — see console');
     return;
@@ -3024,12 +3047,8 @@ async function supabase_push(){
 
 // ── Load: Supabase is the source of truth, localStorage is offline fallback ──
 async function loadFromSupabase(){
-  if(!supaReady())return false;
+  if(!supaReady()||!_supaUser)return false;
   const client=supaClient();
-
-  const {data:sessionData}=await client.auth.getSession();
-  if(!sessionData?.session?.user)return false;
-  _supaUser=sessionData.session.user;
 
   const {data,error}=await client
     .from('bcc_budget_state')
@@ -3039,6 +3058,7 @@ async function loadFromSupabase(){
 
   if(error){
     console.warn('Supabase load error:',error.message,'(code:'+error.code+')');
+    if(_isAuthError(error)){await _handleStaleSession();return false;}
     if(error.code==='42P01'||error.message.includes('does not exist')){
       setSyncStatus('error','Table missing — run SQL setup');
       return false;
