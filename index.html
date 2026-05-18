@@ -5658,6 +5658,65 @@ function jumpToToday(){
 }
 
 
+function buildDashStripHTML(){
+  const cfg=S.dashStripCfg||(S.dashStripCfg={hidden:false,stats:['rts','cash','networth']});
+  if(cfg.hidden){
+    return`<div class="dash-strip-show-wrap"><button class="dash-strip-show-btn" onclick="showDashStrip()">◎ Show stats strip</button></div>`;
+  }
+  const mid=S.activeMonth;
+  const hasBudget=S.accounts.some(a=>a.type==='budget');
+  const rtsVal=hasBudget?todayReadyToSpend():null;
+  const cashVal=totalCash();
+  const debtTotal=S.accounts.filter(a=>a.type==='debt').reduce((s,a)=>s+Math.abs(acctBalance(a.id)),0);
+  const netVal=cashVal-debtTotal;
+  const aomVal=ageOfMoney();
+  const allocVal=mid?totalAllocated(mid):0;
+  const spentVal=mid?S.txs.filter(t=>t.monthId===mid&&t.type==='out'&&!isScheduled(t)).reduce((s,t)=>s+t.amount,0):0;
+  const STATS={
+    rts:{label:'Ready to Spend',val:rtsVal,fmt:v=>v==null?'—':$f(Math.abs(v)),cls:v=>v==null?'dim':v<0?'neg':v>0?'pos':''},
+    cash:{label:'Total Cash',val:cashVal,fmt:v=>$f(Math.abs(v)),cls:v=>v<0?'neg':''},
+    networth:{label:'Net Worth',val:netVal,fmt:v=>$f(Math.abs(v)),cls:v=>v<0?'neg':v>0?'pos':''},
+    aom:{label:'Age of Money',val:aomVal,fmt:v=>v==null?'—':v+'d',cls:v=>v==null?'dim':v>=30?'pos':v>=14?'':'neg'},
+    alloc:{label:'Allocated',val:allocVal,fmt:v=>$f(v),cls:()=>''},
+    spent:{label:'Spent',val:spentVal,fmt:v=>$f(v),cls:()=>''},
+  };
+  const vis=(cfg.stats||['rts','cash','networth']).filter(k=>STATS[k]);
+  const statHTML=vis.map(k=>{
+    const s=STATS[k];const c=s.cls(s.val);
+    return`<div class="dash-strip-stat"><div class="dash-strip-label">${s.label}</div><div class="dash-strip-val${c?' '+c:''}">${s.fmt(s.val)}</div></div>`;
+  }).join('');
+  const cfgPanel=_stripCfgOpen?`<div class="dash-strip-cfg-panel">
+    <span class="dash-strip-cfg-label">Show:</span>
+    ${Object.entries(STATS).map(([k,s])=>`<label class="dash-strip-cfg-item"><input type="checkbox" ${(cfg.stats||[]).includes(k)?'checked':''} onchange="event.stopPropagation();toggleStripStat('${k}')">${s.label}</label>`).join('')}
+    <div class="dash-strip-cfg-divider"></div>
+    <button class="dash-strip-hide-btn" onclick="event.stopPropagation();hideDashStrip()">Hide strip</button>
+    <button class="dash-strip-cfg-done" onclick="event.stopPropagation();toggleStripCfg()">Done</button>
+  </div>`:'';
+  return`<div class="dash-strip">${statHTML}<div class="dash-strip-actions"><button class="dash-strip-cfg-btn" onclick="event.stopPropagation();toggleStripCfg()">⚙ Customize</button></div></div>${cfgPanel}`;
+}
+function toggleStripCfg(){
+  _stripCfgOpen=!_stripCfgOpen;
+  const w=document.getElementById('dashStripWrap');
+  if(w)w.innerHTML=buildDashStripHTML();
+}
+function toggleStripStat(key){
+  if(!S.dashStripCfg)S.dashStripCfg={hidden:false,stats:['rts','cash','networth']};
+  const st=S.dashStripCfg.stats;const idx=st.indexOf(key);
+  if(idx>=0)st.splice(idx,1);else st.push(key);
+  save();
+  const w=document.getElementById('dashStripWrap');if(w)w.innerHTML=buildDashStripHTML();
+}
+function hideDashStrip(){
+  if(!S.dashStripCfg)S.dashStripCfg={hidden:false,stats:['rts','cash','networth']};
+  S.dashStripCfg.hidden=true;_stripCfgOpen=false;save();
+  const w=document.getElementById('dashStripWrap');if(w)w.innerHTML=buildDashStripHTML();
+}
+function showDashStrip(){
+  if(!S.dashStripCfg)S.dashStripCfg={hidden:false,stats:['rts','cash','networth']};
+  S.dashStripCfg.hidden=false;save();
+  const w=document.getElementById('dashStripWrap');if(w)w.innerHTML=buildDashStripHTML();
+}
+
 function renderDashboard(){
   const el=document.getElementById('dashCanvas');
   if(!el)return;
@@ -5931,16 +5990,13 @@ function renderDashboard(){
 
   const navLink=(tab,label)=>`<span class="dc-link" onclick="event.stopPropagation();setTab('${tab}')" style="cursor:pointer">${label}</span>`;
   el.innerHTML=`
-    ${card('rts','span2 featured','Ready to Spend','','',rtsSummary,'','',rtsStatusCls,true)}
+    <div class="dash-strip-wrap" id="dashStripWrap">${buildDashStripHTML()}</div>
     ${card('accounts','','Accounts','',navLink('accounts','All ›'),acctSummary,acctExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('accounts')">Manage ›</button>`,'s-blue')}
-    <div class="dc-spacer"></div>
-    ${card('buckets','span3','Buckets',bktBadgeLbl,navLink('buckets','Manage ›'),bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
-    <div class="dc-spacer"></div>
+    ${card('buckets','span2','Buckets',bktBadgeLbl,navLink('buckets','Manage ›'),bktSummary,bktExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('buckets')">${allFunded?'View all ›':'Fix issues ›'}</button>`,allFunded?'s-good':criticalCount>0?'s-neg':'s-warn')}
+    ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'s-dim')}
     ${card('ledger','span2','Recent Ledger','',navLink('ledger','Full ledger ›'),ledgerSummary,ledgerExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('ledger')">Full ledger ›</button>`,'s-blue')}
     ${card('reports','','Spending','',navLink('reports','Reports ›'),reportsSummary,reportsExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('reports')">Full reports ›</button>`,'s-blue')}
-    <div class="dc-spacer"></div>
-    ${card('horizon','span2','12-Month Horizon','',navLink('whatif','What If ›'),horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'s-blue')}
-    ${card('ai','','✦ AI Coach','',navLink('coach','Open ›'),aiSummary,aiExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('coach')">Ask coach ›</button>`,'s-dim')}
+    ${card('horizon','','12-Month Horizon','',navLink('whatif','What If ›'),horizonSummary,horizonExpanded,`<button class="dc-btn primary" onclick="event.stopPropagation();setTab('whatif')">Scenarios ›</button>`,'s-blue')}
   `;
 
   // If a card is expanded after full rebuild, repopulate its section on next frame
@@ -5969,11 +6025,11 @@ function rerenderSettings(){const el=_sectEl('settings');if(el)renderSettingsTab
 function rerenderBuckets(){if(!isMobile()){renderDeskSection('buckets');return;}const el=document.getElementById('paneBuckets');if(el)renderBucketsTab(el,S.activeMonth);}
 
 function _populateExpandedSection(key){
-  const sectMap={rts:'dashExpRts',accounts:'dashExpAcct',buckets:'dashExpBkt',ledger:'dashExpLedger',ai:'dashExpAi',horizon:'dashExpHorizon',reports:'dashExpReports'};
+  const sectMap={accounts:'dashExpAcct',buckets:'dashExpBkt',ledger:'dashExpLedger',ai:'dashExpAi',horizon:'dashExpHorizon',reports:'dashExpReports'};
   const sectEl=document.getElementById(sectMap[key]);
   if(!sectEl)return;
   const m=S.activeMonth;
-  if(key==='rts'||key==='buckets')renderBucketsTab(sectEl,m);
+  if(key==='buckets')renderBucketsTab(sectEl,m);
   else if(key==='ledger')renderLedgerTab(sectEl,m);
   else if(key==='accounts')renderAccountsTab(sectEl,m);
   else if(key==='ai')renderCoachPane(sectEl);
