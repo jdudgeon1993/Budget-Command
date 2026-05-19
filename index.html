@@ -7338,6 +7338,27 @@ function renderBucketDetail(mid,past,m){
     </div>`;
   }
 
+  if(b.type==='vault'){
+    const vAcc=vaultAccumulated(b.id);
+    const vWithdrawn=S.months.reduce((s,mo)=>s+(mo.vaultWithdrawals?.[b.id]||0),0);
+    if(!past){
+      h+=`<div class="det-block"><div class="det-block-title">Vault Balance</div>
+        <div class="det-row"><span class="det-row-label">Total accumulated</span><span class="det-row-val" style="color:#f59e0b">${$f(vAcc)}</span></div>
+        <div class="det-row"><span class="det-row-label">This month's allocation</span><span class="det-row-val">${$f(alloc)}</span></div>
+        ${vWithdrawn>0?`<div class="det-row"><span class="det-row-label">Previously released</span><span class="det-row-val c-text3">−${$f(vWithdrawn)}</span></div>`:''}
+        ${vAcc>0?`<div id="vaultReleaseRow_${b.id}" style="margin-top:10px;display:none;background:var(--surface2);border-radius:var(--r);padding:10px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Release vault savings back to your free pool. For this month's allocation ($${alloc.toFixed(2)}), RTS increases immediately. For prior months, the money was already available — this just clears the vault record.</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <input id="vaultReleaseAmt_${b.id}" type="number" class="aer-input" style="width:100px" placeholder="${vAcc.toFixed(2)}" max="${vAcc.toFixed(2)}" step="0.01" />
+            <button class="tbtn" style="font-size:12px;padding:5px 10px" onclick="_confirmVaultRelease('${b.id}','${mid}')">Release</button>
+            <button class="tbtn ghost" style="font-size:11px;padding:4px 8px;color:var(--text3)" onclick="document.getElementById('vaultReleaseAmt_${b.id}').value='${vAcc.toFixed(2)}'">All ${$f(vAcc)}</button>
+          </div>
+        </div>
+        <button class="tbtn ghost" style="font-size:11px;padding:4px 10px;margin-top:8px;width:100%" onclick="toggleEl('vaultReleaseRow_${b.id}')">⟳ Release to free pool…</button>`:''}
+      </div>`;
+    }
+  }
+
   if(!past){
     h+=`<div class="alloc-edit-row">
       <span class="aer-label">Allocate</span>
@@ -7709,7 +7730,50 @@ function _setBucketInner(el,h){
 
 // ── Vault helpers ────────────────────────────────────────────
 function vaultAccumulated(bid){
-  return S.months.reduce((s,mo)=>s+(mo.allocations?.[bid]||0),0);
+  const allocs=S.months.reduce((s,mo)=>s+(mo.allocations?.[bid]||0),0);
+  const withdrawn=S.months.reduce((s,mo)=>s+(mo.vaultWithdrawals?.[bid]||0),0);
+  return allocs-withdrawn;
+}
+function releaseVaultToPool(bid,mid,amount){
+  const m=getMonth(mid);if(!m)return;
+  const cur=bAlloc(mid,bid);
+  const fromCur=Math.min(amount,cur);
+  const remainder=amount-fromCur;
+  if(!m.allocations)m.allocations={};
+  if(fromCur>0)m.allocations[bid]=Math.max((m.allocations[bid]||0)-fromCur,0);
+  if(remainder>0.001){
+    if(!m.vaultWithdrawals)m.vaultWithdrawals={};
+    m.vaultWithdrawals[bid]=(m.vaultWithdrawals[bid]||0)+remainder;
+  }
+  save();renderTopbar();renderSidebarVitals();renderActivePane();refreshBucketDetail();
+  showToast($f(amount)+' released from '+getBucket(bid)?.name+' vault to free pool','save');
+}
+function undoVaultRelease(bid,mid){
+  const m=getMonth(mid);if(!m)return;
+  const withdrawn=(m.vaultWithdrawals&&m.vaultWithdrawals[bid])||0;
+  // Restore: clear withdrawals and re-add current alloc up to original total
+  if(withdrawn>0){delete m.vaultWithdrawals[bid];}
+  // We can't retroactively restore the allocation reduction (it's been removed),
+  // but we restore the withdrawal record. The current alloc stays reduced — user must re-add if needed.
+  save();renderTopbar();renderSidebarVitals();renderActivePane();refreshBucketDetail();
+  showToast('Vault withdrawal reversed','save');
+}
+function _confirmVaultRelease(bid,mid){
+  const acc=vaultAccumulated(bid);
+  const raw=acc+(S.months.reduce((s,mo)=>s+(mo.vaultWithdrawals?.[bid]||0),0)); // gross before any withdrawals
+  const available=raw; // total ever accumulated, pre any prior withdrawals already done
+  const el=document.getElementById('vaultReleaseAmt_'+bid);
+  const amt=parseFloat(el?.value)||0;
+  if(amt<=0){showToast('Enter a positive amount','info');return;}
+  if(amt>acc+0.01){showToast('Amount exceeds vault balance of '+$f(acc),'info');return;}
+  const cur=bAlloc(mid,bid);
+  const fromCur=Math.min(amt,cur);
+  const fromPrior=amt-fromCur;
+  let msg=`Release ${$f(amt)} from "${getBucket(bid)?.name}" vault back to your free pool?`;
+  if(fromCur>0&&fromPrior>0)msg+=`\n\n• ${$f(fromCur)} from this month's allocation → adds to Ready to Spend\n• ${$f(fromPrior)} from prior months → was already in your free pool (this just clears the vault record)`;
+  else if(fromCur>0)msg+=`\n\nThis amount is from this month's allocation and will be added back to Ready to Spend immediately.`;
+  else msg+=`\n\nThis amount is from prior months' savings. It was already available in your budget — this just removes it from the vault record.`;
+  if(confirm(msg))releaseVaultToPool(bid,mid,amt);
 }
 function vaultMonthlyContrib(bid){
   const rules=(S.allocationRules||[]).filter(r=>r.active!==false&&r.bucketId===bid);
@@ -8094,7 +8158,17 @@ function bktInlineEditHtml(b,mid,past){
             <button class="vault-why-btn${reason==='overspend'?' sel-overspend':''}" onclick="vaultTransferSetReason('${b.id}','overspend')">⚠ Correcting overspend</button>
           </div>
           <button class="tbtn" style="width:100%;color:var(--accent);border-color:var(--accent)" onclick="vaultTransfer('${b.id}','${mid}')">Execute Transfer →</button>
+        </div>
+        ${acc>0?`<div class="vault-xfr-section" style="margin-top:0;border-top:1px solid var(--border);padding-top:12px">
+          <div class="bkt-inline-label" style="margin-bottom:6px">Release to Free Pool</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Skip picking a destination — put it straight back into Ready to Spend (or just clear the vault record for prior-month savings).</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <input id="vaultReleaseAmt_${b.id}" type="number" step="0.01" class="bkt-inline-input" style="width:110px;flex-shrink:0" placeholder="${acc.toFixed(2)}" max="${acc.toFixed(2)}" />
+            <button class="tbtn" style="font-size:12px;padding:5px 10px" onclick="_confirmVaultRelease('${b.id}','${mid}')">Release</button>
+            <button class="tbtn ghost" style="font-size:11px;color:var(--text3)" onclick="document.getElementById('vaultReleaseAmt_${b.id}').value='${acc.toFixed(2)}'">All ${$f(acc)}</button>
+          </div>
         </div>`:''}
+        `:''}
       </div>
     </div>`;
   }
