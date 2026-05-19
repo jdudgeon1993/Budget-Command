@@ -812,6 +812,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:15
 .det-notes{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;word-break:break-word;}
 .back-btn{background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);display:flex;align-items:center;gap:5px;padding:0;margin-bottom:14px;font-family:var(--sans);transition:color .12s;}
 .back-btn:hover{color:var(--text2);}
+.link-btn{background:none;border:none;cursor:pointer;color:var(--accent);font-size:inherit;font-family:var(--sans);padding:0;text-decoration:underline;}
 .det-name{font-size:23px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px;}
 .det-meta{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:7px;margin-bottom:20px;flex-wrap:wrap;}
 .det-sep{color:var(--border2);}
@@ -4729,20 +4730,63 @@ function readyToSpend(mid){
   // All future months: new pre-allocations only (rollover is already captured in curClaimed above)
   const futureClaimed=S.months.filter(m=>compareMid(m.id,activeMid)>0).reduce((s,m)=>
     s+activeBkts.reduce((bs,b)=>bs+(bAlloc(m.id,b.id)||0),0),0);
-  return budgetBal-curClaimed-futureClaimed;
+  // Released rollover is freed back into RTS — it's no longer claimed by any bucket
+  const released=totalRolloverReleased(activeMid);
+  return budgetBal-curClaimed-futureClaimed+released;
 }
 
-function rolloverBal(bid,mid){
+function rolloverBalRaw(bid,mid){
   const m=getMonth(mid);if(!m)return 0;
   const b=getBucket(bid);if(!b||!b.rollover)return 0;
   const prior=S.months.filter(mo=>mo.year<m.year||(mo.year===m.year&&mo.month<m.month));
   return prior.reduce((s,mo)=>{
-    if(isBktSkipped(bid,mo.id))return s; // skipped months don't contribute to rollover
+    if(isBktSkipped(bid,mo.id))return s;
     const a=mo.allocations?mo.allocations[bid]||0:0;return s+(a-bSpent(mo.id,bid));
   },0);
 }
+function rolloverBal(bid,mid){
+  const raw=rolloverBalRaw(bid,mid);
+  const m=getMonth(mid);
+  const released=(m&&m.rolloverReleased&&m.rolloverReleased[bid])||0;
+  return raw-released;
+}
+function totalRolloverReleased(mid){
+  const m=getMonth(mid);if(!m||!m.rolloverReleased)return 0;
+  return Object.values(m.rolloverReleased).reduce((s,v)=>s+v,0);
+}
 // "Saved" for a sinking fund = current available balance (rollover + this month's alloc − spent)
 function sinkingSaved(bid,mid){return rolloverBal(bid,mid)+bAlloc(mid,bid)-bSpent(mid,bid);}
+
+function releaseRollover(bid,mid,amount){
+  const m=getMonth(mid);if(!m)return;
+  const raw=rolloverBalRaw(bid,mid);
+  const alreadyReleased=(m.rolloverReleased&&m.rolloverReleased[bid])||0;
+  const maxRelease=raw-alreadyReleased;
+  const amt=Math.min(Math.max(0,parseFloat(amount)||0),maxRelease);
+  if(amt<=0)return;
+  if(!m.rolloverReleased)m.rolloverReleased={};
+  m.rolloverReleased[bid]=(alreadyReleased+amt);
+  save();_rerenderBucketsTab();renderSidebarVitals();
+}
+function undoReleaseRollover(bid,mid){
+  const m=getMonth(mid);if(!m||!m.rolloverReleased)return;
+  delete m.rolloverReleased[bid];
+  save();_rerenderBucketsTab();renderSidebarVitals();
+}
+function toggleEl(id){const el=document.getElementById(id);if(el)el.style.display=el.style.display==='none'?'':'none';}
+function _confirmReleaseRollover(bid,mid){
+  const b=getBucket(bid);const m=getMonth(mid);
+  if(!b||!m)return;
+  const raw=rolloverBalRaw(bid,mid);
+  const alreadyReleased=(m.rolloverReleased&&m.rolloverReleased[bid])||0;
+  const available=raw-alreadyReleased;
+  const inp=document.getElementById('rollReleaseAmt_'+bid);
+  const amt=inp&&inp.value?parseFloat(inp.value):available;
+  if(!amt||amt<=0){alert('Enter an amount to release.');return;}
+  const releaseAmt=Math.min(amt,available);
+  if(!confirm(`Release ${$f(releaseAmt)} from "${b.name}" rollover back to your available pool?\n\nThis money will show up in RTS immediately. You can undo this anytime in the bucket details.`))return;
+  releaseRollover(bid,mid,releaseAmt);
+}
 // Contribution per pay-period given a monthly target amount
 function contribAmt(b){const m=b.defaultBudget||0;if(b.contribFreq==='weekly')return+(m*12/52).toFixed(2);if(b.contribFreq==='biweekly')return+(m*12/26).toFixed(2);return m;}
 
@@ -6491,6 +6535,15 @@ function renderBucketsTab(el,mid){
   </div><div class="tab-inner">`;
   if(past)h+=`<div class="notice">🔒 Closed month — read only.</div>`;
   if(st==='future')h+=`<div class="hint-bar info">📅 Planning month — the RTS shown is your <strong>current available pool</strong> (today's cash minus all present &amp; future commitments). Pre-saving here reduces your current month's RTS.</div>`;
+  if(!past){
+    const totalRoll=S.buckets.filter(b=>!b.archived&&b.rollover).reduce((s,b)=>s+rolloverBal(b.id,mid),0);
+    if(totalRoll>0){
+      const rollBktCount=S.buckets.filter(b=>!b.archived&&b.rollover&&rolloverBal(b.id,mid)>0).length;
+      h+=`<div class="hint-bar info" style="justify-content:space-between">
+        <span>⟳ ${$f(totalRoll)} rolled over across ${rollBktCount} bucket${rollBktCount!==1?'s':''}. Click a rolled-over tag or open the bucket to release funds.</span>
+      </div>`;
+    }
+  }
   if(!past&&unalloc>0&&rts>0)
     h+=`<div class="hint-bar info">💡 ${$f(rts)} ready to allocate — ${unalloc} bucket${unalloc!==1?'s':''} waiting. Click the Allocated field to assign money.</div>`;
   else if(!past&&rts<0)
@@ -6597,7 +6650,7 @@ function renderBucketsTab(el,mid){
       if(b.type==='goal')tags.push(`<span class="bntag">goal</span>`);
       if(b.recurring)tags.push(`<span class="bntag">↻</span>`);
       if(b.payFreq&&b.payFreq!=='monthly'){const fl=b.payFreq==='weekly'?'wkly':b.payFreq==='biweekly'?'2wk':'3wk';tags.push(`<span class="bntag">${fl}</span>`);}
-      if(roll>0)tags.push(`<span class="bntag">+${$f(roll)} rolled</span>`);
+      if(roll>0)tags.push(`<span class="bntag" style="cursor:pointer" onclick="setBucket('${b.id}')" title="Click to view rollover details">+${$f(roll)} rolled</span>`);
       if(trend&&Math.abs(trend.pct)>=10){tags.push(`<span class="bntag ${trend.pct>0?'neg':'pos'}">${trend.pct>0?'↑':'↓'}${Math.abs(trend.pct)}%</span>`);}
 
       const isExpanded=S.activeBucket===b.id;
@@ -7229,11 +7282,24 @@ function renderBucketDetail(mid,past,m){
     <div class="det-bar-note"><span>${barNote}</span><span>${remainNote}</span></div>
   </div>`;
 
-  if(roll>0){
+  const rollRaw=rolloverBalRaw(b.id,mid);
+  const rollReleased=(m&&m.rolloverReleased&&m.rolloverReleased[b.id])||0;
+  if(rollRaw>0){
     h+=`<div class="det-block"><div class="det-block-title">Rollover</div>
       <div class="det-row"><span class="det-row-label">Allocated this month</span><span class="det-row-val">${$f(alloc)}</span></div>
-      <div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val c-accent">+${$f(roll)}</span></div>
+      <div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val c-accent">+${$f(rollRaw)}</span></div>
+      ${rollReleased>0?`<div class="det-row"><span class="det-row-label">Released to pool</span><span class="det-row-val" style="color:var(--amber)">−${$f(rollReleased)}</span></div>`:''}
       <div class="det-row"><span class="det-row-label">Effective total</span><span class="det-row-val">${$f(eff)}</span></div>
+      ${!past?`<div id="rolloverReleaseRow_${b.id}" style="margin-top:10px;display:none;background:var(--surface2);border-radius:var(--r);padding:10px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Release rolled-over money back to your available pool. You can undo this anytime in bucket details.</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <input id="rollReleaseAmt_${b.id}" type="number" class="aer-input" style="width:100px" placeholder="${(rollRaw-rollReleased).toFixed(2)}" max="${(rollRaw-rollReleased).toFixed(2)}" step="0.01" />
+          <button class="tbtn" style="font-size:12px;padding:5px 10px" onclick="_confirmReleaseRollover('${b.id}','${mid}')">Release</button>
+          <button class="tbtn ghost" style="font-size:11px;padding:4px 8px;color:var(--text3)" onclick="document.getElementById('rollReleaseAmt_${b.id}').value='${(rollRaw-rollReleased).toFixed(2)}'">All ${$f(rollRaw-rollReleased)}</button>
+        </div>
+        ${rollReleased>0?`<div style="margin-top:8px;font-size:11px;color:var(--text3)">Already released: ${$f(rollReleased)} — <button class="link-btn" onclick="undoReleaseRollover('${b.id}','${mid}')">Undo release</button></div>`:''}
+      </div>
+      <button class="tbtn ghost" style="font-size:11px;padding:4px 10px;margin-top:8px;width:100%" onclick="toggleEl('rolloverReleaseRow_${b.id}')">${rollReleased>0&&rollRaw-rollReleased<=0?'Released':'⟳ Release rollover…'}</button>`:''}
     </div>`;
   }
 
