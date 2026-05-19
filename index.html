@@ -4184,8 +4184,8 @@ function buildMonthEndReportHtml(mid){
   const debtRows=debtAccts.map(a=>{const bal=acctBalance(a.id);return`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:6px 8px;font-size:12px;color:#4b5563">${esc(a.name)}</td><td style="padding:6px 8px;text-align:right;font-size:12px;font-family:${mono};color:#dc2626">${$f(Math.abs(bal))}</td><td style="padding:6px 8px;text-align:right;font-size:11px;color:#6b7280">${a.debtAPR?a.debtAPR+'% APR':''}</td></tr>`;}).join('');
 
   // Rollover buckets
-  const rollBkts=S.buckets.filter(b=>!b.archived&&b.rollover).map(b=>{const avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id);return{b,avail};}).filter(r=>Math.abs(r.avail)>0.005);
-  const rollRows=rollBkts.map(({b,avail})=>`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:6px 8px;font-size:12px;color:#4b5563">${esc(b.name)}</td><td style="padding:6px 8px;text-align:right;font-size:12px;font-family:${mono};color:${avail>=0?'#059669':'#dc2626'}">${avail>=0?'+':''}${$f(avail)}</td></tr>`).join('');
+  const rollBkts=S.buckets.filter(b=>!b.archived&&b.rollover).map(b=>{const carry=rolloverBal(b.id,mid)+Math.max(0,bAlloc(mid,b.id)-bSpent(mid,b.id));return{b,carry};}).filter(r=>Math.abs(r.carry)>0.005);
+  const rollRows=rollBkts.map(({b,carry})=>`<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:6px 8px;font-size:12px;color:#4b5563">${esc(b.name)}</td><td style="padding:6px 8px;text-align:right;font-size:12px;font-family:${mono};color:${carry>=0?'#059669':'#dc2626'}">${carry>=0?'+':''}${$f(carry)}</td></tr>`).join('');
 
   // Prior-month comparison section
   let compHtml='';
@@ -4958,20 +4958,24 @@ function monthCloseHtml(mid){
 
   // ── Section 5: Rollover Preview ───────────────────────────────────────────
   const nextMid=getNextMonthId(mid);
+  // Show only buckets where the NET rollover (after releases) is non-zero
   const rollBkts=S.buckets.filter(b=>!b.archived&&b.rollover).map(b=>{
-    const avail=bAlloc(mid,b.id)+rolloverBal(b.id,mid)-bSpent(mid,b.id);
-    return{b,avail};
-  }).filter(r=>Math.abs(r.avail)>0.005);
+    const netRoll=rolloverBal(b.id,mid); // NET after any releases
+    const unspentAlloc=Math.max(0,bAlloc(mid,b.id)-bSpent(mid,b.id));
+    const carryTotal=netRoll+unspentAlloc; // total that will roll forward
+    return{b,netRoll,unspentAlloc,carryTotal};
+  }).filter(r=>Math.abs(r.carryTotal)>0.005);
   let rollHtml='';
   if(!rollBkts.length){
     rollHtml=`<div class="c-text3" style="font-size:12px">No rollover buckets with a balance.</div>`;
   } else {
-    rollHtml=rollBkts.map(({b,avail})=>`
+    rollHtml=rollBkts.map(({b,netRoll,unspentAlloc,carryTotal})=>`
       <div class="mc-roll-row">
         <span class="mc-roll-name">${esc(b.name)}</span>
-        <span class="c-text3" style="font-size:10px;flex-shrink:0">${avail>0?'rolls forward':'deficit rolls'}</span>
-        <span class="mc-roll-amt c-${avail>=0?'green':'red'}">${avail>=0?'+':''}${$f(avail)}</span>
-      </div>`).join('');
+        <span class="c-text3" style="font-size:10px;flex-shrink:0">${carryTotal>0?'rolls forward':'deficit rolls'}</span>
+        <span class="mc-roll-amt c-${carryTotal>=0?'green':'red'}">${carryTotal>=0?'+':''}${$f(carryTotal)}</span>
+      </div>
+      ${netRoll>0&&unspentAlloc>0?`<div style="font-size:10px;color:var(--text3);padding:0 0 4px 0">Prior surplus ${$f(netRoll)} + unspent alloc ${$f(unspentAlloc)}</div>`:''}`).join('');
     if(!nextMid)rollHtml+=`<div class="hint-bar info" style="margin-top:8px;font-size:11px">No next month exists yet — rollovers will apply when you create it.</div>`;
   }
   const rollBadge=rollBkts.length?`<span class="mc-badge info">${rollBkts.length} bucket${rollBkts.length!==1?'s':''}</span>`:`<span class="mc-badge ok">None</span>`;
@@ -7287,22 +7291,28 @@ function renderBucketDetail(mid,past,m){
 
   const rollRaw=rolloverBalRaw(b.id,mid);
   const rollReleased=(m&&m.rolloverReleased&&m.rolloverReleased[b.id])||0;
+  const rollNet=rollRaw-rollReleased; // net rollover after any releases
   if(rollRaw>0){
+    const fullyReleased=rollNet<=0.005;
     h+=`<div class="det-block"><div class="det-block-title">Rollover</div>
       <div class="det-row"><span class="det-row-label">Allocated this month</span><span class="det-row-val">${$f(alloc)}</span></div>
-      <div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val c-accent">+${$f(rollRaw)}</span></div>
-      ${rollReleased>0?`<div class="det-row"><span class="det-row-label">Released to pool</span><span class="det-row-val" style="color:var(--amber)">−${$f(rollReleased)}</span></div>`:''}
+      ${fullyReleased
+        ?`<div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val c-text3" style="text-decoration:line-through">+${$f(rollRaw)}</span></div>
+           <div class="det-row"><span class="det-row-label">Released to pool</span><span class="det-row-val" style="color:var(--amber)">−${$f(rollReleased)} (all released)</span></div>`
+        :`<div class="det-row"><span class="det-row-label">Rolled over</span><span class="det-row-val c-accent">+${$f(rollNet)}</span></div>
+          ${rollReleased>0?`<div class="det-row"><span class="det-row-label">Released to pool</span><span class="det-row-val" style="color:var(--amber)">−${$f(rollReleased)}</span></div>`:''}`
+      }
       <div class="det-row"><span class="det-row-label">Effective total</span><span class="det-row-val">${$f(eff)}</span></div>
       ${!past?`<div id="rolloverReleaseRow_${b.id}" style="margin-top:10px;display:none;background:var(--surface2);border-radius:var(--r);padding:10px">
         <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Release rolled-over money back to your available pool. You can undo this anytime in bucket details.</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <input id="rollReleaseAmt_${b.id}" type="number" class="aer-input" style="width:100px" placeholder="${(rollRaw-rollReleased).toFixed(2)}" max="${(rollRaw-rollReleased).toFixed(2)}" step="0.01" />
-          <button class="tbtn" style="font-size:12px;padding:5px 10px" onclick="_confirmReleaseRollover('${b.id}','${mid}')">Release</button>
-          <button class="tbtn ghost" style="font-size:11px;padding:4px 8px;color:var(--text3)" onclick="document.getElementById('rollReleaseAmt_${b.id}').value='${(rollRaw-rollReleased).toFixed(2)}'">All ${$f(rollRaw-rollReleased)}</button>
+          <input id="rollReleaseAmt_${b.id}" type="number" class="aer-input" style="width:100px" placeholder="${rollNet.toFixed(2)}" max="${rollNet.toFixed(2)}" step="0.01" ${fullyReleased?'disabled':''} />
+          <button class="tbtn" style="font-size:12px;padding:5px 10px" onclick="_confirmReleaseRollover('${b.id}','${mid}')" ${fullyReleased?'disabled':''}>Release</button>
+          ${!fullyReleased?`<button class="tbtn ghost" style="font-size:11px;padding:4px 8px;color:var(--text3)" onclick="document.getElementById('rollReleaseAmt_${b.id}').value='${rollNet.toFixed(2)}'">All ${$f(rollNet)}</button>`:''}
         </div>
-        ${rollReleased>0?`<div style="margin-top:8px;font-size:11px;color:var(--text3)">Already released: ${$f(rollReleased)} — <button class="link-btn" onclick="undoReleaseRollover('${b.id}','${mid}')">Undo release</button></div>`:''}
+        ${rollReleased>0?`<div style="margin-top:8px;font-size:11px;color:var(--text3)">${fullyReleased?'Fully released':'Already released: '+$f(rollReleased)+' —'} <button class="link-btn" onclick="undoReleaseRollover('${b.id}','${mid}')">Undo release</button></div>`:''}
       </div>
-      <button class="tbtn ghost" style="font-size:11px;padding:4px 10px;margin-top:8px;width:100%" onclick="toggleEl('rolloverReleaseRow_${b.id}')">${rollReleased>0&&rollRaw-rollReleased<=0?'Released':'⟳ Release rollover…'}</button>`:''}
+      <button class="tbtn ghost" style="font-size:11px;padding:4px 10px;margin-top:8px;width:100%" onclick="toggleEl('rolloverReleaseRow_${b.id}')">${fullyReleased?'✓ Fully released (undo?)':'⟳ Release rollover…'}</button>`:''}
     </div>`;
   }
 
