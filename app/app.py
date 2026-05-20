@@ -47,9 +47,12 @@ def load_budget(access_token: str) -> dict:
         sb = get_supabase(access_token)
         resp = (sb.table("bcc_budget_state")
                   .select("data")
-                  .single()
+                  .order("id", desc=True)
+                  .limit(1)
                   .execute())
-        return resp.data.get("data", {}) if resp.data else {}
+        if resp.data:
+            return resp.data[0].get("data", {})
+        return {}
     except Exception as e:
         app.logger.error("load_budget failed: %s\n%s", e, traceback.format_exc())
         return {}
