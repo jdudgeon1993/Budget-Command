@@ -2,6 +2,10 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, session
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from formulas import current_month_id, parse_month_id, month_id
+
+MONTH_NAMES = ["January","February","March","April","May","June",
+               "July","August","September","October","November","December"]
 
 load_dotenv()
 
@@ -62,7 +66,26 @@ def health():
 def dashboard():
     if not logged_in():
         return redirect(url_for("login"))
-    return render_template("dashboard.html", user_email=session.get("user_email"))
+
+    mid = request.args.get("month", "")
+    try:
+        parse_month_id(mid)
+        active_mid = mid
+    except Exception:
+        active_mid = current_month_id()
+
+    year, m0 = parse_month_id(active_mid)
+    prev_mid = month_id(year - 1, 11) if m0 == 0 else month_id(year, m0 - 1)
+    next_mid = month_id(year + 1, 0) if m0 == 11 else month_id(year, m0 + 1)
+
+    return render_template(
+        "dashboard.html",
+        user_email=session.get("user_email"),
+        active_mid=active_mid,
+        month_display=f"{MONTH_NAMES[m0]} {year}",
+        prev_mid=prev_mid,
+        next_mid=next_mid,
+    )
 
 
 if __name__ == "__main__":

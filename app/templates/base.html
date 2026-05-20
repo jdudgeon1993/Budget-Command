@@ -12,29 +12,31 @@
       --sans: 'Rajdhani', system-ui, sans-serif;
       --mono: 'Share Tech Mono', monospace;
       --display: 'Bebas Neue', sans-serif;
-      --r: 2px; --rl: 2px;
-      --bg: #071120; --bg2: #0a1628; --bg3: #0d1f3c;
-      --surface: #0d1f3c; --surface2: #0a1628;
-      --border: #1e3a5f; --border2: #3a7fc1;
-      --text: #e8f4ff; --text2: #7dd3fc; --text3: #3a7fc1;
-      --green: #2a9f60; --gbg: #0a2a18;
-      --red: #cc3333; --rbg: #2a0a0a;
-      --amber: #f0e040; --abg: #2a2000;
-      --accent: #7dd3fc; --accent2: #3a7fc1;
+      --r: 2px;
+      --bg:      #071120;
+      --bg2:     #0a1628;
+      --bg3:     #0d1f3c;
+      --border:  #1e3a5f;
+      --border2: #3a7fc1;
+      --text:    #e8f4ff;
+      --text2:   #7dd3fc;
+      --text3:   #3a7fc1;
+      --green:   #2a9f60;
+      --red:     #cc3333; --rbg: #2a0a0a;
+      --amber:   #f0e040;
+      --accent:  #7dd3fc;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body { height: 100%; overflow: hidden; }
     body {
       font-family: var(--sans);
       background: var(--bg);
       color: var(--text);
-      font-size: 15px;
+      font-size: clamp(13px, 2vw, 15px);
       font-weight: 400;
       line-height: 1.5;
-      display: flex;
-      flex-direction: column;
+      overflow-x: hidden;
     }
 
     /* ── Dev strip ── */
@@ -42,21 +44,20 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 5px 16px;
+      padding: 4px 12px;
       background: #1a1200;
       border-bottom: 2px solid var(--amber);
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: clamp(9px, 1.5vw, 10px);
       letter-spacing: .12em;
       text-transform: uppercase;
       color: var(--amber);
-      flex-shrink: 0;
     }
     .dev-strip-badge {
       background: var(--amber);
       color: #000;
       font-weight: 700;
-      padding: 2px 7px;
+      padding: 1px 6px;
       border-radius: 2px;
       flex-shrink: 0;
     }
@@ -65,7 +66,7 @@
       background: none;
       border: 1px solid var(--amber);
       color: var(--amber);
-      padding: 2px 8px;
+      padding: 1px 7px;
       border-radius: 2px;
       font-family: var(--mono);
       font-size: 9px;
@@ -79,130 +80,18 @@
     }
     .dev-strip-btn:hover { background: var(--amber); color: #000; }
 
-    /* ── Topbar ── */
-    .topbar {
-      display: flex;
-      align-items: stretch;
-      height: 54px;
-      background: var(--bg2);
-      border-bottom: 3px solid var(--border);
-      flex-shrink: 0;
-      background-image:
-        linear-gradient(rgba(100,180,255,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(100,180,255,0.04) 1px, transparent 1px);
-      background-size: 80px 80px;
-    }
-    .tb-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 20px;
-      border-right: 3px solid var(--border);
-      flex-shrink: 0;
-    }
-    .tb-logo-mark {
-      width: 28px; height: 28px;
-      border: 2px solid var(--accent);
-      border-radius: var(--r);
-      display: flex; align-items: center; justify-content: center;
-      font-family: var(--display);
-      font-size: 13px;
-      letter-spacing: .06em;
-      color: var(--accent);
-    }
-    .tb-logo-text {
-      font-family: var(--display);
-      font-size: 13px;
-      letter-spacing: .1em;
-      color: var(--text2);
-    }
-    .tb-logo-sub {
-      font-family: var(--mono);
-      font-size: 9px;
-      letter-spacing: .14em;
-      color: var(--text3);
-      text-transform: uppercase;
-    }
-    .tb-spacer { flex: 1; }
-    .tb-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 0 16px;
-      border-left: 1px solid var(--border);
-    }
-    .tb-user {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: .1em;
-      color: var(--text3);
-      text-transform: uppercase;
-    }
-    .tbtn {
-      background: none;
-      border: 2px solid var(--border);
-      color: var(--text2);
-      padding: 4px 12px;
-      border-radius: var(--r);
-      font-size: 9px;
-      font-family: var(--mono);
-      font-weight: 400;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: border-color .12s, color .12s;
-      white-space: nowrap;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-    }
-    .tbtn:hover { border-color: var(--accent); color: var(--accent); }
-    .tbtn.danger { border-color: var(--red); color: var(--red); }
-    .tbtn.danger:hover { background: var(--rbg); }
-
-    /* ── Main content ── */
-    .main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-
-    /* ── Card ── */
-    .card {
-      background: var(--surface);
-      border: 3px solid var(--border);
-      border-radius: var(--rl);
-      padding: 20px;
-    }
-
     {% block extra_style %}{% endblock %}
   </style>
 </head>
 <body>
 
-  <!-- Dev warning: this is the rebuild, not the production app -->
   <div class="dev-strip">
     <span class="dev-strip-badge">DEV</span>
-    <span class="dev-strip-msg">Python + HTMX rebuild — Phase 3 / 8</span>
+    <span class="dev-strip-msg">Python + HTMX rebuild</span>
     <a class="dev-strip-btn" href="https://jdudgeon1993.github.io/Budget-Command/" target="_blank">← Old version</a>
   </div>
 
-  {% if session.get('user_email') %}
-  <header class="topbar">
-    <div class="tb-logo">
-      <div class="tb-logo-mark">BC</div>
-      <div>
-        <div class="tb-logo-text">Cura</div>
-        <div class="tb-logo-sub">rebuild</div>
-      </div>
-    </div>
-    <div class="tb-spacer"></div>
-    <div class="tb-right">
-      <span class="tb-user">{{ session.get('user_email') }}</span>
-      <a class="tbtn danger" href="/logout">Log out</a>
-    </div>
-  </header>
-  {% endif %}
-
-  <div class="main">
-    {% block content %}{% endblock %}
-  </div>
+  {% block content %}{% endblock %}
 
 </body>
 </html>
