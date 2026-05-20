@@ -260,7 +260,7 @@
         <div class="h-right-inner">
           <div>
             <div class="h-rts-label">Ready to spend</div>
-            <div class="h-rts">—</div>
+            <div class="h-rts">{{ rts|money }}</div>
           </div>
           <div class="h-user">{{ user_email }}</div>
           <a class="h-logout" href="/logout">Out</a>
@@ -304,8 +304,9 @@
       </form>
 
       <table class="data-table">
-        <tr><td colspan="7" class="tbl-section-head">Buckets</td></tr>
-        <tr><td colspan="7" class="tbl-cat-head">— No data yet —</td></tr>
+        <tr>
+          <td colspan="7" class="tbl-section-head">Buckets</td>
+        </tr>
         <tr>
           <th>Bucket</th>
           <th class="col-status"></th>
@@ -315,6 +316,68 @@
           <th class="col-amount">Spent</th>
           <th class="col-amount">Available</th>
         </tr>
+
+        {% if not category_groups %}
+        <tr>
+          <td colspan="7" class="tbl-cat-head">— No buckets found —</td>
+        </tr>
+        {% endif %}
+
+        {% for group in category_groups %}
+        <!-- Category header -->
+        <tr>
+          <td colspan="7" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
+            {{ group.name }}
+          </td>
+        </tr>
+
+        <!-- Bucket rows -->
+        {% for b in group.buckets %}
+        <tr class="{% if b.status == 'OK' or b.status == 'PAID' %}bucket-ok{% else %}bucket-empty{% endif %}">
+          <td>{{ b.name }}</td>
+          <td class="col-status">
+            {% if b.status == 'OK' %}
+              <span class="bucket-status-ok">OK</span>
+            {% elif b.status == 'PAID' %}
+              <span class="bucket-status-ok">PAID</span>
+            {% elif b.status == 'OVER' %}
+              <span style="color:var(--red); font-size:clamp(9px,1.4vw,10px); font-family:var(--mono); letter-spacing:.08em; text-transform:uppercase;">OVER</span>
+            {% endif %}
+          </td>
+          <td class="col-amount">{{ b.budget|money }}</td>
+          <td class="col-amount">{{ b.alloc|money }}</td>
+          <td class="col-amount" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
+            {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
+          </td>
+          <td class="col-amount">{{ b.spent|money }}</td>
+          <td class="col-amount" style="{% if b.avail < 0 %}color:var(--red){% elif b.avail > 0 %}color:var(--green){% endif %}">
+            {{ b.avail|money }}
+          </td>
+        </tr>
+        {% endfor %}
+
+        <!-- Category totals -->
+        <tr class="tbl-cat-total">
+          <th colspan="2">{{ group.name }} total</th>
+          <th class="col-amount">{{ group.totals.budget|money }}</th>
+          <th class="col-amount">{{ group.totals.alloc|money }}</th>
+          <th class="col-amount">{{ group.totals.rollover|money if group.totals.rollover != 0 else "—" }}</th>
+          <th class="col-amount">{{ group.totals.spent|money }}</th>
+          <th class="col-amount">{{ group.totals.avail|money }}</th>
+        </tr>
+        {% endfor %}
+
+        <!-- Grand totals -->
+        {% if category_groups %}
+        <tr class="tbl-grand-total">
+          <th colspan="2">Grand Total</th>
+          <th class="col-amount">{{ grand.budget|money }}</th>
+          <th class="col-amount">{{ grand.alloc|money }}</th>
+          <th class="col-amount">{{ grand.rollover|money if grand.rollover != 0 else "—" }}</th>
+          <th class="col-amount">{{ grand.spent|money }}</th>
+          <th class="col-amount">{{ grand.avail|money }}</th>
+        </tr>
+        {% endif %}
       </table>
     </div>
   </div>
