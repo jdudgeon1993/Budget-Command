@@ -58,7 +58,26 @@
       font-weight: 700;
       padding: 2px 7px;
       border-radius: 2px;
+      flex-shrink: 0;
     }
+    .dev-strip-msg { flex: 1; }
+    .dev-strip-btn {
+      background: none;
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background .12s, color .12s;
+      flex-shrink: 0;
+    }
+    .dev-strip-btn:hover { background: var(--amber); color: #000; }
 
     /* ── Topbar ── */
     .topbar {
@@ -160,8 +179,8 @@
   <!-- Dev warning: this is the rebuild, not the production app -->
   <div class="dev-strip">
     <span class="dev-strip-badge">DEV</span>
-    Python + HTMX rebuild — work in progress, not production
-    <span style="margin-left:auto;color:var(--text3)">Phase 2 / 8</span>
+    <span class="dev-strip-msg">Python + HTMX rebuild — Phase 3 / 8</span>
+    <a class="dev-strip-btn" href="https://jdudgeon1993.github.io/Budget-Command/" target="_blank">← Old version</a>
   </div>
 
   {% if session.get('user_email') %}
