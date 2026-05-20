@@ -53,6 +53,11 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.route("/dashboard")
 def dashboard():
     if not logged_in():
@@ -61,4 +66,5 @@ def dashboard():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_ENV") == "development")

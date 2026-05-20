@@ -2444,23 +2444,23 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .dc-sect-wrap{display:flex;flex-direction:column;min-height:300px;}
 
 /* ── New-version warning strip ────────────────────────────────────────── */
-#v2-strip{display:flex;align-items:center;gap:10px;padding:6px 16px;background:#1a1200;border-bottom:2px solid var(--amber);font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);flex-shrink:0;z-index:200;position:relative;}
+#v2-strip{display:flex;align-items:center;gap:8px;padding:5px 12px;background:#1a1200;border-bottom:2px solid var(--amber);font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);flex-shrink:0;z-index:200;position:relative;flex-wrap:nowrap;min-height:32px;}
 #v2-strip.hidden{display:none;}
-.v2-strip-badge{background:var(--amber);color:#000;font-weight:700;padding:2px 7px;border-radius:2px;letter-spacing:.1em;flex-shrink:0;}
-.v2-strip-msg{flex:1;}
-.v2-strip-link{background:none;border:1px solid var(--amber);color:var(--amber);padding:3px 10px;border-radius:2px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .12s,color .12s;white-space:nowrap;}
-.v2-strip-link:hover{background:var(--amber);color:#000;}
-.v2-strip-dismiss{background:none;border:none;color:var(--amber);opacity:.5;font-size:16px;cursor:pointer;padding:0 0 0 8px;line-height:1;flex-shrink:0;}
+.v2-strip-badge{background:var(--amber);color:#000;font-weight:700;padding:2px 6px;border-radius:2px;letter-spacing:.08em;flex-shrink:0;font-size:9px;}
+.v2-strip-msg{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.v2-strip-note{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;display:none;}
+.v2-strip-dismiss{background:none;border:none;color:var(--amber);opacity:.5;font-size:18px;cursor:pointer;padding:0 0 0 4px;line-height:1;flex-shrink:0;}
 .v2-strip-dismiss:hover{opacity:1;}
+@media(max-width:1099px){.v2-strip-msg{display:none;}.v2-strip-note{display:block;}}
 </style>
 </head>
 <body>
 
 <!-- ▲ New-version warning strip -->
 <div id="v2-strip">
-  <span class="v2-strip-badge">BETA</span>
-  <span class="v2-strip-msg">Rebuild in progress — Python + HTMX version under active development</span>
-  <a class="v2-strip-link" href="http://localhost:5000" target="_blank">Try new version →</a>
+  <span class="v2-strip-badge">DEV</span>
+  <span class="v2-strip-msg">Python + HTMX rebuild in progress — not live yet (Phase 2 / 8)</span>
+  <span class="v2-strip-note">Rebuild in progress — Phase 2 / 8</span>
   <button class="v2-strip-dismiss" onclick="document.getElementById('v2-strip').classList.add('hidden');sessionStorage.setItem('v2-strip-dismissed','1')" aria-label="Dismiss">×</button>
 </div>
 <script>if(sessionStorage.getItem('v2-strip-dismissed'))document.getElementById('v2-strip').classList.add('hidden');</script>
