@@ -806,23 +806,39 @@ When a goal bucket's `sinkingSaved` value reaches or exceeds `targetAmount`, the
 
 ---
 
-### Phase 2 — New App Skeleton (app.py + base template + toggle button)
+### Phase 2 — New App Skeleton (app.py + base template + warning strip) ✓
 
 **What gets built:**
-- Flask (or FastAPI) app with a single route.
+- Flask app with login/logout/dashboard routes.
 - Supabase Python client for database access.
-- Base Jinja2 HTML template with the Blueprint × Brutalist theme (CSS variables from the original).
+- Base Jinja2 HTML template with the Blueprint × Brutalist theme.
 - Authentication flow: login page, session management.
-- A "New App" toggle button on the original app that links to the new build.
+- DEV warning strip on the original app (mobile + desktop).
 - HTMX included in the base template.
+- Health check endpoint at `/health`.
 
-**Depends on:** Phase 1 (understanding the data model for Supabase schema setup).
+**Depends on:** Phase 1.
 
-**Definition of done:** The new app runs locally, shows the auth screen, can log in, and shows a placeholder dashboard with the correct visual theme. The Supabase connection works. The original app has a visible link to the new build.
+**Definition of done:** App skeleton exists, auth routes work, base template matches original theme, warning strip visible on both layouts. Railway config files in place.
 
 ---
 
-### Phase 3 — Dashboard (Read-only, Desktop Only)
+### Phase 3 — Railway + Supabase Live (Deploy First, Build Second) ✓
+
+**What gets built:**
+- `railway.toml` with gunicorn start command and health check.
+- `requirements.txt` with gunicorn added.
+- App configured to read `PORT` env var from Railway.
+- Environment variables set in Railway dashboard.
+- Public Railway URL wired into the warning strip in the original app.
+
+**Depends on:** Phase 2 (working skeleton to deploy).
+
+**Definition of done:** The app is live on Railway, the login screen loads over HTTPS, Supabase auth works (can sign in with real credentials), and the original app's strip links directly to the live URL. Every phase from here is testable immediately after each push.
+
+---
+
+### Phase 4 — Dashboard (Read-only, Desktop Only)
 
 **What gets built:**
 - Desktop layout: sidebar with nav + main content area.
@@ -832,13 +848,13 @@ When a goal bucket's `sinkingSaved` value reaches or exceeds `targetAmount`, the
 - Month navigation (prev/next/jump-to-today).
 - Sidebar vitals: RTS, total cash, age of money.
 
-**Depends on:** Phase 2 (auth, base template, Supabase connection).
+**Depends on:** Phase 3 (live Railway URL, Supabase connection confirmed working).
 
-**Definition of done:** The dashboard loads with real data, all the key numbers (RTS, cash, allocations, spending) are correct and match the original app's numbers for the same data. Month navigation works. No editing features yet.
+**Definition of done:** The dashboard loads with real data on Railway, all key numbers (RTS, cash, allocations, spending) match the original app for the same data. Month navigation works. No editing features yet.
 
 ---
 
-### Phase 4 — Buckets (Core Feature, Allocation Logic)
+### Phase 5 — Buckets (Core Feature, Allocation Logic)
 
 **What gets built:**
 - Buckets tab: category groups, bucket rows, allocation inputs.
@@ -851,13 +867,13 @@ When a goal bucket's `sinkingSaved` value reaches or exceeds `targetAmount`, the
 - "Fund category" shortcut button.
 - Budget health bar (projected income vs. total allocated).
 
-**Depends on:** Phase 3 (all formula functions must be correct).
+**Depends on:** Phase 4 (all formula functions must be correct).
 
 **Definition of done:** Users can view and edit allocations. RTS updates live when allocations change. Rollover buckets show correct carry-forward. Vaults show accumulated balance. Creating and editing buckets works.
 
 ---
 
-### Phase 5 — Transactions (Bread and Butter)
+### Phase 6 — Transactions (Bread and Butter)
 
 **What gets built:**
 - Ledger tab: transaction list grouped by date, filtered by month.
@@ -871,57 +887,43 @@ When a goal bucket's `sinkingSaved` value reaches or exceeds `targetAmount`, the
 - Payee autocomplete and memory (suggest bucket based on past payee).
 - Month-close wizard (uncategorized check, account reconciliation, rollover preview).
 
-**Depends on:** Phase 4 (bucket list needed for assignment dropdowns).
+**Depends on:** Phase 5 (bucket list needed for assignment dropdowns).
 
 **Definition of done:** Users can add, edit, delete all transaction types. Assigning to buckets updates bucket available in real time. Month-close flow works. Account balances match after reconciliation.
 
 ---
 
-### Phase 6 — Auth (Login/Logout in New Build)
+### Phase 7 — Auth (Complete) + Settings
 
 **What gets built:**
-- Complete login/register flow in the new Python app.
-- Session management (server-side sessions or JWT).
-- User-scoped data (all Supabase queries filter by user ID).
-- Sign-out flow (clears session, redirects to login).
-- Auth guard on all routes.
-
-**Depends on:** Phase 2 (basic auth scaffolding exists; this phase completes it).
-
-**Definition of done:** Multiple users can have independent accounts. Logging in as User A never shows User B's data. Session persists across page refreshes (until logout or timeout).
-
----
-
-### Phase 7 — Settings (Everything Else)
-
-**What gets built:**
-- Settings page: accounts CRUD, paycheck schedule management, allocation rules, recurring bills, payday transfers.
+- User-scoped data (all Supabase queries filter by user ID — verify no data leakage).
+- Session persistence (survives page refresh, expires on logout).
+- Settings page: accounts CRUD, paycheck schedule management, allocation rules, recurring bills.
 - AI Coach integration (Gemini API key input, model selection, tone preference).
 - Natural language transaction parsing.
 - Reports tab: cash flow chart, category spending chart, YTD chart, net worth chart.
 - What-If / Scenarios tab (scenario builder, 12-month projector).
 - Onboarding wizard (first-time setup flow).
-- Export/PDF report generation.
 
-**Depends on:** Phase 5 (all core data must be editable before settings make sense).
+**Depends on:** Phase 6 (all core data must be editable before settings make sense).
 
-**Definition of done:** All settings are editable and persist. Reports render with correct data. AI coach responds with budget context. What-If projector shows the cash flow timeline.
+**Definition of done:** All settings are editable and persist. Reports render with correct data. Multiple users can log in independently. AI coach responds with budget context.
 
 ---
 
-### Phase 8 — Railway Hookup (Final Step)
+### Phase 8 — Polish + Launch
 
 **What gets built:**
-- `railway.json` or `Procfile` configuration.
-- Environment variable management (SUPABASE_URL, SUPABASE_KEY, SECRET_KEY, etc.).
-- Production-ready gunicorn/uvicorn configuration.
-- Static file serving for the production build.
-- Database migrations script (if schema changes are needed).
-- Health check endpoint.
+- Mobile layout (bottom nav bar, tab panes matching original).
+- Performance pass (query optimization, caching heavy formula results).
+- Error handling and empty states throughout.
+- Export/PDF report generation.
+- Final deploy: swap the warning strip to a "Try the new version" link pointing at the live Railway URL.
+- Sunset plan for the original index.html.
 
-**Depends on:** All previous phases (app must be complete and working locally).
+**Depends on:** All previous phases.
 
-**Definition of done:** The app runs on Railway, is accessible via a public URL, data persists between deploys, and the original app can link to the new build.
+**Definition of done:** The new app is feature-complete and matches or exceeds the original. The original app's strip links to the live build. The rebuild can be used as the primary app.
 
 ---
 
