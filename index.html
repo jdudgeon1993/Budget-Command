@@ -2442,9 +2442,28 @@ input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline
 .dc.dc-expanded .dc-foot{opacity:1!important;}
 .dc-expand-btn{margin-right:auto;}
 .dc-sect-wrap{display:flex;flex-direction:column;min-height:300px;}
+
+/* ── New-version warning strip ────────────────────────────────────────── */
+#v2-strip{display:flex;align-items:center;gap:10px;padding:6px 16px;background:#1a1200;border-bottom:2px solid var(--amber);font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);flex-shrink:0;z-index:200;position:relative;}
+#v2-strip.hidden{display:none;}
+.v2-strip-badge{background:var(--amber);color:#000;font-weight:700;padding:2px 7px;border-radius:2px;letter-spacing:.1em;flex-shrink:0;}
+.v2-strip-msg{flex:1;}
+.v2-strip-link{background:none;border:1px solid var(--amber);color:var(--amber);padding:3px 10px;border-radius:2px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .12s,color .12s;white-space:nowrap;}
+.v2-strip-link:hover{background:var(--amber);color:#000;}
+.v2-strip-dismiss{background:none;border:none;color:var(--amber);opacity:.5;font-size:16px;cursor:pointer;padding:0 0 0 8px;line-height:1;flex-shrink:0;}
+.v2-strip-dismiss:hover{opacity:1;}
 </style>
 </head>
 <body>
+
+<!-- ▲ New-version warning strip -->
+<div id="v2-strip">
+  <span class="v2-strip-badge">BETA</span>
+  <span class="v2-strip-msg">Rebuild in progress — Python + HTMX version under active development</span>
+  <a class="v2-strip-link" href="http://localhost:5000" target="_blank">Try new version →</a>
+  <button class="v2-strip-dismiss" onclick="document.getElementById('v2-strip').classList.add('hidden');sessionStorage.setItem('v2-strip-dismissed','1')" aria-label="Dismiss">×</button>
+</div>
+<script>if(sessionStorage.getItem('v2-strip-dismissed'))document.getElementById('v2-strip').classList.add('hidden');</script>
 
 <!-- Cura desktop header -->
 <header class="dash-header" id="dashHeader">
