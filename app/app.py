@@ -1,4 +1,5 @@
 import os
+import traceback
 from flask import Flask, render_template, request, redirect, url_for, session
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -42,12 +43,16 @@ def logged_in() -> bool:
 
 
 def load_budget(access_token: str) -> dict:
-    sb = get_supabase(access_token)
-    resp = (sb.table("bcc_budget_state")
-              .select("data")
-              .single()
-              .execute())
-    return resp.data.get("data", {}) if resp.data else {}
+    try:
+        sb = get_supabase(access_token)
+        resp = (sb.table("bcc_budget_state")
+                  .select("data")
+                  .single()
+                  .execute())
+        return resp.data.get("data", {}) if resp.data else {}
+    except Exception as e:
+        app.logger.error("load_budget failed: %s\n%s", e, traceback.format_exc())
+        return {}
 
 
 def bucket_status(alloc: float, spent: float, avail: float) -> str:
@@ -100,6 +105,14 @@ def dashboard():
     if not logged_in():
         return redirect(url_for("login"))
 
+    try:
+        return _dashboard_inner()
+    except Exception as e:
+        app.logger.error("dashboard error: %s\n%s", e, traceback.format_exc())
+        raise
+
+
+def _dashboard_inner():
     S = load_budget(session["access_token"])
 
     accounts   = S.get("accounts") or []
