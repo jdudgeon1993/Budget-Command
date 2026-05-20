@@ -9893,30 +9893,6 @@ function moveAcct(id,dir){
 // GLOBAL SEARCH
 // ═══════════════════════════════════════════════════════
 let _gsFilter='all';
-function openGlobalSearch(){
-  _gsFilter='all';
-  const modal=document.getElementById('modalBox');
-  modal.className='modal gsearch-modal';
-  modal.innerHTML=`
-    <div class="modal-head">
-      <div class="modal-title">Search All Transactions</div>
-      <button class="modal-x" onclick="closeModal()">&#x2715;</button>
-    </div>
-    <div class="gsearch-input-wrap">
-      <span class="c-text3" style="font-size:16px">🔍</span>
-      <input class="gsearch-inp" id="gsInput" placeholder="Search by description, payee, or amount..." autofocus oninput="gsRender()" />
-    </div>
-    <div class="gsearch-filters">
-      <button class="gsearch-fbtn active" onclick="gsSetFilter('all',this)">All</button>
-      <button class="gsearch-fbtn" onclick="gsSetFilter('in',this)">↓ Income</button>
-      <button class="gsearch-fbtn" onclick="gsSetFilter('out',this)">↑ Expenses</button>
-      <button class="gsearch-fbtn" onclick="gsSetFilter('xfr',this)">⇄ Transfers</button>
-    </div>
-    <div class="gsearch-results" id="gsResults"><div class="gsearch-empty">Start typing to search across all months…</div></div>
-    <div class="modal-foot"><button class="btn-cancel" onclick="closeModal()">Close</button></div>`;
-  document.getElementById('overlay').classList.remove('hidden');
-  setTimeout(()=>document.getElementById('gsInput')?.focus(),50);
-}
 function gsSetFilter(f,btn){
   _gsFilter=f;
   document.querySelectorAll('.gsearch-fbtn').forEach(b=>b.classList.remove('active'));
@@ -10115,8 +10091,6 @@ function reconFinish(acctId){
 // ═══════════════════════════════════════════════════════
 // NET WORTH
 // ═══════════════════════════════════════════════════════
-function openNetWorth(){setTab('reports');setReportsTab('networth');}
-
 function reportNetWorthHtml(){
   // Compute each balance once — debt accounts always negative for net worth
   const _bals=S.accounts.map(a=>({a,bal:acctBalance(a.id),nwBal:a.type==='debt'?-acctBalance(a.id):acctBalance(a.id)}));
@@ -10775,13 +10749,6 @@ function reportCatHistoryHtml(){
 // ═══════════════════════════════════════════════════════
 // INCOME ALLOCATION RULES (Phase 7)
 // ═══════════════════════════════════════════════════════
-function openAllocationRules(){
-  setTab('settings');
-  setTimeout(()=>{
-    const el=document.getElementById('settAllocRulesAnchor');
-    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
-  },120);
-}
 function allocationRulesHtml(){
   const rules=S.allocationRules||[];
   const editing=_editingArId?rules.find(r=>r.id===_editingArId):null;
@@ -12029,31 +11996,6 @@ function sortedBuckets(catId){
   return S.buckets.filter(b=>b.catId===catId&&!b.archived).sort((a,b)=>a.order-b.order);
 }
 
-function moveCat(id,dir){
-  normalizeCatOrder();
-  const sorted=[...S.cats].sort((a,b)=>a.order-b.order);
-  const idx=sorted.findIndex(c=>c.id===id);
-  const swapIdx=idx+dir;
-  if(swapIdx<0||swapIdx>=sorted.length)return;
-  const tmp=sorted[idx].order;
-  sorted[idx].order=sorted[swapIdx].order;
-  sorted[swapIdx].order=tmp;
-  save();renderActivePane();
-}
-
-function moveBkt(id,dir){
-  normalizeBktOrder();
-  const b=getBucket(id);if(!b)return;
-  const sorted=S.buckets.filter(bk=>bk.catId===b.catId&&!bk.archived).sort((a,b)=>a.order-b.order);
-  const idx=sorted.findIndex(bk=>bk.id===id);
-  const swapIdx=idx+dir;
-  if(swapIdx<0||swapIdx>=sorted.length)return;
-  const tmp=sorted[idx].order;
-  sorted[idx].order=sorted[swapIdx].order;
-  sorted[swapIdx].order=tmp;
-  save();renderActivePane();
-}
-
 // ═══════════════════════════════════════════════════════
 // EXPORT / IMPORT
 // ═══════════════════════════════════════════════════════
@@ -12137,20 +12079,6 @@ function importData(event){
 
 // Tab order in the tx form: desc → amt → date → acct → cat → bkt → submit
 // Enter in any tx field submits the form
-function txFieldEnter(e){
-  if(e.key==='Enter'){e.preventDefault();addTx();}
-}
-
-// Advance focus to next field on Enter within tx form inputs
-function txAdvance(e, nextId){
-  if(e.key==='Enter'){
-    e.preventDefault();
-    const next = document.getElementById(nextId);
-    if(next) next.focus();
-    else addTx();
-  }
-}
-
 document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName?.toLowerCase();
   const inInput = tag==='input'||tag==='select'||tag==='textarea';
@@ -12368,26 +12296,6 @@ function wireAllocKeys(){
 }
 
 // Show keyboard shortcuts hint
-function showShortcuts(){
-  const modal=document.getElementById('modalBox');
-  document.getElementById('overlay').classList.remove('hidden');
-  const row=(key,desc)=>`<code style="font-family:var(--mono);background:var(--bg3);padding:2px 7px;border-radius:4px;font-size:12px;white-space:nowrap">${key}</code><span>${desc}</span>`;
-  modal.innerHTML=`<div style="padding:22px 24px 20px;max-width:380px">
-    <div style="font-weight:700;font-size:15px;margin-bottom:14px">⌨ Keyboard Shortcuts</div>
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px;line-height:1.6;align-items:center;margin-bottom:20px">
-      ${row('N','New transaction (focus description)')}
-      ${row('I','New income transaction')}
-      ${row('← →','Previous / next month')}
-      ${row('O','Back to overview')}
-      ${row('Ctrl+Enter','Submit transaction')}
-      ${row('Escape','Close modal / go back')}
-    </div>
-    <div style="display:flex;justify-content:flex-end">
-      <button class="tbtn" onclick="closeModal()">Close</button>
-    </div>
-  </div>`;
-}
-
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
@@ -12492,14 +12400,6 @@ function mInit(){
 function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1);}
 
 
-
-function mShakeInput(id){
-  const el=document.getElementById(id);
-  if(!el)return;
-  el.style.borderColor='var(--red)';
-  el.focus();
-  setTimeout(()=>el.style.borderColor='',1500);
-}
 
 function mTxRowHtml(tx,tappable,runBal=null){
   const {b,cat,color,acct,isOpening,sched,amtCls,amtPfx,indColor:baseIndColor}=computeTxMeta(tx,null);
