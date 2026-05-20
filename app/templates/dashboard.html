@@ -165,10 +165,101 @@
 .col-status { width: 52px; text-align: center; }
 .col-amount { text-align: right; }
 .col-date { width: 64px; }
+.col-settings { width: 32px; text-align: center; }
 
 .bucket-status-ok { color: var(--green); font-size: clamp(9px, 1.4vw, 10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .bucket-ok { border-left: 3px solid var(--green); }
 .bucket-empty { border-left: 3px solid transparent; }
+
+/* ── Inline editing ── */
+.editable-text,
+.editable-num {
+  cursor: pointer;
+  border-radius: var(--r);
+  transition: background .1s;
+}
+.editable-text:hover,
+.editable-num:hover { background: var(--bg2); }
+.inline-input {
+  width: 100%;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  padding: 1px 4px;
+  font-family: var(--mono);
+  font-size: inherit;
+  outline: none;
+}
+.inline-input[type="number"] { text-align: right; }
+
+/* ── Settings button ── */
+.settings-btn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  letter-spacing: .05em;
+  transition: color .12s;
+}
+.settings-btn:hover { color: var(--accent); }
+
+/* ── Settings row ── */
+.bucket-settings-row td {
+  padding: 6px 8px 8px 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.settings-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+.settings-inner label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.5vw, 11px);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text2);
+  cursor: pointer;
+}
+.settings-inner select {
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 2px 6px;
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.5vw, 11px);
+  cursor: pointer;
+}
+.settings-inner input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.archive-btn {
+  background: none;
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.4vw, 10px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background .12s;
+}
+.archive-btn:hover { background: var(--rbg); }
 
 /* ── Quick-add strip ── */
 .strip-form { margin-bottom: 12px; }
@@ -305,7 +396,7 @@
 
       <table class="data-table">
         <tr>
-          <td colspan="7" class="tbl-section-head">Buckets</td>
+          <td colspan="8" class="tbl-section-head">Buckets</td>
         </tr>
         <tr>
           <th>Bucket</th>
@@ -315,43 +406,96 @@
           <th class="col-amount">Rollover</th>
           <th class="col-amount">Spent</th>
           <th class="col-amount">Available</th>
+          <th class="col-settings"></th>
         </tr>
 
         {% if not category_groups %}
         <tr>
-          <td colspan="7" class="tbl-cat-head">— No buckets found —</td>
+          <td colspan="8" class="tbl-cat-head">— No buckets found —</td>
         </tr>
         {% endif %}
 
         {% for group in category_groups %}
         <!-- Category header -->
         <tr>
-          <td colspan="7" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
-            {{ group.name }}
+          <td colspan="8" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
+            <span class="editable-text"
+                  data-field="cat_name"
+                  data-id="{{ group.id }}"
+                  data-type="text">{{ group.name }}</span>
           </td>
         </tr>
 
         <!-- Bucket rows -->
         {% for b in group.buckets %}
-        <tr class="{% if b.status == 'OK' or b.status == 'PAID' %}bucket-ok{% else %}bucket-empty{% endif %}">
-          <td>{{ b.name }}</td>
+        <tr id="row-{{ b.id }}" class="{% if b.status == 'OK' or b.status == 'PAID' %}bucket-ok{% else %}bucket-empty{% endif %}">
+          <td>
+            <span class="editable-text"
+                  data-field="bucket_name"
+                  data-id="{{ b.id }}"
+                  data-type="text">{{ b.name }}</span>
+          </td>
           <td class="col-status">
             {% if b.status == 'OK' %}
               <span class="bucket-status-ok">OK</span>
             {% elif b.status == 'PAID' %}
               <span class="bucket-status-ok">PAID</span>
             {% elif b.status == 'OVER' %}
-              <span style="color:var(--red); font-size:clamp(9px,1.4vw,10px); font-family:var(--mono); letter-spacing:.08em; text-transform:uppercase;">OVER</span>
+              <span style="color:var(--red);font-size:clamp(9px,1.4vw,10px);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;">OVER</span>
             {% endif %}
           </td>
-          <td class="col-amount">{{ b.budget|money }}</td>
-          <td class="col-amount">{{ b.alloc|money }}</td>
+          <td class="col-amount editable-num"
+              data-field="bucket_target"
+              data-id="{{ b.id }}"
+              data-month="{{ active_mid }}"
+              data-raw="{{ b.budget }}"
+              data-type="number">{{ b.budget|money }}</td>
+          <td class="col-amount editable-num"
+              data-field="bucket_alloc"
+              data-id="{{ b.id }}"
+              data-month="{{ active_mid }}"
+              data-raw="{{ b.alloc }}"
+              data-type="number">{{ b.alloc|money }}</td>
           <td class="col-amount" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
             {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
           </td>
           <td class="col-amount">{{ b.spent|money }}</td>
-          <td class="col-amount" style="{% if b.avail < 0 %}color:var(--red){% elif b.avail > 0 %}color:var(--green){% endif %}">
+          <td class="col-amount"
+              data-avail-id="{{ b.id }}"
+              data-raw="{{ b.avail }}"
+              style="{% if b.avail < 0 %}color:var(--red){% elif b.avail > 0 %}color:var(--green){% endif %}">
             {{ b.avail|money }}
+          </td>
+          <td class="col-settings">
+            <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Bucket settings">&#x22EF;</button>
+          </td>
+        </tr>
+
+        <!-- Inline settings row -->
+        <tr id="settings-{{ b.id }}" class="bucket-settings-row" style="display:none">
+          <td colspan="8">
+            <div class="settings-inner">
+              <label>Type:
+                <select onchange="saveSetting('bucket_type','{{ b.id }}',this.value,'')">
+                  <option value="regular" {% if b.type == 'regular' %}selected{% endif %}>Regular</option>
+                  <option value="vault"   {% if b.type == 'vault'   %}selected{% endif %}>Vault</option>
+                </select>
+              </label>
+              <label>
+                <input type="checkbox"
+                       {% if b.rollover %}checked{% endif %}
+                       onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')">
+                Rollover
+              </label>
+              <label>
+                <input type="checkbox"
+                       {% if b.skipped %}checked{% endif %}
+                       onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
+                Skip this month
+              </label>
+              <button class="archive-btn"
+                      onclick="archiveBucket('{{ b.id }}')">Archive</button>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -364,6 +508,7 @@
           <th class="col-amount">{{ group.totals.rollover|money if group.totals.rollover != 0 else "—" }}</th>
           <th class="col-amount">{{ group.totals.spent|money }}</th>
           <th class="col-amount">{{ group.totals.avail|money }}</th>
+          <th></th>
         </tr>
         {% endfor %}
 
@@ -376,6 +521,7 @@
           <th class="col-amount">{{ grand.rollover|money if grand.rollover != 0 else "—" }}</th>
           <th class="col-amount">{{ grand.spent|money }}</th>
           <th class="col-amount">{{ grand.avail|money }}</th>
+          <th></th>
         </tr>
         {% endif %}
       </table>
@@ -442,11 +588,123 @@
 </nav>
 
 <script>
+/* ── Panel nav ── */
 function showPanel(name, tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   tab.classList.add('active');
+}
+
+/* ── Money formatting ── */
+function fmtMoney(v) {
+  v = parseFloat(v) || 0;
+  if (v < 0) return '-$' + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return '$' + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/* ── Generic save ── */
+async function saveSetting(field, id, value, month) {
+  try {
+    const r = await fetch('/api/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ field, id, value, month })
+    });
+    return await r.json();
+  } catch(e) {
+    console.error('saveSetting failed', e);
+    return { ok: false };
+  }
+}
+
+/* ── Inline cell editing ── */
+function activateEdit(cell) {
+  if (cell.querySelector('input')) return;
+
+  const field   = cell.dataset.field;
+  const id      = cell.dataset.id;
+  const month   = cell.dataset.month || '';
+  const type    = cell.dataset.type || 'text';
+  const rawVal  = cell.dataset.raw;
+  const origText = cell.textContent.trim();
+
+  const input = document.createElement('input');
+  input.type = type === 'number' ? 'number' : 'text';
+  input.step = '0.01';
+  input.value = type === 'number' ? (parseFloat(rawVal) || 0) : origText;
+  input.className = 'inline-input';
+  cell.textContent = '';
+  cell.appendChild(input);
+  input.focus();
+  input.select();
+
+  let done = false;
+
+  const commit = async () => {
+    if (done) return;
+    done = true;
+    const value = type === 'number' ? (parseFloat(input.value) || 0) : input.value.trim();
+
+    // Optimistic display
+    cell.textContent = type === 'number' ? fmtMoney(value) : value;
+    if (type === 'number') cell.dataset.raw = value;
+
+    const result = await saveSetting(field, id, value, month);
+    if (!result.ok) {
+      cell.textContent = origText; // revert
+      return;
+    }
+
+    // Update derived cells
+    if (result.avail !== undefined) {
+      const availCell = document.querySelector(`[data-avail-id="${id}"]`);
+      if (availCell) {
+        availCell.textContent = fmtMoney(result.avail);
+        availCell.dataset.raw = result.avail;
+        availCell.style.color = result.avail < 0 ? 'var(--red)' : result.avail > 0 ? 'var(--green)' : '';
+      }
+    }
+    if (result.rts !== undefined) {
+      const rtsEl = document.querySelector('.h-rts');
+      if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+    }
+  };
+
+  const cancel = () => {
+    if (done) return;
+    done = true;
+    cell.textContent = origText;
+  };
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { done = true; cell.textContent = origText; }
+  });
+}
+
+/* ── Wire up editable cells ── */
+document.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
+  cell.addEventListener('click', () => activateEdit(cell));
+});
+
+/* ── Bucket settings toggle ── */
+function toggleSettings(id) {
+  const row = document.getElementById('settings-' + id);
+  row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
+}
+
+/* ── Archive bucket ── */
+async function archiveBucket(id) {
+  if (!confirm('Archive this bucket? It will be hidden from the active view.')) return;
+  const result = await saveSetting('bucket_archive', id, true, '');
+  if (result.ok) {
+    const row = document.getElementById('row-' + id);
+    const settingsRow = document.getElementById('settings-' + id);
+    if (row) row.remove();
+    if (settingsRow) settingsRow.remove();
+  }
 }
 </script>
 {% endblock %}

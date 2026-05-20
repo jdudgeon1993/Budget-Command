@@ -1,6 +1,6 @@
 import os
 import traceback
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from formulas import (
@@ -42,20 +42,42 @@ def logged_in() -> bool:
     return "access_token" in session
 
 
-def load_budget(access_token: str) -> dict:
+def load_budget_row(access_token: str) -> tuple:
+    """Returns (row_id, data_dict). row_id is None if no row found."""
     try:
         sb = get_supabase(access_token)
         resp = (sb.table("bcc_budget_state")
-                  .select("data")
+                  .select("id,data")
                   .order("id", desc=True)
                   .limit(1)
                   .execute())
         if resp.data:
-            return resp.data[0].get("data", {})
-        return {}
+            return resp.data[0]["id"], resp.data[0].get("data", {})
     except Exception as e:
-        app.logger.error("load_budget failed: %s\n%s", e, traceback.format_exc())
-        return {}
+        app.logger.error("load_budget_row failed: %s\n%s", e, traceback.format_exc())
+    return None, {}
+
+
+def load_budget(access_token: str) -> dict:
+    _, data = load_budget_row(access_token)
+    return data
+
+
+def save_budget_row(access_token: str, row_id, data: dict) -> None:
+    try:
+        sb = get_supabase(access_token)
+        sb.table("bcc_budget_state").update({"data": data}).eq("id", row_id).execute()
+    except Exception as e:
+        app.logger.error("save_budget_row failed: %s\n%s", e, traceback.format_exc())
+
+
+def _find_or_create_month(data: dict, mid: str) -> dict:
+    months = data.setdefault("months", [])
+    month = next((m for m in months if m["id"] == mid), None)
+    if month is None:
+        month = {"id": mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}}
+        months.append(month)
+    return month
 
 
 def bucket_status(alloc: float, spent: float, avail: float) -> str:
@@ -103,6 +125,81 @@ def health():
     return {"status": "ok"}
 
 
+@app.route("/api/save", methods=["POST"])
+def api_save():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body = request.get_json(silent=True) or {}
+    field = body.get("field", "")
+    bid   = body.get("id", "")
+    value = body.get("value")
+    mid   = body.get("month", "")
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    if field == "cat_name":
+        cat = next((c for c in data.get("cats", []) if c["id"] == bid), None)
+        if cat:
+            cat["name"] = str(value or "").strip()
+
+    elif field == "bucket_name":
+        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+        if bucket:
+            bucket["name"] = str(value or "").strip()
+
+    elif field == "bucket_target":
+        month = _find_or_create_month(data, mid)
+        month.setdefault("budgets", {})[bid] = float(value or 0)
+
+    elif field == "bucket_alloc":
+        month = _find_or_create_month(data, mid)
+        month.setdefault("allocations", {})[bid] = float(value or 0)
+
+    elif field == "bucket_rollover":
+        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+        if bucket:
+            bucket["rollover"] = bool(value)
+
+    elif field == "bucket_type":
+        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+        if bucket:
+            bucket["type"] = str(value or "regular")
+
+    elif field == "bucket_skip":
+        month = _find_or_create_month(data, mid)
+        month.setdefault("skippedBuckets", {})[bid] = bool(value)
+
+    elif field == "bucket_archive":
+        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+        if bucket:
+            bucket["archived"] = True
+
+    else:
+        return jsonify({"ok": False, "error": f"Unknown field: {field}"}), 400
+
+    save_budget_row(session["access_token"], row_id, data)
+
+    result = {"ok": True}
+
+    # Recompute avail + rts after alloc/target changes
+    if field in ("bucket_alloc", "bucket_target") and mid:
+        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+        all_months = data.get("months", [])
+        txs = data.get("txs", [])
+        active_month = next((m for m in all_months if m["id"] == mid), None)
+        if bucket and active_month:
+            avail = bucket_available(bucket, active_month, all_months, txs)
+            result["avail"] = avail
+            accounts = data.get("accounts", [])
+            active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+            result["rts"] = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+
+    return jsonify(result)
+
+
 @app.route("/dashboard")
 def dashboard():
     if not logged_in():
@@ -118,13 +215,12 @@ def dashboard():
 def _dashboard_inner():
     S = load_budget(session["access_token"])
 
-    accounts   = S.get("accounts") or []
+    accounts    = S.get("accounts") or []
     all_buckets = S.get("buckets") or []
-    cats       = S.get("cats") or []
-    all_months = S.get("months") or []
-    txs        = S.get("txs") or []
+    cats        = S.get("cats") or []
+    all_months  = S.get("months") or []
+    txs         = S.get("txs") or []
 
-    # Active month — prefer URL param, fall back to stored activeMonth, then today
     mid_param = request.args.get("month", "")
     try:
         parse_month_id(mid_param)
@@ -136,16 +232,13 @@ def _dashboard_inner():
     prev_mid = month_id(year - 1, 11) if m0 == 0 else month_id(year, m0 - 1)
     next_mid = month_id(year + 1, 0) if m0 == 11 else month_id(year, m0 + 1)
 
-    # Find the active month record (empty scaffold if it doesn't exist yet)
     active_month = next(
         (m for m in all_months if m.get("id") == active_mid),
         {"id": active_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}},
     )
 
     active_buckets = [b for b in all_buckets if not b.get("archived")]
-
-    # Build category groups sorted by order
-    cats_sorted = sorted(cats, key=lambda c: c.get("order", 0))
+    cats_sorted    = sorted(cats, key=lambda c: c.get("order", 0))
 
     category_groups = []
     grand = dict(alloc=0.0, budget=0.0, rollover=0.0, spent=0.0, avail=0.0)
@@ -159,7 +252,7 @@ def _dashboard_inner():
         if not cat_buckets:
             continue
 
-        rows = []
+        rows   = []
         totals = dict(alloc=0.0, budget=0.0, rollover=0.0, spent=0.0, avail=0.0)
 
         for b in cat_buckets:
@@ -169,27 +262,30 @@ def _dashboard_inner():
             spent  = b_spent(active_mid, b["id"], txs)
             avail  = bucket_available(b, active_month, all_months, txs)
             status = bucket_status(alloc, spent, avail)
+            skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
 
             rows.append({
-                "id":      b["id"],
-                "name":    b["name"],
-                "type":    b.get("type", "regular"),
-                "rollover": b.get("rollover", False),
-                "alloc":   alloc,
-                "budget":  budget,
+                "id":           b["id"],
+                "name":         b["name"],
+                "type":         b.get("type", "regular"),
+                "rollover":     b.get("rollover", False),
+                "skipped":      skipped,
+                "alloc":        alloc,
+                "budget":       budget,
                 "rollover_val": roll,
-                "spent":   spent,
-                "avail":   avail,
-                "status":  status,
+                "spent":        spent,
+                "avail":        avail,
+                "status":       status,
             })
 
-            totals["alloc"]   += alloc
-            totals["budget"]  += budget
+            totals["alloc"]    += alloc
+            totals["budget"]   += budget
             totals["rollover"] += roll
-            totals["spent"]   += spent
-            totals["avail"]   += avail
+            totals["spent"]    += spent
+            totals["avail"]    += avail
 
         category_groups.append({
+            "id":      cid,
             "name":    cat.get("name", ""),
             "color":   cat.get("color", ""),
             "buckets": rows,
