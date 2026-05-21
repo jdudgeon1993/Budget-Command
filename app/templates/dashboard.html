@@ -1533,11 +1533,12 @@ function toggleTxSettings(id) {
 
 /* ── Ledger: save a field on a transaction ── */
 async function saveTxField(id, field, value) {
-  await fetch('/api/edit-transaction', {
+  const result = await fetch('/api/edit-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ id, field, value })
   }).then(r => r.json()).catch(() => ({ok: false}));
+  if (!result.ok) alert('Save failed: ' + (result.error || 'unknown error'));
 }
 
 /* ── Ledger: save description + update visible cell ── */
@@ -1588,8 +1589,27 @@ async function deleteTx(id) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
-    document.getElementById('ltx-' + id)?.remove();
-    document.getElementById('tx-settings-' + id)?.remove();
+    const txRow      = document.getElementById('ltx-' + id);
+    const settingsRow = document.getElementById('tx-settings-' + id);
+    if (txRow) {
+      // Find the preceding date-group header row
+      let headerRow = txRow.previousElementSibling;
+      while (headerRow && !headerRow.classList.contains('tbl-cat-head')) {
+        headerRow = headerRow.previousElementSibling;
+      }
+      txRow.remove();
+      settingsRow?.remove();
+      // If no more tx rows remain between the header and the next header, remove the header
+      if (headerRow) {
+        let next = headerRow.nextElementSibling;
+        let hasRows = false;
+        while (next && !next.classList.contains('tbl-cat-head')) {
+          if (next.id && next.id.startsWith('ltx-')) { hasRows = true; break; }
+          next = next.nextElementSibling;
+        }
+        if (!hasRows) headerRow.remove();
+      }
+    }
   } else {
     alert('Delete failed: ' + (result.error || 'unknown error'));
   }

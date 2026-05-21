@@ -483,15 +483,14 @@ def api_vault_transfer():
 
     save_budget_row(session["access_token"], row_id, data)
 
-    all_months     = data.get("months", [])
+    all_months      = data.get("months", [])
     new_vault_total = vault_accumulated(vault_id, all_months)
-    active_month   = next((m for m in all_months if m["id"] == mid), month)
-    txs            = data.get("txs", [])
-    all_months_data = data.get("months", [])
-    dest_avail     = bucket_available(dest_bucket, active_month, all_months_data, txs)
-    accounts       = data.get("accounts", [])
-    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    rts            = ready_to_spend(active_month, all_months_data, accounts, active_buckets, txs)
+    active_month    = next((m for m in all_months if m["id"] == mid), month)
+    txs             = data.get("txs", [])
+    dest_avail      = bucket_available(dest_bucket, active_month, all_months, txs)
+    accounts        = data.get("accounts", [])
+    active_buckets  = [b for b in data.get("buckets", []) if not b.get("archived")]
+    rts             = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
 
     return jsonify({
         "ok":          True,
