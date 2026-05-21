@@ -528,6 +528,89 @@
 .vault-acct-name { flex: 1; }
 .vault-acct-bal { font-family: var(--mono); color: var(--amber); white-space: nowrap; }
 
+/* ── More panel mode tabs ── */
+.more-mode-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border2);
+  margin-bottom: 16px;
+}
+.more-mode-tab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  padding: 6px 20px;
+  font-family: var(--display);
+  font-size: clamp(14px, 2.5vw, 18px);
+  letter-spacing: .06em;
+  color: var(--text3);
+  cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.more-mode-tab:hover { color: var(--text2); }
+.more-mode-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Income type badges (extend existing badge pattern) ── */
+.badge-tx-pay    { color: var(--green);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-tx-refund { color: var(--text2);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-tx-dep    { color: var(--text3);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+/* ── Payday modal ── */
+.payday-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,.78); z-index: 200;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 12px; overflow-y: auto;
+}
+.payday-box {
+  width: 100%; max-width: 480px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--r); padding: 24px 20px;
+}
+.payday-title {
+  font-family: var(--display); font-size: clamp(22px, 4vw, 28px);
+  letter-spacing: .08em; color: var(--text2);
+}
+.payday-amt {
+  font-family: var(--mono); font-size: clamp(18px, 3vw, 22px);
+  color: var(--green); margin: 4px 0 20px;
+}
+.payday-section-head {
+  font-family: var(--mono); font-size: clamp(9px,1.4vw,10px);
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--text3); padding: 6px 0 4px;
+  border-top: 1px solid var(--border); margin-top: 12px;
+}
+.payday-rule-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+  font-size: clamp(12px,1.8vw,14px);
+}
+.payday-rule-name { flex: 1; }
+.payday-rule-hint {
+  font-family: var(--mono); font-size: clamp(9px,1.4vw,10px);
+  color: var(--text3); white-space: nowrap;
+}
+.payday-amt-input {
+  width: 88px; text-align: right;
+  background: var(--bg2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 3px 6px; font-family: var(--mono);
+  font-size: clamp(11px,1.6vw,13px); outline: none;
+}
+.payday-amt-input:focus { border-color: var(--accent); }
+.payday-ext-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+  font-size: clamp(12px,1.8vw,14px);
+}
+.payday-ext-amt { font-family: var(--mono); color: var(--amber); }
+.payday-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+
 /* ── Bottom nav ── */
 .bottom-nav {
   position: fixed;
@@ -1007,6 +1090,13 @@
               <option value="xfr">Transfer</option>
             </select>
           </div>
+          <div class="strip-field strip-field-sm" id="tx-income-type-cell" style="display:none">
+            <select id="tx-income-type">
+              <option value="paycheck">Paycheck</option>
+              <option value="refund">Refund</option>
+              <option value="deposit">Deposit</option>
+            </select>
+          </div>
           <div class="strip-field strip-field-sm">
             <input type="date" id="tx-date" required>
           </div>
@@ -1074,9 +1164,18 @@
           </tr>
 
           {% for t in group.rows %}
-          {% set row_class = 'tx-sched' if t.scheduled else ('tx-in' if t.type == 'in' else ('tx-xfr' if t.type == 'xfr' else 'tx-out')) %}
-          {% set badge_class = 'badge-tx-sched' if t.scheduled else ('badge-tx-in' if t.type == 'in' else ('badge-tx-xfr' if t.type == 'xfr' else 'badge-tx-out')) %}
-          {% set badge_label = 'SCHED' if t.scheduled else (t.type|upper) %}
+          {% if t.scheduled %}
+            {% set row_class = 'tx-sched' %}{% set badge_class = 'badge-tx-sched' %}{% set badge_label = 'SCHED' %}
+          {% elif t.type == 'in' %}
+            {% set row_class = 'tx-in' %}
+            {% if t.income_type == 'refund' %}{% set badge_class = 'badge-tx-refund' %}{% set badge_label = 'RFND' %}
+            {% elif t.income_type == 'deposit' %}{% set badge_class = 'badge-tx-dep' %}{% set badge_label = 'DEP' %}
+            {% else %}{% set badge_class = 'badge-tx-pay' %}{% set badge_label = 'PAY' %}{% endif %}
+          {% elif t.type == 'xfr' %}
+            {% set row_class = 'tx-xfr' %}{% set badge_class = 'badge-tx-xfr' %}{% set badge_label = 'XFR' %}
+          {% else %}
+            {% set row_class = 'tx-out' %}{% set badge_class = 'badge-tx-out' %}{% set badge_label = 'OUT' %}
+          {% endif %}
           {% set amt_class = 'ledger-amt-in' if t.type == 'in' else ('ledger-amt-xfr' if t.type == 'xfr' else 'ledger-amt-out') %}
 
           <tr id="ltx-{{ t.id }}" class="{{ row_class }}">
@@ -1172,6 +1271,17 @@
                     </select>
                   </div>
                   {% endif %}
+                  {% if t.type == 'in' %}
+                  <div class="sf-field">
+                    <div class="sf-label">Income Type</div>
+                    <select class="sf-input"
+                            onchange="saveTxField('{{ t.id }}','income_type',this.value)">
+                      <option value="paycheck" {% if t.income_type == 'paycheck' or not t.income_type %}selected{% endif %}>Paycheck</option>
+                      <option value="refund"   {% if t.income_type == 'refund'   %}selected{% endif %}>Refund</option>
+                      <option value="deposit"  {% if t.income_type == 'deposit'  %}selected{% endif %}>Deposit</option>
+                    </select>
+                  </div>
+                  {% endif %}
                 </div>
 
                 <div class="sf-row sf-toggles">
@@ -1210,6 +1320,15 @@
   <!-- More panel -->
   <div id="panel-more" class="panel">
     <div class="panel-container">
+
+      <!-- Top-level: Accounts | Settings -->
+      <div class="more-mode-tabs">
+        <button class="more-mode-tab active" onclick="showMoreMode('accounts',this)">Accounts</button>
+        <button class="more-mode-tab" onclick="showMoreMode('settings',this)">Settings</button>
+      </div>
+
+      <!-- ── Accounts mode ── -->
+      <div id="more-mode-accounts">
 
       <!-- Section tabs -->
       <div class="acct-tabs">
@@ -1560,6 +1679,176 @@
       </div>
       {% endif %}
 
+      </div><!-- end more-mode-accounts -->
+
+      <!-- ── Settings mode ── -->
+      <div id="more-mode-settings" style="display:none">
+
+        <div class="acct-tabs" style="margin-bottom:14px;">
+          <button class="acct-tab active" onclick="showSettingsTab('paychecks',this)">Paychecks</button>
+          <button class="acct-tab" onclick="showSettingsTab('rules',this)">Allocation Rules</button>
+        </div>
+
+        <!-- ── Paychecks tab ── -->
+        <div id="settings-tab-paychecks">
+          <form class="strip-form" onsubmit="submitAddPaycheck(event)">
+            <div class="strip-row">
+              <div class="strip-field strip-field-lg">
+                <input type="text" id="pc-label" placeholder="Label (e.g. Main Job)" required>
+              </div>
+              <div class="strip-field strip-field-sm">
+                <input type="number" id="pc-amount" placeholder="$ per check" step="0.01" min="0.01" required>
+              </div>
+              <div class="strip-field strip-field-sm">
+                <select id="pc-freq">
+                  <option value="7">Weekly</option>
+                  <option value="14" selected>Biweekly</option>
+                  <option value="15">Semi-monthly</option>
+                  <option value="30">Monthly</option>
+                </select>
+              </div>
+              <div class="strip-field strip-field-sm">
+                <input type="date" id="pc-anchor" title="A known past pay date (anchor)">
+              </div>
+              <div class="strip-field-btn">
+                <button class="strip-btn" type="submit">+ Add</button>
+              </div>
+            </div>
+          </form>
+
+          <table class="data-table">
+            <thead>
+              <tr><td colspan="5" class="tbl-section-head">Paychecks</td></tr>
+              <tr>
+                <th class="col-name">Label</th>
+                <th class="col-amount">Amount</th>
+                <th>Frequency</th>
+                <th class="col-m-hide">Anchor Date</th>
+                <th class="col-settings"></th>
+              </tr>
+            </thead>
+            <tbody>
+            {% if not paychecks %}
+            <tr><td colspan="5" style="padding:16px 4px;color:var(--text3);font-family:var(--mono);font-size:11px;">No paychecks yet — add one above.</td></tr>
+            {% endif %}
+            {% set freq_labels = {7: 'Weekly', 14: 'Biweekly', 15: 'Semi-monthly', 30: 'Monthly'} %}
+            {% for pc in paychecks %}
+            <tr id="pc-row-{{ pc.id }}">
+              <td class="col-name">{{ pc.label }}</td>
+              <td class="col-amount" style="color:var(--green);font-family:var(--mono)">{{ pc.amount|money }}</td>
+              <td style="color:var(--text2)">{{ freq_labels.get(pc.freq, pc.freq ~ 'd') }}</td>
+              <td class="col-m-hide" style="color:var(--text3);font-family:var(--mono);font-size:11px">{{ pc.anchorDate or '—' }}</td>
+              <td class="col-settings">
+                <button class="delete-cat-btn" onclick="deletePaycheck('{{ pc.id }}')">✕</button>
+              </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div><!-- end paychecks tab -->
+
+        <!-- ── Allocation Rules tab ── -->
+        <div id="settings-tab-rules" style="display:none">
+
+          <form class="strip-form" onsubmit="submitAddRule(event)">
+            <div class="strip-row">
+              <div class="strip-field strip-field-sm">
+                <select id="rule-kind" onchange="handleRuleKindChange(this)">
+                  <option value="internal">→ Bucket</option>
+                  <option value="external">→ External</option>
+                </select>
+              </div>
+              <div class="strip-field strip-field-lg">
+                <input type="text" id="rule-name" placeholder="Rule name" required>
+              </div>
+              <div class="strip-field" id="rule-bucket-cell">
+                <select id="rule-bucket">
+                  <option value="">— Bucket —</option>
+                  {% for b in expense_buckets %}
+                  <option value="{{ b.id }}">{{ b.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="strip-field strip-field-sm">
+                <select id="rule-val-type">
+                  <option value="fixed">$ Fixed</option>
+                  <option value="pct">% of check</option>
+                </select>
+              </div>
+              <div class="strip-field strip-field-sm">
+                <input type="number" id="rule-value" placeholder="Amount" step="0.01" min="0.01" required>
+              </div>
+              <div class="strip-field-btn">
+                <button class="strip-btn" type="submit">+ Add</button>
+              </div>
+            </div>
+          </form>
+
+          <table class="data-table">
+            <thead>
+              <tr><td colspan="5" class="tbl-section-head">Allocation Rules</td></tr>
+              <tr>
+                <th style="width:36px;"></th>
+                <th class="col-name">Rule</th>
+                <th class="col-amount">Amount</th>
+                <th class="col-m-hide">Target</th>
+                <th class="col-settings"></th>
+              </tr>
+            </thead>
+            <tbody>
+            {% if internal_rules %}
+            <tr><td colspan="5" class="tbl-cat-head" style="border-left:3px solid var(--accent)">Internal — Bucket Allocations</td></tr>
+            {% for r in internal_rules %}
+            <tr id="rule-row-{{ r.id }}" {% if not r.active %}style="opacity:.5"{% endif %}>
+              <td style="text-align:center">
+                <input type="checkbox" {% if r.active %}checked{% endif %}
+                       onchange="toggleRule('{{ r.id }}')"
+                       style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">
+              </td>
+              <td class="col-name">{{ r.name }}</td>
+              <td class="col-amount" style="font-family:var(--mono);color:var(--accent)">
+                {% if r.type == 'pct' %}{{ r.value }}%{% else %}{{ r.value|money }}{% endif %}
+              </td>
+              <td class="col-m-hide" style="color:var(--text3)">
+                → {{ bucket_map_display.get(r.bucketId, '—') if r.bucketId else '—' }}
+              </td>
+              <td class="col-settings">
+                <button class="delete-cat-btn" onclick="deleteRule('{{ r.id }}')">✕</button>
+              </td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+
+            {% if external_rules %}
+            <tr><td colspan="5" class="tbl-cat-head" style="border-left:3px solid var(--amber)">External — Transfer Reminders</td></tr>
+            {% for r in external_rules %}
+            <tr id="rule-row-{{ r.id }}" {% if not r.active %}style="opacity:.5"{% endif %}>
+              <td style="text-align:center">
+                <input type="checkbox" {% if r.active %}checked{% endif %}
+                       onchange="toggleRule('{{ r.id }}')"
+                       style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">
+              </td>
+              <td class="col-name">{{ r.name }}</td>
+              <td class="col-amount" style="font-family:var(--mono);color:var(--amber)">
+                {% if r.type == 'pct' %}{{ r.value }}%{% else %}{{ r.value|money }}{% endif %}
+              </td>
+              <td class="col-m-hide" style="color:var(--text3)">External transfer</td>
+              <td class="col-settings">
+                <button class="delete-cat-btn" onclick="deleteRule('{{ r.id }}')">✕</button>
+              </td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+
+            {% if not allocation_rules %}
+            <tr><td colspan="5" style="padding:16px 4px;color:var(--text3);font-family:var(--mono);font-size:11px;">No rules yet — add one above.</td></tr>
+            {% endif %}
+            </tbody>
+          </table>
+        </div><!-- end rules tab -->
+
+      </div><!-- end settings mode -->
+
     </div>
   </div>
 
@@ -1570,6 +1859,21 @@
     </div>
   </div>
 
+</div>
+
+<!-- Payday modal -->
+<div id="payday-overlay" class="payday-overlay" style="display:none">
+  <div class="payday-box">
+    <div class="payday-title">PAYDAY</div>
+    <div class="payday-amt" id="payday-amt-display"></div>
+    <input type="hidden" id="payday-month-id">
+    <div id="payday-body"></div>
+    <div class="payday-actions">
+      <button class="strip-btn" style="background:none;border:1px solid var(--border);color:var(--text3);"
+              onclick="closePaydayModal()">Skip</button>
+      <button class="strip-btn" onclick="applyPayday()">Apply Selected</button>
+    </div>
+  </div>
 </div>
 
 <!-- Bottom nav -->
@@ -1953,8 +2257,9 @@ async function vaultTransfer(vaultId, month) {
 
 /* ── Ledger: type change (show/hide bucket vs to-account cell) ── */
 function handleTxTypeChange(select) {
-  document.getElementById('tx-bucket-cell').style.display   = select.value === 'out' ? '' : 'none';
-  document.getElementById('tx-to-acct-cell').style.display  = select.value === 'xfr' ? '' : 'none';
+  document.getElementById('tx-bucket-cell').style.display      = select.value === 'out' ? '' : 'none';
+  document.getElementById('tx-to-acct-cell').style.display     = select.value === 'xfr' ? '' : 'none';
+  document.getElementById('tx-income-type-cell').style.display = select.value === 'in'  ? '' : 'none';
 }
 
 /* ── Ledger: add transaction ── */
@@ -1965,8 +2270,9 @@ async function submitAddTx(e) {
   const desc      = document.getElementById('tx-desc').value.trim();
   const amount    = parseFloat(document.getElementById('tx-amount').value);
   const accountId = document.getElementById('tx-account').value;
-  const bucketId  = type === 'out' ? document.getElementById('tx-bucket').value : '';
-  const toAcctId  = type === 'xfr' ? document.getElementById('tx-to-account').value : '';
+  const bucketId   = type === 'out' ? document.getElementById('tx-bucket').value : '';
+  const toAcctId   = type === 'xfr' ? document.getElementById('tx-to-account').value : '';
+  const incomeType = type === 'in'  ? document.getElementById('tx-income-type').value : '';
 
   if (!accountId) { alert('Select an account.'); return; }
   if (type === 'xfr' && !toAcctId) { alert('Select a destination account.'); return; }
@@ -1975,11 +2281,17 @@ async function submitAddTx(e) {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ type, date, desc, amount, account_id: accountId,
-                           bucket_id: bucketId, to_account_id: toAcctId })
+                           bucket_id: bucketId, to_account_id: toAcctId,
+                           income_type: incomeType })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (result.ok) { window.location.reload(); }
-  else { alert('Error: ' + (result.error || 'Could not add transaction.')); }
+  if (result.ok) {
+    if (type === 'in' && incomeType === 'paycheck') {
+      await showPaydayModal(amount, result.month_id);
+    } else {
+      window.location.reload();
+    }
+  } else { alert('Error: ' + (result.error || 'Could not add transaction.')); }
 }
 
 /* ── Ledger: toggle expand panel ── */
@@ -2270,5 +2582,195 @@ document.querySelectorAll('.editable-acct').forEach(span => {
   const today = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   document.querySelectorAll('[id^="pay-date-"]').forEach(el => { el.value = today; });
 })();
+
+/* ── More panel: top-level mode switch ── */
+function showMoreMode(mode, btn) {
+  ['accounts','settings'].forEach(m => {
+    const el = document.getElementById('more-mode-' + m);
+    if (el) el.style.display = m === mode ? '' : 'none';
+  });
+  document.querySelectorAll('.more-mode-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+/* ── Settings: sub-tab switch ── */
+function showSettingsTab(tab, btn) {
+  ['paychecks','rules'].forEach(t => {
+    const el = document.getElementById('settings-tab-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('#more-mode-settings .acct-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+/* ── Settings: rule kind change ── */
+function handleRuleKindChange(select) {
+  document.getElementById('rule-bucket-cell').style.display = select.value === 'internal' ? '' : 'none';
+}
+
+/* ── Paychecks ── */
+async function submitAddPaycheck(e) {
+  e.preventDefault();
+  const label  = document.getElementById('pc-label').value.trim();
+  const amount = parseFloat(document.getElementById('pc-amount').value);
+  const freq   = parseInt(document.getElementById('pc-freq').value);
+  const anchor = document.getElementById('pc-anchor').value;
+
+  if (!label || !amount) { alert('Label and amount required.'); return; }
+
+  const result = await fetch('/api/add-paycheck', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ label, amount, freq, anchor_date: anchor })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) { window.location.reload(); }
+  else { alert('Error: ' + (result.error || 'Could not add paycheck.')); }
+}
+
+async function deletePaycheck(id) {
+  if (!confirm('Delete this paycheck?')) return;
+  const result = await fetch('/api/delete-paycheck', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) { document.getElementById('pc-row-' + id)?.remove(); }
+  else { alert('Delete failed: ' + (result.error || 'unknown error')); }
+}
+
+/* ── Allocation rules ── */
+async function submitAddRule(e) {
+  e.preventDefault();
+  const kind    = document.getElementById('rule-kind').value;
+  const name    = document.getElementById('rule-name').value.trim();
+  const bucket  = document.getElementById('rule-bucket')?.value || '';
+  const valType = document.getElementById('rule-val-type').value;
+  const value   = parseFloat(document.getElementById('rule-value').value);
+
+  if (!name || !value) { alert('Name and amount required.'); return; }
+  if (kind === 'internal' && !bucket) { alert('Select a bucket for internal rule.'); return; }
+
+  const result = await fetch('/api/add-rule', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ rule_type: kind, name, bucket_id: bucket, value_type: valType, value })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) { window.location.reload(); }
+  else { alert('Error: ' + (result.error || 'Could not add rule.')); }
+}
+
+async function toggleRule(id) {
+  const result = await fetch('/api/toggle-rule', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    const row = document.getElementById('rule-row-' + id);
+    if (row) row.style.opacity = result.active ? '1' : '0.5';
+  } else {
+    alert('Toggle failed: ' + (result.error || 'unknown error'));
+  }
+}
+
+async function deleteRule(id) {
+  if (!confirm('Delete this rule?')) return;
+  const result = await fetch('/api/delete-rule', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) { document.getElementById('rule-row-' + id)?.remove(); }
+  else { alert('Delete failed: ' + (result.error || 'unknown error')); }
+}
+
+/* ── Payday modal ── */
+async function showPaydayModal(amount, mid) {
+  const result = await fetch('/api/payday-suggestions', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ amount, month: mid })
+  }).then(r => r.json()).catch(() => ({ok: false, internal: [], external: []}));
+
+  if (!result.ok || (!result.internal?.length && !result.external?.length)) {
+    window.location.reload();
+    return;
+  }
+
+  document.getElementById('payday-amt-display').textContent = fmtMoney(amount);
+  document.getElementById('payday-month-id').value = mid;
+
+  let html = '';
+
+  if (result.external?.length) {
+    html += '<div class="payday-section-head">External Transfers — do these manually</div>';
+    result.external.forEach(r => {
+      html += `<div class="payday-ext-row">
+        <span>${r.name}</span>
+        <span class="payday-ext-amt">${fmtMoney(r.computed)}</span>
+        <span class="payday-rule-hint">${r.type === 'pct' ? r.value + '%' : 'fixed'}</span>
+      </div>`;
+    });
+  }
+
+  if (result.internal?.length) {
+    html += '<div class="payday-section-head">Allocate to Buckets</div>';
+    result.internal.forEach((r, i) => {
+      html += `<div class="payday-rule-row">
+        <label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer">
+          <input type="checkbox" id="pd-chk-${i}" checked data-bucket="${r.bucket_id}"
+                 style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">
+          <span class="payday-rule-name">${r.name}<br>
+            <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">→ ${r.bucket_name}</span>
+          </span>
+        </label>
+        <input class="payday-amt-input" type="number" step="0.01" min="0"
+               id="pd-amt-${i}" value="${r.computed}" data-bucket="${r.bucket_id}">
+        <span class="payday-rule-hint">${r.type === 'pct' ? r.value + '%' : 'fixed'}</span>
+      </div>`;
+    });
+  }
+
+  document.getElementById('payday-body').innerHTML = html;
+  document.getElementById('payday-overlay').style.display = '';
+}
+
+async function applyPayday() {
+  const mid = document.getElementById('payday-month-id').value;
+  const allocations = [];
+
+  document.querySelectorAll('#payday-body input[type="checkbox"]:checked').forEach(cb => {
+    const idx = cb.id.replace('pd-chk-', '');
+    const amt = parseFloat(document.getElementById('pd-amt-' + idx)?.value || 0);
+    if (cb.dataset.bucket && amt > 0) {
+      allocations.push({ bucket_id: cb.dataset.bucket, amount: amt });
+    }
+  });
+
+  if (allocations.length > 0) {
+    const result = await fetch('/api/apply-payday', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ month: mid, allocations })
+    }).then(r => r.json()).catch(() => ({ok: false}));
+
+    if (!result.ok) {
+      alert('Could not apply allocations: ' + (result.error || 'unknown error'));
+      return;
+    }
+  }
+
+  window.location.reload();
+}
+
+function closePaydayModal() {
+  document.getElementById('payday-overlay').style.display = 'none';
+  window.location.reload();
+}
 </script>
 {% endblock %}

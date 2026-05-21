@@ -804,6 +804,7 @@ def _dashboard_inner():
             "to_acct_id":  t.get("toAccountId", "") or "",
             "scheduled":   scheduled,
             "reconciled":  bool(t.get("reconciled")),
+            "income_type": t.get("incomeType", "paycheck") if ttype == "in" else "",
         })
 
     # Group rows by date (already sorted newest-first)
@@ -832,6 +833,13 @@ def _dashboard_inner():
         for b in active_buckets
         if b.get("type") != "vault"
     ]
+
+    # ── Settings data ────────────────────────────────────────────────────────
+    paychecks = S.get("paychecks") or []
+    allocation_rules = S.get("allocationRules") or []
+    internal_rules = [r for r in allocation_rules if r.get("ruleType", "internal") == "internal"]
+    external_rules = [r for r in allocation_rules if r.get("ruleType") == "external"]
+    bucket_map_display = {b["id"]: b.get("name", "") for b in active_buckets}
 
     # ── Per-account transaction ledgers (all time, newest first) ─────────────
     all_txs_sorted = sorted(
@@ -892,6 +900,11 @@ def _dashboard_inner():
         vault_buckets_display=vault_buckets_display,
         total_vault_val=total_vault_val,
         account_ledgers=account_ledgers,
+        paychecks=paychecks,
+        allocation_rules=allocation_rules,
+        internal_rules=internal_rules,
+        external_rules=external_rules,
+        bucket_map_display=bucket_map_display,
     )
 
 
@@ -908,6 +921,7 @@ def api_add_transaction():
     acct_id = (body.get("account_id") or "").strip()
     bkt_id  = (body.get("bucket_id") or "").strip()
     to_acct = (body.get("to_account_id") or "").strip()
+    income_type = (body.get("income_type") or "paycheck") if ttype == "in" else None
 
     if not date:
         return jsonify({"ok": False, "error": "Date required"}), 400
@@ -940,6 +954,8 @@ def api_add_transaction():
         tx["bucketId"] = bkt_id
     if ttype == "xfr":
         tx["toAccountId"] = to_acct
+    if ttype == "in" and income_type:
+        tx["incomeType"] = income_type
 
     data.setdefault("txs", []).append(tx)
     save_budget_row(session["access_token"], row_id, data)
@@ -981,6 +997,9 @@ def api_edit_transaction():
             tx["toAccountId"] = str(value)
         else:
             tx.pop("toAccountId", None)
+    elif field == "income_type":
+        if tx.get("type") == "in":
+            tx["incomeType"] = str(value or "paycheck")
     else:
         return jsonify({"ok": False, "error": f"Unknown field: {field}"}), 400
 
@@ -1007,6 +1026,182 @@ def api_delete_transaction():
 
     save_budget_row(session["access_token"], row_id, data)
     return jsonify({"ok": True})
+
+
+@app.route("/api/add-paycheck", methods=["POST"])
+def api_add_paycheck():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    label  = (body.get("label") or "").strip()
+    amount = float(body.get("amount") or 0)
+    freq   = int(body.get("freq") or 14)
+    anchor = (body.get("anchor_date") or "").strip()
+
+    if not label:
+        return jsonify({"ok": False, "error": "Label required"}), 400
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount required"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    pc = {"id": _new_id("pc"), "label": label, "amount": amount, "freq": freq, "anchorDate": anchor}
+    data.setdefault("paychecks", []).append(pc)
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "id": pc["id"]})
+
+
+@app.route("/api/delete-paycheck", methods=["POST"])
+def api_delete_paycheck():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body  = request.get_json(silent=True) or {}
+    pc_id = (body.get("id") or "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    before = len(data.get("paychecks", []))
+    data["paychecks"] = [p for p in data.get("paychecks", []) if p["id"] != pc_id]
+    if len(data["paychecks"]) == before:
+        return jsonify({"ok": False, "error": "Not found"}), 404
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/add-rule", methods=["POST"])
+def api_add_rule():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body       = request.get_json(silent=True) or {}
+    name       = (body.get("name") or "").strip()
+    rule_type  = body.get("rule_type", "internal")   # internal | external
+    value_type = body.get("value_type", "fixed")     # fixed | pct
+    value      = float(body.get("value") or 0)
+    bucket_id  = (body.get("bucket_id") or "").strip()
+
+    if not name:
+        return jsonify({"ok": False, "error": "Name required"}), 400
+    if value <= 0:
+        return jsonify({"ok": False, "error": "Amount required"}), 400
+    if rule_type == "internal" and not bucket_id:
+        return jsonify({"ok": False, "error": "Bucket required for internal rule"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    rule = {
+        "id":       _new_id("rule"),
+        "name":     name,
+        "ruleType": rule_type,
+        "type":     value_type,
+        "value":    value,
+        "bucketId": bucket_id if rule_type == "internal" else None,
+        "active":   True,
+    }
+    data.setdefault("allocationRules", []).append(rule)
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "id": rule["id"]})
+
+
+@app.route("/api/toggle-rule", methods=["POST"])
+def api_toggle_rule():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body    = request.get_json(silent=True) or {}
+    rule_id = (body.get("id") or "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    rule = next((r for r in data.get("allocationRules", []) if r["id"] == rule_id), None)
+    if not rule:
+        return jsonify({"ok": False, "error": "Not found"}), 404
+
+    rule["active"] = not rule.get("active", True)
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "active": rule["active"]})
+
+
+@app.route("/api/delete-rule", methods=["POST"])
+def api_delete_rule():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body    = request.get_json(silent=True) or {}
+    rule_id = (body.get("id") or "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    data["allocationRules"] = [r for r in data.get("allocationRules", []) if r["id"] != rule_id]
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/payday-suggestions", methods=["POST"])
+def api_payday_suggestions():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    amount = float(body.get("amount") or 0)
+
+    _, data = load_budget_row(session["access_token"])
+    rules   = [r for r in (data.get("allocationRules") or []) if r.get("active")]
+    buckets = data.get("buckets") or []
+    bmap    = {b["id"]: b.get("name", b["id"]) for b in buckets if not b.get("archived")}
+
+    internal, external = [], []
+    for rule in rules:
+        computed = round(amount * rule["value"] / 100, 2) if rule["type"] == "pct" else float(rule["value"])
+        item = {"id": rule["id"], "name": rule["name"], "type": rule["type"],
+                "value": rule["value"], "computed": computed}
+        if rule.get("ruleType") == "external":
+            external.append(item)
+        else:
+            bid = rule.get("bucketId", "")
+            item["bucket_id"]   = bid
+            item["bucket_name"] = bmap.get(bid, "")
+            internal.append(item)
+
+    return jsonify({"ok": True, "internal": internal, "external": external})
+
+
+@app.route("/api/apply-payday", methods=["POST"])
+def api_apply_payday():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body        = request.get_json(silent=True) or {}
+    mid         = (body.get("month") or "").strip()
+    allocations = body.get("allocations", [])   # [{bucket_id, amount}]
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    month = _find_or_create_month(data, mid)
+    for item in allocations:
+        bid = (item.get("bucket_id") or "").strip()
+        amt = float(item.get("amount") or 0)
+        if bid and amt > 0:
+            current = float((month.get("allocations") or {}).get(bid) or 0)
+            month.setdefault("allocations", {})[bid] = current + amt
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "rts": _rts_now(data)})
 
 
 @app.route("/api/add-account", methods=["POST"])
