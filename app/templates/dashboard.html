@@ -416,8 +416,24 @@
   .strip-form-table td { padding: 4px 0; }
 }
 
-/* ── Ledger table ── */
-.ledger-row td { border-bottom: 1px solid var(--border); }
+/* ── Ledger row left-border colours (mirrors bucket status pattern) ── */
+.tx-in   { border-left: 3px solid var(--green); }
+.tx-out  { border-left: 3px solid transparent; }
+.tx-xfr  { border-left: 3px solid var(--border2); }
+.tx-sched { border-left: 3px solid var(--amber); }
+
+/* ── Transaction type badges (same pattern as bucket status badges) ── */
+.badge-tx-in   { color: var(--green);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-tx-out  { color: var(--text3);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-tx-xfr  { color: var(--text3);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-tx-sched { color: var(--amber); font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+/* ── Ledger amount colours ── */
+.ledger-amt-in  { color: var(--green); }
+.ledger-amt-out { color: var(--text); }
+.ledger-amt-xfr { color: var(--text3); }
+
+/* ── Ledger misc ── */
 .ledger-empty {
   color: var(--text3);
   font-family: var(--mono);
@@ -425,36 +441,21 @@
   padding: 16px 4px;
   text-align: center;
 }
-.tx-scheduled td { color: var(--amber) !important; opacity: .8; }
-.tx-xfr td { color: var(--text3); }
-.tx-in .ledger-amt-in { color: var(--green); }
-.ledger-amt-out { color: var(--text); }
-.ledger-editable { cursor: pointer; border-radius: var(--r); transition: background .1s; }
-.ledger-editable:hover { background: var(--bg2); }
+.ledger-desc { cursor: pointer; border-radius: var(--r); transition: background .1s; }
+.ledger-desc:hover { background: var(--bg2); }
+.ledger-account-cell { color: var(--text2); font-size: clamp(10px,1.5vw,12px); }
 .ledger-bucket-select {
   background: none;
   border: none;
   color: var(--text2);
   font-family: var(--sans);
-  font-size: clamp(11px, 1.8vw, 13px);
+  font-size: clamp(11px,1.8vw,13px);
   cursor: pointer;
   width: 100%;
   outline: none;
 }
 .ledger-bucket-select:focus { color: var(--accent); }
-.tx-delete-btn {
-  background: none;
-  border: none;
-  color: var(--text3);
-  cursor: pointer;
-  font-size: 11px;
-  padding: 1px 4px;
-  opacity: .5;
-  transition: opacity .12s, color .12s;
-}
-.tx-delete-btn:hover { opacity: 1; color: var(--red); }
 .ledger-totals-row th { border-top: 2px solid var(--border2); padding: 8px 4px; }
-.ledger-account-cell { color: var(--text2); font-size: clamp(10px,1.5vw,12px); }
 
 /* ── Bottom nav ── */
 .bottom-nav {
@@ -982,22 +983,25 @@
             <td colspan="6" class="ledger-empty">No transactions this month</td>
           </tr>
           {% endif %}
+
           {% for t in ledger_rows %}
-          <tr id="ltx-{{ t.id }}" class="ledger-row{% if t.scheduled %} tx-scheduled{% elif t.type == 'in' %} tx-in{% elif t.type == 'xfr' %} tx-xfr{% endif %}">
-            <td class="col-date ledger-editable"
-                data-tx="{{ t.id }}" data-field="date" data-type="date" data-raw="{{ t.date }}">
+          {% set row_class = 'tx-sched' if t.scheduled else ('tx-in' if t.type == 'in' else ('tx-xfr' if t.type == 'xfr' else 'tx-out')) %}
+          {% set badge_class = 'badge-tx-sched' if t.scheduled else ('badge-tx-in' if t.type == 'in' else ('badge-tx-xfr' if t.type == 'xfr' else 'badge-tx-out')) %}
+          {% set badge_label = 'SCHED' if t.scheduled else (t.type|upper) %}
+          {% set amt_class = 'ledger-amt-in' if t.type == 'in' else ('ledger-amt-xfr' if t.type == 'xfr' else 'ledger-amt-out') %}
+
+          <tr id="ltx-{{ t.id }}" class="{{ row_class }}">
+            <td class="col-date" style="color:var(--text3); font-family:var(--mono); font-size:clamp(10px,1.5vw,11px);">
               {{ t.date }}
             </td>
-            <td class="ledger-editable"
-                data-tx="{{ t.id }}" data-field="desc" data-type="text" data-raw="{{ t.desc }}">
-              {{ t.desc or "—" }}
+            <td>
+              <span class="{{ badge_class }}" style="margin-right:4px;">{{ badge_label }}</span>
+              <span class="ledger-desc" id="desc-{{ t.id }}"
+                    data-tx="{{ t.id }}" data-raw="{{ t.desc }}">{{ t.desc or "—" }}</span>
             </td>
             <td class="ledger-account-cell">
-              {% if t.type == 'xfr' %}
-                {{ t.account }} → {{ t.to_account }}
-              {% else %}
-                {{ t.account }}
-              {% endif %}
+              {% if t.type == 'xfr' %}{{ t.account }} → {{ t.to_account }}
+              {% else %}{{ t.account }}{% endif %}
             </td>
             <td>
               {% if t.type == 'out' %}
@@ -1008,18 +1012,87 @@
                 <option value="{{ b.id }}" {% if b.id == t.bucket_id %}selected{% endif %}>{{ b.name }}</option>
                 {% endfor %}
               </select>
-              {% else %}
-                <span style="color:var(--text3);">—</span>
-              {% endif %}
+              {% else %}<span style="color:var(--text3);">—</span>{% endif %}
             </td>
-            <td class="col-amount ledger-editable{% if t.type == 'in' %} ledger-amt-in{% elif t.type == 'out' %} ledger-amt-out{% endif %}"
-                data-tx="{{ t.id }}" data-field="amount" data-type="number" data-raw="{{ t.amount }}">
+            <td class="col-amount {{ amt_class }}">
               {% if t.type == 'in' %}+{% elif t.type == 'out' %}-{% endif %}{{ t.amount|money }}
             </td>
             <td class="col-settings">
-              <button class="tx-delete-btn" onclick="deleteTx('{{ t.id }}')" title="Delete">✕</button>
+              <span class="row-actions">
+                <button class="settings-btn" onclick="toggleTxSettings('{{ t.id }}')" title="Edit">&#x22EF;</button>
+              </span>
             </td>
           </tr>
+
+          <!-- Transaction expand panel (shared .bucket-settings-row classes) -->
+          <tr id="tx-settings-{{ t.id }}" class="bucket-settings-row" style="display:none">
+            <td colspan="6">
+              <div class="settings-form">
+
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Date</div>
+                    <input class="sf-input" type="date"
+                           value="{{ t.date }}"
+                           onblur="saveTxField('{{ t.id }}','date',this.value)">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Description</div>
+                    <input class="sf-input" type="text"
+                           value="{{ t.desc }}"
+                           id="tx-desc-{{ t.id }}"
+                           onblur="saveTxDescAndCell('{{ t.id }}',this.value)">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Amount</div>
+                    <input class="sf-input" type="number" step="0.01" min="0.01"
+                           value="{{ t.amount }}"
+                           onblur="saveTxField('{{ t.id }}','amount',parseFloat(this.value)||0)">
+                  </div>
+                </div>
+
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Account</div>
+                    <select class="sf-input"
+                            onchange="saveTxField('{{ t.id }}','account_id',this.value)">
+                      {% for a in accounts %}
+                      <option value="{{ a.id }}" {% if a.id == t.account_id %}selected{% endif %}>{{ a.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  {% if t.type == 'out' %}
+                  <div class="sf-field">
+                    <div class="sf-label">Bucket</div>
+                    <select class="sf-input"
+                            onchange="saveTxField('{{ t.id }}','bucket_id',this.value)">
+                      <option value="">— none —</option>
+                      {% for b in expense_buckets %}
+                      <option value="{{ b.id }}" {% if b.id == t.bucket_id %}selected{% endif %}>{{ b.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  {% elif t.type == 'xfr' %}
+                  <div class="sf-field">
+                    <div class="sf-label">To Account</div>
+                    <select class="sf-input"
+                            onchange="saveTxField('{{ t.id }}','to_account_id',this.value)">
+                      {% for a in accounts %}
+                      <option value="{{ a.id }}" {% if a.id == t.to_acct_id %}selected{% endif %}>{{ a.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  {% endif %}
+                </div>
+
+                <div class="sf-row sf-toggles">
+                  <button class="archive-btn" onclick="deleteTx('{{ t.id }}')">Delete</button>
+                </div>
+
+              </div>
+            </td>
+          </tr>
+
           {% endfor %}
         </tbody>
         {% if ledger_rows %}
@@ -1405,30 +1478,20 @@ async function vaultTransfer(vaultId, month) {
 
 /* ── Ledger: type change (show/hide bucket vs to-account cell) ── */
 function handleTxTypeChange(select) {
-  const isBucketType  = select.value === 'out';
-  const isXfr         = select.value === 'xfr';
-  document.getElementById('tx-bucket-cell').style.display  = isBucketType ? '' : 'none';
-  document.getElementById('tx-to-acct-cell').style.display = isXfr ? '' : 'none';
-  document.getElementById('tx-bucket').required = isBucketType ? false : false;
-}
-
-/* ── Ledger: format date for display ── */
-function fmtDate(iso) {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-');
-  return `${m}/${d}/${y.slice(2)}`;
+  document.getElementById('tx-bucket-cell').style.display   = select.value === 'out' ? '' : 'none';
+  document.getElementById('tx-to-acct-cell').style.display  = select.value === 'xfr' ? '' : 'none';
 }
 
 /* ── Ledger: add transaction ── */
 async function submitAddTx(e) {
   e.preventDefault();
-  const type       = document.getElementById('tx-type').value;
-  const date       = document.getElementById('tx-date').value;
-  const desc       = document.getElementById('tx-desc').value.trim();
-  const amount     = parseFloat(document.getElementById('tx-amount').value);
-  const accountId  = document.getElementById('tx-account').value;
-  const bucketId   = type === 'out' ? document.getElementById('tx-bucket').value : '';
-  const toAcctId   = type === 'xfr' ? document.getElementById('tx-to-account').value : '';
+  const type      = document.getElementById('tx-type').value;
+  const date      = document.getElementById('tx-date').value;
+  const desc      = document.getElementById('tx-desc').value.trim();
+  const amount    = parseFloat(document.getElementById('tx-amount').value);
+  const accountId = document.getElementById('tx-account').value;
+  const bucketId  = type === 'out' ? document.getElementById('tx-bucket').value : '';
+  const toAcctId  = type === 'xfr' ? document.getElementById('tx-to-account').value : '';
 
   if (!accountId) { alert('Select an account.'); return; }
   if (type === 'xfr' && !toAcctId) { alert('Select a destination account.'); return; }
@@ -1440,30 +1503,17 @@ async function submitAddTx(e) {
                            bucket_id: bucketId, to_account_id: toAcctId })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (result.ok) {
-    window.location.reload();
-  } else {
-    alert('Error: ' + (result.error || 'Could not add transaction.'));
-  }
+  if (result.ok) { window.location.reload(); }
+  else { alert('Error: ' + (result.error || 'Could not add transaction.')); }
 }
 
-/* ── Ledger: delete transaction ── */
-async function deleteTx(id) {
-  if (!confirm('Delete this transaction?')) return;
-  const result = await fetch('/api/delete-transaction', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ id })
-  }).then(r => r.json()).catch(() => ({ok: false}));
-
-  if (result.ok) {
-    document.getElementById('ltx-' + id)?.remove();
-  } else {
-    alert('Delete failed: ' + (result.error || 'unknown error'));
-  }
+/* ── Ledger: toggle expand panel ── */
+function toggleTxSettings(id) {
+  const row = document.getElementById('tx-settings-' + id);
+  row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
 }
 
-/* ── Ledger: save a single field on a transaction ── */
+/* ── Ledger: save a field on a transaction ── */
 async function saveTxField(id, field, value) {
   await fetch('/api/edit-transaction', {
     method: 'POST',
@@ -1472,54 +1522,64 @@ async function saveTxField(id, field, value) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 }
 
-/* ── Ledger: inline cell editing ── */
-function activateTxEdit(cell) {
-  if (cell.querySelector('input')) return;
-  const id    = cell.dataset.tx;
-  const field = cell.dataset.field;
-  const type  = cell.dataset.type || 'text';
-  const raw   = cell.dataset.raw;
-  const orig  = cell.textContent.trim();
-
-  const input = document.createElement('input');
-  input.type  = type === 'number' ? 'number' : (type === 'date' ? 'date' : 'text');
-  input.step  = '0.01';
-  input.value = type === 'number' ? (parseFloat(raw) || 0) : raw;
-  input.className = 'inline-input';
-  cell.textContent = '';
-  cell.appendChild(input);
-  input.focus();
-  input.select();
-
-  let done = false;
-  const commit = async () => {
-    if (done) return;
-    done = true;
-    const val = type === 'number' ? parseFloat(input.value) || 0 : input.value.trim();
-    if (type === 'number') {
-      cell.textContent = (cell.classList.contains('ledger-amt-in') ? '+' : '-') + fmtMoney(val);
-    } else {
-      cell.textContent = val || '—';
-    }
-    cell.dataset.raw = val;
-    await saveTxField(id, field, val);
-  };
-
-  input.addEventListener('blur', commit);
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { done = true; cell.textContent = orig; }
-  });
+/* ── Ledger: save description + update visible cell ── */
+async function saveTxDescAndCell(id, value) {
+  const cell = document.getElementById('desc-' + id);
+  if (cell) { cell.textContent = value.trim() || '—'; cell.dataset.raw = value; }
+  await saveTxField(id, 'desc', value.trim());
 }
 
-document.querySelectorAll('.ledger-editable').forEach(cell => {
-  cell.addEventListener('click', () => activateTxEdit(cell));
+/* ── Ledger: description click-to-edit (inline, most common field) ── */
+document.querySelectorAll('.ledger-desc').forEach(span => {
+  span.addEventListener('click', () => {
+    if (span.querySelector('input')) return;
+    const id   = span.dataset.tx;
+    const orig = span.dataset.raw || '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = orig;
+    input.className = 'inline-input';
+    span.textContent = '';
+    span.appendChild(input);
+    input.focus(); input.select();
+    let done = false;
+    const commit = () => {
+      if (done) return; done = true;
+      const val = input.value.trim();
+      span.textContent = val || '—'; span.dataset.raw = val;
+      saveTxField(id, 'desc', val);
+      // Sync the panel input if open
+      const panelInput = document.getElementById('tx-desc-' + id);
+      if (panelInput) panelInput.value = val;
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { done = true; span.textContent = orig || '—'; }
+    });
+  });
 });
 
-// Set today's date as default in add form
+/* ── Ledger: delete transaction ── */
+async function deleteTx(id) {
+  if (!confirm('Delete this transaction? This cannot be undone.')) return;
+  const result = await fetch('/api/delete-transaction', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    document.getElementById('ltx-' + id)?.remove();
+    document.getElementById('tx-settings-' + id)?.remove();
+  } else {
+    alert('Delete failed: ' + (result.error || 'unknown error'));
+  }
+}
+
+// Default today's date in the add form
 (function() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2,'0');
+  const d = new Date(), pad = n => String(n).padStart(2,'0');
   document.getElementById('tx-date').value =
     `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 })();
