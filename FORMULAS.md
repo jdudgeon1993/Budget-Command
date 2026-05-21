@@ -865,24 +865,20 @@ Mobile-first layout: header (logo, RTS, user, logout), month nav bar (prev/next)
 
 ---
 
-### Phase 7 — More Panel: Accounts 🔲 Next
+### Phase 7 — More Panel: Accounts ✅ Done
 
-**Goal:** Users can view account balances and manage accounts.
-
-**Display:**
-- Budget accounts: name, current balance (computed from transactions)
-- Debt accounts: name, amount owed, APR, minimum payment
-- Savings accounts: name, balance
-
-**Write:**
-- Add / edit / archive accounts
-- Opening balance adjustment
-
-**Depends on:** Phase 6 (transactions drive account balances).
+- Three sections via horizontal tabs: Cash & Savings | Debt | Internal Savings (vaults, if any)
+- Cash & Savings: add account (name, type, opening balance, color), edit inline, expand panel (type, opening balance, color, archive)
+- Debt: add account, edit inline, expand panel (APR, min payment, credit limit, archive) + Record Payment inline form
+- Record Payment creates `out` tx on source account with `debtPaymentAccountId` set, updates debt balance live
+- Internal Savings: read-only vault bucket list with accumulated balances
+- Account balances computed from all transactions via `acct_balance()` in formulas.py
+- Three new routes: `/api/add-account`, `/api/save-account`, `/api/debt-payment`
+- All CSS reuses existing patterns: `.data-table`, `.strip-form`, `.bucket-settings-row`, `.sf-*`
 
 ---
 
-### Phase 8 — More Panel: Settings 🔲
+### Phase 8 — More Panel: Settings 🔲 Next
 
 - Paychecks: add/edit paycheck schedules (used for projected income and What-If)
 - Allocation rules: auto-split income across buckets on payday
