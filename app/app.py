@@ -316,6 +316,31 @@ def api_add_bucket():
     return jsonify({"ok": True, "bucket_id": bucket_id, "cat_id": cat_id})
 
 
+@app.route("/api/archive-category", methods=["POST"])
+def api_archive_category():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    cat_id = body.get("cat_id", "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    cat = next((c for c in data.get("cats", []) if c["id"] == cat_id), None)
+    if not cat:
+        return jsonify({"ok": False, "error": "Category not found"}), 404
+
+    cat["archived"] = True
+    for b in data.get("buckets", []):
+        if b.get("catId") == cat_id:
+            b["archived"] = True
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/delete-category", methods=["POST"])
 def api_delete_category():
     if not logged_in():

@@ -675,6 +675,8 @@
                 <button class="reorder-btn" onclick="reorderItem('cat','{{ group.id }}','down','')" title="Move down">↓</button>
                 {% if not group.buckets %}
                 <button class="delete-cat-btn" onclick="deleteCategory('{{ group.id }}')" title="Delete category">✕</button>
+                {% else %}
+                <button class="archive-btn" style="margin-left:0;padding:1px 7px;font-size:9px;" onclick="archiveCategory('{{ group.id }}')" title="Archive category and all its buckets">Archive</button>
                 {% endif %}
               </span>
             </td>
@@ -1739,7 +1741,7 @@ function activateEdit(cell) {
   const commit = async () => {
     if (done) return;
     done = true;
-    const value = type === 'number' ? (parseFloat(input.value) || 0) : input.value.trim();
+    const value = type === 'number' ? (parseFloat(input.value) || 0) : (input.value.trim() || origText);
 
     // Optimistic display
     cell.textContent = type === 'number' ? fmtMoney(value) : value;
@@ -2082,6 +2084,22 @@ async function releaseRollover(id, month) {
 
   // Reload to refresh rollover column, bucket status, and all derived values
   window.location.reload();
+}
+
+/* ── Archive category (+ all its buckets) ── */
+async function archiveCategory(catId) {
+  if (!confirm('Archive this category and all its buckets? They will be hidden but all history is preserved.')) return;
+  const result = await fetch('/api/archive-category', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ cat_id: catId })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    document.getElementById('cat-body-' + catId)?.remove();
+  } else {
+    alert('Archive failed: ' + (result.error || 'unknown error'));
+  }
 }
 
 /* ── Archive bucket ── */
