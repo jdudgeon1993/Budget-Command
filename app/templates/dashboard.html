@@ -425,235 +425,243 @@
       </form>
 
       <table class="data-table">
-        <tr>
-          <td colspan="8" class="tbl-section-head">Buckets</td>
-        </tr>
-        <tr>
-          <th>Bucket</th>
-          <th class="col-status"></th>
-          <th class="col-amount">Target</th>
-          <th class="col-amount">Allocated</th>
-          <th class="col-amount">Rollover</th>
-          <th class="col-amount">Spent</th>
-          <th class="col-amount">Available</th>
-          <th class="col-settings"></th>
-        </tr>
+        <thead>
+          <tr>
+            <td colspan="8" class="tbl-section-head">Buckets</td>
+          </tr>
+          <tr>
+            <th>Bucket</th>
+            <th class="col-status"></th>
+            <th class="col-amount">Target</th>
+            <th class="col-amount">Allocated</th>
+            <th class="col-amount">Rollover</th>
+            <th class="col-amount">Spent</th>
+            <th class="col-amount">Available</th>
+            <th class="col-settings"></th>
+          </tr>
+        </thead>
 
         {% if not category_groups %}
-        <tr>
-          <td colspan="8" class="tbl-cat-head">— No buckets found —</td>
-        </tr>
+        <tbody>
+          <tr><td colspan="8" class="tbl-cat-head">— No buckets found —</td></tr>
+        </tbody>
         {% endif %}
 
         {% for group in category_groups %}
-        <!-- Category header -->
-        <tr>
-          <td colspan="8" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
-            <span class="editable-text"
-                  data-field="cat_name"
-                  data-id="{{ group.id }}"
-                  data-type="text">{{ group.name }}</span>
-          </td>
-        </tr>
+        <tbody id="cat-body-{{ group.id }}">
 
-        <!-- Bucket rows -->
-        {% for b in group.buckets %}
-        <tr id="row-{{ b.id }}" class="{% if b.status == 'OK' or b.status == 'PAID' %}bucket-ok{% else %}bucket-empty{% endif %}">
-          <td>
-            <span class="editable-text"
-                  data-field="bucket_name"
-                  data-id="{{ b.id }}"
-                  data-type="text">{{ b.name }}</span>
-          </td>
-          <td class="col-status">
-            {% if b.status == 'OK' %}
-              <span class="bucket-status-ok">OK</span>
-            {% elif b.status == 'PAID' %}
-              <span class="bucket-status-ok">PAID</span>
-            {% elif b.status == 'OVER' %}
-              <span style="color:var(--red);font-size:clamp(9px,1.4vw,10px);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;">OVER</span>
-            {% endif %}
-          </td>
-          <td class="col-amount editable-num"
-              data-field="bucket_target"
-              data-id="{{ b.id }}"
-              data-month="{{ active_mid }}"
-              data-raw="{{ b.budget }}"
-              data-type="number">{{ b.budget|money }}</td>
-          <td class="col-amount editable-num"
-              data-field="bucket_alloc"
-              data-id="{{ b.id }}"
-              data-month="{{ active_mid }}"
-              data-raw="{{ b.alloc }}"
-              data-type="number">{{ b.alloc|money }}</td>
-          <td class="col-amount" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
-            {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
-          </td>
-          <td class="col-amount">{{ b.spent|money }}</td>
-          <td class="col-amount"
-              data-avail-id="{{ b.id }}"
-              data-raw="{{ b.avail }}"
-              style="{% if b.avail < 0 %}color:var(--red){% elif b.avail > 0 %}color:var(--green){% endif %}">
-            {{ b.avail|money }}
-          </td>
-          <td class="col-settings">
-            <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Bucket settings">&#x22EF;</button>
-          </td>
-        </tr>
+          <!-- Category header -->
+          <tr>
+            <td colspan="8" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
+              <span class="editable-text"
+                    data-field="cat_name"
+                    data-id="{{ group.id }}"
+                    data-type="text">{{ group.name }}</span>
+            </td>
+          </tr>
 
-        <!-- Inline settings row -->
-        <tr id="settings-{{ b.id }}" class="bucket-settings-row" style="display:none">
-          <td colspan="8">
-            <div class="settings-form">
+          <!-- Bucket rows -->
+          {% for b in group.buckets %}
+          <tr id="row-{{ b.id }}" class="{% if b.status == 'OK' or b.status == 'PAID' %}bucket-ok{% else %}bucket-empty{% endif %}">
+            <td>
+              <span class="editable-text"
+                    data-field="bucket_name"
+                    data-id="{{ b.id }}"
+                    data-type="text">{{ b.name }}</span>
+            </td>
+            <td class="col-status">
+              {% if b.status == 'OK' %}
+                <span class="bucket-status-ok">OK</span>
+              {% elif b.status == 'PAID' %}
+                <span class="bucket-status-ok">PAID</span>
+              {% elif b.status == 'OVER' %}
+                <span style="color:var(--red);font-size:clamp(9px,1.4vw,10px);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;">OVER</span>
+              {% endif %}
+            </td>
+            <td class="col-amount editable-num"
+                data-field="bucket_target"
+                data-id="{{ b.id }}"
+                data-month="{{ active_mid }}"
+                data-raw="{{ b.budget }}"
+                data-type="number">{{ b.budget|money }}</td>
+            <td class="col-amount editable-num"
+                data-field="bucket_alloc"
+                data-id="{{ b.id }}"
+                data-month="{{ active_mid }}"
+                data-raw="{{ b.alloc }}"
+                data-type="number">{{ b.alloc|money }}</td>
+            <td class="col-amount" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
+              {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
+            </td>
+            <td class="col-amount">{{ b.spent|money }}</td>
+            <td class="col-amount"
+                data-avail-id="{{ b.id }}"
+                data-raw="{{ b.avail }}"
+                style="{% if b.avail < 0 %}color:var(--red){% elif b.avail > 0 %}color:var(--green){% endif %}">
+              {{ b.avail|money }}
+            </td>
+            <td class="col-settings">
+              <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Bucket settings">&#x22EF;</button>
+            </td>
+          </tr>
 
-              <!-- Row 1: Category + Type -->
-              <div class="sf-row">
-                <div class="sf-field">
-                  <div class="sf-label">Category</div>
-                  <select class="sf-input" onchange="saveSetting('bucket_cat','{{ b.id }}',this.value,'')">
-                    {% for cat in all_cats %}
-                    <option value="{{ cat.id }}" {% if cat.id == b.cat_id %}selected{% endif %}>{{ cat.name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="sf-field">
-                  <div class="sf-label">Type</div>
-                  <select class="sf-input" onchange="switchBucketType(this,'{{ b.id }}')">
-                    <option value="expense" {% if b.type == 'expense' or b.type == 'regular' %}selected{% endif %}>Expense</option>
-                    <option value="sinking" {% if b.type == 'sinking' %}selected{% endif %}>Sinking Fund</option>
-                    <option value="goal"    {% if b.type == 'goal'    %}selected{% endif %}>Goal</option>
-                    <option value="vault"   {% if b.type == 'vault'   %}selected{% endif %}>Vault</option>
-                  </select>
-                </div>
-              </div>
+          <!-- Inline settings row -->
+          <tr id="settings-{{ b.id }}" class="bucket-settings-row" style="display:none">
+            <td colspan="8">
+              <div class="settings-form">
 
-              <!-- Expense fields -->
-              <div class="sf-group sf-expense" {% if b.type not in ('expense','regular','') %}style="display:none"{% endif %}>
+                <!-- Row 1: Category + Type -->
                 <div class="sf-row">
                   <div class="sf-field">
-                    <div class="sf-label">Due Day</div>
-                    <input class="sf-input" type="text" placeholder="e.g. 1, 15, eom"
-                           value="{{ b.due_day }}"
-                           onblur="saveSettingText('bucket_due_day','{{ b.id }}',this.value,'')">
-                  </div>
-                  <div class="sf-field">
-                    <div class="sf-label">Pay Frequency</div>
-                    <select class="sf-input" onchange="saveSetting('bucket_pay_freq','{{ b.id }}',this.value,'')">
-                      <option value="" {% if not b.pay_freq %}selected{% endif %}>— none —</option>
-                      <option value="monthly"    {% if b.pay_freq == 'monthly'    %}selected{% endif %}>Monthly</option>
-                      <option value="biweekly"   {% if b.pay_freq == 'biweekly'   %}selected{% endif %}>Biweekly</option>
-                      <option value="weekly"     {% if b.pay_freq == 'weekly'     %}selected{% endif %}>Weekly</option>
-                      <option value="triweekly"  {% if b.pay_freq == 'triweekly'  %}selected{% endif %}>Triweekly</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="sf-row">
-                  <div class="sf-field">
-                    <div class="sf-label">Pay Amount</div>
-                    <input class="sf-input" type="number" step="0.01" placeholder="per payment"
-                           value="{{ b.due_amount }}"
-                           onblur="saveSettingNum('bucket_due_amount','{{ b.id }}',this.value,'')">
-                  </div>
-                  <div class="sf-field">
-                    <div class="sf-label">Linked Debt Account</div>
-                    <select class="sf-input" onchange="saveSetting('bucket_debt_account','{{ b.id }}',this.value,'')">
-                      <option value="" {% if not b.debt_account_id %}selected{% endif %}>— none —</option>
-                      {% for acct in debt_accounts %}
-                      <option value="{{ acct.id }}" {% if acct.id == b.debt_account_id %}selected{% endif %}>{{ acct.name }}</option>
+                    <div class="sf-label">Category</div>
+                    <select class="sf-input" onchange="moveBucketToCategory(this,'{{ b.id }}')">
+                      {% for cat in all_cats %}
+                      <option value="{{ cat.id }}" {% if cat.id == b.cat_id %}selected{% endif %}>{{ cat.name }}</option>
                       {% endfor %}
                     </select>
                   </div>
-                </div>
-              </div>
-
-              <!-- Savings fields (vault / sinking / goal) -->
-              <div class="sf-group sf-savings" {% if b.type in ('expense','regular','') %}style="display:none"{% endif %}>
-                <div class="sf-row">
                   <div class="sf-field">
-                    <div class="sf-label">Target Amount</div>
-                    <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
-                           value="{{ b.target_amount }}"
-                           onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
-                  </div>
-                  <div class="sf-field">
-                    <div class="sf-label">Target Date</div>
-                    <input class="sf-input" type="month"
-                           value="{{ b.target_date }}"
-                           onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
-                  </div>
-                </div>
-                <div class="sf-row">
-                  <div class="sf-field">
-                    <div class="sf-label">Contribution Frequency</div>
-                    <select class="sf-input" onchange="saveSetting('bucket_contrib_freq','{{ b.id }}',this.value,'')">
-                      <option value="" {% if not b.contrib_freq %}selected{% endif %}>— none —</option>
-                      <option value="monthly"  {% if b.contrib_freq == 'monthly'  %}selected{% endif %}>Monthly</option>
-                      <option value="biweekly" {% if b.contrib_freq == 'biweekly' %}selected{% endif %}>Biweekly</option>
-                      <option value="weekly"   {% if b.contrib_freq == 'weekly'   %}selected{% endif %}>Weekly</option>
+                    <div class="sf-label">Type</div>
+                    <select class="sf-input" onchange="switchBucketType(this,'{{ b.id }}')">
+                      <option value="expense" {% if b.type == 'expense' or b.type == 'regular' %}selected{% endif %}>Expense</option>
+                      <option value="sinking" {% if b.type == 'sinking' %}selected{% endif %}>Sinking Fund</option>
+                      <option value="goal"    {% if b.type == 'goal'    %}selected{% endif %}>Goal</option>
+                      <option value="vault"   {% if b.type == 'vault'   %}selected{% endif %}>Vault</option>
                     </select>
                   </div>
-                  <div class="sf-field"></div>
                 </div>
-              </div>
 
-              <!-- Notes -->
-              <div class="sf-row">
-                <div class="sf-field sf-field-full">
-                  <div class="sf-label">Notes</div>
-                  <input class="sf-input" type="text" placeholder="optional notes"
-                         value="{{ b.notes }}"
-                         onblur="saveSettingText('bucket_notes','{{ b.id }}',this.value,'')">
+                <!-- Expense fields -->
+                <div class="sf-group sf-expense" {% if b.type not in ('expense','regular','') %}style="display:none"{% endif %}>
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Due Day</div>
+                      <input class="sf-input" type="text" placeholder="e.g. 1, 15, eom"
+                             value="{{ b.due_day }}"
+                             onblur="saveSettingText('bucket_due_day','{{ b.id }}',this.value,'')">
+                    </div>
+                    <div class="sf-field">
+                      <div class="sf-label">Pay Frequency</div>
+                      <select class="sf-input" onchange="saveSetting('bucket_pay_freq','{{ b.id }}',this.value,'')">
+                        <option value="" {% if not b.pay_freq %}selected{% endif %}>— none —</option>
+                        <option value="monthly"   {% if b.pay_freq == 'monthly'   %}selected{% endif %}>Monthly</option>
+                        <option value="biweekly"  {% if b.pay_freq == 'biweekly'  %}selected{% endif %}>Biweekly</option>
+                        <option value="weekly"    {% if b.pay_freq == 'weekly'    %}selected{% endif %}>Weekly</option>
+                        <option value="triweekly" {% if b.pay_freq == 'triweekly' %}selected{% endif %}>Triweekly</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Pay Amount</div>
+                      <input class="sf-input" type="number" step="0.01" placeholder="per payment"
+                             value="{{ b.due_amount }}"
+                             onblur="saveSettingNum('bucket_due_amount','{{ b.id }}',this.value,'')">
+                    </div>
+                    <div class="sf-field">
+                      <div class="sf-label">Linked Debt Account</div>
+                      <select class="sf-input" onchange="saveSetting('bucket_debt_account','{{ b.id }}',this.value,'')">
+                        <option value="" {% if not b.debt_account_id %}selected{% endif %}>— none —</option>
+                        {% for acct in debt_accounts %}
+                        <option value="{{ acct.id }}" {% if acct.id == b.debt_account_id %}selected{% endif %}>{{ acct.name }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  </div>
                 </div>
+
+                <!-- Savings fields (vault / sinking / goal) -->
+                <div class="sf-group sf-savings" {% if b.type in ('expense','regular','') %}style="display:none"{% endif %}>
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Target Amount</div>
+                      <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
+                             value="{{ b.target_amount }}"
+                             onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
+                    </div>
+                    <div class="sf-field">
+                      <div class="sf-label">Target Date</div>
+                      <input class="sf-input" type="month"
+                             value="{{ b.target_date }}"
+                             onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
+                    </div>
+                  </div>
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Contribution Frequency</div>
+                      <select class="sf-input" onchange="saveSetting('bucket_contrib_freq','{{ b.id }}',this.value,'')">
+                        <option value="" {% if not b.contrib_freq %}selected{% endif %}>— none —</option>
+                        <option value="monthly"  {% if b.contrib_freq == 'monthly'  %}selected{% endif %}>Monthly</option>
+                        <option value="biweekly" {% if b.contrib_freq == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                        <option value="weekly"   {% if b.contrib_freq == 'weekly'   %}selected{% endif %}>Weekly</option>
+                      </select>
+                    </div>
+                    <div class="sf-field"></div>
+                  </div>
+                </div>
+
+                <!-- Notes -->
+                <div class="sf-row">
+                  <div class="sf-field sf-field-full">
+                    <div class="sf-label">Notes</div>
+                    <input class="sf-input" type="text" placeholder="optional notes"
+                           value="{{ b.notes }}"
+                           onblur="saveSettingText('bucket_notes','{{ b.id }}',this.value,'')">
+                  </div>
+                </div>
+
+                <!-- Toggles + archive -->
+                <div class="sf-row sf-toggles">
+                  <label class="sf-check">
+                    <input type="checkbox" {% if b.recurring %}checked{% endif %}
+                           onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')">
+                    Recurring
+                  </label>
+                  <label class="sf-check">
+                    <input type="checkbox" {% if b.rollover %}checked{% endif %}
+                           onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')">
+                    Rollover
+                  </label>
+                  <label class="sf-check">
+                    <input type="checkbox" {% if b.skipped %}checked{% endif %}
+                           onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
+                    Skip this month
+                  </label>
+                  <button class="archive-btn" onclick="archiveBucket('{{ b.id }}')">Archive</button>
+                </div>
+
               </div>
+            </td>
+          </tr>
+          {% endfor %}
 
-              <!-- Toggles + archive -->
-              <div class="sf-row sf-toggles">
-                <label class="sf-check">
-                  <input type="checkbox" {% if b.recurring %}checked{% endif %}
-                         onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')">
-                  Recurring
-                </label>
-                <label class="sf-check">
-                  <input type="checkbox" {% if b.rollover %}checked{% endif %}
-                         onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')">
-                  Rollover
-                </label>
-                <label class="sf-check">
-                  <input type="checkbox" {% if b.skipped %}checked{% endif %}
-                         onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
-                  Skip this month
-                </label>
-                <button class="archive-btn" onclick="archiveBucket('{{ b.id }}')">Archive</button>
-              </div>
+          <!-- Category totals -->
+          <tr class="tbl-cat-total-row tbl-cat-total">
+            <th colspan="2">{{ group.name }} total</th>
+            <th class="col-amount">{{ group.totals.budget|money }}</th>
+            <th class="col-amount">{{ group.totals.alloc|money }}</th>
+            <th class="col-amount">{{ group.totals.rollover|money if group.totals.rollover != 0 else "—" }}</th>
+            <th class="col-amount">{{ group.totals.spent|money }}</th>
+            <th class="col-amount">{{ group.totals.avail|money }}</th>
+            <th></th>
+          </tr>
 
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-
-        <!-- Category totals -->
-        <tr class="tbl-cat-total">
-          <th colspan="2">{{ group.name }} total</th>
-          <th class="col-amount">{{ group.totals.budget|money }}</th>
-          <th class="col-amount">{{ group.totals.alloc|money }}</th>
-          <th class="col-amount">{{ group.totals.rollover|money if group.totals.rollover != 0 else "—" }}</th>
-          <th class="col-amount">{{ group.totals.spent|money }}</th>
-          <th class="col-amount">{{ group.totals.avail|money }}</th>
-          <th></th>
-        </tr>
+        </tbody>
         {% endfor %}
 
         <!-- Grand totals -->
         {% if category_groups %}
-        <tr class="tbl-grand-total">
-          <th colspan="2">Grand Total</th>
-          <th class="col-amount">{{ grand.budget|money }}</th>
-          <th class="col-amount">{{ grand.alloc|money }}</th>
-          <th class="col-amount">{{ grand.rollover|money if grand.rollover != 0 else "—" }}</th>
-          <th class="col-amount">{{ grand.spent|money }}</th>
-          <th class="col-amount">{{ grand.avail|money }}</th>
-          <th></th>
-        </tr>
+        <tbody>
+          <tr class="tbl-grand-total">
+            <th colspan="2">Grand Total</th>
+            <th class="col-amount">{{ grand.budget|money }}</th>
+            <th class="col-amount">{{ grand.alloc|money }}</th>
+            <th class="col-amount">{{ grand.rollover|money if grand.rollover != 0 else "—" }}</th>
+            <th class="col-amount">{{ grand.spent|money }}</th>
+            <th class="col-amount">{{ grand.avail|money }}</th>
+            <th></th>
+          </tr>
+        </tbody>
         {% endif %}
       </table>
     </div>
@@ -824,6 +832,27 @@ document.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
 function toggleSettings(id) {
   const row = document.getElementById('settings-' + id);
   row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
+}
+
+/* ── Move bucket to a different category immediately ── */
+function moveBucketToCategory(select, bucketId) {
+  const newCatId = select.value;
+  const bucketRow   = document.getElementById('row-' + bucketId);
+  const settingsRow = document.getElementById('settings-' + bucketId);
+  const targetTbody = document.getElementById('cat-body-' + newCatId);
+  if (!bucketRow || !targetTbody) return;
+
+  // Insert both rows before the category totals row in the target tbody
+  const totalRow = targetTbody.querySelector('.tbl-cat-total-row');
+  if (totalRow) {
+    targetTbody.insertBefore(bucketRow, totalRow);
+    targetTbody.insertBefore(settingsRow, totalRow);
+  } else {
+    targetTbody.appendChild(bucketRow);
+    targetTbody.appendChild(settingsRow);
+  }
+
+  saveSetting('bucket_cat', bucketId, newCatId, '');
 }
 
 /* ── Type switch — swap visible field groups immediately ── */
