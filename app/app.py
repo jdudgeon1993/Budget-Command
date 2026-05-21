@@ -686,12 +686,15 @@ def _dashboard_inner():
         reverse=True,
     )
 
+    from datetime import date as _date, timedelta
+    from itertools import groupby
+
     ledger_rows = []
     income_total = 0.0
     spent_total  = 0.0
     for t in ledger_txs:
         scheduled = is_scheduled(t)
-        amt = float(t.get("amount") or 0)
+        amt   = float(t.get("amount") or 0)
         ttype = t.get("type", "out")
         if not scheduled:
             if ttype == "in":
@@ -714,6 +717,26 @@ def _dashboard_inner():
             "reconciled":  bool(t.get("reconciled")),
         })
 
+    # Group rows by date (already sorted newest-first)
+    today     = _date.today()
+    yesterday = today - timedelta(days=1)
+
+    def _date_label(date_str: str) -> str:
+        try:
+            d = _date.fromisoformat(date_str)
+            if d == today:
+                return "Today"
+            if d == yesterday:
+                return "Yesterday"
+            return d.strftime("%A, %B %-d")
+        except ValueError:
+            return date_str or "—"
+
+    ledger_groups = [
+        {"date": date_str, "label": _date_label(date_str), "rows": list(rows)}
+        for date_str, rows in groupby(ledger_rows, key=lambda r: r["date"])
+    ]
+
     # Non-vault buckets eligible for expense assignment
     expense_buckets = [
         {"id": b["id"], "name": b["name"]}
@@ -735,7 +758,7 @@ def _dashboard_inner():
         accounts=accounts,
         debt_accounts=debt_accounts,
         transfer_buckets=transfer_buckets,
-        ledger_rows=ledger_rows,
+        ledger_groups=ledger_groups,
         ledger_income=income_total,
         ledger_spent=spent_total,
         expense_buckets=expense_buckets,

@@ -978,13 +978,18 @@
           </tr>
         </thead>
         <tbody id="ledger-body">
-          {% if not ledger_rows %}
+          {% if not ledger_groups %}
           <tr id="ledger-empty">
             <td colspan="6" class="ledger-empty">No transactions this month</td>
           </tr>
           {% endif %}
 
-          {% for t in ledger_rows %}
+          {% for group in ledger_groups %}
+          <tr>
+            <td colspan="6" class="tbl-cat-head">{{ group.label }}</td>
+          </tr>
+
+          {% for t in group.rows %}
           {% set row_class = 'tx-sched' if t.scheduled else ('tx-in' if t.type == 'in' else ('tx-xfr' if t.type == 'xfr' else 'tx-out')) %}
           {% set badge_class = 'badge-tx-sched' if t.scheduled else ('badge-tx-in' if t.type == 'in' else ('badge-tx-xfr' if t.type == 'xfr' else 'badge-tx-out')) %}
           {% set badge_label = 'SCHED' if t.scheduled else (t.type|upper) %}
@@ -1094,8 +1099,9 @@
           </tr>
 
           {% endfor %}
+          {% endfor %}
         </tbody>
-        {% if ledger_rows %}
+        {% if ledger_groups %}
         <tfoot>
           <tr class="ledger-totals-row">
             <th colspan="3"></th>
