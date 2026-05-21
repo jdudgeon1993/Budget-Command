@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from formulas import (
     current_month_id, parse_month_id, month_id,
     b_alloc, b_budget, b_spent, rollover_bal, bucket_available, ready_to_spend,
-    vault_accumulated, is_scheduled,
+    vault_accumulated, is_scheduled, acct_balance,
 )
 
 MONTH_NAMES = ["January","February","March","April","May","June",
@@ -675,6 +675,41 @@ def _dashboard_inner():
         if b.get("type") != "vault"
     ]
 
+    # ── Accounts panel data ───────────────────────────────────────────────────
+    accounts_display = []
+    for a in accounts:
+        if a.get("archived"):
+            continue
+        bal = acct_balance(a, txs)
+        accounts_display.append({
+            "id":               a["id"],
+            "name":             a.get("name", ""),
+            "type":             a.get("type", "budget"),
+            "color":            a.get("color") or "#3a7fc1",
+            "balance":          bal,
+            "opening_balance":  a.get("openingBalance") or 0,
+            "debt_apr":         a.get("debtAPR") or "",
+            "debt_min_payment": a.get("debtMinPayment") or "",
+            "credit_limit":     a.get("creditLimit") or "",
+        })
+
+    cash_accounts  = [a for a in accounts_display if a["type"] != "debt"]
+    debt_accounts_display = [a for a in accounts_display if a["type"] == "debt"]
+    total_cash_val = sum(a["balance"] for a in cash_accounts)
+    total_debt_val = sum(a["balance"] for a in debt_accounts_display)
+
+    vault_buckets_display = []
+    for b in active_buckets:
+        if b.get("type") == "vault":
+            cat = next((c for c in cats if c["id"] == b.get("catId")), None)
+            vault_buckets_display.append({
+                "id":          b["id"],
+                "name":        b.get("name", ""),
+                "cat_name":    cat.get("name", "") if cat else "",
+                "vault_total": vault_accumulated(b["id"], all_months),
+            })
+    total_vault_val = sum(v["vault_total"] for v in vault_buckets_display)
+
     # ── Ledger data ──────────────────────────────────────────────────────────
     acct_map   = {a["id"]: a.get("name", a["id"]) for a in accounts}
     bucket_map = {b["id"]: b.get("name", b["id"]) for b in all_buckets}
@@ -761,6 +796,12 @@ def _dashboard_inner():
         ledger_income=income_total,
         ledger_spent=spent_total,
         expense_buckets=expense_buckets,
+        cash_accounts=cash_accounts,
+        debt_accounts_display=debt_accounts_display,
+        total_cash_val=total_cash_val,
+        total_debt_val=total_debt_val,
+        vault_buckets_display=vault_buckets_display,
+        total_vault_val=total_vault_val,
     )
 
 
@@ -876,6 +917,145 @@ def api_delete_transaction():
 
     save_budget_row(session["access_token"], row_id, data)
     return jsonify({"ok": True})
+
+
+@app.route("/api/add-account", methods=["POST"])
+def api_add_account():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body    = request.get_json(silent=True) or {}
+    name    = (body.get("name") or "").strip()
+    atype   = body.get("type", "budget")
+    color   = body.get("color") or "#3a7fc1"
+    opening = float(body.get("opening_balance") or 0)
+
+    if not name:
+        return jsonify({"ok": False, "error": "Account name required"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    acct_id = _new_id("acct")
+    data.setdefault("accounts", []).append({
+        "id":             acct_id,
+        "name":           name,
+        "type":           atype,
+        "color":          color,
+        "openingBalance": opening,
+        "archived":       False,
+    })
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "acct_id": acct_id})
+
+
+@app.route("/api/save-account", methods=["POST"])
+def api_save_account():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body    = request.get_json(silent=True) or {}
+    acct_id = (body.get("id") or "").strip()
+    field   = (body.get("field") or "").strip()
+    value   = body.get("value")
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    acct = next((a for a in data.get("accounts", []) if a["id"] == acct_id), None)
+    if not acct:
+        return jsonify({"ok": False, "error": "Account not found"}), 404
+
+    if field == "name":
+        acct["name"] = str(value or "").strip()
+    elif field == "type":
+        acct["type"] = str(value or "budget")
+    elif field == "color":
+        acct["color"] = str(value or "")
+    elif field == "opening_balance":
+        acct["openingBalance"] = float(value or 0)
+    elif field == "debt_apr":
+        acct["debtAPR"] = float(value) if value not in (None, "", "0", 0) else None
+    elif field == "debt_min_payment":
+        acct["debtMinPayment"] = float(value) if value not in (None, "", "0", 0) else None
+    elif field == "credit_limit":
+        acct["creditLimit"] = float(value) if value not in (None, "", "0", 0) else None
+    elif field == "archived":
+        acct["archived"] = True
+    else:
+        return jsonify({"ok": False, "error": f"Unknown field: {field}"}), 400
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/debt-payment", methods=["POST"])
+def api_debt_payment():
+    """Record a debt payment: 'out' tx on source account, debtPaymentAccountId set."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body         = request.get_json(silent=True) or {}
+    debt_id      = (body.get("debt_id") or "").strip()
+    from_acct_id = (body.get("from_account_id") or "").strip()
+    amount       = float(body.get("amount") or 0)
+    date         = (body.get("date") or "").strip()
+    bucket_id    = (body.get("bucket_id") or "").strip()
+
+    if not debt_id or not from_acct_id:
+        return jsonify({"ok": False, "error": "Debt account and source account required"}), 400
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+    if not date:
+        return jsonify({"ok": False, "error": "Date required"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    all_accounts = data.get("accounts", [])
+    debt_acct = next((a for a in all_accounts if a["id"] == debt_id), None)
+    src_acct  = next((a for a in all_accounts if a["id"] == from_acct_id), None)
+    if not debt_acct or debt_acct.get("type") != "debt":
+        return jsonify({"ok": False, "error": "Debt account not found"}), 400
+    if not src_acct:
+        return jsonify({"ok": False, "error": "Source account not found"}), 400
+
+    mid = _date_to_month_id(date)
+    _find_or_create_month(data, mid)
+
+    tx = {
+        "id":                   _new_id("tx"),
+        "accountId":            from_acct_id,
+        "debtPaymentAccountId": debt_id,
+        "monthId":              mid,
+        "desc":                 f"Payment — {debt_acct.get('name', '')}",
+        "amount":               amount,
+        "type":                 "out",
+        "date":                 date,
+        "reconciled":           False,
+        "recurring":            False,
+    }
+    if bucket_id:
+        tx["bucketId"] = bucket_id
+
+    data.setdefault("txs", []).append(tx)
+    save_budget_row(session["access_token"], row_id, data)
+
+    txs_new        = data.get("txs", [])
+    all_months     = data.get("months", [])
+    new_debt_bal   = acct_balance(debt_acct, txs_new)
+    new_src_bal    = acct_balance(src_acct, txs_new)
+    active_month   = next((m for m in all_months if m["id"] == mid),
+                          {"id": mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}})
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    rts = ready_to_spend(active_month, all_months, all_accounts, active_buckets, txs_new)
+
+    return jsonify({"ok": True, "tx_id": tx["id"],
+                    "debt_bal": new_debt_bal, "src_bal": new_src_bal, "rts": rts})
 
 
 if __name__ == "__main__":

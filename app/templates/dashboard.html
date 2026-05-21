@@ -461,6 +461,73 @@
 .ledger-bucket-select:focus { color: var(--accent); }
 .ledger-totals-row th { border-top: 2px solid var(--border2); padding: 8px 4px; }
 
+/* ── Accounts panel ── */
+.acct-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.acct-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.5vw, 11px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .12s, border-color .12s;
+}
+.acct-tab:hover { color: var(--text2); }
+.acct-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.acct-summary {
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.6vw, 12px);
+  color: var(--text3);
+  padding: 4px 2px 10px;
+}
+.acct-summary strong { color: var(--text); }
+.acct-color-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.acct-color-input {
+  width: 28px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: none;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.badge-budget { color: var(--accent);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-savings { color: var(--green);  font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-debt    { color: var(--red);    font-size: clamp(8px,1.3vw,9px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.acct-bal-positive { color: var(--green); }
+.acct-bal-negative { color: var(--red); }
+.acct-bal-debt-zero { color: var(--text3); }
+.vault-acct-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: clamp(11px,1.8vw,13px);
+}
+.vault-acct-name { flex: 1; }
+.vault-acct-bal { font-family: var(--mono); color: var(--amber); white-space: nowrap; }
+
 /* ── Bottom nav ── */
 .bottom-nav {
   position: fixed;
@@ -1136,7 +1203,280 @@
   <!-- More panel -->
   <div id="panel-more" class="panel">
     <div class="panel-container">
-      <p style="color:var(--text3); font-family:var(--mono); font-size:12px; padding:20px 4px;">More — accounts, settings, vault</p>
+
+      <!-- Section tabs -->
+      <div class="acct-tabs">
+        <button class="acct-tab active" onclick="showAcctSection('cash',this)">Cash &amp; Savings</button>
+        <button class="acct-tab" onclick="showAcctSection('debt',this)">Debt</button>
+        {% if vault_buckets_display %}
+        <button class="acct-tab" onclick="showAcctSection('vault',this)">Internal Savings</button>
+        {% endif %}
+      </div>
+
+      <!-- ── Cash & Savings section ── -->
+      <div id="acct-section-cash">
+        <div class="acct-summary">
+          Total cash &amp; savings: <strong>{{ total_cash_val|money }}</strong>
+        </div>
+
+        <form class="strip-form" onsubmit="submitAddAccount(event,'cash')">
+          <div class="strip-row">
+            <div class="strip-field strip-field-lg">
+              <input type="text" id="cash-acct-name" placeholder="Account name" required>
+            </div>
+            <div class="strip-field strip-field-sm">
+              <select id="cash-acct-type">
+                <option value="budget">Budget</option>
+                <option value="savings">Savings</option>
+              </select>
+            </div>
+            <div class="strip-field strip-field-sm">
+              <input type="number" id="cash-acct-opening" placeholder="Opening bal" step="0.01">
+            </div>
+            <div class="strip-field" style="flex:0 0 auto; display:flex; align-items:center; gap:6px;">
+              <label style="font-family:var(--mono);font-size:10px;color:var(--text3);">Color</label>
+              <input type="color" id="cash-acct-color" class="acct-color-input" value="#3a7fc1">
+            </div>
+            <div class="strip-field-btn">
+              <button class="strip-btn" type="submit">+ Add</button>
+            </div>
+          </div>
+        </form>
+
+        <table class="data-table" id="cash-acct-table">
+          <thead>
+            <tr><td colspan="4" class="tbl-section-head">Cash &amp; Savings Accounts</td></tr>
+            <tr>
+              <th class="col-name">Account</th>
+              <th>Type</th>
+              <th class="col-amount">Balance</th>
+              <th class="col-settings"></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% if not cash_accounts %}
+          <tr><td colspan="4" style="padding:16px 4px; color:var(--text3); font-family:var(--mono); font-size:11px;">No accounts yet — add one above.</td></tr>
+          {% endif %}
+          {% for a in cash_accounts %}
+          {% set bal_class = 'acct-bal-positive' if a.balance >= 0 else 'acct-bal-negative' %}
+          <tr id="acct-row-{{ a.id }}">
+            <td class="col-name">
+              <span class="acct-color-dot" style="background:{{ a.color }}"></span>
+              <span class="editable-acct" data-id="{{ a.id }}" data-raw="{{ a.name }}">{{ a.name }}</span>
+            </td>
+            <td><span class="badge-{{ a.type }}">{{ a.type }}</span></td>
+            <td class="col-amount {{ bal_class }}">{{ a.balance|money }}</td>
+            <td class="col-settings">
+              <span class="row-actions">
+                <button class="settings-btn" onclick="toggleAcctSettings('{{ a.id }}')">&#x22EF;</button>
+              </span>
+            </td>
+          </tr>
+          <tr id="acct-settings-{{ a.id }}" class="bucket-settings-row" style="display:none">
+            <td colspan="4">
+              <div class="settings-form">
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Name</div>
+                    <input class="sf-input" type="text" value="{{ a.name }}"
+                           onblur="saveAcctField('{{ a.id }}','name',this.value)">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Type</div>
+                    <select class="sf-input"
+                            onchange="saveAcctField('{{ a.id }}','type',this.value)">
+                      <option value="budget"  {% if a.type=='budget' %}selected{% endif %}>Budget</option>
+                      <option value="savings" {% if a.type=='savings' %}selected{% endif %}>Savings</option>
+                    </select>
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Opening Balance</div>
+                    <input class="sf-input" type="number" step="0.01"
+                           value="{{ a.opening_balance }}"
+                           onblur="saveAcctField('{{ a.id }}','opening_balance',parseFloat(this.value)||0)">
+                  </div>
+                  <div class="sf-field" style="flex:0 0 auto">
+                    <div class="sf-label">Color</div>
+                    <input type="color" class="acct-color-input" value="{{ a.color }}"
+                           onchange="saveAcctField('{{ a.id }}','color',this.value)">
+                  </div>
+                </div>
+                <div class="sf-row sf-toggles">
+                  <button class="archive-btn" onclick="archiveAccount('{{ a.id }}')">Archive</button>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Debt section ── -->
+      <div id="acct-section-debt" style="display:none">
+        <div class="acct-summary">
+          Total owed: <strong style="color:var(--red)">{{ total_debt_val|money }}</strong>
+        </div>
+
+        <form class="strip-form" onsubmit="submitAddAccount(event,'debt')">
+          <div class="strip-row">
+            <div class="strip-field strip-field-lg">
+              <input type="text" id="debt-acct-name" placeholder="Account name" required>
+            </div>
+            <div class="strip-field strip-field-sm">
+              <input type="number" id="debt-acct-opening" placeholder="Current balance owed" step="0.01">
+            </div>
+            <div class="strip-field" style="flex:0 0 auto; display:flex; align-items:center; gap:6px;">
+              <label style="font-family:var(--mono);font-size:10px;color:var(--text3);">Color</label>
+              <input type="color" id="debt-acct-color" class="acct-color-input" value="#cc3333">
+            </div>
+            <div class="strip-field-btn">
+              <button class="strip-btn" type="submit">+ Add</button>
+            </div>
+          </div>
+        </form>
+
+        <table class="data-table" id="debt-acct-table">
+          <thead>
+            <tr><td colspan="4" class="tbl-section-head">Debt Accounts</td></tr>
+            <tr>
+              <th class="col-name">Account</th>
+              <th class="col-amount col-m-hide">Min Payment</th>
+              <th class="col-amount">Balance Owed</th>
+              <th class="col-settings"></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% if not debt_accounts_display %}
+          <tr><td colspan="4" style="padding:16px 4px; color:var(--text3); font-family:var(--mono); font-size:11px;">No debt accounts — add one above.</td></tr>
+          {% endif %}
+          {% for a in debt_accounts_display %}
+          {% set bal_class = 'acct-bal-debt-zero' if a.balance == 0 else 'acct-bal-negative' %}
+          <tr id="acct-row-{{ a.id }}">
+            <td class="col-name">
+              <span class="acct-color-dot" style="background:{{ a.color }}"></span>
+              <span class="editable-acct" data-id="{{ a.id }}" data-raw="{{ a.name }}">{{ a.name }}</span>
+            </td>
+            <td class="col-amount col-m-hide" style="color:var(--text3)">
+              {% if a.debt_min_payment %}{{ a.debt_min_payment|float|money }}{% else %}—{% endif %}
+            </td>
+            <td class="col-amount {{ bal_class }}">{{ a.balance|money }}</td>
+            <td class="col-settings">
+              <span class="row-actions">
+                <button class="settings-btn" onclick="toggleAcctSettings('{{ a.id }}')">&#x22EF;</button>
+              </span>
+            </td>
+          </tr>
+          <tr id="acct-settings-{{ a.id }}" class="bucket-settings-row" style="display:none">
+            <td colspan="4">
+              <div class="settings-form">
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Name</div>
+                    <input class="sf-input" type="text" value="{{ a.name }}"
+                           onblur="saveAcctField('{{ a.id }}','name',this.value)">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Opening Balance</div>
+                    <input class="sf-input" type="number" step="0.01" value="{{ a.opening_balance }}"
+                           onblur="saveAcctField('{{ a.id }}','opening_balance',parseFloat(this.value)||0)">
+                  </div>
+                  <div class="sf-field" style="flex:0 0 auto">
+                    <div class="sf-label">Color</div>
+                    <input type="color" class="acct-color-input" value="{{ a.color }}"
+                           onchange="saveAcctField('{{ a.id }}','color',this.value)">
+                  </div>
+                </div>
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">APR %</div>
+                    <input class="sf-input" type="number" step="0.01" placeholder="—"
+                           value="{{ a.debt_apr }}"
+                           onblur="saveAcctField('{{ a.id }}','debt_apr',parseFloat(this.value)||0)">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Min Payment</div>
+                    <input class="sf-input" type="number" step="0.01" placeholder="—"
+                           value="{{ a.debt_min_payment }}"
+                           onblur="saveAcctField('{{ a.id }}','debt_min_payment',parseFloat(this.value)||0)">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Credit Limit</div>
+                    <input class="sf-input" type="number" step="0.01" placeholder="—"
+                           value="{{ a.credit_limit }}"
+                           onblur="saveAcctField('{{ a.id }}','credit_limit',parseFloat(this.value)||0)">
+                  </div>
+                </div>
+                <!-- Debt payment -->
+                <div class="sf-row" style="border-top:1px solid var(--border); padding-top:10px; margin-top:4px;">
+                  <div class="sf-field">
+                    <div class="sf-label">Payment Amount</div>
+                    <input class="sf-input" type="number" step="0.01" id="pay-amt-{{ a.id }}" placeholder="{{ a.debt_min_payment or 'Amount' }}">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Payment Date</div>
+                    <input class="sf-input" type="date" id="pay-date-{{ a.id }}">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">From Account</div>
+                    <select class="sf-input" id="pay-from-{{ a.id }}">
+                      <option value="">— Account —</option>
+                      {% for ca in cash_accounts %}
+                      <option value="{{ ca.id }}">{{ ca.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Bucket (optional)</div>
+                    <select class="sf-input" id="pay-bucket-{{ a.id }}">
+                      <option value="">— none —</option>
+                      {% for b in expense_buckets %}
+                      <option value="{{ b.id }}">{{ b.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="strip-field-btn" style="align-self:flex-end">
+                    <button class="strip-btn" onclick="recordDebtPayment('{{ a.id }}')">Pay</button>
+                  </div>
+                </div>
+                <div class="sf-row sf-toggles">
+                  <button class="archive-btn" onclick="archiveAccount('{{ a.id }}')">Archive</button>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Internal Savings (Vaults) section ── -->
+      {% if vault_buckets_display %}
+      <div id="acct-section-vault" style="display:none">
+        <div class="acct-summary">
+          Total internal savings: <strong style="color:var(--amber)">{{ total_vault_val|money }}</strong>
+        </div>
+        <p style="font-size:11px; color:var(--text3); font-family:var(--mono); padding:0 2px 12px; line-height:1.5;">
+          Vault balances are tracked separately and already counted in your cash accounts.
+          Manage vaults in the Buckets tab.
+        </p>
+        {% for v in vault_buckets_display %}
+        <div class="vault-acct-row">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0;display:inline-block"></span>
+          <div class="vault-acct-name">
+            <div>{{ v.name }}</div>
+            {% if v.cat_name %}<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">{{ v.cat_name }}</div>{% endif %}
+          </div>
+          <div class="vault-acct-bal">{{ v.vault_total|money }}</div>
+        </div>
+        {% endfor %}
+        <div class="vault-acct-row" style="border-top:2px solid var(--border2);">
+          <span style="flex:1;font-family:var(--mono);font-size:11px;color:var(--text3)">Total</span>
+          <div class="vault-acct-bal">{{ total_vault_val|money }}</div>
+        </div>
+      </div>
+      {% endif %}
+
     </div>
   </div>
 
@@ -1673,5 +2013,137 @@ async function archiveBucket(id) {
     alert('Archive failed — please try again.');
   }
 }
+
+/* ── Accounts panel ── */
+
+function showAcctSection(section, btn) {
+  ['cash','debt','vault'].forEach(s => {
+    const el = document.getElementById('acct-section-' + s);
+    if (el) el.style.display = s === section ? '' : 'none';
+  });
+  document.querySelectorAll('.acct-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function toggleAcctSettings(id) {
+  const row = document.getElementById('acct-settings-' + id);
+  if (row) row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
+}
+
+async function saveAcctField(id, field, value) {
+  const result = await fetch('/api/save-account', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id, field, value })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (!result.ok) alert('Save failed: ' + (result.error || 'unknown error'));
+}
+
+async function submitAddAccount(e, section) {
+  e.preventDefault();
+  const isDebt = section === 'debt';
+  const name    = document.getElementById(section + '-acct-name').value.trim();
+  const type    = isDebt ? 'debt' : document.getElementById('cash-acct-type').value;
+  const opening = parseFloat(document.getElementById(section + '-acct-opening')?.value || 0) || 0;
+  const color   = document.getElementById(section + '-acct-color').value;
+
+  if (!name) { alert('Account name required.'); return; }
+
+  const result = await fetch('/api/add-account', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name, type, color, opening_balance: opening })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) { window.location.reload(); }
+  else { alert('Error: ' + (result.error || 'Could not add account.')); }
+}
+
+async function archiveAccount(id) {
+  if (!confirm('Archive this account? It will be hidden but history is preserved.')) return;
+  const result = await fetch('/api/save-account', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id, field: 'archived', value: true })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    document.getElementById('acct-row-' + id)?.remove();
+    document.getElementById('acct-settings-' + id)?.remove();
+  } else {
+    alert('Archive failed: ' + (result.error || 'unknown error'));
+  }
+}
+
+async function recordDebtPayment(debtId) {
+  const amount  = parseFloat(document.getElementById('pay-amt-' + debtId)?.value || 0);
+  const date    = document.getElementById('pay-date-' + debtId)?.value;
+  const fromId  = document.getElementById('pay-from-' + debtId)?.value;
+  const bucketId = document.getElementById('pay-bucket-' + debtId)?.value || '';
+
+  if (!amount || amount <= 0) { alert('Enter a payment amount.'); return; }
+  if (!date)  { alert('Enter a payment date.'); return; }
+  if (!fromId) { alert('Select a source account.'); return; }
+
+  const result = await fetch('/api/debt-payment', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ debt_id: debtId, from_account_id: fromId,
+                           amount, date, bucket_id: bucketId })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    // Update displayed debt balance
+    const row = document.getElementById('acct-row-' + debtId);
+    if (row) {
+      const amtCells = row.querySelectorAll('td.col-amount');
+      const balCell = amtCells[amtCells.length - 1];
+      if (balCell) {
+        balCell.textContent = fmtMoney(result.debt_bal);
+        balCell.className = 'col-amount ' + (result.debt_bal === 0 ? 'acct-bal-debt-zero' : 'acct-bal-negative');
+      }
+    }
+    const rtsEl = document.querySelector('.h-rts');
+    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+    // Clear inputs
+    const amtEl = document.getElementById('pay-amt-' + debtId);
+    if (amtEl) amtEl.value = '';
+  } else {
+    alert('Payment failed: ' + (result.error || 'unknown error'));
+  }
+}
+
+// Inline name edit for account rows (mirrors ledger-desc pattern)
+document.querySelectorAll('.editable-acct').forEach(span => {
+  span.style.cursor = 'pointer';
+  span.addEventListener('click', () => {
+    if (span.querySelector('input')) return;
+    const id   = span.dataset.id;
+    const orig = span.dataset.raw || '';
+    const input = document.createElement('input');
+    input.type = 'text'; input.value = orig; input.className = 'inline-input';
+    span.textContent = ''; span.appendChild(input);
+    input.focus(); input.select();
+    let done = false;
+    const commit = () => {
+      if (done) return; done = true;
+      const val = input.value.trim() || orig;
+      span.textContent = val; span.dataset.raw = val;
+      if (val !== orig) saveAcctField(id, 'name', val);
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { done = true; span.textContent = orig; }
+    });
+  });
+});
+
+// Default today's date in debt payment forms
+(function() {
+  const d = new Date(), pad = n => String(n).padStart(2,'0');
+  const today = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  document.querySelectorAll('[id^="pay-date-"]').forEach(el => { el.value = today; });
+})();
 </script>
 {% endblock %}
