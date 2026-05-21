@@ -443,6 +443,11 @@ def api_vault_withdraw():
     if not bucket or bucket.get("type") != "vault":
         return jsonify({"ok": False, "error": "Not a vault bucket"}), 400
 
+    # Validate before mutating: cannot release more than what's actually saved
+    current_vault_total = vault_accumulated(bucket_id, data.get("months", []))
+    if amount > current_vault_total + 0.005:
+        return jsonify({"ok": False, "error": f"Cannot release more than the vault balance (${current_vault_total:.2f})"}), 400
+
     month = _find_or_create_month(data, mid)
 
     # Step 1: drain current month's allocation first (this IS an active RTS claim)

@@ -888,11 +888,12 @@
                       <div class="sf-label">Release to Pool</div>
                       <div class="release-row">
                         <input class="release-input" type="number" step="0.01" min="0.01"
+                               max="{{ b.vault_total }}"
                                id="vault-input-{{ b.id }}" placeholder="$ amount">
                         <button class="release-btn"
                                 onclick="vaultWithdraw('{{ b.id }}','{{ active_mid }}')">Release</button>
                         <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
-                          returns money to RTS
+                          max: <span id="vault-release-max-{{ b.id }}">{{ b.vault_total|money }}</span>
                         </span>
                       </div>
                     </div>
@@ -1844,9 +1845,15 @@ function saveSettingNum(field, id, value, month) {
 
 /* ── Vault: release to pool ── */
 async function vaultWithdraw(id, month) {
-  const input = document.getElementById('vault-input-' + id);
-  const amount = parseFloat(input.value);
+  const input   = document.getElementById('vault-input-' + id);
+  const amount  = parseFloat(input.value);
+  const maxEl   = document.getElementById('vault-release-max-' + id);
+  const balEl   = document.getElementById('vault-bal-' + id);
+  const maxVal  = parseFloat(balEl?.textContent?.replace(/[$,]/g, '') || '0');
+
   if (!amount || amount <= 0) { alert('Enter a positive amount to release.'); return; }
+  if (maxVal <= 0) { alert('Nothing saved in this vault to release.'); return; }
+  if (amount > maxVal + 0.005) { alert(`Cannot release more than the vault balance (${balEl?.textContent || '0'}).`); return; }
 
   const result = await fetch('/api/vault-withdraw', {
     method: 'POST',
@@ -1859,8 +1866,12 @@ async function vaultWithdraw(id, month) {
   input.value = '';
 
   // Update settings panel balance
-  const balEl = document.getElementById('vault-bal-' + id);
-  if (balEl) balEl.textContent = fmtMoney(result.vault_total);
+  const balEl2 = document.getElementById('vault-bal-' + id);
+  if (balEl2) balEl2.textContent = fmtMoney(result.vault_total);
+
+  // Update max label and input cap
+  if (maxEl) maxEl.textContent = fmtMoney(result.vault_total);
+  if (input) input.max = result.vault_total;
 
   // Update bucket row vault-total text
   const rowTotalEl = document.getElementById('vault-row-total-' + id);
