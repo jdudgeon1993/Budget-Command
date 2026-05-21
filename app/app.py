@@ -295,7 +295,7 @@ def api_add_bucket():
         "catId":         cat_id,
         "name":          bucket_name,
         "type":          bucket_type,
-        "rollover":      False,
+        "rollover":      bucket_type in ("sinking", "goal"),
         "recurring":     False,
         "archived":      False,
         "defaultBudget": 0,
@@ -373,6 +373,9 @@ def api_reorder():
 
 @app.route("/api/vault-withdraw", methods=["POST"])
 def api_vault_withdraw():
+    """Release vault savings back to the RTS pool.
+    Drains current month's allocation first (reduces an active claim),
+    then records remainder in vaultWithdrawals (bookkeeping for prior savings)."""
     if not logged_in():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
 
@@ -393,20 +396,104 @@ def api_vault_withdraw():
         return jsonify({"ok": False, "error": "Not a vault bucket"}), 400
 
     month = _find_or_create_month(data, mid)
-    withdrawals = month.setdefault("vaultWithdrawals", {})
-    withdrawals[bucket_id] = float(withdrawals.get(bucket_id) or 0) + amount
+
+    # Step 1: drain current month's allocation first (this IS an active RTS claim)
+    current_alloc = float((month.get("allocations") or {}).get(bucket_id) or 0)
+    from_alloc    = min(amount, current_alloc)
+    remainder     = amount - from_alloc
+
+    if from_alloc > 0:
+        month.setdefault("allocations", {})[bucket_id] = current_alloc - from_alloc
+        existing_far = float((month.get("vaultFromAllocReleased") or {}).get(bucket_id) or 0)
+        month.setdefault("vaultFromAllocReleased", {})[bucket_id] = existing_far + from_alloc
+
+    # Step 2: record remainder against prior-month savings (bookkeeping; doesn't affect RTS
+    # because prior vault savings are already free in the cash pool)
+    if remainder > 0:
+        existing_w = float((month.get("vaultWithdrawals") or {}).get(bucket_id) or 0)
+        month.setdefault("vaultWithdrawals", {})[bucket_id] = existing_w + remainder
 
     save_budget_row(session["access_token"], row_id, data)
 
-    all_months    = data.get("months", [])
-    new_total     = vault_accumulated(bucket_id, all_months)
-    accounts      = data.get("accounts", [])
-    active_month  = next((m for m in all_months if m["id"] == mid), month)
+    all_months     = data.get("months", [])
+    new_total      = vault_accumulated(bucket_id, all_months)
+    accounts       = data.get("accounts", [])
+    active_month   = next((m for m in all_months if m["id"] == mid), month)
     active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    txs           = data.get("txs", [])
-    rts           = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+    txs            = data.get("txs", [])
+    rts            = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
 
-    return jsonify({"ok": True, "vault_total": new_total, "rts": rts})
+    return jsonify({"ok": True, "vault_total": new_total, "alloc": current_alloc - from_alloc, "rts": rts})
+
+
+@app.route("/api/vault-transfer", methods=["POST"])
+def api_vault_transfer():
+    """Move saved vault funds into another bucket's allocation for this month.
+    Vault alloc goes down, destination alloc goes up — net RTS effect is zero."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    vault_id  = body.get("vault_id", "").strip()
+    dest_id   = body.get("dest_id", "").strip()
+    mid       = body.get("month", "").strip()
+    amount    = float(body.get("amount") or 0)
+
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+    if not dest_id:
+        return jsonify({"ok": False, "error": "Destination bucket required"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    vault_bucket = next((b for b in data.get("buckets", []) if b["id"] == vault_id), None)
+    dest_bucket  = next((b for b in data.get("buckets", []) if b["id"] == dest_id), None)
+    if not vault_bucket or vault_bucket.get("type") != "vault":
+        return jsonify({"ok": False, "error": "Not a vault bucket"}), 400
+    if not dest_bucket or dest_bucket.get("archived"):
+        return jsonify({"ok": False, "error": "Destination bucket not found"}), 400
+
+    month = _find_or_create_month(data, mid)
+    allocs = month.setdefault("allocations", {})
+
+    vault_alloc = float(allocs.get(vault_id) or 0)
+    allocs[vault_id] = max(0.0, vault_alloc - amount)
+
+    dest_alloc = float(allocs.get(dest_id) or 0)
+    allocs[dest_id] = dest_alloc + amount
+
+    # Historical record
+    transfers = data.setdefault("vaultTransfers", [])
+    transfers.append({
+        "id":           _new_id("vtx"),
+        "fromBucketId": vault_id,
+        "toBucketId":   dest_id,
+        "amount":       amount,
+        "monthId":      mid,
+        "reason":       "planned",
+    })
+
+    save_budget_row(session["access_token"], row_id, data)
+
+    all_months     = data.get("months", [])
+    new_vault_total = vault_accumulated(vault_id, all_months)
+    active_month   = next((m for m in all_months if m["id"] == mid), month)
+    txs            = data.get("txs", [])
+    all_months_data = data.get("months", [])
+    dest_avail     = bucket_available(dest_bucket, active_month, all_months_data, txs)
+    accounts       = data.get("accounts", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    rts            = ready_to_spend(active_month, all_months_data, accounts, active_buckets, txs)
+
+    return jsonify({
+        "ok":          True,
+        "vault_total": new_vault_total,
+        "vault_alloc": allocs[vault_id],
+        "dest_avail":  dest_avail,
+        "rts":         rts,
+    })
 
 
 @app.route("/api/release-rollover", methods=["POST"])
@@ -527,8 +614,8 @@ def _dashboard_inner():
             if btype == "vault" and target_amount > 0:
                 progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
             elif btype in ("sinking", "goal") and target_amount > 0:
-                saved = roll + alloc
-                progress_pct = min(100, max(0, round(saved / target_amount * 100)))
+                # avail = rolloverBal + alloc - spent = sinkingSaved per FORMULAS.md 3.13
+                progress_pct = min(100, max(0, round(avail / target_amount * 100)))
 
             rows.append({
                 "id":              b["id"],
@@ -576,7 +663,12 @@ def _dashboard_inner():
 
     rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
 
-    debt_accounts = [a for a in accounts if a.get("type") == "debt"]
+    debt_accounts    = [a for a in accounts if a.get("type") == "debt"]
+    transfer_buckets = [
+        {"id": b["id"], "name": b["name"]}
+        for b in active_buckets
+        if b.get("type") != "vault"
+    ]
 
     return render_template(
         "dashboard.html",
@@ -590,6 +682,7 @@ def _dashboard_inner():
         rts=rts,
         all_cats=cats_sorted,
         debt_accounts=debt_accounts,
+        transfer_buckets=transfer_buckets,
     )
 
 

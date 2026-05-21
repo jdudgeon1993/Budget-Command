@@ -737,19 +737,47 @@
                              onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
                     </div>
                   </div>
-                  <!-- Vault withdraw -->
-                  <div class="sf-row" id="vault-withdraw-row-{{ b.id }}">
+
+                  <!-- Vault total display -->
+                  <div class="sf-row">
                     <div class="sf-field">
-                      <div class="sf-label">Withdraw from Vault</div>
+                      <div class="sf-label">Vault Balance</div>
+                      <div style="font-family:var(--mono);font-size:clamp(13px,2vw,15px);color:var(--accent);padding:4px 0;">
+                        <span id="vault-bal-{{ b.id }}">{{ b.vault_total|money }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Transfer to another bucket -->
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Transfer to Bucket</div>
+                      <div class="release-row">
+                        <select class="sf-input" id="vault-dest-{{ b.id }}" style="flex:1;">
+                          <option value="">— select bucket —</option>
+                          {% for tb in transfer_buckets %}
+                          <option value="{{ tb.id }}">{{ tb.name }}</option>
+                          {% endfor %}
+                        </select>
+                        <input class="release-input" type="number" step="0.01" min="0.01"
+                               id="vault-xfr-input-{{ b.id }}" placeholder="$">
+                        <button class="release-btn"
+                                onclick="vaultTransfer('{{ b.id }}','{{ active_mid }}')">Transfer</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Release to pool -->
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Release to Pool</div>
                       <div class="release-row">
                         <input class="release-input" type="number" step="0.01" min="0.01"
-                               id="vault-input-{{ b.id }}"
-                               placeholder="$ amount"
-                               max="{{ b.vault_total }}">
+                               id="vault-input-{{ b.id }}" placeholder="$ amount">
                         <button class="release-btn"
-                                onclick="vaultWithdraw('{{ b.id }}','{{ active_mid }}')">Withdraw</button>
+                                onclick="vaultWithdraw('{{ b.id }}','{{ active_mid }}')">Release</button>
                         <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
-                          total: <span id="vault-bal-{{ b.id }}">{{ b.vault_total|money }}</span>
+                          returns money to RTS
                         </span>
                       </div>
                     </div>
@@ -1160,11 +1188,11 @@ function saveSettingNum(field, id, value, month) {
   saveSetting(field, id, parseFloat(value) || null, month);
 }
 
-/* ── Vault withdraw ── */
+/* ── Vault: release to pool ── */
 async function vaultWithdraw(id, month) {
   const input = document.getElementById('vault-input-' + id);
   const amount = parseFloat(input.value);
-  if (!amount || amount <= 0) { alert('Enter a positive amount to withdraw.'); return; }
+  if (!amount || amount <= 0) { alert('Enter a positive amount to release.'); return; }
 
   const result = await fetch('/api/vault-withdraw', {
     method: 'POST',
@@ -1172,19 +1200,65 @@ async function vaultWithdraw(id, month) {
     body: JSON.stringify({ id, month, amount })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (!result.ok) { alert('Withdraw failed: ' + (result.error || 'unknown error')); return; }
+  if (!result.ok) { alert('Release failed: ' + (result.error || 'unknown error')); return; }
 
   input.value = '';
 
-  // Update vault total label and avail cell
   const balEl = document.getElementById('vault-bal-' + id);
   if (balEl) balEl.textContent = fmtMoney(result.vault_total);
+
   const availCell = document.querySelector(`[data-avail-id="${id}"]`);
   if (availCell) {
     availCell.textContent = fmtMoney(result.vault_total);
     availCell.dataset.raw = result.vault_total;
     availCell.style.color = result.vault_total > 0 ? 'var(--green)' : '';
   }
+  if (result.rts !== undefined) {
+    const rtsEl = document.querySelector('.h-rts');
+    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+  }
+}
+
+/* ── Vault: transfer to another bucket ── */
+async function vaultTransfer(vaultId, month) {
+  const destSelect = document.getElementById('vault-dest-' + vaultId);
+  const input      = document.getElementById('vault-xfr-input-' + vaultId);
+  const destId  = destSelect.value;
+  const amount  = parseFloat(input.value);
+
+  if (!destId) { alert('Select a destination bucket.'); return; }
+  if (!amount || amount <= 0) { alert('Enter a positive amount to transfer.'); return; }
+
+  const result = await fetch('/api/vault-transfer', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ vault_id: vaultId, dest_id: destId, month, amount })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (!result.ok) { alert('Transfer failed: ' + (result.error || 'unknown error')); return; }
+
+  input.value = '';
+  destSelect.value = '';
+
+  // Update vault balance display
+  const balEl = document.getElementById('vault-bal-' + vaultId);
+  if (balEl) balEl.textContent = fmtMoney(result.vault_total);
+  const vaultAvail = document.querySelector(`[data-avail-id="${vaultId}"]`);
+  if (vaultAvail) {
+    vaultAvail.textContent = fmtMoney(result.vault_total);
+    vaultAvail.dataset.raw = result.vault_total;
+    vaultAvail.style.color = result.vault_total > 0 ? 'var(--green)' : '';
+  }
+
+  // Update destination bucket's available cell
+  const destAvail = document.querySelector(`[data-avail-id="${destId}"]`);
+  if (destAvail && result.dest_avail !== undefined) {
+    destAvail.textContent = fmtMoney(result.dest_avail);
+    destAvail.dataset.raw = result.dest_avail;
+    destAvail.style.color = result.dest_avail < 0 ? 'var(--red)' : result.dest_avail > 0 ? 'var(--green)' : '';
+  }
+
+  // RTS shouldn't change on transfer (net zero), but update anyway in case of rounding
   if (result.rts !== undefined) {
     const rtsEl = document.querySelector('.h-rts');
     if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
