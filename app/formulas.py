@@ -73,7 +73,15 @@ def is_scheduled(tx: dict) -> bool:
 def acct_balance(account: dict, transactions: list[dict]) -> float:
     mult = -1 if account["type"] == "debt" else 1
     acct_id = account["id"]
-    balance = float(account.get("openingBalance") or 0)
+
+    # Opening balance: sum opening-type transactions if they total > 0, else use field.
+    # Matches the old JS app's exact logic: openingTotal > 0 ? openingTotal : openingBalance
+    opening_total = sum(
+        float(t.get("amount") or 0)
+        for t in transactions
+        if t.get("accountId") == acct_id and t.get("type") == "opening"
+    )
+    balance = opening_total if opening_total > 0 else float(account.get("openingBalance") or 0)
 
     for t in transactions:
         if is_scheduled(t):
