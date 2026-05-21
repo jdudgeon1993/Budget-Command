@@ -1268,8 +1268,46 @@
             <td class="col-amount {{ bal_class }}">{{ a.balance|money }}</td>
             <td class="col-settings">
               <span class="row-actions">
-                <button class="settings-btn" onclick="toggleAcctSettings('{{ a.id }}')">&#x22EF;</button>
+                <button class="settings-btn" onclick="toggleAcctLedger('{{ a.id }}')" title="Ledger">&#x2261;</button>
+                <button class="settings-btn" onclick="toggleAcctSettings('{{ a.id }}')" title="Settings">&#x22EF;</button>
               </span>
+            </td>
+          </tr>
+          <tr id="acct-ledger-{{ a.id }}" style="display:none">
+            <td colspan="4" style="padding:0 0 4px 0">
+              <table class="data-table" style="margin:0; max-width:100%; border-top:2px solid var(--border2)">
+                <thead>
+                  <tr>
+                    <th style="width:80px">Date</th>
+                    <th class="col-name">Description</th>
+                    <th class="col-amount">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                {% if not account_ledgers.get(a.id) %}
+                <tr><td colspan="3" class="ledger-empty">No transactions on this account.</td></tr>
+                {% endif %}
+                {% for grp in account_ledgers.get(a.id, []) %}
+                <tr><td colspan="3" class="tbl-cat-head">{{ grp.label }}</td></tr>
+                {% for t in grp.rows %}
+                {% if t.scheduled %}
+                  {% set bc = 'badge-tx-sched' %}{% set bl = 'SCHED' %}{% set ac = '' %}
+                {% elif t.type == 'in' or t.incoming %}
+                  {% set bc = 'badge-tx-in' %}{% set bl = 'IN' %}{% set ac = 'ledger-amt-in' %}
+                {% elif t.type == 'xfr' %}
+                  {% set bc = 'badge-tx-xfr' %}{% set bl = 'XFR' %}{% set ac = 'ledger-amt-xfr' %}
+                {% else %}
+                  {% set bc = 'badge-tx-out' %}{% set bl = 'OUT' %}{% set ac = '' %}
+                {% endif %}
+                <tr>
+                  <td style="color:var(--text3);font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);white-space:nowrap">{{ t.date }}</td>
+                  <td class="col-name"><span class="{{ bc }}" style="margin-right:4px">{{ bl }}</span>{{ t.desc or "—" }}</td>
+                  <td class="col-amount {{ ac }}">{{ t.amount|money }}</td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+                </tbody>
+              </table>
             </td>
           </tr>
           <tr id="acct-settings-{{ a.id }}" class="bucket-settings-row" style="display:none">
@@ -1363,8 +1401,46 @@
             <td class="col-amount {{ bal_class }}">{{ a.balance|money }}</td>
             <td class="col-settings">
               <span class="row-actions">
-                <button class="settings-btn" onclick="toggleAcctSettings('{{ a.id }}')">&#x22EF;</button>
+                <button class="settings-btn" onclick="toggleAcctLedger('{{ a.id }}')" title="Ledger">&#x2261;</button>
+                <button class="settings-btn" onclick="toggleAcctSettings('{{ a.id }}')" title="Settings">&#x22EF;</button>
               </span>
+            </td>
+          </tr>
+          <tr id="acct-ledger-{{ a.id }}" style="display:none">
+            <td colspan="4" style="padding:0 0 4px 0">
+              <table class="data-table" style="margin:0; max-width:100%; border-top:2px solid var(--border2)">
+                <thead>
+                  <tr>
+                    <th style="width:80px">Date</th>
+                    <th class="col-name">Description</th>
+                    <th class="col-amount">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                {% if not account_ledgers.get(a.id) %}
+                <tr><td colspan="3" class="ledger-empty">No transactions on this account.</td></tr>
+                {% endif %}
+                {% for grp in account_ledgers.get(a.id, []) %}
+                <tr><td colspan="3" class="tbl-cat-head">{{ grp.label }}</td></tr>
+                {% for t in grp.rows %}
+                {% if t.scheduled %}
+                  {% set bc = 'badge-tx-sched' %}{% set bl = 'SCHED' %}{% set ac = '' %}
+                {% elif t.type == 'in' or t.incoming %}
+                  {% set bc = 'badge-tx-in' %}{% set bl = 'IN' %}{% set ac = 'ledger-amt-in' %}
+                {% elif t.type == 'xfr' %}
+                  {% set bc = 'badge-tx-xfr' %}{% set bl = 'XFR' %}{% set ac = 'ledger-amt-xfr' %}
+                {% else %}
+                  {% set bc = 'badge-tx-out' %}{% set bl = 'OUT' %}{% set ac = '' %}
+                {% endif %}
+                <tr>
+                  <td style="color:var(--text3);font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);white-space:nowrap">{{ t.date }}</td>
+                  <td class="col-name"><span class="{{ bc }}" style="margin-right:4px">{{ bl }}</span>{{ t.desc or "—" }}</td>
+                  <td class="col-amount {{ ac }}">{{ t.amount|money }}</td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+                </tbody>
+              </table>
             </td>
           </tr>
           <tr id="acct-settings-{{ a.id }}" class="bucket-settings-row" style="display:none">
@@ -2026,8 +2102,21 @@ function showAcctSection(section, btn) {
 }
 
 function toggleAcctSettings(id) {
-  const row = document.getElementById('acct-settings-' + id);
-  if (row) row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
+  const settings = document.getElementById('acct-settings-' + id);
+  const ledger   = document.getElementById('acct-ledger-' + id);
+  if (!settings) return;
+  const opening = settings.style.display !== 'table-row';
+  settings.style.display = opening ? 'table-row' : 'none';
+  if (opening && ledger) ledger.style.display = 'none';
+}
+
+function toggleAcctLedger(id) {
+  const ledger   = document.getElementById('acct-ledger-' + id);
+  const settings = document.getElementById('acct-settings-' + id);
+  if (!ledger) return;
+  const opening = ledger.style.display !== 'table-row';
+  ledger.style.display = opening ? 'table-row' : 'none';
+  if (opening && settings) settings.style.display = 'none';
 }
 
 async function saveAcctField(id, field, value) {
@@ -2069,6 +2158,7 @@ async function archiveAccount(id) {
 
   if (result.ok) {
     document.getElementById('acct-row-' + id)?.remove();
+    document.getElementById('acct-ledger-' + id)?.remove();
     document.getElementById('acct-settings-' + id)?.remove();
   } else {
     alert('Archive failed: ' + (result.error || 'unknown error'));

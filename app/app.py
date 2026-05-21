@@ -778,6 +778,38 @@ def _dashboard_inner():
         if b.get("type") != "vault"
     ]
 
+    # ── Per-account transaction ledgers (all time, newest first) ─────────────
+    all_txs_sorted = sorted(
+        txs,
+        key=lambda t: (t.get("date") or "", t.get("id") or ""),
+        reverse=True,
+    )
+    account_ledgers = {}
+    for a_disp in accounts_display:
+        acct_id = a_disp["id"]
+        a_txs = []
+        for t in all_txs_sorted:
+            is_from     = t.get("accountId") == acct_id
+            is_to       = t.get("toAccountId") == acct_id and t.get("type") == "xfr"
+            is_debt_pay = t.get("debtPaymentAccountId") == acct_id and not is_from
+            if not (is_from or is_to or is_debt_pay):
+                continue
+            ttype = t.get("type", "out")
+            incoming = is_to or is_debt_pay
+            a_txs.append({
+                "id":        t["id"],
+                "date":      t.get("date") or "",
+                "desc":      t.get("desc") or "",
+                "type":      ttype,
+                "amount":    float(t.get("amount") or 0),
+                "scheduled": is_scheduled(t),
+                "incoming":  incoming,
+            })
+        account_ledgers[acct_id] = [
+            {"date": d, "label": _date_label(d), "rows": list(rows)}
+            for d, rows in groupby(a_txs, key=lambda r: r["date"])
+        ]
+
     return render_template(
         "dashboard.html",
         user_email=session.get("user_email"),
@@ -802,6 +834,7 @@ def _dashboard_inner():
         total_debt_val=total_debt_val,
         vault_buckets_display=vault_buckets_display,
         total_vault_val=total_vault_val,
+        account_ledgers=account_ledgers,
     )
 
 
