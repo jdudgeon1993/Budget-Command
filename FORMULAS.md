@@ -837,12 +837,16 @@ Mobile-first layout: header (logo, RTS, user, logout), month nav bar (prev/next)
 - Category change immediately moves bucket row to correct category section in the table
 
 **Still needed in this phase:**
-- Add new bucket (inline form or quick-add strip)
-- Add new category
-- Reorder buckets and categories (drag or up/down buttons)
-- Vault accumulated balance display (shows how much has built up across all months)
-- Rollover release button (release surplus back to RTS pool)
-- Sinking fund / goal progress display (saved vs target, months remaining)
+- Add new bucket (name, category, type — inline at bottom of category or via strip)
+- Add new category (name, color)
+- Delete category (only allowed when empty — no buckets assigned)
+- Archive bucket = soft-delete, history preserved (UI exists via ⋯ panel; confirm it works end-to-end)
+- Permanent delete bucket (no transactions ever logged against it)
+- Reorder buckets within a category (up/down or drag)
+- Reorder categories (up/down or drag)
+- Vault accumulated balance display (sum of all prior allocations minus withdrawals)
+- Rollover release button (release surplus back to RTS pool, stored in `rolloverReleased`)
+- Sinking fund / goal progress bar (saved vs. target, months remaining, monthly needed)
 
 ---
 
@@ -895,7 +899,34 @@ Mobile-first layout: header (logo, RTS, user, logout), month nav bar (prev/next)
 
 ---
 
-### Phase 9 — Coach AI Panel 🔲
+### Phase 9 — More Panel: Reports 🔲
+
+**Goal:** Visual summaries of spending history and net worth trends.
+
+- Spending by category (current month and historical)
+- Cash flow chart: income vs. expenses by month (12-month view)
+- Net worth over time (total cash minus total debt)
+- YTD spending by category
+- Budget vs. actual comparison per bucket
+
+**Depends on:** Phase 6 (needs transaction history to be meaningful).
+
+---
+
+### Phase 10 — More Panel: What-If / Scenarios 🔲
+
+**Goal:** Forward-looking cash flow projector based on real paycheck and bill schedules.
+
+- 12-month cash flow projection using paycheck schedules and recurring bills
+- Scenario builder: toggle buckets on/off, change income, model one-time expenses
+- Shows projected RTS week by week through the next year
+- Payday transfers (automatic external savings) factored in as cash outflows
+
+**Depends on:** Phase 8 (paycheck schedules and recurring bills must be set up first).
+
+---
+
+### Phase 11 — Coach AI Panel 🔲
 
 - Send budget context (RTS, spending by category, rollover balances) to Claude API
 - Natural language Q&A: "How am I doing this month?", "Where can I cut?"
@@ -906,7 +937,7 @@ Mobile-first layout: header (logo, RTS, user, logout), month nav bar (prev/next)
 
 ---
 
-### Phase 10 — Polish + Launch 🔲
+### Phase 12 — Polish + Launch 🔲
 
 - Error states and empty states throughout (no data, network failure, etc.)
 - Month-to-month navigation fully tested (past months read-only, future months pre-allocatable)
