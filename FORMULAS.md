@@ -796,134 +796,154 @@ When a goal bucket's `sinkingSaved` value reaches or exceeds `targetAmount`, the
 
 ## 11. BUILD PHASES
 
-### Phase 1 — Documentation (FORMULAS.md + README) ✓
+### Phase 1 — Documentation ✅ Done
 
-**What gets built:** This document and a README describing the project.
-
-**Depends on:** Reading and understanding the original index.html source.
-
-**Definition of done:** FORMULAS.md exists at /home/user/Budget-Command/FORMULAS.md. All formulas, data models, and design decisions are documented. Someone unfamiliar with the codebase can read this and understand how the app works.
+FORMULAS.md written. Full data model, all formulas, design decisions documented.
 
 ---
 
-### Phase 2 — New App Skeleton (app.py + base template + warning strip) ✓
+### Phase 2 — App Skeleton + Auth ✅ Done
 
-**What gets built:**
-- Flask app with login/logout/dashboard routes.
-- Supabase Python client for database access.
-- Base Jinja2 HTML template with the Blueprint × Brutalist theme.
-- Authentication flow: login page, session management.
-- DEV warning strip on the original app (mobile + desktop).
-- HTMX included in the base template.
-- Health check endpoint at `/health`.
-
-**Depends on:** Phase 1.
-
-**Definition of done:** App skeleton exists, auth routes work, base template matches original theme, warning strip visible on both layouts. Railway config files in place.
+Flask app, Supabase auth, base Jinja2 template (Blueprint × Brutalist theme), login/logout, Railway deploy, health check, DEV warning strip on original app.
 
 ---
 
-### Phase 3 — Railway + Supabase Live (Deploy First, Build Second) ✓
+### Phase 3 — Railway Live ✅ Done
 
-**What gets built:**
-- `railway.toml` with gunicorn start command and health check.
-- `requirements.txt` with gunicorn added.
-- App configured to read `PORT` env var from Railway.
-- Environment variables set in Railway dashboard.
-- Public Railway URL wired into the warning strip in the original app.
-
-**Depends on:** Phase 2 (working skeleton to deploy).
-
-**Definition of done:** The app is live on Railway, the login screen loads over HTTPS, Supabase auth works (can sign in with real credentials), and the original app's strip links directly to the live URL. Every phase from here is testable immediately after each push.
+`railway.toml`, gunicorn config, env vars set, app live on Railway over HTTPS. Supabase login confirmed working with real credentials.
 
 ---
 
-### Phase 4 — Dashboard (Read-only, Desktop Only)
+### Phase 4 — App Shell ✅ Done
 
-**What gets built:**
-- Desktop layout: sidebar with nav + main content area.
-- Dashboard tab: RTS card, Accounts card, Buckets summary, Recent ledger, 12-Month Horizon.
-- All data read from Supabase (no editing yet).
-- All core formula functions translated to Python.
-- Month navigation (prev/next/jump-to-today).
-- Sidebar vitals: RTS, total cash, age of money.
-
-**Depends on:** Phase 3 (live Railway URL, Supabase connection confirmed working).
-
-**Definition of done:** The dashboard loads with real data on Railway, all key numbers (RTS, cash, allocations, spending) match the original app for the same data. Month navigation works. No editing features yet.
+Mobile-first layout: header (logo, RTS, user, logout), month nav bar (prev/next), four panel system (Buckets, Ledger, More, Coach), fixed bottom nav with tab switching. RTS pulls from real Supabase data and displays in header.
 
 ---
 
-### Phase 5 — Buckets (Core Feature, Allocation Logic)
+### Phase 5 — Buckets Panel ✅ Done (display + edit)
 
-**What gets built:**
-- Buckets tab: category groups, bucket rows, allocation inputs.
-- Setting allocations (HTMX post, inline update).
-- Rollover balance display and release.
-- Bucket detail sheet (stats, transaction list for that bucket, rollover history).
-- Vault bucket display with accumulated balance.
-- Bucket create/edit/archive modal.
-- Category create/edit/delete.
-- "Fund category" shortcut button.
-- Budget health bar (projected income vs. total allocated).
+**Done:**
+- Reads all data from `bcc_budget_state` JSON blob in Supabase
+- All core formulas running in Python: `b_alloc`, `b_budget`, `b_spent`, `rollover_bal`, `bucket_available`, `ready_to_spend`
+- Category groups with color accents, sorted by order
+- Bucket rows: Target / Allocated / Rollover / Spent / Available columns
+- Status badges: OK / PAID / OVER with color coding
+- Category subtotals and grand total row
+- Inline editing: click category name, bucket name, target, or allocated — saves to Supabase, updates Available and RTS live
+- `⋯` settings panel per bucket with type-aware fields:
+  - **Expense**: category, type, due day, pay frequency, pay amount, linked debt account, notes, recurring, rollover, skip this month, archive
+  - **Vault / Sinking / Goal**: category, type, target amount, target date, contribution frequency, notes, rollover, skip, archive
+- Type switch immediately swaps visible field group
+- Category change immediately moves bucket row to correct category section in the table
 
-**Depends on:** Phase 4 (all formula functions must be correct).
-
-**Definition of done:** Users can view and edit allocations. RTS updates live when allocations change. Rollover buckets show correct carry-forward. Vaults show accumulated balance. Creating and editing buckets works.
-
----
-
-### Phase 6 — Transactions (Bread and Butter)
-
-**What gets built:**
-- Ledger tab: transaction list grouped by date, filtered by month.
-- Add transaction form (description, amount, date, account, type, bucket assignment).
-- Edit and delete transactions inline.
-- Scheduled transaction handling (future-dated, shown differently).
-- Transfer transactions (between accounts).
-- Debt payment transactions.
-- Bucket assignment from the ledger (inline expand row).
-- Ledger search and filter (by type, account, bucket).
-- Payee autocomplete and memory (suggest bucket based on past payee).
-- Month-close wizard (uncategorized check, account reconciliation, rollover preview).
-
-**Depends on:** Phase 5 (bucket list needed for assignment dropdowns).
-
-**Definition of done:** Users can add, edit, delete all transaction types. Assigning to buckets updates bucket available in real time. Month-close flow works. Account balances match after reconciliation.
+**Still needed in this phase:**
+- Add new bucket (name, category, type — inline at bottom of category or via strip)
+- Add new category (name, color)
+- Delete category (only allowed when empty — no buckets assigned)
+- Archive bucket = soft-delete, history preserved (UI exists via ⋯ panel; confirm it works end-to-end)
+- Permanent delete bucket (no transactions ever logged against it)
+- Reorder buckets within a category (up/down or drag)
+- Reorder categories (up/down or drag)
+- Vault accumulated balance display (sum of all prior allocations minus withdrawals)
+- Rollover release button (release surplus back to RTS pool, stored in `rolloverReleased`)
+- Sinking fund / goal progress bar (saved vs. target, months remaining, monthly needed)
 
 ---
 
-### Phase 7 — Auth (Complete) + Settings
+### Phase 6 — Ledger Panel 🔲 Next
 
-**What gets built:**
-- User-scoped data (all Supabase queries filter by user ID — verify no data leakage).
-- Session persistence (survives page refresh, expires on logout).
-- Settings page: accounts CRUD, paycheck schedule management, allocation rules, recurring bills.
-- AI Coach integration (Gemini API key input, model selection, tone preference).
-- Natural language transaction parsing.
-- Reports tab: cash flow chart, category spending chart, YTD chart, net worth chart.
-- What-If / Scenarios tab (scenario builder, 12-month projector).
-- Onboarding wizard (first-time setup flow).
+**Goal:** Users can see and manage all transactions for the active month.
 
-**Depends on:** Phase 6 (all core data must be editable before settings make sense).
+**Read (display):**
+- Transaction list grouped by date, newest first
+- Columns: Date / Description / Account / Bucket / Amount
+- Color: income green, expense default, transfers dimmed, scheduled amber
+- Month total: income in, expenses out, net
 
-**Definition of done:** All settings are editable and persist. Reports render with correct data. Multiple users can log in independently. AI coach responds with budget context.
+**Write (add / edit / delete):**
+- Quick-add strip at top: date, description, amount, account, type, bucket
+- Click any transaction row to expand and edit inline
+- Delete button per transaction
+- Bucket assignment inline (select dropdown on the row)
+- Scheduled transactions shown with amber styling, excluded from totals
+
+**Depends on:** Phase 5 buckets (bucket list needed for assignment dropdown).
 
 ---
 
-### Phase 8 — Polish + Launch
+### Phase 7 — More Panel: Accounts 🔲
 
-**What gets built:**
-- Mobile layout (bottom nav bar, tab panes matching original).
-- Performance pass (query optimization, caching heavy formula results).
-- Error handling and empty states throughout.
-- Export/PDF report generation.
-- Final deploy: swap the warning strip to a "Try the new version" link pointing at the live Railway URL.
-- Sunset plan for the original index.html.
+**Goal:** Users can view account balances and manage accounts.
 
-**Depends on:** All previous phases.
+**Display:**
+- Budget accounts: name, current balance (computed from transactions)
+- Debt accounts: name, amount owed, APR, minimum payment
+- Savings accounts: name, balance
 
-**Definition of done:** The new app is feature-complete and matches or exceeds the original. The original app's strip links to the live build. The rebuild can be used as the primary app.
+**Write:**
+- Add / edit / archive accounts
+- Opening balance adjustment
+
+**Depends on:** Phase 6 (transactions drive account balances).
+
+---
+
+### Phase 8 — More Panel: Settings 🔲
+
+- Paychecks: add/edit paycheck schedules (used for projected income and What-If)
+- Allocation rules: auto-split income across buckets on payday
+- Recurring bills: bill templates shown in What-If projector
+- Month close wizard: reconcile accounts, lock month, save closing snapshot
+
+**Depends on:** Phase 7 (accounts must exist before paycheck schedules reference them).
+
+---
+
+### Phase 9 — More Panel: Reports 🔲
+
+**Goal:** Visual summaries of spending history and net worth trends.
+
+- Spending by category (current month and historical)
+- Cash flow chart: income vs. expenses by month (12-month view)
+- Net worth over time (total cash minus total debt)
+- YTD spending by category
+- Budget vs. actual comparison per bucket
+
+**Depends on:** Phase 6 (needs transaction history to be meaningful).
+
+---
+
+### Phase 10 — More Panel: What-If / Scenarios 🔲
+
+**Goal:** Forward-looking cash flow projector based on real paycheck and bill schedules.
+
+- 12-month cash flow projection using paycheck schedules and recurring bills
+- Scenario builder: toggle buckets on/off, change income, model one-time expenses
+- Shows projected RTS week by week through the next year
+- Payday transfers (automatic external savings) factored in as cash outflows
+
+**Depends on:** Phase 8 (paycheck schedules and recurring bills must be set up first).
+
+---
+
+### Phase 11 — Coach AI Panel 🔲
+
+- Send budget context (RTS, spending by category, rollover balances) to Claude API
+- Natural language Q&A: "How am I doing this month?", "Where can I cut?"
+- Natural language transaction entry: type "Spent $45 at Target" → parsed and saved
+- Monthly report generation on close
+
+**Depends on:** Phase 6 (needs transaction data to be meaningful).
+
+---
+
+### Phase 12 — Polish + Launch 🔲
+
+- Error states and empty states throughout (no data, network failure, etc.)
+- Month-to-month navigation fully tested (past months read-only, future months pre-allocatable)
+- Performance: the 78KB JSON blob is fine now; revisit if it grows
+- Swap DEV strip to "Try the new version →" once feature-complete
+- Sunset plan for `index.html`
 
 ---
 

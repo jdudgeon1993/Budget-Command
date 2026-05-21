@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from formulas import (
     current_month_id, parse_month_id, month_id,
     b_alloc, b_budget, b_spent, rollover_bal, bucket_available, ready_to_spend,
+    vault_accumulated,
 )
 
 MONTH_NAMES = ["January","February","March","April","May","June",
@@ -80,11 +81,13 @@ def _find_or_create_month(data: dict, mid: str) -> dict:
     return month
 
 
-def bucket_status(alloc: float, spent: float, avail: float) -> str:
+def bucket_status(alloc: float, budget: float, spent: float, avail: float) -> str:
     if avail < 0:
         return "OVER"
     if alloc > 0 and spent >= alloc:
         return "PAID"
+    if budget > 0 and alloc >= budget:
+        return "FUNDED"
     if alloc > 0:
         return "OK"
     return ""
@@ -243,6 +246,293 @@ def api_save():
     return jsonify(result)
 
 
+def _new_id(prefix: str) -> str:
+    import time, random, string
+    chars = string.ascii_lowercase + string.digits
+    suffix = "".join(random.choices(chars, k=6))
+    return f"{prefix}_{suffix}"
+
+
+@app.route("/api/add-bucket", methods=["POST"])
+def api_add_bucket():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body = request.get_json(silent=True) or {}
+    cat_id       = body.get("cat_id", "").strip()
+    new_cat_name = body.get("new_cat_name", "").strip()
+    bucket_name  = body.get("bucket_name", "").strip()
+    bucket_type  = body.get("bucket_type", "expense")
+
+    if not bucket_name:
+        return jsonify({"ok": False, "error": "Bucket name required"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    cats    = data.setdefault("cats", [])
+    buckets = data.setdefault("buckets", [])
+
+    # Create new category if requested
+    if cat_id == "__new__":
+        if not new_cat_name:
+            return jsonify({"ok": False, "error": "Category name required"}), 400
+        cat_id = _new_id("cat")
+        max_order = max((c.get("order", 0) for c in cats), default=0)
+        cats.append({"id": cat_id, "name": new_cat_name, "color": "", "order": max_order + 1})
+
+    # Verify category exists
+    if not any(c["id"] == cat_id for c in cats):
+        return jsonify({"ok": False, "error": "Category not found"}), 400
+
+    # Create bucket
+    cat_buckets = [b for b in buckets if b.get("catId") == cat_id and not b.get("archived")]
+    max_order   = max((b.get("order", 0) for b in cat_buckets), default=0)
+    bucket_id   = _new_id("bkt")
+    buckets.append({
+        "id":            bucket_id,
+        "catId":         cat_id,
+        "name":          bucket_name,
+        "type":          bucket_type,
+        "rollover":      bucket_type in ("sinking", "goal"),
+        "recurring":     False,
+        "archived":      False,
+        "defaultBudget": 0,
+        "order":         max_order + 1,
+        "notes":         None,
+    })
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "bucket_id": bucket_id, "cat_id": cat_id})
+
+
+@app.route("/api/delete-category", methods=["POST"])
+def api_delete_category():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    cat_id = body.get("cat_id", "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    active_in_cat = [
+        b for b in data.get("buckets", [])
+        if b.get("catId") == cat_id and not b.get("archived")
+    ]
+    if active_in_cat:
+        return jsonify({"ok": False, "error": "Category still has active buckets"}), 400
+
+    data["cats"] = [c for c in data.get("cats", []) if c["id"] != cat_id]
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/reorder", methods=["POST"])
+def api_reorder():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    kind      = body.get("kind")        # "bucket" or "cat"
+    item_id   = body.get("id", "")
+    direction = body.get("direction")   # "up" or "down"
+    cat_id    = body.get("cat_id", "")  # needed for buckets
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row"}), 404
+
+    if kind == "bucket":
+        items = sorted(
+            [b for b in data.get("buckets", [])
+             if b.get("catId") == cat_id and not b.get("archived")],
+            key=lambda b: b.get("order", 0),
+        )
+    elif kind == "cat":
+        items = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    else:
+        return jsonify({"ok": False, "error": "Unknown kind"}), 400
+
+    idx = next((i for i, x in enumerate(items) if x["id"] == item_id), None)
+    if idx is None:
+        return jsonify({"ok": False, "error": "Item not found"}), 404
+
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if swap_idx < 0 or swap_idx >= len(items):
+        return jsonify({"ok": True})  # already at edge, no-op
+
+    # Swap order values
+    items[idx]["order"], items[swap_idx]["order"] = items[swap_idx]["order"], items[idx]["order"]
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/vault-withdraw", methods=["POST"])
+def api_vault_withdraw():
+    """Release vault savings back to the RTS pool.
+    Drains current month's allocation first (reduces an active claim),
+    then records remainder in vaultWithdrawals (bookkeeping for prior savings)."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    bucket_id = body.get("id", "").strip()
+    mid       = body.get("month", "").strip()
+    amount    = float(body.get("amount") or 0)
+
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+    if not bucket or bucket.get("type") != "vault":
+        return jsonify({"ok": False, "error": "Not a vault bucket"}), 400
+
+    month = _find_or_create_month(data, mid)
+
+    # Step 1: drain current month's allocation first (this IS an active RTS claim)
+    current_alloc = float((month.get("allocations") or {}).get(bucket_id) or 0)
+    from_alloc    = min(amount, current_alloc)
+    remainder     = amount - from_alloc
+
+    if from_alloc > 0:
+        month.setdefault("allocations", {})[bucket_id] = current_alloc - from_alloc
+        existing_far = float((month.get("vaultFromAllocReleased") or {}).get(bucket_id) or 0)
+        month.setdefault("vaultFromAllocReleased", {})[bucket_id] = existing_far + from_alloc
+
+    # Step 2: record remainder against prior-month savings (bookkeeping; doesn't affect RTS
+    # because prior vault savings are already free in the cash pool)
+    if remainder > 0:
+        existing_w = float((month.get("vaultWithdrawals") or {}).get(bucket_id) or 0)
+        month.setdefault("vaultWithdrawals", {})[bucket_id] = existing_w + remainder
+
+    save_budget_row(session["access_token"], row_id, data)
+
+    all_months     = data.get("months", [])
+    new_total      = vault_accumulated(bucket_id, all_months)
+    accounts       = data.get("accounts", [])
+    active_month   = next((m for m in all_months if m["id"] == mid), month)
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs            = data.get("txs", [])
+    rts            = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+
+    return jsonify({"ok": True, "vault_total": new_total, "alloc": current_alloc - from_alloc, "rts": rts})
+
+
+@app.route("/api/vault-transfer", methods=["POST"])
+def api_vault_transfer():
+    """Move saved vault funds into another bucket's allocation for this month.
+    Vault alloc goes down, destination alloc goes up — net RTS effect is zero."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    vault_id  = body.get("vault_id", "").strip()
+    dest_id   = body.get("dest_id", "").strip()
+    mid       = body.get("month", "").strip()
+    amount    = float(body.get("amount") or 0)
+
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+    if not dest_id:
+        return jsonify({"ok": False, "error": "Destination bucket required"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    vault_bucket = next((b for b in data.get("buckets", []) if b["id"] == vault_id), None)
+    dest_bucket  = next((b for b in data.get("buckets", []) if b["id"] == dest_id), None)
+    if not vault_bucket or vault_bucket.get("type") != "vault":
+        return jsonify({"ok": False, "error": "Not a vault bucket"}), 400
+    if not dest_bucket or dest_bucket.get("archived"):
+        return jsonify({"ok": False, "error": "Destination bucket not found"}), 400
+
+    month = _find_or_create_month(data, mid)
+    allocs = month.setdefault("allocations", {})
+
+    vault_alloc = float(allocs.get(vault_id) or 0)
+    allocs[vault_id] = max(0.0, vault_alloc - amount)
+
+    dest_alloc = float(allocs.get(dest_id) or 0)
+    allocs[dest_id] = dest_alloc + amount
+
+    # Historical record
+    transfers = data.setdefault("vaultTransfers", [])
+    transfers.append({
+        "id":           _new_id("vtx"),
+        "fromBucketId": vault_id,
+        "toBucketId":   dest_id,
+        "amount":       amount,
+        "monthId":      mid,
+        "reason":       "planned",
+    })
+
+    save_budget_row(session["access_token"], row_id, data)
+
+    all_months     = data.get("months", [])
+    new_vault_total = vault_accumulated(vault_id, all_months)
+    active_month   = next((m for m in all_months if m["id"] == mid), month)
+    txs            = data.get("txs", [])
+    all_months_data = data.get("months", [])
+    dest_avail     = bucket_available(dest_bucket, active_month, all_months_data, txs)
+    accounts       = data.get("accounts", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    rts            = ready_to_spend(active_month, all_months_data, accounts, active_buckets, txs)
+
+    return jsonify({
+        "ok":          True,
+        "vault_total": new_vault_total,
+        "vault_alloc": allocs[vault_id],
+        "dest_avail":  dest_avail,
+        "rts":         rts,
+    })
+
+
+@app.route("/api/release-rollover", methods=["POST"])
+def api_release_rollover():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    bucket_id = body.get("id", "").strip()
+    mid       = body.get("month", "").strip()
+    amount    = float(body.get("amount") or 0)
+
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    month = _find_or_create_month(data, mid)
+    released = month.setdefault("rolloverReleased", {})
+    released[bucket_id] = float(released.get(bucket_id) or 0) + amount
+
+    save_budget_row(session["access_token"], row_id, data)
+
+    # Return new rollover balance so UI can update
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+    all_months = data.get("months", [])
+    txs = data.get("txs", [])
+    active_month = next((m for m in all_months if m["id"] == mid), month)
+    new_roll = rollover_bal(bucket, active_month, all_months, txs) if bucket else 0
+    avail = bucket_available(bucket, active_month, all_months, txs) if bucket else 0
+    accounts = data.get("accounts", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+
+    return jsonify({"ok": True, "rollover": new_roll, "avail": avail, "rts": rts})
+
+
 @app.route("/dashboard")
 def dashboard():
     if not logged_in():
@@ -301,16 +591,36 @@ def _dashboard_inner():
         for b in cat_buckets:
             alloc  = b_alloc(active_month, b["id"])
             budget = b_budget(active_month, b["id"])
-            roll   = rollover_bal(b, active_month, all_months, txs)
-            spent  = b_spent(active_mid, b["id"], txs)
-            avail  = bucket_available(b, active_month, all_months, txs)
-            status = bucket_status(alloc, spent, avail)
+            btype  = b.get("type", "expense")
+
+            if btype == "vault":
+                # Vaults: no transactions, balance = accumulated alloc minus withdrawals
+                roll   = 0.0
+                spent  = 0.0
+                vault_total = vault_accumulated(b["id"], all_months)
+                avail  = vault_total
+            else:
+                roll        = rollover_bal(b, active_month, all_months, txs)
+                spent       = b_spent(active_mid, b["id"], txs)
+                avail       = bucket_available(b, active_month, all_months, txs)
+                vault_total = 0.0
+
+            status  = bucket_status(alloc, budget, spent, avail)
             skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
+            target_amount = b.get("targetAmount") or 0
+
+            # Progress bar
+            progress_pct = 0
+            if btype == "vault" and target_amount > 0:
+                progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
+            elif btype in ("sinking", "goal") and target_amount > 0:
+                # avail = rolloverBal + alloc - spent = sinkingSaved per FORMULAS.md 3.13
+                progress_pct = min(100, max(0, round(avail / target_amount * 100)))
 
             rows.append({
                 "id":              b["id"],
                 "name":            b["name"],
-                "type":            b.get("type", "expense"),
+                "type":            btype,
                 "cat_id":          b.get("catId", cid),
                 "rollover":        b.get("rollover", False),
                 "recurring":       b.get("recurring", False),
@@ -320,7 +630,7 @@ def _dashboard_inner():
                 "due_amount":      b.get("dueAmount", ""),
                 "debt_account_id": b.get("debtAccountId", ""),
                 "notes":           b.get("notes", "") or "",
-                "target_amount":   b.get("targetAmount", ""),
+                "target_amount":   target_amount or "",
                 "target_date":     b.get("targetDate", ""),
                 "contrib_freq":    b.get("contribFreq", ""),
                 "default_budget":  b.get("defaultBudget", 0),
@@ -330,6 +640,8 @@ def _dashboard_inner():
                 "spent":           spent,
                 "avail":           avail,
                 "status":          status,
+                "vault_total":     vault_total,
+                "progress_pct":    progress_pct,
             })
 
             totals["alloc"]    += alloc
@@ -351,7 +663,12 @@ def _dashboard_inner():
 
     rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
 
-    debt_accounts = [a for a in accounts if a.get("type") == "debt"]
+    debt_accounts    = [a for a in accounts if a.get("type") == "debt"]
+    transfer_buckets = [
+        {"id": b["id"], "name": b["name"]}
+        for b in active_buckets
+        if b.get("type") != "vault"
+    ]
 
     return render_template(
         "dashboard.html",
@@ -365,6 +682,7 @@ def _dashboard_inner():
         rts=rts,
         all_cats=cats_sorted,
         debt_accounts=debt_accounts,
+        transfer_buckets=transfer_buckets,
     )
 
 

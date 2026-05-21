@@ -167,9 +167,18 @@
 .col-date { width: 64px; }
 .col-settings { width: 32px; text-align: center; }
 
-.bucket-status-ok { color: var(--green); font-size: clamp(9px, 1.4vw, 10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-.bucket-ok { border-left: 3px solid var(--green); }
-.bucket-empty { border-left: 3px solid transparent; }
+/* ── Bucket row left-border status colours ── */
+.bucket-paid   { border-left: 3px solid var(--green); }
+.bucket-funded { border-left: 3px solid var(--accent); }
+.bucket-ok     { border-left: 3px solid var(--amber); }
+.bucket-over   { border-left: 3px solid var(--red); }
+.bucket-empty  { border-left: 3px solid transparent; }
+
+/* ── Status badge text ── */
+.badge-paid   { color: var(--green);  font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-funded { color: var(--accent); font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-ok     { color: var(--amber);  font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-over   { color: var(--red);    font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 
 /* ── Inline editing ── */
 .editable-text,
@@ -193,19 +202,23 @@
 }
 .inline-input[type="number"] { text-align: right; }
 
-/* ── Settings button ── */
-.settings-btn {
+/* ── Row action buttons (reorder, settings, delete) ── */
+.row-actions { display: flex; align-items: center; gap: 2px; justify-content: flex-end; }
+.settings-btn, .reorder-btn, .delete-cat-btn {
   background: none;
   border: none;
-  color: var(--text3);
-  font-size: 14px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 1px 4px;
   line-height: 1;
-  letter-spacing: .05em;
   transition: color .12s;
+  font-size: 12px;
+  color: var(--text3);
 }
+.settings-btn { font-size: 14px; letter-spacing: .05em; }
 .settings-btn:hover { color: var(--accent); }
+.reorder-btn:hover { color: var(--text2); }
+.delete-cat-btn { color: var(--red); opacity: .6; }
+.delete-cat-btn:hover { opacity: 1; }
 
 /* ── Settings row ── */
 .bucket-settings-row td {
@@ -290,6 +303,73 @@
   transition: background .12s;
 }
 .archive-btn:hover { background: var(--rbg); }
+
+/* ── Progress bar ── */
+.progress-wrap {
+  margin-top: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  height: 3px;
+  width: 100%;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width .3s;
+}
+.progress-bar.complete { background: var(--green); }
+.progress-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: .06em;
+  margin-top: 1px;
+}
+
+/* ── Vault accumulated display ── */
+.vault-total {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.4vw, 10px);
+  color: var(--accent);
+  letter-spacing: .06em;
+  margin-top: 2px;
+}
+
+/* ── Rollover release UI ── */
+.release-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.release-input {
+  width: 110px;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 4px 7px;
+  font-family: var(--sans);
+  font-size: clamp(12px, 1.8vw, 13px);
+  outline: none;
+}
+.release-input:focus { border-color: var(--accent); }
+.release-btn {
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.4vw, 10px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background .12s;
+}
+.release-btn:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
 
 /* ── Quick-add strip ── */
 .strip-form { margin-bottom: 12px; }
@@ -412,13 +492,31 @@
   <!-- Buckets panel -->
   <div id="panel-buckets" class="panel active">
     <div class="panel-container">
-      <form class="strip-form">
+      <form class="strip-form" id="add-bucket-form" onsubmit="submitAddBucket(event)">
         <table class="strip-form-table">
           <tr>
             <td style="width:1%;"><span class="strip-label">Add:</span></td>
-            <td style="width:18%;"><select name="type"><option>New Bucket</option><option>New Category</option></select></td>
-            <td><input type="text" name="name" placeholder="Name"></td>
-            <td style="width:16%;"><input type="number" name="target" placeholder="Target $" step="0.01"></td>
+            <td style="width:20%;">
+              <select id="strip-cat" required onchange="handleStripCatChange(this)">
+                <option value="">— Category —</option>
+                {% for cat in all_cats %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+                <option value="__new__">+ New Category</option>
+              </select>
+            </td>
+            <td id="strip-new-cat-cell" style="display:none; width:18%;">
+              <input type="text" id="strip-new-cat-name" placeholder="Category name">
+            </td>
+            <td><input type="text" id="strip-bucket-name" placeholder="Bucket name" required></td>
+            <td style="width:14%;">
+              <select id="strip-type">
+                <option value="expense">Expense</option>
+                <option value="sinking">Sinking Fund</option>
+                <option value="goal">Goal</option>
+                <option value="vault">Vault</option>
+              </select>
+            </td>
             <td style="width:10%;"><button class="strip-btn" type="submit">+ Add</button></td>
           </tr>
         </table>
@@ -452,30 +550,49 @@
 
           <!-- Category header -->
           <tr>
-            <td colspan="8" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
+            <td colspan="6" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
               <span class="editable-text"
                     data-field="cat_name"
                     data-id="{{ group.id }}"
                     data-type="text">{{ group.name }}</span>
             </td>
+            <td colspan="2" class="tbl-cat-head" style="text-align:right; padding-right:4px;">
+              <span class="row-actions">
+                <button class="reorder-btn" onclick="reorderItem('cat','{{ group.id }}','up','')" title="Move up">↑</button>
+                <button class="reorder-btn" onclick="reorderItem('cat','{{ group.id }}','down','')" title="Move down">↓</button>
+                {% if not group.buckets %}
+                <button class="delete-cat-btn" onclick="deleteCategory('{{ group.id }}')" title="Delete category">✕</button>
+                {% endif %}
+              </span>
+            </td>
           </tr>
 
           <!-- Bucket rows -->
           {% for b in group.buckets %}
-          <tr id="row-{{ b.id }}" class="{% if b.status == 'OK' or b.status == 'PAID' %}bucket-ok{% else %}bucket-empty{% endif %}">
+          <tr id="row-{{ b.id }}" class="bucket-{{ b.status|lower if b.status else 'empty' }}">
             <td>
               <span class="editable-text"
                     data-field="bucket_name"
                     data-id="{{ b.id }}"
                     data-type="text">{{ b.name }}</span>
+              {% if b.type == 'vault' %}
+                <div class="vault-total">{{ b.vault_total|money }} saved</div>
+                {% if b.progress_pct > 0 %}
+                <div class="progress-wrap">
+                  <div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div>
+                </div>
+                <div class="progress-label">{{ b.progress_pct }}%</div>
+                {% endif %}
+              {% elif b.type in ('sinking', 'goal') and b.progress_pct > 0 %}
+                <div class="progress-wrap">
+                  <div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div>
+                </div>
+                <div class="progress-label">{{ b.progress_pct }}%</div>
+              {% endif %}
             </td>
             <td class="col-status">
-              {% if b.status == 'OK' %}
-                <span class="bucket-status-ok">OK</span>
-              {% elif b.status == 'PAID' %}
-                <span class="bucket-status-ok">PAID</span>
-              {% elif b.status == 'OVER' %}
-                <span style="color:var(--red);font-size:clamp(9px,1.4vw,10px);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;">OVER</span>
+              {% if b.status %}
+                <span class="badge-{{ b.status|lower }}">{{ b.status }}</span>
               {% endif %}
             </td>
             <td class="col-amount editable-num"
@@ -493,7 +610,7 @@
             <td class="col-amount" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
               {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
             </td>
-            <td class="col-amount">{{ b.spent|money }}</td>
+            <td class="col-amount">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
                 data-raw="{{ b.avail }}"
@@ -501,7 +618,11 @@
               {{ b.avail|money }}
             </td>
             <td class="col-settings">
-              <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Bucket settings">&#x22EF;</button>
+              <span class="row-actions">
+                <button class="reorder-btn" onclick="reorderItem('bucket','{{ b.id }}','up','{{ group.id }}')" title="Move up">↑</button>
+                <button class="reorder-btn" onclick="reorderItem('bucket','{{ b.id }}','down','{{ group.id }}')" title="Move down">↓</button>
+                <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Settings">&#x22EF;</button>
+              </span>
             </td>
           </tr>
 
@@ -531,7 +652,7 @@
                   </div>
                 </div>
 
-                <!-- Expense fields -->
+                <!-- Expense fields (expense/regular only) -->
                 <div class="sf-group sf-expense" {% if b.type not in ('expense','regular','') %}style="display:none"{% endif %}>
                   <div class="sf-row">
                     <div class="sf-field">
@@ -570,8 +691,8 @@
                   </div>
                 </div>
 
-                <!-- Savings fields (vault / sinking / goal) -->
-                <div class="sf-group sf-savings" {% if b.type in ('expense','regular','') %}style="display:none"{% endif %}>
+                <!-- Sinking/goal fields (NOT vault) -->
+                <div class="sf-group sf-savings" {% if b.type not in ('sinking','goal') %}style="display:none"{% endif %}>
                   <div class="sf-row">
                     <div class="sf-field">
                       <div class="sf-label">Target Amount</div>
@@ -600,6 +721,69 @@
                   </div>
                 </div>
 
+                <!-- Vault fields -->
+                <div class="sf-group sf-vault" {% if b.type != 'vault' %}style="display:none"{% endif %}>
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Target Amount</div>
+                      <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
+                             value="{{ b.target_amount }}"
+                             onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
+                    </div>
+                    <div class="sf-field">
+                      <div class="sf-label">Target Date</div>
+                      <input class="sf-input" type="month"
+                             value="{{ b.target_date }}"
+                             onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
+                    </div>
+                  </div>
+
+                  <!-- Vault total display -->
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Vault Balance</div>
+                      <div style="font-family:var(--mono);font-size:clamp(13px,2vw,15px);color:var(--accent);padding:4px 0;">
+                        <span id="vault-bal-{{ b.id }}">{{ b.vault_total|money }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Transfer to another bucket -->
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Transfer to Bucket</div>
+                      <div class="release-row">
+                        <select class="sf-input" id="vault-dest-{{ b.id }}" style="flex:1;">
+                          <option value="">— select bucket —</option>
+                          {% for tb in transfer_buckets %}
+                          <option value="{{ tb.id }}">{{ tb.name }}</option>
+                          {% endfor %}
+                        </select>
+                        <input class="release-input" type="number" step="0.01" min="0.01"
+                               id="vault-xfr-input-{{ b.id }}" placeholder="$">
+                        <button class="release-btn"
+                                onclick="vaultTransfer('{{ b.id }}','{{ active_mid }}')">Transfer</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Release to pool -->
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Release to Pool</div>
+                      <div class="release-row">
+                        <input class="release-input" type="number" step="0.01" min="0.01"
+                               id="vault-input-{{ b.id }}" placeholder="$ amount">
+                        <button class="release-btn"
+                                onclick="vaultWithdraw('{{ b.id }}','{{ active_mid }}')">Release</button>
+                        <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
+                          returns money to RTS
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Notes -->
                 <div class="sf-row">
                   <div class="sf-field sf-field-full">
@@ -610,8 +794,29 @@
                   </div>
                 </div>
 
-                <!-- Toggles + archive -->
+                <!-- Rollover release (expense/sinking/goal with rollover + positive balance) -->
+                {% if b.type != 'vault' and b.rollover and b.rollover_val > 0 %}
+                <div class="sf-row" id="release-row-{{ b.id }}">
+                  <div class="sf-field">
+                    <div class="sf-label">Release Rollover</div>
+                    <div class="release-row">
+                      <input class="release-input" type="number" step="0.01" min="0.01"
+                             id="release-input-{{ b.id }}"
+                             placeholder="$ amount"
+                             max="{{ b.rollover_val }}">
+                      <button class="release-btn"
+                              onclick="releaseRollover('{{ b.id }}','{{ active_mid }}')">Release</button>
+                      <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
+                        balance: <span id="roll-bal-{{ b.id }}">{{ b.rollover_val|money }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
+
+                <!-- Toggles + archive (vault only shows archive) -->
                 <div class="sf-row sf-toggles">
+                  {% if b.type != 'vault' %}
                   <label class="sf-check">
                     <input type="checkbox" {% if b.recurring %}checked{% endif %}
                            onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')">
@@ -627,6 +832,7 @@
                            onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
                     Skip this month
                   </label>
+                  {% endif %}
                   <button class="archive-btn" onclick="archiveBucket('{{ b.id }}')">Archive</button>
                 </div>
 
@@ -733,6 +939,107 @@ function showPanel(name, tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   tab.classList.add('active');
+}
+
+/* ── Add bucket/category strip ── */
+function handleStripCatChange(select) {
+  const newCatCell = document.getElementById('strip-new-cat-cell');
+  newCatCell.style.display = select.value === '__new__' ? '' : 'none';
+  if (select.value === '__new__')
+    document.getElementById('strip-new-cat-name').focus();
+}
+
+async function submitAddBucket(e) {
+  e.preventDefault();
+  const catSelect  = document.getElementById('strip-cat');
+  const catId      = catSelect.value;
+  const newCatName = document.getElementById('strip-new-cat-name').value.trim();
+  const bucketName = document.getElementById('strip-bucket-name').value.trim();
+  const bucketType = document.getElementById('strip-type').value;
+
+  if (!catId) { alert('Please select a category.'); return; }
+  if (catId === '__new__' && !newCatName) { alert('Enter a name for the new category.'); return; }
+  if (!bucketName) { alert('Enter a bucket name.'); return; }
+
+  const result = await fetch('/api/add-bucket', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ cat_id: catId, new_cat_name: newCatName, bucket_name: bucketName, bucket_type: bucketType })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    window.location.reload();
+  } else {
+    alert('Error: ' + (result.error || 'Could not add bucket.'));
+  }
+}
+
+/* ── Reorder ── */
+async function reorderItem(kind, id, direction, catId) {
+  const result = await fetch('/api/reorder', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ kind, id, direction, cat_id: catId })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    // Move in DOM
+    if (kind === 'bucket') {
+      const row      = document.getElementById('row-' + id);
+      const settings = document.getElementById('settings-' + id);
+      if (!row) return;
+      if (direction === 'up') {
+        // Find previous bucket pair (skip non-bucket rows like category header)
+        let prev = row.previousElementSibling;
+        while (prev && !prev.id?.startsWith('row-')) prev = prev.previousElementSibling;
+        if (prev) {
+          const prevSettings = document.getElementById('settings-' + prev.id.replace('row-', ''));
+          prev.before(row);
+          row.after(settings);
+          settings.after(prev);
+          if (prevSettings) prev.after(prevSettings);
+        }
+      } else {
+        let next = settings.nextElementSibling;
+        while (next && !next.id?.startsWith('row-')) next = next.nextElementSibling;
+        if (next) {
+          const nextSettings = document.getElementById('settings-' + next.id.replace('row-', ''));
+          next.after(row);
+          row.after(settings);
+          if (nextSettings) settings.after(nextSettings);
+        }
+      }
+    } else {
+      // Category: move whole tbody
+      const tbody = document.getElementById('cat-body-' + id);
+      if (!tbody) return;
+      if (direction === 'up') {
+        let prev = tbody.previousElementSibling;
+        while (prev && prev.tagName !== 'TBODY') prev = prev.previousElementSibling;
+        if (prev && prev.id?.startsWith('cat-body-')) prev.before(tbody);
+      } else {
+        let next = tbody.nextElementSibling;
+        while (next && next.tagName !== 'TBODY') next = next.nextElementSibling;
+        if (next && next.id?.startsWith('cat-body-')) next.after(tbody);
+      }
+    }
+  }
+}
+
+/* ── Delete empty category ── */
+async function deleteCategory(catId) {
+  if (!confirm('Delete this category? This cannot be undone.')) return;
+  const result = await fetch('/api/delete-category', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ cat_id: catId })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    document.getElementById('cat-body-' + catId)?.remove();
+  } else {
+    alert('Cannot delete: ' + (result.error || 'unknown error'));
+  }
 }
 
 /* ── Money formatting ── */
@@ -861,9 +1168,15 @@ function switchBucketType(select, id) {
   const settingsRow = document.getElementById('settings-' + id);
   const expenseGroup = settingsRow.querySelector('.sf-expense');
   const savingsGroup = settingsRow.querySelector('.sf-savings');
-  const isSavings = ['vault', 'sinking', 'goal'].includes(type);
-  expenseGroup.style.display = isSavings ? 'none' : '';
-  savingsGroup.style.display = isSavings ? '' : 'none';
+  const vaultGroup   = settingsRow.querySelector('.sf-vault');
+  const toggles      = settingsRow.querySelectorAll('.sf-check');
+
+  expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
+  savingsGroup.style.display = (type === 'sinking' || type === 'goal') ? '' : 'none';
+  vaultGroup.style.display   = type === 'vault' ? '' : 'none';
+  // Hide toggles for vault (rollover/recurring/skip don't apply)
+  toggles.forEach(t => { t.style.display = type === 'vault' ? 'none' : ''; });
+
   saveSetting('bucket_type', id, type, '');
 }
 
@@ -875,15 +1188,132 @@ function saveSettingNum(field, id, value, month) {
   saveSetting(field, id, parseFloat(value) || null, month);
 }
 
+/* ── Vault: release to pool ── */
+async function vaultWithdraw(id, month) {
+  const input = document.getElementById('vault-input-' + id);
+  const amount = parseFloat(input.value);
+  if (!amount || amount <= 0) { alert('Enter a positive amount to release.'); return; }
+
+  const result = await fetch('/api/vault-withdraw', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id, month, amount })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (!result.ok) { alert('Release failed: ' + (result.error || 'unknown error')); return; }
+
+  input.value = '';
+
+  const balEl = document.getElementById('vault-bal-' + id);
+  if (balEl) balEl.textContent = fmtMoney(result.vault_total);
+
+  const availCell = document.querySelector(`[data-avail-id="${id}"]`);
+  if (availCell) {
+    availCell.textContent = fmtMoney(result.vault_total);
+    availCell.dataset.raw = result.vault_total;
+    availCell.style.color = result.vault_total > 0 ? 'var(--green)' : '';
+  }
+  if (result.rts !== undefined) {
+    const rtsEl = document.querySelector('.h-rts');
+    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+  }
+}
+
+/* ── Vault: transfer to another bucket ── */
+async function vaultTransfer(vaultId, month) {
+  const destSelect = document.getElementById('vault-dest-' + vaultId);
+  const input      = document.getElementById('vault-xfr-input-' + vaultId);
+  const destId  = destSelect.value;
+  const amount  = parseFloat(input.value);
+
+  if (!destId) { alert('Select a destination bucket.'); return; }
+  if (!amount || amount <= 0) { alert('Enter a positive amount to transfer.'); return; }
+
+  const result = await fetch('/api/vault-transfer', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ vault_id: vaultId, dest_id: destId, month, amount })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (!result.ok) { alert('Transfer failed: ' + (result.error || 'unknown error')); return; }
+
+  input.value = '';
+  destSelect.value = '';
+
+  // Update vault balance display
+  const balEl = document.getElementById('vault-bal-' + vaultId);
+  if (balEl) balEl.textContent = fmtMoney(result.vault_total);
+  const vaultAvail = document.querySelector(`[data-avail-id="${vaultId}"]`);
+  if (vaultAvail) {
+    vaultAvail.textContent = fmtMoney(result.vault_total);
+    vaultAvail.dataset.raw = result.vault_total;
+    vaultAvail.style.color = result.vault_total > 0 ? 'var(--green)' : '';
+  }
+
+  // Update destination bucket's available cell
+  const destAvail = document.querySelector(`[data-avail-id="${destId}"]`);
+  if (destAvail && result.dest_avail !== undefined) {
+    destAvail.textContent = fmtMoney(result.dest_avail);
+    destAvail.dataset.raw = result.dest_avail;
+    destAvail.style.color = result.dest_avail < 0 ? 'var(--red)' : result.dest_avail > 0 ? 'var(--green)' : '';
+  }
+
+  // RTS shouldn't change on transfer (net zero), but update anyway in case of rounding
+  if (result.rts !== undefined) {
+    const rtsEl = document.querySelector('.h-rts');
+    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+  }
+}
+
+/* ── Release rollover balance ── */
+async function releaseRollover(id, month) {
+  const input = document.getElementById('release-input-' + id);
+  const amount = parseFloat(input.value);
+  if (!amount || amount <= 0) { alert('Enter a positive amount to release.'); return; }
+
+  const result = await fetch('/api/release-rollover', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id, month, amount })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (!result.ok) { alert('Release failed: ' + (result.error || 'unknown error')); return; }
+
+  input.value = '';
+
+  // Update rollover balance label
+  const balEl = document.getElementById('roll-bal-' + id);
+  if (balEl) balEl.textContent = fmtMoney(result.rollover);
+
+  // Hide release row if no remaining balance
+  if (result.rollover <= 0) {
+    document.getElementById('release-row-' + id)?.remove();
+  }
+
+  // Update avail cell
+  const availCell = document.querySelector(`[data-avail-id="${id}"]`);
+  if (availCell && result.avail !== undefined) {
+    availCell.textContent = fmtMoney(result.avail);
+    availCell.dataset.raw = result.avail;
+    availCell.style.color = result.avail < 0 ? 'var(--red)' : result.avail > 0 ? 'var(--green)' : '';
+  }
+
+  // Update RTS
+  if (result.rts !== undefined) {
+    const rtsEl = document.querySelector('.h-rts');
+    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+  }
+}
+
 /* ── Archive bucket ── */
 async function archiveBucket(id) {
   if (!confirm('Archive this bucket? It will be hidden from the active view.')) return;
   const result = await saveSetting('bucket_archive', id, true, '');
   if (result.ok) {
-    const row = document.getElementById('row-' + id);
-    const settingsRow = document.getElementById('settings-' + id);
-    if (row) row.remove();
-    if (settingsRow) settingsRow.remove();
+    document.getElementById('row-' + id)?.remove();
+    document.getElementById('settings-' + id)?.remove();
+  } else {
+    alert('Archive failed — please try again.');
   }
 }
 </script>
