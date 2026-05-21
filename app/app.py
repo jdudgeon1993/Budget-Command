@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from formulas import (
     current_month_id, parse_month_id, month_id,
     b_alloc, b_budget, b_spent, rollover_bal, bucket_available, ready_to_spend,
-    vault_accumulated,
+    vault_accumulated, is_scheduled,
 )
 
 MONTH_NAMES = ["January","February","March","April","May","June",
@@ -70,6 +70,12 @@ def save_budget_row(access_token: str, row_id, data: dict) -> None:
         sb.table("bcc_budget_state").update({"data": data}).eq("id", row_id).execute()
     except Exception as e:
         app.logger.error("save_budget_row failed: %s\n%s", e, traceback.format_exc())
+
+
+def _date_to_month_id(date_str: str) -> str:
+    from datetime import date as _date
+    d = _date.fromisoformat(date_str)
+    return month_id(d.year, d.month - 1)
 
 
 def _find_or_create_month(data: dict, mid: str) -> dict:
@@ -670,6 +676,51 @@ def _dashboard_inner():
         if b.get("type") != "vault"
     ]
 
+    # ── Ledger data ──────────────────────────────────────────────────────────
+    acct_map   = {a["id"]: a.get("name", a["id"]) for a in accounts}
+    bucket_map = {b["id"]: b.get("name", b["id"]) for b in all_buckets}
+
+    ledger_txs = sorted(
+        [t for t in txs if t.get("monthId") == active_mid],
+        key=lambda t: (t.get("date") or "", t.get("id") or ""),
+        reverse=True,
+    )
+
+    ledger_rows = []
+    income_total = 0.0
+    spent_total  = 0.0
+    for t in ledger_txs:
+        scheduled = is_scheduled(t)
+        amt = float(t.get("amount") or 0)
+        ttype = t.get("type", "out")
+        if not scheduled:
+            if ttype == "in":
+                income_total += amt
+            elif ttype == "out":
+                spent_total += amt
+        ledger_rows.append({
+            "id":          t["id"],
+            "date":        t.get("date", ""),
+            "desc":        t.get("desc", ""),
+            "type":        ttype,
+            "amount":      amt,
+            "account":     acct_map.get(t.get("accountId", ""), ""),
+            "to_account":  acct_map.get(t.get("toAccountId", ""), ""),
+            "bucket":      bucket_map.get(t.get("bucketId", ""), ""),
+            "bucket_id":   t.get("bucketId", "") or "",
+            "account_id":  t.get("accountId", "") or "",
+            "to_acct_id":  t.get("toAccountId", "") or "",
+            "scheduled":   scheduled,
+            "reconciled":  bool(t.get("reconciled")),
+        })
+
+    # Non-vault buckets eligible for expense assignment
+    expense_buckets = [
+        {"id": b["id"], "name": b["name"]}
+        for b in active_buckets
+        if b.get("type") != "vault"
+    ]
+
     return render_template(
         "dashboard.html",
         user_email=session.get("user_email"),
@@ -681,9 +732,123 @@ def _dashboard_inner():
         grand=grand,
         rts=rts,
         all_cats=cats_sorted,
+        accounts=accounts,
         debt_accounts=debt_accounts,
         transfer_buckets=transfer_buckets,
+        ledger_rows=ledger_rows,
+        ledger_income=income_total,
+        ledger_spent=spent_total,
+        expense_buckets=expense_buckets,
     )
+
+
+@app.route("/api/add-transaction", methods=["POST"])
+def api_add_transaction():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body    = request.get_json(silent=True) or {}
+    ttype   = body.get("type", "out")          # in | out | xfr
+    date    = (body.get("date") or "").strip()
+    desc    = (body.get("desc") or "").strip()
+    amount  = float(body.get("amount") or 0)
+    acct_id = (body.get("account_id") or "").strip()
+    bkt_id  = (body.get("bucket_id") or "").strip()
+    to_acct = (body.get("to_account_id") or "").strip()
+
+    if not date:
+        return jsonify({"ok": False, "error": "Date required"}), 400
+    if not acct_id:
+        return jsonify({"ok": False, "error": "Account required"}), 400
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+    if ttype == "xfr" and not to_acct:
+        return jsonify({"ok": False, "error": "Destination account required for transfer"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    mid = _date_to_month_id(date)
+    _find_or_create_month(data, mid)
+
+    tx = {
+        "id":          _new_id("tx"),
+        "accountId":   acct_id,
+        "monthId":     mid,
+        "desc":        desc,
+        "amount":      amount,
+        "type":        ttype,
+        "date":        date,
+        "reconciled":  False,
+        "recurring":   False,
+    }
+    if ttype == "out" and bkt_id:
+        tx["bucketId"] = bkt_id
+    if ttype == "xfr":
+        tx["toAccountId"] = to_acct
+
+    data.setdefault("txs", []).append(tx)
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "tx_id": tx["id"], "month_id": mid})
+
+
+@app.route("/api/edit-transaction", methods=["POST"])
+def api_edit_transaction():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    tx_id  = (body.get("id") or "").strip()
+    field  = (body.get("field") or "").strip()
+    value  = body.get("value")
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    tx = next((t for t in data.get("txs", []) if t["id"] == tx_id), None)
+    if not tx:
+        return jsonify({"ok": False, "error": "Transaction not found"}), 404
+
+    if field == "desc":
+        tx["desc"] = str(value or "").strip()
+    elif field == "amount":
+        tx["amount"] = float(value or 0)
+    elif field == "date":
+        tx["date"] = str(value or "").strip()
+        tx["monthId"] = _date_to_month_id(tx["date"])
+        _find_or_create_month(data, tx["monthId"])
+    elif field == "bucket_id":
+        tx["bucketId"] = str(value or "") or None
+    elif field == "account_id":
+        tx["accountId"] = str(value or "")
+    else:
+        return jsonify({"ok": False, "error": f"Unknown field: {field}"}), 400
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/delete-transaction", methods=["POST"])
+def api_delete_transaction():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body  = request.get_json(silent=True) or {}
+    tx_id = (body.get("id") or "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    before = len(data.get("txs", []))
+    data["txs"] = [t for t in data.get("txs", []) if t["id"] != tx_id]
+    if len(data["txs"]) == before:
+        return jsonify({"ok": False, "error": "Transaction not found"}), 404
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
