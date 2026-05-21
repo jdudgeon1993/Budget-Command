@@ -243,7 +243,10 @@ def api_save():
         txs = data.get("txs", [])
         active_month = next((m for m in all_months if m["id"] == mid), None)
         if bucket and active_month:
-            avail = bucket_available(bucket, active_month, all_months, txs)
+            if bucket.get("type") == "vault":
+                avail = vault_accumulated(bid, all_months)
+            else:
+                avail = bucket_available(bucket, active_month, all_months, txs)
             result["avail"] = avail
             accounts = data.get("accounts", [])
             active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
@@ -311,6 +314,31 @@ def api_add_bucket():
 
     save_budget_row(session["access_token"], row_id, data)
     return jsonify({"ok": True, "bucket_id": bucket_id, "cat_id": cat_id})
+
+
+@app.route("/api/archive-category", methods=["POST"])
+def api_archive_category():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    cat_id = body.get("cat_id", "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    cat = next((c for c in data.get("cats", []) if c["id"] == cat_id), None)
+    if not cat:
+        return jsonify({"ok": False, "error": "Category not found"}), 404
+
+    cat["archived"] = True
+    for b in data.get("buckets", []):
+        if b.get("catId") == cat_id:
+            b["archived"] = True
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/delete-category", methods=["POST"])
@@ -518,19 +546,33 @@ def api_release_rollover():
     if row_id is None:
         return jsonify({"ok": False, "error": "No data row found"}), 404
 
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+    if not bucket:
+        return jsonify({"ok": False, "error": "Bucket not found"}), 404
+    if bucket.get("type") == "vault":
+        return jsonify({"ok": False, "error": "Use vault withdraw for vault buckets"}), 400
+
+    # Validate before mutating: cap release at actual rollover balance
+    all_months_pre = data.get("months", [])
+    txs = data.get("txs", [])
+    active_month_pre = next(
+        (m for m in all_months_pre if m["id"] == mid),
+        {"id": mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}},
+    )
+    current_roll = rollover_bal(bucket, active_month_pre, all_months_pre, txs)
+    if amount > current_roll + 0.005:
+        return jsonify({"ok": False, "error": f"Cannot release more than the rollover balance (${current_roll:.2f})"}), 400
+
     month = _find_or_create_month(data, mid)
     released = month.setdefault("rolloverReleased", {})
     released[bucket_id] = float(released.get(bucket_id) or 0) + amount
 
     save_budget_row(session["access_token"], row_id, data)
 
-    # Return new rollover balance so UI can update
-    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
     all_months = data.get("months", [])
-    txs = data.get("txs", [])
     active_month = next((m for m in all_months if m["id"] == mid), month)
-    new_roll = rollover_bal(bucket, active_month, all_months, txs) if bucket else 0
-    avail = bucket_available(bucket, active_month, all_months, txs) if bucket else 0
+    new_roll = rollover_bal(bucket, active_month, all_months, txs)
+    avail = bucket_available(bucket, active_month, all_months, txs)
     accounts = data.get("accounts", [])
     active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
@@ -789,6 +831,8 @@ def _dashboard_inner():
         acct_id = a_disp["id"]
         a_txs = []
         for t in all_txs_sorted:
+            if t.get("monthId") != active_mid:
+                continue
             is_from     = t.get("accountId") == acct_id
             is_to       = t.get("toAccountId") == acct_id and t.get("type") == "xfr"
             is_debt_pay = t.get("debtPaymentAccountId") == acct_id and not is_from
