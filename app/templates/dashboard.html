@@ -805,10 +805,12 @@
                 data-month="{{ active_mid }}"
                 data-raw="{{ b.alloc }}"
                 data-type="number">{{ b.alloc|money }}</td>
-            <td class="col-amount col-m-hide" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
+            <td class="col-amount col-m-hide" id="rollover-{{ b.id }}"
+                data-rollover-id="{{ b.id }}"
+                style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
               {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
             </td>
-            <td class="col-amount col-m-hide">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
+            <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
                 data-raw="{{ b.avail }}"
@@ -1727,9 +1729,9 @@
                 <th class="col-settings"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="pc-tbody">
             {% if not paychecks %}
-            <tr><td colspan="5" style="padding:16px 4px;color:var(--text3);font-family:var(--mono);font-size:11px;">No paychecks yet — add one above.</td></tr>
+            <tr id="pc-empty"><td colspan="5" style="padding:16px 4px;color:var(--text3);font-family:var(--mono);font-size:11px;">No paychecks yet — add one above.</td></tr>
             {% endif %}
             {% set freq_labels = {7: 'Weekly', 14: 'Biweekly', 15: 'Semi-monthly', 30: 'Monthly'} %}
             {% for pc in paychecks %}
@@ -1795,9 +1797,9 @@
                 <th class="col-settings"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="rules-tbody">
             {% if internal_rules %}
-            <tr><td colspan="5" class="tbl-cat-head" style="border-left:3px solid var(--accent)">Internal — Bucket Allocations</td></tr>
+            <tr id="rules-internal-head"><td colspan="5" class="tbl-cat-head" style="border-left:3px solid var(--accent)">Internal — Bucket Allocations</td></tr>
             {% for r in internal_rules %}
             <tr id="rule-row-{{ r.id }}" {% if not r.active %}style="opacity:.5"{% endif %}>
               <td style="text-align:center">
@@ -1820,7 +1822,7 @@
             {% endif %}
 
             {% if external_rules %}
-            <tr><td colspan="5" class="tbl-cat-head" style="border-left:3px solid var(--amber)">External — Transfer Reminders</td></tr>
+            <tr id="rules-external-head"><td colspan="5" class="tbl-cat-head" style="border-left:3px solid var(--amber)">External — Transfer Reminders</td></tr>
             {% for r in external_rules %}
             <tr id="rule-row-{{ r.id }}" {% if not r.active %}style="opacity:.5"{% endif %}>
               <td style="text-align:center">
@@ -1889,13 +1891,199 @@
 </nav>
 
 <script>
+const ACTIVE_MID = "{{ active_mid }}";
+
+/* ── Live value refresh — patches every computed cell without a reload ── */
+function refreshValues(state) {
+  if (!state) return;
+
+  // RTS header
+  if (state.rts !== undefined) {
+    const el = document.querySelector('.h-rts');
+    if (el) el.textContent = fmtMoney(state.rts);
+  }
+
+  // Bucket available cells
+  if (state.bucket_avails) {
+    for (const [bid, val] of Object.entries(state.bucket_avails)) {
+      const cell = document.querySelector(`[data-avail-id="${bid}"]`);
+      if (cell) {
+        cell.textContent = fmtMoney(val);
+        cell.dataset.raw = val;
+        cell.style.color = val < 0 ? 'var(--red)' : val > 0 ? 'var(--green)' : '';
+      }
+    }
+  }
+
+  // Bucket rollover cells
+  if (state.bucket_rollover) {
+    for (const [bid, val] of Object.entries(state.bucket_rollover)) {
+      const cell = document.querySelector(`[data-rollover-id="${bid}"]`);
+      if (cell) {
+        cell.textContent = val !== 0 ? fmtMoney(val) : '—';
+        cell.style.color = val > 0 ? 'var(--green)' : val < 0 ? 'var(--red)' : '';
+      }
+    }
+  }
+
+  // Bucket spent cells
+  if (state.bucket_spent) {
+    for (const [bid, val] of Object.entries(state.bucket_spent)) {
+      const cell = document.querySelector(`[data-spent-id="${bid}"]`);
+      if (cell && cell.textContent !== '—') cell.textContent = fmtMoney(val);
+    }
+  }
+
+  // Vault totals
+  if (state.vault_totals) {
+    for (const [bid, total] of Object.entries(state.vault_totals)) {
+      const el = document.getElementById(`vault-row-total-${bid}`);
+      if (el) el.textContent = fmtMoney(total) + ' saved';
+    }
+  }
+
+  // Account balances
+  if (state.account_balances) {
+    for (const [aid, bal] of Object.entries(state.account_balances)) {
+      const row = document.getElementById(`acct-row-${aid}`);
+      if (!row) continue;
+      const cell = row.querySelector('td.col-amount');
+      if (!cell) continue;
+      cell.textContent = fmtMoney(bal);
+      // Pick correct class based on account type (debt rows stay negative-styled at 0)
+      const isDebt = row.querySelector('.badge-debt');
+      if (isDebt) {
+        cell.className = 'col-amount ' + (bal === 0 ? 'acct-bal-debt-zero' : 'acct-bal-negative');
+      } else {
+        cell.className = 'col-amount ' + (bal >= 0 ? 'acct-bal-positive' : 'acct-bal-negative');
+      }
+    }
+  }
+}
+
+/* ── Inject a newly-added tx row into the ledger without a reload ── */
+function injectTxRow(tx, activeMid) {
+  const body = document.getElementById('ledger-body');
+  if (!body) return;
+
+  // Badge + row class
+  const badgeMap = {
+    in:  { refund: ['badge-tx-refund','RFND'], deposit: ['badge-tx-dep','DEP'], _: ['badge-tx-pay','PAY'] },
+    out: { _: ['badge-tx-out','OUT'] },
+    xfr: { _: ['badge-tx-xfr','XFR'] },
+  };
+  const typeMap = badgeMap[tx.type] || badgeMap.out;
+  const [badgeCls, badgeLbl] = typeMap[tx.income_type] || typeMap['_'];
+  const rowCls = tx.type === 'in' ? 'tx-in' : tx.type === 'xfr' ? 'tx-xfr' : 'tx-out';
+  const amtCls = tx.type === 'in' ? 'ledger-amt-in' : tx.type === 'xfr' ? 'ledger-amt-xfr' : 'ledger-amt-out';
+
+  // Bucket cell (for 'out' transactions)
+  let bucketCell = '';
+  if (tx.type === 'out') {
+    // Build a minimal select with just the assigned bucket; full list comes on reload
+    const opt = tx.bucket_id ? `<option value="${tx.bucket_id}" selected>${tx.bucket_name || tx.bucket_id}</option>` : '<option value="">— none —</option>';
+    bucketCell = `<select class="ledger-bucket-select" data-tx="${tx.id}" onchange="saveTxField('${tx.id}','bucket_id',this.value)">${opt}</select>`;
+  } else if (tx.type === 'xfr') {
+    bucketCell = `<span style="color:var(--text3);font-size:11px">Transfer</span>`;
+  } else {
+    bucketCell = `<span style="color:var(--text3);font-size:11px">${badgeLbl}</span>`;
+  }
+
+  const accountDisplay = tx.type === 'xfr' ? `${tx.account} → ${tx.to_account}` : tx.account;
+
+  const tr = document.createElement('tr');
+  tr.id = 'ltx-' + tx.id;
+  tr.className = rowCls;
+  tr.innerHTML = `
+    <td class="col-date col-m-hide" style="color:var(--text3);font-family:var(--mono);font-size:clamp(10px,1.5vw,11px)">${tx.date}</td>
+    <td class="col-name">
+      <span class="${badgeCls}" style="margin-right:4px">${badgeLbl}</span>
+      <span class="ledger-desc" id="desc-${tx.id}" data-tx="${tx.id}" data-raw="${tx.desc}">${tx.desc || '—'}</span>
+    </td>
+    <td class="ledger-account-cell col-m-hide">${accountDisplay}</td>
+    <td class="col-bucket">${bucketCell}</td>
+    <td class="col-amount ${amtCls}">${fmtMoney(tx.amount)}</td>
+    <td class="col-settings">
+      <button class="settings-btn" onclick="toggleTxSettings('${tx.id}')" title="Expand">&#x22EF;</button>
+    </td>`;
+
+  // Wire up desc click-to-edit
+  const descSpan = tr.querySelector('.ledger-desc');
+  descSpan.style.cursor = 'pointer';
+  descSpan.addEventListener('click', () => {
+    if (descSpan.querySelector('input')) return;
+    const orig = descSpan.dataset.raw || '';
+    const input = document.createElement('input');
+    input.type = 'text'; input.value = orig; input.className = 'inline-input';
+    descSpan.textContent = ''; descSpan.appendChild(input); input.focus(); input.select();
+    let done = false;
+    const commit = () => {
+      if (done) return; done = true;
+      const val = input.value.trim();
+      descSpan.textContent = val || '—'; descSpan.dataset.raw = val;
+      saveTxDescAndCell(tx.id, val);
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') { done = true; descSpan.textContent = orig || '—'; }
+    });
+  });
+
+  // Find or create today's date group header
+  const dateLabel = tx.date;
+  let targetHeader = null;
+  body.querySelectorAll('tr.tbl-cat-head, tr > td.tbl-cat-head').forEach(cell => {
+    const row = cell.closest ? cell : cell.parentElement;
+    if (row && row.textContent.trim() === dateLabel) targetHeader = row;
+  });
+  // Check via td children
+  for (const row of body.querySelectorAll('tr')) {
+    const td = row.querySelector('td.tbl-cat-head');
+    if (td && td.textContent.trim() === dateLabel) { targetHeader = row; break; }
+  }
+
+  if (targetHeader) {
+    // Insert after the last ltx- row under this header
+    let insertAfter = targetHeader;
+    let next = targetHeader.nextElementSibling;
+    while (next && next.id && next.id.startsWith('ltx-')) { insertAfter = next; next = next.nextElementSibling; }
+    insertAfter.after(tr);
+  } else {
+    // Create a new date group header and prepend to body
+    const htr = document.createElement('tr');
+    htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${dateLabel}</td>`;
+    body.prepend(tr);
+    body.prepend(htr);
+  }
+
+  // Remove the "empty" placeholder row if present
+  document.getElementById('ledger-empty')?.remove();
+}
+
 /* ── Panel nav ── */
 function showPanel(name, tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   tab.classList.add('active');
+  localStorage.setItem('bc_active_panel', name);
 }
+
+// Restore active panel on page load
+(function() {
+  const saved = localStorage.getItem('bc_active_panel');
+  if (saved && saved !== 'buckets') {
+    const panel = document.getElementById('panel-' + saved);
+    const tab = document.querySelector(`.nav-tab[onclick*="'${saved}'"]`);
+    if (panel && tab) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      panel.classList.add('active');
+      tab.classList.add('active');
+    }
+  }
+})();
 
 /* ── Add bucket/category strip ── */
 function handleStripCatChange(select) {
@@ -1920,11 +2108,91 @@ async function submitAddBucket(e) {
   const result = await fetch('/api/add-bucket', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ cat_id: catId, new_cat_name: newCatName, bucket_name: bucketName, bucket_type: bucketType })
+    body: JSON.stringify({ cat_id: catId, new_cat_name: newCatName, bucket_name: bucketName,
+                           bucket_type: bucketType, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
-    window.location.reload();
+    const bid = result.bucket_id;
+    const cid = result.cat_id;
+    const isVault = bucketType === 'vault';
+
+    // Build the bucket <tr> (reused for both paths)
+    function makeBucketRow(bid, bucketName, bucketType) {
+      const isVault = bucketType === 'vault';
+      const tr = document.createElement('tr');
+      tr.id = 'row-' + bid;
+      tr.innerHTML = `
+        <td class="col-name">
+          <span class="editable-text" data-field="bucket_name" data-id="${bid}" data-type="text" data-raw="${bucketName}">${bucketName}</span>
+        </td>
+        <td class="col-status"></td>
+        <td class="col-amount editable-num col-m-hide" data-field="bucket_target" data-id="${bid}" data-month="${ACTIVE_MID}" data-raw="0" data-type="number">$0.00</td>
+        <td class="col-amount editable-num" data-field="bucket_alloc" data-id="${bid}" data-month="${ACTIVE_MID}" data-raw="0" data-type="number">$0.00</td>
+        <td class="col-amount col-m-hide" id="rollover-${bid}" data-rollover-id="${bid}">—</td>
+        <td class="col-amount col-m-hide" id="spent-${bid}" data-spent-id="${bid}">${isVault ? '—' : '$0.00'}</td>
+        <td class="col-amount" data-avail-id="${bid}" data-raw="0">$0.00</td>
+        <td class="col-settings">
+          <span class="row-actions">
+            <button class="reorder-btn" onclick="reorderItem('bucket','${bid}','up','${cid}')" title="Move up">↑</button>
+            <button class="reorder-btn" onclick="reorderItem('bucket','${bid}','down','${cid}')" title="Move down">↓</button>
+            <button class="settings-btn" onclick="toggleSettings('${bid}')" title="Settings">&#x22EF;</button>
+          </span>
+        </td>`;
+      tr.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
+        cell.addEventListener('click', () => activateEdit(cell));
+      });
+      return tr;
+    }
+
+    let tbody = document.getElementById('cat-body-' + cid);
+
+    if (!tbody) {
+      // New category — build and inject the full <tbody> before the grand-totals tbody
+      tbody = document.createElement('tbody');
+      tbody.id = 'cat-body-' + cid;
+      const catName = result.cat_name || newCatName;
+      const htr = document.createElement('tr');
+      htr.innerHTML = `
+        <td colspan="6" class="tbl-cat-head">
+          <span class="editable-text" data-field="cat_name" data-id="${cid}" data-type="text" data-raw="${catName}">${catName}</span>
+        </td>
+        <td colspan="2" class="tbl-cat-head" style="text-align:right;padding-right:4px;">
+          <span class="row-actions">
+            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','up','')" title="Move up">↑</button>
+            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','down','')" title="Move down">↓</button>
+            <button class="delete-cat-btn" onclick="deleteCategory('${cid}')" title="Delete category">✕</button>
+          </span>
+        </td>`;
+      htr.querySelector('.editable-text').addEventListener('click', function() { activateEdit(this); });
+      tbody.appendChild(htr);
+
+      // Insert before the grand-totals tbody (last tbody in the table)
+      const table = document.querySelector('#panel-buckets table.data-table');
+      const tbodies = table ? table.querySelectorAll('tbody') : [];
+      const grandTbody = tbodies[tbodies.length - 1];
+      if (grandTbody && grandTbody.querySelector('.tbl-grand-total')) {
+        table.insertBefore(tbody, grandTbody);
+      } else if (table) {
+        table.appendChild(tbody);
+      }
+
+      // Update new category select option so it appears in the strip dropdown
+      const catSel = document.getElementById('strip-cat');
+      if (catSel) {
+        const opt = document.createElement('option');
+        opt.value = cid; opt.textContent = catName;
+        catSel.insertBefore(opt, catSel.querySelector('option[value="__new__"]'));
+      }
+    }
+
+    tbody.appendChild(makeBucketRow(bid, bucketName, bucketType));
+    document.getElementById('strip-bucket-name').value = '';
+    document.getElementById('strip-new-cat-name').value = '';
+    // Reset category select back to first real option if it was __new__
+    const catSel = document.getElementById('strip-cat');
+    if (catSel && catSel.value === '__new__') catSel.value = cid;
+    document.getElementById('strip-new-cat-row')?.style && (document.getElementById('strip-new-cat-row').style.display = 'none');
   } else {
     alert('Error: ' + (result.error || 'Could not add bucket.'));
   }
@@ -2058,19 +2326,7 @@ function activateEdit(cell) {
       return;
     }
 
-    // Update derived cells
-    if (result.avail !== undefined) {
-      const availCell = document.querySelector(`[data-avail-id="${id}"]`);
-      if (availCell) {
-        availCell.textContent = fmtMoney(result.avail);
-        availCell.dataset.raw = result.avail;
-        availCell.style.color = result.avail < 0 ? 'var(--red)' : result.avail > 0 ? 'var(--green)' : '';
-      }
-    }
-    if (result.rts !== undefined) {
-      const rtsEl = document.querySelector('.h-rts');
-      if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
-    }
+    refreshValues(result);
   };
 
   const cancel = () => {
@@ -2169,25 +2425,11 @@ async function vaultWithdraw(id, month) {
 
   input.value = '';
 
-  // Update settings panel balance
+  // Update settings panel balance and max label
   const balEl2 = document.getElementById('vault-bal-' + id);
   if (balEl2) balEl2.textContent = fmtMoney(result.vault_total);
-
-  // Update max label and input cap
   if (maxEl) maxEl.textContent = fmtMoney(result.vault_total);
   if (input) input.max = result.vault_total;
-
-  // Update bucket row vault-total text
-  const rowTotalEl = document.getElementById('vault-row-total-' + id);
-  if (rowTotalEl) rowTotalEl.textContent = fmtMoney(result.vault_total) + ' saved';
-
-  // Update available cell in bucket row
-  const availCell = document.querySelector(`[data-avail-id="${id}"]`);
-  if (availCell) {
-    availCell.textContent = fmtMoney(result.vault_total);
-    availCell.dataset.raw = result.vault_total;
-    availCell.style.color = result.vault_total > 0 ? 'var(--green)' : '';
-  }
 
   // Update alloc cell if the withdrawal drained some allocation
   const allocCell = document.querySelector(`[data-field="bucket_alloc"][data-id="${id}"]`);
@@ -2196,10 +2438,7 @@ async function vaultWithdraw(id, month) {
     allocCell.dataset.raw = result.alloc;
   }
 
-  if (result.rts !== undefined) {
-    const rtsEl = document.querySelector('.h-rts');
-    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
-  }
+  refreshValues(result);
 }
 
 /* ── Vault: transfer to another bucket ── */
@@ -2228,31 +2467,14 @@ async function vaultTransfer(vaultId, month) {
   if (balEl) balEl.textContent = fmtMoney(result.vault_total);
   const rowTotalEl = document.getElementById('vault-row-total-' + vaultId);
   if (rowTotalEl) rowTotalEl.textContent = fmtMoney(result.vault_total) + ' saved';
-  const vaultAvail = document.querySelector(`[data-avail-id="${vaultId}"]`);
-  if (vaultAvail) {
-    vaultAvail.textContent = fmtMoney(result.vault_total);
-    vaultAvail.dataset.raw = result.vault_total;
-    vaultAvail.style.color = result.vault_total > 0 ? 'var(--green)' : '';
-  }
+
   const vaultAllocCell = document.querySelector(`[data-field="bucket_alloc"][data-id="${vaultId}"]`);
   if (vaultAllocCell && result.vault_alloc !== undefined) {
     vaultAllocCell.textContent = fmtMoney(result.vault_alloc);
     vaultAllocCell.dataset.raw = result.vault_alloc;
   }
 
-  // Update destination bucket's available cell
-  const destAvail = document.querySelector(`[data-avail-id="${destId}"]`);
-  if (destAvail && result.dest_avail !== undefined) {
-    destAvail.textContent = fmtMoney(result.dest_avail);
-    destAvail.dataset.raw = result.dest_avail;
-    destAvail.style.color = result.dest_avail < 0 ? 'var(--red)' : result.dest_avail > 0 ? 'var(--green)' : '';
-  }
-
-  // RTS shouldn't change on transfer (net zero), but update anyway in case of rounding
-  if (result.rts !== undefined) {
-    const rtsEl = document.querySelector('.h-rts');
-    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
-  }
+  refreshValues(result);
 }
 
 /* ── Ledger: type change (show/hide bucket vs to-account cell) ── */
@@ -2282,14 +2504,20 @@ async function submitAddTx(e) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ type, date, desc, amount, account_id: accountId,
                            bucket_id: bucketId, to_account_id: toAcctId,
-                           income_type: incomeType })
+                           income_type: incomeType, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
+    refreshValues(result);
+    // Inject row into ledger if this tx belongs to the viewed month
+    if (result.month_id === ACTIVE_MID && result.tx) {
+      injectTxRow(result.tx, result.month_id);
+    }
+    // Reset form (keep date and account for speed)
+    document.getElementById('tx-desc').value = '';
+    document.getElementById('tx-amount').value = '';
     if (type === 'in' && incomeType === 'paycheck') {
       await showPaydayModal(amount, result.month_id);
-    } else {
-      window.location.reload();
     }
   } else { alert('Error: ' + (result.error || 'Could not add transaction.')); }
 }
@@ -2305,9 +2533,10 @@ async function saveTxField(id, field, value) {
   const result = await fetch('/api/edit-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ id, field, value })
+    body: JSON.stringify({ id, field, value, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
-  if (!result.ok) alert('Save failed: ' + (result.error || 'unknown error'));
+  if (!result.ok) { alert('Save failed: ' + (result.error || 'unknown error')); return; }
+  refreshValues(result);
 }
 
 /* ── Ledger: save description + update visible cell ── */
@@ -2354,21 +2583,19 @@ async function deleteTx(id) {
   const result = await fetch('/api/delete-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ id })
+    body: JSON.stringify({ id, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
-    const txRow      = document.getElementById('ltx-' + id);
+    const txRow       = document.getElementById('ltx-' + id);
     const settingsRow = document.getElementById('tx-settings-' + id);
     if (txRow) {
-      // Find the preceding date-group header row
       let headerRow = txRow.previousElementSibling;
       while (headerRow && !headerRow.classList.contains('tbl-cat-head')) {
         headerRow = headerRow.previousElementSibling;
       }
       txRow.remove();
       settingsRow?.remove();
-      // If no more tx rows remain between the header and the next header, remove the header
       if (headerRow) {
         let next = headerRow.nextElementSibling;
         let hasRows = false;
@@ -2379,6 +2606,7 @@ async function deleteTx(id) {
         if (!hasRows) headerRow.remove();
       }
     }
+    refreshValues(result);
   } else {
     alert('Delete failed: ' + (result.error || 'unknown error'));
   }
@@ -2405,8 +2633,19 @@ async function releaseRollover(id, month) {
 
   if (!result.ok) { alert('Release failed: ' + (result.error || 'unknown error')); return; }
 
-  // Reload to refresh rollover column, bucket status, and all derived values
-  window.location.reload();
+  input.value = '';
+
+  // Update rollover max input for this bucket
+  const maxEl = document.getElementById('vault-release-max-' + id);
+  if (maxEl) maxEl.textContent = fmtMoney(result.rollover);
+  const inputEl = document.getElementById('release-input-' + id);
+  if (inputEl) inputEl.max = result.rollover;
+
+  // Update the displayed rollover balance in the settings panel
+  const rollBalEl = document.getElementById('roll-bal-' + id);
+  if (rollBalEl) rollBalEl.textContent = fmtMoney(result.rollover);
+
+  refreshValues(result);
 }
 
 /* ── Archive category (+ all its buckets) ── */
@@ -2491,8 +2730,56 @@ async function submitAddAccount(e, section) {
     body: JSON.stringify({ name, type, color, opening_balance: opening })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (result.ok) { window.location.reload(); }
-  else { alert('Error: ' + (result.error || 'Could not add account.')); }
+  if (result.ok) {
+    const a = result.account;
+    const isDebt = a.type === 'debt';
+    const balClass = isDebt ? (a.balance === 0 ? 'acct-bal-debt-zero' : 'acct-bal-negative') : (a.balance >= 0 ? 'acct-bal-positive' : 'acct-bal-negative');
+    const badgeHtml = `<span class="badge-${a.type}">${a.type}</span>`;
+    const dot = `<span class="acct-color-dot" style="background:${a.color}"></span>`;
+    const tr = document.createElement('tr');
+    tr.id = 'acct-row-' + a.id;
+    tr.innerHTML = `
+      <td class="col-name">${dot}<span class="editable-acct" data-id="${a.id}" data-raw="${a.name}">${a.name}</span></td>
+      <td>${badgeHtml}</td>
+      <td class="col-amount ${balClass}">${fmtMoney(a.balance)}</td>
+      <td class="col-settings">
+        <span class="row-actions">
+          <button class="settings-btn" onclick="toggleAcctLedger('${a.id}')" title="Ledger">&#x2261;</button>
+          <button class="settings-btn" onclick="toggleAcctSettings('${a.id}')" title="Settings">&#x22EF;</button>
+        </span>
+      </td>`;
+    tr.querySelector('.editable-acct').style.cursor = 'pointer';
+    tr.querySelector('.editable-acct').addEventListener('click', function() {
+      const span = this;
+      if (span.querySelector('input')) return;
+      const id = span.dataset.id, orig = span.dataset.raw || '';
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = orig; input.className = 'inline-input';
+      span.textContent = ''; span.appendChild(input); input.focus(); input.select();
+      let done = false;
+      const commit = () => {
+        if (done) return; done = true;
+        const val = input.value.trim() || orig;
+        span.textContent = val; span.dataset.raw = val;
+        if (val !== orig) saveAcctField(id, 'name', val);
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+        if (ev.key === 'Escape') { done = true; span.textContent = orig; }
+      });
+    });
+    const sectionEl = document.getElementById('acct-section-' + (isDebt ? 'debt' : section));
+    const tbody = sectionEl?.querySelector('table tbody') || sectionEl?.querySelector('table');
+    if (tbody) {
+      tbody.insertBefore(tr, tbody.firstChild);
+    } else {
+      window.location.reload(); return;
+    }
+    // Clear form
+    document.getElementById(section + '-acct-name').value = '';
+    if (document.getElementById(section + '-acct-opening')) document.getElementById(section + '-acct-opening').value = '';
+  } else { alert('Error: ' + (result.error || 'Could not add account.')); }
 }
 
 async function archiveAccount(id) {
@@ -2526,23 +2813,11 @@ async function recordDebtPayment(debtId) {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ debt_id: debtId, from_account_id: fromId,
-                           amount, date, bucket_id: bucketId })
+                           amount, date, bucket_id: bucketId, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
-    // Update displayed debt balance
-    const row = document.getElementById('acct-row-' + debtId);
-    if (row) {
-      const amtCells = row.querySelectorAll('td.col-amount');
-      const balCell = amtCells[amtCells.length - 1];
-      if (balCell) {
-        balCell.textContent = fmtMoney(result.debt_bal);
-        balCell.className = 'col-amount ' + (result.debt_bal === 0 ? 'acct-bal-debt-zero' : 'acct-bal-negative');
-      }
-    }
-    const rtsEl = document.querySelector('.h-rts');
-    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
-    // Clear inputs
+    refreshValues(result);
     const amtEl = document.getElementById('pay-amt-' + debtId);
     if (amtEl) amtEl.value = '';
   } else {
@@ -2624,8 +2899,23 @@ async function submitAddPaycheck(e) {
     body: JSON.stringify({ label, amount, freq, anchor_date: anchor })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (result.ok) { window.location.reload(); }
-  else { alert('Error: ' + (result.error || 'Could not add paycheck.')); }
+  if (result.ok) {
+    const pc = result.paycheck;
+    const tbody = document.getElementById('pc-tbody');
+    if (tbody) {
+      document.getElementById('pc-empty')?.remove();
+      const tr = document.createElement('tr');
+      tr.id = 'pc-row-' + pc.id;
+      tr.innerHTML = `
+        <td class="col-name">${pc.label}</td>
+        <td class="col-amount" style="color:var(--green);font-family:var(--mono)">${fmtMoney(pc.amount)}</td>
+        <td style="color:var(--text2)">${pc.freq_label}</td>
+        <td class="col-m-hide" style="color:var(--text3);font-family:var(--mono);font-size:11px">${pc.anchor}</td>
+        <td class="col-settings"><button class="delete-cat-btn" onclick="deletePaycheck('${pc.id}')">✕</button></td>`;
+      tbody.appendChild(tr);
+      e.target.reset();
+    }
+  } else { alert('Error: ' + (result.error || 'Could not add paycheck.')); }
 }
 
 async function deletePaycheck(id) {
@@ -2658,8 +2948,38 @@ async function submitAddRule(e) {
     body: JSON.stringify({ rule_type: kind, name, bucket_id: bucket, value_type: valType, value })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (result.ok) { window.location.reload(); }
-  else { alert('Error: ' + (result.error || 'Could not add rule.')); }
+  if (result.ok) {
+    const r = result.rule;
+    const tbody = document.getElementById('rules-tbody');
+    if (tbody) {
+      const isInternal = r.rule_type === 'internal';
+      const valStr = r.value_type === 'pct' ? `${r.value}%` : fmtMoney(r.value);
+      const targetStr = isInternal ? `→ ${r.bucket_name || '—'}` : 'External transfer';
+      const color = isInternal ? 'var(--accent)' : 'var(--amber)';
+      // Ensure section header exists
+      const headId = isInternal ? 'rules-internal-head' : 'rules-external-head';
+      const headLabel = isInternal ? 'Internal — Bucket Allocations' : 'External — Transfer Reminders';
+      const borderColor = isInternal ? 'var(--accent)' : 'var(--amber)';
+      if (!document.getElementById(headId)) {
+        const htr = document.createElement('tr');
+        htr.id = headId;
+        htr.innerHTML = `<td colspan="5" class="tbl-cat-head" style="border-left:3px solid ${borderColor}">${headLabel}</td>`;
+        tbody.appendChild(htr);
+      }
+      document.getElementById('rules-empty')?.remove();
+      const tr = document.createElement('tr');
+      tr.id = 'rule-row-' + r.id;
+      tr.innerHTML = `
+        <td style="text-align:center"><input type="checkbox" checked onchange="toggleRule('${r.id}')" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"></td>
+        <td class="col-name">${r.name}</td>
+        <td class="col-amount" style="font-family:var(--mono);color:${color}">${valStr}</td>
+        <td class="col-m-hide" style="color:var(--text3)">${targetStr}</td>
+        <td class="col-settings"><button class="delete-cat-btn" onclick="deleteRule('${r.id}')">✕</button></td>`;
+      tbody.appendChild(tr);
+      e.target.reset();
+      document.getElementById('rule-bucket-field')?.style && (document.getElementById('rule-bucket-field').style.display = 'none');
+    }
+  } else { alert('Error: ' + (result.error || 'Could not add rule.')); }
 }
 
 async function toggleRule(id) {
@@ -2698,7 +3018,7 @@ async function showPaydayModal(amount, mid) {
   }).then(r => r.json()).catch(() => ({ok: false, internal: [], external: []}));
 
   if (!result.ok || (!result.internal?.length && !result.external?.length)) {
-    window.location.reload();
+    // No allocation rules — nothing to suggest, values already updated by add-tx call
     return;
   }
 
@@ -2765,12 +3085,12 @@ async function applyPayday() {
     }
   }
 
-  window.location.reload();
+  refreshValues(result);
+  closePaydayModal();
 }
 
 function closePaydayModal() {
   document.getElementById('payday-overlay').style.display = 'none';
-  window.location.reload();
 }
 </script>
 {% endblock %}
