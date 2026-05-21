@@ -2067,7 +2067,23 @@ function showPanel(name, tab) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   tab.classList.add('active');
+  localStorage.setItem('bc_active_panel', name);
 }
+
+// Restore active panel on page load
+(function() {
+  const saved = localStorage.getItem('bc_active_panel');
+  if (saved && saved !== 'buckets') {
+    const panel = document.getElementById('panel-' + saved);
+    const tab = document.querySelector(`.nav-tab[onclick*="'${saved}'"]`);
+    if (panel && tab) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      panel.classList.add('active');
+      tab.classList.add('active');
+    }
+  }
+})();
 
 /* ── Add bucket/category strip ── */
 function handleStripCatChange(select) {
@@ -2100,40 +2116,83 @@ async function submitAddBucket(e) {
     const bid = result.bucket_id;
     const cid = result.cat_id;
     const isVault = bucketType === 'vault';
-    // Build the new bucket row and inject it
-    const tbody = document.getElementById('cat-body-' + cid);
-    if (tbody) {
+
+    // Build the bucket <tr> (reused for both paths)
+    function makeBucketRow(bid, bucketName, bucketType) {
+      const isVault = bucketType === 'vault';
       const tr = document.createElement('tr');
       tr.id = 'row-' + bid;
       tr.innerHTML = `
-        <td class="col-name" colspan="2">
-          <span class="editable-text" data-field="bucket_name" data-id="${bid}" data-raw="${bucketName}">${bucketName}</span>
+        <td class="col-name">
+          <span class="editable-text" data-field="bucket_name" data-id="${bid}" data-type="text" data-raw="${bucketName}">${bucketName}</span>
         </td>
-        <td class="col-amount editable-num" data-field="bucket_target" data-id="${bid}" data-month="${ACTIVE_MID}" data-raw="0" data-type="number">$0.00</td>
+        <td class="col-status"></td>
+        <td class="col-amount editable-num col-m-hide" data-field="bucket_target" data-id="${bid}" data-month="${ACTIVE_MID}" data-raw="0" data-type="number">$0.00</td>
         <td class="col-amount editable-num" data-field="bucket_alloc" data-id="${bid}" data-month="${ACTIVE_MID}" data-raw="0" data-type="number">$0.00</td>
         <td class="col-amount col-m-hide" id="rollover-${bid}" data-rollover-id="${bid}">—</td>
         <td class="col-amount col-m-hide" id="spent-${bid}" data-spent-id="${bid}">${isVault ? '—' : '$0.00'}</td>
-        <td class="col-amount" data-avail-id="${bid}" data-raw="0" style="">$0.00</td>
+        <td class="col-amount" data-avail-id="${bid}" data-raw="0">$0.00</td>
         <td class="col-settings">
           <span class="row-actions">
+            <button class="reorder-btn" onclick="reorderItem('bucket','${bid}','up','${cid}')" title="Move up">↑</button>
+            <button class="reorder-btn" onclick="reorderItem('bucket','${bid}','down','${cid}')" title="Move down">↓</button>
             <button class="settings-btn" onclick="toggleSettings('${bid}')" title="Settings">&#x22EF;</button>
           </span>
         </td>`;
-      // Wire up click-to-edit on the new cells
       tr.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
         cell.addEventListener('click', () => activateEdit(cell));
       });
-      // If new category was created, inject a category section first
-      if (result.is_new_cat) {
-        window.location.reload(); // new category needs full table section — reload once
-        return;
-      }
-      tbody.appendChild(tr);
-      // Clear form
-      document.getElementById('strip-bucket-name').value = '';
-    } else {
-      window.location.reload();
+      return tr;
     }
+
+    let tbody = document.getElementById('cat-body-' + cid);
+
+    if (!tbody) {
+      // New category — build and inject the full <tbody> before the grand-totals tbody
+      tbody = document.createElement('tbody');
+      tbody.id = 'cat-body-' + cid;
+      const catName = result.cat_name || newCatName;
+      const htr = document.createElement('tr');
+      htr.innerHTML = `
+        <td colspan="6" class="tbl-cat-head">
+          <span class="editable-text" data-field="cat_name" data-id="${cid}" data-type="text" data-raw="${catName}">${catName}</span>
+        </td>
+        <td colspan="2" class="tbl-cat-head" style="text-align:right;padding-right:4px;">
+          <span class="row-actions">
+            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','up','')" title="Move up">↑</button>
+            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','down','')" title="Move down">↓</button>
+            <button class="delete-cat-btn" onclick="deleteCategory('${cid}')" title="Delete category">✕</button>
+          </span>
+        </td>`;
+      htr.querySelector('.editable-text').addEventListener('click', function() { activateEdit(this); });
+      tbody.appendChild(htr);
+
+      // Insert before the grand-totals tbody (last tbody in the table)
+      const table = document.querySelector('#panel-buckets table.data-table');
+      const tbodies = table ? table.querySelectorAll('tbody') : [];
+      const grandTbody = tbodies[tbodies.length - 1];
+      if (grandTbody && grandTbody.querySelector('.tbl-grand-total')) {
+        table.insertBefore(tbody, grandTbody);
+      } else if (table) {
+        table.appendChild(tbody);
+      }
+
+      // Update new category select option so it appears in the strip dropdown
+      const catSel = document.getElementById('strip-cat');
+      if (catSel) {
+        const opt = document.createElement('option');
+        opt.value = cid; opt.textContent = catName;
+        catSel.insertBefore(opt, catSel.querySelector('option[value="__new__"]'));
+      }
+    }
+
+    tbody.appendChild(makeBucketRow(bid, bucketName, bucketType));
+    document.getElementById('strip-bucket-name').value = '';
+    document.getElementById('strip-new-cat-name').value = '';
+    // Reset category select back to first real option if it was __new__
+    const catSel = document.getElementById('strip-cat');
+    if (catSel && catSel.value === '__new__') catSel.value = cid;
+    document.getElementById('strip-new-cat-row')?.style && (document.getElementById('strip-new-cat-row').style.display = 'none');
   } else {
     alert('Error: ' + (result.error || 'Could not add bucket.'));
   }
