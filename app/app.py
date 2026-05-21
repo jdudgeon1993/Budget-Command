@@ -134,6 +134,17 @@ def health():
     return {"status": "ok"}
 
 
+@app.route("/api/state")
+def api_state():
+    if not logged_in():
+        return jsonify({"ok": False}), 401
+    active_mid = request.args.get("month") or current_month_id()
+    _, data = load_budget_row(session["access_token"])
+    if data is None:
+        return jsonify({"ok": False}), 404
+    return jsonify({"ok": True, **_live_state(data, active_mid)})
+
+
 @app.route("/api/save", methods=["POST"])
 def api_save():
     if not logged_in():
@@ -238,19 +249,8 @@ def api_save():
 
     result = {"ok": True}
 
-    # Recompute avail + rts after alloc/target changes
     if field in ("bucket_alloc", "bucket_target") and mid:
-        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
-        all_months = data.get("months", [])
-        txs = data.get("txs", [])
-        active_month = next((m for m in all_months if m["id"] == mid), None)
-        if bucket and active_month:
-            if bucket.get("type") == "vault":
-                avail = vault_accumulated(bid, all_months)
-            else:
-                avail = bucket_available(bucket, active_month, all_months, txs)
-            result["avail"] = avail
-            result["rts"] = _rts_now(data)
+        result.update(_live_state(data, mid))
 
     return jsonify(result)
 
@@ -267,6 +267,54 @@ def _rts_now(data: dict) -> float:
         {"id": cur_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}},
     )
     return ready_to_spend(cur_month, all_months, accounts, active_buckets, txs)
+
+
+def _live_state(data: dict, active_mid: str) -> dict:
+    """All live-display values for the given viewed month — returned by every mutating endpoint."""
+    all_months     = data.get("months", [])
+    accounts       = data.get("accounts", [])
+    txs            = data.get("txs", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    active_month   = next(
+        (m for m in all_months if m.get("id") == active_mid),
+        {"id": active_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}},
+    )
+
+    bucket_avails   = {}
+    bucket_rollover = {}
+    bucket_spent    = {}
+    vault_totals    = {}
+
+    for b in active_buckets:
+        bid = b["id"]
+        if b.get("type") == "vault":
+            total = vault_accumulated(bid, all_months)
+            vault_totals[bid]  = total
+            bucket_avails[bid] = total
+        else:
+            bucket_avails[bid]   = bucket_available(b, active_month, all_months, txs)
+            bucket_rollover[bid] = rollover_bal(b, active_month, all_months, txs)
+            bucket_spent[bid]    = sum(
+                t.get("amount", 0) for t in txs
+                if t.get("bucketId") == bid
+                and t.get("type") == "out"
+                and t.get("monthId") == active_mid
+                and not t.get("scheduledId")
+            )
+
+    account_balances = {
+        a["id"]: acct_balance(a["id"], accounts, txs)
+        for a in accounts if not a.get("archived")
+    }
+
+    return {
+        "rts":              _rts_now(data),
+        "bucket_avails":    bucket_avails,
+        "bucket_rollover":  bucket_rollover,
+        "bucket_spent":     bucket_spent,
+        "vault_totals":     vault_totals,
+        "account_balances": account_balances,
+    }
 
 
 def _new_id(prefix: str) -> str:
@@ -327,7 +375,13 @@ def api_add_bucket():
     })
 
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True, "bucket_id": bucket_id, "cat_id": cat_id})
+    cat_name = next((c.get("name","") for c in data.get("cats",[]) if c["id"] == cat_id), "")
+    active_mid = (body.get("active_mid") or "").strip() or current_month_id()
+    return jsonify({
+        "ok": True, "bucket_id": bucket_id, "cat_id": cat_id,
+        "cat_name": cat_name, "bucket_name": bucket_name, "bucket_type": bucket_type,
+        "is_new_cat": bool(body.get("cat_id","").strip() == "__new__"),
+    })
 
 
 @app.route("/api/archive-category", methods=["POST"])
@@ -471,7 +525,8 @@ def api_vault_withdraw():
     all_months = data.get("months", [])
     new_total  = vault_accumulated(bucket_id, all_months)
 
-    return jsonify({"ok": True, "vault_total": new_total, "alloc": current_alloc - from_alloc, "rts": _rts_now(data)})
+    return jsonify({"ok": True, "vault_total": new_total, "alloc": current_alloc - from_alloc,
+                    **_live_state(data, mid)})
 
 
 @app.route("/api/vault-transfer", methods=["POST"])
@@ -536,7 +591,7 @@ def api_vault_transfer():
         "vault_total": new_vault_total,
         "vault_alloc": allocs[vault_id],
         "dest_avail":  dest_avail,
-        "rts":         _rts_now(data),
+        **_live_state(data, mid),
     })
 
 
@@ -585,7 +640,8 @@ def api_release_rollover():
     new_roll = rollover_bal(bucket, active_month, all_months, txs)
     avail    = bucket_available(bucket, active_month, all_months, txs)
 
-    return jsonify({"ok": True, "rollover": new_roll, "avail": avail, "rts": _rts_now(data)})
+    return jsonify({"ok": True, "rollover": new_roll, "avail": avail,
+                    **_live_state(data, mid)})
 
 
 @app.route("/dashboard")
@@ -959,7 +1015,24 @@ def api_add_transaction():
 
     data.setdefault("txs", []).append(tx)
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True, "tx_id": tx["id"], "month_id": mid})
+
+    active_mid = (body.get("active_mid") or "").strip() or mid
+    accounts_list = data.get("accounts", [])
+    acct_name   = next((a.get("name","") for a in accounts_list if a["id"] == acct_id), "")
+    to_acct_name = next((a.get("name","") for a in accounts_list if a["id"] == to_acct), "") if to_acct else ""
+    buckets_list = data.get("buckets", [])
+    bkt_name    = next((b.get("name","") for b in buckets_list if b["id"] == bkt_id), "") if bkt_id else ""
+
+    return jsonify({
+        "ok": True, "tx_id": tx["id"], "month_id": mid,
+        "tx": {
+            "id": tx["id"], "type": ttype, "date": date, "desc": desc,
+            "amount": amount, "account": acct_name, "to_account": to_acct_name,
+            "bucket_id": bkt_id, "bucket_name": bkt_name,
+            "income_type": income_type or "",
+        },
+        **_live_state(data, active_mid),
+    })
 
 
 @app.route("/api/edit-transaction", methods=["POST"])
@@ -1004,7 +1077,8 @@ def api_edit_transaction():
         return jsonify({"ok": False, "error": f"Unknown field: {field}"}), 400
 
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True})
+    active_mid = (body.get("active_mid") or "").strip() or tx.get("monthId") or current_month_id()
+    return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
 @app.route("/api/delete-transaction", methods=["POST"])
@@ -1014,6 +1088,7 @@ def api_delete_transaction():
 
     body  = request.get_json(silent=True) or {}
     tx_id = (body.get("id") or "").strip()
+    active_mid = (body.get("active_mid") or "").strip() or current_month_id()
 
     row_id, data = load_budget_row(session["access_token"])
     if row_id is None:
@@ -1025,7 +1100,7 @@ def api_delete_transaction():
         return jsonify({"ok": False, "error": "Transaction not found"}), 404
 
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
 @app.route("/api/add-paycheck", methods=["POST"])
@@ -1051,7 +1126,11 @@ def api_add_paycheck():
     pc = {"id": _new_id("pc"), "label": label, "amount": amount, "freq": freq, "anchorDate": anchor}
     data.setdefault("paychecks", []).append(pc)
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True, "id": pc["id"]})
+    freq_labels = {7: "Weekly", 14: "Biweekly", 15: "Semi-monthly", 30: "Monthly"}
+    return jsonify({"ok": True, "id": pc["id"], "paycheck": {
+        "id": pc["id"], "label": label, "amount": amount,
+        "freq_label": freq_labels.get(freq, f"{freq}d"), "anchor": anchor or "—",
+    }})
 
 
 @app.route("/api/delete-paycheck", methods=["POST"])
@@ -1109,7 +1188,13 @@ def api_add_rule():
     }
     data.setdefault("allocationRules", []).append(rule)
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True, "id": rule["id"]})
+    bucket_name = ""
+    if bucket_id:
+        bucket_name = next((b.get("name","") for b in data.get("buckets",[]) if b["id"] == bucket_id), "")
+    return jsonify({"ok": True, "id": rule["id"], "rule": {
+        "id": rule["id"], "name": name, "rule_type": rule_type,
+        "value_type": value_type, "value": value, "bucket_name": bucket_name,
+    }})
 
 
 @app.route("/api/toggle-rule", methods=["POST"])
@@ -1201,7 +1286,7 @@ def api_apply_payday():
             month.setdefault("allocations", {})[bid] = current + amt
 
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True, "rts": _rts_now(data)})
+    return jsonify({"ok": True, **_live_state(data, mid or current_month_id())})
 
 
 @app.route("/api/add-account", methods=["POST"])
@@ -1233,7 +1318,11 @@ def api_add_account():
     })
 
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True, "acct_id": acct_id})
+    return jsonify({
+        "ok": True, "acct_id": acct_id,
+        "account": {"id": acct_id, "name": name, "type": atype, "color": color,
+                    "balance": opening},
+    })
 
 
 @app.route("/api/save-account", methods=["POST"])
@@ -1333,9 +1422,11 @@ def api_debt_payment():
     txs_new      = data.get("txs", [])
     new_debt_bal = acct_balance(debt_acct, txs_new)
     new_src_bal  = acct_balance(src_acct, txs_new)
+    active_mid   = (body.get("active_mid") or "").strip() or mid
 
     return jsonify({"ok": True, "tx_id": tx["id"],
-                    "debt_bal": new_debt_bal, "src_bal": new_src_bal, "rts": _rts_now(data)})
+                    "debt_bal": new_debt_bal, "src_bal": new_src_bal,
+                    **_live_state(data, active_mid)})
 
 
 if __name__ == "__main__":
