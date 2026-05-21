@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from formulas import (
     current_month_id, parse_month_id, month_id,
     b_alloc, b_budget, b_spent, rollover_bal, bucket_available, ready_to_spend,
+    vault_accumulated,
 )
 
 MONTH_NAMES = ["January","February","March","April","May","June",
@@ -370,6 +371,43 @@ def api_reorder():
     return jsonify({"ok": True})
 
 
+@app.route("/api/release-rollover", methods=["POST"])
+def api_release_rollover():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    bucket_id = body.get("id", "").strip()
+    mid       = body.get("month", "").strip()
+    amount    = float(body.get("amount") or 0)
+
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    month = _find_or_create_month(data, mid)
+    released = month.setdefault("rolloverReleased", {})
+    released[bucket_id] = float(released.get(bucket_id) or 0) + amount
+
+    save_budget_row(session["access_token"], row_id, data)
+
+    # Return new rollover balance so UI can update
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+    all_months = data.get("months", [])
+    txs = data.get("txs", [])
+    active_month = next((m for m in all_months if m["id"] == mid), month)
+    new_roll = rollover_bal(bucket, active_month, all_months, txs) if bucket else 0
+    avail = bucket_available(bucket, active_month, all_months, txs) if bucket else 0
+    accounts = data.get("accounts", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+
+    return jsonify({"ok": True, "rollover": new_roll, "avail": avail, "rts": rts})
+
+
 @app.route("/dashboard")
 def dashboard():
     if not logged_in():
@@ -434,10 +472,22 @@ def _dashboard_inner():
             status = bucket_status(alloc, budget, spent, avail)
             skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
 
+            btype = b.get("type", "expense")
+            target_amount = b.get("targetAmount") or 0
+            vault_total = vault_accumulated(b["id"], all_months) if btype == "vault" else 0
+
+            # Progress bar for sinking/goal/vault
+            progress_pct = 0
+            if btype in ("sinking", "goal") and target_amount > 0:
+                saved = roll + alloc  # accumulated so far
+                progress_pct = min(100, max(0, round(saved / target_amount * 100)))
+            elif btype == "vault" and target_amount > 0:
+                progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
+
             rows.append({
                 "id":              b["id"],
                 "name":            b["name"],
-                "type":            b.get("type", "expense"),
+                "type":            btype,
                 "cat_id":          b.get("catId", cid),
                 "rollover":        b.get("rollover", False),
                 "recurring":       b.get("recurring", False),
@@ -447,7 +497,7 @@ def _dashboard_inner():
                 "due_amount":      b.get("dueAmount", ""),
                 "debt_account_id": b.get("debtAccountId", ""),
                 "notes":           b.get("notes", "") or "",
-                "target_amount":   b.get("targetAmount", ""),
+                "target_amount":   target_amount or "",
                 "target_date":     b.get("targetDate", ""),
                 "contrib_freq":    b.get("contribFreq", ""),
                 "default_budget":  b.get("defaultBudget", 0),
@@ -457,6 +507,8 @@ def _dashboard_inner():
                 "spent":           spent,
                 "avail":           avail,
                 "status":          status,
+                "vault_total":     vault_total,
+                "progress_pct":    progress_pct,
             })
 
             totals["alloc"]    += alloc

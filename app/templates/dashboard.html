@@ -304,6 +304,73 @@
 }
 .archive-btn:hover { background: var(--rbg); }
 
+/* ── Progress bar ── */
+.progress-wrap {
+  margin-top: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  height: 3px;
+  width: 100%;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width .3s;
+}
+.progress-bar.complete { background: var(--green); }
+.progress-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: .06em;
+  margin-top: 1px;
+}
+
+/* ── Vault accumulated display ── */
+.vault-total {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.4vw, 10px);
+  color: var(--accent);
+  letter-spacing: .06em;
+  margin-top: 2px;
+}
+
+/* ── Rollover release UI ── */
+.release-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.release-input {
+  width: 110px;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 4px 7px;
+  font-family: var(--sans);
+  font-size: clamp(12px, 1.8vw, 13px);
+  outline: none;
+}
+.release-input:focus { border-color: var(--accent); }
+.release-btn {
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.4vw, 10px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background .12s;
+}
+.release-btn:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+
 /* ── Quick-add strip ── */
 .strip-form { margin-bottom: 12px; }
 .strip-form-table { width: 100%; border-collapse: collapse; }
@@ -508,6 +575,20 @@
                     data-field="bucket_name"
                     data-id="{{ b.id }}"
                     data-type="text">{{ b.name }}</span>
+              {% if b.type == 'vault' %}
+                <div class="vault-total">{{ b.vault_total|money }} saved</div>
+                {% if b.progress_pct > 0 %}
+                <div class="progress-wrap">
+                  <div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div>
+                </div>
+                <div class="progress-label">{{ b.progress_pct }}%</div>
+                {% endif %}
+              {% elif b.type in ('sinking', 'goal') and b.progress_pct > 0 %}
+                <div class="progress-wrap">
+                  <div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div>
+                </div>
+                <div class="progress-label">{{ b.progress_pct }}%</div>
+              {% endif %}
             </td>
             <td class="col-status">
               {% if b.status %}
@@ -649,6 +730,26 @@
                            onblur="saveSettingText('bucket_notes','{{ b.id }}',this.value,'')">
                   </div>
                 </div>
+
+                <!-- Rollover release (only for rollover-enabled buckets with positive balance) -->
+                {% if b.rollover and b.rollover_val > 0 %}
+                <div class="sf-row" id="release-row-{{ b.id }}">
+                  <div class="sf-field">
+                    <div class="sf-label">Release Rollover</div>
+                    <div class="release-row">
+                      <input class="release-input" type="number" step="0.01" min="0.01"
+                             id="release-input-{{ b.id }}"
+                             placeholder="$ amount"
+                             max="{{ b.rollover_val }}">
+                      <button class="release-btn"
+                              onclick="releaseRollover('{{ b.id }}','{{ active_mid }}')">Release</button>
+                      <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
+                        balance: <span id="roll-bal-{{ b.id }}">{{ b.rollover_val|money }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
 
                 <!-- Toggles + archive -->
                 <div class="sf-row sf-toggles">
@@ -1014,6 +1115,46 @@ function saveSettingText(field, id, value, month) {
 }
 function saveSettingNum(field, id, value, month) {
   saveSetting(field, id, parseFloat(value) || null, month);
+}
+
+/* ── Release rollover balance ── */
+async function releaseRollover(id, month) {
+  const input = document.getElementById('release-input-' + id);
+  const amount = parseFloat(input.value);
+  if (!amount || amount <= 0) { alert('Enter a positive amount to release.'); return; }
+
+  const result = await fetch('/api/release-rollover', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id, month, amount })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (!result.ok) { alert('Release failed: ' + (result.error || 'unknown error')); return; }
+
+  input.value = '';
+
+  // Update rollover balance label
+  const balEl = document.getElementById('roll-bal-' + id);
+  if (balEl) balEl.textContent = fmtMoney(result.rollover);
+
+  // Hide release row if no remaining balance
+  if (result.rollover <= 0) {
+    document.getElementById('release-row-' + id)?.remove();
+  }
+
+  // Update avail cell
+  const availCell = document.querySelector(`[data-avail-id="${id}"]`);
+  if (availCell && result.avail !== undefined) {
+    availCell.textContent = fmtMoney(result.avail);
+    availCell.dataset.raw = result.avail;
+    availCell.style.color = result.avail < 0 ? 'var(--red)' : result.avail > 0 ? 'var(--green)' : '';
+  }
+
+  // Update RTS
+  if (result.rts !== undefined) {
+    const rtsEl = document.querySelector('.h-rts');
+    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+  }
 }
 
 /* ── Archive bucket ── */
