@@ -371,29 +371,37 @@
 }
 .release-btn:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
 
-/* ── Quick-add strip ── */
-.strip-form { margin-bottom: 12px; }
-.strip-form-table { width: 100%; border-collapse: collapse; }
-.strip-form-table td { padding: 3px 6px; }
-.strip-label { white-space: nowrap; font-family: var(--mono); font-size: clamp(10px, 1.5vw, 12px); letter-spacing: .08em; color: var(--text2); text-transform: uppercase; }
-.strip-form-table select,
-.strip-form-table input[type="text"],
-.strip-form-table input[type="number"],
-.strip-form-table input[type="date"] {
+/* ── Quick-add strip (flex, wraps naturally on any screen width) ── */
+.strip-form { margin-bottom: 14px; }
+.strip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+.strip-field        { flex: 1; min-width: 130px; }
+.strip-field-sm     { flex: 0 1 110px; min-width: 90px; }
+.strip-field-lg     { flex: 2 1 180px; min-width: 140px; }
+.strip-field-btn    { flex: 0 0 auto; }
+.strip-field select,
+.strip-field input  {
   width: 100%;
-  padding: 5px 8px;
+  padding: 7px 10px;
   background: var(--bg2);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--r);
   font-family: var(--sans);
   font-size: clamp(12px, 1.8vw, 14px);
+  outline: none;
+  transition: border-color .12s;
+  box-sizing: border-box;
 }
-.strip-form-table select:focus,
-.strip-form-table input:focus { outline: none; border-color: var(--accent); }
+.strip-field select:focus,
+.strip-field input:focus { border-color: var(--accent); }
 .strip-btn {
-  width: 100%;
-  padding: 6px 10px;
+  height: 36px;
+  padding: 0 16px;
   background: var(--border);
   color: var(--text2);
   border: none;
@@ -408,12 +416,9 @@
 }
 .strip-btn:hover { background: var(--border2); color: #fff; }
 
-@media (max-width: 600px) {
-  .strip-form-table,
-  .strip-form-table tbody,
-  .strip-form-table tr,
-  .strip-form-table td { display: block; width: 100%; }
-  .strip-form-table td { padding: 4px 0; }
+/* ── Hide secondary columns on mobile ── */
+@media (max-width: 640px) {
+  .col-m-hide { display: none; }
 }
 
 /* ── Ledger row left-border colours (mirrors bucket status pattern) ── */
@@ -534,33 +539,34 @@
   <div id="panel-buckets" class="panel active">
     <div class="panel-container">
       <form class="strip-form" id="add-bucket-form" onsubmit="submitAddBucket(event)">
-        <table class="strip-form-table">
-          <tr>
-            <td style="width:1%;"><span class="strip-label">Add:</span></td>
-            <td style="width:20%;">
-              <select id="strip-cat" required onchange="handleStripCatChange(this)">
-                <option value="">— Category —</option>
-                {% for cat in all_cats %}
-                <option value="{{ cat.id }}">{{ cat.name }}</option>
-                {% endfor %}
-                <option value="__new__">+ New Category</option>
-              </select>
-            </td>
-            <td id="strip-new-cat-cell" style="display:none; width:18%;">
-              <input type="text" id="strip-new-cat-name" placeholder="Category name">
-            </td>
-            <td><input type="text" id="strip-bucket-name" placeholder="Bucket name" required></td>
-            <td style="width:14%;">
-              <select id="strip-type">
-                <option value="expense">Expense</option>
-                <option value="sinking">Sinking Fund</option>
-                <option value="goal">Goal</option>
-                <option value="vault">Vault</option>
-              </select>
-            </td>
-            <td style="width:10%;"><button class="strip-btn" type="submit">+ Add</button></td>
-          </tr>
-        </table>
+        <div class="strip-row">
+          <div class="strip-field">
+            <select id="strip-cat" required onchange="handleStripCatChange(this)">
+              <option value="">— Category —</option>
+              {% for cat in all_cats %}
+              <option value="{{ cat.id }}">{{ cat.name }}</option>
+              {% endfor %}
+              <option value="__new__">+ New Category</option>
+            </select>
+          </div>
+          <div class="strip-field" id="strip-new-cat-cell" style="display:none">
+            <input type="text" id="strip-new-cat-name" placeholder="New category name">
+          </div>
+          <div class="strip-field strip-field-lg">
+            <input type="text" id="strip-bucket-name" placeholder="Bucket name" required>
+          </div>
+          <div class="strip-field strip-field-sm">
+            <select id="strip-type">
+              <option value="expense">Expense</option>
+              <option value="sinking">Sinking Fund</option>
+              <option value="goal">Goal</option>
+              <option value="vault">Vault</option>
+            </select>
+          </div>
+          <div class="strip-field-btn">
+            <button class="strip-btn" type="submit">+ Add Bucket</button>
+          </div>
+        </div>
       </form>
 
       <table class="data-table">
@@ -571,10 +577,10 @@
           <tr>
             <th>Bucket</th>
             <th class="col-status"></th>
-            <th class="col-amount">Target</th>
+            <th class="col-amount col-m-hide">Target</th>
             <th class="col-amount">Allocated</th>
-            <th class="col-amount">Rollover</th>
-            <th class="col-amount">Spent</th>
+            <th class="col-amount col-m-hide">Rollover</th>
+            <th class="col-amount col-m-hide">Spent</th>
             <th class="col-amount">Available</th>
             <th class="col-settings"></th>
           </tr>
@@ -636,7 +642,7 @@
                 <span class="badge-{{ b.status|lower }}">{{ b.status }}</span>
               {% endif %}
             </td>
-            <td class="col-amount editable-num"
+            <td class="col-amount col-m-hide editable-num"
                 data-field="bucket_target"
                 data-id="{{ b.id }}"
                 data-month="{{ active_mid }}"
@@ -648,10 +654,10 @@
                 data-month="{{ active_mid }}"
                 data-raw="{{ b.alloc }}"
                 data-type="number">{{ b.alloc|money }}</td>
-            <td class="col-amount" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
+            <td class="col-amount col-m-hide" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
               {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
             </td>
-            <td class="col-amount">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
+            <td class="col-amount col-m-hide">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
                 data-raw="{{ b.avail }}"
@@ -885,10 +891,10 @@
           <!-- Category totals -->
           <tr class="tbl-cat-total-row tbl-cat-total">
             <th colspan="2">{{ group.name }} total</th>
-            <th class="col-amount">{{ group.totals.budget|money }}</th>
+            <th class="col-amount col-m-hide">{{ group.totals.budget|money }}</th>
             <th class="col-amount">{{ group.totals.alloc|money }}</th>
-            <th class="col-amount">{{ group.totals.rollover|money if group.totals.rollover != 0 else "—" }}</th>
-            <th class="col-amount">{{ group.totals.spent|money }}</th>
+            <th class="col-amount col-m-hide">{{ group.totals.rollover|money if group.totals.rollover != 0 else "—" }}</th>
+            <th class="col-amount col-m-hide">{{ group.totals.spent|money }}</th>
             <th class="col-amount">{{ group.totals.avail|money }}</th>
             <th></th>
           </tr>
@@ -901,10 +907,10 @@
         <tbody>
           <tr class="tbl-grand-total">
             <th colspan="2">Grand Total</th>
-            <th class="col-amount">{{ grand.budget|money }}</th>
+            <th class="col-amount col-m-hide">{{ grand.budget|money }}</th>
             <th class="col-amount">{{ grand.alloc|money }}</th>
-            <th class="col-amount">{{ grand.rollover|money if grand.rollover != 0 else "—" }}</th>
-            <th class="col-amount">{{ grand.spent|money }}</th>
+            <th class="col-amount col-m-hide">{{ grand.rollover|money if grand.rollover != 0 else "—" }}</th>
+            <th class="col-amount col-m-hide">{{ grand.spent|money }}</th>
             <th class="col-amount">{{ grand.avail|money }}</th>
             <th></th>
           </tr>
@@ -920,46 +926,51 @@
 
       <!-- Quick-add strip -->
       <form class="strip-form" id="add-tx-form" onsubmit="submitAddTx(event)">
-        <table class="strip-form-table">
-          <tr>
-            <td style="width:1%;"><span class="strip-label">Add:</span></td>
-            <td style="width:13%;">
-              <select id="tx-type" onchange="handleTxTypeChange(this)">
-                <option value="out">Expense</option>
-                <option value="in">Income</option>
-                <option value="xfr">Transfer</option>
-              </select>
-            </td>
-            <td style="width:11%;"><input type="date" id="tx-date" required></td>
-            <td><input type="text" id="tx-desc" placeholder="Description"></td>
-            <td style="width:10%;"><input type="number" id="tx-amount" placeholder="$" step="0.01" min="0.01" required></td>
-            <td style="width:14%;">
-              <select id="tx-account" required>
-                <option value="">— Account —</option>
-                {% for a in accounts %}
-                <option value="{{ a.id }}">{{ a.name }}</option>
-                {% endfor %}
-              </select>
-            </td>
-            <td id="tx-bucket-cell" style="width:14%;">
-              <select id="tx-bucket">
-                <option value="">— Bucket —</option>
-                {% for b in expense_buckets %}
-                <option value="{{ b.id }}">{{ b.name }}</option>
-                {% endfor %}
-              </select>
-            </td>
-            <td id="tx-to-acct-cell" style="display:none; width:14%;">
-              <select id="tx-to-account">
-                <option value="">— To Account —</option>
-                {% for a in accounts %}
-                <option value="{{ a.id }}">{{ a.name }}</option>
-                {% endfor %}
-              </select>
-            </td>
-            <td style="width:8%;"><button class="strip-btn" type="submit">+ Add</button></td>
-          </tr>
-        </table>
+        <div class="strip-row">
+          <div class="strip-field strip-field-sm">
+            <select id="tx-type" onchange="handleTxTypeChange(this)">
+              <option value="out">Expense</option>
+              <option value="in">Income</option>
+              <option value="xfr">Transfer</option>
+            </select>
+          </div>
+          <div class="strip-field strip-field-sm">
+            <input type="date" id="tx-date" required>
+          </div>
+          <div class="strip-field strip-field-lg">
+            <input type="text" id="tx-desc" placeholder="Description">
+          </div>
+          <div class="strip-field strip-field-sm">
+            <input type="number" id="tx-amount" placeholder="$ amount" step="0.01" min="0.01" required>
+          </div>
+          <div class="strip-field">
+            <select id="tx-account" required>
+              <option value="">— Account —</option>
+              {% for a in accounts %}
+              <option value="{{ a.id }}">{{ a.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="strip-field" id="tx-bucket-cell">
+            <select id="tx-bucket">
+              <option value="">— Bucket —</option>
+              {% for b in expense_buckets %}
+              <option value="{{ b.id }}">{{ b.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="strip-field" id="tx-to-acct-cell" style="display:none">
+            <select id="tx-to-account">
+              <option value="">— To Account —</option>
+              {% for a in accounts %}
+              <option value="{{ a.id }}">{{ a.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="strip-field-btn">
+            <button class="strip-btn" type="submit">+ Add</button>
+          </div>
+        </div>
       </form>
 
       <!-- Ledger table -->
@@ -969,9 +980,9 @@
             <td colspan="6" class="tbl-section-head">Ledger — {{ month_display }}</td>
           </tr>
           <tr>
-            <th class="col-date">Date</th>
+            <th class="col-date col-m-hide">Date</th>
             <th>Description</th>
-            <th>Account</th>
+            <th class="col-m-hide">Account</th>
             <th>Bucket</th>
             <th class="col-amount">Amount</th>
             <th class="col-settings"></th>
@@ -996,7 +1007,7 @@
           {% set amt_class = 'ledger-amt-in' if t.type == 'in' else ('ledger-amt-xfr' if t.type == 'xfr' else 'ledger-amt-out') %}
 
           <tr id="ltx-{{ t.id }}" class="{{ row_class }}">
-            <td class="col-date" style="color:var(--text3); font-family:var(--mono); font-size:clamp(10px,1.5vw,11px);">
+            <td class="col-date col-m-hide" style="color:var(--text3); font-family:var(--mono); font-size:clamp(10px,1.5vw,11px);">
               {{ t.date }}
             </td>
             <td>
@@ -1004,7 +1015,7 @@
               <span class="ledger-desc" id="desc-{{ t.id }}"
                     data-tx="{{ t.id }}" data-raw="{{ t.desc }}">{{ t.desc or "—" }}</span>
             </td>
-            <td class="ledger-account-cell">
+            <td class="ledger-account-cell col-m-hide">
               {% if t.type == 'xfr' %}{{ t.account }} → {{ t.to_account }}
               {% else %}{{ t.account }}{% endif %}
             </td>
@@ -1104,7 +1115,9 @@
         {% if ledger_groups %}
         <tfoot>
           <tr class="ledger-totals-row">
-            <th colspan="3"></th>
+            <th class="col-m-hide"></th>
+            <th></th>
+            <th class="col-m-hide"></th>
             <th style="text-align:right; font-family:var(--mono); font-size:clamp(9px,1.4vw,10px); color:var(--text3); letter-spacing:.08em; text-transform:uppercase;">
               In: <span style="color:var(--green);">{{ ledger_income|money }}</span>
               &nbsp; Out: <span style="color:var(--red);">{{ ledger_spent|money }}</span>
