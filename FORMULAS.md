@@ -820,14 +820,13 @@ Mobile-first layout: header (logo, RTS, user, logout), month nav bar (prev/next)
 
 ---
 
-### Phase 5 — Buckets Panel ✅ Done (display + edit)
+### Phase 5 — Buckets Panel ✅ Done
 
-**Done:**
 - Reads all data from `bcc_budget_state` JSON blob in Supabase
 - All core formulas running in Python: `b_alloc`, `b_budget`, `b_spent`, `rollover_bal`, `bucket_available`, `ready_to_spend`
 - Category groups with color accents, sorted by order
 - Bucket rows: Target / Allocated / Rollover / Spent / Available columns
-- Status badges: OK / PAID / OVER with color coding
+- Status badges: OK / PAID / OVER / FUNDED with color coding
 - Category subtotals and grand total row
 - Inline editing: click category name, bucket name, target, or allocated — saves to Supabase, updates Available and RTS live
 - `⋯` settings panel per bucket with type-aware fields:
@@ -835,43 +834,38 @@ Mobile-first layout: header (logo, RTS, user, logout), month nav bar (prev/next)
   - **Vault / Sinking / Goal**: category, type, target amount, target date, contribution frequency, notes, rollover, skip, archive
 - Type switch immediately swaps visible field group
 - Category change immediately moves bucket row to correct category section in the table
-
-**Still needed in this phase:**
-- Add new bucket (name, category, type — inline at bottom of category or via strip)
-- Add new category (name, color)
-- Delete category (only allowed when empty — no buckets assigned)
-- Archive bucket = soft-delete, history preserved (UI exists via ⋯ panel; confirm it works end-to-end)
-- Permanent delete bucket (no transactions ever logged against it)
-- Reorder buckets within a category (up/down or drag)
-- Reorder categories (up/down or drag)
-- Vault accumulated balance display (sum of all prior allocations minus withdrawals)
+- Add new bucket (name, category, type) via quick-add strip
+- Add new category (name, color) via strip
+- Delete category (only allowed when empty)
+- Archive bucket via ⋯ panel
+- Reorder buckets within a category (up/down arrows)
+- Reorder categories (up/down arrows)
+- Vault accumulated balance display (`vault_accumulated()` — sum of all prior allocations minus withdrawals)
+- Vault transfer (swap alloc between vault and destination bucket, net RTS = 0)
+- Vault withdraw (drain current-month alloc first, then `vaultWithdrawals`, release to pool)
 - Rollover release button (release surplus back to RTS pool, stored in `rolloverReleased`)
-- Sinking fund / goal progress bar (saved vs. target, months remaining, monthly needed)
+- Sinking fund / goal progress bar (saved `avail` vs. target, percentage complete)
+- New sinking/goal buckets default to `rollover: true`
 
 ---
 
-### Phase 6 — Ledger Panel 🔲 Next
+### Phase 6 — Ledger Panel ✅ Done
 
-**Goal:** Users can see and manage all transactions for the active month.
-
-**Read (display):**
-- Transaction list grouped by date, newest first
-- Columns: Date / Description / Account / Bucket / Amount
-- Color: income green, expense default, transfers dimmed, scheduled amber
-- Month total: income in, expenses out, net
-
-**Write (add / edit / delete):**
-- Quick-add strip at top: date, description, amount, account, type, bucket
-- Click any transaction row to expand and edit inline
-- Delete button per transaction
-- Bucket assignment inline (select dropdown on the row)
-- Scheduled transactions shown with amber styling, excluded from totals
-
-**Depends on:** Phase 5 buckets (bucket list needed for assignment dropdown).
+- Transaction list grouped by date, newest first, with date group headers reusing `.tbl-cat-head` styling
+- Columns: Date / Description / Account / Bucket / Amount (Date + Account hidden on mobile)
+- Left-border color: income green, expense transparent, transfers dimmed, scheduled amber
+- Type badges: IN / OUT / XFR / SCHED in matching monospace colors
+- Month totals row: income in, expenses out, net
+- Quick-add strip (flex, wraps on mobile): date, description, amount, account, type, bucket
+- `⋯` expand panel per transaction: edit description, amount, date, account, to-account, type, bucket
+- Delete button per transaction with live DOM removal
+- Inline bucket assignment via dropdown directly on the row (expense transactions only)
+- Scheduled transactions shown amber, excluded from formula calculations
+- Shared CSS vocabulary with buckets panel: `.tbl-cat-head`, `.bucket-settings-row`, `.settings-form`, `.sf-row`, `.sf-field`, `.settings-btn`, `.row-actions`, `.badge-*`
 
 ---
 
-### Phase 7 — More Panel: Accounts 🔲
+### Phase 7 — More Panel: Accounts 🔲 Next
 
 **Goal:** Users can view account balances and manage accounts.
 
