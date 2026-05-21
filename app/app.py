@@ -823,6 +823,11 @@ def api_edit_transaction():
         tx["bucketId"] = str(value or "") or None
     elif field == "account_id":
         tx["accountId"] = str(value or "")
+    elif field == "to_account_id":
+        if value:
+            tx["toAccountId"] = str(value)
+        else:
+            tx.pop("toAccountId", None)
     else:
         return jsonify({"ok": False, "error": f"Unknown field: {field}"}), 400
 
