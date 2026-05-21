@@ -689,7 +689,7 @@
                     data-id="{{ b.id }}"
                     data-type="text">{{ b.name }}</span>
               {% if b.type == 'vault' %}
-                <div class="vault-total">{{ b.vault_total|money }} saved</div>
+                <div class="vault-total" id="vault-row-total-{{ b.id }}">{{ b.vault_total|money }} saved</div>
                 {% if b.progress_pct > 0 %}
                 <div class="progress-wrap">
                   <div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div>
@@ -920,8 +920,12 @@
                       <button class="release-btn"
                               onclick="releaseRollover('{{ b.id }}','{{ active_mid }}')">Release</button>
                       <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
-                        balance: <span id="roll-bal-{{ b.id }}">{{ b.rollover_val|money }}</span>
+                        available: <span id="roll-bal-{{ b.id }}">{{ b.rollover_val|money }}</span>
                       </span>
+                    </div>
+                    <div style="margin-top:5px;font-family:var(--mono);font-size:clamp(9px,1.3vw,10px);color:var(--text3);line-height:1.5;border-left:2px solid var(--border2);padding-left:8px;">
+                      Releases unspent carry-forward from prior months back to your RTS pool.<br>
+                      This month's allocation of <strong style="color:var(--text2);">{{ b.alloc|money }}</strong> is not touched.
                     </div>
                   </div>
                 </div>
@@ -1823,6 +1827,9 @@ function switchBucketType(select, id) {
   toggles.forEach(t => { t.style.display = type === 'vault' ? 'none' : ''; });
 
   saveSetting('bucket_type', id, type, '');
+  if (type === 'vault') {
+    saveSetting('bucket_rollover', id, false, '');
+  }
 }
 
 /* ── Text/number blur helpers for settings inputs ── */
@@ -1849,15 +1856,29 @@ async function vaultWithdraw(id, month) {
 
   input.value = '';
 
+  // Update settings panel balance
   const balEl = document.getElementById('vault-bal-' + id);
   if (balEl) balEl.textContent = fmtMoney(result.vault_total);
 
+  // Update bucket row vault-total text
+  const rowTotalEl = document.getElementById('vault-row-total-' + id);
+  if (rowTotalEl) rowTotalEl.textContent = fmtMoney(result.vault_total) + ' saved';
+
+  // Update available cell in bucket row
   const availCell = document.querySelector(`[data-avail-id="${id}"]`);
   if (availCell) {
     availCell.textContent = fmtMoney(result.vault_total);
     availCell.dataset.raw = result.vault_total;
     availCell.style.color = result.vault_total > 0 ? 'var(--green)' : '';
   }
+
+  // Update alloc cell if the withdrawal drained some allocation
+  const allocCell = document.querySelector(`[data-field="bucket_alloc"][data-id="${id}"]`);
+  if (allocCell && result.alloc !== undefined) {
+    allocCell.textContent = fmtMoney(result.alloc);
+    allocCell.dataset.raw = result.alloc;
+  }
+
   if (result.rts !== undefined) {
     const rtsEl = document.querySelector('.h-rts');
     if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
@@ -1888,11 +1909,18 @@ async function vaultTransfer(vaultId, month) {
   // Update vault balance display
   const balEl = document.getElementById('vault-bal-' + vaultId);
   if (balEl) balEl.textContent = fmtMoney(result.vault_total);
+  const rowTotalEl = document.getElementById('vault-row-total-' + vaultId);
+  if (rowTotalEl) rowTotalEl.textContent = fmtMoney(result.vault_total) + ' saved';
   const vaultAvail = document.querySelector(`[data-avail-id="${vaultId}"]`);
   if (vaultAvail) {
     vaultAvail.textContent = fmtMoney(result.vault_total);
     vaultAvail.dataset.raw = result.vault_total;
     vaultAvail.style.color = result.vault_total > 0 ? 'var(--green)' : '';
+  }
+  const vaultAllocCell = document.querySelector(`[data-field="bucket_alloc"][data-id="${vaultId}"]`);
+  if (vaultAllocCell && result.vault_alloc !== undefined) {
+    vaultAllocCell.textContent = fmtMoney(result.vault_alloc);
+    vaultAllocCell.dataset.raw = result.vault_alloc;
   }
 
   // Update destination bucket's available cell
@@ -2052,30 +2080,8 @@ async function releaseRollover(id, month) {
 
   if (!result.ok) { alert('Release failed: ' + (result.error || 'unknown error')); return; }
 
-  input.value = '';
-
-  // Update rollover balance label
-  const balEl = document.getElementById('roll-bal-' + id);
-  if (balEl) balEl.textContent = fmtMoney(result.rollover);
-
-  // Hide release row if no remaining balance
-  if (result.rollover <= 0) {
-    document.getElementById('release-row-' + id)?.remove();
-  }
-
-  // Update avail cell
-  const availCell = document.querySelector(`[data-avail-id="${id}"]`);
-  if (availCell && result.avail !== undefined) {
-    availCell.textContent = fmtMoney(result.avail);
-    availCell.dataset.raw = result.avail;
-    availCell.style.color = result.avail < 0 ? 'var(--red)' : result.avail > 0 ? 'var(--green)' : '';
-  }
-
-  // Update RTS
-  if (result.rts !== undefined) {
-    const rtsEl = document.querySelector('.h-rts');
-    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
-  }
+  // Reload to refresh rollover column, bucket status, and all derived values
+  window.location.reload();
 }
 
 /* ── Archive bucket ── */
