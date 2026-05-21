@@ -80,11 +80,13 @@ def _find_or_create_month(data: dict, mid: str) -> dict:
     return month
 
 
-def bucket_status(alloc: float, spent: float, avail: float) -> str:
+def bucket_status(alloc: float, budget: float, spent: float, avail: float) -> str:
     if avail < 0:
         return "OVER"
     if alloc > 0 and spent >= alloc:
         return "PAID"
+    if budget > 0 and alloc >= budget:
+        return "FUNDED"
     if alloc > 0:
         return "OK"
     return ""
@@ -243,6 +245,131 @@ def api_save():
     return jsonify(result)
 
 
+def _new_id(prefix: str) -> str:
+    import time, random, string
+    chars = string.ascii_lowercase + string.digits
+    suffix = "".join(random.choices(chars, k=6))
+    return f"{prefix}_{suffix}"
+
+
+@app.route("/api/add-bucket", methods=["POST"])
+def api_add_bucket():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body = request.get_json(silent=True) or {}
+    cat_id       = body.get("cat_id", "").strip()
+    new_cat_name = body.get("new_cat_name", "").strip()
+    bucket_name  = body.get("bucket_name", "").strip()
+    bucket_type  = body.get("bucket_type", "expense")
+
+    if not bucket_name:
+        return jsonify({"ok": False, "error": "Bucket name required"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    cats    = data.setdefault("cats", [])
+    buckets = data.setdefault("buckets", [])
+
+    # Create new category if requested
+    if cat_id == "__new__":
+        if not new_cat_name:
+            return jsonify({"ok": False, "error": "Category name required"}), 400
+        cat_id = _new_id("cat")
+        max_order = max((c.get("order", 0) for c in cats), default=0)
+        cats.append({"id": cat_id, "name": new_cat_name, "color": "", "order": max_order + 1})
+
+    # Verify category exists
+    if not any(c["id"] == cat_id for c in cats):
+        return jsonify({"ok": False, "error": "Category not found"}), 400
+
+    # Create bucket
+    cat_buckets = [b for b in buckets if b.get("catId") == cat_id and not b.get("archived")]
+    max_order   = max((b.get("order", 0) for b in cat_buckets), default=0)
+    bucket_id   = _new_id("bkt")
+    buckets.append({
+        "id":            bucket_id,
+        "catId":         cat_id,
+        "name":          bucket_name,
+        "type":          bucket_type,
+        "rollover":      False,
+        "recurring":     False,
+        "archived":      False,
+        "defaultBudget": 0,
+        "order":         max_order + 1,
+        "notes":         None,
+    })
+
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True, "bucket_id": bucket_id, "cat_id": cat_id})
+
+
+@app.route("/api/delete-category", methods=["POST"])
+def api_delete_category():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    cat_id = body.get("cat_id", "").strip()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    active_in_cat = [
+        b for b in data.get("buckets", [])
+        if b.get("catId") == cat_id and not b.get("archived")
+    ]
+    if active_in_cat:
+        return jsonify({"ok": False, "error": "Category still has active buckets"}), 400
+
+    data["cats"] = [c for c in data.get("cats", []) if c["id"] != cat_id]
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/reorder", methods=["POST"])
+def api_reorder():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    kind      = body.get("kind")        # "bucket" or "cat"
+    item_id   = body.get("id", "")
+    direction = body.get("direction")   # "up" or "down"
+    cat_id    = body.get("cat_id", "")  # needed for buckets
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row"}), 404
+
+    if kind == "bucket":
+        items = sorted(
+            [b for b in data.get("buckets", [])
+             if b.get("catId") == cat_id and not b.get("archived")],
+            key=lambda b: b.get("order", 0),
+        )
+    elif kind == "cat":
+        items = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    else:
+        return jsonify({"ok": False, "error": "Unknown kind"}), 400
+
+    idx = next((i for i, x in enumerate(items) if x["id"] == item_id), None)
+    if idx is None:
+        return jsonify({"ok": False, "error": "Item not found"}), 404
+
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if swap_idx < 0 or swap_idx >= len(items):
+        return jsonify({"ok": True})  # already at edge, no-op
+
+    # Swap order values
+    items[idx]["order"], items[swap_idx]["order"] = items[swap_idx]["order"], items[idx]["order"]
+    save_budget_row(session["access_token"], row_id, data)
+    return jsonify({"ok": True})
+
+
 @app.route("/dashboard")
 def dashboard():
     if not logged_in():
@@ -304,7 +431,7 @@ def _dashboard_inner():
             roll   = rollover_bal(b, active_month, all_months, txs)
             spent  = b_spent(active_mid, b["id"], txs)
             avail  = bucket_available(b, active_month, all_months, txs)
-            status = bucket_status(alloc, spent, avail)
+            status = bucket_status(alloc, budget, spent, avail)
             skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
 
             rows.append({

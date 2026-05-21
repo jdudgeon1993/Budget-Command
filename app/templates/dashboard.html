@@ -167,9 +167,18 @@
 .col-date { width: 64px; }
 .col-settings { width: 32px; text-align: center; }
 
-.bucket-status-ok { color: var(--green); font-size: clamp(9px, 1.4vw, 10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
-.bucket-ok { border-left: 3px solid var(--green); }
-.bucket-empty { border-left: 3px solid transparent; }
+/* ── Bucket row left-border status colours ── */
+.bucket-paid   { border-left: 3px solid var(--green); }
+.bucket-funded { border-left: 3px solid var(--accent); }
+.bucket-ok     { border-left: 3px solid var(--amber); }
+.bucket-over   { border-left: 3px solid var(--red); }
+.bucket-empty  { border-left: 3px solid transparent; }
+
+/* ── Status badge text ── */
+.badge-paid   { color: var(--green);  font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-funded { color: var(--accent); font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-ok     { color: var(--amber);  font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.badge-over   { color: var(--red);    font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 
 /* ── Inline editing ── */
 .editable-text,
@@ -193,19 +202,23 @@
 }
 .inline-input[type="number"] { text-align: right; }
 
-/* ── Settings button ── */
-.settings-btn {
+/* ── Row action buttons (reorder, settings, delete) ── */
+.row-actions { display: flex; align-items: center; gap: 2px; justify-content: flex-end; }
+.settings-btn, .reorder-btn, .delete-cat-btn {
   background: none;
   border: none;
-  color: var(--text3);
-  font-size: 14px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 1px 4px;
   line-height: 1;
-  letter-spacing: .05em;
   transition: color .12s;
+  font-size: 12px;
+  color: var(--text3);
 }
+.settings-btn { font-size: 14px; letter-spacing: .05em; }
 .settings-btn:hover { color: var(--accent); }
+.reorder-btn:hover { color: var(--text2); }
+.delete-cat-btn { color: var(--red); opacity: .6; }
+.delete-cat-btn:hover { opacity: 1; }
 
 /* ── Settings row ── */
 .bucket-settings-row td {
@@ -412,13 +425,31 @@
   <!-- Buckets panel -->
   <div id="panel-buckets" class="panel active">
     <div class="panel-container">
-      <form class="strip-form">
+      <form class="strip-form" id="add-bucket-form" onsubmit="submitAddBucket(event)">
         <table class="strip-form-table">
           <tr>
             <td style="width:1%;"><span class="strip-label">Add:</span></td>
-            <td style="width:18%;"><select name="type"><option>New Bucket</option><option>New Category</option></select></td>
-            <td><input type="text" name="name" placeholder="Name"></td>
-            <td style="width:16%;"><input type="number" name="target" placeholder="Target $" step="0.01"></td>
+            <td style="width:20%;">
+              <select id="strip-cat" required onchange="handleStripCatChange(this)">
+                <option value="">— Category —</option>
+                {% for cat in all_cats %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+                <option value="__new__">+ New Category</option>
+              </select>
+            </td>
+            <td id="strip-new-cat-cell" style="display:none; width:18%;">
+              <input type="text" id="strip-new-cat-name" placeholder="Category name">
+            </td>
+            <td><input type="text" id="strip-bucket-name" placeholder="Bucket name" required></td>
+            <td style="width:14%;">
+              <select id="strip-type">
+                <option value="expense">Expense</option>
+                <option value="sinking">Sinking Fund</option>
+                <option value="goal">Goal</option>
+                <option value="vault">Vault</option>
+              </select>
+            </td>
             <td style="width:10%;"><button class="strip-btn" type="submit">+ Add</button></td>
           </tr>
         </table>
@@ -452,17 +483,26 @@
 
           <!-- Category header -->
           <tr>
-            <td colspan="8" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
+            <td colspan="6" class="tbl-cat-head" style="{% if group.color %}border-left: 3px solid {{ group.color }};{% endif %}">
               <span class="editable-text"
                     data-field="cat_name"
                     data-id="{{ group.id }}"
                     data-type="text">{{ group.name }}</span>
             </td>
+            <td colspan="2" class="tbl-cat-head" style="text-align:right; padding-right:4px;">
+              <span class="row-actions">
+                <button class="reorder-btn" onclick="reorderItem('cat','{{ group.id }}','up','')" title="Move up">↑</button>
+                <button class="reorder-btn" onclick="reorderItem('cat','{{ group.id }}','down','')" title="Move down">↓</button>
+                {% if not group.buckets %}
+                <button class="delete-cat-btn" onclick="deleteCategory('{{ group.id }}')" title="Delete category">✕</button>
+                {% endif %}
+              </span>
+            </td>
           </tr>
 
           <!-- Bucket rows -->
           {% for b in group.buckets %}
-          <tr id="row-{{ b.id }}" class="{% if b.status == 'OK' or b.status == 'PAID' %}bucket-ok{% else %}bucket-empty{% endif %}">
+          <tr id="row-{{ b.id }}" class="bucket-{{ b.status|lower if b.status else 'empty' }}">
             <td>
               <span class="editable-text"
                     data-field="bucket_name"
@@ -470,12 +510,8 @@
                     data-type="text">{{ b.name }}</span>
             </td>
             <td class="col-status">
-              {% if b.status == 'OK' %}
-                <span class="bucket-status-ok">OK</span>
-              {% elif b.status == 'PAID' %}
-                <span class="bucket-status-ok">PAID</span>
-              {% elif b.status == 'OVER' %}
-                <span style="color:var(--red);font-size:clamp(9px,1.4vw,10px);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;">OVER</span>
+              {% if b.status %}
+                <span class="badge-{{ b.status|lower }}">{{ b.status }}</span>
               {% endif %}
             </td>
             <td class="col-amount editable-num"
@@ -501,7 +537,11 @@
               {{ b.avail|money }}
             </td>
             <td class="col-settings">
-              <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Bucket settings">&#x22EF;</button>
+              <span class="row-actions">
+                <button class="reorder-btn" onclick="reorderItem('bucket','{{ b.id }}','up','{{ group.id }}')" title="Move up">↑</button>
+                <button class="reorder-btn" onclick="reorderItem('bucket','{{ b.id }}','down','{{ group.id }}')" title="Move down">↓</button>
+                <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Settings">&#x22EF;</button>
+              </span>
             </td>
           </tr>
 
@@ -735,6 +775,107 @@ function showPanel(name, tab) {
   tab.classList.add('active');
 }
 
+/* ── Add bucket/category strip ── */
+function handleStripCatChange(select) {
+  const newCatCell = document.getElementById('strip-new-cat-cell');
+  newCatCell.style.display = select.value === '__new__' ? '' : 'none';
+  if (select.value === '__new__')
+    document.getElementById('strip-new-cat-name').focus();
+}
+
+async function submitAddBucket(e) {
+  e.preventDefault();
+  const catSelect  = document.getElementById('strip-cat');
+  const catId      = catSelect.value;
+  const newCatName = document.getElementById('strip-new-cat-name').value.trim();
+  const bucketName = document.getElementById('strip-bucket-name').value.trim();
+  const bucketType = document.getElementById('strip-type').value;
+
+  if (!catId) { alert('Please select a category.'); return; }
+  if (catId === '__new__' && !newCatName) { alert('Enter a name for the new category.'); return; }
+  if (!bucketName) { alert('Enter a bucket name.'); return; }
+
+  const result = await fetch('/api/add-bucket', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ cat_id: catId, new_cat_name: newCatName, bucket_name: bucketName, bucket_type: bucketType })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    window.location.reload();
+  } else {
+    alert('Error: ' + (result.error || 'Could not add bucket.'));
+  }
+}
+
+/* ── Reorder ── */
+async function reorderItem(kind, id, direction, catId) {
+  const result = await fetch('/api/reorder', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ kind, id, direction, cat_id: catId })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    // Move in DOM
+    if (kind === 'bucket') {
+      const row      = document.getElementById('row-' + id);
+      const settings = document.getElementById('settings-' + id);
+      if (!row) return;
+      if (direction === 'up') {
+        // Find previous bucket pair (skip non-bucket rows like category header)
+        let prev = row.previousElementSibling;
+        while (prev && !prev.id?.startsWith('row-')) prev = prev.previousElementSibling;
+        if (prev) {
+          const prevSettings = document.getElementById('settings-' + prev.id.replace('row-', ''));
+          prev.before(row);
+          row.after(settings);
+          settings.after(prev);
+          if (prevSettings) prev.after(prevSettings);
+        }
+      } else {
+        let next = settings.nextElementSibling;
+        while (next && !next.id?.startsWith('row-')) next = next.nextElementSibling;
+        if (next) {
+          const nextSettings = document.getElementById('settings-' + next.id.replace('row-', ''));
+          next.after(row);
+          row.after(settings);
+          if (nextSettings) settings.after(nextSettings);
+        }
+      }
+    } else {
+      // Category: move whole tbody
+      const tbody = document.getElementById('cat-body-' + id);
+      if (!tbody) return;
+      if (direction === 'up') {
+        let prev = tbody.previousElementSibling;
+        while (prev && prev.tagName !== 'TBODY') prev = prev.previousElementSibling;
+        if (prev && prev.id?.startsWith('cat-body-')) prev.before(tbody);
+      } else {
+        let next = tbody.nextElementSibling;
+        while (next && next.tagName !== 'TBODY') next = next.nextElementSibling;
+        if (next && next.id?.startsWith('cat-body-')) next.after(tbody);
+      }
+    }
+  }
+}
+
+/* ── Delete empty category ── */
+async function deleteCategory(catId) {
+  if (!confirm('Delete this category? This cannot be undone.')) return;
+  const result = await fetch('/api/delete-category', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ cat_id: catId })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    document.getElementById('cat-body-' + catId)?.remove();
+  } else {
+    alert('Cannot delete: ' + (result.error || 'unknown error'));
+  }
+}
+
 /* ── Money formatting ── */
 function fmtMoney(v) {
   v = parseFloat(v) || 0;
@@ -880,10 +1021,10 @@ async function archiveBucket(id) {
   if (!confirm('Archive this bucket? It will be hidden from the active view.')) return;
   const result = await saveSetting('bucket_archive', id, true, '');
   if (result.ok) {
-    const row = document.getElementById('row-' + id);
-    const settingsRow = document.getElementById('settings-' + id);
-    if (row) row.remove();
-    if (settingsRow) settingsRow.remove();
+    document.getElementById('row-' + id)?.remove();
+    document.getElementById('settings-' + id)?.remove();
+  } else {
+    alert('Archive failed — please try again.');
   }
 }
 </script>
