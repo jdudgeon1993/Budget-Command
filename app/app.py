@@ -140,13 +140,14 @@ def api_save():
     if row_id is None:
         return jsonify({"ok": False, "error": "No data row found"}), 404
 
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+
     if field == "cat_name":
         cat = next((c for c in data.get("cats", []) if c["id"] == bid), None)
         if cat:
             cat["name"] = str(value or "").strip()
 
     elif field == "bucket_name":
-        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
         if bucket:
             bucket["name"] = str(value or "").strip()
 
@@ -158,22 +159,64 @@ def api_save():
         month = _find_or_create_month(data, mid)
         month.setdefault("allocations", {})[bid] = float(value or 0)
 
+    elif field == "bucket_type":
+        if bucket:
+            bucket["type"] = str(value or "expense")
+
+    elif field == "bucket_cat":
+        if bucket:
+            bucket["catId"] = str(value or "")
+
     elif field == "bucket_rollover":
-        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
         if bucket:
             bucket["rollover"] = bool(value)
 
-    elif field == "bucket_type":
-        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    elif field == "bucket_recurring":
         if bucket:
-            bucket["type"] = str(value or "regular")
+            bucket["recurring"] = bool(value)
+
+    elif field == "bucket_due_day":
+        if bucket:
+            v = str(value or "").strip()
+            bucket["dueDay"] = int(v) if v.isdigit() else (v if v == "eom" else None)
+
+    elif field == "bucket_pay_freq":
+        if bucket:
+            bucket["payFreq"] = str(value) if value else None
+
+    elif field == "bucket_due_amount":
+        if bucket:
+            bucket["dueAmount"] = float(value) if value not in (None, "", 0) else None
+
+    elif field == "bucket_debt_account":
+        if bucket:
+            bucket["debtAccountId"] = str(value) if value else None
+
+    elif field == "bucket_notes":
+        if bucket:
+            bucket["notes"] = str(value or "").strip() or None
+
+    elif field == "bucket_target_amount":
+        if bucket:
+            bucket["targetAmount"] = float(value) if value not in (None, "") else None
+
+    elif field == "bucket_target_date":
+        if bucket:
+            bucket["targetDate"] = str(value) if value else None
+
+    elif field == "bucket_contrib_freq":
+        if bucket:
+            bucket["contribFreq"] = str(value) if value else None
+
+    elif field == "bucket_default_budget":
+        if bucket:
+            bucket["defaultBudget"] = float(value or 0)
 
     elif field == "bucket_skip":
         month = _find_or_create_month(data, mid)
         month.setdefault("skippedBuckets", {})[bid] = bool(value)
 
     elif field == "bucket_archive":
-        bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
         if bucket:
             bucket["archived"] = True
 
@@ -265,17 +308,28 @@ def _dashboard_inner():
             skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
 
             rows.append({
-                "id":           b["id"],
-                "name":         b["name"],
-                "type":         b.get("type", "regular"),
-                "rollover":     b.get("rollover", False),
-                "skipped":      skipped,
-                "alloc":        alloc,
-                "budget":       budget,
-                "rollover_val": roll,
-                "spent":        spent,
-                "avail":        avail,
-                "status":       status,
+                "id":              b["id"],
+                "name":            b["name"],
+                "type":            b.get("type", "expense"),
+                "cat_id":          b.get("catId", cid),
+                "rollover":        b.get("rollover", False),
+                "recurring":       b.get("recurring", False),
+                "skipped":         skipped,
+                "due_day":         b.get("dueDay", ""),
+                "pay_freq":        b.get("payFreq", ""),
+                "due_amount":      b.get("dueAmount", ""),
+                "debt_account_id": b.get("debtAccountId", ""),
+                "notes":           b.get("notes", "") or "",
+                "target_amount":   b.get("targetAmount", ""),
+                "target_date":     b.get("targetDate", ""),
+                "contrib_freq":    b.get("contribFreq", ""),
+                "default_budget":  b.get("defaultBudget", 0),
+                "alloc":           alloc,
+                "budget":          budget,
+                "rollover_val":    roll,
+                "spent":           spent,
+                "avail":           avail,
+                "status":          status,
             })
 
             totals["alloc"]    += alloc
@@ -297,6 +351,8 @@ def _dashboard_inner():
 
     rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
 
+    debt_accounts = [a for a in accounts if a.get("type") == "debt"]
+
     return render_template(
         "dashboard.html",
         user_email=session.get("user_email"),
@@ -307,6 +363,8 @@ def _dashboard_inner():
         category_groups=category_groups,
         grand=grand,
         rts=rts,
+        all_cats=cats_sorted,
+        debt_accounts=debt_accounts,
     )
 
 

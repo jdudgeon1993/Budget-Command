@@ -209,17 +209,57 @@
 
 /* ── Settings row ── */
 .bucket-settings-row td {
-  padding: 6px 8px 8px 16px;
+  padding: 0;
   background: var(--bg2);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border2);
 }
-.settings-inner {
+.settings-form {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sf-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sf-field {
+  flex: 1;
+  min-width: 140px;
+}
+.sf-field-full { flex: 2 1 100%; }
+.sf-label {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1.3vw, 10px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 3px;
+}
+.sf-input {
+  width: 100%;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 4px 7px;
+  font-family: var(--sans);
+  font-size: clamp(12px, 1.8vw, 13px);
+  outline: none;
+  transition: border-color .12s;
+}
+.sf-input:focus { border-color: var(--accent); }
+.sf-group { display: flex; flex-direction: column; gap: 8px; }
+.sf-toggles {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
   align-items: center;
+  gap: 16px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
 }
-.settings-inner label {
+.sf-check {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -230,23 +270,13 @@
   color: var(--text2);
   cursor: pointer;
 }
-.settings-inner select {
-  background: var(--bg3);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 2px 6px;
-  font-family: var(--mono);
-  font-size: clamp(10px, 1.5vw, 11px);
-  cursor: pointer;
-}
-.settings-inner input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
+.sf-check input[type="checkbox"] {
+  width: 14px; height: 14px;
   cursor: pointer;
   accent-color: var(--accent);
 }
 .archive-btn {
+  margin-left: auto;
   background: none;
   border: 1px solid var(--red);
   color: var(--red);
@@ -254,7 +284,7 @@
   font-size: clamp(9px, 1.4vw, 10px);
   letter-spacing: .1em;
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: var(--r);
   cursor: pointer;
   transition: background .12s;
@@ -474,27 +504,128 @@
         <!-- Inline settings row -->
         <tr id="settings-{{ b.id }}" class="bucket-settings-row" style="display:none">
           <td colspan="8">
-            <div class="settings-inner">
-              <label>Type:
-                <select onchange="saveSetting('bucket_type','{{ b.id }}',this.value,'')">
-                  <option value="regular" {% if b.type == 'regular' %}selected{% endif %}>Regular</option>
-                  <option value="vault"   {% if b.type == 'vault'   %}selected{% endif %}>Vault</option>
-                </select>
-              </label>
-              <label>
-                <input type="checkbox"
-                       {% if b.rollover %}checked{% endif %}
-                       onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')">
-                Rollover
-              </label>
-              <label>
-                <input type="checkbox"
-                       {% if b.skipped %}checked{% endif %}
-                       onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
-                Skip this month
-              </label>
-              <button class="archive-btn"
-                      onclick="archiveBucket('{{ b.id }}')">Archive</button>
+            <div class="settings-form">
+
+              <!-- Row 1: Category + Type -->
+              <div class="sf-row">
+                <div class="sf-field">
+                  <div class="sf-label">Category</div>
+                  <select class="sf-input" onchange="saveSetting('bucket_cat','{{ b.id }}',this.value,'')">
+                    {% for cat in all_cats %}
+                    <option value="{{ cat.id }}" {% if cat.id == b.cat_id %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="sf-field">
+                  <div class="sf-label">Type</div>
+                  <select class="sf-input" onchange="switchBucketType(this,'{{ b.id }}')">
+                    <option value="expense" {% if b.type == 'expense' or b.type == 'regular' %}selected{% endif %}>Expense</option>
+                    <option value="sinking" {% if b.type == 'sinking' %}selected{% endif %}>Sinking Fund</option>
+                    <option value="goal"    {% if b.type == 'goal'    %}selected{% endif %}>Goal</option>
+                    <option value="vault"   {% if b.type == 'vault'   %}selected{% endif %}>Vault</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Expense fields -->
+              <div class="sf-group sf-expense" {% if b.type not in ('expense','regular','') %}style="display:none"{% endif %}>
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Due Day</div>
+                    <input class="sf-input" type="text" placeholder="e.g. 1, 15, eom"
+                           value="{{ b.due_day }}"
+                           onblur="saveSettingText('bucket_due_day','{{ b.id }}',this.value,'')">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Pay Frequency</div>
+                    <select class="sf-input" onchange="saveSetting('bucket_pay_freq','{{ b.id }}',this.value,'')">
+                      <option value="" {% if not b.pay_freq %}selected{% endif %}>— none —</option>
+                      <option value="monthly"    {% if b.pay_freq == 'monthly'    %}selected{% endif %}>Monthly</option>
+                      <option value="biweekly"   {% if b.pay_freq == 'biweekly'   %}selected{% endif %}>Biweekly</option>
+                      <option value="weekly"     {% if b.pay_freq == 'weekly'     %}selected{% endif %}>Weekly</option>
+                      <option value="triweekly"  {% if b.pay_freq == 'triweekly'  %}selected{% endif %}>Triweekly</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Pay Amount</div>
+                    <input class="sf-input" type="number" step="0.01" placeholder="per payment"
+                           value="{{ b.due_amount }}"
+                           onblur="saveSettingNum('bucket_due_amount','{{ b.id }}',this.value,'')">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Linked Debt Account</div>
+                    <select class="sf-input" onchange="saveSetting('bucket_debt_account','{{ b.id }}',this.value,'')">
+                      <option value="" {% if not b.debt_account_id %}selected{% endif %}>— none —</option>
+                      {% for acct in debt_accounts %}
+                      <option value="{{ acct.id }}" {% if acct.id == b.debt_account_id %}selected{% endif %}>{{ acct.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Savings fields (vault / sinking / goal) -->
+              <div class="sf-group sf-savings" {% if b.type in ('expense','regular','') %}style="display:none"{% endif %}>
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Target Amount</div>
+                    <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
+                           value="{{ b.target_amount }}"
+                           onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
+                  </div>
+                  <div class="sf-field">
+                    <div class="sf-label">Target Date</div>
+                    <input class="sf-input" type="month"
+                           value="{{ b.target_date }}"
+                           onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
+                  </div>
+                </div>
+                <div class="sf-row">
+                  <div class="sf-field">
+                    <div class="sf-label">Contribution Frequency</div>
+                    <select class="sf-input" onchange="saveSetting('bucket_contrib_freq','{{ b.id }}',this.value,'')">
+                      <option value="" {% if not b.contrib_freq %}selected{% endif %}>— none —</option>
+                      <option value="monthly"  {% if b.contrib_freq == 'monthly'  %}selected{% endif %}>Monthly</option>
+                      <option value="biweekly" {% if b.contrib_freq == 'biweekly' %}selected{% endif %}>Biweekly</option>
+                      <option value="weekly"   {% if b.contrib_freq == 'weekly'   %}selected{% endif %}>Weekly</option>
+                    </select>
+                  </div>
+                  <div class="sf-field"></div>
+                </div>
+              </div>
+
+              <!-- Notes -->
+              <div class="sf-row">
+                <div class="sf-field sf-field-full">
+                  <div class="sf-label">Notes</div>
+                  <input class="sf-input" type="text" placeholder="optional notes"
+                         value="{{ b.notes }}"
+                         onblur="saveSettingText('bucket_notes','{{ b.id }}',this.value,'')">
+                </div>
+              </div>
+
+              <!-- Toggles + archive -->
+              <div class="sf-row sf-toggles">
+                <label class="sf-check">
+                  <input type="checkbox" {% if b.recurring %}checked{% endif %}
+                         onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')">
+                  Recurring
+                </label>
+                <label class="sf-check">
+                  <input type="checkbox" {% if b.rollover %}checked{% endif %}
+                         onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')">
+                  Rollover
+                </label>
+                <label class="sf-check">
+                  <input type="checkbox" {% if b.skipped %}checked{% endif %}
+                         onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
+                  Skip this month
+                </label>
+                <button class="archive-btn" onclick="archiveBucket('{{ b.id }}')">Archive</button>
+              </div>
+
             </div>
           </td>
         </tr>
@@ -693,6 +824,26 @@ document.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
 function toggleSettings(id) {
   const row = document.getElementById('settings-' + id);
   row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
+}
+
+/* ── Type switch — swap visible field groups immediately ── */
+function switchBucketType(select, id) {
+  const type = select.value;
+  const settingsRow = document.getElementById('settings-' + id);
+  const expenseGroup = settingsRow.querySelector('.sf-expense');
+  const savingsGroup = settingsRow.querySelector('.sf-savings');
+  const isSavings = ['vault', 'sinking', 'goal'].includes(type);
+  expenseGroup.style.display = isSavings ? 'none' : '';
+  savingsGroup.style.display = isSavings ? '' : 'none';
+  saveSetting('bucket_type', id, type, '');
+}
+
+/* ── Text/number blur helpers for settings inputs ── */
+function saveSettingText(field, id, value, month) {
+  saveSetting(field, id, value, month);
+}
+function saveSettingNum(field, id, value, month) {
+  saveSetting(field, id, parseFloat(value) || null, month);
 }
 
 /* ── Archive bucket ── */
