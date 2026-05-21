@@ -171,6 +171,8 @@ def api_save():
     elif field == "bucket_type":
         if bucket:
             bucket["type"] = str(value or "expense")
+            if bucket["type"] == "vault":
+                bucket["rollover"] = False
 
     elif field == "bucket_cat":
         if bucket:
@@ -248,11 +250,23 @@ def api_save():
             else:
                 avail = bucket_available(bucket, active_month, all_months, txs)
             result["avail"] = avail
-            accounts = data.get("accounts", [])
-            active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-            result["rts"] = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+            result["rts"] = _rts_now(data)
 
     return jsonify(result)
+
+
+def _rts_now(data: dict) -> float:
+    """RTS for the current calendar month — always used for header display."""
+    all_months = data.get("months", [])
+    accounts   = data.get("accounts", [])
+    txs        = data.get("txs", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    cur_mid    = current_month_id()
+    cur_month  = next(
+        (m for m in all_months if m.get("id") == cur_mid),
+        {"id": cur_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}},
+    )
+    return ready_to_spend(cur_month, all_months, accounts, active_buckets, txs)
 
 
 def _new_id(prefix: str) -> str:
@@ -449,15 +463,10 @@ def api_vault_withdraw():
 
     save_budget_row(session["access_token"], row_id, data)
 
-    all_months     = data.get("months", [])
-    new_total      = vault_accumulated(bucket_id, all_months)
-    accounts       = data.get("accounts", [])
-    active_month   = next((m for m in all_months if m["id"] == mid), month)
-    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    txs            = data.get("txs", [])
-    rts            = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+    all_months = data.get("months", [])
+    new_total  = vault_accumulated(bucket_id, all_months)
 
-    return jsonify({"ok": True, "vault_total": new_total, "alloc": current_alloc - from_alloc, "rts": rts})
+    return jsonify({"ok": True, "vault_total": new_total, "alloc": current_alloc - from_alloc, "rts": _rts_now(data)})
 
 
 @app.route("/api/vault-transfer", methods=["POST"])
@@ -516,16 +525,13 @@ def api_vault_transfer():
     active_month    = next((m for m in all_months if m["id"] == mid), month)
     txs             = data.get("txs", [])
     dest_avail      = bucket_available(dest_bucket, active_month, all_months, txs)
-    accounts        = data.get("accounts", [])
-    active_buckets  = [b for b in data.get("buckets", []) if not b.get("archived")]
-    rts             = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
 
     return jsonify({
         "ok":          True,
         "vault_total": new_vault_total,
         "vault_alloc": allocs[vault_id],
         "dest_avail":  dest_avail,
-        "rts":         rts,
+        "rts":         _rts_now(data),
     })
 
 
@@ -569,15 +575,12 @@ def api_release_rollover():
 
     save_budget_row(session["access_token"], row_id, data)
 
-    all_months = data.get("months", [])
+    all_months   = data.get("months", [])
     active_month = next((m for m in all_months if m["id"] == mid), month)
     new_roll = rollover_bal(bucket, active_month, all_months, txs)
-    avail = bucket_available(bucket, active_month, all_months, txs)
-    accounts = data.get("accounts", [])
-    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+    avail    = bucket_available(bucket, active_month, all_months, txs)
 
-    return jsonify({"ok": True, "rollover": new_roll, "avail": avail, "rts": rts})
+    return jsonify({"ok": True, "rollover": new_roll, "avail": avail, "rts": _rts_now(data)})
 
 
 @app.route("/dashboard")
@@ -708,7 +711,12 @@ def _dashboard_inner():
         for k in grand:
             grand[k] += totals[k]
 
-    rts = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+    # RTS in the header always reflects TODAY's calendar month, not the viewed month.
+    cur_mid_obj = next(
+        (m for m in all_months if m.get("id") == current_month_id()),
+        {"id": current_month_id(), "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}},
+    )
+    rts = ready_to_spend(cur_mid_obj, all_months, accounts, active_buckets, txs)
 
     debt_accounts    = [a for a in accounts if a.get("type") == "debt"]
     transfer_buckets = [
@@ -1122,17 +1130,12 @@ def api_debt_payment():
     data.setdefault("txs", []).append(tx)
     save_budget_row(session["access_token"], row_id, data)
 
-    txs_new        = data.get("txs", [])
-    all_months     = data.get("months", [])
-    new_debt_bal   = acct_balance(debt_acct, txs_new)
-    new_src_bal    = acct_balance(src_acct, txs_new)
-    active_month   = next((m for m in all_months if m["id"] == mid),
-                          {"id": mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}})
-    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    rts = ready_to_spend(active_month, all_months, all_accounts, active_buckets, txs_new)
+    txs_new      = data.get("txs", [])
+    new_debt_bal = acct_balance(debt_acct, txs_new)
+    new_src_bal  = acct_balance(src_acct, txs_new)
 
     return jsonify({"ok": True, "tx_id": tx["id"],
-                    "debt_bal": new_debt_bal, "src_bal": new_src_bal, "rts": rts})
+                    "debt_bal": new_debt_bal, "src_bal": new_src_bal, "rts": _rts_now(data)})
 
 
 if __name__ == "__main__":
