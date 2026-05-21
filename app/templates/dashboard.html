@@ -610,7 +610,7 @@
             <td class="col-amount" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
               {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
             </td>
-            <td class="col-amount">{{ b.spent|money }}</td>
+            <td class="col-amount">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
                 data-raw="{{ b.avail }}"
@@ -652,7 +652,7 @@
                   </div>
                 </div>
 
-                <!-- Expense fields -->
+                <!-- Expense fields (expense/regular only) -->
                 <div class="sf-group sf-expense" {% if b.type not in ('expense','regular','') %}style="display:none"{% endif %}>
                   <div class="sf-row">
                     <div class="sf-field">
@@ -691,8 +691,8 @@
                   </div>
                 </div>
 
-                <!-- Savings fields (vault / sinking / goal) -->
-                <div class="sf-group sf-savings" {% if b.type in ('expense','regular','') %}style="display:none"{% endif %}>
+                <!-- Sinking/goal fields (NOT vault) -->
+                <div class="sf-group sf-savings" {% if b.type not in ('sinking','goal') %}style="display:none"{% endif %}>
                   <div class="sf-row">
                     <div class="sf-field">
                       <div class="sf-label">Target Amount</div>
@@ -721,6 +721,41 @@
                   </div>
                 </div>
 
+                <!-- Vault fields -->
+                <div class="sf-group sf-vault" {% if b.type != 'vault' %}style="display:none"{% endif %}>
+                  <div class="sf-row">
+                    <div class="sf-field">
+                      <div class="sf-label">Target Amount</div>
+                      <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
+                             value="{{ b.target_amount }}"
+                             onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
+                    </div>
+                    <div class="sf-field">
+                      <div class="sf-label">Target Date</div>
+                      <input class="sf-input" type="month"
+                             value="{{ b.target_date }}"
+                             onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
+                    </div>
+                  </div>
+                  <!-- Vault withdraw -->
+                  <div class="sf-row" id="vault-withdraw-row-{{ b.id }}">
+                    <div class="sf-field">
+                      <div class="sf-label">Withdraw from Vault</div>
+                      <div class="release-row">
+                        <input class="release-input" type="number" step="0.01" min="0.01"
+                               id="vault-input-{{ b.id }}"
+                               placeholder="$ amount"
+                               max="{{ b.vault_total }}">
+                        <button class="release-btn"
+                                onclick="vaultWithdraw('{{ b.id }}','{{ active_mid }}')">Withdraw</button>
+                        <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
+                          total: <span id="vault-bal-{{ b.id }}">{{ b.vault_total|money }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Notes -->
                 <div class="sf-row">
                   <div class="sf-field sf-field-full">
@@ -731,8 +766,8 @@
                   </div>
                 </div>
 
-                <!-- Rollover release (only for rollover-enabled buckets with positive balance) -->
-                {% if b.rollover and b.rollover_val > 0 %}
+                <!-- Rollover release (expense/sinking/goal with rollover + positive balance) -->
+                {% if b.type != 'vault' and b.rollover and b.rollover_val > 0 %}
                 <div class="sf-row" id="release-row-{{ b.id }}">
                   <div class="sf-field">
                     <div class="sf-label">Release Rollover</div>
@@ -751,8 +786,9 @@
                 </div>
                 {% endif %}
 
-                <!-- Toggles + archive -->
+                <!-- Toggles + archive (vault only shows archive) -->
                 <div class="sf-row sf-toggles">
+                  {% if b.type != 'vault' %}
                   <label class="sf-check">
                     <input type="checkbox" {% if b.recurring %}checked{% endif %}
                            onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')">
@@ -768,6 +804,7 @@
                            onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
                     Skip this month
                   </label>
+                  {% endif %}
                   <button class="archive-btn" onclick="archiveBucket('{{ b.id }}')">Archive</button>
                 </div>
 
@@ -1103,9 +1140,15 @@ function switchBucketType(select, id) {
   const settingsRow = document.getElementById('settings-' + id);
   const expenseGroup = settingsRow.querySelector('.sf-expense');
   const savingsGroup = settingsRow.querySelector('.sf-savings');
-  const isSavings = ['vault', 'sinking', 'goal'].includes(type);
-  expenseGroup.style.display = isSavings ? 'none' : '';
-  savingsGroup.style.display = isSavings ? '' : 'none';
+  const vaultGroup   = settingsRow.querySelector('.sf-vault');
+  const toggles      = settingsRow.querySelectorAll('.sf-check');
+
+  expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
+  savingsGroup.style.display = (type === 'sinking' || type === 'goal') ? '' : 'none';
+  vaultGroup.style.display   = type === 'vault' ? '' : 'none';
+  // Hide toggles for vault (rollover/recurring/skip don't apply)
+  toggles.forEach(t => { t.style.display = type === 'vault' ? 'none' : ''; });
+
   saveSetting('bucket_type', id, type, '');
 }
 
@@ -1115,6 +1158,37 @@ function saveSettingText(field, id, value, month) {
 }
 function saveSettingNum(field, id, value, month) {
   saveSetting(field, id, parseFloat(value) || null, month);
+}
+
+/* ── Vault withdraw ── */
+async function vaultWithdraw(id, month) {
+  const input = document.getElementById('vault-input-' + id);
+  const amount = parseFloat(input.value);
+  if (!amount || amount <= 0) { alert('Enter a positive amount to withdraw.'); return; }
+
+  const result = await fetch('/api/vault-withdraw', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id, month, amount })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (!result.ok) { alert('Withdraw failed: ' + (result.error || 'unknown error')); return; }
+
+  input.value = '';
+
+  // Update vault total label and avail cell
+  const balEl = document.getElementById('vault-bal-' + id);
+  if (balEl) balEl.textContent = fmtMoney(result.vault_total);
+  const availCell = document.querySelector(`[data-avail-id="${id}"]`);
+  if (availCell) {
+    availCell.textContent = fmtMoney(result.vault_total);
+    availCell.dataset.raw = result.vault_total;
+    availCell.style.color = result.vault_total > 0 ? 'var(--green)' : '';
+  }
+  if (result.rts !== undefined) {
+    const rtsEl = document.querySelector('.h-rts');
+    if (rtsEl) rtsEl.textContent = fmtMoney(result.rts);
+  }
 }
 
 /* ── Release rollover balance ── */

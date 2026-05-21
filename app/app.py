@@ -371,6 +371,44 @@ def api_reorder():
     return jsonify({"ok": True})
 
 
+@app.route("/api/vault-withdraw", methods=["POST"])
+def api_vault_withdraw():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    body      = request.get_json(silent=True) or {}
+    bucket_id = body.get("id", "").strip()
+    mid       = body.get("month", "").strip()
+    amount    = float(body.get("amount") or 0)
+
+    if amount <= 0:
+        return jsonify({"ok": False, "error": "Amount must be positive"}), 400
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data row found"}), 404
+
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+    if not bucket or bucket.get("type") != "vault":
+        return jsonify({"ok": False, "error": "Not a vault bucket"}), 400
+
+    month = _find_or_create_month(data, mid)
+    withdrawals = month.setdefault("vaultWithdrawals", {})
+    withdrawals[bucket_id] = float(withdrawals.get(bucket_id) or 0) + amount
+
+    save_budget_row(session["access_token"], row_id, data)
+
+    all_months    = data.get("months", [])
+    new_total     = vault_accumulated(bucket_id, all_months)
+    accounts      = data.get("accounts", [])
+    active_month  = next((m for m in all_months if m["id"] == mid), month)
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs           = data.get("txs", [])
+    rts           = ready_to_spend(active_month, all_months, accounts, active_buckets, txs)
+
+    return jsonify({"ok": True, "vault_total": new_total, "rts": rts})
+
+
 @app.route("/api/release-rollover", methods=["POST"])
 def api_release_rollover():
     if not logged_in():
@@ -466,23 +504,31 @@ def _dashboard_inner():
         for b in cat_buckets:
             alloc  = b_alloc(active_month, b["id"])
             budget = b_budget(active_month, b["id"])
-            roll   = rollover_bal(b, active_month, all_months, txs)
-            spent  = b_spent(active_mid, b["id"], txs)
-            avail  = bucket_available(b, active_month, all_months, txs)
-            status = bucket_status(alloc, budget, spent, avail)
+            btype  = b.get("type", "expense")
+
+            if btype == "vault":
+                # Vaults: no transactions, balance = accumulated alloc minus withdrawals
+                roll   = 0.0
+                spent  = 0.0
+                vault_total = vault_accumulated(b["id"], all_months)
+                avail  = vault_total
+            else:
+                roll        = rollover_bal(b, active_month, all_months, txs)
+                spent       = b_spent(active_mid, b["id"], txs)
+                avail       = bucket_available(b, active_month, all_months, txs)
+                vault_total = 0.0
+
+            status  = bucket_status(alloc, budget, spent, avail)
             skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
-
-            btype = b.get("type", "expense")
             target_amount = b.get("targetAmount") or 0
-            vault_total = vault_accumulated(b["id"], all_months) if btype == "vault" else 0
 
-            # Progress bar for sinking/goal/vault
+            # Progress bar
             progress_pct = 0
-            if btype in ("sinking", "goal") and target_amount > 0:
-                saved = roll + alloc  # accumulated so far
-                progress_pct = min(100, max(0, round(saved / target_amount * 100)))
-            elif btype == "vault" and target_amount > 0:
+            if btype == "vault" and target_amount > 0:
                 progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
+            elif btype in ("sinking", "goal") and target_amount > 0:
+                saved = roll + alloc
+                progress_pct = min(100, max(0, round(saved / target_amount * 100)))
 
             rows.append({
                 "id":              b["id"],
