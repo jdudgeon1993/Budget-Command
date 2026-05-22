@@ -1047,6 +1047,11 @@ def _dashboard_inner():
         for b in active_buckets
         if b.get("type") != "vault"
     ]
+    # All active buckets for allocation rule picker (vaults are valid targets)
+    rule_buckets = [
+        {"id": b["id"], "name": b["name"], "type": b.get("type", "expense")}
+        for b in active_buckets
+    ]
 
     # ── Settings data ────────────────────────────────────────────────────────
     paychecks = S.get("paychecks") or []
@@ -1107,6 +1112,7 @@ def _dashboard_inner():
         ledger_income=income_total,
         ledger_spent=spent_total,
         expense_buckets=expense_buckets,
+        rule_buckets=rule_buckets,
         cash_accounts=cash_accounts,
         debt_accounts_display=debt_accounts_display,
         total_cash_val=total_cash_val,

@@ -143,7 +143,7 @@
 
 .tbl-section-head {
   font-family: var(--display);
-  font-size: clamp(16px, 3vw, 22px);
+  font-size: clamp(14px, 3vw, 22px);
   letter-spacing: .06em;
   color: var(--text2);
   padding: 12px 4px 6px;
@@ -418,6 +418,8 @@
 /* ── Hide secondary columns on mobile ── */
 @media (max-width: 640px) {
   .col-m-hide { display: none; }
+  .tbl-section-head { font-size: 14px; padding: 8px 4px 4px; }
+  .tbl-cat-head { font-size: 10px; }
 }
 
 /* ── Ledger row left-border colours (mirrors bucket status pattern) ── */
@@ -1766,8 +1768,8 @@
               <div class="strip-field" id="rule-bucket-cell">
                 <select id="rule-bucket">
                   <option value="">— Bucket —</option>
-                  {% for b in expense_buckets %}
-                  <option value="{{ b.id }}">{{ b.name }}</option>
+                  {% for b in rule_buckets %}
+                  <option value="{{ b.id }}">{{ b.name }}{% if b.type == 'vault' %} (vault){% endif %}</option>
                   {% endfor %}
                 </select>
               </div>
@@ -1992,18 +1994,17 @@ function wireNewCells(container) {
 
 /* ── Keep all bucket selects in sync after a new bucket is added ── */
 function appendBucketOption(bid, bname, btype) {
-  if (btype === 'vault') return; // vaults don't appear in expense selects
-  const opt = () => { const o = document.createElement('option'); o.value = bid; o.textContent = bname; return o; };
-  // Transaction add strip
-  document.getElementById('tx-bucket')?.appendChild(opt());
-  // Ledger bucket selects (existing rows)
-  document.querySelectorAll('.ledger-bucket-select').forEach(sel => sel.appendChild(opt()));
-  // Allocation rules bucket picker
-  document.getElementById('rule-bucket')?.appendChild(opt());
-  // Vault transfer destination selects
-  document.querySelectorAll('[id^="vault-dest-"]').forEach(sel => sel.appendChild(opt()));
-  // Debt payment bucket picker
-  document.querySelectorAll('[id^="pay-bucket-"]').forEach(sel => sel.appendChild(opt()));
+  const opt = (label) => { const o = document.createElement('option'); o.value = bid; o.textContent = label || bname; return o; };
+  if (btype !== 'vault') {
+    // Non-vault buckets: transaction strip, ledger rows, vault transfer dest, debt payment picker
+    document.getElementById('tx-bucket')?.appendChild(opt());
+    document.querySelectorAll('.ledger-bucket-select').forEach(sel => sel.appendChild(opt()));
+    document.querySelectorAll('[id^="vault-dest-"]').forEach(sel => sel.appendChild(opt()));
+    document.querySelectorAll('[id^="pay-bucket-"]').forEach(sel => sel.appendChild(opt()));
+  }
+  // All buckets (including vaults) appear in the allocation rules picker
+  const ruleLabel = btype === 'vault' ? `${bname} (vault)` : bname;
+  document.getElementById('rule-bucket')?.appendChild(opt(ruleLabel));
 }
 
 /* ── Keep all account selects in sync after a new account is added ── */
