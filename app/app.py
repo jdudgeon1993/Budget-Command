@@ -2201,12 +2201,18 @@ def _gen_pay_dates(anchor_str: str, freq: int, from_date: date, to_date: date) -
             else:
                 m += 1
     else:  # 7 (weekly) or 14 (biweekly): walk from anchor
-        d = anchor
-        # Walk backward to find the last pay date before from_date
-        while d >= from_date:
-            d -= timedelta(days=freq)
-        # Now walk forward
-        d += timedelta(days=freq)
+        # Fast-forward anchor to the first pay date on or after from_date.
+        # Using integer math avoids iterating through potentially years of history.
+        delta_days = (from_date - anchor).days
+        if delta_days > 0:
+            steps = (delta_days + freq - 1) // freq  # ceiling division
+            d = anchor + timedelta(days=steps * freq)
+        else:
+            # anchor is on or after from_date — walk backward once if needed
+            d = anchor
+            while d >= from_date:
+                d -= timedelta(days=freq)
+            d += timedelta(days=freq)
         while d <= to_date:
             dates.append(d)
             d += timedelta(days=freq)
@@ -2314,13 +2320,17 @@ def api_forecast():
         m = (today.month - 1 + n_months) % 12 + 1
         end_date = date(y, m, _cal.monthrange(y, m)[1])
 
-    # Build weekly buckets: Monday–Sunday
-    week_start = today - timedelta(days=today.weekday())
+    # Build weekly buckets.
+    # First "week" starts TODAY (the pre-paycheck gap: from now until this Sunday).
+    # Subsequent weeks are full Mon–Sun.
     weeks_meta = []
+    week_start = today
     while week_start <= end_date:
-        week_end = week_start + timedelta(days=6)
-        weeks_meta.append((week_start, min(week_end, end_date)))
-        week_start += timedelta(days=7)
+        # End of this period = the coming Sunday (or end_date if sooner)
+        days_to_sunday = 6 - week_start.weekday()
+        week_end = min(week_start + timedelta(days=days_to_sunday), end_date)
+        weeks_meta.append((week_start, week_end))
+        week_start = week_end + timedelta(days=1)
 
     # Active external rules
     external_rules = [r for r in alloc_rules if r.get("ruleType") == "external" and r.get("active", True)]
