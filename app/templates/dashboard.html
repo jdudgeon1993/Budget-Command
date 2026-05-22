@@ -723,14 +723,13 @@
       <table class="data-table">
         <thead>
           <tr>
-            <td colspan="8" class="tbl-section-head">Buckets</td>
+            <td colspan="7" class="tbl-section-head">Buckets</td>
           </tr>
           <tr>
             <th class="col-name">Bucket</th>
             <th class="col-status"></th>
             <th class="col-amount col-m-hide">Target</th>
             <th class="col-amount">Allocated</th>
-            <th class="col-amount col-m-hide">Rollover</th>
             <th class="col-amount col-m-hide">Spent</th>
             <th class="col-amount">Available</th>
             <th class="col-settings"></th>
@@ -739,7 +738,7 @@
 
         {% if not category_groups %}
         <tbody>
-          <tr><td colspan="8" class="tbl-cat-head">— No buckets found —</td></tr>
+          <tr><td colspan="7" class="tbl-cat-head">— No buckets found —</td></tr>
         </tbody>
         {% endif %}
 
@@ -805,11 +804,6 @@
                 data-month="{{ active_mid }}"
                 data-raw="{{ b.alloc }}"
                 data-type="number">{{ b.alloc|money }}</td>
-            <td class="col-amount col-m-hide" id="rollover-{{ b.id }}"
-                data-rollover-id="{{ b.id }}"
-                style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">
-              {{ b.rollover_val|money if b.rollover_val != 0 else "—" }}
-            </td>
             <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
@@ -828,7 +822,7 @@
 
           <!-- Inline settings row -->
           <tr id="settings-{{ b.id }}" class="bucket-settings-row" style="display:none">
-            <td colspan="8">
+            <td colspan="7">
               <div class="settings-form">
 
                 <!-- Row 1: Category + Type -->
@@ -995,30 +989,6 @@
                   </div>
                 </div>
 
-                <!-- Rollover release (expense/sinking/goal with rollover + positive balance) -->
-                {% if b.type != 'vault' and b.rollover and b.rollover_val > 0 %}
-                <div class="sf-row" id="release-row-{{ b.id }}">
-                  <div class="sf-field">
-                    <div class="sf-label">Release Rollover</div>
-                    <div class="release-row">
-                      <input class="release-input" type="number" step="0.01" min="0.01"
-                             id="release-input-{{ b.id }}"
-                             placeholder="$ amount"
-                             max="{{ b.rollover_val }}">
-                      <button class="release-btn"
-                              onclick="releaseRollover('{{ b.id }}','{{ active_mid }}')">Release</button>
-                      <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">
-                        available: <span id="roll-bal-{{ b.id }}">{{ b.rollover_val|money }}</span>
-                      </span>
-                    </div>
-                    <div style="margin-top:5px;font-family:var(--mono);font-size:clamp(9px,1.3vw,10px);color:var(--text3);line-height:1.5;border-left:2px solid var(--border2);padding-left:8px;">
-                      Releases unspent carry-forward from prior months back to your RTS pool.<br>
-                      This month's allocation of <strong style="color:var(--text2);">{{ b.alloc|money }}</strong> is not touched.
-                    </div>
-                  </div>
-                </div>
-                {% endif %}
-
                 <!-- Toggles + archive (vault only shows archive) -->
                 <div class="sf-row sf-toggles">
                   {% if b.type != 'vault' %}
@@ -1051,7 +1021,6 @@
             <th colspan="2">{{ group.name }} total</th>
             <th class="col-amount col-m-hide">{{ group.totals.budget|money }}</th>
             <th class="col-amount">{{ group.totals.alloc|money }}</th>
-            <th class="col-amount col-m-hide">{{ group.totals.rollover|money if group.totals.rollover != 0 else "—" }}</th>
             <th class="col-amount col-m-hide">{{ group.totals.spent|money }}</th>
             <th class="col-amount">{{ group.totals.avail|money }}</th>
             <th></th>
@@ -1067,7 +1036,6 @@
             <th colspan="2">Grand Total</th>
             <th class="col-amount col-m-hide">{{ grand.budget|money }}</th>
             <th class="col-amount">{{ grand.alloc|money }}</th>
-            <th class="col-amount col-m-hide">{{ grand.rollover|money if grand.rollover != 0 else "—" }}</th>
             <th class="col-amount col-m-hide">{{ grand.spent|money }}</th>
             <th class="col-amount">{{ grand.avail|money }}</th>
             <th></th>
@@ -1903,6 +1871,17 @@ function refreshValues(state) {
     if (el) el.textContent = fmtMoney(state.rts);
   }
 
+  // Bucket alloc cells
+  if (state.bucket_allocs) {
+    for (const [bid, val] of Object.entries(state.bucket_allocs)) {
+      const cell = document.querySelector(`[data-field="bucket_alloc"][data-id="${bid}"]`);
+      if (cell) {
+        cell.textContent = fmtMoney(val);
+        cell.dataset.raw = val;
+      }
+    }
+  }
+
   // Bucket available cells
   if (state.bucket_avails) {
     for (const [bid, val] of Object.entries(state.bucket_avails)) {
@@ -1911,17 +1890,6 @@ function refreshValues(state) {
         cell.textContent = fmtMoney(val);
         cell.dataset.raw = val;
         cell.style.color = val < 0 ? 'var(--red)' : val > 0 ? 'var(--green)' : '';
-      }
-    }
-  }
-
-  // Bucket rollover cells
-  if (state.bucket_rollover) {
-    for (const [bid, val] of Object.entries(state.bucket_rollover)) {
-      const cell = document.querySelector(`[data-rollover-id="${bid}"]`);
-      if (cell) {
-        cell.textContent = val !== 0 ? fmtMoney(val) : '—';
-        cell.style.color = val > 0 ? 'var(--green)' : val < 0 ? 'var(--red)' : '';
       }
     }
   }
@@ -1975,17 +1943,15 @@ function refreshValues(state) {
     }
   }
 
-  // Category totals rows (budget | alloc | rollover | spent | avail)
+  // Category totals rows (budget | alloc | spent | avail)
   if (state.cat_totals) {
     for (const [cid, t] of Object.entries(state.cat_totals)) {
       const row = document.querySelector(`[data-cat-total="${cid}"]`);
       if (!row) continue;
       const cells = row.querySelectorAll('th.col-amount');
-      // Column order matches template: budget(m-hide), alloc, rollover(m-hide), spent(m-hide), avail
-      const vals = [t.budget, t.alloc, t.rollover, t.spent, t.avail];
-      cells.forEach((cell, i) => {
-        if (i < vals.length) cell.textContent = (i === 2 && vals[i] === 0) ? '—' : fmtMoney(vals[i]);
-      });
+      // Column order: budget(m-hide), alloc, spent(m-hide), avail
+      const vals = [t.budget, t.alloc, t.spent, t.avail];
+      cells.forEach((cell, i) => { if (i < vals.length) cell.textContent = fmtMoney(vals[i]); });
     }
   }
 
@@ -1995,10 +1961,8 @@ function refreshValues(state) {
     if (row) {
       const g = state.grand_totals;
       const cells = row.querySelectorAll('th.col-amount');
-      const vals = [g.budget, g.alloc, g.rollover, g.spent, g.avail];
-      cells.forEach((cell, i) => {
-        if (i < vals.length) cell.textContent = (i === 2 && vals[i] === 0) ? '—' : fmtMoney(vals[i]);
-      });
+      const vals = [g.budget, g.alloc, g.spent, g.avail];
+      cells.forEach((cell, i) => { if (i < vals.length) cell.textContent = fmtMoney(vals[i]); });
     }
   }
 

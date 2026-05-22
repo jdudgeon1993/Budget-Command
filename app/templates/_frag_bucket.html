@@ -18,7 +18,6 @@
   <td class="col-status"><span class="badge-{{ b.status|lower if b.status else '' }}" data-status-id="{{ b.id }}">{{ b.status or '' }}</span></td>
   <td class="col-amount col-m-hide editable-num" data-field="bucket_target" data-id="{{ b.id }}" data-month="{{ active_mid }}" data-raw="{{ b.budget }}" data-type="number">{{ b.budget|money }}</td>
   <td class="col-amount editable-num" data-field="bucket_alloc" data-id="{{ b.id }}" data-month="{{ active_mid }}" data-raw="{{ b.alloc }}" data-type="number">{{ b.alloc|money }}</td>
-  <td class="col-amount col-m-hide" id="rollover-{{ b.id }}" data-rollover-id="{{ b.id }}" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">{{ b.rollover_val|money if b.rollover_val != 0 else "—" }}</td>
   <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
   <td class="col-amount" data-avail-id="{{ b.id }}" data-raw="{{ b.avail }}" style="{% if b.avail < 0 %}color:var(--red){% elif b.avail > 0 %}color:var(--green){% endif %}">{{ b.avail|money }}</td>
   <td class="col-settings">
@@ -30,7 +29,7 @@
   </td>
 </tr>
 <tr id="settings-{{ b.id }}" class="bucket-settings-row" style="display:none">
-  <td colspan="8">
+  <td colspan="7">
     <div class="settings-form">
       <div class="sf-row">
         <div class="sf-field">
@@ -137,18 +136,6 @@
           <input class="sf-input" type="text" placeholder="optional notes" value="{{ b.notes }}" onblur="saveSettingText('bucket_notes','{{ b.id }}',this.value,'')">
         </div>
       </div>
-      {% if b.type != 'vault' and b.rollover and b.rollover_val > 0 %}
-      <div class="sf-row" id="release-row-{{ b.id }}">
-        <div class="sf-field">
-          <div class="sf-label">Release Rollover</div>
-          <div class="release-row">
-            <input class="release-input" type="number" step="0.01" min="0.01" id="release-input-{{ b.id }}" placeholder="$ amount" max="{{ b.rollover_val }}">
-            <button class="release-btn" onclick="releaseRollover('{{ b.id }}','{{ active_mid }}')">Release</button>
-            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">available: <span id="roll-bal-{{ b.id }}">{{ b.rollover_val|money }}</span></span>
-          </div>
-        </div>
-      </div>
-      {% endif %}
       <div class="sf-row sf-toggles">
         {% if b.type != 'vault' %}
         <label class="sf-check"><input type="checkbox" {% if b.recurring %}checked{% endif %} onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')"> Recurring</label>
