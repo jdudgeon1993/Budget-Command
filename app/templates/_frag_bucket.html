@@ -48,7 +48,7 @@
         <div class="sf-row">
           <div class="sf-field">
             <div class="sf-label">Due Day</div>
-            <input class="sf-input" type="text" placeholder="e.g. 1, 15, eom" value="{{ b.due_day }}" onblur="saveSettingText('bucket_due_day','{{ b.id }}',this.value,'')">
+            <input class="sf-input" type="text" placeholder="e.g. 1, 15, eom" value="{{ b.due_day or '' }}" onblur="saveSettingText('bucket_due_day','{{ b.id }}',this.value,'')">
           </div>
           <div class="sf-field">
             <div class="sf-label">Pay Frequency</div>
@@ -64,7 +64,7 @@
         <div class="sf-row">
           <div class="sf-field">
             <div class="sf-label">Pay Amount</div>
-            <input class="sf-input" type="number" step="0.01" placeholder="per payment" value="{{ b.due_amount }}" onblur="saveSettingNum('bucket_due_amount','{{ b.id }}',this.value,'')">
+            <input class="sf-input" type="number" step="0.01" placeholder="per payment" value="{{ b.due_amount or '' }}" onblur="saveSettingNum('bucket_due_amount','{{ b.id }}',this.value,'')">
           </div>
           <div class="sf-field">
             <div class="sf-label">Linked Debt Account</div>
@@ -81,11 +81,11 @@
         <div class="sf-row">
           <div class="sf-field">
             <div class="sf-label">Target Amount</div>
-            <input class="sf-input" type="number" step="0.01" placeholder="$ goal" value="{{ b.target_amount }}" onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
+            <input class="sf-input" type="number" step="0.01" placeholder="$ goal" value="{{ b.target_amount or '' }}" onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
           </div>
           <div class="sf-field">
             <div class="sf-label">Target Date</div>
-            <input class="sf-input" type="month" value="{{ b.target_date }}" onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
+            <input class="sf-input" type="month" value="{{ b.target_date or '' }}" onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
           </div>
         </div>
       </div>
