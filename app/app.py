@@ -1861,7 +1861,7 @@ def api_reports():
     allocated_total = sum(
         float(v) for v in (active_month.get("allocations") or {}).values()
     )
-    rts = income_total - allocated_total
+    rts = _rts_now(data)
 
     # ── Category breakdown ────────────────────────────────────────────────────
     cat_breakdown = []
@@ -1963,6 +1963,143 @@ def api_reports():
             "allocated": t_alloc,
         })
 
+    # ── Cash flow: group non-scheduled txs by ISO week within active_mid ─────
+    from datetime import date as _date, timedelta as _timedelta
+    _year_a, _m0_a = parse_month_id(active_mid)
+    _month_a = _m0_a + 1
+    import calendar as _cal
+    _first_day = _date(_year_a, _month_a, 1)
+    _last_day_n = _cal.monthrange(_year_a, _month_a)[1]
+    _last_day = _date(_year_a, _month_a, _last_day_n)
+
+    # Build week buckets (Monday-anchored) covering the whole month
+    _week_start = _first_day - _timedelta(days=_first_day.weekday())  # Monday on or before 1st
+    _weeks = []
+    while _week_start <= _last_day:
+        _week_end = _week_start + _timedelta(days=6)
+        _label_start = max(_week_start, _first_day)
+        _label_end = min(_week_end, _last_day)
+        _label = f"{MONTH_NAMES[_m0_a][:3]} {_label_start.day}–{_label_end.day}"
+        _weeks.append({"start": _week_start, "end": _week_end, "label": _label, "income": 0.0, "spending": 0.0})
+        _week_start += _timedelta(days=7)
+
+    for t in txs:
+        if t.get("monthId") != active_mid or is_scheduled(t):
+            continue
+        try:
+            _td = _date.fromisoformat(t.get("date") or "")
+        except Exception:
+            continue
+        for _w in _weeks:
+            if _w["start"] <= _td <= _w["end"]:
+                if t.get("type") == "in":
+                    _w["income"] += float(t.get("amount", 0))
+                elif t.get("type") == "out":
+                    _w["spending"] += float(t.get("amount", 0))
+                break
+
+    cash_flow = [{"week": w["label"], "income": round(w["income"], 2), "spending": round(w["spending"], 2)} for w in _weeks]
+
+    # ── YTD: Jan through active_mid ─────────────────────────────────────────
+    _ytd_months = []
+    for _mi in range(0, _m0_a + 1):
+        _ytd_mid = month_id(_year_a, _mi)
+        _ytd_inc = sum(float(t.get("amount", 0)) for t in txs if t.get("monthId") == _ytd_mid and t.get("type") == "in" and not is_scheduled(t))
+        _ytd_out = sum(float(t.get("amount", 0)) for t in txs if t.get("monthId") == _ytd_mid and t.get("type") == "out" and not is_scheduled(t))
+        _ytd_months.append({"label": MONTH_NAMES[_mi][:3], "income": round(_ytd_inc, 2), "spending": round(_ytd_out, 2)})
+
+    _ytd_income_total = sum(m["income"] for m in _ytd_months)
+    _ytd_spending_total = sum(m["spending"] for m in _ytd_months)
+    _ytd_savings = _ytd_income_total - _ytd_spending_total
+    _ytd_rate = round(_ytd_savings / _ytd_income_total * 100, 1) if _ytd_income_total > 0 else 0.0
+
+    # ── YTD allocations ────────────────────────────────────────────────────
+    _ytd_alloc_total = 0.0
+    for _mi in range(0, _m0_a + 1):
+        _ytd_mid = month_id(_year_a, _mi)
+        _mo = next((m for m in all_months if m.get("id") == _ytd_mid), None)
+        if _mo:
+            _ytd_alloc_total += sum(float(v) for v in (_mo.get("allocations") or {}).values())
+
+    ytd = {
+        "income": round(_ytd_income_total, 2),
+        "spending": round(_ytd_spending_total, 2),
+        "allocated": round(_ytd_alloc_total, 2),
+        "savings": round(_ytd_savings, 2),
+        "savings_rate": _ytd_rate,
+        "months": _ytd_months,
+    }
+
+    # ── Income sources: this month, non-scheduled, type==in ─────────────────
+    _inc_txs = [t for t in txs if t.get("monthId") == active_mid and t.get("type") == "in" and not is_scheduled(t)]
+    _src_map = {}
+    for t in _inc_txs:
+        _key = (t.get("desc") or "").strip().lower() or "(unnamed)"
+        _src_map.setdefault(_key, {"name": (t.get("desc") or "").strip() or "(unnamed)", "total": 0.0, "count": 0})
+        _src_map[_key]["total"] += float(t.get("amount", 0))
+        _src_map[_key]["count"] += 1
+    _src_list = sorted(_src_map.values(), key=lambda x: x["total"], reverse=True)
+    _src_grand = sum(s["total"] for s in _src_list)
+    income_sources = [{"name": s["name"], "total": round(s["total"], 2), "count": s["count"],
+                       "pct": round(s["total"] / _src_grand * 100) if _src_grand > 0 else 0} for s in _src_list]
+
+    # ── Net worth: current snapshot + 12-month history ───────────────────────
+    accounts = data.get("accounts", [])
+    _budget_total = sum(acct_balance(a, txs) for a in accounts if a.get("type") in ("budget", "savings") and not a.get("archived"))
+    _savings_total = 0.0  # already included in budget accounts above; we'll keep separate for display
+    _debt_total = sum(acct_balance(a, txs) for a in accounts if a.get("type") == "debt" and not a.get("archived"))
+
+    # Recompute split: budget vs savings
+    _budget_bal = sum(acct_balance(a, txs) for a in accounts if a.get("type") == "budget" and not a.get("archived"))
+    _savings_bal = sum(acct_balance(a, txs) for a in accounts if a.get("type") == "savings" and not a.get("archived"))
+    _debt_bal = _debt_total  # typically negative or positive depending on convention
+    _net_cur = _budget_bal + _savings_bal + _debt_bal
+
+    # Monthly net worth history: last 12 months
+    _nw_history = []
+    _cur_y, _cur_m = parse_month_id(current_month_id())
+    for _i in range(11, -1, -1):
+        _total_m = _cur_m - _i
+        _hy = _cur_y + _total_m // 12
+        _hm = _total_m % 12
+        if _hm < 0:
+            _hm += 12
+            _hy -= 1
+        import calendar as _cal2
+        _last_of_month = _date(_hy, _hm + 1, _cal2.monthrange(_hy, _hm + 1)[1])
+        _h_label = f"{MONTH_NAMES[_hm][:3]} {str(_hy)[2:]}"
+
+        def _bal_at(acct, cutoff):
+            ob = float(acct.get("openingBalance") or 0)
+            for tx in txs:
+                try:
+                    td = _date.fromisoformat(tx.get("date") or "")
+                except Exception:
+                    continue
+                if td > cutoff:
+                    continue
+                if tx.get("accountId") == acct["id"]:
+                    if tx.get("type") == "in":
+                        ob += float(tx.get("amount", 0))
+                    elif tx.get("type") in ("out", "xfr"):
+                        ob -= float(tx.get("amount", 0))
+                elif tx.get("toAccountId") == acct["id"] and tx.get("type") == "xfr":
+                    ob += float(tx.get("amount", 0))
+                elif tx.get("debtPaymentAccountId") == acct["id"]:
+                    ob += float(tx.get("amount", 0))
+            return ob
+
+        _h_net = sum(_bal_at(a, _last_of_month) for a in accounts if not a.get("archived"))
+        _nw_history.append({"label": _h_label, "net": round(_h_net, 2)})
+
+    net_worth = {
+        "budget_total": round(_budget_bal, 2),
+        "savings_total": round(_savings_bal, 2),
+        "debt_total": round(_debt_bal, 2),
+        "net": round(_net_cur, 2),
+        "history": _nw_history,
+    }
+
     return jsonify({
         "ok":                 True,
         "active_mid":         active_mid,
@@ -1975,6 +2112,10 @@ def api_reports():
         },
         "category_breakdown": cat_breakdown,
         "monthly_trends":     monthly_trends,
+        "cash_flow":          cash_flow,
+        "ytd":                ytd,
+        "income_sources":     income_sources,
+        "net_worth":          net_worth,
     })
 
 
