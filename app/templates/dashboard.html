@@ -1434,10 +1434,11 @@
   <div id="panel-more" class="panel">
     <div class="panel-container">
 
-      <!-- Top-level: Accounts | Settings -->
+      <!-- Top-level: Accounts | Settings | Reports -->
       <div class="more-mode-tabs">
         <button class="more-mode-tab active" onclick="showMoreMode('accounts',this)">Accounts</button>
         <button class="more-mode-tab" onclick="showMoreMode('settings',this)">Settings</button>
+        <button class="more-mode-tab" onclick="showMoreMode('reports',this)">Reports</button>
       </div>
 
       <!-- ── Accounts mode ── -->
@@ -1962,6 +1963,50 @@
 
       </div><!-- end settings mode -->
 
+      <!-- ── Reports mode ── -->
+      <div id="more-mode-reports" style="display:none">
+        <!-- Sub-tabs -->
+        <div class="more-mode-tabs" id="report-tabs" style="flex-wrap:wrap; gap:0">
+          <button class="more-mode-tab active" onclick="showReportTab('summary',this)">Summary</button>
+          <button class="more-mode-tab" onclick="showReportTab('budget',this)">Budget</button>
+          <button class="more-mode-tab" onclick="showReportTab('cashflow',this)">Cash Flow</button>
+          <button class="more-mode-tab" onclick="showReportTab('ytd',this)">YTD</button>
+          <button class="more-mode-tab" onclick="showReportTab('income',this)">Income</button>
+          <button class="more-mode-tab" onclick="showReportTab('trends',this)">Trends</button>
+          <button class="more-mode-tab" onclick="showReportTab('networth',this)">Net Worth</button>
+        </div>
+        <!-- Loading state -->
+        <div id="report-loading" style="display:none; padding:40px; text-align:center; font-family:var(--mono); color:var(--text3); font-size:12px; letter-spacing:.1em;">LOADING...</div>
+        <!-- Summary tab -->
+        <div id="report-summary" class="report-tab-pane">
+          <div id="report-summary-content"></div>
+        </div>
+        <!-- Budget tab -->
+        <div id="report-budget" class="report-tab-pane" style="display:none">
+          <div id="report-budget-content"></div>
+        </div>
+        <!-- Cash Flow tab -->
+        <div id="report-cashflow" class="report-tab-pane" style="display:none">
+          <div id="report-cashflow-content"></div>
+        </div>
+        <!-- YTD tab -->
+        <div id="report-ytd" class="report-tab-pane" style="display:none">
+          <div id="report-ytd-content"></div>
+        </div>
+        <!-- Income tab -->
+        <div id="report-income" class="report-tab-pane" style="display:none">
+          <div id="report-income-content"></div>
+        </div>
+        <!-- Trends tab -->
+        <div id="report-trends" class="report-tab-pane" style="display:none">
+          <div id="report-trends-content"></div>
+        </div>
+        <!-- Net Worth tab -->
+        <div id="report-networth" class="report-tab-pane" style="display:none">
+          <div id="report-networth-content"></div>
+        </div>
+      </div><!-- end reports mode -->
+
     </div>
   </div>
 
@@ -1972,31 +2017,6 @@
     </div>
   </div>
 
-  <!-- Reports panel -->
-  <div id="panel-reports" class="panel">
-    <div class="panel-container">
-      <!-- Sub-tabs -->
-      <div class="more-mode-tabs" id="report-tabs">
-        <button class="more-mode-tab active" onclick="showReportTab('summary',this)">Summary</button>
-        <button class="more-mode-tab" onclick="showReportTab('budget',this)">Budget</button>
-        <button class="more-mode-tab" onclick="showReportTab('trends',this)">Trends</button>
-      </div>
-      <!-- Loading state -->
-      <div id="report-loading" style="display:none; padding:40px; text-align:center; font-family:var(--mono); color:var(--text3); font-size:12px; letter-spacing:.1em;">LOADING...</div>
-      <!-- Summary tab -->
-      <div id="report-summary" class="report-tab-pane">
-        <div id="report-summary-content"></div>
-      </div>
-      <!-- Budget tab -->
-      <div id="report-budget" class="report-tab-pane" style="display:none">
-        <div id="report-budget-content"></div>
-      </div>
-      <!-- Trends tab -->
-      <div id="report-trends" class="report-tab-pane" style="display:none">
-        <div id="report-trends-content"></div>
-      </div>
-    </div>
-  </div>
 
 </div>
 
@@ -2052,7 +2072,6 @@
       <th class="nav-tab" onclick="showPanel('ledger', this)">Ledger</th>
       <th class="nav-tab" onclick="showPanel('more', this)">More</th>
       <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
-      <th class="nav-tab" onclick="showPanel('reports', this)">Reports</th>
     </tr>
   </table>
 </nav>
@@ -2402,7 +2421,6 @@ function showPanel(name, tab) {
   document.getElementById('panel-' + name).classList.add('active');
   tab.classList.add('active');
   localStorage.setItem('bc_active_panel', name);
-  if (name === 'reports' && !_reportsData) loadReports();
 }
 
 // Restore active panel on page load
@@ -3251,12 +3269,15 @@ document.querySelectorAll('.editable-acct').forEach(span => {
 
 /* ── More panel: top-level mode switch ── */
 function showMoreMode(mode, btn) {
-  ['accounts','settings'].forEach(m => {
+  ['accounts','settings','reports'].forEach(m => {
     const el = document.getElementById('more-mode-' + m);
     if (el) el.style.display = m === mode ? '' : 'none';
   });
-  document.querySelectorAll('.more-mode-tab').forEach(b => b.classList.remove('active'));
+  // Only deactivate top-level mode tabs (not report sub-tabs)
+  const moreTabs = document.querySelectorAll('#panel-more > .panel-container > .more-mode-tabs > .more-mode-tab');
+  moreTabs.forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (mode === 'reports' && !_reportsData) loadReports();
 }
 
 /* ── Settings: sub-tab switch ── */
@@ -3573,6 +3594,10 @@ async function loadReports() {
     renderReportSummary(data);
     renderReportBudget(data);
     renderReportTrends(data);
+    renderReportCashFlow(data);
+    renderReportYTD(data);
+    renderReportIncome(data);
+    renderReportNetWorth(data);
   } catch(e) {
     console.error('loadReports error', e);
   } finally {
@@ -3741,6 +3766,254 @@ function renderReportTrends(data) {
 
   document.getElementById('report-trends-content').innerHTML =
     `<div class="report-section-head">Income vs Spending — Last 12 Months</div>` + svg;
+}
+
+function renderReportCashFlow(data) {
+  const weeks = data.cash_flow || [];
+  const el = document.getElementById('report-cashflow-content');
+  if (!el) return;
+  if (weeks.length === 0) {
+    el.innerHTML = `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No cash flow data for this month.</div>`;
+    return;
+  }
+
+  const svgW = 700, svgH = 260, padL = 60, padR = 20, padT = 20, padB = 50;
+  const chartW = svgW - padL - padR;
+  const chartH = svgH - padT - padB;
+  const maxVal = Math.max(...weeks.map(w => Math.max(w.income, w.spending)), 1);
+  const n = weeks.length;
+  const slotW = chartW / n;
+  const barW = Math.floor(slotW * 0.32);
+  const gap = Math.floor(slotW * 0.04);
+
+  let gridLines = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (chartH / 4) * i;
+    const val = maxVal * (1 - i / 4);
+    gridLines += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    gridLines += `<text x="${padL - 4}" y="${y + 4}" text-anchor="end" font-family="monospace" font-size="10" fill="var(--text3)">${fmtMoney(val).replace(/\.00$/, '')}</text>`;
+  }
+
+  let bars = '', labels = '';
+  weeks.forEach((w, i) => {
+    const slotX = padL + i * slotW;
+    const cx = slotX + slotW / 2;
+    const incH = (w.income / maxVal) * chartH;
+    const spdH = (w.spending / maxVal) * chartH;
+    const incX = cx - barW - gap / 2;
+    const spdX = cx + gap / 2;
+    bars += `<rect x="${incX.toFixed(1)}" y="${(padT + chartH - incH).toFixed(1)}" width="${barW}" height="${incH.toFixed(1)}" fill="var(--green)" rx="2"/>`;
+    bars += `<rect x="${spdX.toFixed(1)}" y="${(padT + chartH - spdH).toFixed(1)}" width="${barW}" height="${spdH.toFixed(1)}" fill="var(--amber)" rx="2"/>`;
+    labels += `<text x="${cx.toFixed(1)}" y="${svgH - padB + 14}" text-anchor="middle" font-family="monospace" font-size="9" fill="var(--text3)">${w.week}</text>`;
+  });
+
+  const legend = `<g transform="translate(${padL},${svgH - 12})">
+    <rect x="0" y="-8" width="10" height="10" fill="var(--green)" rx="2"/>
+    <text x="14" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Income</text>
+    <rect x="70" y="-8" width="10" height="10" fill="var(--amber)" rx="2"/>
+    <text x="84" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Spending</text>
+  </g>`;
+
+  const svg = `<svg viewBox="0 0 ${svgW} ${svgH}" width="100%" height="auto" style="display:block;overflow:visible">
+    ${gridLines}
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${padL}" y1="${padT + chartH}" x2="${svgW - padR}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
+    ${bars}${labels}${legend}
+  </svg>`;
+
+  let tableRows = weeks.map(w =>
+    `<tr>
+      <td style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text2)">${w.week}</td>
+      <td class="col-amount" style="color:var(--green);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(w.income)}</td>
+      <td class="col-amount" style="color:var(--amber);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(w.spending)}</td>
+    </tr>`
+  ).join('');
+
+  el.innerHTML = `<div class="report-section-head">Cash Flow — Weekly Breakdown</div>
+    ${svg}
+    <table class="data-table" style="margin-top:16px">
+      <thead><tr><th>Week</th><th class="col-amount">Income</th><th class="col-amount">Spending</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>`;
+}
+
+function renderReportYTD(data) {
+  const ytd = data.ytd || {};
+  const el = document.getElementById('report-ytd-content');
+  if (!el) return;
+
+  const inc = ytd.income || 0;
+  const spd = ytd.spending || 0;
+  const sav = ytd.savings || 0;
+  const rate = ytd.savings_rate || 0;
+  const months = ytd.months || [];
+
+  const savClass = sav >= 0 ? 'pos' : 'neg';
+  const barPct = inc > 0 ? Math.min(100, Math.round(spd / inc * 100)) : 0;
+
+  let html = `<div class="report-section-head">Year-to-Date Summary</div>
+    <div class="report-kpi-row">
+      <div class="report-kpi"><div class="report-kpi-label">YTD Income</div><div class="report-kpi-val pos">${fmtMoney(inc)}</div></div>
+      <div class="report-kpi"><div class="report-kpi-label">YTD Spending</div><div class="report-kpi-val" style="color:var(--amber)">${fmtMoney(spd)}</div></div>
+      <div class="report-kpi"><div class="report-kpi-label">YTD Savings</div><div class="report-kpi-val ${savClass}">${fmtMoney(sav)}</div></div>
+      <div class="report-kpi"><div class="report-kpi-label">Savings Rate</div><div class="report-kpi-val accent">${rate}%</div></div>
+    </div>`;
+
+  if (inc > 0) {
+    html += `<div class="report-section-head">Income vs Spending</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:4px">Spending: ${barPct}% of income</div>
+      <div class="rpt-bar-track" style="height:16px;border-radius:4px">
+        <div class="rpt-bar-fill ${spd > inc ? 'over' : 'ok'}" style="width:${barPct}%;height:100%"></div>
+      </div>`;
+  }
+
+  if (months.length > 0) {
+    const monthMax = Math.max(...months.map(m => Math.max(m.income, m.spending)), 1);
+    let tableRows = months.map(m => {
+      const saved = m.income - m.spending;
+      const savedClass = saved >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+      return `<tr>
+        <td style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text2)">${m.label}</td>
+        <td class="col-amount" style="color:var(--green);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(m.income)}</td>
+        <td class="col-amount" style="color:var(--amber);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(m.spending)}</td>
+        <td class="col-amount" style="${savedClass};font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(saved)}</td>
+      </tr>`;
+    }).join('');
+    html += `<div class="report-section-head">Monthly Breakdown</div>
+      <table class="data-table">
+        <thead><tr><th>Month</th><th class="col-amount">Income</th><th class="col-amount">Spending</th><th class="col-amount">Saved</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function renderReportIncome(data) {
+  const sources = data.income_sources || [];
+  const el = document.getElementById('report-income-content');
+  if (!el) return;
+
+  const total = sources.reduce((a, s) => a + s.total, 0);
+  let html = `<div class="report-section-head">Income This Month</div>
+    <div class="report-kpi-row">
+      <div class="report-kpi"><div class="report-kpi-label">Total Income</div><div class="report-kpi-val pos">${fmtMoney(total)}</div></div>
+      <div class="report-kpi"><div class="report-kpi-label">Sources</div><div class="report-kpi-val accent">${sources.length}</div></div>
+    </div>`;
+
+  if (sources.length === 0) {
+    html += `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No income recorded this month.</div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  html += `<div class="report-section-head">By Source</div>`;
+  sources.forEach(s => {
+    html += `<div class="rpt-cat-row">
+      <div class="rpt-cat-name">
+        <span>${s.name}</span>
+        <span class="rpt-cat-amounts">${fmtMoney(s.total)}</span>
+      </div>
+      <div class="rpt-bar-track"><div class="rpt-bar-fill ok" style="width:${s.pct}%"></div></div>
+    </div>`;
+  });
+
+  let tableRows = sources.map(s =>
+    `<tr>
+      <td class="col-name" style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${s.name}</td>
+      <td class="col-amount" style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text3)">${s.count}×</td>
+      <td class="col-amount" style="color:var(--green);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(s.total)}</td>
+      <td class="col-amount" style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text3)">${s.pct}%</td>
+    </tr>`
+  ).join('');
+
+  html += `<table class="data-table" style="margin-top:16px">
+    <thead><tr><th class="col-name">Source</th><th class="col-amount">Count</th><th class="col-amount">Total</th><th class="col-amount">% of Income</th></tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>`;
+
+  el.innerHTML = html;
+}
+
+function renderReportNetWorth(data) {
+  const nw = data.net_worth || {};
+  const el = document.getElementById('report-networth-content');
+  if (!el) return;
+
+  const assets = (nw.budget_total || 0) + (nw.savings_total || 0);
+  const debt = nw.debt_total || 0;
+  const net = nw.net || 0;
+  const history = nw.history || [];
+
+  const netClass = net >= 0 ? 'pos' : 'neg';
+  let html = `<div class="report-section-head">Net Worth Snapshot</div>
+    <div class="report-kpi-row">
+      <div class="report-kpi"><div class="report-kpi-label">Assets</div><div class="report-kpi-val pos">${fmtMoney(assets)}</div></div>
+      <div class="report-kpi"><div class="report-kpi-label">Debt</div><div class="report-kpi-val neg">${fmtMoney(debt)}</div></div>
+      <div class="report-kpi"><div class="report-kpi-label">Net Worth</div><div class="report-kpi-val ${netClass}">${fmtMoney(net)}</div></div>
+    </div>`;
+
+  // Assets vs Debt stacked bar
+  const totalAbs = Math.abs(assets) + Math.abs(debt);
+  if (totalAbs > 0) {
+    const assetPct = Math.round(Math.abs(assets) / totalAbs * 100);
+    const debtPct = 100 - assetPct;
+    html += `<div class="report-section-head">Assets vs Debt</div>
+      <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;margin-bottom:8px">
+        <div style="width:${assetPct}%;background:var(--green)"></div>
+        <div style="width:${debtPct}%;background:var(--red)"></div>
+      </div>
+      <div style="display:flex;gap:16px;font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:12px">
+        <span style="color:var(--green)">&#9632; Assets ${assetPct}%</span>
+        <span style="color:var(--red)">&#9632; Debt ${debtPct}%</span>
+      </div>`;
+  }
+
+  // Net worth history line chart
+  if (history.length > 1) {
+    const svgW = 700, svgH = 220, padL = 70, padR = 20, padT = 20, padB = 40;
+    const chartW = svgW - padL - padR;
+    const chartH = svgH - padT - padB;
+    const vals = history.map(h => h.net);
+    const minVal = Math.min(...vals);
+    const maxVal = Math.max(...vals);
+    const range = Math.max(maxVal - minVal, 1);
+
+    const pts = history.map((h, i) => {
+      const x = padL + (i / (history.length - 1)) * chartW;
+      const y = padT + chartH - ((h.net - minVal) / range) * chartH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+
+    let gridLines = '';
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + (chartH / 4) * i;
+      const val = maxVal - (range / 4) * i;
+      gridLines += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+      gridLines += `<text x="${padL - 4}" y="${y + 4}" text-anchor="end" font-family="monospace" font-size="10" fill="var(--text3)">${fmtMoney(val).replace(/\.00$/, '')}</text>`;
+    }
+
+    let labels = '';
+    history.forEach((h, i) => {
+      if (i % 3 === 0 || i === history.length - 1) {
+        const x = padL + (i / (history.length - 1)) * chartW;
+        labels += `<text x="${x.toFixed(1)}" y="${svgH - padB + 14}" text-anchor="middle" font-family="monospace" font-size="9" fill="var(--text3)">${h.label}</text>`;
+      }
+    });
+
+    const lineColor = net >= 0 ? 'var(--green)' : 'var(--red)';
+    const svg = `<svg viewBox="0 0 ${svgW} ${svgH}" width="100%" height="auto" style="display:block;overflow:visible">
+      ${gridLines}
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
+      <line x1="${padL}" y1="${padT + chartH}" x2="${svgW - padR}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
+      <polyline points="${pts}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${labels}
+    </svg>`;
+
+    html += `<div class="report-section-head">Net Worth — Last 12 Months</div>${svg}`;
+  }
+
+  el.innerHTML = html;
 }
 
 async function exportCSV() {
