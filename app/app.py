@@ -453,6 +453,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
     )
 
     bucket_avails   = {}
+    bucket_allocs   = {}
     bucket_rollover = {}
     bucket_spent    = {}
     vault_totals    = {}
@@ -462,6 +463,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
         bid    = b["id"]
         alloc  = float((active_month.get("allocations") or {}).get(bid, 0))
         budget = float((active_month.get("budgets") or {}).get(bid, 0))
+        bucket_allocs[bid] = alloc
         if b.get("type") == "vault":
             total = vault_accumulated(bid, all_months)
             vault_totals[bid]    = total
@@ -522,6 +524,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
     return {
         "rts":              _rts_now(data),
         "bucket_avails":    bucket_avails,
+        "bucket_allocs":    bucket_allocs,
         "bucket_rollover":  bucket_rollover,
         "bucket_spent":     bucket_spent,
         "vault_totals":     vault_totals,
