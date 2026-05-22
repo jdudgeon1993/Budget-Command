@@ -899,7 +899,7 @@
                     <div class="sf-field">
                       <div class="sf-label">Target Amount</div>
                       <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
-                             value="{{ b.target_amount or '' }}"
+                             value="{{ b.target_amount if b.target_amount else '' }}"
                              onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
                     </div>
                     <div class="sf-field">
@@ -929,7 +929,7 @@
                     <div class="sf-field">
                       <div class="sf-label">Target Amount</div>
                       <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
-                             value="{{ b.target_amount or '' }}"
+                             value="{{ b.target_amount if b.target_amount else '' }}"
                              onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
                     </div>
                     <div class="sf-field">
@@ -2182,7 +2182,12 @@ async function submitAddBucket(e) {
       body: JSON.stringify({ bucket_id: bid, active_mid: ACTIVE_MID })
     }).then(r => r.json()).catch(() => ({ok: false}));
 
-    if (!frag.ok) { alert('Could not render bucket — please refresh.'); return; }
+    if (!frag.ok) {
+      // Bucket was created server-side — keep selects in sync even if fragment render failed
+      appendBucketOption(bid, result.bucket_name, result.bucket_type);
+      alert('Bucket added but could not render row — please refresh.');
+      return;
+    }
 
     let tbody = document.getElementById('cat-body-' + cid);
 

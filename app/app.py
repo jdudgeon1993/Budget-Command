@@ -159,7 +159,7 @@ def _bucket_row_ctx(b: dict, active_month: dict, all_months: list, txs: list, ac
         roll  = rollover_bal(b, active_month, all_months, txs)
         spent = sum(t.get("amount", 0) for t in txs
                     if t.get("bucketId") == b["id"] and t.get("type") == "out"
-                    and t.get("monthId") == active_mid and not t.get("scheduledId"))
+                    and t.get("monthId") == active_mid and not is_scheduled(t))
         avail = bucket_available(b, active_month, all_months, txs)
 
     target_amount = b.get("targetAmount") or 0
@@ -178,7 +178,7 @@ def _bucket_row_ctx(b: dict, active_month: dict, all_months: list, txs: list, ac
         "recurring": b.get("recurring", False), "skipped": skipped,
         "due_day": b.get("dueDay", "") or "", "pay_freq": b.get("payFreq", "") or "",
         "due_amount": b.get("dueAmount", "") or "", "debt_account_id": b.get("debtAccountId", "") or "",
-        "notes": b.get("notes", "") or "", "target_amount": target_amount or "",
+        "notes": b.get("notes", "") or "", "target_amount": target_amount,
         "target_date": b.get("targetDate", "") or "", "contrib_freq": b.get("contribFreq", "") or "",
         "default_budget": b.get("defaultBudget", 0),
         "alloc": alloc, "budget": budget, "rollover_val": roll, "spent": spent,
@@ -272,9 +272,9 @@ def api_fragment_account():
         "id": acct["id"], "name": acct.get("name", ""), "type": acct.get("type", "budget"),
         "color": acct.get("color") or "#3a7fc1", "balance": bal,
         "opening_balance": acct.get("openingBalance") or 0,
-        "debt_apr": acct.get("debtAPR") or "",
-        "debt_min_payment": acct.get("debtMinPayment") or "",
-        "credit_limit": acct.get("creditLimit") or "",
+        "debt_apr": acct.get("debtAPR") if acct.get("debtAPR") is not None else "",
+        "debt_min_payment": acct.get("debtMinPayment") if acct.get("debtMinPayment") is not None else "",
+        "credit_limit": acct.get("creditLimit") if acct.get("creditLimit") is not None else "",
     }
 
     a_txs = sorted(
@@ -899,7 +899,7 @@ def _dashboard_inner():
                 "due_amount":      b.get("dueAmount") or "",
                 "debt_account_id": b.get("debtAccountId") or "",
                 "notes":           b.get("notes") or "",
-                "target_amount":   target_amount or "",
+                "target_amount":   target_amount,
                 "target_date":     b.get("targetDate") or "",
                 "contrib_freq":    b.get("contribFreq") or "",
                 "default_budget":  b.get("defaultBudget", 0),
@@ -957,9 +957,9 @@ def _dashboard_inner():
             "color":            a.get("color") or "#3a7fc1",
             "balance":          bal,
             "opening_balance":  a.get("openingBalance") or 0,
-            "debt_apr":         a.get("debtAPR") or "",
-            "debt_min_payment": a.get("debtMinPayment") or "",
-            "credit_limit":     a.get("creditLimit") or "",
+            "debt_apr":         a.get("debtAPR") if a.get("debtAPR") is not None else "",
+            "debt_min_payment": a.get("debtMinPayment") if a.get("debtMinPayment") is not None else "",
+            "credit_limit":     a.get("creditLimit") if a.get("creditLimit") is not None else "",
         })
 
     cash_accounts  = [a for a in accounts_display if a["type"] != "debt"]

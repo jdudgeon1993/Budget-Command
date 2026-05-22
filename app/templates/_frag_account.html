@@ -1,6 +1,6 @@
 {# Rendered server-side for a single account row + ledger row + settings row.
    Variables: a (account ctx dict), active_mid, account_ledgers #}
-{% set bal_class = 'acct-bal-positive' if a.balance >= 0 else ('acct-bal-debt-zero' if a.type == 'debt' and a.balance == 0 else 'acct-bal-negative') %}
+{% set bal_class = 'acct-bal-debt-zero' if a.type == 'debt' and a.balance == 0 else ('acct-bal-positive' if a.balance >= 0 else 'acct-bal-negative') %}
 <tr id="acct-row-{{ a.id }}">
   <td class="col-name">
     <span class="acct-color-dot" style="background:{{ a.color }}"></span>
