@@ -461,7 +461,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
             )
 
     account_balances = {
-        a["id"]: acct_balance(a["id"], accounts, txs)
+        a["id"]: acct_balance(a, txs)
         for a in accounts if not a.get("archived")
     }
 
