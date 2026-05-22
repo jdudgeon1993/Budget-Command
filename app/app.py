@@ -1824,6 +1824,205 @@ def api_debt_payment():
 
 
 
+# ── API: reports ─────────────────────────────────────────────────────────────
+
+@app.route("/api/reports")
+def api_reports():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    active_mid = request.args.get("month") or current_month_id()
+    uid, tok   = _uid(), _tok()
+    data       = _load(uid, tok)
+
+    year, m0   = parse_month_id(active_mid)
+    month_label = f"{MONTH_NAMES[m0]} {year}"
+
+    all_months     = data.get("months", [])
+    txs            = data.get("txs", [])
+    cats           = data.get("cats", [])
+    all_buckets    = data.get("buckets", [])
+
+    active_month = next(
+        (m for m in all_months if m.get("id") == active_mid),
+        {"id": active_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {},
+         "skippedBuckets": {}, "vaultWithdrawals": {}},
+    )
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+    income_total = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == active_mid and t.get("type") == "in" and not is_scheduled(t)
+    )
+    spent_total = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == active_mid and t.get("type") == "out" and not is_scheduled(t)
+    )
+    allocated_total = sum(
+        float(v) for v in (active_month.get("allocations") or {}).values()
+    )
+    rts = income_total - allocated_total
+
+    # ── Category breakdown ────────────────────────────────────────────────────
+    cat_breakdown = []
+    for cat in cats:
+        if cat.get("archived"):
+            continue
+        cid = cat["id"]
+        cat_buckets = [
+            b for b in all_buckets
+            if b.get("catId") == cid and not b.get("archived")
+        ]
+        if not cat_buckets:
+            continue
+
+        bucket_rows = []
+        cat_alloc  = 0.0
+        cat_spent  = 0.0
+        cat_budget = 0.0
+
+        for b in cat_buckets:
+            bid    = b["id"]
+            btype  = b.get("type", "expense")
+            alloc  = float((active_month.get("allocations") or {}).get(bid, 0))
+            budget = float((active_month.get("budgets") or {}).get(bid, 0))
+
+            if btype == "vault":
+                b_spent_val = 0.0
+                avail       = vault_accumulated(bid, all_months)
+                status      = ""
+            else:
+                b_spent_val = sum(
+                    float(t.get("amount", 0)) for t in txs
+                    if t.get("bucketId") == bid and t.get("type") == "out"
+                    and t.get("monthId") == active_mid and not is_scheduled(t)
+                )
+                avail  = bucket_available(b, active_month, all_months, txs)
+                status = bucket_status(alloc, budget, b_spent_val, avail)
+
+            cat_alloc  += alloc
+            cat_spent  += b_spent_val
+            cat_budget += budget
+
+            bucket_rows.append({
+                "name":      b["name"],
+                "allocated": alloc,
+                "spent":     b_spent_val,
+                "avail":     avail,
+                "status":    status,
+            })
+
+        pct = round(cat_spent / cat_alloc * 100) if cat_alloc > 0 else 0
+        cat_breakdown.append({
+            "id":        cid,
+            "name":      cat["name"],
+            "color":     cat.get("color") or "",
+            "allocated": cat_alloc,
+            "spent":     cat_spent,
+            "budget":    cat_budget,
+            "pct_spent": pct,
+            "over":      cat_spent > cat_alloc,
+            "buckets":   bucket_rows,
+        })
+
+    # ── Monthly trends: last 12 months ────────────────────────────────────────
+    cur_year, cur_m0 = parse_month_id(current_month_id())
+    months_seq = []
+    for i in range(11, -1, -1):
+        total_m = cur_m0 - i
+        y = cur_year + total_m // 12
+        m = total_m % 12
+        if m < 0:
+            m += 12
+            y -= 1
+        months_seq.append(month_id(y, m))
+
+    monthly_trends = []
+    for mid_t in months_seq:
+        y_t, m0_t = parse_month_id(mid_t)
+        short_year = str(y_t)[2:]
+        label      = f"{MONTH_NAMES[m0_t][:3]} {short_year}"
+
+        month_obj  = next((m for m in all_months if m.get("id") == mid_t), None)
+        t_income   = sum(
+            float(t.get("amount", 0)) for t in txs
+            if t.get("monthId") == mid_t and t.get("type") == "in" and not is_scheduled(t)
+        )
+        t_spent    = sum(
+            float(t.get("amount", 0)) for t in txs
+            if t.get("monthId") == mid_t and t.get("type") == "out" and not is_scheduled(t)
+        )
+        t_alloc    = sum(
+            float(v) for v in ((month_obj.get("allocations") or {}) if month_obj else {}).values()
+        )
+        monthly_trends.append({
+            "mid":       mid_t,
+            "label":     label,
+            "income":    t_income,
+            "spent":     t_spent,
+            "allocated": t_alloc,
+        })
+
+    return jsonify({
+        "ok":                 True,
+        "active_mid":         active_mid,
+        "month_label":        month_label,
+        "summary": {
+            "income":    income_total,
+            "allocated": allocated_total,
+            "spent":     spent_total,
+            "rts":       rts,
+        },
+        "category_breakdown": cat_breakdown,
+        "monthly_trends":     monthly_trends,
+    })
+
+
+# ── API: export CSV ───────────────────────────────────────────────────────────
+
+@app.route("/api/export-csv")
+def api_export_csv():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    import io, csv as _csv
+    active_mid = request.args.get("month") or current_month_id()
+    uid, tok   = _uid(), _tok()
+    data       = _load(uid, tok)
+    year, m0   = parse_month_id(active_mid)
+
+    txs      = data.get("txs", [])
+    accounts = {a["id"]: a["name"] for a in data.get("accounts", [])}
+    buckets  = {b["id"]: b["name"] for b in data.get("buckets", [])}
+
+    month_txs = [
+        t for t in txs
+        if t.get("monthId") == active_mid and not is_scheduled(t)
+    ]
+    month_txs.sort(key=lambda t: t.get("date") or "")
+
+    buf = io.StringIO()
+    writer = _csv.writer(buf)
+    writer.writerow(["Date", "Description", "Amount", "Type", "Account", "Bucket"])
+    for t in month_txs:
+        writer.writerow([
+            t.get("date") or "",
+            t.get("desc") or "",
+            t.get("amount", 0),
+            t.get("type", ""),
+            accounts.get(t.get("accountId") or "", ""),
+            buckets.get(t.get("bucketId") or "", ""),
+        ])
+
+    filename = f"budget_{year}_{m0 + 1:02d}.csv"
+    from flask import Response
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
+    )
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_ENV") == "development")

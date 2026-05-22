@@ -162,7 +162,7 @@
 .tbl-cat-total th { color: var(--text2); font-size: clamp(10px, 1.6vw, 12px); font-family: var(--mono); border-top: 1px solid var(--border); }
 .tbl-grand-total th { color: var(--accent); font-size: clamp(11px, 1.8vw, 13px); font-family: var(--mono); border-top: 2px solid var(--border2); }
 
-.col-status { width: 68px; text-align: center; vertical-align: middle; }
+.col-status { width: 72px; text-align: center; vertical-align: middle; }
 .col-date { width: 64px; }
 .col-settings { width: 32px; text-align: center; }
 
@@ -180,8 +180,7 @@
 .badge-over   { color: var(--red);    font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 
 /* ── Due date badge ── */
-.col-status { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
-.badge-due  { font-size: clamp(8px,1.2vw,9px); font-family: var(--mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.badge-due  { display: block; font-size: clamp(8px,1.2vw,9px); font-family: var(--mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; line-height: 1.2; }
 .due-overdue  { color: var(--red); }
 .due-today    { color: var(--red); font-weight: bold; }
 .due-soon     { color: var(--amber); }
@@ -759,6 +758,35 @@
 .nav-tab:last-child { border-right: none; }
 .nav-tab:hover { background: var(--bg2); color: var(--text2); }
 .nav-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+/* ── Reports ── */
+.report-section-head { font-family:var(--display); font-size:clamp(11px,2vw,14px); letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:14px 0 6px; border-top:1px solid var(--border); margin-top:8px; }
+.report-section-head:first-child { border-top:none; margin-top:0; }
+.report-kpi-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.report-kpi { flex:1; min-width:120px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:10px 12px; }
+.report-kpi-label { font-family:var(--mono); font-size:clamp(8px,1.3vw,10px); letter-spacing:.1em; text-transform:uppercase; color:var(--text3); }
+.report-kpi-val { font-family:var(--mono); font-size:clamp(14px,2.5vw,18px); margin-top:2px; }
+.report-kpi-val.pos { color:var(--green); }
+.report-kpi-val.neg { color:var(--red); }
+.report-kpi-val.accent { color:var(--accent); }
+
+/* Category bar rows */
+.rpt-cat-row { padding:6px 0; border-bottom:1px solid var(--border); }
+.rpt-cat-name { font-family:var(--mono); font-size:clamp(9px,1.4vw,11px); letter-spacing:.06em; text-transform:uppercase; color:var(--text2); margin-bottom:3px; display:flex; justify-content:space-between; align-items:baseline; }
+.rpt-cat-amounts { font-family:var(--mono); font-size:clamp(9px,1.3vw,10px); color:var(--text3); }
+.rpt-bar-track { height:8px; background:var(--bg2); border-radius:4px; overflow:hidden; margin-bottom:2px; }
+.rpt-bar-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+.rpt-bar-fill.ok { background:var(--accent); }
+.rpt-bar-fill.over { background:var(--red); }
+.rpt-bucket-list { padding:4px 0 0 8px; }
+.rpt-bucket-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; font-size:clamp(10px,1.6vw,12px); color:var(--text3); font-family:var(--mono); }
+.rpt-bucket-name { flex:1; }
+.rpt-bucket-amt { white-space:nowrap; }
+.rpt-bucket-over { color:var(--red); }
+
+/* CSV export button */
+.rpt-export-btn { display:inline-block; margin:16px 0; padding:8px 20px; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--r); font-family:var(--mono); font-size:clamp(10px,1.5vw,12px); letter-spacing:.1em; text-transform:uppercase; color:var(--accent); cursor:pointer; transition:background .12s; }
+.rpt-export-btn:hover { background:var(--border2); }
 {% endblock %}
 
 {% block content %}
@@ -1944,6 +1972,32 @@
     </div>
   </div>
 
+  <!-- Reports panel -->
+  <div id="panel-reports" class="panel">
+    <div class="panel-container">
+      <!-- Sub-tabs -->
+      <div class="more-mode-tabs" id="report-tabs">
+        <button class="more-mode-tab active" onclick="showReportTab('summary',this)">Summary</button>
+        <button class="more-mode-tab" onclick="showReportTab('budget',this)">Budget</button>
+        <button class="more-mode-tab" onclick="showReportTab('trends',this)">Trends</button>
+      </div>
+      <!-- Loading state -->
+      <div id="report-loading" style="display:none; padding:40px; text-align:center; font-family:var(--mono); color:var(--text3); font-size:12px; letter-spacing:.1em;">LOADING...</div>
+      <!-- Summary tab -->
+      <div id="report-summary" class="report-tab-pane">
+        <div id="report-summary-content"></div>
+      </div>
+      <!-- Budget tab -->
+      <div id="report-budget" class="report-tab-pane" style="display:none">
+        <div id="report-budget-content"></div>
+      </div>
+      <!-- Trends tab -->
+      <div id="report-trends" class="report-tab-pane" style="display:none">
+        <div id="report-trends-content"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Calculator popover -->
@@ -1998,6 +2052,7 @@
       <th class="nav-tab" onclick="showPanel('ledger', this)">Ledger</th>
       <th class="nav-tab" onclick="showPanel('more', this)">More</th>
       <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
+      <th class="nav-tab" onclick="showPanel('reports', this)">Reports</th>
     </tr>
   </table>
 </nav>
@@ -2347,6 +2402,7 @@ function showPanel(name, tab) {
   document.getElementById('panel-' + name).classList.add('active');
   tab.classList.add('active');
   localStorage.setItem('bc_active_panel', name);
+  if (name === 'reports' && !_reportsData) loadReports();
 }
 
 // Restore active panel on page load
@@ -3502,5 +3558,209 @@ document.addEventListener('mousedown', e => {
     closeCalc();
   }
 });
+
+/* ── Reports ── */
+let _reportsData = null;
+
+async function loadReports() {
+  const loading = document.getElementById('report-loading');
+  if (loading) loading.style.display = '';
+  try {
+    const r = await fetch('/api/reports?month=' + ACTIVE_MID);
+    const data = await r.json();
+    if (!data.ok) return;
+    _reportsData = data;
+    renderReportSummary(data);
+    renderReportBudget(data);
+    renderReportTrends(data);
+  } catch(e) {
+    console.error('loadReports error', e);
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function showReportTab(name, btn) {
+  document.querySelectorAll('.report-tab-pane').forEach(p => p.style.display = 'none');
+  document.getElementById('report-' + name).style.display = '';
+  document.querySelectorAll('#report-tabs .more-mode-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function renderReportSummary(data) {
+  const s = data.summary || {};
+  const cats = data.category_breakdown || [];
+  const totalSpent = cats.reduce((a, c) => a + (c.spent || 0), 0);
+
+  // KPI cards
+  const rtsClass = (s.rts || 0) >= 0 ? 'pos' : 'neg';
+  let html = `<div class="report-section-head">Month Overview — ${data.month_label || ''}</div>`;
+  html += `<div class="report-kpi-row">
+    <div class="report-kpi"><div class="report-kpi-label">Income</div><div class="report-kpi-val pos">${fmtMoney(s.income||0)}</div></div>
+    <div class="report-kpi"><div class="report-kpi-label">Allocated</div><div class="report-kpi-val accent">${fmtMoney(s.allocated||0)}</div></div>
+    <div class="report-kpi"><div class="report-kpi-label">Spent</div><div class="report-kpi-val" style="color:var(--amber)">${fmtMoney(s.spent||0)}</div></div>
+    <div class="report-kpi"><div class="report-kpi-label">Ready to Spend</div><div class="report-kpi-val ${rtsClass}">${fmtMoney(s.rts||0)}</div></div>
+  </div>`;
+
+  // Donut chart
+  const spendingCats = cats.filter(c => c.spent > 0);
+  if (spendingCats.length > 0) {
+    html += `<div class="report-section-head">Spending by Category</div>`;
+    const r = 70, cx = 100, cy = 100, sw = 22;
+    const circ = 2 * Math.PI * r;
+    let offset = 0;
+    const palette = ['#00e5ff','#fbbf24','#34d399','#f87171','#a78bfa','#fb923c','#38bdf8','#4ade80','#f472b6','#e879f9','#facc15','#60a5fa'];
+    let segments = '';
+    spendingCats.forEach((c, i) => {
+      const frac = totalSpent > 0 ? c.spent / totalSpent : 0;
+      const dash = frac * circ;
+      const gap = circ - dash;
+      const color = c.color || palette[i % palette.length];
+      segments += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${sw}"
+        stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}"
+        stroke-dashoffset="${(circ / 4 - offset).toFixed(2)}"
+        transform="rotate(-90 ${cx} ${cy})"/>`;
+      offset += dash;
+    });
+    html += `<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <svg viewBox="0 0 200 200" width="160" height="160" style="flex-shrink:0">${segments}</svg>
+      <div style="flex:1;min-width:140px">`;
+    spendingCats.forEach((c, i) => {
+      const pct = totalSpent > 0 ? Math.round(c.spent / totalSpent * 100) : 0;
+      const color = c.color || palette[i % palette.length];
+      html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">
+        <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1;color:var(--text2)">${c.name}</span>
+        <span style="color:var(--text3)">${fmtMoney(c.spent)}</span>
+        <span style="color:var(--text3);min-width:32px;text-align:right">${pct}%</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  } else {
+    html += `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No spending recorded for this month.</div>`;
+  }
+
+  document.getElementById('report-summary-content').innerHTML = html;
+}
+
+function renderReportBudget(data) {
+  const cats = data.category_breakdown || [];
+  let html = `<button class="rpt-export-btn" onclick="exportCSV()">&#11015; Export CSV</button>`;
+
+  if (cats.length === 0) {
+    html += `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No budget data for this month.</div>`;
+    document.getElementById('report-budget-content').innerHTML = html;
+    return;
+  }
+
+  cats.forEach((cat, ci) => {
+    const pct = Math.min(cat.pct_spent || 0, 100);
+    const overClass = cat.over ? 'over' : 'ok';
+    html += `<div class="report-section-head" style="cursor:pointer" onclick="toggleBuckets('rpt-buckets-${ci}')">
+      <span>${cat.name}</span>
+      <span style="float:right;font-family:var(--mono);font-size:clamp(9px,1.3vw,10px);color:${cat.over ? 'var(--red)' : 'var(--text3)'}">${fmtMoney(cat.spent)} / ${fmtMoney(cat.allocated)}</span>
+    </div>`;
+    html += `<div class="rpt-bar-track"><div class="rpt-bar-fill ${overClass}" style="width:${pct}%"></div></div>`;
+    html += `<div id="rpt-buckets-${ci}" class="rpt-bucket-list" style="display:none">`;
+    (cat.buckets || []).forEach(b => {
+      const overAmt = b.spent > b.allocated && b.allocated > 0;
+      html += `<div class="rpt-bucket-row">
+        <span class="rpt-bucket-name">${b.name}</span>
+        <span class="rpt-bucket-amt ${overAmt ? 'rpt-bucket-over' : ''}">${fmtMoney(b.spent)} / ${fmtMoney(b.allocated)}</span>
+        ${b.status ? `<span style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:8px">${b.status}</span>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  document.getElementById('report-budget-content').innerHTML = html;
+}
+
+function toggleBuckets(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function renderReportTrends(data) {
+  const trends = data.monthly_trends || [];
+  if (trends.length === 0) {
+    document.getElementById('report-trends-content').innerHTML =
+      `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No trend data available.</div>`;
+    return;
+  }
+
+  const svgW = 800, svgH = 300, padL = 60, padR = 20, padT = 20, padB = 50;
+  const chartW = svgW - padL - padR;
+  const chartH = svgH - padT - padB;
+  const maxVal = Math.max(...trends.map(m => Math.max(m.income || 0, m.spent || 0)), 1);
+  const n = trends.length;
+  const slotW = chartW / n;
+  const barW = Math.floor(slotW * 0.35);
+  const gap = Math.floor(slotW * 0.05);
+
+  // Grid lines
+  let gridLines = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (chartH / 4) * i;
+    const val = maxVal * (1 - i / 4);
+    gridLines += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
+    gridLines += `<text x="${padL - 4}" y="${y + 4}" text-anchor="end" font-family="monospace" font-size="10" fill="var(--text3)">${fmtMoney(val).replace(/\.00$/, '')}</text>`;
+  }
+
+  // Bars and labels
+  let bars = '';
+  let labels = '';
+  trends.forEach((m, i) => {
+    const slotX = padL + i * slotW;
+    const centerX = slotX + slotW / 2;
+    const incomeH = ((m.income || 0) / maxVal) * chartH;
+    const spentH = ((m.spent || 0) / maxVal) * chartH;
+    const incomeX = centerX - barW - gap / 2;
+    const spentX = centerX + gap / 2;
+    bars += `<rect x="${incomeX.toFixed(1)}" y="${(padT + chartH - incomeH).toFixed(1)}" width="${barW}" height="${incomeH.toFixed(1)}" fill="var(--green)" rx="2"/>`;
+    bars += `<rect x="${spentX.toFixed(1)}" y="${(padT + chartH - spentH).toFixed(1)}" width="${barW}" height="${spentH.toFixed(1)}" fill="var(--amber)" rx="2"/>`;
+    labels += `<text x="${centerX.toFixed(1)}" y="${svgH - padB + 14}" text-anchor="middle" font-family="monospace" font-size="9" fill="var(--text3)">${m.label}</text>`;
+  });
+
+  // Legend
+  const legend = `<g transform="translate(${padL}, ${svgH - 12})">
+    <rect x="0" y="-8" width="10" height="10" fill="var(--green)" rx="2"/>
+    <text x="14" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Income</text>
+    <rect x="70" y="-8" width="10" height="10" fill="var(--amber)" rx="2"/>
+    <text x="84" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Spending</text>
+  </g>`;
+
+  const svg = `<svg viewBox="0 0 ${svgW} ${svgH}" width="100%" height="auto" style="display:block;overflow:visible">
+    ${gridLines}
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${padL}" y1="${padT + chartH}" x2="${svgW - padR}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
+    ${bars}
+    ${labels}
+    ${legend}
+  </svg>`;
+
+  document.getElementById('report-trends-content').innerHTML =
+    `<div class="report-section-head">Income vs Spending — Last 12 Months</div>` + svg;
+}
+
+async function exportCSV() {
+  try {
+    const r = await fetch('/api/export-csv?month=' + ACTIVE_MID);
+    if (!r.ok) { alert('Export failed'); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const cd = r.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : 'budget.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Export error: ' + e.message);
+  }
+}
 </script>
 {% endblock %}
