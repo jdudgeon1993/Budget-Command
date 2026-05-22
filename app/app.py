@@ -2266,19 +2266,23 @@ def _bill_dates_in_range(due_day, pay_freq, from_date: date, to_date: date) -> l
     return sorted(dates)
 
 
-def _fmt_week_label(ws: date, we: date) -> str:
-    """Format a week range like 'May 26 – Jun 1', crossing year if needed."""
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+_FC_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+_FC_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    start_str = f"{months[ws.month - 1]} {ws.day}"
-    if ws.year != we.year:
-        end_str = f"{months[we.month - 1]} {we.day}, {we.year}"
-        return f"{start_str}, {ws.year} – {end_str}"
-    elif ws.month != we.month:
-        end_str = f"{months[we.month - 1]} {we.day}"
-    else:
-        end_str = str(we.day)
-    return f"{start_str} – {end_str}"
+
+
+def _fc_date_label(d: date) -> str:
+    return f"{_FC_DAYS[d.weekday()]}, {_FC_MONTHS[d.month-1]} {d.day}"
+
+
+def _fc_range_label(s: date, e: date) -> str:
+    if s == e:
+        return _fc_date_label(s)
+    s_str = f"{_FC_MONTHS[s.month-1]} {s.day}"
+    e_str = f"{_FC_MONTHS[e.month-1]} {e.day}"
+    if s.year != e.year:
+        return f"{s_str}, {s.year} – {e_str}, {e.year}"
+    return f"{s_str} – {e_str}"
 
 
 # ── API: forecast ─────────────────────────────────────────────────────────────
@@ -2297,11 +2301,11 @@ def api_forecast():
     uid, tok = _uid(), _tok()
     data     = _load(uid, tok)
 
-    accounts       = data.get("accounts", [])
-    txs            = data.get("txs", [])
-    paychecks      = data.get("paychecks", [])
-    alloc_rules    = data.get("allocationRules", [])
-    buckets        = data.get("buckets", [])
+    accounts    = data.get("accounts", [])
+    txs         = data.get("txs", [])
+    paychecks   = data.get("paychecks", [])
+    alloc_rules = data.get("allocationRules", [])
+    buckets     = data.get("buckets", [])
 
     # Starting balance: sum of all non-archived, non-debt accounts
     budget_bal = sum(
@@ -2313,29 +2317,53 @@ def api_forecast():
     today = date.today()
 
     # Determine end date
-    if n_months == 0:  # end of year
+    if n_months == 0:
         end_date = date(today.year, 12, 31)
     else:
         y = today.year + (today.month - 1 + n_months) // 12
         m = (today.month - 1 + n_months) % 12 + 1
         end_date = date(y, m, _cal.monthrange(y, m)[1])
 
-    # Build weekly buckets.
-    # First "week" starts TODAY (the pre-paycheck gap: from now until this Sunday).
-    # Subsequent weeks are full Mon–Sun.
-    weeks_meta = []
-    week_start = today
-    while week_start <= end_date:
-        # End of this period = the coming Sunday (or end_date if sooner)
-        days_to_sunday = 6 - week_start.weekday()
-        week_end = min(week_start + timedelta(days=days_to_sunday), end_date)
-        weeks_meta.append((week_start, week_end))
-        week_start = week_end + timedelta(days=1)
-
-    # Active external rules
+    # ── Build pay_events: date → [paycheck dicts] ──────────────────────────
     external_rules = [r for r in alloc_rules if r.get("ruleType") == "external" and r.get("active", True)]
 
-    # Recurring bills: non-archived, recurring=True, dueAmount set, dueDay set
+    pay_events: dict = {}  # date → list of paycheck hit dicts
+    for pc in paychecks:
+        if not pc.get("anchorDate"):
+            continue
+        for pd in _gen_pay_dates(pc["anchorDate"], pc["freq"], today, end_date):
+            if pd not in pay_events:
+                pay_events[pd] = []
+            transfers = []
+            for rule in external_rules:
+                amt = float(pc["amount"])
+                computed = round(amt * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
+                transfers.append({"name": rule["name"], "amount": computed})
+            pay_events[pd].append({
+                "label":     pc["label"],
+                "amount":    float(pc["amount"]),
+                "transfers": transfers,
+            })
+
+    all_pay_dates = sorted(pay_events.keys())
+
+    # ── Build period boundaries ─────────────────────────────────────────────
+    # period = (start, end, is_gap)
+    # Gap = today → day before first paycheck (skipped if today is a payday)
+    periods_meta = []
+    if not all_pay_dates:
+        periods_meta.append((today, end_date, True))
+    else:
+        if all_pay_dates[0] > today:
+            periods_meta.append((today, all_pay_dates[0] - timedelta(days=1), True))
+        for i, pd in enumerate(all_pay_dates):
+            if i + 1 < len(all_pay_dates):
+                pe = all_pay_dates[i + 1] - timedelta(days=1)
+            else:
+                pe = end_date
+            periods_meta.append((pd, pe, False))
+
+    # ── Recurring bills lookup ──────────────────────────────────────────────
     recurring_bills = [
         b for b in buckets
         if not b.get("archived")
@@ -2344,71 +2372,85 @@ def api_forecast():
         and b.get("dueDay") is not None
     ]
 
-    week_results = []
+    # ── Build period results ────────────────────────────────────────────────
     running_balance = budget_bal
+    period_results  = []
 
-    for (ws, we) in weeks_meta:
-        week_income_items  = []
-        week_expense_items = []
-        week_external_items = []
+    for (ps, pe, is_gap) in periods_meta:
+        period_start_balance = running_balance
 
-        # Paychecks
-        for pc in paychecks:
-            if not pc.get("anchorDate"):
-                # Skip paychecks without an anchor date
-                continue
-            pay_dates = _gen_pay_dates(pc["anchorDate"], pc["freq"], ws, we)
-            for _pd in pay_dates:
-                week_income_items.append({
-                    "label": pc["label"],
-                    "amount": float(pc["amount"]),
-                    "date": str(_pd),
+        # Income events at the start of paycheck periods
+        income_events   = []
+        transfer_events = []
+        if not is_gap and ps in pay_events:
+            for pc_hit in pay_events[ps]:
+                running_balance += pc_hit["amount"]
+                income_events.append({
+                    "label":  pc_hit["label"],
+                    "amount": pc_hit["amount"],
                 })
-                # Apply external rules per paycheck landing
-                for rule in external_rules:
-                    amt = pc["amount"]
-                    computed = round(amt * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
-                    week_external_items.append({
-                        "name": rule["name"],
-                        "amount": computed,
-                    })
+                for xfr in pc_hit["transfers"]:
+                    running_balance -= xfr["amount"]
+                    transfer_events.append(xfr)
 
-        # Recurring bills
+        # Collect all bill dates within this period, grouped by day
+        bill_by_day: dict = {}  # date → list of bill dicts
         for b in recurring_bills:
-            bill_dates = _bill_dates_in_range(b["dueDay"], b.get("payFreq"), ws, we)
-            for _bd in bill_dates:
-                week_expense_items.append({
-                    "name": b["name"],
+            for bd in _bill_dates_in_range(b["dueDay"], b.get("payFreq"), ps, pe):
+                if bd not in bill_by_day:
+                    bill_by_day[bd] = []
+                bill_by_day[bd].append({
+                    "name":   b["name"],
                     "amount": float(b["dueAmount"]),
-                    "date": str(_bd),
                 })
 
-        week_income_total   = sum(i["amount"] for i in week_income_items)
-        week_expense_total  = sum(i["amount"] for i in week_expense_items)
-        week_external_total = sum(i["amount"] for i in week_external_items)
-        week_net = week_income_total - week_expense_total - week_external_total
-        running_balance += week_net
+        # Build day entries in chronological order
+        days = []
+        for d in sorted(bill_by_day.keys()):
+            for bill in bill_by_day[d]:
+                running_balance -= bill["amount"]
+            days.append({
+                "date":        str(d),
+                "label":       _fc_date_label(d),
+                "events":      bill_by_day[d],
+                "run_balance": round(running_balance, 2),
+            })
 
-        week_results.append({
-            "label":           _fmt_week_label(ws, we),
-            "start":           str(ws),
-            "end":             str(we),
-            "income":          week_income_items,
-            "expenses":        week_expense_items,
-            "external":        week_external_items,
-            "week_income":     round(week_income_total, 2),
-            "week_expenses":   round(week_expense_total, 2),
-            "week_external":   round(week_external_total, 2),
-            "week_net":        round(week_net, 2),
-            "running_balance": round(running_balance, 2),
-            "shortfall":       running_balance < 0,
+        period_income    = sum(e["amount"] for e in income_events)
+        period_transfers = sum(e["amount"] for e in transfer_events)
+        period_expenses  = sum(b["amount"] for day in days for b in day["events"])
+        period_net       = period_income - period_transfers - period_expenses
+
+        # Build label
+        if is_gap:
+            label = "Pre-Paycheck Gap"
+        else:
+            labels = list({e["label"] for e in income_events}) or ["Paycheck"]
+            label  = " + ".join(labels)
+
+        period_results.append({
+            "type":           "gap" if is_gap else "paycheck",
+            "label":          label,
+            "date_range":     _fc_range_label(ps, pe),
+            "start":          str(ps),
+            "end":            str(pe),
+            "start_balance":  round(period_start_balance, 2),
+            "income_events":  income_events,
+            "transfer_events": transfer_events,
+            "days":           days,
+            "period_income":  round(period_income, 2),
+            "period_transfers": round(period_transfers, 2),
+            "period_expenses": round(period_expenses, 2),
+            "period_net":     round(period_net, 2),
+            "end_balance":    round(running_balance, 2),
+            "shortfall":      running_balance < 0,
         })
 
     return jsonify({
         "ok":            True,
         "start_balance": round(budget_bal, 2),
         "months":        months_param,
-        "weeks":         week_results,
+        "periods":       period_results,
     })
 
 
