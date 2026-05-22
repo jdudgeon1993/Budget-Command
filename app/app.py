@@ -290,7 +290,7 @@ def api_fragment_account():
             {"id": t["id"], "date": t.get("date",""), "desc": t.get("desc",""),
              "type": t.get("type","out"), "amount": float(t.get("amount",0)),
              "scheduled": is_scheduled(t),
-             "incoming": t.get("toAccountId") == acct_id or t.get("debtPaymentAccountId") == acct_id}
+             "incoming": t.get("toAccountId") == acct_id or (t.get("debtPaymentAccountId") == acct_id and t.get("accountId") != acct_id)}
             for t in rows
         ]}
         for d, rows in _groupby(a_txs, key=lambda t: t.get("date",""))
@@ -715,6 +715,8 @@ def api_vault_transfer():
         return jsonify({"ok": False, "error": "Not a vault bucket"}), 400
     if not dest_bucket or dest_bucket.get("archived"):
         return jsonify({"ok": False, "error": "Destination bucket not found"}), 400
+    if dest_bucket.get("type") == "vault":
+        return jsonify({"ok": False, "error": "Cannot transfer to another vault"}), 400
 
     month = _find_or_create_month(data, mid)
     allocs = month.setdefault("allocations", {})
