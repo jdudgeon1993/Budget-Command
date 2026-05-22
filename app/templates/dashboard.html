@@ -199,7 +199,112 @@
   font-size: inherit;
   outline: none;
 }
-.inline-input[type="number"] { text-align: right; }
+.inline-input.num-input { text-align: right; }
+
+/* ── Sticky table headers ── */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+/* ── Math calculator popover ── */
+.calc-popover {
+  position: fixed;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  padding: 10px;
+  z-index: 999;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  display: none;
+  width: 180px;
+}
+.calc-popover.open { display: block; }
+.calc-display {
+  font-family: var(--mono);
+  font-size: clamp(12px,2vw,14px);
+  color: var(--text2);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  text-align: right;
+  min-height: 28px;
+  word-break: break-all;
+}
+.calc-ops {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.calc-op {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: center;
+  transition: background .1s;
+}
+.calc-op:hover { background: var(--border2); }
+.calc-num-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.calc-num {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text2);
+  font-family: var(--mono);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 5px 0;
+  text-align: center;
+  transition: background .1s;
+}
+.calc-num:hover { background: var(--border2); }
+.calc-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.calc-clear {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: center;
+}
+.calc-clear:hover { background: var(--rbg); }
+.calc-apply {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: center;
+  letter-spacing: .08em;
+}
+.calc-apply:hover { opacity: .85; }
 
 /* ── Row action buttons (reorder, settings, delete) ── */
 .row-actions { display: flex; align-items: center; gap: 2px; justify-content: flex-end; }
@@ -869,7 +974,7 @@
                   <div class="sf-row">
                     <div class="sf-field">
                       <div class="sf-label">Pay Amount</div>
-                      <input class="sf-input" type="number" step="0.01" placeholder="per payment"
+                      <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="per payment"
                              value="{{ b.due_amount or '' }}"
                              onblur="saveSettingNum('bucket_due_amount','{{ b.id }}',this.value,'')">
                     </div>
@@ -890,7 +995,7 @@
                   <div class="sf-row">
                     <div class="sf-field">
                       <div class="sf-label">Target Amount</div>
-                      <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
+                      <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="$ goal"
                              value="{{ b.target_amount if b.target_amount else '' }}"
                              onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
                     </div>
@@ -920,7 +1025,7 @@
                   <div class="sf-row">
                     <div class="sf-field">
                       <div class="sf-label">Target Amount</div>
-                      <input class="sf-input" type="number" step="0.01" placeholder="$ goal"
+                      <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="$ goal"
                              value="{{ b.target_amount if b.target_amount else '' }}"
                              onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
                     </div>
@@ -953,7 +1058,7 @@
                           <option value="{{ tb.id }}">{{ tb.name }}</option>
                           {% endfor %}
                         </select>
-                        <input class="release-input" type="number" step="0.01" min="0.01"
+                        <input class="release-input math-input" type="text" inputmode="decimal" data-step="0.01" data-min="0.01"
                                id="vault-xfr-input-{{ b.id }}" placeholder="$">
                         <button class="release-btn"
                                 onclick="vaultTransfer('{{ b.id }}','{{ active_mid }}')">Transfer</button>
@@ -966,7 +1071,7 @@
                     <div class="sf-field">
                       <div class="sf-label">Release to Pool</div>
                       <div class="release-row">
-                        <input class="release-input" type="number" step="0.01" min="0.01"
+                        <input class="release-input math-input" type="text" inputmode="decimal" data-step="0.01" data-min="0.01"
                                max="{{ b.vault_total }}"
                                id="vault-input-{{ b.id }}" placeholder="$ amount">
                         <button class="release-btn"
@@ -1074,7 +1179,7 @@
             <input type="text" id="tx-desc" placeholder="Description">
           </div>
           <div class="strip-field strip-field-sm">
-            <input type="number" id="tx-amount" placeholder="$ amount" step="0.01" min="0.01" required>
+            <input type="text" inputmode="decimal" id="tx-amount" placeholder="$ amount" class="math-input" required>
           </div>
           <div class="strip-field">
             <select id="tx-account" required>
@@ -1203,7 +1308,7 @@
                   </div>
                   <div class="sf-field">
                     <div class="sf-label">Amount</div>
-                    <input class="sf-input" type="number" step="0.01" min="0.01"
+                    <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" min="0.01"
                            value="{{ t.amount }}"
                            onblur="saveTxField('{{ t.id }}','amount',parseFloat(this.value)||0)">
                   </div>
@@ -1425,9 +1530,9 @@
                   </div>
                   <div class="sf-field">
                     <div class="sf-label">Opening Balance</div>
-                    <input class="sf-input" type="number" step="0.01"
+                    <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01"
                            value="{{ a.opening_balance }}"
-                           onblur="saveAcctField('{{ a.id }}','opening_balance',parseFloat(this.value)||0)">
+                           onblur="saveAcctField('{{ a.id }}','opening_balance',evalMathExpr(this.value)||0)">
                   </div>
                   <div class="sf-field" style="flex:0 0 auto">
                     <div class="sf-label">Color</div>
@@ -1550,8 +1655,8 @@
                   </div>
                   <div class="sf-field">
                     <div class="sf-label">Opening Balance</div>
-                    <input class="sf-input" type="number" step="0.01" value="{{ a.opening_balance }}"
-                           onblur="saveAcctField('{{ a.id }}','opening_balance',parseFloat(this.value)||0)">
+                    <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" value="{{ a.opening_balance }}"
+                           onblur="saveAcctField('{{ a.id }}','opening_balance',evalMathExpr(this.value)||0)">
                   </div>
                   <div class="sf-field" style="flex:0 0 auto">
                     <div class="sf-label">Color</div>
@@ -1562,28 +1667,28 @@
                 <div class="sf-row">
                   <div class="sf-field">
                     <div class="sf-label">APR %</div>
-                    <input class="sf-input" type="number" step="0.01" placeholder="—"
+                    <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="—"
                            value="{{ a.debt_apr }}"
-                           onblur="saveAcctField('{{ a.id }}','debt_apr',parseFloat(this.value)||0)">
+                           onblur="saveAcctField('{{ a.id }}','debt_apr',evalMathExpr(this.value)||0)">
                   </div>
                   <div class="sf-field">
                     <div class="sf-label">Min Payment</div>
-                    <input class="sf-input" type="number" step="0.01" placeholder="—"
+                    <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="—"
                            value="{{ a.debt_min_payment }}"
-                           onblur="saveAcctField('{{ a.id }}','debt_min_payment',parseFloat(this.value)||0)">
+                           onblur="saveAcctField('{{ a.id }}','debt_min_payment',evalMathExpr(this.value)||0)">
                   </div>
                   <div class="sf-field">
                     <div class="sf-label">Credit Limit</div>
-                    <input class="sf-input" type="number" step="0.01" placeholder="—"
+                    <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="—"
                            value="{{ a.credit_limit }}"
-                           onblur="saveAcctField('{{ a.id }}','credit_limit',parseFloat(this.value)||0)">
+                           onblur="saveAcctField('{{ a.id }}','credit_limit',evalMathExpr(this.value)||0)">
                   </div>
                 </div>
                 <!-- Debt payment -->
                 <div class="sf-row" style="border-top:1px solid var(--border); padding-top:10px; margin-top:4px;">
                   <div class="sf-field">
                     <div class="sf-label">Payment Amount</div>
-                    <input class="sf-input" type="number" step="0.01" id="pay-amt-{{ a.id }}" placeholder="{{ a.debt_min_payment or 'Amount' }}">
+                    <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" id="pay-amt-{{ a.id }}" placeholder="{{ a.debt_min_payment or 'Amount' }}">
                   </div>
                   <div class="sf-field">
                     <div class="sf-label">Payment Date</div>
@@ -1831,6 +1936,35 @@
 
 </div>
 
+<!-- Calculator popover -->
+<div id="calc-popover" class="calc-popover">
+  <div class="calc-display" id="calc-display">0</div>
+  <div class="calc-ops">
+    <button class="calc-op" data-op="+">+</button>
+    <button class="calc-op" data-op="-">−</button>
+    <button class="calc-op" data-op="*">×</button>
+    <button class="calc-op" data-op="/">/</button>
+  </div>
+  <div class="calc-num-grid">
+    <button class="calc-num" data-n="7">7</button>
+    <button class="calc-num" data-n="8">8</button>
+    <button class="calc-num" data-n="9">9</button>
+    <button class="calc-num" data-n="4">4</button>
+    <button class="calc-num" data-n="5">5</button>
+    <button class="calc-num" data-n="6">6</button>
+    <button class="calc-num" data-n="1">1</button>
+    <button class="calc-num" data-n="2">2</button>
+    <button class="calc-num" data-n="3">3</button>
+    <button class="calc-num" data-n="0">0</button>
+    <button class="calc-num" data-n=".">.</button>
+    <button class="calc-num" data-n="⌫" style="color:var(--text3);">⌫</button>
+  </div>
+  <div class="calc-actions">
+    <button class="calc-clear" onclick="calcClear()">CLEAR</button>
+    <button class="calc-apply" onclick="calcApply()">APPLY</button>
+  </div>
+</div>
+
 <!-- Payday modal -->
 <div id="payday-overlay" class="payday-overlay" style="display:none">
   <div class="payday-box">
@@ -1987,6 +2121,7 @@ function wireNewCells(container) {
   container.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
     cell.addEventListener('click', () => activateEdit(cell));
   });
+  wireMathInputs(container);
   container.querySelectorAll('.editable-acct').forEach(span => {
     span.style.cursor = 'pointer';
     span.addEventListener('click', () => {
@@ -2145,7 +2280,7 @@ function injectTxRow(tx, activeMid) {
     <div class="sf-row">
       <div class="sf-field"><div class="sf-label">Date</div><input class="sf-input" type="date" value="${tx.date}" onblur="saveTxField('${tx.id}','date',this.value)"></div>
       <div class="sf-field"><div class="sf-label">Description</div><input class="sf-input" type="text" value="${tx.desc || ''}" id="tx-desc-${tx.id}" onblur="saveTxDescAndCell('${tx.id}',this.value)"></div>
-      <div class="sf-field"><div class="sf-label">Amount</div><input class="sf-input" type="number" step="0.01" min="0.01" value="${tx.amount}" onblur="saveTxField('${tx.id}','amount',parseFloat(this.value)||0)"></div>
+      <div class="sf-field"><div class="sf-label">Amount</div><input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" data-min="0.01" value="${tx.amount}" onblur="saveTxField('${tx.id}','amount',evalMathExpr(this.value)||0)"></div>
     </div>
     <div class="sf-row">
       <div class="sf-field"><div class="sf-label">Account</div><select class="sf-input" onchange="saveTxField('${tx.id}','account_id',this.value)">${acctOpts}</select></div>
@@ -2176,6 +2311,8 @@ function injectTxRow(tx, activeMid) {
 
   // Remove the "empty" placeholder row if present
   document.getElementById('ledger-empty')?.remove();
+  // Wire calc inputs in dynamically created settings row
+  wireMathInputs(settingsRow);
 }
 
 /* ── Panel nav ── */
@@ -2402,24 +2539,56 @@ async function saveSetting(field, id, value, month) {
   }
 }
 
+/* ── Math expression evaluator ── */
+function evalMathExpr(str) {
+  if (str === null || str === undefined || str === '') return 0;
+  const s = String(str).replace(/\s/g, '').replace(/[$,]/g, '');
+  // Only allow digits, decimal points, and arithmetic operators
+  if (!/^[\d.+\-*/()]+$/.test(s)) return parseFloat(s) || 0;
+  try {
+    // eslint-disable-next-line no-new-func
+    const result = Function('"use strict"; return (' + s + ')')();
+    return typeof result === 'number' && isFinite(result) ? Math.round(result * 100) / 100 : 0;
+  } catch (e) {
+    return parseFloat(s) || 0;
+  }
+}
+
 /* ── Inline cell editing ── */
 function activateEdit(cell) {
   if (cell.querySelector('input')) return;
 
-  const field   = cell.dataset.field;
-  const id      = cell.dataset.id;
-  const month   = cell.dataset.month || '';
-  const type    = cell.dataset.type || 'text';
-  const rawVal  = cell.dataset.raw;
+  const field    = cell.dataset.field;
+  const id       = cell.dataset.id;
+  const month    = cell.dataset.month || '';
+  const type     = cell.dataset.type || 'text';
+  const rawVal   = cell.dataset.raw;
   const origText = cell.textContent.trim();
 
   const input = document.createElement('input');
-  input.type = type === 'number' ? 'number' : 'text';
-  input.step = '0.01';
-  input.value = type === 'number' ? (parseFloat(rawVal) || 0) : origText;
-  input.className = 'inline-input';
+  input.type = 'text';
+  let calcBtn = null;
+  if (type === 'number') {
+    input.inputMode = 'decimal';
+    input.className = 'inline-input num-input';
+    input.value = parseFloat(rawVal) || 0;
+    // Tiny calc trigger button
+    calcBtn = document.createElement('button');
+    calcBtn.textContent = '⊞';
+    calcBtn.className = 'calc-trigger';
+    calcBtn.title = 'Calculator';
+    calcBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;padding:0 2px;line-height:1;vertical-align:middle;';
+    calcBtn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      openCalc(input, calcBtn);
+    });
+  } else {
+    input.className = 'inline-input';
+    input.value = origText;
+  }
   cell.textContent = '';
   cell.appendChild(input);
+  if (calcBtn) cell.appendChild(calcBtn);
   input.focus();
   input.select();
 
@@ -2428,7 +2597,7 @@ function activateEdit(cell) {
   const commit = async () => {
     if (done) return;
     done = true;
-    const value = type === 'number' ? (parseFloat(input.value) || 0) : (input.value.trim() || origText);
+    const value = type === 'number' ? evalMathExpr(input.value) : (input.value.trim() || origText);
 
     // Optimistic display
     cell.textContent = type === 'number' ? fmtMoney(value) : value;
@@ -2443,12 +2612,6 @@ function activateEdit(cell) {
     refreshValues(result);
   };
 
-  const cancel = () => {
-    if (done) return;
-    done = true;
-    cell.textContent = origText;
-  };
-
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
@@ -2460,6 +2623,27 @@ function activateEdit(cell) {
 document.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
   cell.addEventListener('click', () => activateEdit(cell));
 });
+
+/* ── Wire up math-input fields (settings panels) ── */
+function wireMathInputs(root) {
+  (root || document).querySelectorAll('.math-input').forEach(inp => {
+    if (inp.dataset.mathWired) return;
+    inp.dataset.mathWired = '1';
+    // Add calc trigger button after the input
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'calc-trigger';
+    btn.title = 'Calculator';
+    btn.textContent = '⊞';
+    btn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;padding:0 2px 0 4px;line-height:1;vertical-align:middle;flex-shrink:0;';
+    inp.parentNode.insertBefore(btn, inp.nextSibling);
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      openCalc(inp, btn);
+    });
+  });
+}
+wireMathInputs();
 
 /* ── Bucket settings toggle ── */
 function toggleSettings(id) {
@@ -2515,13 +2699,13 @@ function saveSettingText(field, id, value, month) {
   saveSetting(field, id, value, month);
 }
 function saveSettingNum(field, id, value, month) {
-  saveSetting(field, id, parseFloat(value) || null, month);
+  saveSetting(field, id, evalMathExpr(value) || null, month);
 }
 
 /* ── Vault: release to pool ── */
 async function vaultWithdraw(id, month) {
   const input   = document.getElementById('vault-input-' + id);
-  const amount  = parseFloat(input.value);
+  const amount  = evalMathExpr(input.value);
   const maxEl   = document.getElementById('vault-release-max-' + id);
   const balEl   = document.getElementById('vault-bal-' + id);
   const maxVal  = parseFloat(balEl?.textContent?.replace(/[$,]/g, '') || '0');
@@ -2561,7 +2745,7 @@ async function vaultTransfer(vaultId, month) {
   const destSelect = document.getElementById('vault-dest-' + vaultId);
   const input      = document.getElementById('vault-xfr-input-' + vaultId);
   const destId  = destSelect.value;
-  const amount  = parseFloat(input.value);
+  const amount  = evalMathExpr(input.value);
 
   if (!destId) { alert('Select a destination bucket.'); return; }
   if (!amount || amount <= 0) { alert('Enter a positive amount to transfer.'); return; }
@@ -2605,7 +2789,7 @@ async function submitAddTx(e) {
   const type      = document.getElementById('tx-type').value;
   const date      = document.getElementById('tx-date').value;
   const desc      = document.getElementById('tx-desc').value.trim();
-  const amount    = parseFloat(document.getElementById('tx-amount').value);
+  const amount    = evalMathExpr(document.getElementById('tx-amount').value);
   const accountId = document.getElementById('tx-account').value;
   const bucketId   = type === 'out' ? document.getElementById('tx-bucket').value : '';
   const toAcctId   = type === 'xfr' ? document.getElementById('tx-to-account').value : '';
@@ -2838,6 +3022,8 @@ async function toggleAcctLedger(id) {
       if (freshLedger) {
         ledger.innerHTML = freshLedger.innerHTML;
         ledger.style.display = 'table-row';
+        wireMathInputs(ledger);
+        wireNewCells(ledger);
       }
     }
   } catch(e) { /* silently keep stale content */ }
@@ -3218,5 +3404,78 @@ async function applyPayday() {
 function closePaydayModal() {
   document.getElementById('payday-overlay').style.display = 'none';
 }
+
+/* ── Calculator popover ── */
+let _calcTarget = null; // the input element the calc is editing
+
+function openCalc(inputEl, anchorEl) {
+  _calcTarget = inputEl;
+  const pop = document.getElementById('calc-popover');
+  // Seed display with current value
+  const cur = parseFloat(inputEl.value) || 0;
+  document.getElementById('calc-display').textContent = String(cur);
+  pop.classList.add('open');
+
+  // Position near anchor
+  const rect = (anchorEl || inputEl).getBoundingClientRect();
+  let top = rect.bottom + 6;
+  let left = rect.left;
+  // Keep within viewport
+  if (left + 180 > window.innerWidth) left = window.innerWidth - 188;
+  if (top + 280 > window.innerHeight) top = rect.top - 286;
+  pop.style.top  = top + 'px';
+  pop.style.left = left + 'px';
+}
+
+function closeCalc() {
+  document.getElementById('calc-popover').classList.remove('open');
+  _calcTarget = null;
+}
+
+function calcClear() {
+  document.getElementById('calc-display').textContent = '0';
+}
+
+function calcApply() {
+  if (!_calcTarget) { closeCalc(); return; }
+  const expr = document.getElementById('calc-display').textContent;
+  const val  = evalMathExpr(expr);
+  _calcTarget.value = val;
+  // Trigger blur so the save fires if it's a settings input
+  _calcTarget.dispatchEvent(new Event('blur', { bubbles: true }));
+  // If it's an inline-input in a table cell, commit
+  _calcTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  closeCalc();
+}
+
+document.getElementById('calc-popover').addEventListener('click', e => {
+  const opBtn = e.target.closest('.calc-op');
+  const numBtn = e.target.closest('.calc-num');
+  const disp = document.getElementById('calc-display');
+  if (opBtn) {
+    const op = opBtn.dataset.op;
+    const cur = disp.textContent;
+    // Don't double-append operator
+    if (!/[+\-*/]$/.test(cur)) disp.textContent = cur + op;
+  }
+  if (numBtn) {
+    const n = numBtn.dataset.n;
+    if (n === '⌫') {
+      const cur = disp.textContent;
+      disp.textContent = cur.length > 1 ? cur.slice(0, -1) : '0';
+    } else {
+      const cur = disp.textContent;
+      disp.textContent = (cur === '0' && n !== '.') ? n : cur + n;
+    }
+  }
+});
+
+// Close when clicking outside
+document.addEventListener('mousedown', e => {
+  const pop = document.getElementById('calc-popover');
+  if (pop.classList.contains('open') && !pop.contains(e.target) && !e.target.closest('.calc-trigger')) {
+    closeCalc();
+  }
+});
 </script>
 {% endblock %}
