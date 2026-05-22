@@ -162,7 +162,7 @@
 .tbl-cat-total th { color: var(--text2); font-size: clamp(10px, 1.6vw, 12px); font-family: var(--mono); border-top: 1px solid var(--border); }
 .tbl-grand-total th { color: var(--accent); font-size: clamp(11px, 1.8vw, 13px); font-family: var(--mono); border-top: 2px solid var(--border2); }
 
-.col-status { width: 52px; text-align: center; }
+.col-status { width: 68px; text-align: center; vertical-align: middle; }
 .col-date { width: 64px; }
 .col-settings { width: 32px; text-align: center; }
 
@@ -178,6 +178,15 @@
 .badge-funded { color: var(--accent); font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .badge-ok     { color: var(--amber);  font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .badge-over   { color: var(--red);    font-size: clamp(9px,1.4vw,10px); font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+/* ── Due date badge ── */
+.col-status { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.badge-due  { font-size: clamp(8px,1.2vw,9px); font-family: var(--mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.due-overdue  { color: var(--red); }
+.due-today    { color: var(--red); font-weight: bold; }
+.due-soon     { color: var(--amber); }
+.due-upcoming { color: #f0b429; }
+.due-far      { color: var(--text3); }
 
 /* ── Inline editing ── */
 .editable-text,
@@ -896,6 +905,7 @@
             </td>
             <td class="col-status">
               <span class="badge-{{ b.status|lower if b.status else '' }}" data-status-id="{{ b.id }}">{{ b.status or '' }}</span>
+              {% if b.due_label %}<span class="badge-due due-{{ b.due_urgency }}" data-due-id="{{ b.id }}">{{ b.due_label }}</span>{% else %}<span class="badge-due" data-due-id="{{ b.id }}" style="display:none"></span>{% endif %}
             </td>
             <td class="col-amount col-m-hide editable-num"
                 data-field="bucket_target"
@@ -2073,6 +2083,21 @@ function refreshValues(state) {
       if (badge) {
         badge.textContent = status;
         badge.className = status ? 'badge-' + status.toLowerCase() : '';
+      }
+    }
+  }
+
+  if (state.bucket_due) {
+    for (const [bid, info] of Object.entries(state.bucket_due)) {
+      const el = document.querySelector(`[data-due-id="${bid}"]`);
+      if (!el) continue;
+      if (info.label) {
+        el.textContent = info.label;
+        el.className = 'badge-due due-' + info.urgency;
+        el.style.display = '';
+      } else {
+        el.textContent = '';
+        el.style.display = 'none';
       }
     }
   }

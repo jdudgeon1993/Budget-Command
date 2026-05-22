@@ -15,7 +15,10 @@
       <div class="progress-label">{{ b.progress_pct }}%</div>
     {% endif %}
   </td>
-  <td class="col-status"><span class="badge-{{ b.status|lower if b.status else '' }}" data-status-id="{{ b.id }}">{{ b.status or '' }}</span></td>
+  <td class="col-status">
+    <span class="badge-{{ b.status|lower if b.status else '' }}" data-status-id="{{ b.id }}">{{ b.status or '' }}</span>
+    {% if b.due_label %}<span class="badge-due due-{{ b.due_urgency }}" data-due-id="{{ b.id }}">{{ b.due_label }}</span>{% else %}<span class="badge-due" data-due-id="{{ b.id }}" style="display:none"></span>{% endif %}
+  </td>
   <td class="col-amount col-m-hide editable-num" data-field="bucket_target" data-id="{{ b.id }}" data-month="{{ active_mid }}" data-raw="{{ b.budget }}" data-type="number">{{ b.budget|money }}</td>
   <td class="col-amount editable-num" data-field="bucket_alloc" data-id="{{ b.id }}" data-month="{{ active_mid }}" data-raw="{{ b.alloc }}" data-type="number">{{ b.alloc|money }}</td>
   <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>

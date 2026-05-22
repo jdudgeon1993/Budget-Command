@@ -371,6 +371,60 @@ def bucket_status(alloc: float, budget: float, spent: float, avail: float) -> st
     return ""
 
 
+def _due_info(due_day, active_mid: str, status: str) -> dict:
+    """Return {label, urgency} for a bucket's due date display.
+    urgency: 'overdue' | 'today' | 'soon' (≤7d) | 'upcoming' (≤14d) | 'far' | ''
+    label:   e.g. 'OVERDUE 3D' | 'DUE TODAY' | 'DUE 5D' | '' (empty when already paid/funded)
+    """
+    from datetime import date as _date
+    if not due_day or status in ("PAID", "FUNDED", "OVER"):
+        return {"label": "", "urgency": ""}
+
+    today = _date.today()
+    year, month_0 = parse_month_id(active_mid)
+    month = month_0 + 1  # 1-indexed
+
+    # Resolve due day
+    raw = str(due_day).strip().lower()
+    if raw == "eom":
+        import calendar
+        day = calendar.monthrange(year, month)[1]
+    else:
+        try:
+            day = int(raw)
+        except ValueError:
+            return {"label": "", "urgency": ""}
+
+    import calendar as _cal
+    last_day = _cal.monthrange(year, month)[1]
+    day = min(day, last_day)
+
+    try:
+        due_date = _date(year, month, day)
+    except ValueError:
+        return {"label": "", "urgency": ""}
+
+    delta = (due_date - today).days
+
+    if delta < 0:
+        urgency = "overdue"
+        label   = f"OVERDUE {abs(delta)}D" if abs(delta) != 1 else "OVERDUE 1D"
+    elif delta == 0:
+        urgency = "today"
+        label   = "DUE TODAY"
+    elif delta <= 7:
+        urgency = "soon"
+        label   = f"DUE {delta}D"
+    elif delta <= 14:
+        urgency = "upcoming"
+        label   = f"DUE {delta}D"
+    else:
+        urgency = "far"
+        label   = f"DUE {delta}D"
+
+    return {"label": label, "urgency": urgency}
+
+
 def _new_id(prefix: str) -> str:
     import random, string
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
@@ -407,6 +461,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
 
     bucket_avails, bucket_allocs, bucket_rollover = {}, {}, {}
     bucket_spent, vault_totals, bucket_statuses   = {}, {}, {}
+    bucket_due = {}  # {bid: {label, urgency}}
 
     for b in active_buckets:
         bid    = b["id"]
@@ -418,6 +473,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
             vault_totals[bid]    = total
             bucket_avails[bid]   = total
             bucket_statuses[bid] = ""
+            bucket_due[bid]      = {"label": "", "urgency": ""}
         else:
             avail = bucket_available(b, active_month, all_months, txs)
             spent = sum(
@@ -429,7 +485,9 @@ def _live_state(data: dict, active_mid: str) -> dict:
             bucket_avails[bid]   = avail
             bucket_rollover[bid] = roll
             bucket_spent[bid]    = spent
-            bucket_statuses[bid] = bucket_status(alloc, budget, spent, avail)
+            status = bucket_status(alloc, budget, spent, avail)
+            bucket_statuses[bid] = status
+            bucket_due[bid]      = _due_info(b.get("dueDay"), active_mid, status)
 
     cat_totals = {}
     grand = dict(alloc=0.0, budget=0.0, rollover=0.0, spent=0.0, avail=0.0)
@@ -470,6 +528,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
         "bucket_spent":     bucket_spent,
         "vault_totals":     vault_totals,
         "bucket_statuses":  bucket_statuses,
+        "bucket_due":       bucket_due,
         "cat_totals":       cat_totals,
         "grand_totals":     grand,
         "ledger_totals":    {"income": ledger_income, "spent": ledger_out},
@@ -553,6 +612,7 @@ def _bucket_row_ctx(b: dict, active_month: dict, all_months: list, txs: list, ac
 
     skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
     status  = bucket_status(alloc, budget, spent, avail)
+    due     = _due_info(b.get("dueDay"), active_mid, status)
 
     return {
         "id": b["id"], "name": b.get("name", ""), "type": btype,
@@ -566,6 +626,7 @@ def _bucket_row_ctx(b: dict, active_month: dict, all_months: list, txs: list, ac
         "alloc": alloc, "budget": budget, "rollover_val": roll, "spent": spent,
         "avail": avail, "status": status, "vault_total": vault_total,
         "progress_pct": progress_pct,
+        "due_label": due["label"], "due_urgency": due["urgency"],
     }
 
 
@@ -1176,6 +1237,7 @@ def _dashboard_inner():
                 progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
             elif btype in ("sinking", "goal") and target_amount > 0:
                 progress_pct = min(100, max(0, round(avail / target_amount * 100)))
+            due = _due_info(b.get("dueDay"), active_mid, status)
 
             rows.append({
                 "id": b["id"], "name": b["name"], "type": btype,
@@ -1189,6 +1251,7 @@ def _dashboard_inner():
                 "alloc": alloc, "budget": budget, "rollover_val": roll, "spent": spent,
                 "avail": avail, "status": status, "vault_total": vault_total,
                 "progress_pct": progress_pct,
+                "due_label": due["label"], "due_urgency": due["urgency"],
             })
             totals["alloc"]    += alloc
             totals["budget"]   += budget
