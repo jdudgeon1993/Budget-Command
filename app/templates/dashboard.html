@@ -1961,6 +1961,64 @@ function refreshValues(state) {
   }
 }
 
+/* ── Wire up interactive cells on newly-injected HTML ── */
+function wireNewCells(container) {
+  container.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
+    cell.addEventListener('click', () => activateEdit(cell));
+  });
+  container.querySelectorAll('.editable-acct').forEach(span => {
+    span.style.cursor = 'pointer';
+    span.addEventListener('click', () => {
+      if (span.querySelector('input')) return;
+      const id = span.dataset.id, orig = span.dataset.raw || '';
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = orig; input.className = 'inline-input';
+      span.textContent = ''; span.appendChild(input); input.focus(); input.select();
+      let done = false;
+      const commit = () => {
+        if (done) return; done = true;
+        const val = input.value.trim() || orig;
+        span.textContent = val; span.dataset.raw = val;
+        if (val !== orig) saveAcctField(id, 'name', val);
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { done = true; span.textContent = orig; }
+      });
+    });
+  });
+}
+
+/* ── Keep all bucket selects in sync after a new bucket is added ── */
+function appendBucketOption(bid, bname, btype) {
+  if (btype === 'vault') return; // vaults don't appear in expense selects
+  const opt = () => { const o = document.createElement('option'); o.value = bid; o.textContent = bname; return o; };
+  // Transaction add strip
+  document.getElementById('tx-bucket')?.appendChild(opt());
+  // Ledger bucket selects (existing rows)
+  document.querySelectorAll('.ledger-bucket-select').forEach(sel => sel.appendChild(opt()));
+  // Allocation rules bucket picker
+  document.getElementById('rule-bucket')?.appendChild(opt());
+  // Vault transfer destination selects
+  document.querySelectorAll('[id^="vault-dest-"]').forEach(sel => sel.appendChild(opt()));
+  // Debt payment bucket picker
+  document.querySelectorAll('[id^="pay-bucket-"]').forEach(sel => sel.appendChild(opt()));
+}
+
+/* ── Keep all account selects in sync after a new account is added ── */
+function appendAccountOption(aid, aname, atype) {
+  const opt = () => { const o = document.createElement('option'); o.value = aid; o.textContent = aname; return o; };
+  // Transaction add strip — from-account
+  document.getElementById('tx-account')?.appendChild(opt());
+  // Transaction add strip — to-account (xfr)
+  document.getElementById('tx-to-account')?.appendChild(opt());
+  // Debt payment from-account (cash accounts only)
+  if (atype !== 'debt') {
+    document.querySelectorAll('[id^="pay-from-"]').forEach(sel => sel.appendChild(opt()));
+  }
+}
+
 /* ── Inject a newly-added tx row into the ledger without a reload ── */
 function injectTxRow(tx, activeMid) {
   const body = document.getElementById('ledger-body');
@@ -2115,40 +2173,20 @@ async function submitAddBucket(e) {
   if (result.ok) {
     const bid = result.bucket_id;
     const cid = result.cat_id;
-    const isVault = bucketType === 'vault';
 
-    // Build the bucket <tr> (reused for both paths)
-    function makeBucketRow(bid, bucketName, bucketType) {
-      const isVault = bucketType === 'vault';
-      const tr = document.createElement('tr');
-      tr.id = 'row-' + bid;
-      tr.innerHTML = `
-        <td class="col-name">
-          <span class="editable-text" data-field="bucket_name" data-id="${bid}" data-type="text" data-raw="${bucketName}">${bucketName}</span>
-        </td>
-        <td class="col-status"></td>
-        <td class="col-amount editable-num col-m-hide" data-field="bucket_target" data-id="${bid}" data-month="${ACTIVE_MID}" data-raw="0" data-type="number">$0.00</td>
-        <td class="col-amount editable-num" data-field="bucket_alloc" data-id="${bid}" data-month="${ACTIVE_MID}" data-raw="0" data-type="number">$0.00</td>
-        <td class="col-amount col-m-hide" id="rollover-${bid}" data-rollover-id="${bid}">—</td>
-        <td class="col-amount col-m-hide" id="spent-${bid}" data-spent-id="${bid}">${isVault ? '—' : '$0.00'}</td>
-        <td class="col-amount" data-avail-id="${bid}" data-raw="0">$0.00</td>
-        <td class="col-settings">
-          <span class="row-actions">
-            <button class="reorder-btn" onclick="reorderItem('bucket','${bid}','up','${cid}')" title="Move up">↑</button>
-            <button class="reorder-btn" onclick="reorderItem('bucket','${bid}','down','${cid}')" title="Move down">↓</button>
-            <button class="settings-btn" onclick="toggleSettings('${bid}')" title="Settings">&#x22EF;</button>
-          </span>
-        </td>`;
-      tr.querySelectorAll('.editable-text, .editable-num').forEach(cell => {
-        cell.addEventListener('click', () => activateEdit(cell));
-      });
-      return tr;
-    }
+    // Fetch server-rendered fragment (bucket row + full settings panel)
+    const frag = await fetch('/api/fragment/bucket', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ bucket_id: bid, active_mid: ACTIVE_MID })
+    }).then(r => r.json()).catch(() => ({ok: false}));
+
+    if (!frag.ok) { alert('Could not render bucket — please refresh.'); return; }
 
     let tbody = document.getElementById('cat-body-' + cid);
 
     if (!tbody) {
-      // New category — build and inject the full <tbody> before the grand-totals tbody
+      // New category — create tbody with header row, insert before grand totals
       tbody = document.createElement('tbody');
       tbody.id = 'cat-body-' + cid;
       const catName = result.cat_name || newCatName;
@@ -2159,25 +2197,24 @@ async function submitAddBucket(e) {
         </td>
         <td colspan="2" class="tbl-cat-head" style="text-align:right;padding-right:4px;">
           <span class="row-actions">
-            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','up','')" title="Move up">↑</button>
-            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','down','')" title="Move down">↓</button>
-            <button class="delete-cat-btn" onclick="deleteCategory('${cid}')" title="Delete category">✕</button>
+            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','up','')" title="↑">↑</button>
+            <button class="reorder-btn" onclick="reorderItem('cat','${cid}','down','')" title="↓">↓</button>
+            <button class="delete-cat-btn" onclick="deleteCategory('${cid}')" title="Delete">✕</button>
           </span>
         </td>`;
       htr.querySelector('.editable-text').addEventListener('click', function() { activateEdit(this); });
       tbody.appendChild(htr);
 
-      // Insert before the grand-totals tbody (last tbody in the table)
       const table = document.querySelector('#panel-buckets table.data-table');
-      const tbodies = table ? table.querySelectorAll('tbody') : [];
+      const tbodies = table?.querySelectorAll('tbody') || [];
       const grandTbody = tbodies[tbodies.length - 1];
-      if (grandTbody && grandTbody.querySelector('.tbl-grand-total')) {
+      if (grandTbody?.querySelector('.tbl-grand-total')) {
         table.insertBefore(tbody, grandTbody);
       } else if (table) {
         table.appendChild(tbody);
       }
 
-      // Update new category select option so it appears in the strip dropdown
+      // Add to strip-cat dropdown
       const catSel = document.getElementById('strip-cat');
       if (catSel) {
         const opt = document.createElement('option');
@@ -2186,13 +2223,23 @@ async function submitAddBucket(e) {
       }
     }
 
-    tbody.appendChild(makeBucketRow(bid, bucketName, bucketType));
+    // Inject the server-rendered rows and wire up interactive cells
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = frag.html;
+    for (const row of [...tmp.children]) {
+      tbody.appendChild(row);
+    }
+    wireNewCells(tbody);
+
+    // Also add the new bucket to all bucket selects across the page
+    appendBucketOption(bid, result.bucket_name, result.bucket_type);
+
+    // Clear form
     document.getElementById('strip-bucket-name').value = '';
     document.getElementById('strip-new-cat-name').value = '';
-    // Reset category select back to first real option if it was __new__
     const catSel = document.getElementById('strip-cat');
-    if (catSel && catSel.value === '__new__') catSel.value = cid;
-    document.getElementById('strip-new-cat-row')?.style && (document.getElementById('strip-new-cat-row').style.display = 'none');
+    if (catSel?.value === '__new__') catSel.value = cid;
+    document.getElementById('strip-new-cat-row') && (document.getElementById('strip-new-cat-row').style.display = 'none');
   } else {
     alert('Error: ' + (result.error || 'Could not add bucket.'));
   }
@@ -2732,53 +2779,34 @@ async function submitAddAccount(e, section) {
 
   if (result.ok) {
     const a = result.account;
-    const isDebt = a.type === 'debt';
-    const balClass = isDebt ? (a.balance === 0 ? 'acct-bal-debt-zero' : 'acct-bal-negative') : (a.balance >= 0 ? 'acct-bal-positive' : 'acct-bal-negative');
-    const badgeHtml = `<span class="badge-${a.type}">${a.type}</span>`;
-    const dot = `<span class="acct-color-dot" style="background:${a.color}"></span>`;
-    const tr = document.createElement('tr');
-    tr.id = 'acct-row-' + a.id;
-    tr.innerHTML = `
-      <td class="col-name">${dot}<span class="editable-acct" data-id="${a.id}" data-raw="${a.name}">${a.name}</span></td>
-      <td>${badgeHtml}</td>
-      <td class="col-amount ${balClass}">${fmtMoney(a.balance)}</td>
-      <td class="col-settings">
-        <span class="row-actions">
-          <button class="settings-btn" onclick="toggleAcctLedger('${a.id}')" title="Ledger">&#x2261;</button>
-          <button class="settings-btn" onclick="toggleAcctSettings('${a.id}')" title="Settings">&#x22EF;</button>
-        </span>
-      </td>`;
-    tr.querySelector('.editable-acct').style.cursor = 'pointer';
-    tr.querySelector('.editable-acct').addEventListener('click', function() {
-      const span = this;
-      if (span.querySelector('input')) return;
-      const id = span.dataset.id, orig = span.dataset.raw || '';
-      const input = document.createElement('input');
-      input.type = 'text'; input.value = orig; input.className = 'inline-input';
-      span.textContent = ''; span.appendChild(input); input.focus(); input.select();
-      let done = false;
-      const commit = () => {
-        if (done) return; done = true;
-        const val = input.value.trim() || orig;
-        span.textContent = val; span.dataset.raw = val;
-        if (val !== orig) saveAcctField(id, 'name', val);
-      };
-      input.addEventListener('blur', commit);
-      input.addEventListener('keydown', ev => {
-        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-        if (ev.key === 'Escape') { done = true; span.textContent = orig; }
-      });
-    });
-    const sectionEl = document.getElementById('acct-section-' + (isDebt ? 'debt' : section));
-    const tbody = sectionEl?.querySelector('table tbody') || sectionEl?.querySelector('table');
+    const frag = await fetch('/api/fragment/account', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ acct_id: a.id, active_mid: ACTIVE_MID })
+    }).then(r => r.json()).catch(() => ({ok: false}));
+
+    if (!frag.ok) { alert('Could not render account — please refresh.'); return; }
+
+    const sectionKey = a.type === 'debt' ? 'debt' : section;
+    const sectionEl  = document.getElementById('acct-section-' + sectionKey);
+    const tbody = sectionEl?.querySelector('table tbody');
     if (tbody) {
-      tbody.insertBefore(tr, tbody.firstChild);
-    } else {
-      window.location.reload(); return;
+      const tmp = document.createElement('tbody');
+      tmp.innerHTML = frag.html;
+      // Insert at top (newest first) before first data row
+      const firstDataRow = tbody.querySelector('tr[id^="acct-row-"]');
+      for (const row of [...tmp.children]) {
+        if (firstDataRow) tbody.insertBefore(row, firstDataRow);
+        else tbody.appendChild(row);
+      }
+      wireNewCells(tbody);
+      // Add to account selects across the page
+      appendAccountOption(a.id, a.name, a.type);
     }
     // Clear form
     document.getElementById(section + '-acct-name').value = '';
-    if (document.getElementById(section + '-acct-opening')) document.getElementById(section + '-acct-opening').value = '';
+    const openingEl = document.getElementById(section + '-acct-opening');
+    if (openingEl) openingEl.value = '';
   } else { alert('Error: ' + (result.error || 'Could not add account.')); }
 }
 

@@ -1,0 +1,143 @@
+{# Rendered server-side for a single bucket row + settings row.
+   Variables: b (bucket ctx dict), group_id, active_mid,
+              all_cats, debt_accounts, transfer_buckets #}
+<tr id="row-{{ b.id }}" class="bucket-{{ b.status|lower if b.status else 'empty' }}">
+  <td class="col-name">
+    <span class="editable-text" data-field="bucket_name" data-id="{{ b.id }}" data-type="text">{{ b.name }}</span>
+    {% if b.type == 'vault' %}
+      <div class="vault-total" id="vault-row-total-{{ b.id }}">{{ b.vault_total|money }} saved</div>
+    {% endif %}
+  </td>
+  <td class="col-status">{% if b.status %}<span class="badge-{{ b.status|lower }}">{{ b.status }}</span>{% endif %}</td>
+  <td class="col-amount col-m-hide editable-num" data-field="bucket_target" data-id="{{ b.id }}" data-month="{{ active_mid }}" data-raw="{{ b.budget }}" data-type="number">{{ b.budget|money }}</td>
+  <td class="col-amount editable-num" data-field="bucket_alloc" data-id="{{ b.id }}" data-month="{{ active_mid }}" data-raw="{{ b.alloc }}" data-type="number">{{ b.alloc|money }}</td>
+  <td class="col-amount col-m-hide" id="rollover-{{ b.id }}" data-rollover-id="{{ b.id }}" style="{% if b.rollover_val > 0 %}color:var(--green){% elif b.rollover_val < 0 %}color:var(--red){% endif %}">{{ b.rollover_val|money if b.rollover_val != 0 else "—" }}</td>
+  <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
+  <td class="col-amount" data-avail-id="{{ b.id }}" data-raw="{{ b.avail }}" style="{% if b.avail < 0 %}color:var(--red){% elif b.avail > 0 %}color:var(--green){% endif %}">{{ b.avail|money }}</td>
+  <td class="col-settings">
+    <span class="row-actions">
+      <button class="reorder-btn" onclick="reorderItem('bucket','{{ b.id }}','up','{{ group_id }}')" title="Move up">↑</button>
+      <button class="reorder-btn" onclick="reorderItem('bucket','{{ b.id }}','down','{{ group_id }}')" title="Move down">↓</button>
+      <button class="settings-btn" onclick="toggleSettings('{{ b.id }}')" title="Settings">&#x22EF;</button>
+    </span>
+  </td>
+</tr>
+<tr id="settings-{{ b.id }}" class="bucket-settings-row" style="display:none">
+  <td colspan="8">
+    <div class="settings-form">
+      <div class="sf-row">
+        <div class="sf-field">
+          <div class="sf-label">Category</div>
+          <select class="sf-input" onchange="moveBucketToCategory(this,'{{ b.id }}')">
+            {% for cat in all_cats %}
+            <option value="{{ cat.id }}" {% if cat.id == b.cat_id %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="sf-field">
+          <div class="sf-label">Type</div>
+          <select class="sf-input" onchange="switchBucketType(this,'{{ b.id }}')">
+            <option value="expense" {% if b.type in ('expense','regular','') %}selected{% endif %}>Expense</option>
+            <option value="sinking" {% if b.type == 'sinking' %}selected{% endif %}>Sinking Fund</option>
+            <option value="goal"    {% if b.type == 'goal'    %}selected{% endif %}>Goal</option>
+            <option value="vault"   {% if b.type == 'vault'   %}selected{% endif %}>Vault</option>
+          </select>
+        </div>
+      </div>
+      <div class="sf-group sf-expense" {% if b.type not in ('expense','regular','') %}style="display:none"{% endif %}>
+        <div class="sf-row">
+          <div class="sf-field">
+            <div class="sf-label">Due Day</div>
+            <input class="sf-input" type="text" placeholder="e.g. 1, 15, eom" value="{{ b.due_day }}" onblur="saveSettingText('bucket_due_day','{{ b.id }}',this.value,'')">
+          </div>
+          <div class="sf-field">
+            <div class="sf-label">Pay Frequency</div>
+            <select class="sf-input" onchange="saveSetting('bucket_pay_freq','{{ b.id }}',this.value,'')">
+              <option value="" {% if not b.pay_freq %}selected{% endif %}>— none —</option>
+              <option value="monthly"   {% if b.pay_freq == 'monthly'   %}selected{% endif %}>Monthly</option>
+              <option value="biweekly"  {% if b.pay_freq == 'biweekly'  %}selected{% endif %}>Biweekly</option>
+              <option value="weekly"    {% if b.pay_freq == 'weekly'    %}selected{% endif %}>Weekly</option>
+              <option value="triweekly" {% if b.pay_freq == 'triweekly' %}selected{% endif %}>Triweekly</option>
+            </select>
+          </div>
+        </div>
+        <div class="sf-row">
+          <div class="sf-field">
+            <div class="sf-label">Pay Amount</div>
+            <input class="sf-input" type="number" step="0.01" placeholder="per payment" value="{{ b.due_amount }}" onblur="saveSettingNum('bucket_due_amount','{{ b.id }}',this.value,'')">
+          </div>
+          <div class="sf-field">
+            <div class="sf-label">Linked Debt Account</div>
+            <select class="sf-input" onchange="saveSetting('bucket_debt_account','{{ b.id }}',this.value,'')">
+              <option value="" {% if not b.debt_account_id %}selected{% endif %}>— none —</option>
+              {% for acct in debt_accounts %}
+              <option value="{{ acct.id }}" {% if acct.id == b.debt_account_id %}selected{% endif %}>{{ acct.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="sf-group sf-savings" {% if b.type not in ('sinking','goal') %}style="display:none"{% endif %}>
+        <div class="sf-row">
+          <div class="sf-field">
+            <div class="sf-label">Target Amount</div>
+            <input class="sf-input" type="number" step="0.01" placeholder="$ goal" value="{{ b.target_amount }}" onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
+          </div>
+          <div class="sf-field">
+            <div class="sf-label">Target Date</div>
+            <input class="sf-input" type="month" value="{{ b.target_date }}" onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
+          </div>
+        </div>
+      </div>
+      <div class="sf-group sf-vault" {% if b.type != 'vault' %}style="display:none"{% endif %}>
+        <div class="sf-row">
+          <div class="sf-field">
+            <div class="sf-label">Vault Balance</div>
+            <div style="font-family:var(--mono);font-size:clamp(13px,2vw,15px);color:var(--accent);padding:4px 0;">
+              <span id="vault-bal-{{ b.id }}">{{ b.vault_total|money }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="sf-row">
+          <div class="sf-field">
+            <div class="sf-label">Transfer to Bucket</div>
+            <div class="release-row">
+              <select class="sf-input" id="vault-dest-{{ b.id }}" style="flex:1;">
+                <option value="">— select bucket —</option>
+                {% for tb in transfer_buckets %}
+                <option value="{{ tb.id }}">{{ tb.name }}</option>
+                {% endfor %}
+              </select>
+              <input class="release-input" type="number" step="0.01" min="0.01" id="vault-xfr-input-{{ b.id }}" placeholder="$">
+              <button class="release-btn" onclick="vaultTransfer('{{ b.id }}','{{ active_mid }}')">Transfer</button>
+            </div>
+          </div>
+        </div>
+        <div class="sf-row">
+          <div class="sf-field">
+            <div class="sf-label">Release to Pool</div>
+            <div class="release-row">
+              <input class="release-input" type="number" step="0.01" min="0.01" max="{{ b.vault_total }}" id="vault-input-{{ b.id }}" placeholder="$ amount">
+              <button class="release-btn" onclick="vaultWithdraw('{{ b.id }}','{{ active_mid }}')">Release</button>
+              <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">max: <span id="vault-release-max-{{ b.id }}">{{ b.vault_total|money }}</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sf-row">
+        <div class="sf-field sf-field-full">
+          <div class="sf-label">Notes</div>
+          <input class="sf-input" type="text" placeholder="optional notes" value="{{ b.notes }}" onblur="saveSettingText('bucket_notes','{{ b.id }}',this.value,'')">
+        </div>
+      </div>
+      <div class="sf-row sf-toggles">
+        {% if b.type != 'vault' %}
+        <label class="sf-check"><input type="checkbox" {% if b.recurring %}checked{% endif %} onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')"> Recurring</label>
+        <label class="sf-check"><input type="checkbox" {% if b.rollover %}checked{% endif %} onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')"> Rollover</label>
+        <label class="sf-check"><input type="checkbox" {% if b.skipped %}checked{% endif %} onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')"> Skip this month</label>
+        {% endif %}
+        <button class="archive-btn" onclick="archiveBucket('{{ b.id }}')">Archive</button>
+      </div>
+    </div>
+  </td>
+</tr>

@@ -145,6 +145,164 @@ def api_state():
     return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
+def _bucket_row_ctx(b: dict, active_month: dict, all_months: list, txs: list, active_mid: str) -> dict:
+    """Build the template context dict for one bucket row (mirrors _dashboard_inner logic)."""
+    btype = b.get("type", "expense")
+    alloc  = float((active_month.get("allocations") or {}).get(b["id"], 0))
+    budget = float((active_month.get("budgets") or {}).get(b["id"], 0))
+
+    if btype == "vault":
+        vault_total = vault_accumulated(b["id"], all_months)
+        roll, spent, avail = 0.0, 0.0, vault_total
+    else:
+        vault_total = 0.0
+        roll  = rollover_bal(b, active_month, all_months, txs)
+        spent = sum(t.get("amount", 0) for t in txs
+                    if t.get("bucketId") == b["id"] and t.get("type") == "out"
+                    and t.get("monthId") == active_mid and not t.get("scheduledId"))
+        avail = bucket_available(b, active_month, all_months, txs)
+
+    target_amount = b.get("targetAmount") or 0
+    progress_pct  = 0
+    if btype == "vault" and target_amount > 0:
+        progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
+    elif btype in ("sinking", "goal") and target_amount > 0:
+        progress_pct = min(100, max(0, round(avail / target_amount * 100)))
+
+    skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
+    status  = bucket_status(alloc, budget, spent, avail)
+
+    return {
+        "id": b["id"], "name": b.get("name", ""), "type": btype,
+        "cat_id": b.get("catId", ""), "rollover": b.get("rollover", False),
+        "recurring": b.get("recurring", False), "skipped": skipped,
+        "due_day": b.get("dueDay", "") or "", "pay_freq": b.get("payFreq", "") or "",
+        "due_amount": b.get("dueAmount", "") or "", "debt_account_id": b.get("debtAccountId", "") or "",
+        "notes": b.get("notes", "") or "", "target_amount": target_amount or "",
+        "target_date": b.get("targetDate", "") or "", "contrib_freq": b.get("contribFreq", "") or "",
+        "default_budget": b.get("defaultBudget", 0),
+        "alloc": alloc, "budget": budget, "rollover_val": roll, "spent": spent,
+        "avail": avail, "status": status, "vault_total": vault_total,
+        "progress_pct": progress_pct,
+    }
+
+
+@app.route("/api/fragment/bucket", methods=["POST"])
+def api_fragment_bucket():
+    """Return server-rendered HTML for a new bucket row + settings row."""
+    if not logged_in():
+        return jsonify({"ok": False}), 401
+
+    body      = request.get_json(silent=True) or {}
+    bucket_id = (body.get("bucket_id") or "").strip()
+    active_mid = (body.get("active_mid") or "").strip() or current_month_id()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data"}), 404
+
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+    if not bucket:
+        return jsonify({"ok": False, "error": "Bucket not found"}), 404
+
+    all_months = data.get("months", [])
+    txs        = data.get("txs", [])
+    accounts   = data.get("accounts", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    cats_sorted    = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+
+    active_month = next(
+        (m for m in all_months if m.get("id") == active_mid),
+        {"id": active_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {}, "skippedBuckets": {}},
+    )
+
+    b_ctx = _bucket_row_ctx(bucket, active_month, all_months, txs, active_mid)
+    group_id = bucket.get("catId", "")
+
+    debt_accounts    = [a for a in accounts if a.get("type") == "debt" and not a.get("archived")]
+    transfer_buckets = [{"id": b["id"], "name": b.get("name", "")}
+                        for b in active_buckets if b.get("type") != "vault"]
+
+    html = render_template("_frag_bucket.html",
+        b=b_ctx, group_id=group_id, active_mid=active_mid,
+        all_cats=cats_sorted, debt_accounts=debt_accounts,
+        transfer_buckets=transfer_buckets)
+
+    return jsonify({"ok": True, "html": html})
+
+
+@app.route("/api/fragment/account", methods=["POST"])
+def api_fragment_account():
+    """Return server-rendered HTML for a new account row + ledger + settings rows."""
+    if not logged_in():
+        return jsonify({"ok": False}), 401
+
+    body      = request.get_json(silent=True) or {}
+    acct_id   = (body.get("acct_id") or "").strip()
+    active_mid = (body.get("active_mid") or "").strip() or current_month_id()
+
+    row_id, data = load_budget_row(session["access_token"])
+    if row_id is None:
+        return jsonify({"ok": False, "error": "No data"}), 404
+
+    accounts = data.get("accounts", [])
+    acct = next((a for a in accounts if a["id"] == acct_id), None)
+    if not acct:
+        return jsonify({"ok": False, "error": "Account not found"}), 404
+
+    txs = data.get("txs", [])
+    bal = acct_balance(acct, txs)
+
+    from datetime import date as _date, timedelta
+    from itertools import groupby as _groupby
+
+    today     = _date.today()
+    yesterday = today - timedelta(days=1)
+
+    def _date_label(ds):
+        try:
+            d = _date.fromisoformat(ds)
+            if d == today:     return "Today"
+            if d == yesterday: return "Yesterday"
+            return d.strftime("%A, %B %-d")
+        except Exception:
+            return ds or "—"
+
+    a_ctx = {
+        "id": acct["id"], "name": acct.get("name", ""), "type": acct.get("type", "budget"),
+        "color": acct.get("color") or "#3a7fc1", "balance": bal,
+        "opening_balance": acct.get("openingBalance") or 0,
+        "debt_apr": acct.get("debtAPR") or "",
+        "debt_min_payment": acct.get("debtMinPayment") or "",
+        "credit_limit": acct.get("creditLimit") or "",
+    }
+
+    a_txs = sorted(
+        [t for t in txs if t.get("monthId") == active_mid
+         and (t.get("accountId") == acct_id
+              or (t.get("toAccountId") == acct_id and t.get("type") == "xfr")
+              or (t.get("debtPaymentAccountId") == acct_id))],
+        key=lambda t: (t.get("date") or "", t.get("id") or ""),
+        reverse=True,
+    )
+    ledger = [
+        {"date": d, "label": _date_label(d), "rows": [
+            {"id": t["id"], "date": t.get("date",""), "desc": t.get("desc",""),
+             "type": t.get("type","out"), "amount": float(t.get("amount",0)),
+             "scheduled": is_scheduled(t),
+             "incoming": t.get("toAccountId") == acct_id or t.get("debtPaymentAccountId") == acct_id}
+            for t in rows
+        ]}
+        for d, rows in _groupby(a_txs, key=lambda t: t.get("date",""))
+    ]
+
+    html = render_template("_frag_account.html",
+        a=a_ctx, active_mid=active_mid,
+        account_ledgers={acct_id: ledger})
+
+    return jsonify({"ok": True, "html": html})
+
+
 @app.route("/api/save", methods=["POST"])
 def api_save():
     if not logged_in():
