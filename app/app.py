@@ -2292,7 +2292,10 @@ def api_forecast():
     if not logged_in():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
 
-    months_param = request.args.get('months', '3')
+    months_param      = request.args.get('months', '3')
+    balance_param     = request.args.get('balance')
+    skip_today_income = request.args.get('skip_today_income', '0') == '1'
+
     try:
         n_months = int(months_param)
     except ValueError:
@@ -2314,6 +2317,21 @@ def api_forecast():
         if a.get("type") != "debt" and not a.get("archived")
     )
 
+    # Override with custom balance if provided
+    if balance_param is not None:
+        try:
+            budget_bal = float(balance_param)
+        except ValueError:
+            pass
+
+    # Build account_balances list for frontend chip selector
+    account_balances = [
+        {"id": a["id"], "name": a["name"], "type": a["type"],
+         "balance": round(acct_balance(a, txs), 2)}
+        for a in accounts
+        if a.get("type") != "debt" and not a.get("archived")
+    ]
+
     today = date.today()
 
     # Determine end date
@@ -2326,6 +2344,8 @@ def api_forecast():
 
     # ── Build pay_events: date → [paycheck dicts] ──────────────────────────
     external_rules = [r for r in alloc_rules if r.get("ruleType") == "external" and r.get("active", True)]
+    internal_rules = [r for r in alloc_rules if r.get("ruleType") != "external" and r.get("active", True) and r.get("bucketId")]
+    bucket_name_map = {b["id"]: b["name"] for b in buckets}
 
     pay_events: dict = {}  # date → list of paycheck hit dicts
     for pc in paychecks:
@@ -2339,10 +2359,21 @@ def api_forecast():
                 amt = float(pc["amount"])
                 computed = round(amt * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
                 transfers.append({"name": rule["name"], "amount": computed})
+            # Build internal allocation events
+            alloc_events = []
+            for rule in internal_rules:
+                pc_amount = float(pc["amount"])
+                if rule.get("type") == "pct":
+                    computed = round(pc_amount * rule["value"] / 100, 2)
+                else:
+                    computed = float(rule["value"])
+                bucket_name = bucket_name_map.get(rule["bucketId"], rule.get("name", ""))
+                alloc_events.append({"bucket": bucket_name, "amount": computed})
             pay_events[pd].append({
-                "label":     pc["label"],
-                "amount":    float(pc["amount"]),
-                "transfers": transfers,
+                "label":        pc["label"],
+                "amount":       float(pc["amount"]),
+                "transfers":    transfers,
+                "alloc_events": alloc_events,
             })
 
     all_pay_dates = sorted(pay_events.keys())
@@ -2376,22 +2407,35 @@ def api_forecast():
     running_balance = budget_bal
     period_results  = []
 
-    for (ps, pe, is_gap) in periods_meta:
+    for period_idx, (ps, pe, is_gap) in enumerate(periods_meta):
         period_start_balance = running_balance
+
+        # Determine if this is the first paycheck period on today
+        is_first_paycheck_today = (period_idx == 0 and not is_gap and ps == today)
+        skip_income = is_first_paycheck_today and skip_today_income
 
         # Income events at the start of paycheck periods
         income_events   = []
         transfer_events = []
+        alloc_events    = []
         if not is_gap and ps in pay_events:
             for pc_hit in pay_events[ps]:
-                running_balance += pc_hit["amount"]
-                income_events.append({
-                    "label":  pc_hit["label"],
-                    "amount": pc_hit["amount"],
-                })
-                for xfr in pc_hit["transfers"]:
-                    running_balance -= xfr["amount"]
-                    transfer_events.append(xfr)
+                if not skip_income:
+                    running_balance += pc_hit["amount"]
+                    income_events.append({
+                        "label":  pc_hit["label"],
+                        "amount": pc_hit["amount"],
+                    })
+                    for xfr in pc_hit["transfers"]:
+                        running_balance -= xfr["amount"]
+                        transfer_events.append(xfr)
+                # Always collect alloc_events (informational only)
+                alloc_events.extend(pc_hit.get("alloc_events", []))
+
+        # If skipping income, override display
+        if skip_income:
+            income_events   = []
+            transfer_events = []
 
         # Collect all bill dates within this period, grouped by day
         bill_by_day: dict = {}  # date → list of bill dicts
@@ -2421,36 +2465,41 @@ def api_forecast():
         period_expenses  = sum(b["amount"] for day in days for b in day["events"])
         period_net       = period_income - period_transfers - period_expenses
 
-        # Build label
-        if is_gap:
-            label = "Pre-Paycheck Gap"
+        # Build label and type
+        if is_gap or skip_income:
+            label     = "Pre-Paycheck Gap"
+            ptype     = "gap"
         else:
             labels = list({e["label"] for e in income_events}) or ["Paycheck"]
             label  = " + ".join(labels)
+            ptype  = "paycheck"
 
         period_results.append({
-            "type":           "gap" if is_gap else "paycheck",
-            "label":          label,
-            "date_range":     _fc_range_label(ps, pe),
-            "start":          str(ps),
-            "end":            str(pe),
-            "start_balance":  round(period_start_balance, 2),
-            "income_events":  income_events,
-            "transfer_events": transfer_events,
-            "days":           days,
-            "period_income":  round(period_income, 2),
+            "type":             ptype,
+            "label":            label,
+            "date_range":       _fc_range_label(ps, pe),
+            "start":            str(ps),
+            "end":              str(pe),
+            "start_balance":    round(period_start_balance, 2),
+            "income_events":    income_events,
+            "transfer_events":  transfer_events,
+            "alloc_events":     alloc_events,
+            "days":             days,
+            "period_income":    round(period_income, 2),
             "period_transfers": round(period_transfers, 2),
-            "period_expenses": round(period_expenses, 2),
-            "period_net":     round(period_net, 2),
-            "end_balance":    round(running_balance, 2),
-            "shortfall":      running_balance < 0,
+            "period_expenses":  round(period_expenses, 2),
+            "period_net":       round(period_net, 2),
+            "end_balance":      round(running_balance, 2),
+            "shortfall":        running_balance < 0,
+            "can_toggle_paid":  is_first_paycheck_today,
         })
 
     return jsonify({
-        "ok":            True,
-        "start_balance": round(budget_bal, 2),
-        "months":        months_param,
-        "periods":       period_results,
+        "ok":               True,
+        "start_balance":    round(budget_bal, 2),
+        "months":           months_param,
+        "periods":          period_results,
+        "account_balances": account_balances,
     })
 
 
