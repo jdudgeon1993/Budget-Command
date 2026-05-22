@@ -799,54 +799,98 @@
 .fc-range-btn:hover { color: var(--text2); background: var(--border2); }
 .fc-range-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 
-/* ── Forecast week cards ── */
-.fc-week {
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  margin-bottom: 8px;
-  overflow: hidden;
+/* ── Forecast period cards ── */
+.fc-period {
+  border: 1px solid var(--border); border-radius: var(--r);
+  margin-bottom: 10px; overflow: hidden;
 }
-.fc-week.shortfall { border-color: var(--red); }
-.fc-week-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 12px; background: var(--bg2); cursor: pointer;
-  gap: 8px; flex-wrap: wrap;
+.fc-period.shortfall { border-color: var(--red); }
+.fc-period-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 10px 12px; background: var(--bg2); cursor: pointer; gap: 8px;
 }
-.fc-week.shortfall .fc-week-header { background: var(--rbg, rgba(239,68,68,.08)); }
-.fc-week-label {
-  font-family: var(--mono); font-size: clamp(10px,1.5vw,12px); color: var(--text2);
-  letter-spacing: .04em; flex: 1;
+.fc-period.shortfall .fc-period-header { background: rgba(239,68,68,.08); }
+.fc-period.gap .fc-period-header { background: var(--bg3); }
+.fc-period-left { flex: 1; min-width: 0; }
+.fc-period-type {
+  font-family: var(--mono); font-size: clamp(11px,1.6vw,13px);
+  color: var(--text); font-weight: bold; letter-spacing: .02em;
 }
-.fc-week-net {
-  font-family: var(--mono); font-size: clamp(10px,1.5vw,12px); font-weight: bold;
+.fc-period.gap .fc-period-type { color: var(--text3); }
+.fc-period-dates {
+  font-family: var(--mono); font-size: clamp(9px,1.3vw,10px);
+  color: var(--text3); display: block; margin-top: 2px;
 }
-.fc-week-net.pos { color: var(--green); }
-.fc-week-net.neg { color: var(--red); }
-.fc-week-balance {
-  font-family: var(--mono); font-size: clamp(9px,1.3vw,10px); color: var(--text3);
+.fc-period-right { text-align: right; flex-shrink: 0; }
+.fc-period-net {
+  font-family: var(--mono); font-size: clamp(11px,1.6vw,13px); font-weight: bold;
+}
+.fc-period-net.pos { color: var(--green); }
+.fc-period-net.neg { color: var(--red); }
+.fc-period-bal {
+  font-family: var(--mono); font-size: clamp(9px,1.3vw,10px);
+  color: var(--text3); display: block; margin-top: 2px;
 }
 .fc-shortfall-badge {
-  font-family: var(--mono); font-size: clamp(8px,1.2vw,9px); letter-spacing: .1em;
-  text-transform: uppercase; color: var(--red); background: var(--rbg, rgba(239,68,68,.15));
-  border: 1px solid var(--red); border-radius: var(--r); padding: 1px 6px;
+  display: inline-block; font-family: var(--mono);
+  font-size: clamp(8px,1.2vw,9px); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--red); background: rgba(239,68,68,.15);
+  border: 1px solid var(--red); border-radius: var(--r); padding: 1px 6px; margin-top: 3px;
 }
-.fc-week-body {
-  padding: 8px 12px; display: none; border-top: 1px solid var(--border);
+.fc-period-body { display: none; border-top: 1px solid var(--border); }
+.fc-period-body.open { display: block; }
+
+/* start balance row */
+.fc-start-row {
+  display: flex; justify-content: space-between;
+  padding: 6px 12px; border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: clamp(9px,1.3vw,10px);
+  color: var(--text3); letter-spacing: .06em; text-transform: uppercase;
 }
-.fc-week-body.open { display: block; }
-.fc-event-row {
+.fc-start-row span:last-child { color: var(--accent); }
+
+/* paycheck income block */
+.fc-income-block { padding: 6px 12px 2px; border-bottom: 1px solid var(--border2); }
+.fc-income-row, .fc-transfer-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 3px 0; font-family: var(--mono); font-size: clamp(10px,1.5vw,12px);
-  border-bottom: 1px solid var(--border);
 }
-.fc-event-row:last-child { border-bottom: none; }
-.fc-event-label { flex: 1; color: var(--text2); }
-.fc-event-amt-in  { color: var(--green); white-space: nowrap; }
-.fc-event-amt-out { color: var(--red); white-space: nowrap; }
-.fc-event-section {
-  font-family: var(--mono); font-size: clamp(8px,1.2vw,9px); letter-spacing: .1em;
-  text-transform: uppercase; color: var(--text3); padding: 4px 0 2px; margin-top: 4px;
+.fc-income-label  { flex: 1; color: var(--text2); }
+.fc-income-amt    { color: var(--green); white-space: nowrap; }
+.fc-transfer-amt  { color: var(--amber); white-space: nowrap; }
+
+/* day groups */
+.fc-day-group { border-bottom: 1px solid var(--border2); }
+.fc-day-label {
+  font-family: var(--mono); font-size: clamp(9px,1.3vw,10px); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 5px 12px 2px; background: var(--bg3);
 }
+.fc-bill-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 12px; font-family: var(--mono); font-size: clamp(10px,1.5vw,12px);
+}
+.fc-bill-label { flex: 1; color: var(--text2); }
+.fc-bill-amt   { color: var(--red); white-space: nowrap; }
+.fc-run-bal {
+  display: flex; justify-content: space-between;
+  padding: 3px 12px 5px; font-family: var(--mono);
+  font-size: clamp(9px,1.3vw,10px); color: var(--text3);
+}
+.fc-run-bal span:last-child { color: var(--text2); }
+
+/* end balance row */
+.fc-end-row {
+  display: flex; justify-content: space-between;
+  padding: 7px 12px; border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: clamp(10px,1.5vw,12px);
+  background: var(--bg2);
+}
+.fc-end-label { color: var(--text3); letter-spacing: .06em; text-transform: uppercase; }
+.fc-end-amt   { color: var(--accent); font-weight: bold; }
+.fc-end-amt.negative { color: var(--red); }
+
+/* summary + misc */
 .fc-summary-bar {
   display: flex; gap: 16px; padding: 10px 12px; background: var(--bg3);
   border: 1px solid var(--border2); border-radius: var(--r); margin-bottom: 14px;
@@ -4189,59 +4233,80 @@ function renderForecast(data) {
   const el = document.getElementById('forecast-content');
   if (!el) return;
 
-  const weeks = data.weeks || [];
-  if (weeks.length === 0) {
+  const periods = data.periods || [];
+  if (periods.length === 0) {
     el.innerHTML = '<div class="fc-empty">No paychecks or recurring bills found. Add paychecks in More → Settings to get started.</div>';
     return;
   }
 
   // Summary bar
-  const totalIncome = weeks.reduce((s, w) => s + (w.week_income || 0), 0);
-  const totalExpenses = weeks.reduce((s, w) => s + (w.week_expenses || 0) + (w.week_external || 0), 0);
-  const shortfallWeeks = weeks.filter(w => w.shortfall).length;
-  const endBalance = weeks.length > 0 ? weeks[weeks.length - 1].running_balance : data.start_balance;
+  const totalIncome    = periods.reduce((s, p) => s + (p.period_income || 0), 0);
+  const totalExpenses  = periods.reduce((s, p) => s + (p.period_expenses || 0) + (p.period_transfers || 0), 0);
+  const shortfallCount = periods.filter(p => p.shortfall).length;
+  const endBalance     = periods[periods.length - 1].end_balance;
 
   let html = `<div class="fc-summary-bar">
     <div class="fc-summary-item"><div class="fc-summary-label">Starting Balance</div><div style="color:var(--accent)">${fmtMoney(data.start_balance)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Projected Income</div><div style="color:var(--green)">${fmtMoney(totalIncome)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Projected Bills</div><div style="color:var(--amber)">${fmtMoney(totalExpenses)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">End Balance</div><div style="color:${endBalance >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtMoney(endBalance)}</div></div>
-    ${shortfallWeeks > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label">Shortfall Weeks</div><div style="color:var(--red)">${shortfallWeeks}</div></div>` : ''}
+    ${shortfallCount > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label">Shortfalls</div><div style="color:var(--red)">${shortfallCount}</div></div>` : ''}
   </div>`;
 
-  weeks.forEach((w, i) => {
-    const hasEvents = (w.income?.length || 0) + (w.expenses?.length || 0) + (w.external?.length || 0) > 0;
-    const netClass = (w.week_net || 0) >= 0 ? 'pos' : 'neg';
-    const shortfallClass = w.shortfall ? ' shortfall' : '';
+  periods.forEach((p, i) => {
+    const net      = p.period_net || 0;
+    const netClass = net >= 0 ? 'pos' : 'neg';
+    const netSign  = net >= 0 ? '+' : '';
+    const sfClass  = p.shortfall ? ' shortfall' : '';
+    const typeClass = p.type === 'gap' ? ' gap' : '';
+    const hasBody  = (p.income_events?.length || 0) + (p.transfer_events?.length || 0) + (p.days?.length || 0) > 0;
 
-    html += `<div class="fc-week${shortfallClass}">
-      <div class="fc-week-header" onclick="toggleFcWeek(${i})">
-        <span class="fc-week-label">${w.label}</span>
-        ${w.shortfall ? '<span class="fc-shortfall-badge">⚠ SHORTFALL</span>' : ''}
-        <span class="fc-week-net ${netClass}">${(w.week_net||0) >= 0 ? '+' : ''}${fmtMoney(w.week_net||0)}</span>
-        <span class="fc-week-balance">Bal: ${fmtMoney(w.running_balance)}</span>
+    html += `<div class="fc-period${sfClass}${typeClass}">
+      <div class="fc-period-header" onclick="toggleFcPeriod(${i})">
+        <div class="fc-period-left">
+          <span class="fc-period-type">${p.label}</span>
+          <span class="fc-period-dates">${p.date_range}</span>
+          ${p.shortfall ? '<span class="fc-shortfall-badge">⚠ SHORTFALL</span>' : ''}
+        </div>
+        <div class="fc-period-right">
+          <span class="fc-period-net ${netClass}">${netSign}${fmtMoney(net)}</span>
+          <span class="fc-period-bal">Bal: ${fmtMoney(p.end_balance)}</span>
+        </div>
       </div>`;
 
-    if (hasEvents) {
-      html += `<div class="fc-week-body" id="fc-week-body-${i}">`;
-      if (w.income?.length) {
-        html += `<div class="fc-event-section">Income</div>`;
-        w.income.forEach(ev => {
-          html += `<div class="fc-event-row"><span class="fc-event-label">💰 ${ev.label}</span><span class="fc-event-amt-in">+${fmtMoney(ev.amount)}</span></div>`;
+    if (hasBody) {
+      html += `<div class="fc-period-body" id="fc-period-body-${i}">`;
+
+      // Start balance
+      html += `<div class="fc-start-row"><span>START</span><span>${fmtMoney(p.start_balance)}</span></div>`;
+
+      // Paycheck income + transfers
+      if (p.income_events?.length || p.transfer_events?.length) {
+        html += `<div class="fc-income-block">`;
+        p.income_events.forEach(ev => {
+          html += `<div class="fc-income-row"><span class="fc-income-label">💰 ${ev.label}</span><span class="fc-income-amt">+${fmtMoney(ev.amount)}</span></div>`;
         });
-      }
-      if (w.expenses?.length) {
-        html += `<div class="fc-event-section">Bills Due</div>`;
-        w.expenses.forEach(ev => {
-          html += `<div class="fc-event-row"><span class="fc-event-label">📋 ${ev.name}</span><span class="fc-event-amt-out">−${fmtMoney(ev.amount)}</span></div>`;
+        p.transfer_events.forEach(xfr => {
+          html += `<div class="fc-transfer-row"><span class="fc-income-label">→ ${xfr.name}</span><span class="fc-transfer-amt">−${fmtMoney(xfr.amount)}</span></div>`;
         });
+        html += `</div>`;
       }
-      if (w.external?.length) {
-        html += `<div class="fc-event-section">Transfers Out</div>`;
-        w.external.forEach(ev => {
-          html += `<div class="fc-event-row"><span class="fc-event-label">→ ${ev.name}</span><span class="fc-event-amt-out">−${fmtMoney(ev.amount)}</span></div>`;
+
+      // Day groups
+      p.days.forEach(day => {
+        html += `<div class="fc-day-group">
+          <div class="fc-day-label">${day.label}</div>`;
+        day.events.forEach(ev => {
+          html += `<div class="fc-bill-row"><span class="fc-bill-label">${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
         });
-      }
+        html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div>
+        </div>`;
+      });
+
+      // End balance
+      const endAmtClass = p.end_balance < 0 ? ' negative' : '';
+      html += `<div class="fc-end-row"><span class="fc-end-label">END</span><span class="fc-end-amt${endAmtClass}">${fmtMoney(p.end_balance)}</span></div>`;
+
       html += `</div>`;
     }
 
@@ -4250,23 +4315,17 @@ function renderForecast(data) {
 
   el.innerHTML = html;
 
-  // Auto-open shortfall weeks and the first week with events
-  weeks.forEach((w, i) => {
-    if (w.shortfall) {
-      const body = document.getElementById('fc-week-body-' + i);
+  // Auto-open first period and any shortfall periods
+  periods.forEach((p, i) => {
+    if (p.shortfall || i === 0) {
+      const body = document.getElementById('fc-period-body-' + i);
       if (body) body.classList.add('open');
     }
   });
-  // Open first week with events by default
-  const firstWithEvents = weeks.findIndex(w => (w.income?.length || 0) + (w.expenses?.length || 0) > 0);
-  if (firstWithEvents >= 0) {
-    const body = document.getElementById('fc-week-body-' + firstWithEvents);
-    if (body) body.classList.add('open');
-  }
 }
 
-function toggleFcWeek(i) {
-  const body = document.getElementById('fc-week-body-' + i);
+function toggleFcPeriod(i) {
+  const body = document.getElementById('fc-period-body-' + i);
   if (body) body.classList.toggle('open');
 }
 </script>
