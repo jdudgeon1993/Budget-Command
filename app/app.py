@@ -407,8 +407,14 @@ def api_save():
 
     result = {"ok": True}
 
-    if field in ("bucket_alloc", "bucket_target") and mid:
+    live_fields = {
+        "bucket_alloc", "bucket_target", "bucket_archive",
+        "bucket_skip", "bucket_rollover", "bucket_type",
+    }
+    if field in live_fields and mid:
         result.update(_live_state(data, mid))
+    elif field in live_fields:
+        result.update(_live_state(data, current_month_id()))
 
     return jsonify(result)
 
@@ -432,6 +438,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
     all_months     = data.get("months", [])
     accounts       = data.get("accounts", [])
     txs            = data.get("txs", [])
+    cats           = data.get("cats", [])
     active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     active_month   = next(
         (m for m in all_months if m.get("id") == active_mid),
@@ -442,23 +449,63 @@ def _live_state(data: dict, active_mid: str) -> dict:
     bucket_rollover = {}
     bucket_spent    = {}
     vault_totals    = {}
+    bucket_statuses = {}
 
     for b in active_buckets:
-        bid = b["id"]
+        bid    = b["id"]
+        alloc  = float((active_month.get("allocations") or {}).get(bid, 0))
+        budget = float((active_month.get("budgets") or {}).get(bid, 0))
         if b.get("type") == "vault":
             total = vault_accumulated(bid, all_months)
-            vault_totals[bid]  = total
-            bucket_avails[bid] = total
+            vault_totals[bid]    = total
+            bucket_avails[bid]   = total
+            bucket_statuses[bid] = ""
         else:
-            bucket_avails[bid]   = bucket_available(b, active_month, all_months, txs)
-            bucket_rollover[bid] = rollover_bal(b, active_month, all_months, txs)
-            bucket_spent[bid]    = sum(
+            avail = bucket_available(b, active_month, all_months, txs)
+            spent = sum(
                 t.get("amount", 0) for t in txs
                 if t.get("bucketId") == bid
                 and t.get("type") == "out"
                 and t.get("monthId") == active_mid
-                and not t.get("scheduledId")
+                and not is_scheduled(t)
             )
+            roll = rollover_bal(b, active_month, all_months, txs)
+            bucket_avails[bid]   = avail
+            bucket_rollover[bid] = roll
+            bucket_spent[bid]    = spent
+            bucket_statuses[bid] = bucket_status(alloc, budget, spent, avail)
+
+    # Per-category and grand totals
+    cat_totals = {}
+    grand = dict(alloc=0.0, budget=0.0, rollover=0.0, spent=0.0, avail=0.0)
+    for cat in cats:
+        if cat.get("archived"):
+            continue
+        cid = cat["id"]
+        cat_buckets = [b for b in active_buckets if b.get("catId") == cid]
+        if not cat_buckets:
+            continue
+        t = dict(alloc=0.0, budget=0.0, rollover=0.0, spent=0.0, avail=0.0)
+        for b in cat_buckets:
+            bid = b["id"]
+            t["alloc"]  += float((active_month.get("allocations") or {}).get(bid, 0))
+            t["budget"] += float((active_month.get("budgets") or {}).get(bid, 0))
+            t["avail"]  += bucket_avails.get(bid, 0)
+            if b.get("type") != "vault":
+                t["rollover"] += bucket_rollover.get(bid, 0)
+                t["spent"]    += bucket_spent.get(bid, 0)
+        cat_totals[cid] = t
+        for k in grand:
+            grand[k] += t[k]
+
+    ledger_income = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == active_mid and t.get("type") == "in" and not is_scheduled(t)
+    )
+    ledger_out = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == active_mid and t.get("type") == "out" and not is_scheduled(t)
+    )
 
     account_balances = {
         a["id"]: acct_balance(a, txs)
@@ -471,6 +518,10 @@ def _live_state(data: dict, active_mid: str) -> dict:
         "bucket_rollover":  bucket_rollover,
         "bucket_spent":     bucket_spent,
         "vault_totals":     vault_totals,
+        "bucket_statuses":  bucket_statuses,
+        "cat_totals":       cat_totals,
+        "grand_totals":     grand,
+        "ledger_totals":    {"income": ledger_income, "spent": ledger_out},
         "account_balances": account_balances,
     }
 
@@ -539,6 +590,7 @@ def api_add_bucket():
         "ok": True, "bucket_id": bucket_id, "cat_id": cat_id,
         "cat_name": cat_name, "bucket_name": bucket_name, "bucket_type": bucket_type,
         "is_new_cat": bool(body.get("cat_id","").strip() == "__new__"),
+        **_live_state(data, active_mid),
     })
 
 
@@ -564,7 +616,8 @@ def api_archive_category():
             b["archived"] = True
 
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True})
+    active_mid = (body.get("active_mid") or "").strip() or current_month_id()
+    return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
 @app.route("/api/delete-category", methods=["POST"])
@@ -1484,10 +1537,12 @@ def api_add_account():
     })
 
     save_budget_row(session["access_token"], row_id, data)
+    active_mid = (body.get("active_mid") or "").strip() or current_month_id()
     return jsonify({
         "ok": True, "acct_id": acct_id,
         "account": {"id": acct_id, "name": name, "type": atype, "color": color,
                     "balance": opening},
+        **_live_state(data, active_mid),
     })
 
 
@@ -1529,7 +1584,8 @@ def api_save_account():
         return jsonify({"ok": False, "error": f"Unknown field: {field}"}), 400
 
     save_budget_row(session["access_token"], row_id, data)
-    return jsonify({"ok": True})
+    active_mid = (body.get("active_mid") or "").strip() or current_month_id()
+    return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
 @app.route("/api/debt-payment", methods=["POST"])

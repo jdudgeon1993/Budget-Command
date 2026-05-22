@@ -791,9 +791,7 @@
               {% endif %}
             </td>
             <td class="col-status">
-              {% if b.status %}
-                <span class="badge-{{ b.status|lower }}">{{ b.status }}</span>
-              {% endif %}
+              <span class="badge-{{ b.status|lower if b.status else '' }}" data-status-id="{{ b.id }}">{{ b.status or '' }}</span>
             </td>
             <td class="col-amount col-m-hide editable-num"
                 data-field="bucket_target"
@@ -1049,7 +1047,7 @@
           {% endfor %}
 
           <!-- Category totals -->
-          <tr class="tbl-cat-total-row tbl-cat-total">
+          <tr class="tbl-cat-total-row tbl-cat-total" data-cat-total="{{ group.id }}">
             <th colspan="2">{{ group.name }} total</th>
             <th class="col-amount col-m-hide">{{ group.totals.budget|money }}</th>
             <th class="col-amount">{{ group.totals.alloc|money }}</th>
@@ -1065,7 +1063,7 @@
         <!-- Grand totals -->
         {% if category_groups %}
         <tbody>
-          <tr class="tbl-grand-total">
+          <tr class="tbl-grand-total" data-grand-total>
             <th colspan="2">Grand Total</th>
             <th class="col-amount col-m-hide">{{ grand.budget|money }}</th>
             <th class="col-amount">{{ grand.alloc|money }}</th>
@@ -1163,7 +1161,7 @@
           {% endif %}
 
           {% for group in ledger_groups %}
-          <tr>
+          <tr data-date="{{ group.date }}">
             <td colspan="6" class="tbl-cat-head">{{ group.label }}</td>
           </tr>
 
@@ -1306,10 +1304,10 @@
             <th></th>
             <th class="col-m-hide"></th>
             <th style="text-align:right; font-family:var(--mono); font-size:clamp(9px,1.4vw,10px); color:var(--text3); letter-spacing:.08em; text-transform:uppercase;">
-              In: <span style="color:var(--green);">{{ ledger_income|money }}</span>
-              &nbsp; Out: <span style="color:var(--red);">{{ ledger_spent|money }}</span>
+              In: <span data-ledger-in style="color:var(--green);">{{ ledger_income|money }}</span>
+              &nbsp; Out: <span data-ledger-out style="color:var(--red);">{{ ledger_spent|money }}</span>
             </th>
-            <th class="col-amount" style="{% if ledger_income - ledger_spent >= 0 %}color:var(--green){% else %}color:var(--red){% endif %}">
+            <th class="col-amount" data-ledger-net style="{% if ledger_income - ledger_spent >= 0 %}color:var(--green){% else %}color:var(--red){% endif %}">
               {{ (ledger_income - ledger_spent)|money }}
             </th>
             <th></th>
@@ -1845,7 +1843,7 @@
             {% endif %}
 
             {% if not allocation_rules %}
-            <tr><td colspan="5" style="padding:16px 4px;color:var(--text3);font-family:var(--mono);font-size:11px;">No rules yet — add one above.</td></tr>
+            <tr id="rules-empty"><td colspan="5" style="padding:16px 4px;color:var(--text3);font-family:var(--mono);font-size:11px;">No rules yet — add one above.</td></tr>
             {% endif %}
             </tbody>
           </table>
@@ -1952,13 +1950,70 @@ function refreshValues(state) {
       const cell = row.querySelector('td.col-amount');
       if (!cell) continue;
       cell.textContent = fmtMoney(bal);
-      // Pick correct class based on account type (debt rows stay negative-styled at 0)
       const isDebt = row.querySelector('.badge-debt');
       if (isDebt) {
         cell.className = 'col-amount ' + (bal === 0 ? 'acct-bal-debt-zero' : 'acct-bal-negative');
       } else {
         cell.className = 'col-amount ' + (bal >= 0 ? 'acct-bal-positive' : 'acct-bal-negative');
       }
+    }
+  }
+
+  // Bucket status badges + row border class
+  if (state.bucket_statuses) {
+    const statusToCls = { PAID: 'bucket-paid', FUNDED: 'bucket-funded', OK: 'bucket-ok', OVER: 'bucket-over', '': 'bucket-empty' };
+    for (const [bid, status] of Object.entries(state.bucket_statuses)) {
+      const row = document.getElementById('row-' + bid);
+      if (row) {
+        row.className = row.className.replace(/bucket-\w+/g, '').trim() + ' ' + (statusToCls[status] || 'bucket-empty');
+      }
+      const badge = document.querySelector(`[data-status-id="${bid}"]`);
+      if (badge) {
+        badge.textContent = status;
+        badge.className = status ? 'badge-' + status.toLowerCase() : '';
+      }
+    }
+  }
+
+  // Category totals rows (budget | alloc | rollover | spent | avail)
+  if (state.cat_totals) {
+    for (const [cid, t] of Object.entries(state.cat_totals)) {
+      const row = document.querySelector(`[data-cat-total="${cid}"]`);
+      if (!row) continue;
+      const cells = row.querySelectorAll('th.col-amount');
+      // Column order matches template: budget(m-hide), alloc, rollover(m-hide), spent(m-hide), avail
+      const vals = [t.budget, t.alloc, t.rollover, t.spent, t.avail];
+      cells.forEach((cell, i) => {
+        if (i < vals.length) cell.textContent = (i === 2 && vals[i] === 0) ? '—' : fmtMoney(vals[i]);
+      });
+    }
+  }
+
+  // Grand totals row
+  if (state.grand_totals) {
+    const row = document.querySelector('[data-grand-total]');
+    if (row) {
+      const g = state.grand_totals;
+      const cells = row.querySelectorAll('th.col-amount');
+      const vals = [g.budget, g.alloc, g.rollover, g.spent, g.avail];
+      cells.forEach((cell, i) => {
+        if (i < vals.length) cell.textContent = (i === 2 && vals[i] === 0) ? '—' : fmtMoney(vals[i]);
+      });
+    }
+  }
+
+  // Ledger income/spent/net footer
+  if (state.ledger_totals) {
+    const lt = state.ledger_totals;
+    const inEl  = document.querySelector('[data-ledger-in]');
+    const outEl = document.querySelector('[data-ledger-out]');
+    const netEl = document.querySelector('[data-ledger-net]');
+    if (inEl)  inEl.textContent  = fmtMoney(lt.income);
+    if (outEl) outEl.textContent = fmtMoney(lt.spent);
+    if (netEl) {
+      const net = lt.income - lt.spent;
+      netEl.textContent = fmtMoney(net);
+      netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
     }
   }
 }
@@ -2089,18 +2144,8 @@ function injectTxRow(tx, activeMid) {
     });
   });
 
-  // Find or create today's date group header
-  const dateLabel = tx.date;
-  let targetHeader = null;
-  body.querySelectorAll('tr.tbl-cat-head, tr > td.tbl-cat-head').forEach(cell => {
-    const row = cell.closest ? cell : cell.parentElement;
-    if (row && row.textContent.trim() === dateLabel) targetHeader = row;
-  });
-  // Check via td children
-  for (const row of body.querySelectorAll('tr')) {
-    const td = row.querySelector('td.tbl-cat-head');
-    if (td && td.textContent.trim() === dateLabel) { targetHeader = row; break; }
-  }
+  // Find or create date group header — match by data-date attribute (ISO string)
+  let targetHeader = body.querySelector(`tr[data-date="${tx.date}"]`);
 
   if (targetHeader) {
     // Insert after the last ltx- row under this header
@@ -2109,9 +2154,10 @@ function injectTxRow(tx, activeMid) {
     while (next && next.id && next.id.startsWith('ltx-')) { insertAfter = next; next = next.nextElementSibling; }
     insertAfter.after(tr);
   } else {
-    // Create a new date group header and prepend to body
+    // Create a new date group header; display the ISO date as-is (matches server format)
     const htr = document.createElement('tr');
-    htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${dateLabel}</td>`;
+    htr.dataset.date = tx.date;
+    htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${tx.date}</td>`;
     body.prepend(tr);
     body.prepend(htr);
   }
@@ -2240,12 +2286,15 @@ async function submitAddBucket(e) {
     // Also add the new bucket to all bucket selects across the page
     appendBucketOption(bid, result.bucket_name, result.bucket_type);
 
+    // Update all live values (RTS, totals, etc.)
+    refreshValues(result);
+
     // Clear form
     document.getElementById('strip-bucket-name').value = '';
     document.getElementById('strip-new-cat-name').value = '';
     const catSel = document.getElementById('strip-cat');
     if (catSel?.value === '__new__') catSel.value = cid;
-    document.getElementById('strip-new-cat-row') && (document.getElementById('strip-new-cat-row').style.display = 'none');
+    document.getElementById('strip-new-cat-cell') && (document.getElementById('strip-new-cat-cell').style.display = 'none');
   } else {
     alert('Error: ' + (result.error || 'Could not add bucket.'));
   }
@@ -2578,6 +2627,7 @@ async function submitAddTx(e) {
 /* ── Ledger: toggle expand panel ── */
 function toggleTxSettings(id) {
   const row = document.getElementById('tx-settings-' + id);
+  if (!row) return; // injected rows have no settings panel; expand panel only exists for page-load rows
   row.style.display = row.style.display === 'table-row' ? 'none' : 'table-row';
 }
 
@@ -2707,11 +2757,12 @@ async function archiveCategory(catId) {
   const result = await fetch('/api/archive-category', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ cat_id: catId })
+    body: JSON.stringify({ cat_id: catId, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
     document.getElementById('cat-body-' + catId)?.remove();
+    refreshValues(result);
   } else {
     alert('Archive failed: ' + (result.error || 'unknown error'));
   }
@@ -2720,10 +2771,13 @@ async function archiveCategory(catId) {
 /* ── Archive bucket ── */
 async function archiveBucket(id) {
   if (!confirm('Archive this bucket? It will be hidden from the active view.')) return;
-  const result = await saveSetting('bucket_archive', id, true, '');
+  const result = await saveSetting('bucket_archive', id, true, ACTIVE_MID);
   if (result.ok) {
     document.getElementById('row-' + id)?.remove();
     document.getElementById('settings-' + id)?.remove();
+    // Remove from all bucket selects
+    document.querySelectorAll(`#tx-bucket option[value="${id}"], .ledger-bucket-select option[value="${id}"], [id^="vault-dest-"] option[value="${id}"], [id^="pay-bucket-"] option[value="${id}"], #rule-bucket option[value="${id}"]`).forEach(o => o.remove());
+    refreshValues(result);
   } else {
     alert('Archive failed — please try again.');
   }
@@ -2762,9 +2816,10 @@ async function saveAcctField(id, field, value) {
   const result = await fetch('/api/save-account', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ id, field, value })
+    body: JSON.stringify({ id, field, value, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
-  if (!result.ok) alert('Save failed: ' + (result.error || 'unknown error'));
+  if (!result.ok) { alert('Save failed: ' + (result.error || 'unknown error')); return; }
+  refreshValues(result);
 }
 
 async function submitAddAccount(e, section) {
@@ -2780,7 +2835,7 @@ async function submitAddAccount(e, section) {
   const result = await fetch('/api/add-account', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ name, type, color, opening_balance: opening })
+    body: JSON.stringify({ name, type, color, opening_balance: opening, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
@@ -2809,6 +2864,7 @@ async function submitAddAccount(e, section) {
       // Add to account selects across the page
       appendAccountOption(a.id, a.name, a.type);
     }
+    refreshValues(result);
     // Clear form
     document.getElementById(section + '-acct-name').value = '';
     const openingEl = document.getElementById(section + '-acct-opening');
@@ -2821,13 +2877,16 @@ async function archiveAccount(id) {
   const result = await fetch('/api/save-account', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ id, field: 'archived', value: true })
+    body: JSON.stringify({ id, field: 'archived', value: true, active_mid: ACTIVE_MID })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
     document.getElementById('acct-row-' + id)?.remove();
     document.getElementById('acct-ledger-' + id)?.remove();
     document.getElementById('acct-settings-' + id)?.remove();
+    // Remove from all account selects
+    document.querySelectorAll(`#tx-account option[value="${id}"], #tx-to-account option[value="${id}"], [id^="pay-from-"] option[value="${id}"]`).forEach(o => o.remove());
+    refreshValues(result);
   } else {
     alert('Archive failed: ' + (result.error || 'unknown error'));
   }
@@ -3106,6 +3165,7 @@ async function applyPayday() {
     }
   });
 
+  let liveState = null;
   if (allocations.length > 0) {
     const result = await fetch('/api/apply-payday', {
       method: 'POST',
@@ -3117,9 +3177,10 @@ async function applyPayday() {
       alert('Could not apply allocations: ' + (result.error || 'unknown error'));
       return;
     }
+    liveState = result;
   }
 
-  refreshValues(result);
+  refreshValues(liveState);
   closePaydayModal();
 }
 
