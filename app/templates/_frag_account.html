@@ -1,0 +1,85 @@
+{# Rendered server-side for a single account row + ledger row + settings row.
+   Variables: a (account ctx dict), active_mid, account_ledgers #}
+{% set bal_class = 'acct-bal-positive' if a.balance >= 0 else ('acct-bal-debt-zero' if a.type == 'debt' and a.balance == 0 else 'acct-bal-negative') %}
+<tr id="acct-row-{{ a.id }}">
+  <td class="col-name">
+    <span class="acct-color-dot" style="background:{{ a.color }}"></span>
+    <span class="editable-acct" data-id="{{ a.id }}" data-raw="{{ a.name }}">{{ a.name }}</span>
+  </td>
+  <td><span class="badge-{{ a.type }}">{{ a.type }}</span></td>
+  <td class="col-amount {{ bal_class }}">{{ a.balance|money }}</td>
+  <td class="col-settings">
+    <span class="row-actions">
+      <button class="settings-btn" onclick="toggleAcctLedger('{{ a.id }}')" title="Ledger">&#x2261;</button>
+      <button class="settings-btn" onclick="toggleAcctSettings('{{ a.id }}')" title="Settings">&#x22EF;</button>
+    </span>
+  </td>
+</tr>
+<tr id="acct-ledger-{{ a.id }}" style="display:none">
+  <td colspan="4" style="padding:0 0 4px 0">
+    <table class="data-table" style="margin:0;max-width:100%;border-top:2px solid var(--border2)">
+      <thead><tr><th style="width:80px">Date</th><th class="col-name">Description</th><th class="col-amount">Amount</th></tr></thead>
+      <tbody>
+      {% set ledger = account_ledgers.get(a.id, []) %}
+      {% if not ledger %}
+      <tr><td colspan="3" class="ledger-empty">No transactions this month.</td></tr>
+      {% endif %}
+      {% for grp in ledger %}
+      <tr><td colspan="3" class="tbl-cat-head">{{ grp.label }}</td></tr>
+      {% for t in grp.rows %}
+      {% if t.scheduled %}{% set bc='badge-tx-sched' %}{% set bl='SCHED' %}{% set ac='' %}
+      {% elif t.type=='in' or t.incoming %}{% set bc='badge-tx-in' %}{% set bl='IN' %}{% set ac='ledger-amt-in' %}
+      {% elif t.type=='xfr' %}{% set bc='badge-tx-xfr' %}{% set bl='XFR' %}{% set ac='ledger-amt-xfr' %}
+      {% else %}{% set bc='badge-tx-out' %}{% set bl='OUT' %}{% set ac='' %}{% endif %}
+      <tr>
+        <td style="color:var(--text3);font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);white-space:nowrap">{{ t.date }}</td>
+        <td class="col-name"><span class="{{ bc }}" style="margin-right:4px">{{ bl }}</span>{{ t.desc or "—" }}</td>
+        <td class="col-amount {{ ac }}">{{ t.amount|money }}</td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </td>
+</tr>
+<tr id="acct-settings-{{ a.id }}" class="bucket-settings-row" style="display:none">
+  <td colspan="4">
+    <div class="settings-form">
+      <div class="sf-row">
+        <div class="sf-field">
+          <div class="sf-label">Name</div>
+          <input class="sf-input" type="text" value="{{ a.name }}" onblur="saveAcctField('{{ a.id }}','name',this.value)">
+        </div>
+        {% if a.type == 'debt' %}
+        <div class="sf-field">
+          <div class="sf-label">APR %</div>
+          <input class="sf-input" type="number" step="0.01" placeholder="e.g. 19.99" value="{{ a.debt_apr }}" onblur="saveAcctField('{{ a.id }}','debt_apr',parseFloat(this.value)||0)">
+        </div>
+        <div class="sf-field">
+          <div class="sf-label">Min Payment</div>
+          <input class="sf-input" type="number" step="0.01" value="{{ a.debt_min_payment }}" onblur="saveAcctField('{{ a.id }}','debt_min_payment',parseFloat(this.value)||0)">
+        </div>
+        {% else %}
+        <div class="sf-field">
+          <div class="sf-label">Type</div>
+          <select class="sf-input" onchange="saveAcctField('{{ a.id }}','type',this.value)">
+            <option value="budget"  {% if a.type=='budget'  %}selected{% endif %}>Budget</option>
+            <option value="savings" {% if a.type=='savings' %}selected{% endif %}>Savings</option>
+          </select>
+        </div>
+        <div class="sf-field">
+          <div class="sf-label">Opening Balance</div>
+          <input class="sf-input" type="number" step="0.01" value="{{ a.opening_balance }}" onblur="saveAcctField('{{ a.id }}','opening_balance',parseFloat(this.value)||0)">
+        </div>
+        <div class="sf-field" style="flex:0 0 auto">
+          <div class="sf-label">Color</div>
+          <input type="color" class="acct-color-input" value="{{ a.color }}" onchange="saveAcctField('{{ a.id }}','color',this.value)">
+        </div>
+        {% endif %}
+      </div>
+      <div class="sf-row sf-toggles">
+        <button class="archive-btn" onclick="archiveAccount('{{ a.id }}')">Archive</button>
+      </div>
+    </div>
+  </td>
+</tr>
