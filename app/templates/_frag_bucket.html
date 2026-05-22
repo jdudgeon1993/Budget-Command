@@ -6,6 +6,13 @@
     <span class="editable-text" data-field="bucket_name" data-id="{{ b.id }}" data-type="text">{{ b.name }}</span>
     {% if b.type == 'vault' %}
       <div class="vault-total" id="vault-row-total-{{ b.id }}">{{ b.vault_total|money }} saved</div>
+      {% if b.progress_pct > 0 %}
+      <div class="progress-wrap"><div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div></div>
+      <div class="progress-label">{{ b.progress_pct }}%</div>
+      {% endif %}
+    {% elif b.type in ('sinking', 'goal') and b.progress_pct > 0 %}
+      <div class="progress-wrap"><div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div></div>
+      <div class="progress-label">{{ b.progress_pct }}%</div>
     {% endif %}
   </td>
   <td class="col-status"><span class="badge-{{ b.status|lower if b.status else '' }}" data-status-id="{{ b.id }}">{{ b.status or '' }}</span></td>
@@ -130,6 +137,18 @@
           <input class="sf-input" type="text" placeholder="optional notes" value="{{ b.notes }}" onblur="saveSettingText('bucket_notes','{{ b.id }}',this.value,'')">
         </div>
       </div>
+      {% if b.type != 'vault' and b.rollover and b.rollover_val > 0 %}
+      <div class="sf-row" id="release-row-{{ b.id }}">
+        <div class="sf-field">
+          <div class="sf-label">Release Rollover</div>
+          <div class="release-row">
+            <input class="release-input" type="number" step="0.01" min="0.01" id="release-input-{{ b.id }}" placeholder="$ amount" max="{{ b.rollover_val }}">
+            <button class="release-btn" onclick="releaseRollover('{{ b.id }}','{{ active_mid }}')">Release</button>
+            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);">available: <span id="roll-bal-{{ b.id }}">{{ b.rollover_val|money }}</span></span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
       <div class="sf-row sf-toggles">
         {% if b.type != 'vault' %}
         <label class="sf-check"><input type="checkbox" {% if b.recurring %}checked{% endif %} onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')"> Recurring</label>

@@ -53,11 +53,19 @@
         {% if a.type == 'debt' %}
         <div class="sf-field">
           <div class="sf-label">APR %</div>
-          <input class="sf-input" type="number" step="0.01" placeholder="e.g. 19.99" value="{{ a.debt_apr }}" onblur="saveAcctField('{{ a.id }}','debt_apr',parseFloat(this.value)||0)">
+          <input class="sf-input" type="number" step="0.01" placeholder="e.g. 19.99" value="{{ a.debt_apr if a.debt_apr is not none else '' }}" onblur="saveAcctField('{{ a.id }}','debt_apr',parseFloat(this.value)||0)">
         </div>
         <div class="sf-field">
           <div class="sf-label">Min Payment</div>
-          <input class="sf-input" type="number" step="0.01" value="{{ a.debt_min_payment }}" onblur="saveAcctField('{{ a.id }}','debt_min_payment',parseFloat(this.value)||0)">
+          <input class="sf-input" type="number" step="0.01" value="{{ a.debt_min_payment if a.debt_min_payment is not none else '' }}" onblur="saveAcctField('{{ a.id }}','debt_min_payment',parseFloat(this.value)||0)">
+        </div>
+        <div class="sf-field">
+          <div class="sf-label">Credit Limit</div>
+          <input class="sf-input" type="number" step="0.01" placeholder="—" value="{{ a.credit_limit if a.credit_limit is not none else '' }}" onblur="saveAcctField('{{ a.id }}','credit_limit',parseFloat(this.value)||0)">
+        </div>
+        <div class="sf-field" style="flex:0 0 auto">
+          <div class="sf-label">Color</div>
+          <input type="color" class="acct-color-input" value="{{ a.color }}" onchange="saveAcctField('{{ a.id }}','color',this.value)">
         </div>
         {% else %}
         <div class="sf-field">
@@ -77,6 +85,39 @@
         </div>
         {% endif %}
       </div>
+      {% if a.type == 'debt' %}
+      <div class="sf-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
+        <div class="sf-field">
+          <div class="sf-label">Payment Amount</div>
+          <input class="sf-input" type="number" step="0.01" id="pay-amt-{{ a.id }}" placeholder="{{ a.debt_min_payment or 'Amount' }}">
+        </div>
+        <div class="sf-field">
+          <div class="sf-label">Payment Date</div>
+          <input class="sf-input" type="date" id="pay-date-{{ a.id }}">
+        </div>
+        <div class="sf-field">
+          <div class="sf-label">From Account</div>
+          <select class="sf-input" id="pay-from-{{ a.id }}">
+            <option value="">— Account —</option>
+            {% for ca in cash_accounts %}
+            <option value="{{ ca.id }}">{{ ca.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="sf-field">
+          <div class="sf-label">Bucket (optional)</div>
+          <select class="sf-input" id="pay-bucket-{{ a.id }}">
+            <option value="">— none —</option>
+            {% for b in expense_buckets %}
+            <option value="{{ b.id }}">{{ b.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="strip-field-btn" style="align-self:flex-end">
+          <button class="strip-btn" onclick="recordDebtPayment('{{ a.id }}')">Pay</button>
+        </div>
+      </div>
+      {% endif %}
       <div class="sf-row sf-toggles">
         <button class="archive-btn" onclick="archiveAccount('{{ a.id }}')">Archive</button>
       </div>

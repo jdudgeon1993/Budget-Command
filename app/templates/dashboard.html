@@ -2091,12 +2091,19 @@ function injectTxRow(tx, activeMid) {
   const rowCls = tx.type === 'in' ? 'tx-in' : tx.type === 'xfr' ? 'tx-xfr' : 'tx-out';
   const amtCls = tx.type === 'in' ? 'ledger-amt-in' : tx.type === 'xfr' ? 'ledger-amt-xfr' : 'ledger-amt-out';
 
-  // Bucket cell (for 'out' transactions)
+  // Bucket cell (for 'out' transactions) — clone full options from #tx-bucket
   let bucketCell = '';
   if (tx.type === 'out') {
-    // Build a minimal select with just the assigned bucket; full list comes on reload
-    const opt = tx.bucket_id ? `<option value="${tx.bucket_id}" selected>${tx.bucket_name || tx.bucket_id}</option>` : '<option value="">— none —</option>';
-    bucketCell = `<select class="ledger-bucket-select" data-tx="${tx.id}" onchange="saveTxField('${tx.id}','bucket_id',this.value)">${opt}</select>`;
+    const masterSel = document.getElementById('tx-bucket');
+    let opts = '<option value="">— none —</option>';
+    if (masterSel) {
+      opts = [...masterSel.options].map(o =>
+        `<option value="${o.value}"${o.value === tx.bucket_id ? ' selected' : ''}>${o.textContent}</option>`
+      ).join('');
+    } else if (tx.bucket_id) {
+      opts = `<option value="${tx.bucket_id}" selected>${tx.bucket_name || tx.bucket_id}</option>`;
+    }
+    bucketCell = `<select class="ledger-bucket-select" data-tx="${tx.id}" onchange="saveTxField('${tx.id}','bucket_id',this.value)">${opts}</select>`;
   } else if (tx.type === 'xfr') {
     bucketCell = `<span style="color:var(--text3);font-size:11px">Transfer</span>`;
   } else {
@@ -2144,6 +2151,45 @@ function injectTxRow(tx, activeMid) {
     });
   });
 
+  // Build settings row so the expand button works
+  const settingsRow = document.createElement('tr');
+  settingsRow.id = 'tx-settings-' + tx.id;
+  settingsRow.className = 'bucket-settings-row';
+  settingsRow.style.display = 'none';
+
+  // Account options cloned from tx-account select
+  const acctSel = document.getElementById('tx-account');
+  const acctOpts = acctSel ? [...acctSel.options].filter(o => o.value).map(o =>
+    `<option value="${o.value}"${o.value === tx.account_id ? ' selected' : ''}>${o.textContent}</option>`
+  ).join('') : '';
+
+  // Bucket options for out txs
+  const bktMaster = document.getElementById('tx-bucket');
+  const bktOpts = bktMaster ? [...bktMaster.options].map(o =>
+    `<option value="${o.value}"${o.value === tx.bucket_id ? ' selected' : ''}>${o.textContent}</option>`
+  ).join('') : '';
+
+  const secondField = tx.type === 'out'
+    ? `<div class="sf-field"><div class="sf-label">Bucket</div><select class="sf-input" onchange="saveTxField('${tx.id}','bucket_id',this.value)">${bktOpts}</select></div>`
+    : tx.type === 'xfr'
+    ? `<div class="sf-field"><div class="sf-label">To Account</div><select class="sf-input" onchange="saveTxField('${tx.id}','to_account_id',this.value)">${acctOpts}</select></div>`
+    : tx.type === 'in'
+    ? `<div class="sf-field"><div class="sf-label">Income Type</div><select class="sf-input" onchange="saveTxField('${tx.id}','income_type',this.value)"><option value="paycheck"${tx.income_type==='paycheck'||!tx.income_type?' selected':''}>Paycheck</option><option value="refund"${tx.income_type==='refund'?' selected':''}>Refund</option><option value="deposit"${tx.income_type==='deposit'?' selected':''}>Deposit</option></select></div>`
+    : '';
+
+  settingsRow.innerHTML = `<td colspan="6"><div class="settings-form">
+    <div class="sf-row">
+      <div class="sf-field"><div class="sf-label">Date</div><input class="sf-input" type="date" value="${tx.date}" onblur="saveTxField('${tx.id}','date',this.value)"></div>
+      <div class="sf-field"><div class="sf-label">Description</div><input class="sf-input" type="text" value="${tx.desc || ''}" id="tx-desc-${tx.id}" onblur="saveTxDescAndCell('${tx.id}',this.value)"></div>
+      <div class="sf-field"><div class="sf-label">Amount</div><input class="sf-input" type="number" step="0.01" min="0.01" value="${tx.amount}" onblur="saveTxField('${tx.id}','amount',parseFloat(this.value)||0)"></div>
+    </div>
+    <div class="sf-row">
+      <div class="sf-field"><div class="sf-label">Account</div><select class="sf-input" onchange="saveTxField('${tx.id}','account_id',this.value)">${acctOpts}</select></div>
+      ${secondField}
+    </div>
+    <div class="sf-row sf-toggles"><button class="archive-btn" onclick="deleteTx('${tx.id}')">Delete</button></div>
+  </div></td>`;
+
   // Find or create date group header — match by data-date attribute (ISO string)
   let targetHeader = body.querySelector(`tr[data-date="${tx.date}"]`);
 
@@ -2152,12 +2198,14 @@ function injectTxRow(tx, activeMid) {
     let insertAfter = targetHeader;
     let next = targetHeader.nextElementSibling;
     while (next && next.id && next.id.startsWith('ltx-')) { insertAfter = next; next = next.nextElementSibling; }
+    insertAfter.after(settingsRow);
     insertAfter.after(tr);
   } else {
     // Create a new date group header; display the ISO date as-is (matches server format)
     const htr = document.createElement('tr');
     htr.dataset.date = tx.date;
     htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${tx.date}</td>`;
+    body.prepend(settingsRow);
     body.prepend(tr);
     body.prepend(htr);
   }
@@ -2477,7 +2525,7 @@ function moveBucketToCategory(select, bucketId) {
 }
 
 /* ── Type switch — swap visible field groups immediately ── */
-function switchBucketType(select, id) {
+async function switchBucketType(select, id) {
   const type = select.value;
   const settingsRow = document.getElementById('settings-' + id);
   const expenseGroup = settingsRow.querySelector('.sf-expense');
@@ -2491,10 +2539,11 @@ function switchBucketType(select, id) {
   // Hide toggles for vault (rollover/recurring/skip don't apply)
   toggles.forEach(t => { t.style.display = type === 'vault' ? 'none' : ''; });
 
-  saveSetting('bucket_type', id, type, '');
+  const result = await saveSetting('bucket_type', id, type, '');
   if (type === 'vault') {
-    saveSetting('bucket_rollover', id, false, '');
+    await saveSetting('bucket_rollover', id, false, '');
   }
+  if (result && result.ok) refreshValues(result);
 }
 
 /* ── Text/number blur helpers for settings inputs ── */
@@ -2803,13 +2852,31 @@ function toggleAcctSettings(id) {
   if (opening && ledger) ledger.style.display = 'none';
 }
 
-function toggleAcctLedger(id) {
+async function toggleAcctLedger(id) {
   const ledger   = document.getElementById('acct-ledger-' + id);
   const settings = document.getElementById('acct-settings-' + id);
   if (!ledger) return;
   const opening = ledger.style.display !== 'table-row';
   ledger.style.display = opening ? 'table-row' : 'none';
   if (opening && settings) settings.style.display = 'none';
+  if (!opening) return;
+  // Lazy-refresh ledger content from server so it reflects latest transactions
+  try {
+    const r = await fetch('/api/fragment/account', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ acct_id: id, active_mid: ACTIVE_MID })
+    }).then(res => res.json());
+    if (r.ok && r.html) {
+      const tmp = document.createElement('tbody');
+      tmp.innerHTML = r.html;
+      const freshLedger = tmp.querySelector('#acct-ledger-' + id);
+      if (freshLedger) {
+        ledger.innerHTML = freshLedger.innerHTML;
+        ledger.style.display = 'table-row';
+      }
+    }
+  } catch(e) { /* silently keep stale content */ }
 }
 
 async function saveAcctField(id, field, value) {

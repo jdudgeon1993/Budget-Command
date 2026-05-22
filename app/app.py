@@ -296,9 +296,16 @@ def api_fragment_account():
         for d, rows in _groupby(a_txs, key=lambda t: t.get("date",""))
     ]
 
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    cash_accounts  = [a for a in accounts if not a.get("archived") and a.get("type") != "debt"]
+    expense_buckets = [{"id": b["id"], "name": b["name"]}
+                       for b in active_buckets if b.get("type") != "vault"]
+
     html = render_template("_frag_account.html",
         a=a_ctx, active_mid=active_mid,
-        account_ledgers={acct_id: ledger})
+        account_ledgers={acct_id: ledger},
+        cash_accounts=cash_accounts,
+        expense_buckets=expense_buckets)
 
     return jsonify({"ok": True, "html": html})
 
