@@ -1760,6 +1760,221 @@ def api_debt_payment():
                     **_live_state(data, view_mid)})
 
 
+# ── One-time migration: blob → relational tables ──────────────────────────────
+
+@app.route("/api/run-migration")
+def api_run_migration():
+    """Migrate the logged-in user's JSON blob into the new relational tables.
+    Hit this once after deploying Phase 10. Safe to run multiple times (upserts)."""
+    if not logged_in():
+        return redirect(url_for("login"))
+
+    uid, tok = _uid(), _tok()
+    db = _db(tok)
+    counts = {}
+
+    try:
+        # Read the existing blob
+        resp = (db.table("bcc_budget_state")
+                  .select("data")
+                  .order("id", desc=True)
+                  .limit(1)
+                  .execute())
+        if not resp.data:
+            return "<h2>No blob found — nothing to migrate.</h2>", 404
+        blob = resp.data[0]["data"] or {}
+
+        # ── Accounts ──────────────────────────────────────────────────────────
+        account_rows = []
+        for i, a in enumerate(blob.get("accounts") or []):
+            account_rows.append({
+                "id": a["id"], "user_id": uid,
+                "name": a.get("name", ""),
+                "type": a.get("type", "budget"),
+                "color": a.get("color") or "#3a7fc1",
+                "opening_balance": float(a.get("openingBalance") or 0),
+                "debt_apr": a.get("debtAPR"),
+                "debt_min_payment": a.get("debtMinPayment"),
+                "credit_limit": a.get("creditLimit"),
+                "archived": bool(a.get("archived", False)),
+                "sort_order": i,
+            })
+        if account_rows:
+            db.table("bcc_accounts").upsert(account_rows, on_conflict="id").execute()
+        counts["accounts"] = len(account_rows)
+
+        # ── Categories ────────────────────────────────────────────────────────
+        cat_rows = []
+        for i, c in enumerate(blob.get("cats") or []):
+            cat_rows.append({
+                "id": c["id"], "user_id": uid,
+                "name": c.get("name", ""),
+                "color": c.get("color") or "",
+                "archived": bool(c.get("archived", False)),
+                "sort_order": int(c.get("order") or i),
+            })
+        if cat_rows:
+            db.table("bcc_categories").upsert(cat_rows, on_conflict="id").execute()
+        counts["categories"] = len(cat_rows)
+
+        # ── Buckets ───────────────────────────────────────────────────────────
+        bucket_rows = []
+        for i, b in enumerate(blob.get("buckets") or []):
+            due_day = b.get("dueDay")
+            bucket_rows.append({
+                "id": b["id"], "user_id": uid,
+                "cat_id": b.get("catId") or None,
+                "name": b.get("name", ""),
+                "type": b.get("type", "expense"),
+                "rollover": bool(b.get("rollover", False)),
+                "recurring": bool(b.get("recurring", False)),
+                "due_day": str(due_day) if due_day is not None else None,
+                "due_amount": b.get("dueAmount"),
+                "pay_freq": b.get("payFreq"),
+                "debt_account_id": b.get("debtAccountId"),
+                "target_amount": b.get("targetAmount"),
+                "target_date": b.get("targetDate"),
+                "contrib_freq": b.get("contribFreq"),
+                "default_budget": float(b.get("defaultBudget") or 0),
+                "notes": b.get("notes"),
+                "archived": bool(b.get("archived", False)),
+                "sort_order": int(b.get("order") or i),
+            })
+        if bucket_rows:
+            db.table("bcc_buckets").upsert(bucket_rows, on_conflict="id").execute()
+        counts["buckets"] = len(bucket_rows)
+
+        # ── Transactions ──────────────────────────────────────────────────────
+        tx_rows = []
+        for t in blob.get("txs") or []:
+            tx_rows.append({
+                "id": t["id"], "user_id": uid,
+                "date": t.get("date"),
+                "description": t.get("desc"),
+                "type": t.get("type", "out"),
+                "amount": float(t.get("amount") or 0),
+                "month_id": t.get("monthId") or "",
+                "bucket_id": t.get("bucketId"),
+                "account_id": t.get("accountId"),
+                "to_account_id": t.get("toAccountId"),
+                "debt_payment_account_id": t.get("debtPaymentAccountId"),
+                "income_type": t.get("incomeType"),
+                "reconciled": bool(t.get("reconciled", False)),
+                "recurring": bool(t.get("recurring", False)),
+            })
+        if tx_rows:
+            db.table("bcc_transactions").upsert(tx_rows, on_conflict="id").execute()
+        counts["transactions"] = len(tx_rows)
+
+        # ── Months + sub-tables ───────────────────────────────────────────────
+        month_rows, alloc_rows, budget_rows = [], [], []
+        rollrel_rows, skipped_rows, vaultwd_rows = [], [], []
+
+        for m in blob.get("months") or []:
+            mid = m["id"]
+            year, m0 = parse_month_id(mid)
+            month_rows.append({
+                "id": mid, "user_id": uid,
+                "year": year, "month": m0,
+                "label": m.get("label") or f"{MONTH_NAMES[m0]} {year}",
+            })
+            for bid, amt in (m.get("allocations") or {}).items():
+                alloc_rows.append({"user_id": uid, "month_id": mid, "bucket_id": bid, "amount": float(amt or 0)})
+            for bid, amt in (m.get("budgets") or {}).items():
+                budget_rows.append({"user_id": uid, "month_id": mid, "bucket_id": bid, "amount": float(amt or 0)})
+            for bid, amt in (m.get("rolloverReleased") or {}).items():
+                if float(amt or 0) > 0:
+                    rollrel_rows.append({"user_id": uid, "month_id": mid, "bucket_id": bid, "amount": float(amt)})
+            for bid, val in (m.get("skippedBuckets") or {}).items():
+                if val:
+                    skipped_rows.append({"user_id": uid, "month_id": mid, "bucket_id": bid})
+            for bid, amt in (m.get("vaultWithdrawals") or {}).items():
+                if float(amt or 0) > 0:
+                    vaultwd_rows.append({"user_id": uid, "month_id": mid, "bucket_id": bid, "amount": float(amt)})
+
+        if month_rows:
+            db.table("bcc_months").upsert(month_rows, on_conflict="id,user_id").execute()
+        if alloc_rows:
+            db.table("bcc_month_allocations").upsert(alloc_rows, on_conflict="user_id,month_id,bucket_id").execute()
+        if budget_rows:
+            db.table("bcc_month_budgets").upsert(budget_rows, on_conflict="user_id,month_id,bucket_id").execute()
+        if rollrel_rows:
+            db.table("bcc_month_rollover_released").upsert(rollrel_rows, on_conflict="user_id,month_id,bucket_id").execute()
+        if skipped_rows:
+            db.table("bcc_month_skipped").upsert(skipped_rows, on_conflict="user_id,month_id,bucket_id").execute()
+        if vaultwd_rows:
+            db.table("bcc_month_vault_withdrawals").upsert(vaultwd_rows, on_conflict="user_id,month_id,bucket_id").execute()
+        counts["months"] = len(month_rows)
+        counts["allocations"] = len(alloc_rows)
+        counts["budgets"] = len(budget_rows)
+
+        # ── Paychecks ─────────────────────────────────────────────────────────
+        pc_rows = []
+        for i, p in enumerate(blob.get("paychecks") or []):
+            pc_rows.append({
+                "id": p["id"], "user_id": uid,
+                "label": p.get("label", ""),
+                "amount": float(p.get("amount") or 0),
+                "freq": int(p.get("freq") or 14),
+                "anchor_date": p.get("anchorDate") or None,
+                "sort_order": i,
+            })
+        if pc_rows:
+            db.table("bcc_paychecks").upsert(pc_rows, on_conflict="id").execute()
+        counts["paychecks"] = len(pc_rows)
+
+        # ── Allocation rules ──────────────────────────────────────────────────
+        rule_rows = []
+        for i, r in enumerate(blob.get("allocationRules") or []):
+            rule_rows.append({
+                "id": r["id"], "user_id": uid,
+                "name": r.get("name", ""),
+                "rule_type": r.get("ruleType", "internal"),
+                "value_type": r.get("type", "fixed"),
+                "value": float(r.get("value") or 0),
+                "bucket_id": r.get("bucketId") or None,
+                "active": bool(r.get("active", True)),
+                "sort_order": i,
+            })
+        if rule_rows:
+            db.table("bcc_allocation_rules").upsert(rule_rows, on_conflict="id").execute()
+        counts["rules"] = len(rule_rows)
+
+        # ── Vault transfers ───────────────────────────────────────────────────
+        vt_rows = []
+        for v in blob.get("vaultTransfers") or []:
+            vt_rows.append({
+                "id": v["id"], "user_id": uid,
+                "from_bucket_id": v.get("fromBucketId", ""),
+                "to_bucket_id": v.get("toBucketId", ""),
+                "amount": float(v.get("amount") or 0),
+                "month_id": v.get("monthId", ""),
+                "reason": v.get("reason"),
+            })
+        if vt_rows:
+            db.table("bcc_vault_transfers").upsert(vt_rows, on_conflict="id").execute()
+        counts["vault_transfers"] = len(vt_rows)
+
+    except Exception as e:
+        app.logger.error("Migration failed: %s\n%s", e, traceback.format_exc())
+        return f"<h2>Migration failed</h2><pre>{e}</pre>", 500
+
+    rows_html = "".join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in counts.items())
+    return f"""
+    <html><body style="font-family:monospace;padding:40px;max-width:600px">
+    <h2>Migration complete</h2>
+    <table border="1" cellpadding="8" style="border-collapse:collapse">
+      <tr><th>Table</th><th>Rows migrated</th></tr>
+      {rows_html}
+    </table>
+    <p style="margin-top:24px">
+      Your data is now in the relational tables.<br>
+      <a href="/dashboard">Go to dashboard</a>
+    </p>
+    </body></html>
+    """
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_ENV") == "development")
