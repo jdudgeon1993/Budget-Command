@@ -758,6 +758,35 @@
 .nav-tab:last-child { border-right: none; }
 .nav-tab:hover { background: var(--bg2); color: var(--text2); }
 .nav-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+/* ── Reports ── */
+.report-section-head { font-family:var(--display); font-size:clamp(11px,2vw,14px); letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:14px 0 6px; border-top:1px solid var(--border); margin-top:8px; }
+.report-section-head:first-child { border-top:none; margin-top:0; }
+.report-kpi-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.report-kpi { flex:1; min-width:120px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:10px 12px; }
+.report-kpi-label { font-family:var(--mono); font-size:clamp(8px,1.3vw,10px); letter-spacing:.1em; text-transform:uppercase; color:var(--text3); }
+.report-kpi-val { font-family:var(--mono); font-size:clamp(14px,2.5vw,18px); margin-top:2px; }
+.report-kpi-val.pos { color:var(--green); }
+.report-kpi-val.neg { color:var(--red); }
+.report-kpi-val.accent { color:var(--accent); }
+
+/* Category bar rows */
+.rpt-cat-row { padding:6px 0; border-bottom:1px solid var(--border); }
+.rpt-cat-name { font-family:var(--mono); font-size:clamp(9px,1.4vw,11px); letter-spacing:.06em; text-transform:uppercase; color:var(--text2); margin-bottom:3px; display:flex; justify-content:space-between; align-items:baseline; }
+.rpt-cat-amounts { font-family:var(--mono); font-size:clamp(9px,1.3vw,10px); color:var(--text3); }
+.rpt-bar-track { height:8px; background:var(--bg2); border-radius:4px; overflow:hidden; margin-bottom:2px; }
+.rpt-bar-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+.rpt-bar-fill.ok { background:var(--accent); }
+.rpt-bar-fill.over { background:var(--red); }
+.rpt-bucket-list { padding:4px 0 0 8px; }
+.rpt-bucket-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; font-size:clamp(10px,1.6vw,12px); color:var(--text3); font-family:var(--mono); }
+.rpt-bucket-name { flex:1; }
+.rpt-bucket-amt { white-space:nowrap; }
+.rpt-bucket-over { color:var(--red); }
+
+/* CSV export button */
+.rpt-export-btn { display:inline-block; margin:16px 0; padding:8px 20px; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--r); font-family:var(--mono); font-size:clamp(10px,1.5vw,12px); letter-spacing:.1em; text-transform:uppercase; color:var(--accent); cursor:pointer; transition:background .12s; }
+.rpt-export-btn:hover { background:var(--border2); }
 {% endblock %}
 
 {% block content %}
@@ -1943,6 +1972,32 @@
     </div>
   </div>
 
+  <!-- Reports panel -->
+  <div id="panel-reports" class="panel">
+    <div class="panel-container">
+      <!-- Sub-tabs -->
+      <div class="more-mode-tabs" id="report-tabs">
+        <button class="more-mode-tab active" onclick="showReportTab('summary',this)">Summary</button>
+        <button class="more-mode-tab" onclick="showReportTab('budget',this)">Budget</button>
+        <button class="more-mode-tab" onclick="showReportTab('trends',this)">Trends</button>
+      </div>
+      <!-- Loading state -->
+      <div id="report-loading" style="display:none; padding:40px; text-align:center; font-family:var(--mono); color:var(--text3); font-size:12px; letter-spacing:.1em;">LOADING...</div>
+      <!-- Summary tab -->
+      <div id="report-summary" class="report-tab-pane">
+        <div id="report-summary-content"></div>
+      </div>
+      <!-- Budget tab -->
+      <div id="report-budget" class="report-tab-pane" style="display:none">
+        <div id="report-budget-content"></div>
+      </div>
+      <!-- Trends tab -->
+      <div id="report-trends" class="report-tab-pane" style="display:none">
+        <div id="report-trends-content"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Calculator popover -->
@@ -1997,6 +2052,7 @@
       <th class="nav-tab" onclick="showPanel('ledger', this)">Ledger</th>
       <th class="nav-tab" onclick="showPanel('more', this)">More</th>
       <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
+      <th class="nav-tab" onclick="showPanel('reports', this)">Reports</th>
     </tr>
   </table>
 </nav>
@@ -2346,6 +2402,7 @@ function showPanel(name, tab) {
   document.getElementById('panel-' + name).classList.add('active');
   tab.classList.add('active');
   localStorage.setItem('bc_active_panel', name);
+  if (name === 'reports' && !_reportsData) loadReports();
 }
 
 // Restore active panel on page load
