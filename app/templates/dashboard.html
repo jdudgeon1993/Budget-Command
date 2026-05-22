@@ -787,6 +787,74 @@
 /* CSV export button */
 .rpt-export-btn { display:inline-block; margin:16px 0; padding:8px 20px; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--r); font-family:var(--mono); font-size:clamp(10px,1.5vw,12px); letter-spacing:.1em; text-transform:uppercase; color:var(--accent); cursor:pointer; transition:background .12s; }
 .rpt-export-btn:hover { background:var(--border2); }
+
+/* ── Forecast range buttons ── */
+.fc-range-btn {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text3);
+  font-family: var(--mono); font-size: clamp(9px,1.4vw,10px);
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 10px; cursor: pointer; transition: background .12s, color .12s;
+}
+.fc-range-btn:hover { color: var(--text2); background: var(--border2); }
+.fc-range-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* ── Forecast week cards ── */
+.fc-week {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.fc-week.shortfall { border-color: var(--red); }
+.fc-week-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg2); cursor: pointer;
+  gap: 8px; flex-wrap: wrap;
+}
+.fc-week.shortfall .fc-week-header { background: var(--rbg, rgba(239,68,68,.08)); }
+.fc-week-label {
+  font-family: var(--mono); font-size: clamp(10px,1.5vw,12px); color: var(--text2);
+  letter-spacing: .04em; flex: 1;
+}
+.fc-week-net {
+  font-family: var(--mono); font-size: clamp(10px,1.5vw,12px); font-weight: bold;
+}
+.fc-week-net.pos { color: var(--green); }
+.fc-week-net.neg { color: var(--red); }
+.fc-week-balance {
+  font-family: var(--mono); font-size: clamp(9px,1.3vw,10px); color: var(--text3);
+}
+.fc-shortfall-badge {
+  font-family: var(--mono); font-size: clamp(8px,1.2vw,9px); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--red); background: var(--rbg, rgba(239,68,68,.15));
+  border: 1px solid var(--red); border-radius: var(--r); padding: 1px 6px;
+}
+.fc-week-body {
+  padding: 8px 12px; display: none; border-top: 1px solid var(--border);
+}
+.fc-week-body.open { display: block; }
+.fc-event-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 0; font-family: var(--mono); font-size: clamp(10px,1.5vw,12px);
+  border-bottom: 1px solid var(--border);
+}
+.fc-event-row:last-child { border-bottom: none; }
+.fc-event-label { flex: 1; color: var(--text2); }
+.fc-event-amt-in  { color: var(--green); white-space: nowrap; }
+.fc-event-amt-out { color: var(--red); white-space: nowrap; }
+.fc-event-section {
+  font-family: var(--mono); font-size: clamp(8px,1.2vw,9px); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3); padding: 4px 0 2px; margin-top: 4px;
+}
+.fc-summary-bar {
+  display: flex; gap: 16px; padding: 10px 12px; background: var(--bg3);
+  border: 1px solid var(--border2); border-radius: var(--r); margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.fc-summary-item { font-family: var(--mono); font-size: clamp(10px,1.5vw,12px); }
+.fc-summary-label { font-size: clamp(8px,1.2vw,9px); color: var(--text3); letter-spacing: .08em; text-transform: uppercase; }
+.fc-empty { font-family: var(--mono); font-size: 12px; color: var(--text3); padding: 20px 0; }
 {% endblock %}
 
 {% block content %}
@@ -1434,11 +1502,12 @@
   <div id="panel-more" class="panel">
     <div class="panel-container">
 
-      <!-- Top-level: Accounts | Settings | Reports -->
+      <!-- Top-level: Accounts | Settings | Reports | Plan -->
       <div class="more-mode-tabs">
         <button class="more-mode-tab active" onclick="showMoreMode('accounts',this)">Accounts</button>
         <button class="more-mode-tab" onclick="showMoreMode('settings',this)">Settings</button>
         <button class="more-mode-tab" onclick="showMoreMode('reports',this)">Reports</button>
+        <button class="more-mode-tab" onclick="showMoreMode('plan',this)">Plan</button>
       </div>
 
       <!-- ── Accounts mode ── -->
@@ -2006,6 +2075,39 @@
           <div id="report-networth-content"></div>
         </div>
       </div><!-- end reports mode -->
+
+      <!-- ── Plan mode ── -->
+      <div id="more-mode-plan" style="display:none">
+        <!-- Sub-tabs: Forecast | What-If -->
+        <div class="acct-tabs" style="margin-bottom:14px">
+          <button class="acct-tab active" onclick="showPlanTab('forecast', this)">Forecast</button>
+          <button class="acct-tab" onclick="showPlanTab('whatif', this)">What-If</button>
+        </div>
+
+        <!-- Forecast tab -->
+        <div id="plan-forecast">
+          <!-- Time range selector -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+            <span style="font-family:var(--mono); font-size:clamp(9px,1.4vw,10px); color:var(--text3); letter-spacing:.1em; text-transform:uppercase;">Projection range</span>
+            <button class="fc-range-btn active" data-months="2" onclick="setForecastRange(2,this)">2 Mo</button>
+            <button class="fc-range-btn" data-months="3" onclick="setForecastRange(3,this)">3 Mo</button>
+            <button class="fc-range-btn" data-months="6" onclick="setForecastRange(6,this)">6 Mo</button>
+            <button class="fc-range-btn" data-months="12" onclick="setForecastRange(12,this)">12 Mo</button>
+            <button class="fc-range-btn" data-months="0" onclick="setForecastRange(0,this)">End of Year</button>
+          </div>
+          <!-- Loading -->
+          <div id="forecast-loading" style="display:none; padding:20px; text-align:center; font-family:var(--mono); font-size:11px; color:var(--text3); letter-spacing:.1em;">LOADING FORECAST...</div>
+          <!-- Content -->
+          <div id="forecast-content"></div>
+        </div>
+
+        <!-- What-If tab -->
+        <div id="plan-whatif" style="display:none">
+          <div id="whatif-content">
+            <p style="font-family:var(--mono); font-size:12px; color:var(--text3); padding:20px 0;">What-If sandbox — coming soon</p>
+          </div>
+        </div>
+      </div><!-- end plan mode -->
 
     </div>
   </div>
@@ -3269,7 +3371,7 @@ document.querySelectorAll('.editable-acct').forEach(span => {
 
 /* ── More panel: top-level mode switch ── */
 function showMoreMode(mode, btn) {
-  ['accounts','settings','reports'].forEach(m => {
+  ['accounts','settings','reports','plan'].forEach(m => {
     const el = document.getElementById('more-mode-' + m);
     if (el) el.style.display = m === mode ? '' : 'none';
   });
@@ -3278,6 +3380,7 @@ function showMoreMode(mode, btn) {
   moreTabs.forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (mode === 'reports' && !_reportsData) loadReports();
+  if (mode === 'plan') initForecast();
 }
 
 /* ── Settings: sub-tab switch ── */
@@ -4034,6 +4137,137 @@ async function exportCSV() {
   } catch(e) {
     alert('Export error: ' + e.message);
   }
+}
+
+/* ── Plan tab ── */
+let _forecastData = null;
+let _forecastMonths = 2;
+
+function showPlanTab(name, btn) {
+  ['forecast','whatif'].forEach(t => {
+    const el = document.getElementById('plan-' + t);
+    if (el) el.style.display = t === name ? '' : 'none';
+  });
+  document.querySelectorAll('#more-mode-plan .acct-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function setForecastRange(months, btn) {
+  _forecastMonths = months;
+  _forecastData = null; // force reload
+  document.querySelectorAll('.fc-range-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadForecast();
+}
+
+async function initForecast() {
+  if (!_forecastData) loadForecast();
+}
+
+async function loadForecast() {
+  const el = document.getElementById('forecast-content');
+  const loading = document.getElementById('forecast-loading');
+  if (loading) loading.style.display = '';
+  if (el) el.innerHTML = '';
+  try {
+    const r = await fetch('/api/forecast?months=' + _forecastMonths);
+    const data = await r.json();
+    if (!data.ok) {
+      if (el) el.innerHTML = '<div class="fc-empty">Unable to load forecast. Check that paychecks are set up in Settings.</div>';
+      return;
+    }
+    _forecastData = data;
+    renderForecast(data);
+  } catch(e) {
+    if (el) el.innerHTML = '<div class="fc-empty">Error loading forecast: ' + e.message + '</div>';
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function renderForecast(data) {
+  const el = document.getElementById('forecast-content');
+  if (!el) return;
+
+  const weeks = data.weeks || [];
+  if (weeks.length === 0) {
+    el.innerHTML = '<div class="fc-empty">No paychecks or recurring bills found. Add paychecks in More → Settings to get started.</div>';
+    return;
+  }
+
+  // Summary bar
+  const totalIncome = weeks.reduce((s, w) => s + (w.week_income || 0), 0);
+  const totalExpenses = weeks.reduce((s, w) => s + (w.week_expenses || 0) + (w.week_external || 0), 0);
+  const shortfallWeeks = weeks.filter(w => w.shortfall).length;
+  const endBalance = weeks.length > 0 ? weeks[weeks.length - 1].running_balance : data.start_balance;
+
+  let html = `<div class="fc-summary-bar">
+    <div class="fc-summary-item"><div class="fc-summary-label">Starting Balance</div><div style="color:var(--accent)">${fmtMoney(data.start_balance)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Projected Income</div><div style="color:var(--green)">${fmtMoney(totalIncome)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Projected Bills</div><div style="color:var(--amber)">${fmtMoney(totalExpenses)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">End Balance</div><div style="color:${endBalance >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtMoney(endBalance)}</div></div>
+    ${shortfallWeeks > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label">Shortfall Weeks</div><div style="color:var(--red)">${shortfallWeeks}</div></div>` : ''}
+  </div>`;
+
+  weeks.forEach((w, i) => {
+    const hasEvents = (w.income?.length || 0) + (w.expenses?.length || 0) + (w.external?.length || 0) > 0;
+    const netClass = (w.week_net || 0) >= 0 ? 'pos' : 'neg';
+    const shortfallClass = w.shortfall ? ' shortfall' : '';
+
+    html += `<div class="fc-week${shortfallClass}">
+      <div class="fc-week-header" onclick="toggleFcWeek(${i})">
+        <span class="fc-week-label">${w.label}</span>
+        ${w.shortfall ? '<span class="fc-shortfall-badge">⚠ SHORTFALL</span>' : ''}
+        <span class="fc-week-net ${netClass}">${(w.week_net||0) >= 0 ? '+' : ''}${fmtMoney(w.week_net||0)}</span>
+        <span class="fc-week-balance">Bal: ${fmtMoney(w.running_balance)}</span>
+      </div>`;
+
+    if (hasEvents) {
+      html += `<div class="fc-week-body" id="fc-week-body-${i}">`;
+      if (w.income?.length) {
+        html += `<div class="fc-event-section">Income</div>`;
+        w.income.forEach(ev => {
+          html += `<div class="fc-event-row"><span class="fc-event-label">💰 ${ev.label}</span><span class="fc-event-amt-in">+${fmtMoney(ev.amount)}</span></div>`;
+        });
+      }
+      if (w.expenses?.length) {
+        html += `<div class="fc-event-section">Bills Due</div>`;
+        w.expenses.forEach(ev => {
+          html += `<div class="fc-event-row"><span class="fc-event-label">📋 ${ev.name}</span><span class="fc-event-amt-out">−${fmtMoney(ev.amount)}</span></div>`;
+        });
+      }
+      if (w.external?.length) {
+        html += `<div class="fc-event-section">Transfers Out</div>`;
+        w.external.forEach(ev => {
+          html += `<div class="fc-event-row"><span class="fc-event-label">→ ${ev.name}</span><span class="fc-event-amt-out">−${fmtMoney(ev.amount)}</span></div>`;
+        });
+      }
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+  });
+
+  el.innerHTML = html;
+
+  // Auto-open shortfall weeks and the first week with events
+  weeks.forEach((w, i) => {
+    if (w.shortfall) {
+      const body = document.getElementById('fc-week-body-' + i);
+      if (body) body.classList.add('open');
+    }
+  });
+  // Open first week with events by default
+  const firstWithEvents = weeks.findIndex(w => (w.income?.length || 0) + (w.expenses?.length || 0) > 0);
+  if (firstWithEvents >= 0) {
+    const body = document.getElementById('fc-week-body-' + firstWithEvents);
+    if (body) body.classList.add('open');
+  }
+}
+
+function toggleFcWeek(i) {
+  const body = document.getElementById('fc-week-body-' + i);
+  if (body) body.classList.toggle('open');
 }
 </script>
 {% endblock %}

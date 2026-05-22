@@ -1,5 +1,7 @@
 import os
 import traceback
+from datetime import date, timedelta
+import calendar as _cal
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -2162,6 +2164,242 @@ def api_export_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename=\"{filename}\""},
     )
+
+
+# ── Forecast helpers ─────────────────────────────────────────────────────────
+
+def _gen_pay_dates(anchor_str: str, freq: int, from_date: date, to_date: date) -> list:
+    """Generate all pay dates from from_date to to_date inclusive."""
+    if not anchor_str:
+        return []
+    anchor = date.fromisoformat(anchor_str)
+    dates = []
+
+    if freq == 15:  # semi-monthly: always 1st and 15th
+        y, m = from_date.year, from_date.month
+        while date(y, m, 1) <= to_date:
+            for day in (1, 15):
+                d = date(y, m, day)
+                if from_date <= d <= to_date:
+                    dates.append(d)
+            if m == 12:
+                y, m = y + 1, 1
+            else:
+                m += 1
+    elif freq == 30:  # monthly: same day-of-month as anchor
+        day = anchor.day
+        y, m = from_date.year, from_date.month
+        while True:
+            last = _cal.monthrange(y, m)[1]
+            d = date(y, m, min(day, last))
+            if d > to_date:
+                break
+            if d >= from_date:
+                dates.append(d)
+            if m == 12:
+                y, m = y + 1, 1
+            else:
+                m += 1
+    else:  # 7 (weekly) or 14 (biweekly): walk from anchor
+        d = anchor
+        # Walk backward to find the last pay date before from_date
+        while d >= from_date:
+            d -= timedelta(days=freq)
+        # Now walk forward
+        d += timedelta(days=freq)
+        while d <= to_date:
+            dates.append(d)
+            d += timedelta(days=freq)
+
+    return sorted(dates)
+
+
+def _bill_dates_in_range(due_day, pay_freq, from_date: date, to_date: date) -> list:
+    """Generate all dates a recurring bill falls due, from from_date to to_date."""
+    if not due_day:
+        return []
+
+    raw = str(due_day).strip().lower()
+    dates = []
+
+    if pay_freq in ('weekly', 'biweekly', 'triweekly'):
+        freq_days = {'weekly': 7, 'biweekly': 14, 'triweekly': 21}.get(pay_freq, 30)
+        try:
+            anchor_day = int(raw)
+        except ValueError:
+            anchor_day = 1
+        d = date(from_date.year, from_date.month, min(anchor_day, _cal.monthrange(from_date.year, from_date.month)[1]))
+        while d < from_date:
+            d += timedelta(days=freq_days)
+        while d <= to_date:
+            dates.append(d)
+            d += timedelta(days=freq_days)
+        return dates
+
+    # Monthly (default): once per month on due_day
+    y, m = from_date.year, from_date.month
+    while True:
+        if raw == 'eom':
+            day = _cal.monthrange(y, m)[1]
+        else:
+            try:
+                day = int(raw)
+            except ValueError:
+                break
+        last = _cal.monthrange(y, m)[1]
+        d = date(y, m, min(day, last))
+        if d > to_date:
+            break
+        if d >= from_date:
+            dates.append(d)
+        if m == 12:
+            y, m = y + 1, 1
+        else:
+            m += 1
+
+    return sorted(dates)
+
+
+def _fmt_week_label(ws: date, we: date) -> str:
+    """Format a week range like 'May 26 – Jun 1', crossing year if needed."""
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    start_str = f"{months[ws.month - 1]} {ws.day}"
+    if ws.year != we.year:
+        end_str = f"{months[we.month - 1]} {we.day}, {we.year}"
+        return f"{start_str}, {ws.year} – {end_str}"
+    elif ws.month != we.month:
+        end_str = f"{months[we.month - 1]} {we.day}"
+    else:
+        end_str = str(we.day)
+    return f"{start_str} – {end_str}"
+
+
+# ── API: forecast ─────────────────────────────────────────────────────────────
+
+@app.route("/api/forecast")
+def api_forecast():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    months_param = request.args.get('months', '3')
+    try:
+        n_months = int(months_param)
+    except ValueError:
+        n_months = 3
+
+    uid, tok = _uid(), _tok()
+    data     = _load(uid, tok)
+
+    accounts       = data.get("accounts", [])
+    txs            = data.get("txs", [])
+    paychecks      = data.get("paychecks", [])
+    alloc_rules    = data.get("allocationRules", [])
+    buckets        = data.get("buckets", [])
+
+    # Starting balance: sum of all non-archived, non-debt accounts
+    budget_bal = sum(
+        acct_balance(a, txs)
+        for a in accounts
+        if a.get("type") != "debt" and not a.get("archived")
+    )
+
+    today = date.today()
+
+    # Determine end date
+    if n_months == 0:  # end of year
+        end_date = date(today.year, 12, 31)
+    else:
+        y = today.year + (today.month - 1 + n_months) // 12
+        m = (today.month - 1 + n_months) % 12 + 1
+        end_date = date(y, m, _cal.monthrange(y, m)[1])
+
+    # Build weekly buckets: Monday–Sunday
+    week_start = today - timedelta(days=today.weekday())
+    weeks_meta = []
+    while week_start <= end_date:
+        week_end = week_start + timedelta(days=6)
+        weeks_meta.append((week_start, min(week_end, end_date)))
+        week_start += timedelta(days=7)
+
+    # Active external rules
+    external_rules = [r for r in alloc_rules if r.get("ruleType") == "external" and r.get("active", True)]
+
+    # Recurring bills: non-archived, recurring=True, dueAmount set, dueDay set
+    recurring_bills = [
+        b for b in buckets
+        if not b.get("archived")
+        and b.get("recurring")
+        and b.get("dueAmount")
+        and b.get("dueDay") is not None
+    ]
+
+    week_results = []
+    running_balance = budget_bal
+
+    for (ws, we) in weeks_meta:
+        week_income_items  = []
+        week_expense_items = []
+        week_external_items = []
+
+        # Paychecks
+        for pc in paychecks:
+            if not pc.get("anchorDate"):
+                # Skip paychecks without an anchor date
+                continue
+            pay_dates = _gen_pay_dates(pc["anchorDate"], pc["freq"], ws, we)
+            for _pd in pay_dates:
+                week_income_items.append({
+                    "label": pc["label"],
+                    "amount": float(pc["amount"]),
+                    "date": str(_pd),
+                })
+                # Apply external rules per paycheck landing
+                for rule in external_rules:
+                    amt = pc["amount"]
+                    computed = round(amt * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
+                    week_external_items.append({
+                        "name": rule["name"],
+                        "amount": computed,
+                    })
+
+        # Recurring bills
+        for b in recurring_bills:
+            bill_dates = _bill_dates_in_range(b["dueDay"], b.get("payFreq"), ws, we)
+            for _bd in bill_dates:
+                week_expense_items.append({
+                    "name": b["name"],
+                    "amount": float(b["dueAmount"]),
+                    "date": str(_bd),
+                })
+
+        week_income_total   = sum(i["amount"] for i in week_income_items)
+        week_expense_total  = sum(i["amount"] for i in week_expense_items)
+        week_external_total = sum(i["amount"] for i in week_external_items)
+        week_net = week_income_total - week_expense_total - week_external_total
+        running_balance += week_net
+
+        week_results.append({
+            "label":           _fmt_week_label(ws, we),
+            "start":           str(ws),
+            "end":             str(we),
+            "income":          week_income_items,
+            "expenses":        week_expense_items,
+            "external":        week_external_items,
+            "week_income":     round(week_income_total, 2),
+            "week_expenses":   round(week_expense_total, 2),
+            "week_external":   round(week_external_total, 2),
+            "week_net":        round(week_net, 2),
+            "running_balance": round(running_balance, 2),
+            "shortfall":       running_balance < 0,
+        })
+
+    return jsonify({
+        "ok":            True,
+        "start_balance": round(budget_bal, 2),
+        "months":        months_param,
+        "weeks":         week_results,
+    })
 
 
 if __name__ == "__main__":

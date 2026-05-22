@@ -32,16 +32,36 @@ payday modal, vault/rollover logic, debt payment flows.
 - `refreshValues()` patches `[data-due-id]` spans live after every mutation
 - Supports numeric day, "eom" (end of month), clamped to actual month length
 
-## 🔲 Phase 13: Reports
-- Monthly spending breakdown by category/bucket
-- Income vs. spending chart
-- Net worth over time (all accounts)
-- Export to CSV
+## ✅ Phase 13: Reports (More → Reports tab)
+- 7-tab YNAB-style suite: Summary, Budget, Cash Flow, YTD, Income, Trends, Net Worth
+- Pure SVG charts (no libraries): donut, horizontal bars, grouped bars, line chart
+- `/api/reports`: category breakdown, 12-month trends, YTD, income sources, net worth history
+- `/api/export-csv`: CSV download of active month's transactions
+- RTS in reports fixed to use `_rts_now(data)` (same formula as banner)
+- Moved into More tab (alongside Accounts, Settings) — removed standalone nav tab
 
-## 🔲 Phase 14: What-If Simulator
-- Adjust allocations on a scratch copy of the month without saving
-- "What if I skip this bucket?" projections
-- Debt payoff calculator / snowball vs. avalanche comparison
+## 🔲 Phase 14: Plan tab — Forecast + What-If (More → Plan)
+
+### 14A: Paycheck Forecast (highest priority)
+Week-by-week cash flow projection based on real paycheck schedules and recurring bills.
+- `/api/forecast?months=N`: projects N months forward from today (2/3/6/12/eoy)
+- Paycheck schedule engine: `anchorDate` + `freq` (7/14/15/30) → exact future pay dates
+  - `freq=15` = semi-monthly (always 1st and 15th, NOT every 15 days)
+  - `freq=7/14` = walk from anchor in N-day steps
+  - `freq=30` = same day each month as anchor
+- Recurring bill engine: buckets with `recurring=true`, `dueDay`, `dueAmount`, `payFreq`
+- External transfer rules (`ruleType="external"`) shown as outflows on pay dates
+- Each week shows: paychecks in (green), bills out (red/amber), net, running balance
+- SHORTFALL weeks flagged in red when running balance < 0
+- "Add hypothetical" — test new expense or income without saving (e.g. new mortgage)
+- Time range selector: 2 mo / 3 mo / 6 mo / 12 mo / End of Year
+
+### 14B: What-If Sandbox
+Scratch copy of the current month's bucket table — no server saves.
+- Editable allocations update a "Simulated RTS" banner live (client-side math)
+- Uses existing `bucket_rollover` + `bucket_spent` from liveState for accuracy
+- Delta display vs. real RTS ("Freed $200 vs. actual")
+- Reset button | "Apply to Month" button (optional push to real allocations)
 
 ## 🔲 Phase 15: Coach AI
 - Contextual spending analysis against budget
