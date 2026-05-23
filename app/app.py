@@ -1398,13 +1398,15 @@ def _dashboard_inner():
             for d, rows in groupby(a_txs, key=lambda r: r["date"])
         ]
 
+    aom = _age_of_money(S)
+
     return render_template(
         "dashboard.html",
         user_email=session.get("user_email"),
         active_mid=active_mid,
         month_display=f"{MONTH_NAMES[m0]} {year}",
         prev_mid=prev_mid, next_mid=next_mid,
-        category_groups=category_groups, grand=grand, rts=rts,
+        category_groups=category_groups, grand=grand, rts=rts, aom=aom,
         all_cats=cats_sorted, accounts=accounts,
         debt_accounts=debt_accounts, transfer_buckets=transfer_buckets,
         ledger_groups=ledger_groups, ledger_income=income_total, ledger_spent=spent_total,
@@ -2285,6 +2287,29 @@ def _fc_range_label(s: date, e: date) -> str:
     return f"{s_str} – {e_str}"
 
 
+def _mid_for_date(d: date) -> str:
+    return f"m_{d.year}_{d.month - 1}"
+
+
+def _age_of_money(data: dict):
+    """Days of cash on hand at current 30-day spending rate. Returns int or None."""
+    accounts = data.get("accounts", [])
+    txs      = data.get("txs", [])
+    today_d  = date.today()
+    ago30    = today_d - timedelta(days=30)
+    cash = sum(acct_balance(a, txs) for a in accounts
+               if a.get("type") != "debt" and not a.get("archived"))
+    spent_30 = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("type") == "out"
+        and not is_scheduled(t)
+        and str(ago30) <= t.get("date", "") <= str(today_d)
+    )
+    if spent_30 == 0:
+        return None
+    return round(cash / (spent_30 / 30))
+
+
 # ── API: forecast ─────────────────────────────────────────────────────────────
 
 @app.route("/api/forecast")
@@ -2394,14 +2419,37 @@ def api_forecast():
                 pe = end_date
             periods_meta.append((pd, pe, False))
 
-    # ── Recurring bills lookup ──────────────────────────────────────────────
+    # ── Monthly allocation data for funded status ───────────────────────────
+    months_list   = data.get("months", [])
+    monthly_allocs = {m.get("id", ""): m.get("allocations", {}) for m in months_list}
+
+    # Current month bucket statuses (for PAID detection in gap period)
+    today_mid = _mid_for_date(today)
+    live_now  = _live_state(data, today_mid)
+    cur_statuses = live_now.get("bucket_statuses", {})
+
+    def _bill_funded(bucket_id: str, due_amount: float, bill_date: date) -> bool:
+        mid = _mid_for_date(bill_date)
+        return float(monthly_allocs.get(mid, {}).get(bucket_id, 0)) >= due_amount
+
+    def _bill_paid(bucket_id: str, bill_date: date) -> bool:
+        return (_mid_for_date(bill_date) == today_mid
+                and cur_statuses.get(bucket_id, "") in ("PAID", "FUNDED"))
+
+    # ── Recurring bills lookup (fallback to defaultBudget if dueAmount missing)
     recurring_bills = [
         b for b in buckets
         if not b.get("archived")
         and b.get("recurring")
-        and b.get("dueAmount")
         and b.get("dueDay") is not None
+        and (b.get("dueAmount") or b.get("defaultBudget"))
     ]
+
+    def _bill_amount(b: dict) -> float:
+        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+
+    # ── Running cumulative totals per transfer rule across all periods ───────
+    rule_cumulative: dict = {}   # rule_name → running cumulative total
 
     # ── Build period results ────────────────────────────────────────────────
     running_balance = budget_bal
@@ -2410,93 +2458,132 @@ def api_forecast():
     for period_idx, (ps, pe, is_gap) in enumerate(periods_meta):
         period_start_balance = running_balance
 
-        # Determine if this is the first paycheck period on today
         is_first_paycheck_today = (period_idx == 0 and not is_gap and ps == today)
         skip_income = is_first_paycheck_today and skip_today_income
 
-        # Income events at the start of paycheck periods
+        # ── Income, external transfers, internal allocation events ──────────
         income_events   = []
-        transfer_events = []
-        alloc_events    = []
+        transfer_events = []  # external rules → deduct from balance
+        alloc_events    = []  # internal rules → also deduct from balance
+
         if not is_gap and ps in pay_events:
             for pc_hit in pay_events[ps]:
                 if not skip_income:
                     running_balance += pc_hit["amount"]
-                    income_events.append({
-                        "label":  pc_hit["label"],
-                        "amount": pc_hit["amount"],
-                    })
+                    income_events.append({"label": pc_hit["label"], "amount": pc_hit["amount"]})
+
+                    # External transfers
                     for xfr in pc_hit["transfers"]:
                         running_balance -= xfr["amount"]
-                        transfer_events.append(xfr)
-                # Always collect alloc_events (informational only)
-                alloc_events.extend(pc_hit.get("alloc_events", []))
+                        rule_cumulative[xfr["name"]] = round(
+                            rule_cumulative.get(xfr["name"], 0) + xfr["amount"], 2)
+                        transfer_events.append({
+                            "name":       xfr["name"],
+                            "amount":     xfr["amount"],
+                            "cumulative": rule_cumulative[xfr["name"]],
+                        })
 
-        # If skipping income, override display
-        if skip_income:
-            income_events   = []
-            transfer_events = []
+                    # Internal allocation rules — deduct AND track cumulative
+                    for ae in pc_hit.get("alloc_events", []):
+                        running_balance -= ae["amount"]
+                        rule_cumulative[ae["bucket"]] = round(
+                            rule_cumulative.get(ae["bucket"], 0) + ae["amount"], 2)
+                        alloc_events.append({
+                            "bucket":     ae["bucket"],
+                            "amount":     ae["amount"],
+                            "cumulative": rule_cumulative[ae["bucket"]],
+                        })
 
-        # Collect all bill dates within this period, grouped by day
-        bill_by_day: dict = {}  # date → list of bill dicts
+        # Record balance after income/transfers (before bills)
+        balance_after_transfers = running_balance
+
+        # ── Collect bills for this period ───────────────────────────────────
+        funded_by_day:   dict = {}
+        unfunded_by_day: dict = {}
+
         for b in recurring_bills:
+            amt = _bill_amount(b)
+            if amt <= 0:
+                continue
             for bd in _bill_dates_in_range(b["dueDay"], b.get("payFreq"), ps, pe):
-                if bd not in bill_by_day:
-                    bill_by_day[bd] = []
-                bill_by_day[bd].append({
-                    "name":   b["name"],
-                    "amount": float(b["dueAmount"]),
-                })
+                # In gap period, skip bills already PAID this month
+                if is_gap and _bill_paid(b["id"], bd):
+                    continue
+                funded = _bill_funded(b["id"], amt, bd)
+                bucket = {"name": b["name"], "amount": amt, "funded": funded}
+                if funded:
+                    funded_by_day.setdefault(bd, []).append(bucket)
+                else:
+                    unfunded_by_day.setdefault(bd, []).append(bucket)
 
-        # Build day entries in chronological order
-        days = []
-        for d in sorted(bill_by_day.keys()):
-            for bill in bill_by_day[d]:
+        # Process funded days (green section)
+        funded_days = []
+        for d in sorted(funded_by_day.keys()):
+            for bill in funded_by_day[d]:
                 running_balance -= bill["amount"]
-            days.append({
+            funded_days.append({
                 "date":        str(d),
                 "label":       _fc_date_label(d),
-                "events":      bill_by_day[d],
+                "events":      funded_by_day[d],
+                "run_balance": round(running_balance, 2),
+            })
+
+        # Process unfunded days (red section)
+        unfunded_days = []
+        for d in sorted(unfunded_by_day.keys()):
+            for bill in unfunded_by_day[d]:
+                running_balance -= bill["amount"]
+            unfunded_days.append({
+                "date":        str(d),
+                "label":       _fc_date_label(d),
+                "events":      unfunded_by_day[d],
                 "run_balance": round(running_balance, 2),
             })
 
         period_income    = sum(e["amount"] for e in income_events)
         period_transfers = sum(e["amount"] for e in transfer_events)
-        period_expenses  = sum(b["amount"] for day in days for b in day["events"])
-        period_net       = period_income - period_transfers - period_expenses
+        period_allocs    = sum(e["amount"] for e in alloc_events)
+        period_funded    = sum(b["amount"] for d in funded_days for b in d["events"])
+        period_unfunded  = sum(b["amount"] for d in unfunded_days for b in d["events"])
+        period_net       = period_income - period_transfers - period_allocs - period_funded - period_unfunded
 
-        # Build label and type
         if is_gap or skip_income:
-            label     = "Pre-Paycheck Gap"
-            ptype     = "gap"
+            label = "Pre-Paycheck Gap"
+            ptype = "gap"
         else:
             labels = list({e["label"] for e in income_events}) or ["Paycheck"]
             label  = " + ".join(labels)
             ptype  = "paycheck"
 
         period_results.append({
-            "type":             ptype,
-            "label":            label,
-            "date_range":       _fc_range_label(ps, pe),
-            "start":            str(ps),
-            "end":              str(pe),
-            "start_balance":    round(period_start_balance, 2),
-            "income_events":    income_events,
-            "transfer_events":  transfer_events,
-            "alloc_events":     alloc_events,
-            "days":             days,
-            "period_income":    round(period_income, 2),
-            "period_transfers": round(period_transfers, 2),
-            "period_expenses":  round(period_expenses, 2),
-            "period_net":       round(period_net, 2),
-            "end_balance":      round(running_balance, 2),
-            "shortfall":        running_balance < 0,
-            "can_toggle_paid":  is_first_paycheck_today,
+            "type":                   ptype,
+            "label":                  label,
+            "date_range":             _fc_range_label(ps, pe),
+            "start":                  str(ps),
+            "end":                    str(pe),
+            "start_balance":          round(period_start_balance, 2),
+            "balance_after_transfers": round(balance_after_transfers, 2),
+            "income_events":          income_events,
+            "transfer_events":        transfer_events,
+            "alloc_events":           alloc_events,
+            "funded_days":            funded_days,
+            "unfunded_days":          unfunded_days,
+            "period_income":          round(period_income, 2),
+            "period_transfers":       round(period_transfers + period_allocs, 2),
+            "period_funded":          round(period_funded, 2),
+            "period_unfunded":        round(period_unfunded, 2),
+            "period_net":             round(period_net, 2),
+            "end_balance":            round(running_balance, 2),
+            "shortfall":              running_balance < 0,
+            "can_toggle_paid":        is_first_paycheck_today,
         })
+
+    safe_to_spend = min((p["end_balance"] for p in period_results), default=budget_bal)
 
     return jsonify({
         "ok":               True,
         "start_balance":    round(budget_bal, 2),
+        "safe_to_spend":    round(safe_to_spend, 2),
         "months":           months_param,
         "periods":          period_results,
         "account_balances": account_balances,
