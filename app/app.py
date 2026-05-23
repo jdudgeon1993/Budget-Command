@@ -2,6 +2,7 @@ import os
 import traceback
 from datetime import date, timedelta
 import calendar as _cal
+import anthropic
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -2686,6 +2687,110 @@ def api_forecast():
         "periods":          period_results,
         "account_balances": account_balances,
     })
+
+
+# ── API: Coach AI ─────────────────────────────────────────────────────────────
+
+@app.route("/api/coach", methods=["POST"])
+def api_coach():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return jsonify({"ok": False, "error": "Coach AI is not configured (missing API key)."}), 503
+
+    body    = request.get_json(silent=True) or {}
+    message = (body.get("message") or "").strip()
+    history = body.get("history") or []
+    if not message:
+        return jsonify({"ok": False, "error": "No message provided"}), 400
+
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+
+    all_months     = data.get("months", [])
+    accounts       = data.get("accounts", [])
+    txs            = data.get("txs", [])
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    cur_mid        = current_month_id()
+    cur_month      = next(
+        (m for m in all_months if m.get("id") == cur_mid),
+        {"id": cur_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {},
+         "skippedBuckets": {}, "vaultWithdrawals": {}},
+    )
+
+    rts_val = ready_to_spend(cur_month, all_months, accounts, active_buckets, txs)
+    aom_val = _age_of_money(data)
+
+    acct_lines = []
+    total_cash = 0.0
+    for a in accounts:
+        if a.get("archived"):
+            continue
+        bal = acct_balance(a, txs)
+        if a.get("type") != "debt":
+            total_cash += bal
+        acct_lines.append(f"  {a.get('name','?')}: ${bal:,.2f} ({a.get('type','?')})")
+
+    over_budget = []
+    top_spending = []
+    for b in active_buckets:
+        if b.get("type") == "vault":
+            continue
+        bid    = b["id"]
+        alloc  = b_alloc(cur_month, bid)
+        budget = b_budget(cur_month, bid)
+        spent  = b_spent(cur_mid, bid, txs)
+        avail  = bucket_available(b, cur_month, all_months, txs)
+        if budget > 0 and spent > budget:
+            over_budget.append((b.get("name","?"), spent - budget, spent, budget))
+        if spent > 0:
+            top_spending.append((b.get("name","?"), spent))
+
+    over_budget.sort(key=lambda x: -x[1])
+    top_spending.sort(key=lambda x: -x[1])
+
+    over_lines = "\n".join(
+        f"  {name}: spent ${spent:,.2f} / budget ${budget:,.2f} (over by ${over:,.2f})"
+        for name, over, spent, budget in over_budget[:5]
+    ) or "  None"
+    spend_lines = "\n".join(
+        f"  {name}: ${spent:,.2f}" for name, spent in top_spending[:5]
+    ) or "  None"
+
+    aom_str = f"{aom_val} days" if aom_val is not None else "unknown"
+
+    system_prompt = f"""You are a friendly, concise personal finance coach inside the Budget Command app.
+
+Current budget snapshot ({cur_mid}):
+- Ready to Spend (RTS): ${rts_val:,.2f}
+- Age of Money: {aom_str}
+- Total cash on hand: ${total_cash:,.2f}
+
+Account balances:
+{chr(10).join(acct_lines) or '  No accounts'}
+
+Top 5 over-budget buckets this month:
+{over_lines}
+
+Top 5 buckets by spending this month:
+{spend_lines}
+
+Give practical, specific advice based on these numbers. Be brief and conversational. Do not fabricate numbers not shown above."""
+
+    messages = [{"role": r["role"], "content": r["content"]} for r in history if r.get("role") and r.get("content")]
+    messages.append({"role": "user", "content": message})
+
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1024,
+        system=system_prompt,
+        messages=messages,
+    )
+    reply = response.content[0].text
+    return jsonify({"ok": True, "reply": reply})
 
 
 if __name__ == "__main__":
