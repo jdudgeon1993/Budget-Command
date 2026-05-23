@@ -1114,6 +1114,23 @@
 .toast.t-warning { border-color: var(--amber);  color: var(--amber); }
 .toast.t-info    { border-color: var(--accent);  color: var(--accent); }
 
+/* ── Spending pace bar ── */
+.pace-wrap {
+  margin-top: 3px;
+  height: 3px;
+  background: var(--bg3);
+  border-radius: 2px;
+  position: relative;
+  overflow: visible;
+}
+.pace-bar { height: 100%; border-radius: 2px; transition: width .3s; }
+.pace-bar.under { background: var(--green); }
+.pace-bar.over  { background: var(--red); }
+.pace-marker {
+  position: absolute; top: -2px; width: 2px; height: 7px;
+  background: var(--text3); border-radius: 1px; transform: translateX(-50%);
+}
+
 /* ── FAB quick-add ── */
 #fab {
   position: fixed;
@@ -1367,7 +1384,7 @@
                 data-month="{{ active_mid }}"
                 data-raw="{{ b.alloc }}"
                 data-type="number">{{ b.alloc|money }}</td>
-            <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
+            <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}" data-raw-spent="{{ b.spent if b.type != 'vault' else '' }}" data-raw-budget="{{ b.budget }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
                 data-raw="{{ b.avail }}"
@@ -2789,11 +2806,15 @@ function refreshValues(state) {
     }
   }
 
-  // Bucket spent cells
+  // Bucket spent cells + pace update
   if (state.bucket_spent) {
     for (const [bid, val] of Object.entries(state.bucket_spent)) {
       const cell = document.querySelector(`[data-spent-id="${bid}"]`);
-      if (cell && cell.textContent !== '—') cell.textContent = fmtMoney(val);
+      if (cell && cell.textContent !== '—') {
+        cell.textContent = fmtMoney(val);
+        cell.dataset.rawSpent = val;
+        _updatePaceBar(cell, val);
+      }
     }
   }
 
@@ -5444,6 +5465,47 @@ async function sendCoachMessage(text) {
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
+// ── Spending pace indicators ──────────────────────────────────────────────────
+(function initPaceBars() {
+  const today = new Date();
+  const day = today.getDate();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const pacePct = day / daysInMonth;  // 0..1
+
+  document.querySelectorAll('[data-spent-id]').forEach(cell => {
+    _updatePaceBar(cell, parseFloat(cell.dataset.rawSpent) || 0, pacePct);
+  });
+})();
+
+function _updatePaceBar(cell, spentVal, pacePct) {
+  if (cell.textContent === '—') return;  // vault
+  const budget = parseFloat(cell.dataset.rawBudget) || 0;
+  if (budget <= 0) return;
+
+  if (pacePct === undefined) {
+    const today = new Date();
+    const day = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    pacePct = day / daysInMonth;
+  }
+
+  const spentPct = Math.min(spentVal / budget, 1);
+  const isOver = spentPct > pacePct + 0.01;
+
+  let wrap = cell.querySelector('.pace-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'pace-wrap';
+    wrap.innerHTML = `<div class="pace-bar"></div><div class="pace-marker"></div>`;
+    cell.appendChild(wrap);
+  }
+  const bar = wrap.querySelector('.pace-bar');
+  const marker = wrap.querySelector('.pace-marker');
+  bar.style.width = (spentPct * 100).toFixed(1) + '%';
+  bar.className = 'pace-bar ' + (isOver ? 'over' : 'under');
+  marker.style.left = (pacePct * 100).toFixed(1) + '%';
+}
+
 // ── Copy last month's allocations ─────────────────────────────────────────────
 async function copyLastMonthAllocs() {
   if (!confirm('Copy last month\'s allocations to this month? Existing allocations will be overwritten.')) return;
