@@ -2555,6 +2555,19 @@ function showToast(msg, type = 'success', duration = 3500) {
   }
 }
 
+/* ── 401 session-expired helper ── */
+function _show401Toast() {
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = 'toast t-warning';
+  t.textContent = 'Session expired — tap to refresh';
+  t.style.cursor = 'pointer';
+  t.addEventListener('click', () => window.location.reload());
+  c.appendChild(t);
+  requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
+}
+
 /* ── Transaction date helpers ── */
 function dateToMid(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
@@ -3126,13 +3139,7 @@ async function saveSetting(field, id, value, month) {
       body: JSON.stringify({ field, id, value, month })
     });
     if (r.status === 401) {
-      const t = document.createElement('div');
-      t.className = 'toast t-warning show';
-      t.textContent = 'Session expired — tap to refresh';
-      t.style.cursor = 'pointer';
-      t.addEventListener('click', () => window.location.reload());
-      const c = document.getElementById('toast-container');
-      if (c) { c.appendChild(t); requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show'))); }
+      _show401Toast();
       return { ok: false };
     }
     const result = await r.json();
@@ -3403,13 +3410,16 @@ async function submitAddTx(e) {
   if (!accountId) { alert('Select an account.'); return; }
   if (type === 'xfr' && !toAcctId) { alert('Select a destination account.'); return; }
 
-  const result = await fetch('/api/add-transaction', {
+  const _txResp = await fetch('/api/add-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ type, date, desc, amount, account_id: accountId,
                            bucket_id: bucketId, to_account_id: toAcctId,
                            income_type: incomeType, active_mid: ACTIVE_MID })
-  }).then(r => r.json()).catch(() => ({ok: false}));
+  }).catch(() => null);
+  if (!_txResp) { alert('Network error adding transaction.'); return; }
+  if (_txResp.status === 401) { _show401Toast(); return; }
+  const result = await _txResp.json().catch(() => ({ok: false}));
 
   if (result.ok) {
     showToast('Transaction added', 'success');
@@ -3436,11 +3446,14 @@ function toggleTxSettings(id) {
 
 /* ── Ledger: save a field on a transaction ── */
 async function saveTxField(id, field, value) {
-  const result = await fetch('/api/edit-transaction', {
+  const resp = await fetch('/api/edit-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ id, field, value, active_mid: ACTIVE_MID })
-  }).then(r => r.json()).catch(() => ({ok: false}));
+  }).catch(() => null);
+  if (!resp) { alert('Save failed: network error'); return; }
+  if (resp.status === 401) { _show401Toast(); return; }
+  const result = await resp.json().catch(() => ({ok: false}));
   if (!result.ok) { alert('Save failed: ' + (result.error || 'unknown error')); return; }
   refreshValues(result);
 
@@ -3504,11 +3517,14 @@ document.querySelectorAll('.ledger-desc').forEach(span => {
 /* ── Ledger: delete transaction ── */
 async function deleteTx(id) {
   if (!confirm('Delete this transaction? This cannot be undone.')) return;
-  const result = await fetch('/api/delete-transaction', {
+  const _delResp = await fetch('/api/delete-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ id, active_mid: ACTIVE_MID })
-  }).then(r => r.json()).catch(() => ({ok: false}));
+  }).catch(() => null);
+  if (!_delResp) { alert('Network error.'); return; }
+  if (_delResp.status === 401) { _show401Toast(); return; }
+  const result = await _delResp.json().catch(() => ({ok: false}));
 
   if (result.ok) {
     showToast('Transaction deleted', 'success');
