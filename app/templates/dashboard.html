@@ -4600,7 +4600,8 @@ function renderForecast(data) {
         p.funded_days.forEach(day => {
           html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
           day.events.forEach(ev => {
-            html += `<div class="fc-bill-row funded"><span class="fc-bill-label">✓ ${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+            const tag = ev.overdue ? '⏰ OVERDUE' : '✓';
+            html += `<div class="fc-bill-row funded"><span class="fc-bill-label">${tag} ${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
           });
           html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div></div>`;
         });
@@ -4628,8 +4629,8 @@ function renderForecast(data) {
         unfundedDays.forEach(day => {
           html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
           day.events.forEach(ev => {
-            const icon = ev.planned ? '📌' : '⚠';
-            html += `<div class="fc-bill-row unfunded"><span class="fc-bill-label">${icon} ${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+            const icon = ev.planned ? '📌' : ev.overdue ? '⏰' : '⚠';
+            html += `<div class="fc-bill-row unfunded"><span class="fc-bill-label">${icon}${ev.overdue ? ' OVERDUE' : ''} ${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
           });
           if (day.run_balance !== null) {
             html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div>`;

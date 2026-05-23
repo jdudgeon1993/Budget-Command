@@ -2463,8 +2463,9 @@ def api_forecast():
         return budget > 0 and alloc >= budget
 
     def _bill_paid(bucket_id: str, bill_date: date) -> bool:
+        # Only skip if the bill was actually spent (recorded transaction) — not just funded/allocated
         return (_mid_for_date(bill_date) == today_mid
-                and cur_statuses.get(bucket_id, "") in ("PAID", "FUNDED"))
+                and cur_statuses.get(bucket_id, "") == "PAID")
 
     # ── Recurring bills lookup (fallback to defaultBudget if dueAmount missing)
     recurring_bills = [
@@ -2533,20 +2534,28 @@ def api_forecast():
         funded_by_day:   dict = {}
         unfunded_by_day: dict = {}
 
+        # For the gap period, also include bills from earlier this month that
+        # weren't paid yet (overdue obligations still outstanding)
+        overdue_scan_start = date(today.year, today.month, 1) if is_gap else ps
+
         for b in recurring_bills:
             amt = _bill_amount(b)
             if amt <= 0:
                 continue
-            for bd in _bill_dates_in_range(b["dueDay"], b.get("payFreq"), ps, pe):
-                # In gap period, skip bills already PAID this month
-                if is_gap and _bill_paid(b["id"], bd):
+            scan_start = overdue_scan_start if is_gap else ps
+            for bd in _bill_dates_in_range(b["dueDay"], b.get("payFreq"), scan_start, pe):
+                # Skip bills already spent (PAID status)
+                if _bill_paid(b["id"], bd):
                     continue
+                # In gap period, bills before today are overdue — show them on today's date
+                display_date = today if (is_gap and bd < today) else bd
                 funded = _bill_funded(b["id"], amt, bd)
-                bucket = {"name": b["name"], "amount": amt, "funded": funded}
+                bucket = {"name": b["name"], "amount": amt, "funded": funded,
+                          "overdue": is_gap and bd < today}
                 if funded:
-                    funded_by_day.setdefault(bd, []).append(bucket)
+                    funded_by_day.setdefault(display_date, []).append(bucket)
                 else:
-                    unfunded_by_day.setdefault(bd, []).append(bucket)
+                    unfunded_by_day.setdefault(display_date, []).append(bucket)
 
         # Process funded days (green section)
         funded_days = []
