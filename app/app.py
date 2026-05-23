@@ -2893,6 +2893,84 @@ Give practical, specific advice based on these numbers. Be brief and conversatio
     return jsonify({'reply': reply})
 
 
+# ── API: bill calendar ────────────────────────────────────────────────────────
+
+@app.route("/api/bill-calendar")
+def api_bill_calendar():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    all_months = data.get("months", [])
+    txs = data.get("txs", [])
+
+    today = date.today()
+    cur_mid = current_month_id()
+    next_month = date(today.year + (today.month // 12), (today.month % 12) + 1, 1)
+    next_mid = month_id(next_month.year, next_month.month - 1)
+
+    def _bill_paid_in_month(b: dict, mid: str) -> bool:
+        m = next((m for m in all_months if m.get("id") == mid), None)
+        if not m:
+            return False
+        status = (m.get("budgets") or {}).get(b["id"])
+        return status == "PAID"
+
+    def _days_in_month(yr: int, mo: int) -> int:
+        import calendar as _cal
+        return _cal.monthrange(yr, mo)[1]
+
+    bills = []
+    for b in active_buckets:
+        if b.get("type") in ("vault",):
+            continue
+        due_day = b.get("dueDay")
+        amount = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        if not due_day or not amount:
+            continue
+
+        for mid in [cur_mid, next_mid]:
+            yr, m0 = parse_month_id(mid)
+            cal_month = m0 + 1  # 1-based
+
+            if due_day == "eom":
+                day_num = _days_in_month(yr, cal_month)
+            else:
+                try:
+                    day_num = min(int(due_day), _days_in_month(yr, cal_month))
+                except (ValueError, TypeError):
+                    continue
+
+            try:
+                due_date = date(yr, cal_month, day_num)
+            except ValueError:
+                continue
+
+            is_paid = _bill_paid_in_month(b, mid)
+            is_past = due_date < today
+            is_today = due_date == today
+
+            if is_past and mid != cur_mid:
+                continue  # skip past bills in next month (shouldn't happen)
+
+            bills.append({
+                "bucket_id":  b["id"],
+                "name":       b.get("name", ""),
+                "amount":     amount,
+                "due_date":   due_date.isoformat(),
+                "due_day":    day_num,
+                "month_id":   mid,
+                "paid":       is_paid,
+                "past":       is_past,
+                "today":      is_today,
+            })
+
+    bills.sort(key=lambda x: x["due_date"])
+    return jsonify({"ok": True, "bills": bills})
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_ENV") == "development")

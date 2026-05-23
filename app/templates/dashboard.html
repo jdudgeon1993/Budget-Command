@@ -2507,9 +2507,10 @@
 
       <!-- ── Plan mode ── -->
       <div id="more-mode-plan" style="display:none">
-        <!-- Sub-tabs: Forecast | What-If -->
+        <!-- Sub-tabs: Forecast | Calendar | What-If -->
         <div class="acct-tabs" style="margin-bottom:14px">
           <button class="acct-tab active" onclick="showPlanTab('forecast', this)">Forecast</button>
+          <button class="acct-tab" onclick="showPlanTab('calendar', this);initBillCalendar()">Calendar</button>
           <button class="acct-tab" onclick="showPlanTab('whatif', this)">What-If</button>
         </div>
 
@@ -2555,6 +2556,13 @@
           <div id="forecast-loading" style="display:none; padding:20px; text-align:center; font-family:var(--mono); font-size:11px; color:var(--text3); letter-spacing:.1em;">LOADING FORECAST...</div>
           <!-- Content -->
           <div id="forecast-content"></div>
+        </div>
+
+        <!-- Bill Calendar tab -->
+        <div id="plan-calendar" style="display:none">
+          <div id="bill-calendar-content">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+          </div>
         </div>
 
         <!-- What-If tab -->
@@ -4890,7 +4898,7 @@ let _useCustomBal    = false;
 let _forecastExtras  = [];   // planned expenses
 
 function showPlanTab(name, btn) {
-  ['forecast','whatif'].forEach(t => {
+  ['forecast','calendar','whatif'].forEach(t => {
     const el = document.getElementById('plan-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
@@ -5519,6 +5527,72 @@ async function sendCoachMessage(text) {
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
+// ── Bill Calendar ────────────────────────────────────────────────────────────
+let _billCalendarLoaded = false;
+async function initBillCalendar() {
+  if (_billCalendarLoaded) return;
+  _billCalendarLoaded = true;
+  const el = document.getElementById('bill-calendar-content');
+  if (!el) return;
+  try {
+    const data = await fetch('/api/bill-calendar').then(r => r.json());
+    const bills = data.bills || [];
+    if (!bills.length) {
+      el.innerHTML = '<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:16px 0;">No upcoming bills with due dates. Set a due day and amount on expense buckets to see them here.</p>';
+      return;
+    }
+
+    // Group by month
+    const byMonth = {};
+    bills.forEach(b => {
+      if (!byMonth[b.month_id]) byMonth[b.month_id] = [];
+      byMonth[b.month_id].push(b);
+    });
+
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let html = '';
+    for (const mid of Object.keys(byMonth).sort()) {
+      const [,yr,m0] = mid.split('_');
+      const label = MONTHS[parseInt(m0)] + ' ' + yr;
+      html += `<div style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:16px 0 6px;">${label}</div>`;
+      byMonth[mid].forEach(b => {
+        const d = new Date(b.due_date + 'T12:00:00');
+        const dayLabel = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+        let badge = '';
+        let nameColor = 'var(--text)';
+        if (b.paid) {
+          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--green);border:1px solid var(--green);padding:1px 5px;border-radius:3px;margin-left:6px;">PAID</span>';
+          nameColor = 'var(--text3)';
+        } else if (b.past) {
+          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--red);border:1px solid var(--red);padding:1px 5px;border-radius:3px;margin-left:6px;">OVERDUE</span>';
+          nameColor = 'var(--red)';
+        } else if (b.today) {
+          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--red);border:1px solid var(--red);padding:1px 5px;border-radius:3px;margin-left:6px;">TODAY</span>';
+        }
+        html += `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;margin-bottom:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);${b.past && !b.paid ? 'border-left:3px solid var(--red);' : b.today ? 'border-left:3px solid var(--amber);' : ''}">
+            <div>
+              <span style="font-family:var(--mono);font-size:clamp(10px,1.6vw,12px);color:${nameColor};">${b.name}</span>${badge}
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;">${dayLabel}</div>
+            </div>
+            <span style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);color:${b.paid ? 'var(--text3)' : 'var(--text)'};">${fmtMoney(b.amount)}</span>
+          </div>`;
+      });
+
+      // Month total
+      const total = byMonth[mid].filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
+      const paid = byMonth[mid].filter(b => b.paid).reduce((s, b) => s + b.amount, 0);
+      html += `<div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-align:right;margin-top:2px;">
+        Remaining: <span style="color:var(--text)">${fmtMoney(total)}</span>
+        ${paid > 0 ? ' · Paid: <span style="color:var(--green)">' + fmtMoney(paid) + '</span>' : ''}
+      </div>`;
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<p style="font-family:var(--mono);font-size:11px;color:var(--red);">Failed to load bill calendar.</p>';
+  }
+}
+
 // ── Debt payoff projector ─────────────────────────────────────────────────────
 (function computeDebtPayoff() {
   document.querySelectorAll('.debt-proj-payoff').forEach(cell => {
