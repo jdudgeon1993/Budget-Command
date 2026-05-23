@@ -993,6 +993,86 @@
 .fc-cumulative {
   font-size:clamp(8px,1.2vw,9px); color:var(--text3); margin-left:6px;
 }
+/* ── What-If sandbox ── */
+.wi-input {
+  width: 80px;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 2px 4px;
+  font-family: var(--mono);
+  font-size: clamp(10px,1.6vw,12px);
+  text-align: right;
+  outline: none;
+}
+.wi-input:focus { border-color: var(--accent); }
+.wi-input.changed { border-color: var(--amber); color: var(--amber); }
+/* ── Coach AI ── */
+.coach-header {
+  font-family: var(--mono);
+  font-size: clamp(10px,1.6vw,12px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.coach-messages {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.coach-msg {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: var(--r);
+  font-family: var(--sans);
+  font-size: clamp(12px,1.9vw,14px);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.coach-msg.coach { background: var(--bg2); color: var(--text2); align-self: flex-start; }
+.coach-msg.user  { background: var(--bg3); color: var(--text);  align-self: flex-end; border: 1px solid var(--border); }
+.coach-starters  { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.coach-starter   { font-family: var(--mono); font-size: clamp(9px,1.4vw,10px); color: var(--text3); border: 1px solid var(--border); background: none; border-radius: var(--r); padding: 4px 10px; cursor: pointer; letter-spacing: .05em; }
+.coach-starter:hover { border-color: var(--accent); color: var(--accent); }
+.coach-input-row { display: flex; gap: 6px; }
+.coach-input-row input { flex: 1; background: var(--bg2); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); padding: 6px 10px; font-family: var(--sans); font-size: clamp(12px,1.9vw,14px); outline: none; }
+.coach-input-row input:focus { border-color: var(--accent); }
+/* ── Onboarding modal ── */
+.onboard-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+  z-index: 1000; display: flex; align-items: center; justify-content: center;
+}
+.onboard-modal {
+  background: var(--bg2); border: 1px solid var(--border2); border-radius: 4px;
+  padding: 28px 24px; max-width: 480px; width: 90%; color: var(--text);
+}
+.onboard-modal h2 {
+  font-family: var(--display); font-size: clamp(22px,4vw,28px); letter-spacing: .06em;
+  color: var(--text2); margin-bottom: 16px;
+}
+.onboard-steps { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.onboard-steps li { display: flex; gap: 10px; align-items: flex-start; font-size: clamp(12px,1.9vw,14px); }
+.onboard-step-num {
+  font-family: var(--mono); font-size: 11px; color: var(--bg); background: var(--accent);
+  border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; margin-top: 2px;
+}
+{% endblock %}
+
+{% block extra_head %}
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#6366f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cura">
 {% endblock %}
 
 {% block content %}
@@ -2270,10 +2350,26 @@
         </div>
 
         <!-- What-If tab -->
+        <script>
+        const _wiGroups = {{ category_groups | tojson }};
+        const _wiRts    = {{ rts }};
+        const _wiGrand  = {{ grand | tojson }};
+        const _wiMid    = "{{ active_mid }}";
+        </script>
         <div id="plan-whatif" style="display:none">
-          <div id="whatif-content">
-            <p style="font-family:var(--mono); font-size:12px; color:var(--text3); padding:20px 0;">What-If sandbox — coming soon</p>
+          <div id="wi-banner" style="position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;flex-wrap:wrap;">
+            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Real RTS</span>
+            <span id="wi-real-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);color:var(--green);"></span>
+            <span style="color:var(--text3);">→</span>
+            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Sim RTS</span>
+            <span id="wi-sim-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);"></span>
+            <span id="wi-delta" style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);padding:2px 6px;border-radius:var(--r);background:var(--bg3);"></span>
+            <div style="margin-left:auto;display:flex;gap:6px;">
+              <button class="sf-btn" onclick="resetWhatIf()">Reset</button>
+              <button id="wi-apply-btn" class="sf-btn" onclick="applyWhatIf()" disabled>Apply to Month</button>
+            </div>
           </div>
+          <div id="whatif-content"></div>
         </div>
       </div><!-- end plan mode -->
 
