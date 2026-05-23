@@ -1551,7 +1551,7 @@
             <input type="date" id="tx-date" required>
           </div>
           <div class="strip-field strip-field-lg">
-            <input type="text" id="tx-desc" placeholder="Description">
+            <input type="text" id="tx-desc" placeholder="Description" list="payee-suggestions" autocomplete="off">
           </div>
           <div class="strip-field strip-field-sm">
             <input type="text" inputmode="decimal" id="tx-amount" placeholder="$ amount" class="math-input" required>
@@ -1771,10 +1771,10 @@
   <div id="panel-more" class="panel">
     <div class="panel-container">
 
-      <!-- Top-level: Accounts | Settings | Reports | Plan -->
+      <!-- Top-level: Accounts | Setup | Reports | Plan -->
       <div class="more-mode-tabs">
         <button class="more-mode-tab active" onclick="showMoreMode('accounts',this)">Accounts</button>
-        <button class="more-mode-tab" onclick="showMoreMode('settings',this)">Settings</button>
+        <button class="more-mode-tab" onclick="showMoreMode('settings',this)">Setup</button>
         <button class="more-mode-tab" onclick="showMoreMode('reports',this)">Reports</button>
         <button class="more-mode-tab" onclick="showMoreMode('plan',this)">Plan</button>
       </div>
@@ -2139,6 +2139,7 @@
         <div class="acct-tabs" style="margin-bottom:14px;">
           <button class="acct-tab active" onclick="showSettingsTab('paychecks',this)">Paychecks</button>
           <button class="acct-tab" onclick="showSettingsTab('rules',this)">Allocation Rules</button>
+          <button class="acct-tab" onclick="showSettingsTab('payees',this);loadPayees()">Payees</button>
         </div>
 
         <!-- ── Paychecks tab ── -->
@@ -2298,6 +2299,16 @@
             </tbody>
           </table>
         </div><!-- end rules tab -->
+
+        <!-- ── Payees tab ── -->
+        <div id="settings-tab-payees" style="display:none">
+          <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin:0 0 12px;">
+            Payees are auto-suggested when you type a description. Shown below are your most-used payees.
+          </p>
+          <div id="payees-list" style="display:flex;flex-direction:column;gap:4px;">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+          </div>
+        </div><!-- end payees tab -->
 
       </div><!-- end settings mode -->
 
@@ -2527,6 +2538,7 @@
 </nav>
 
 <div id="toast-container"></div>
+<datalist id="payee-suggestions"></datalist>
 
 <script>
 const ACTIVE_MID = "{{ active_mid }}";
@@ -3826,13 +3838,60 @@ function showMoreMode(mode, btn) {
 
 /* ── Settings: sub-tab switch ── */
 function showSettingsTab(tab, btn) {
-  ['paychecks','rules'].forEach(t => {
+  ['paychecks','rules','payees'].forEach(t => {
     const el = document.getElementById('settings-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
   document.querySelectorAll('#more-mode-settings .acct-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 }
+
+let _payeesLoaded = false;
+async function loadPayees() {
+  if (_payeesLoaded) return;
+  _payeesLoaded = true;
+  const list = document.getElementById('payees-list');
+  const dl = document.getElementById('payee-suggestions');
+  try {
+    const data = await fetch('/api/payees').then(r => r.json());
+    const payees = data.payees || [];
+    // Populate datalist
+    if (dl) {
+      dl.innerHTML = '';
+      payees.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        dl.appendChild(opt);
+      });
+    }
+    // Render payees list in tab
+    if (list) {
+      if (!payees.length) {
+        list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);">No transactions yet — payees appear here as you add them.</div>';
+      } else {
+        list.innerHTML = payees.map(p => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r)">
+            <span style="font-family:var(--mono);font-size:12px;color:var(--text)">${p.name}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.06em">${p.count}×</span>
+          </div>`).join('');
+      }
+    }
+  } catch(e) {
+    if (list) list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--red);">Failed to load payees.</div>';
+  }
+}
+
+// Prefetch payees for autocomplete on page load
+fetch('/api/payees').then(r => r.json()).then(data => {
+  const dl = document.getElementById('payee-suggestions');
+  if (!dl) return;
+  (data.payees || []).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    dl.appendChild(opt);
+  });
+  _payeesLoaded = true;
+}).catch(() => {});
 
 /* ── Settings: rule kind change ── */
 function handleRuleKindChange(select) {

@@ -1540,6 +1540,23 @@ def api_delete_transaction():
     return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
+# ── API: payees ───────────────────────────────────────────────────────────────
+
+@app.route("/api/payees")
+def api_payees():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid, tok = _uid(), _tok()
+    txs = _db(tok).table("bcc_transactions").select("desc").eq("user_id", uid).execute().data or []
+    counts: dict[str, int] = {}
+    for t in txs:
+        name = (t.get("desc") or "").strip()
+        if name:
+            counts[name] = counts.get(name, 0) + 1
+    payees = sorted([{"name": k, "count": v} for k, v in counts.items()], key=lambda x: -x["count"])
+    return jsonify({"payees": payees[:50]})
+
+
 # ── API: paychecks ────────────────────────────────────────────────────────────
 
 @app.route("/api/add-paycheck", methods=["POST"])
