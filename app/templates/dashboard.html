@@ -1113,6 +1113,81 @@
 .toast.t-error   { border-color: var(--red);   color: var(--red);   }
 .toast.t-warning { border-color: var(--amber);  color: var(--amber); }
 .toast.t-info    { border-color: var(--accent);  color: var(--accent); }
+
+/* ── FAB quick-add ── */
+#fab {
+  position: fixed;
+  bottom: 82px;
+  left: 16px;
+  z-index: 9998;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(99,102,241,.45);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, box-shadow .15s;
+}
+#fab:hover { transform: scale(1.08); box-shadow: 0 6px 18px rgba(99,102,241,.55); }
+#fab:active { transform: scale(.95); }
+
+#fab-backdrop {
+  display: none;
+  position: fixed; inset: 0; z-index: 9997;
+  background: rgba(0,0,0,.45);
+}
+#fab-backdrop.show { display: block; }
+
+#fab-modal {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 9998;
+  background: var(--bg2);
+  border-top: 1px solid var(--border2);
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px 32px;
+  transform: translateY(100%);
+  transition: transform .25s cubic-bezier(.32,1,.6,1);
+  max-width: 560px;
+  margin: 0 auto;
+}
+#fab-modal.show { transform: translateY(0); }
+.fab-modal-title {
+  font-family: var(--mono);
+  font-size: clamp(10px,1.6vw,11px);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.fab-row {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.fab-field { flex: 1; min-width: 100px; }
+.fab-field input, .fab-field select {
+  width: 100%; padding: 8px 10px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text); border-radius: var(--r);
+  font-family: var(--mono); font-size: clamp(12px,1.8vw,13px);
+}
+.fab-field input:focus, .fab-field select:focus {
+  outline: none; border-color: var(--accent);
+}
+.fab-submit-btn {
+  width: 100%; padding: 11px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--r);
+  font-family: var(--mono); font-size: clamp(11px,1.8vw,13px);
+  letter-spacing: .08em; cursor: pointer;
+  margin-top: 4px;
+  transition: opacity .15s;
+}
+.fab-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
 {% endblock %}
 
 {% block extra_head %}
@@ -2567,6 +2642,65 @@
 
 <div id="toast-container"></div>
 <datalist id="payee-suggestions"></datalist>
+
+<!-- ── FAB quick-add ── -->
+<button id="fab" onclick="openFab()" title="Quick add transaction">+</button>
+<div id="fab-backdrop" onclick="closeFab()"></div>
+<div id="fab-modal">
+  <div class="fab-modal-title">
+    <span>Quick Add Transaction</span>
+    <button onclick="closeFab()" style="border:none;background:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;">×</button>
+  </div>
+  <div class="fab-row">
+    <div class="fab-field" style="max-width:120px;">
+      <select id="fab-type" onchange="handleFabTypeChange(this)">
+        <option value="out">Expense</option>
+        <option value="in">Income</option>
+        <option value="xfr">Transfer</option>
+      </select>
+    </div>
+    <div class="fab-field" style="max-width:130px;">
+      <input type="text" inputmode="decimal" id="fab-amount" placeholder="$ Amount"
+        class="math-input" autocomplete="off">
+    </div>
+    <div class="fab-field" style="max-width:130px;">
+      <input type="date" id="fab-date">
+    </div>
+  </div>
+  <div class="fab-row">
+    <div class="fab-field">
+      <input type="text" id="fab-desc" placeholder="Description (optional)"
+        list="payee-suggestions" autocomplete="off">
+    </div>
+  </div>
+  <div class="fab-row">
+    <div class="fab-field">
+      <select id="fab-account">
+        <option value="">— Account —</option>
+        {% for a in accounts %}
+        <option value="{{ a.id }}">{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fab-field" id="fab-bucket-cell">
+      <select id="fab-bucket">
+        <option value="">— Bucket —</option>
+        {% for b in expense_buckets %}
+        <option value="{{ b.id }}">{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fab-field" id="fab-to-acct-cell" style="display:none">
+      <select id="fab-to-account">
+        <option value="">— To Account —</option>
+        {% for a in accounts %}
+        <option value="{{ a.id }}">{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <button class="fab-submit-btn" onclick="submitFabTx()">Add Transaction</button>
+</div>
 
 <script>
 const ACTIVE_MID = "{{ active_mid }}";
@@ -5318,6 +5452,68 @@ function closeOnboarding() {
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+}
+
+// ── FAB quick-add ─────────────────────────────────────────────────────────────
+function openFab() {
+  const bd = document.getElementById('fab-backdrop');
+  const modal = document.getElementById('fab-modal');
+  // Default today's date
+  const d = new Date(), pad = n => String(n).padStart(2,'0');
+  document.getElementById('fab-date').value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  bd.classList.add('show');
+  modal.classList.add('show');
+  setTimeout(() => document.getElementById('fab-amount')?.focus(), 280);
+}
+function closeFab() {
+  document.getElementById('fab-backdrop').classList.remove('show');
+  document.getElementById('fab-modal').classList.remove('show');
+}
+function handleFabTypeChange(sel) {
+  const isOut = sel.value === 'out';
+  const isXfr = sel.value === 'xfr';
+  document.getElementById('fab-bucket-cell').style.display = isOut ? '' : 'none';
+  document.getElementById('fab-to-acct-cell').style.display = isXfr ? '' : 'none';
+}
+async function submitFabTx() {
+  const type = document.getElementById('fab-type').value;
+  const amount = evalMathExpr(document.getElementById('fab-amount').value);
+  const date = document.getElementById('fab-date').value;
+  const desc = document.getElementById('fab-desc').value.trim();
+  const accountId = document.getElementById('fab-account').value;
+  const bucketId = type === 'out' ? document.getElementById('fab-bucket').value : '';
+  const toAcctId = type === 'xfr' ? document.getElementById('fab-to-account').value : '';
+
+  if (!amount || amount <= 0) { showToast('Enter an amount.', 'warning'); return; }
+  if (!accountId) { showToast('Select an account.', 'warning'); return; }
+  if (type === 'xfr' && !toAcctId) { showToast('Select a destination account.', 'warning'); return; }
+
+  const btn = document.querySelector('#fab-modal .fab-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+
+  const result = await fetch('/api/add-transaction', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ type, date, desc, amount, account_id: accountId,
+                           bucket_id: bucketId, to_account_id: toAcctId,
+                           income_type: type === 'in' ? 'deposit' : '',
+                           active_mid: ACTIVE_MID })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Add Transaction'; }
+
+  if (result.ok) {
+    closeFab();
+    showToast('Transaction added', 'success');
+    refreshValues(result);
+    if (result.month_id === ACTIVE_MID && result.tx) injectTxRow(result.tx, result.month_id);
+    if (type === 'in' && result.month_id) await showPaydayModal(amount, result.month_id);
+    // Reset FAB fields
+    document.getElementById('fab-amount').value = '';
+    document.getElementById('fab-desc').value = '';
+  } else {
+    showToast(result.error || 'Could not add transaction.', 'error');
+  }
 }
 </script>
 {% endblock %}
