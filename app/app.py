@@ -2268,6 +2268,19 @@ def _bill_dates_in_range(due_day, pay_freq, from_date: date, to_date: date) -> l
     return sorted(dates)
 
 
+def _freq_only_dates_in_range(pay_freq: str, from_date: date, to_date: date) -> list:
+    """Occurrence dates for recurring expenses that have a frequency but no specific due day
+    (e.g. groceries $400/week). Anchors to from_date and steps forward."""
+    freq_days = {'weekly': 7, 'biweekly': 14, 'triweekly': 21}.get(pay_freq)
+    if not freq_days:
+        return []
+    dates, d = [], from_date
+    while d <= to_date:
+        dates.append(d)
+        d += timedelta(days=freq_days)
+    return dates
+
+
 _FC_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 _FC_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -2456,23 +2469,41 @@ def api_forecast():
     live_now  = _live_state(data, today_mid)
     cur_statuses = live_now.get("bucket_statuses", {})
 
-    def _bill_funded(bucket_id: str, due_amount: float, bill_date: date) -> bool:
+    # defaultBudget fallback per bucket — used as "funded" signal for future months
+    bucket_default_budget = {
+        b["id"]: float(b.get("defaultBudget") or b.get("dueAmount") or 0)
+        for b in buckets
+    }
+
+    def _bill_funded(bucket_id: str, bill_date: date) -> bool:
         mid    = _mid_for_date(bill_date)
         budget = float(monthly_budgets.get(mid, {}).get(bucket_id, 0))
         alloc  = float(monthly_allocs.get(mid, {}).get(bucket_id, 0))
-        return budget > 0 and alloc >= budget
+        if budget > 0:
+            # Have real data for this month: funded only if allocation meets budget
+            return alloc >= budget
+        # No monthly record yet (future months) — funded if bucket has a default budget set
+        return bucket_default_budget.get(bucket_id, 0) > 0
 
     def _bill_paid(bucket_id: str, bill_date: date) -> bool:
-        # Only skip if the bill was actually spent (recorded transaction) — not just funded/allocated
+        # Only skip if the bill was actually spent (recorded transaction)
         return (_mid_for_date(bill_date) == today_mid
                 and cur_statuses.get(bucket_id, "") == "PAID")
 
-    # ── Recurring bills lookup (fallback to defaultBudget if dueAmount missing)
-    recurring_bills = [
+    # ── Recurring bills: dated (have dueDay) and freq-only (payFreq, no dueDay)
+    dated_bills = [
         b for b in buckets
         if not b.get("archived")
         and b.get("recurring")
         and b.get("dueDay") is not None
+        and (b.get("dueAmount") or b.get("defaultBudget"))
+    ]
+    freq_bills = [
+        b for b in buckets
+        if not b.get("archived")
+        and b.get("recurring")
+        and b.get("dueDay") is None
+        and b.get("payFreq") in ('weekly', 'biweekly', 'triweekly')
         and (b.get("dueAmount") or b.get("defaultBudget"))
     ]
 
@@ -2534,28 +2565,32 @@ def api_forecast():
         funded_by_day:   dict = {}
         unfunded_by_day: dict = {}
 
-        # For the gap period, also include bills from earlier this month that
-        # weren't paid yet (overdue obligations still outstanding)
-        overdue_scan_start = date(today.year, today.month, 1) if is_gap else ps
-
-        for b in recurring_bills:
+        def _add_bill(b: dict, bd: date, overdue: bool = False) -> None:
+            if _bill_paid(b["id"], bd):
+                return
             amt = _bill_amount(b)
-            if amt <= 0:
+            display_date = today if (overdue and is_gap) else bd
+            funded = _bill_funded(b["id"], bd)
+            row = {"name": b["name"], "amount": amt, "overdue": overdue}
+            if funded:
+                funded_by_day.setdefault(display_date, []).append(row)
+            else:
+                unfunded_by_day.setdefault(display_date, []).append(row)
+
+        # Dated bills — in gap period also scan back to start of month for overdue
+        overdue_start = date(today.year, today.month, 1) if is_gap else ps
+        for b in dated_bills:
+            if _bill_amount(b) <= 0:
                 continue
-            scan_start = overdue_scan_start if is_gap else ps
-            for bd in _bill_dates_in_range(b["dueDay"], b.get("payFreq"), scan_start, pe):
-                # Skip bills already spent (PAID status)
-                if _bill_paid(b["id"], bd):
-                    continue
-                # In gap period, bills before today are overdue — show them on today's date
-                display_date = today if (is_gap and bd < today) else bd
-                funded = _bill_funded(b["id"], amt, bd)
-                bucket = {"name": b["name"], "amount": amt, "funded": funded,
-                          "overdue": is_gap and bd < today}
-                if funded:
-                    funded_by_day.setdefault(display_date, []).append(bucket)
-                else:
-                    unfunded_by_day.setdefault(display_date, []).append(bucket)
+            for bd in _bill_dates_in_range(b["dueDay"], b.get("payFreq"), overdue_start, pe):
+                _add_bill(b, bd, overdue=is_gap and bd < today)
+
+        # Frequency-only bills (groceries, gas, etc.) — always anchor to period start
+        for b in freq_bills:
+            if _bill_amount(b) <= 0:
+                continue
+            for bd in _freq_only_dates_in_range(b["payFreq"], ps, pe):
+                _add_bill(b, bd)
 
         # Process funded days (green section)
         funded_days = []
@@ -2581,12 +2616,14 @@ def api_forecast():
                 "run_balance": round(running_balance, 2),
             })
 
-        period_income     = sum(e["amount"] for e in income_events)
-        period_transfers  = sum(e["amount"] for e in transfer_events)
+        period_income       = sum(e["amount"] for e in income_events)
+        period_transfers    = sum(e["amount"] for e in transfer_events)
         period_vault_allocs = sum(e["amount"] for e in alloc_events if e.get("is_vault"))
-        period_funded     = sum(b["amount"] for d in funded_days for b in d["events"])
-        period_unfunded   = sum(b["amount"] for d in unfunded_days for b in d["events"])
-        period_net        = period_income - period_transfers - period_vault_allocs - period_funded - period_unfunded
+        period_cleared      = sum(b["amount"] for d in funded_days  for b in d["events"])
+        period_unfunded     = sum(b["amount"] for d in unfunded_days for b in d["events"])
+        # Net = income minus cash moves and unfunded obligations only.
+        # Funded clearings are real outflows but already handled — excluded from the pressure signal.
+        period_net          = period_income - period_transfers - period_vault_allocs - period_unfunded
 
         if is_gap or skip_income:
             label = "Pre-Paycheck Gap"
@@ -2611,7 +2648,7 @@ def api_forecast():
             "unfunded_days":          unfunded_days,
             "period_income":          round(period_income, 2),
             "period_transfers":       round(period_transfers + period_vault_allocs, 2),
-            "period_funded":          round(period_funded, 2),
+            "period_cleared":         round(period_cleared, 2),
             "period_unfunded":        round(period_unfunded, 2),
             "period_net":             round(period_net, 2),
             "end_balance":            round(running_balance, 2),

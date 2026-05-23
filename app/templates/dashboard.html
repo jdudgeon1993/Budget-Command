@@ -837,6 +837,12 @@
   color: var(--red); background: rgba(239,68,68,.15);
   border: 1px solid var(--red); border-radius: var(--r); padding: 1px 6px; margin-top: 3px;
 }
+.fc-clear-badge {
+  display: inline-block; font-family: var(--mono);
+  font-size: clamp(8px,1.2vw,9px); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--green); background: rgba(34,197,94,.12);
+  border: 1px solid var(--green); border-radius: var(--r); padding: 1px 6px; margin-top: 3px;
+}
 .fc-period-body { display: none; border-top: 1px solid var(--border); }
 .fc-period-body.open { display: block; }
 
@@ -4315,7 +4321,7 @@ async function exportCSV() {
 /* ── Plan tab ── */
 let _forecastData    = null;
 let _forecastMonths  = 2;
-let _awaitingPaycheck = true;
+let _awaitingPaycheck = false;
 let _acctChips       = {};   // id → {balance, on}
 let _useCustomBal    = false;
 let _forecastExtras  = [];   // planned expenses
@@ -4499,36 +4505,40 @@ function renderForecast(data) {
     return;
   }
 
-  const totalIncome   = periods.reduce((s,p) => s + (p.period_income||0), 0);
-  const totalBills    = periods.reduce((s,p) => s + (p.period_funded||0) + (p.period_unfunded||0), 0);
-  const totalXfr      = periods.reduce((s,p) => s + (p.period_transfers||0), 0);
+  const totalIncome    = periods.reduce((s,p) => s + (p.period_income||0), 0);
+  const totalMoves     = periods.reduce((s,p) => s + (p.period_transfers||0), 0);
+  const totalCleared   = periods.reduce((s,p) => s + (p.period_cleared||0), 0);
+  const totalUnfunded  = periods.reduce((s,p) => s + (p.period_unfunded||0), 0);
   const shortfallCount = periods.filter(p => p.shortfall).length;
-  const endBalance    = periods[periods.length-1].end_balance;
-  const s2s           = data.safe_to_spend ?? endBalance;
+  const s2s            = data.safe_to_spend ?? periods[periods.length-1]?.end_balance ?? 0;
 
   let html = `<div class="fc-summary-bar">
     <div class="fc-summary-item"><div class="fc-summary-label">Start</div><div style="color:var(--accent)">${fmtMoney(data.start_balance)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Income</div><div style="color:var(--green)">+${fmtMoney(totalIncome)}</div></div>
-    <div class="fc-summary-item"><div class="fc-summary-label">Transfers</div><div style="color:var(--amber)">−${fmtMoney(totalXfr)}</div></div>
-    <div class="fc-summary-item"><div class="fc-summary-label">Bills</div><div style="color:var(--red)">−${fmtMoney(totalBills)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Routes Out</div><div style="color:var(--amber)">−${fmtMoney(totalMoves)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Pre-Funded</div><div style="color:var(--text2)">−${fmtMoney(totalCleared)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Needs Funding</div><div style="color:${totalUnfunded>0?'var(--red)':'var(--text2)'}">−${fmtMoney(totalUnfunded)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Safe to Spend</div><div style="color:${s2s>=0?'var(--green)':'var(--red)'};font-weight:bold">${fmtMoney(s2s)}</div></div>
     ${shortfallCount > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label">Shortfalls</div><div style="color:var(--red)">${shortfallCount}</div></div>` : ''}
   </div>`;
 
   periods.forEach((p, i) => {
-    const net       = p.period_net || 0;
-    const netClass  = net >= 0 ? 'pos' : 'neg';
-    const netSign   = net >= 0 ? '+' : '';
-    const sfClass   = p.shortfall ? ' shortfall' : '';
-    const typeClass = p.type === 'gap' ? ' gap' : '';
+    // net = income minus routes-out and unfunded obligations (pressure signal)
+    // pre-funded clearings are real outflows but already handled — not counted here
+    const net        = p.period_net || 0;
+    const netClass   = net >= 0 ? 'pos' : 'neg';
+    const netSign    = net >= 0 ? '+' : '';
+    const allClear   = (p.period_unfunded || 0) === 0 && (p.period_cleared || 0) > 0 && (p.period_income || 0) > 0;
+    const sfClass    = p.shortfall ? ' shortfall' : '';
+    const typeClass  = p.type === 'gap' ? ' gap' : '';
 
     // Merge planned expenses into funded/unfunded day structure
     const plannedItems = _expandPlannedExpenses(p.start, p.end);
 
-    const hasIncome  = (p.income_events?.length||0) + (p.transfer_events?.length||0) + (p.alloc_events?.length||0) > 0;
-    const hasFunded  = (p.funded_days?.length||0) > 0;
+    const hasIncome   = (p.income_events?.length||0) + (p.transfer_events?.length||0) + (p.alloc_events?.length||0) > 0;
+    const hasFunded   = (p.funded_days?.length||0) > 0;
     const hasUnfunded = (p.unfunded_days?.length||0) > 0 || plannedItems.length > 0;
-    const hasBody    = hasIncome || hasFunded || hasUnfunded;
+    const hasBody     = hasIncome || hasFunded || hasUnfunded;
 
     html += `<div class="fc-period${sfClass}${typeClass}">
       <div class="fc-period-header" onclick="toggleFcPeriod(${i})">
@@ -4536,9 +4546,10 @@ function renderForecast(data) {
           <span class="fc-period-type">${p.label}</span>
           <span class="fc-period-dates">${p.date_range}</span>
           ${p.shortfall ? '<span class="fc-shortfall-badge">⚠ SHORTFALL</span>' : ''}
+          ${allClear ? '<span class="fc-clear-badge">✓ Pre-Funded</span>' : ''}
         </div>
         <div class="fc-period-right">
-          <span class="fc-period-net ${netClass}">${netSign}${fmtMoney(net)}</span>
+          <span class="fc-period-net ${netClass}" title="Income minus routes-out and unfunded obligations">${netSign}${fmtMoney(net)}</span>
           <span class="fc-period-bal">Bal: ${fmtMoney(p.end_balance)}</span>
         </div>
       </div>`;
@@ -4596,7 +4607,8 @@ function renderForecast(data) {
 
       // ✓ PRE-FUNDED CLEARINGS
       if (hasFunded) {
-        html += `<div class="fc-section-head funded">✓ Pre-Funded Clearings</div>`;
+        const clearedTotal = fmtMoney(p.period_cleared || 0);
+        html += `<div class="fc-section-head funded">✓ Pre-Funded Clearings <span style="opacity:.7;font-size:.85em">−${clearedTotal}</span></div>`;
         p.funded_days.forEach(day => {
           html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
           day.events.forEach(ev => {
@@ -4625,7 +4637,8 @@ function renderForecast(data) {
       }
 
       if (unfundedDays.length) {
-        html += `<div class="fc-section-head unfunded">⚠ Needs Funding</div>`;
+        const unfundedTotal = fmtMoney(p.period_unfunded || 0);
+        html += `<div class="fc-section-head unfunded">⚠ Needs Funding <span style="opacity:.7;font-size:.85em">−${unfundedTotal}</span></div>`;
         unfundedDays.forEach(day => {
           html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
           day.events.forEach(ev => {
