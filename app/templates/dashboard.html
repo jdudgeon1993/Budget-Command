@@ -2416,18 +2416,46 @@
         const _wiMid    = "{{ active_mid }}";
         </script>
         <div id="plan-whatif" style="display:none">
-          <div id="wi-banner" style="position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;flex-wrap:wrap;">
+          <!-- Scenario warning banner (shown when a saved scenario is loaded) -->
+          <div id="wi-scenario-banner" style="display:none;align-items:center;gap:8px;padding:8px 12px;background:color-mix(in srgb,var(--amber) 12%,transparent);border:1px solid var(--amber);border-radius:var(--r);margin-bottom:8px;font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);">
+            <span style="color:var(--amber);letter-spacing:.1em;">SCENARIO:</span>
+            <span class="wi-scenario-name" style="color:var(--text);font-weight:600;"></span>
+            <span style="color:var(--text3);">— edits apply to this scenario, not the real budget</span>
+            <button onclick="resetWhatIf()" style="margin-left:auto;border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:var(--r);cursor:pointer;letter-spacing:.06em;">CLEAR</button>
+          </div>
+
+          <!-- RTS summary bar -->
+          <div id="wi-banner" style="position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;flex-wrap:wrap;">
             <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Real RTS</span>
             <span id="wi-real-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);color:var(--green);"></span>
             <span style="color:var(--text3);">→</span>
             <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Sim RTS</span>
             <span id="wi-sim-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);"></span>
             <span id="wi-delta" style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);padding:2px 6px;border-radius:var(--r);background:var(--bg3);"></span>
-            <div style="margin-left:auto;display:flex;gap:6px;">
+            <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="sf-btn" onclick="saveCurrentScenario()">Save Scenario</button>
               <button class="sf-btn" onclick="resetWhatIf()">Reset</button>
               <button id="wi-apply-btn" class="sf-btn" onclick="applyWhatIf()" disabled>Apply to Month</button>
             </div>
           </div>
+
+          <!-- Saved scenarios -->
+          <div style="margin-bottom:8px;">
+            <div id="wi-scenarios-list" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px;">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No saved scenarios.</span>
+            </div>
+          </div>
+
+          <!-- Target / free-up input -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.08em;">FREE UP</span>
+            <input id="wi-target-input" type="text" inputmode="decimal" placeholder="$0.00"
+              style="width:90px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 8px;"
+              onkeydown="if(event.key==='Enter')applyWhatIfTarget()">
+            <button class="sf-btn" onclick="applyWhatIfTarget()">Apply</button>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">reduces all allocations proportionally to hit target RTS increase</span>
+          </div>
+
           <div id="whatif-content"></div>
         </div>
       </div><!-- end plan mode -->
@@ -4668,6 +4696,9 @@ function initWhatIf() {
   }
   _wiSimAllocs = {};
   _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  _loadScenarios();
+  _renderScenarioList();
+  _updateScenarioBanner();
   _renderWhatIfTable();
   computeSimRts();
 }
@@ -4745,11 +4776,116 @@ function computeSimRts() {
 }
 
 function resetWhatIf() {
+  _wiActiveScenario = null;
   _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
   _renderWhatIfTable();
   computeSimRts();
   const applyBtn = document.getElementById('wi-apply-btn');
   if (applyBtn) applyBtn.disabled = true;
+  _updateScenarioBanner();
+  _renderScenarioList();
+}
+
+/* ── What-If: Scenarios ─────────────────────────────────────────────────── */
+let _wiScenarios = [];
+let _wiActiveScenario = null;
+
+function _loadScenarios() {
+  try { _wiScenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); }
+  catch(e) { _wiScenarios = []; }
+}
+function _saveScenarios() {
+  localStorage.setItem('bcc_wi_scenarios', JSON.stringify(_wiScenarios));
+}
+function _updateScenarioBanner() {
+  const banner = document.getElementById('wi-scenario-banner');
+  if (!banner) return;
+  if (_wiActiveScenario) {
+    banner.style.display = 'flex';
+    const nameEl = banner.querySelector('.wi-scenario-name');
+    if (nameEl) nameEl.textContent = _wiActiveScenario.name;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+function _renderScenarioList() {
+  const el = document.getElementById('wi-scenarios-list');
+  if (!el) return;
+  if (!_wiScenarios.length) {
+    el.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No saved scenarios — edit allocations and click Save Scenario.</span>';
+    return;
+  }
+  const realAlloc = _wiGrand.alloc || 0;
+  el.innerHTML = _wiScenarios.map(s => {
+    const scenTotal = Object.values(s.allocations).reduce((sum, v) => sum + (v || 0), 0);
+    const rtsDelta = realAlloc - scenTotal;
+    const sign = rtsDelta >= 0 ? '+' : '';
+    const isActive = _wiActiveScenario?.id === s.id;
+    return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--r);border:1px solid ${isActive ? 'var(--accent)' : 'var(--border2)'};background:var(--bg2);cursor:pointer;margin:0 4px 4px 0;" onclick="loadScenario('${s.id}')">
+      <span style="font-family:var(--mono);font-size:11px;color:${isActive ? 'var(--accent)' : 'var(--text)'};">${s.name}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:${rtsDelta >= 0 ? 'var(--green)' : 'var(--red)'};">${sign}${fmtMoney(rtsDelta)}</span>
+      <button onclick="event.stopPropagation();deleteScenario('${s.id}')" style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;" title="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+function saveCurrentScenario() {
+  const name = prompt('Scenario name:');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  if (_wiScenarios.length >= 6 && !_wiScenarios.find(s => s.name === trimmed)) {
+    showToast('Max 6 scenarios — delete one first.', 'warning'); return;
+  }
+  const allocs = {..._wiSimAllocs};
+  const existing = _wiScenarios.find(s => s.name === trimmed);
+  if (existing) { existing.allocations = allocs; }
+  else { _wiScenarios.push({id: Date.now().toString(), name: trimmed, allocations: allocs}); }
+  _saveScenarios();
+  _renderScenarioList();
+  showToast(`Scenario "${trimmed}" saved`, 'success');
+}
+function loadScenario(id) {
+  const s = _wiScenarios.find(s => s.id === id);
+  if (!s) return;
+  _wiActiveScenario = s;
+  _wiGroups.forEach(g => g.buckets.forEach(b => {
+    _wiSimAllocs[b.id] = s.allocations[b.id] ?? b.alloc;
+  }));
+  _renderWhatIfTable();
+  computeSimRts();
+  _renderScenarioList();
+  _updateScenarioBanner();
+  const applyBtn = document.getElementById('wi-apply-btn');
+  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
+  if (applyBtn) applyBtn.disabled = !hasChanges;
+  showToast(`Loaded "${s.name}"`, 'info');
+}
+function deleteScenario(id) {
+  const s = _wiScenarios.find(s => s.id === id);
+  _wiScenarios = _wiScenarios.filter(s => s.id !== id);
+  if (_wiActiveScenario?.id === id) { _wiActiveScenario = null; _updateScenarioBanner(); }
+  _saveScenarios();
+  _renderScenarioList();
+  if (s) showToast(`Scenario "${s.name}" deleted`, 'info');
+}
+function applyWhatIfTarget() {
+  const input = document.getElementById('wi-target-input');
+  const target = evalMathExpr(input.value);
+  if (!target || target <= 0) { showToast('Enter a positive amount to free up.', 'warning'); return; }
+  const currentTotal = Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0);
+  if (currentTotal <= 0) { showToast('No allocations to reduce.', 'warning'); return; }
+  const newTotal = currentTotal - target;
+  if (newTotal < 0) { showToast('Cannot free up more than is allocated.', 'warning'); return; }
+  const scale = newTotal / currentTotal;
+  Object.keys(_wiSimAllocs).forEach(k => {
+    _wiSimAllocs[k] = Math.round(_wiSimAllocs[k] * scale * 100) / 100;
+  });
+  _renderWhatIfTable();
+  computeSimRts();
+  const applyBtn = document.getElementById('wi-apply-btn');
+  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
+  if (applyBtn) applyBtn.disabled = !hasChanges;
+  input.value = '';
+  showToast(`Freed up ${fmtMoney(target)} across all buckets`, 'success');
 }
 
 async function applyWhatIf() {
