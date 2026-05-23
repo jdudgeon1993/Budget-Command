@@ -972,6 +972,26 @@
 }
 .fc-bill-row.planned { color:var(--amber); }
 .fc-bill-row.planned .fc-bill-label { color:var(--amber); }
+/* Funded / unfunded section headers */
+.fc-section-head {
+  font-family:var(--mono); font-size:clamp(8px,1.2vw,9px); letter-spacing:.1em;
+  text-transform:uppercase; padding:4px 12px 2px;
+  border-top:1px solid var(--border2); margin-top:2px;
+}
+.fc-section-head.funded   { color:var(--green); background:rgba(34,197,94,.06); }
+.fc-section-head.unfunded { color:var(--red);   background:rgba(239,68,68,.06); }
+.fc-bill-row.funded   .fc-bill-amt { color:var(--green); }
+.fc-bill-row.unfunded .fc-bill-amt { color:var(--red); }
+.fc-balance-after-transfers {
+  display:flex; justify-content:space-between;
+  padding:4px 12px; font-family:var(--mono); font-size:clamp(9px,1.3vw,10px);
+  border-bottom:1px solid var(--border2); color:var(--text3);
+  background:var(--bg3);
+}
+.fc-balance-after-transfers span:last-child { color:var(--text2); }
+.fc-cumulative {
+  font-size:clamp(8px,1.2vw,9px); color:var(--text3); margin-left:6px;
+}
 {% endblock %}
 
 {% block content %}
@@ -983,9 +1003,17 @@
       <td class="h-spacer"></td>
       <td class="h-right">
         <div class="h-right-inner">
-          <div>
-            <div class="h-rts-label">Ready to spend</div>
-            <div class="h-rts">{{ rts|money }}</div>
+          <div style="display:flex;gap:14px;align-items:flex-end;">
+            <div>
+              <div class="h-rts-label">Ready to spend</div>
+              <div class="h-rts">{{ rts|money }}</div>
+            </div>
+            {% if aom %}
+            <div style="text-align:right;">
+              <div class="h-rts-label">Age of money</div>
+              <div class="h-rts" style="font-size:clamp(12px,2.2vw,16px);color:{% if aom >= 30 %}var(--green){% elif aom >= 14 %}var(--amber){% else %}var(--red){% endif %}">{{ aom }}d</div>
+            </div>
+            {% endif %}
           </div>
           <div class="h-user">{{ user_email }}</div>
           <a class="h-logout" href="/logout">Out</a>
@@ -4470,17 +4498,19 @@ function renderForecast(data) {
     return;
   }
 
-  // Summary bar
-  const totalIncome    = periods.reduce((s,p) => s + (p.period_income||0), 0);
-  const totalExpenses  = periods.reduce((s,p) => s + (p.period_expenses||0) + (p.period_transfers||0), 0);
+  const totalIncome   = periods.reduce((s,p) => s + (p.period_income||0), 0);
+  const totalBills    = periods.reduce((s,p) => s + (p.period_funded||0) + (p.period_unfunded||0), 0);
+  const totalXfr      = periods.reduce((s,p) => s + (p.period_transfers||0), 0);
   const shortfallCount = periods.filter(p => p.shortfall).length;
-  const endBalance     = periods[periods.length-1].end_balance;
+  const endBalance    = periods[periods.length-1].end_balance;
+  const s2s           = data.safe_to_spend ?? endBalance;
 
   let html = `<div class="fc-summary-bar">
-    <div class="fc-summary-item"><div class="fc-summary-label">Starting Balance</div><div style="color:var(--accent)">${fmtMoney(data.start_balance)}</div></div>
-    <div class="fc-summary-item"><div class="fc-summary-label">Projected Income</div><div style="color:var(--green)">${fmtMoney(totalIncome)}</div></div>
-    <div class="fc-summary-item"><div class="fc-summary-label">Projected Bills</div><div style="color:var(--amber)">${fmtMoney(totalExpenses)}</div></div>
-    <div class="fc-summary-item"><div class="fc-summary-label">End Balance</div><div style="color:${endBalance>=0?'var(--green)':'var(--red)'}">${fmtMoney(endBalance)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Start</div><div style="color:var(--accent)">${fmtMoney(data.start_balance)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Income</div><div style="color:var(--green)">+${fmtMoney(totalIncome)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Transfers</div><div style="color:var(--amber)">−${fmtMoney(totalXfr)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Bills</div><div style="color:var(--red)">−${fmtMoney(totalBills)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Safe to Spend</div><div style="color:${s2s>=0?'var(--green)':'var(--red)'};font-weight:bold">${fmtMoney(s2s)}</div></div>
     ${shortfallCount > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label">Shortfalls</div><div style="color:var(--red)">${shortfallCount}</div></div>` : ''}
   </div>`;
 
@@ -4491,18 +4521,13 @@ function renderForecast(data) {
     const sfClass   = p.shortfall ? ' shortfall' : '';
     const typeClass = p.type === 'gap' ? ' gap' : '';
 
-    // Inject planned expenses into day groups
-    const planned = _expandPlannedExpenses(p.start, p.end);
-    // Merge planned into days by date
-    const dayMap = {};
-    (p.days || []).forEach(d => { dayMap[d.date] = {label:d.label, events:[...d.events], planned:[], run_balance:d.run_balance}; });
-    planned.forEach(pe => {
-      if (!dayMap[pe.date]) dayMap[pe.date] = {label:pe.date, events:[], planned:[], run_balance: null};
-      dayMap[pe.date].planned.push(pe);
-    });
-    const allDays = Object.entries(dayMap).sort(([a],[b]) => a.localeCompare(b));
+    // Merge planned expenses into funded/unfunded day structure
+    const plannedItems = _expandPlannedExpenses(p.start, p.end);
 
-    const hasBody = (p.income_events?.length||0) + (p.transfer_events?.length||0) + (p.alloc_events?.length||0) + allDays.length > 0;
+    const hasIncome  = (p.income_events?.length||0) + (p.transfer_events?.length||0) + (p.alloc_events?.length||0) > 0;
+    const hasFunded  = (p.funded_days?.length||0) > 0;
+    const hasUnfunded = (p.unfunded_days?.length||0) > 0 || plannedItems.length > 0;
+    const hasBody    = hasIncome || hasFunded || hasUnfunded;
 
     html += `<div class="fc-period${sfClass}${typeClass}">
       <div class="fc-period-header" onclick="toggleFcPeriod(${i})">
@@ -4520,7 +4545,7 @@ function renderForecast(data) {
     if (hasBody) {
       html += `<div class="fc-period-body" id="fc-period-body-${i}">`;
 
-      // Been paid toggle (first period that can toggle)
+      // Awaiting paycheck toggle
       if (p.can_toggle_paid) {
         html += `<div class="fc-paid-toggle">
           <input type="checkbox" id="fc-been-paid" ${_awaitingPaycheck ? 'checked' : ''} onchange="toggleAwaitingPaycheck(this.checked)">
@@ -4530,42 +4555,83 @@ function renderForecast(data) {
 
       html += `<div class="fc-start-row"><span>START</span><span>${fmtMoney(p.start_balance)}</span></div>`;
 
-      // Paycheck income + external transfers
-      if (p.income_events?.length || p.transfer_events?.length) {
+      // Paycheck income
+      if (p.income_events?.length) {
         html += `<div class="fc-income-block">`;
         p.income_events.forEach(ev => {
           html += `<div class="fc-income-row"><span class="fc-income-label">💰 ${ev.label}</span><span class="fc-income-amt">+${fmtMoney(ev.amount)}</span></div>`;
         });
+        html += `</div>`;
+      }
+
+      // External transfers (deduct + cumulative)
+      if (p.transfer_events?.length) {
+        html += `<div class="fc-income-block">`;
         p.transfer_events.forEach(xfr => {
-          html += `<div class="fc-transfer-row"><span class="fc-income-label">→ ${xfr.name}</span><span class="fc-transfer-amt">−${fmtMoney(xfr.amount)}</span></div>`;
+          const cum = xfr.cumulative ? `<span class="fc-cumulative">[${fmtMoney(xfr.cumulative)} total]</span>` : '';
+          html += `<div class="fc-transfer-row"><span class="fc-income-label">→ ${xfr.name}${cum}</span><span class="fc-transfer-amt">−${fmtMoney(xfr.amount)}</span></div>`;
         });
         html += `</div>`;
       }
 
-      // Internal allocation rules
+      // Internal allocation rules (deduct + cumulative)
       if (p.alloc_events?.length) {
         html += `<div class="fc-alloc-block">`;
         p.alloc_events.forEach(ev => {
-          html += `<div class="fc-alloc-row"><span class="fc-alloc-label">→ ${ev.bucket}</span><span class="fc-alloc-amt">${fmtMoney(ev.amount)}</span></div>`;
+          const cum = ev.cumulative ? `<span class="fc-cumulative">[${fmtMoney(ev.cumulative)} saved]</span>` : '';
+          html += `<div class="fc-alloc-row"><span class="fc-alloc-label">→ ${ev.bucket}${cum}</span><span class="fc-alloc-amt">−${fmtMoney(ev.amount)}</span></div>`;
         });
         html += `</div>`;
       }
 
-      // Day groups (bills + planned expenses)
-      allDays.forEach(([dStr, day]) => {
-        if (!day.events.length && !day.planned.length) return;
-        html += `<div class="fc-day-group"><div class="fc-day-label">${day.label || dStr}</div>`;
-        day.events.forEach(ev => {
-          html += `<div class="fc-bill-row"><span class="fc-bill-label">${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+      // Running balance after transfers (only if there were any transfers)
+      if (hasIncome && (hasFunded || hasUnfunded)) {
+        html += `<div class="fc-balance-after-transfers"><span>BAL AFTER TRANSFERS</span><span>${fmtMoney(p.balance_after_transfers)}</span></div>`;
+      }
+
+      // ✓ PRE-FUNDED CLEARINGS
+      if (hasFunded) {
+        html += `<div class="fc-section-head funded">✓ Pre-Funded Clearings</div>`;
+        p.funded_days.forEach(day => {
+          html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
+          day.events.forEach(ev => {
+            html += `<div class="fc-bill-row funded"><span class="fc-bill-label">✓ ${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+          });
+          html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div></div>`;
         });
-        day.planned.forEach(ev => {
-          html += `<div class="fc-bill-row planned"><span class="fc-bill-label">📌 ${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+      }
+
+      // ⚠ NEEDS FUNDING (unfunded bills + planned expenses)
+      const unfundedDays = [...(p.unfunded_days || [])];
+      // Inject planned expenses
+      if (plannedItems.length) {
+        const planMap = {};
+        plannedItems.forEach(pe => {
+          const d = pe.date;
+          if (!planMap[d]) planMap[d] = {label: d, events: [], planned: [], run_balance: null};
+          planMap[d].planned.push(pe);
         });
-        if (day.run_balance !== null) {
-          html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div>`;
-        }
-        html += `</div>`;
-      });
+        // Merge into unfundedDays structure (simplified: append as separate day groups)
+        Object.values(planMap).sort((a,b) => a.label.localeCompare(b.label)).forEach(pd => {
+          unfundedDays.push({date: pd.label, label: pd.label, events: pd.planned.map(e => ({...e, planned: true})), run_balance: null});
+        });
+        unfundedDays.sort((a,b) => a.date.localeCompare(b.date));
+      }
+
+      if (unfundedDays.length) {
+        html += `<div class="fc-section-head unfunded">⚠ Needs Funding</div>`;
+        unfundedDays.forEach(day => {
+          html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
+          day.events.forEach(ev => {
+            const icon = ev.planned ? '📌' : '⚠';
+            html += `<div class="fc-bill-row unfunded"><span class="fc-bill-label">${icon} ${ev.name}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+          });
+          if (day.run_balance !== null) {
+            html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div>`;
+          }
+          html += `</div>`;
+        });
+      }
 
       const endAmtClass = p.end_balance < 0 ? ' negative' : '';
       html += `<div class="fc-end-row"><span class="fc-end-label">END</span><span class="fc-end-amt${endAmtClass}">${fmtMoney(p.end_balance)}</span></div>`;
@@ -4577,7 +4643,6 @@ function renderForecast(data) {
 
   el.innerHTML = html;
 
-  // Auto-open first period + shortfall periods
   periods.forEach((p, i) => {
     if (p.shortfall || i === 0) {
       const body = document.getElementById('fc-period-body-' + i);
