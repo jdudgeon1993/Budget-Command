@@ -2197,6 +2197,60 @@
           {% endfor %}
           </tbody>
         </table>
+
+        {% if debt_accounts_display %}
+        <!-- Debt Projector -->
+        <div style="margin-top:16px;">
+          <div style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Payoff Projector</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="col-name">Account</th>
+                <th class="col-amount">Balance</th>
+                <th class="col-amount col-m-hide">Monthly Payment</th>
+                <th class="col-amount">Est. Payoff</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for a in debt_accounts_display %}
+            {% if a.balance > 0 %}
+            {% set monthly = a.debt_min_payment|float if a.debt_min_payment else 0 %}
+            {% set apr = a.debt_apr|float if a.debt_apr else 0 %}
+            {% if monthly > 0 %}
+              {% if apr > 0 %}
+                {# Amortization: months = -log(1 - bal*r/pmt) / log(1+r), r = apr/12/100 #}
+                {# Approximate in Jinja — we'll do this client-side #}
+                {% set months_est = (a.balance / monthly)|round(0,'ceil')|int %}
+              {% else %}
+                {% set months_est = (a.balance / monthly)|round(0,'ceil')|int %}
+              {% endif %}
+              <tr>
+                <td class="col-name"><span class="acct-color-dot" style="background:{{ a.color }}"></span>{{ a.name }}</td>
+                <td class="col-amount" style="color:var(--red)">{{ a.balance|money }}</td>
+                <td class="col-amount col-m-hide" style="color:var(--text3)">{{ monthly|money }}/mo</td>
+                <td class="col-amount debt-proj-payoff"
+                    data-balance="{{ a.balance }}"
+                    data-monthly="{{ monthly }}"
+                    data-apr="{{ apr }}"
+                    style="color:var(--amber);font-family:var(--mono);font-size:clamp(11px,1.7vw,12px)">
+                  — mo
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td class="col-name"><span class="acct-color-dot" style="background:{{ a.color }}"></span>{{ a.name }}</td>
+                <td class="col-amount" style="color:var(--red)">{{ a.balance|money }}</td>
+                <td class="col-amount col-m-hide" style="color:var(--text3);">—</td>
+                <td class="col-amount" style="color:var(--text3);font-family:var(--mono);font-size:11px;">Set min payment</td>
+              </tr>
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
       </div>
 
       <!-- ── Internal Savings (Vaults) section ── -->
@@ -5465,6 +5519,44 @@ async function sendCoachMessage(text) {
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
+// ── Debt payoff projector ─────────────────────────────────────────────────────
+(function computeDebtPayoff() {
+  document.querySelectorAll('.debt-proj-payoff').forEach(cell => {
+    const balance = parseFloat(cell.dataset.balance) || 0;
+    const monthly = parseFloat(cell.dataset.monthly) || 0;
+    const apr     = parseFloat(cell.dataset.apr)     || 0;
+    if (!balance || !monthly) return;
+
+    let months;
+    if (apr > 0) {
+      const r = apr / 100 / 12;
+      // Amortization: if pmt <= interest, never pays off
+      if (monthly <= balance * r) {
+        cell.textContent = 'Never (pay more)';
+        cell.style.color = 'var(--red)';
+        return;
+      }
+      months = Math.ceil(-Math.log(1 - balance * r / monthly) / Math.log(1 + r));
+    } else {
+      months = Math.ceil(balance / monthly);
+    }
+
+    const payoffDate = new Date();
+    payoffDate.setMonth(payoffDate.getMonth() + months);
+    const yr = payoffDate.getFullYear();
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][payoffDate.getMonth()];
+
+    if (months > 360) {
+      cell.textContent = '30+ years';
+      cell.style.color = 'var(--red)';
+    } else if (months === 1) {
+      cell.textContent = '1 month (' + mo + ' ' + yr + ')';
+    } else {
+      cell.textContent = months + ' mo (' + mo + ' ' + yr + ')';
+    }
+  });
+})();
+
 // ── Spending pace indicators ──────────────────────────────────────────────────
 (function initPaceBars() {
   const today = new Date();
