@@ -40,23 +40,47 @@ payday modal, vault/rollover logic, debt payment flows.
 - RTS in reports fixed to use `_rts_now(data)` (same formula as banner)
 - Moved into More tab (alongside Accounts, Settings) — removed standalone nav tab
 
-## 🔲 Phase 14: Plan tab — Forecast + What-If (More → Plan)
+## ✅ Phase 14A: Paycheck Forecast (More → Plan)
+Week-by-week cash flow projection anchored to real paycheck schedules.
 
-### 14A: Paycheck Forecast (highest priority)
-Week-by-week cash flow projection based on real paycheck schedules and recurring bills.
-- `/api/forecast?months=N`: projects N months forward from today (2/3/6/12/eoy)
-- Paycheck schedule engine: `anchorDate` + `freq` (7/14/15/30) → exact future pay dates
-  - `freq=15` = semi-monthly (always 1st and 15th, NOT every 15 days)
-  - `freq=7/14` = walk from anchor in N-day steps
-  - `freq=30` = same day each month as anchor
-- Recurring bill engine: buckets with `recurring=true`, `dueDay`, `dueAmount`, `payFreq`
-- External transfer rules (`ruleType="external"`) shown as outflows on pay dates
-- Each week shows: paychecks in (green), bills out (red/amber), net, running balance
-- SHORTFALL weeks flagged in red when running balance < 0
-- "Add hypothetical" — test new expense or income without saving (e.g. new mortgage)
-- Time range selector: 2 mo / 3 mo / 6 mo / 12 mo / End of Year
+### Engine
+- `/api/forecast?months=N`: projects N months forward; range selector 2/3/6/12/eoy
+- Paycheck schedule: `anchorDate` + `freq` (7=weekly, 14=biweekly, 15=semi-monthly, 30=monthly)
+  - `freq=15` = always 1st and 15th, NOT every 15 days
+  - Ceiling-division fast-forward so ancient anchors don't triple-generate dates
+- Pre-paycheck gap period: today → day before first upcoming paycheck
+- Bill engine: two pools pulled automatically — no `recurring` flag required
+  - **Dated bills**: any bucket with `dueDay` + amount → calendar-anchored deductions
+  - **Freq-only bills**: bucket with `payFreq` + amount, no `dueDay` → spending-rate
+    deductions (gas, groceries); anchored to period start, weekly/biweekly/monthly
+- Overdue detection: gap period scans back to month start for unpaid bills
+- Funded check: current month uses real `bBudget`/`bAlloc` data; future months fall
+  back to `defaultBudget > 0` as the funded signal (no more all-red projections)
+- Internal alloc rules: only vault-type buckets deduct from balance; expense rules
+  are informational (earmarked, no cash movement)
+- Age of Money: 14-day average balance ÷ 90-day average daily spend
 
-### 14B: What-If Sandbox
+### Period math
+- `period_net` = income − routes-out − **unfunded** obligations only
+  Pre-funded clearings are real outflows but already handled — excluded from pressure signal
+- `period_cleared` = total of pre-funded bill clearings (shown separately)
+- Per-period forward minimum Safe to Spend: `min(end_balance[i:])`
+  with 🟢🟡🔴 dot indicator at bottom of each expanded card
+- ✓ Pre-Funded badge on period header when all obligations are covered
+
+### UI
+- Summary bar: Start | Income | Routes Out | Pre-Funded | Needs Funding | Safe to Spend
+- Account balance chip selector (multi-select or custom amount)
+- "Awaiting paycheck" toggle — hides income on first period if not yet received
+- Planned expenses overlay (client-side, per-period injection)
+- Expandable period cards; shortfall and first period auto-open
+
+### Removals / fixes
+- Removed `recurring` checkbox from bucket editor — intent is expressed by the fields themselves
+- Removed `@media (max-width: 640px)` column-hiding rules — consistent layout at all sizes,
+  `clamp()` font scaling throughout
+
+## 🔲 Phase 14B: What-If Sandbox
 Scratch copy of the current month's bucket table — no server saves.
 - Editable allocations update a "Simulated RTS" banner live (client-side math)
 - Uses existing `bucket_rollover` + `bucket_spent` from liveState for accuracy
