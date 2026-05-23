@@ -2292,22 +2292,46 @@ def _mid_for_date(d: date) -> str:
 
 
 def _age_of_money(data: dict):
-    """Days of cash on hand at current 30-day spending rate. Returns int or None."""
+    """14-day avg balance divided by 90-day avg daily spend. Returns int or None."""
     accounts = data.get("accounts", [])
     txs      = data.get("txs", [])
     today_d  = date.today()
-    ago30    = today_d - timedelta(days=30)
-    cash = sum(acct_balance(a, txs) for a in accounts
-               if a.get("type") != "debt" and not a.get("archived"))
-    spent_30 = sum(
+    ago90    = today_d - timedelta(days=90)
+
+    current_cash = sum(acct_balance(a, txs) for a in accounts
+                       if a.get("type") != "debt" and not a.get("archived"))
+
+    # Net transaction impact per date (positive = in, negative = out)
+    tx_net_by_date: dict = {}
+    for t in txs:
+        try:
+            t_date = date.fromisoformat(t.get("date", ""))
+        except (ValueError, TypeError):
+            continue
+        amount = float(t.get("amount", 0))
+        sign = 1 if t.get("type") == "in" else -1
+        tx_net_by_date[t_date] = tx_net_by_date.get(t_date, 0.0) + sign * amount
+
+    # Reconstruct end-of-day balances for past 14 days by walking backward from today
+    daily_balances = []
+    cumulative_undo = 0.0
+    for i in range(15):  # 0 = today, 14 = 14 days ago
+        if i > 0:
+            cumulative_undo += tx_net_by_date.get(today_d - timedelta(days=i - 1), 0.0)
+        daily_balances.append(current_cash - cumulative_undo)
+
+    avg_14 = sum(daily_balances) / len(daily_balances)
+
+    spent_90 = sum(
         float(t.get("amount", 0)) for t in txs
         if t.get("type") == "out"
         and not is_scheduled(t)
-        and str(ago30) <= t.get("date", "") <= str(today_d)
+        and str(ago90) <= t.get("date", "") <= str(today_d)
     )
-    if spent_30 == 0:
+    avg_daily_90 = spent_90 / 90.0
+    if avg_daily_90 < 0.01:
         return None
-    return round(cash / (spent_30 / 30))
+    return round(avg_14 / avg_daily_90)
 
 
 # ── API: forecast ─────────────────────────────────────────────────────────────
@@ -2368,9 +2392,10 @@ def api_forecast():
         end_date = date(y, m, _cal.monthrange(y, m)[1])
 
     # ── Build pay_events: date → [paycheck dicts] ──────────────────────────
-    external_rules = [r for r in alloc_rules if r.get("ruleType") == "external" and r.get("active", True)]
-    internal_rules = [r for r in alloc_rules if r.get("ruleType") != "external" and r.get("active", True) and r.get("bucketId")]
+    external_rules  = [r for r in alloc_rules if r.get("ruleType") == "external" and r.get("active", True)]
+    internal_rules  = [r for r in alloc_rules if r.get("ruleType") != "external" and r.get("active", True) and r.get("bucketId")]
     bucket_name_map = {b["id"]: b["name"] for b in buckets}
+    bucket_type_map = {b["id"]: b.get("type", "expense") for b in buckets}
 
     pay_events: dict = {}  # date → list of paycheck hit dicts
     for pc in paychecks:
@@ -2392,8 +2417,10 @@ def api_forecast():
                     computed = round(pc_amount * rule["value"] / 100, 2)
                 else:
                     computed = float(rule["value"])
-                bucket_name = bucket_name_map.get(rule["bucketId"], rule.get("name", ""))
-                alloc_events.append({"bucket": bucket_name, "amount": computed})
+                bid = rule["bucketId"]
+                bucket_name = bucket_name_map.get(bid, rule.get("name", ""))
+                is_vault = bucket_type_map.get(bid, "expense") == "vault"
+                alloc_events.append({"bucket": bucket_name, "bucket_id": bid, "amount": computed, "is_vault": is_vault})
             pay_events[pd].append({
                 "label":        pc["label"],
                 "amount":       float(pc["amount"]),
@@ -2420,8 +2447,9 @@ def api_forecast():
             periods_meta.append((pd, pe, False))
 
     # ── Monthly allocation data for funded status ───────────────────────────
-    months_list   = data.get("months", [])
-    monthly_allocs = {m.get("id", ""): m.get("allocations", {}) for m in months_list}
+    months_list      = data.get("months", [])
+    monthly_allocs   = {m.get("id", ""): m.get("allocations", {}) for m in months_list}
+    monthly_budgets  = {m.get("id", ""): m.get("budgets", {}) for m in months_list}
 
     # Current month bucket statuses (for PAID detection in gap period)
     today_mid = _mid_for_date(today)
@@ -2429,8 +2457,10 @@ def api_forecast():
     cur_statuses = live_now.get("bucket_statuses", {})
 
     def _bill_funded(bucket_id: str, due_amount: float, bill_date: date) -> bool:
-        mid = _mid_for_date(bill_date)
-        return float(monthly_allocs.get(mid, {}).get(bucket_id, 0)) >= due_amount
+        mid    = _mid_for_date(bill_date)
+        budget = float(monthly_budgets.get(mid, {}).get(bucket_id, 0))
+        alloc  = float(monthly_allocs.get(mid, {}).get(bucket_id, 0))
+        return budget > 0 and alloc >= budget
 
     def _bill_paid(bucket_id: str, bill_date: date) -> bool:
         return (_mid_for_date(bill_date) == today_mid
@@ -2483,15 +2513,17 @@ def api_forecast():
                             "cumulative": rule_cumulative[xfr["name"]],
                         })
 
-                    # Internal allocation rules — deduct AND track cumulative
+                    # Internal allocation rules — only vault buckets move cash
                     for ae in pc_hit.get("alloc_events", []):
-                        running_balance -= ae["amount"]
+                        if ae.get("is_vault"):
+                            running_balance -= ae["amount"]
                         rule_cumulative[ae["bucket"]] = round(
                             rule_cumulative.get(ae["bucket"], 0) + ae["amount"], 2)
                         alloc_events.append({
                             "bucket":     ae["bucket"],
                             "amount":     ae["amount"],
                             "cumulative": rule_cumulative[ae["bucket"]],
+                            "is_vault":   ae.get("is_vault", False),
                         })
 
         # Record balance after income/transfers (before bills)
@@ -2540,12 +2572,12 @@ def api_forecast():
                 "run_balance": round(running_balance, 2),
             })
 
-        period_income    = sum(e["amount"] for e in income_events)
-        period_transfers = sum(e["amount"] for e in transfer_events)
-        period_allocs    = sum(e["amount"] for e in alloc_events)
-        period_funded    = sum(b["amount"] for d in funded_days for b in d["events"])
-        period_unfunded  = sum(b["amount"] for d in unfunded_days for b in d["events"])
-        period_net       = period_income - period_transfers - period_allocs - period_funded - period_unfunded
+        period_income     = sum(e["amount"] for e in income_events)
+        period_transfers  = sum(e["amount"] for e in transfer_events)
+        period_vault_allocs = sum(e["amount"] for e in alloc_events if e.get("is_vault"))
+        period_funded     = sum(b["amount"] for d in funded_days for b in d["events"])
+        period_unfunded   = sum(b["amount"] for d in unfunded_days for b in d["events"])
+        period_net        = period_income - period_transfers - period_vault_allocs - period_funded - period_unfunded
 
         if is_gap or skip_income:
             label = "Pre-Paycheck Gap"
@@ -2569,7 +2601,7 @@ def api_forecast():
             "funded_days":            funded_days,
             "unfunded_days":          unfunded_days,
             "period_income":          round(period_income, 2),
-            "period_transfers":       round(period_transfers + period_allocs, 2),
+            "period_transfers":       round(period_transfers + period_vault_allocs, 2),
             "period_funded":          round(period_funded, 2),
             "period_unfunded":        round(period_unfunded, 2),
             "period_net":             round(period_net, 2),
@@ -2578,7 +2610,17 @@ def api_forecast():
             "can_toggle_paid":        is_first_paycheck_today,
         })
 
-    safe_to_spend = min((p["end_balance"] for p in period_results), default=budget_bal)
+    # Per-period forward minimum: safe_to_spend[i] = min(end_balance[i], end_balance[i+1], ...)
+    end_balances = [p["end_balance"] for p in period_results]
+    running_min  = float("inf")
+    fwd_mins     = [0.0] * len(period_results)
+    for i in range(len(period_results) - 1, -1, -1):
+        running_min = min(running_min, end_balances[i])
+        fwd_mins[i] = running_min
+    for i, p in enumerate(period_results):
+        p["safe_to_spend"] = round(fwd_mins[i], 2)
+
+    safe_to_spend = fwd_mins[0] if fwd_mins else budget_bal
 
     return jsonify({
         "ok":               True,

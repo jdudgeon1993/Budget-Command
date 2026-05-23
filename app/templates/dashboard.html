@@ -980,6 +980,7 @@
 }
 .fc-section-head.funded   { color:var(--green); background:rgba(34,197,94,.06); }
 .fc-section-head.unfunded { color:var(--red);   background:rgba(239,68,68,.06); }
+.fc-s2s-row { display:flex;align-items:center;gap:6px;padding:8px 12px;margin-top:4px;font-size:13px;border-top:1px solid var(--border);color:var(--text2); }
 .fc-bill-row.funded   .fc-bill-amt { color:var(--green); }
 .fc-bill-row.unfunded .fc-bill-amt { color:var(--red); }
 .fc-balance-after-transfers {
@@ -4574,12 +4575,16 @@ function renderForecast(data) {
         html += `</div>`;
       }
 
-      // Internal allocation rules (deduct + cumulative)
+      // Internal allocation rules (vault = cash moves; non-vault = informational)
       if (p.alloc_events?.length) {
         html += `<div class="fc-alloc-block">`;
         p.alloc_events.forEach(ev => {
-          const cum = ev.cumulative ? `<span class="fc-cumulative">[${fmtMoney(ev.cumulative)} saved]</span>` : '';
-          html += `<div class="fc-alloc-row"><span class="fc-alloc-label">→ ${ev.bucket}${cum}</span><span class="fc-alloc-amt">−${fmtMoney(ev.amount)}</span></div>`;
+          const cum    = ev.cumulative ? `<span class="fc-cumulative">[${fmtMoney(ev.cumulative)} total]</span>` : '';
+          const prefix = ev.is_vault ? '→ ' : '≈ ';
+          const amtStr = ev.is_vault
+            ? `<span class="fc-alloc-amt">−${fmtMoney(ev.amount)}</span>`
+            : `<span class="fc-alloc-amt" style="color:var(--text3)">${fmtMoney(ev.amount)}</span>`;
+          html += `<div class="fc-alloc-row"><span class="fc-alloc-label">${prefix}${ev.bucket}${cum}</span>${amtStr}</div>`;
         });
         html += `</div>`;
       }
@@ -4635,6 +4640,15 @@ function renderForecast(data) {
 
       const endAmtClass = p.end_balance < 0 ? ' negative' : '';
       html += `<div class="fc-end-row"><span class="fc-end-label">END</span><span class="fc-end-amt${endAmtClass}">${fmtMoney(p.end_balance)}</span></div>`;
+
+      // Per-period Safe to Spend (forward minimum)
+      if (p.safe_to_spend !== undefined) {
+        const s2sVal  = p.safe_to_spend;
+        const s2sDot  = s2sVal >= 500 ? '🟢' : s2sVal > 0 ? '🟡' : '🔴';
+        const s2sClr  = s2sVal >= 0 ? 'var(--green)' : 'var(--red)';
+        html += `<div class="fc-s2s-row">${s2sDot} Safe to Spend from here: <span style="color:${s2sClr};font-weight:600">${fmtMoney(s2sVal)}</span></div>`;
+      }
+
       html += `</div>`;
     }
 
