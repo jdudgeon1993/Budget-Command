@@ -2379,7 +2379,19 @@
   <!-- Coach panel -->
   <div id="panel-coach" class="panel">
     <div class="panel-container">
-      <p style="color:var(--text3); font-family:var(--mono); font-size:12px; padding:20px 4px;">Coach AI — coming soon</p>
+      <div class="coach-header">Coach AI</div>
+      <div class="coach-messages" id="coach-messages">
+        <div id="coach-starters" class="coach-starters">
+          <button class="coach-starter" onclick="sendCoachMessage('How am I doing this month?')">How am I doing this month?</button>
+          <button class="coach-starter" onclick="sendCoachMessage('Where am I overspending?')">Where am I overspending?</button>
+          <button class="coach-starter" onclick="sendCoachMessage('What should I focus on?')">What should I focus on?</button>
+        </div>
+      </div>
+      <div class="coach-input-row">
+        <input id="coach-input" type="text" placeholder="Ask about your budget..."
+          onkeydown="if(event.key==='Enter')sendCoachMessage()">
+        <button class="sf-btn" onclick="sendCoachMessage()">Send</button>
+      </div>
     </div>
   </div>
 
@@ -2429,6 +2441,30 @@
     </div>
   </div>
 </div>
+
+{% if paychecks|length == 0 %}
+<!-- Onboarding modal -->
+<div id="onboard-backdrop" class="onboard-backdrop">
+  <div class="onboard-modal">
+    <h2>Welcome to Budget Command</h2>
+    <ul class="onboard-steps">
+      <li>
+        <div class="onboard-step-num">1</div>
+        <div>Add your accounts — checking, savings, and any debt accounts.</div>
+      </li>
+      <li>
+        <div class="onboard-step-num">2</div>
+        <div>Set up your paycheck schedule so the forecast knows when money arrives.</div>
+      </li>
+      <li>
+        <div class="onboard-step-num">3</div>
+        <div>Build your budget categories and allocate funds to each bucket.</div>
+      </li>
+    </ul>
+    <button class="sf-btn" style="width:100%;padding:10px;" onclick="closeOnboarding()">Get Started</button>
+  </div>
+</div>
+{% endif %}
 
 <!-- Bottom nav -->
 <nav class="bottom-nav">
@@ -4418,6 +4454,119 @@ function showPlanTab(name, btn) {
   });
   document.querySelectorAll('#more-mode-plan .acct-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (name === 'whatif') initWhatIf();
+}
+
+let _wiSimAllocs = {};
+
+function initWhatIf() {
+  if (!_wiGroups || !_wiGroups.length) {
+    document.getElementById('whatif-content').innerHTML = '<p style="color:var(--text3);font-family:var(--mono);font-size:11px;padding:20px 4px;">No budget categories found.</p>';
+    return;
+  }
+  _wiSimAllocs = {};
+  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  _renderWhatIfTable();
+  computeSimRts();
+}
+
+function _renderWhatIfTable() {
+  const el = document.getElementById('whatif-content');
+  let html = '<table class="data-table" style="width:100%"><thead><tr>'
+    + '<th style="text-align:left;">Bucket</th>'
+    + '<th style="text-align:right;">Budget</th>'
+    + '<th style="text-align:right;color:var(--text3);">Alloc</th>'
+    + '<th style="text-align:right;">Sim Alloc</th>'
+    + '<th style="text-align:right;">Δ Avail</th>'
+    + '</tr></thead><tbody>';
+  _wiGroups.forEach(g => {
+    html += `<tr><td colspan="5" style="padding:8px 4px 4px;font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);">${g.name}</td></tr>`;
+    g.buckets.forEach(b => {
+      const simAlloc = _wiSimAllocs[b.id] ?? b.alloc;
+      const delta = simAlloc - b.alloc;
+      const deltaColor = delta > 0 ? 'var(--red)' : delta < 0 ? 'var(--green)' : 'var(--text3)';
+      const deltaStr = delta === 0 ? '—' : (delta > 0 ? '+' : '') + fmtMoney(delta);
+      html += `<tr>
+        <td style="padding:4px;">${b.name}</td>
+        <td style="text-align:right;padding:4px;">${fmtMoney(b.budget)}</td>
+        <td style="text-align:right;padding:4px;color:var(--text3);">${fmtMoney(b.alloc)}</td>
+        <td style="text-align:right;padding:4px;">
+          <input type="number" class="wi-input${simAlloc !== b.alloc ? ' changed' : ''}"
+            data-bid="${b.id}" data-real="${b.alloc}"
+            value="${simAlloc.toFixed(2)}" step="0.01" min="0"
+            oninput="onWiInput(this)">
+        </td>
+        <td style="text-align:right;padding:4px;color:${deltaColor};">${deltaStr}</td>
+      </tr>`;
+    });
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function onWiInput(input) {
+  const bid = input.dataset.bid;
+  const real = parseFloat(input.dataset.real) || 0;
+  const val = parseFloat(input.value) || 0;
+  _wiSimAllocs[bid] = val;
+  input.classList.toggle('changed', val !== real);
+  computeSimRts();
+  const applyBtn = document.getElementById('wi-apply-btn');
+  const hasChanges = Object.keys(_wiSimAllocs).some(k => {
+    const g = _wiGroups.find(g => g.buckets.find(b => b.id === k));
+    const b = g && g.buckets.find(b => b.id === k);
+    return b && _wiSimAllocs[k] !== b.alloc;
+  });
+  if (applyBtn) applyBtn.disabled = !hasChanges;
+}
+
+function computeSimRts() {
+  const realTotalAlloc = _wiGrand.alloc || 0;
+  const simTotalAlloc = Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0);
+  const simRts = _wiRts + realTotalAlloc - simTotalAlloc;
+  const delta = simRts - _wiRts;
+
+  const realEl  = document.getElementById('wi-real-rts');
+  const simEl   = document.getElementById('wi-sim-rts');
+  const deltaEl = document.getElementById('wi-delta');
+
+  if (realEl) realEl.textContent = fmtMoney(_wiRts);
+  if (simEl) {
+    simEl.textContent = fmtMoney(simRts);
+    simEl.style.color = simRts >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+  if (deltaEl) {
+    const sign = delta >= 0 ? '+' : '';
+    deltaEl.textContent = sign + fmtMoney(delta);
+    deltaEl.style.color = delta >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+}
+
+function resetWhatIf() {
+  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  _renderWhatIfTable();
+  computeSimRts();
+  const applyBtn = document.getElementById('wi-apply-btn');
+  if (applyBtn) applyBtn.disabled = true;
+}
+
+async function applyWhatIf() {
+  const changed = [];
+  _wiGroups.forEach(g => g.buckets.forEach(b => {
+    if (_wiSimAllocs[b.id] !== b.alloc) changed.push({id: b.id, value: _wiSimAllocs[b.id]});
+  }));
+  if (!changed.length) return;
+  const applyBtn = document.getElementById('wi-apply-btn');
+  if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying...'; }
+  for (const ch of changed) {
+    await fetch('/api/update-setting', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, mid: _wiMid}),
+    });
+  }
+  if (applyBtn) applyBtn.textContent = 'Apply to Month';
+  window.location.reload();
 }
 
 function setForecastRange(months, btn) {
@@ -4767,6 +4916,60 @@ function renderForecast(data) {
 function toggleFcPeriod(i) {
   const body = document.getElementById('fc-period-body-' + i);
   if (body) body.classList.toggle('open');
+}
+
+// ── Coach AI ──────────────────────────────────────────────────────────────────
+let _coachHistory = [];
+
+function _coachAppend(role, text) {
+  const msgs = document.getElementById('coach-messages');
+  const starters = document.getElementById('coach-starters');
+  if (starters) starters.remove();
+  const div = document.createElement('div');
+  div.className = 'coach-msg ' + (role === 'user' ? 'user' : 'coach');
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function sendCoachMessage(text) {
+  const input = document.getElementById('coach-input');
+  const msg = (text || (input && input.value.trim()) || '').trim();
+  if (!msg) return;
+  if (input) input.value = '';
+  _coachAppend('user', msg);
+  const thinking = _coachAppend('coach', 'Thinking...');
+  thinking.style.color = 'var(--text3)';
+  try {
+    const res = await fetch('/api/coach', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg, history: _coachHistory}),
+    });
+    const data = await res.json();
+    thinking.remove();
+    const reply = data.reply || data.error || 'No response.';
+    _coachAppend('coach', reply);
+    _coachHistory.push({role: 'user', content: msg});
+    _coachHistory.push({role: 'assistant', content: reply});
+  } catch(e) {
+    thinking.textContent = 'Error reaching coach.';
+  }
+}
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+function closeOnboarding() {
+  const el = document.getElementById('onboard-backdrop');
+  if (el) el.remove();
+  showPanel('more', document.querySelector('.nav-tab[onclick*="more"]'));
+  showMoreMode('settings', document.querySelector('.more-mode-tab[onclick*="settings"]'));
+  showSettingsTab('paychecks', document.querySelector('.acct-tab[onclick*="paychecks"]'));
+}
+
+// ── Service Worker ────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/sw.js').catch(() => {});
 }
 </script>
 {% endblock %}
