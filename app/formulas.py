@@ -258,18 +258,16 @@ def ready_to_spend(
     bb = budget_bal(accounts, transactions)
     active_buckets = [b for b in buckets if not b.get("archived")]
 
+    def _claimed(b: dict) -> float:
+        if b.get("type") == "vault":
+            return vault_accumulated(b["id"], all_months)
+        return max(0.0, bucket_available(b, active_month, all_months, transactions))
+
     if status == "past":
-        unfulfilled = sum(
-            max(0.0, bucket_available(b, active_month, all_months, transactions))
-            for b in active_buckets
-        )
-        return bb - unfulfilled
+        return bb - sum(_claimed(b) for b in active_buckets)
 
     # Current or future month — full formula
-    cur_claimed = sum(
-        max(0.0, bucket_available(b, active_month, all_months, transactions))
-        for b in active_buckets
-    )
+    cur_claimed = sum(_claimed(b) for b in active_buckets)
 
     future_months = months_after(mid, all_months)
 
