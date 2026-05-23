@@ -1,8 +1,9 @@
 import os
 import traceback
+import collections
+import time as _time
 from datetime import date, timedelta
 import calendar as _cal
-import anthropic
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -16,6 +17,11 @@ MONTH_NAMES = ["January","February","March","April","May","June",
                "July","August","September","October","November","December"]
 
 load_dotenv()
+
+# ── Coach AI rate limit state (15 RPM, 1500 RPD) ─────────────────────────────
+_coach_rpm_times = collections.deque()  # timestamps of recent requests
+_coach_rpd_count = 0
+_coach_rpd_date = None
 
 app = Flask(__name__)
 app.secret_key = os.environ["FLASK_SECRET_KEY"]
@@ -2695,18 +2701,41 @@ def api_forecast():
 
 @app.route("/api/coach", methods=["POST"])
 def api_coach():
+    global _coach_rpm_times, _coach_rpd_count, _coach_rpd_date
+
     if not logged_in():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
     if not api_key:
-        return jsonify({"ok": False, "error": "Coach AI is not configured (missing API key)."}), 503
+        return jsonify({'error': 'Coach AI is not configured.'}), 200
 
-    body    = request.get_json(silent=True) or {}
-    message = (body.get("message") or "").strip()
-    history = body.get("history") or []
-    if not message:
-        return jsonify({"ok": False, "error": "No message provided"}), 400
+    # Rate limiting: 15 RPM, 1500 RPD
+    now = _time.time()
+    today = _time.strftime('%Y-%m-%d')
+
+    # RPD reset
+    if _coach_rpd_date != today:
+        _coach_rpd_date = today
+        _coach_rpd_count = 0
+
+    # RPM: keep only last 60s
+    while _coach_rpm_times and now - _coach_rpm_times[0] > 60:
+        _coach_rpm_times.popleft()
+
+    if _coach_rpd_count >= 1500:
+        return jsonify({'error': 'Daily limit reached. Try again tomorrow.'}), 200
+    if len(_coach_rpm_times) >= 15:
+        return jsonify({'error': 'Too many requests. Wait a moment and try again.'}), 200
+
+    _coach_rpm_times.append(now)
+    _coach_rpd_count += 1
+
+    body = request.get_json(silent=True) or {}
+    user_msg = (body.get('message') or '').strip()
+    history = body.get('history') or []
+    if not user_msg:
+        return jsonify({'error': 'No message.'}), 200
 
     uid, tok = _uid(), _tok()
     data = _load(uid, tok)
@@ -2741,10 +2770,8 @@ def api_coach():
         if b.get("type") == "vault":
             continue
         bid    = b["id"]
-        alloc  = b_alloc(cur_month, bid)
-        budget = b_budget(cur_month, bid)
         spent  = b_spent(cur_mid, bid, txs)
-        avail  = bucket_available(b, cur_month, all_months, txs)
+        budget = b_budget(cur_month, bid)
         if budget > 0 and spent > budget:
             over_budget.append((b.get("name","?"), spent - budget, spent, budget))
         if spent > 0:
@@ -2763,7 +2790,7 @@ def api_coach():
 
     aom_str = f"{aom_val} days" if aom_val is not None else "unknown"
 
-    system_prompt = f"""You are a friendly, concise personal finance coach inside the Budget Command app.
+    ctx = f"""You are a friendly, concise personal finance coach inside the Budget Command app.
 
 Current budget snapshot ({cur_mid}):
 - Ready to Spend (RTS): ${rts_val:,.2f}
@@ -2781,18 +2808,33 @@ Top 5 buckets by spending this month:
 
 Give practical, specific advice based on these numbers. Be brief and conversational. Do not fabricate numbers not shown above."""
 
-    messages = [{"role": r["role"], "content": r["content"]} for r in history if r.get("role") and r.get("content")]
-    messages.append({"role": "user", "content": message})
+    from google import genai
+    from google.genai import types
 
-    client = anthropic.Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
-        system=system_prompt,
-        messages=messages,
-    )
-    reply = response.content[0].text
-    return jsonify({"ok": True, "reply": reply})
+    client = genai.Client(api_key=api_key)
+
+    # Build conversation contents
+    contents = []
+    for h in history[-10:]:  # last 10 turns
+        role = 'user' if h.get('role') == 'user' else 'model'
+        contents.append(types.Content(role=role, parts=[types.Part(text=h.get('content', ''))]))
+    contents.append(types.Content(role='user', parts=[types.Part(text=user_msg)]))
+
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=ctx,
+                max_output_tokens=512,
+                temperature=0.7,
+            )
+        )
+        reply = response.text or 'No response.'
+    except Exception as e:
+        return jsonify({'error': 'Coach unavailable: ' + str(e)[:80]}), 200
+
+    return jsonify({'reply': reply})
 
 
 if __name__ == "__main__":
