@@ -2339,7 +2339,7 @@ def _age_of_money(data: dict):
     # Reconstruct end-of-day balances for past 14 days by walking backward from today
     daily_balances = []
     cumulative_undo = 0.0
-    for i in range(15):  # 0 = today, 14 = 14 days ago
+    for i in range(14):  # 0 = today, 13 = 13 days ago → 14 data points = 14-day avg
         if i > 0:
             cumulative_undo += tx_net_by_date.get(today_d - timedelta(days=i - 1), 0.0)
         daily_balances.append(current_cash - cumulative_undo)
@@ -2491,9 +2491,11 @@ def api_forecast():
         budget = float(monthly_budgets.get(mid, {}).get(bucket_id, 0))
         alloc  = float(monthly_allocs.get(mid, {}).get(bucket_id, 0))
         if budget > 0:
-            # Have real data for this month: funded only if allocation meets budget
             return alloc >= budget
-        # No monthly record yet (future months) — funded if bucket has a default budget set
+        if alloc > 0:
+            # Money allocated but no budget target set — treat as funded
+            return True
+        # No real data (future month) — funded if bucket has a default budget
         return bucket_default_budget.get(bucket_id, 0) > 0
 
     def _bill_paid(bucket_id: str, bill_date: date) -> bool:

@@ -397,6 +397,20 @@
   color: var(--text2);
   cursor: pointer;
 }
+.sf-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.5vw, 11px);
+  letter-spacing: .06em;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.sf-btn:hover { background: var(--bg3); border-color: var(--accent); }
+.sf-btn:disabled { opacity: .4; cursor: default; }
 .sf-check input[type="checkbox"] {
   width: 14px; height: 14px;
   cursor: pointer;
@@ -4561,10 +4575,10 @@ async function applyWhatIf() {
   const applyBtn = document.getElementById('wi-apply-btn');
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying...'; }
   for (const ch of changed) {
-    await fetch('/api/update-setting', {
+    await fetch('/api/save', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, mid: _wiMid}),
+      body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, month: _wiMid}),
     });
   }
   if (applyBtn) applyBtn.textContent = 'Apply to Month';
@@ -4736,8 +4750,11 @@ function renderForecast(data) {
   if (!el) return;
 
   const periods = data.periods || [];
-  if (periods.length === 0) {
-    el.innerHTML = '<div class="fc-empty">No paychecks found. Add paychecks in More → Settings to get started.</div>';
+  const hasAnyContent = periods.some(p =>
+    (p.period_income || 0) > 0 || (p.funded_days?.length || 0) > 0 || (p.unfunded_days?.length || 0) > 0
+  );
+  if (!hasAnyContent) {
+    el.innerHTML = '<div class="fc-empty">No paychecks or bills found. Add paychecks in More → Settings to get started.</div>';
     return;
   }
 
