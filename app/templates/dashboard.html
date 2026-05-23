@@ -1282,7 +1282,10 @@
       <table class="data-table">
         <thead>
           <tr>
-            <td colspan="7" class="tbl-section-head">Buckets</td>
+            <td colspan="7" class="tbl-section-head" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Buckets</span>
+              <button class="sf-btn" style="font-size:9px;padding:2px 8px;letter-spacing:.06em;" onclick="copyLastMonthAllocs()" title="Copy allocations from last month">Copy Last Month</button>
+            </td>
           </tr>
           <tr>
             <th class="col-name">Bucket</th>
@@ -5441,6 +5444,22 @@ async function sendCoachMessage(text) {
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
+// ── Copy last month's allocations ─────────────────────────────────────────────
+async function copyLastMonthAllocs() {
+  if (!confirm('Copy last month\'s allocations to this month? Existing allocations will be overwritten.')) return;
+  const result = await fetch('/api/copy-month-allocs', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({target_mid: ACTIVE_MID})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (result.ok) {
+    showToast(`Copied ${result.copied} allocations from last month`, 'success');
+    refreshValues(result);
+  } else {
+    showToast(result.error || 'Copy failed.', 'error');
+  }
+}
+
 function closeOnboarding() {
   const el = document.getElementById('onboard-backdrop');
   if (el) el.remove();

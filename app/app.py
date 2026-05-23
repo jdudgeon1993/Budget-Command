@@ -1167,6 +1167,45 @@ def api_release_rollover():
     })
 
 
+# ── API: copy last month's allocations to active month ───────────────────────
+
+@app.route("/api/copy-month-allocs", methods=["POST"])
+def api_copy_month_allocs():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body      = request.get_json(silent=True) or {}
+    target_mid = (body.get("target_mid") or "").strip()
+    if not target_mid:
+        return jsonify({"ok": False, "error": "Missing target_mid"}), 400
+
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+    all_months = data.get("months", [])
+    buckets    = [b for b in data.get("buckets", []) if not b.get("archived")]
+
+    # Find the most recent month before target
+    from formulas import months_before
+    prior = sorted(months_before(target_mid, all_months), key=lambda m: m["id"], reverse=True)
+    if not prior:
+        return jsonify({"ok": False, "error": "No prior month found to copy from"}), 404
+
+    source_month = prior[0]
+    source_allocs = source_month.get("allocations") or {}
+
+    _ensure_month(uid, tok, target_mid)
+    copied = 0
+    for b in buckets:
+        bid = b["id"]
+        amt = float(source_allocs.get(bid) or 0)
+        if amt > 0:
+            _upsert_alloc(uid, tok, target_mid, bid, amt)
+            copied += 1
+
+    # Reload and return
+    data = _load(uid, tok)
+    return jsonify({"ok": True, "copied": copied, **_live_state(data, target_mid)})
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @app.route("/dashboard")
