@@ -1356,11 +1356,6 @@
                 <div class="sf-row sf-toggles">
                   {% if b.type != 'vault' %}
                   <label class="sf-check">
-                    <input type="checkbox" {% if b.recurring %}checked{% endif %}
-                           onchange="saveSetting('bucket_recurring','{{ b.id }}',this.checked,'')">
-                    Recurring
-                  </label>
-                  <label class="sf-check">
                     <input type="checkbox" {% if b.rollover %}checked{% endif %}
                            onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')">
                     Rollover
@@ -4501,7 +4496,7 @@ function renderForecast(data) {
 
   const periods = data.periods || [];
   if (periods.length === 0) {
-    el.innerHTML = '<div class="fc-empty">No paychecks or recurring bills found. Add paychecks in More → Settings to get started.</div>';
+    el.innerHTML = '<div class="fc-empty">No paychecks found. Add paychecks in More → Settings to get started.</div>';
     return;
   }
 
