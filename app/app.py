@@ -2269,8 +2269,18 @@ def _bill_dates_in_range(due_day, pay_freq, from_date: date, to_date: date) -> l
 
 
 def _freq_only_dates_in_range(pay_freq: str, from_date: date, to_date: date) -> list:
-    """Occurrence dates for recurring expenses that have a frequency but no specific due day
-    (e.g. groceries $400/week). Anchors to from_date and steps forward."""
+    """Occurrence dates for expenses with a frequency but no specific due day
+    (e.g. groceries $400/week, dining $300/month). Anchors to from_date."""
+    if pay_freq == 'monthly':
+        # One occurrence per calendar month covered by the period
+        dates, y, m = [], from_date.year, from_date.month
+        while True:
+            d = from_date if (y == from_date.year and m == from_date.month) else date(y, m, 1)
+            if d > to_date:
+                break
+            dates.append(d)
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        return dates
     freq_days = {'weekly': 7, 'biweekly': 14, 'triweekly': 21}.get(pay_freq)
     if not freq_days:
         return []
@@ -2491,19 +2501,19 @@ def api_forecast():
                 and cur_statuses.get(bucket_id, "") == "PAID")
 
     # ── Recurring bills: dated (have dueDay) and freq-only (payFreq, no dueDay)
+    # No "recurring" flag required — if a bucket has a due day or frequency + amount,
+    # it belongs in the forecast. The user set it up; the intent is clear.
     dated_bills = [
         b for b in buckets
         if not b.get("archived")
-        and b.get("recurring")
         and b.get("dueDay") is not None
         and (b.get("dueAmount") or b.get("defaultBudget"))
     ]
     freq_bills = [
         b for b in buckets
         if not b.get("archived")
-        and b.get("recurring")
         and b.get("dueDay") is None
-        and b.get("payFreq") in ('weekly', 'biweekly', 'triweekly')
+        and b.get("payFreq") in ('weekly', 'biweekly', 'triweekly', 'monthly')
         and (b.get("dueAmount") or b.get("defaultBudget"))
     ]
 
