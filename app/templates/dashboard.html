@@ -1081,6 +1081,38 @@
   border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center;
   justify-content: center; flex-shrink: 0; margin-top: 2px;
 }
+
+/* ── Toast notifications ── */
+#toast-container {
+  position: fixed;
+  bottom: 80px; /* above bottom nav */
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  font-family: var(--mono);
+  font-size: clamp(10px,1.6vw,12px);
+  letter-spacing: .04em;
+  padding: 10px 16px;
+  border-radius: var(--r);
+  border: 1px solid var(--border2);
+  background: var(--bg2);
+  color: var(--text);
+  max-width: 280px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity .2s, transform .2s;
+}
+.toast.show { opacity: 1; transform: translateX(0); }
+.toast.t-success { border-color: var(--green); color: var(--green); }
+.toast.t-error   { border-color: var(--red);   color: var(--red);   }
+.toast.t-warning { border-color: var(--amber);  color: var(--amber); }
+.toast.t-info    { border-color: var(--accent);  color: var(--accent); }
 {% endblock %}
 
 {% block extra_head %}
@@ -2494,8 +2526,45 @@
   </table>
 </nav>
 
+<div id="toast-container"></div>
+
 <script>
 const ACTIVE_MID = "{{ active_mid }}";
+
+/* ── Toast notification system ── */
+function showToast(msg, type = 'success', duration = 3500) {
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = `toast t-${type}`;
+  t.textContent = msg;
+  if (duration === 0) {
+    t.style.cursor = 'pointer';
+    t.addEventListener('click', () => {
+      t.classList.remove('show');
+      setTimeout(() => t.remove(), 220);
+    });
+  }
+  c.appendChild(t);
+  requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
+  if (duration > 0) {
+    setTimeout(() => {
+      t.classList.remove('show');
+      setTimeout(() => t.remove(), 220);
+    }, duration);
+  }
+}
+
+/* ── Transaction date helpers ── */
+function dateToMid(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return `m_${d.getFullYear()}_${d.getMonth()}`; // month is 0-indexed
+}
+function formatMonthLabel(mid) {
+  const parts = mid.split('_'); // ['m', year, monthIdx]
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[parseInt(parts[2])] + ' ' + parts[1];
+}
 
 /* ── Live value refresh — patches every computed cell without a reload ── */
 function refreshValues(state) {
@@ -2952,6 +3021,13 @@ async function submitAddBucket(e) {
     // Also add the new bucket to all bucket selects across the page
     appendBucketOption(bid, result.bucket_name, result.bucket_type);
 
+    // Toast for new category or new bucket
+    if (catId === '__new__') {
+      showToast('Category added', 'info');
+    } else {
+      showToast('Bucket added', 'info');
+    }
+
     // Update all live values (RTS, totals, etc.)
     refreshValues(result);
 
@@ -3049,7 +3125,19 @@ async function saveSetting(field, id, value, month) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ field, id, value, month })
     });
-    return await r.json();
+    if (r.status === 401) {
+      const t = document.createElement('div');
+      t.className = 'toast t-warning show';
+      t.textContent = 'Session expired — tap to refresh';
+      t.style.cursor = 'pointer';
+      t.addEventListener('click', () => window.location.reload());
+      const c = document.getElementById('toast-container');
+      if (c) { c.appendChild(t); requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show'))); }
+      return { ok: false };
+    }
+    const result = await r.json();
+    if (result.ok) showToast('Saved', 'success');
+    return result;
   } catch(e) {
     console.error('saveSetting failed', e);
     return { ok: false };
@@ -3324,6 +3412,7 @@ async function submitAddTx(e) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Transaction added', 'success');
     refreshValues(result);
     // Inject row into ledger if this tx belongs to the viewed month
     if (result.month_id === ACTIVE_MID && result.tx) {
@@ -3354,6 +3443,24 @@ async function saveTxField(id, field, value) {
   }).then(r => r.json()).catch(() => ({ok: false}));
   if (!result.ok) { alert('Save failed: ' + (result.error || 'unknown error')); return; }
   refreshValues(result);
+
+  // Date auto-move: if the date changed and puts tx in a different month, fade row out
+  if (field === 'date' && value) {
+    const newMid = dateToMid(value);
+    if (newMid !== ACTIVE_MID) {
+      const row = document.getElementById('ltx-' + id);
+      const settingsRow = document.getElementById('tx-settings-' + id);
+      if (row) {
+        row.style.transition = 'opacity .3s';
+        row.style.opacity = '0';
+        setTimeout(() => {
+          row.remove();
+          settingsRow?.remove();
+        }, 320);
+      }
+      showToast('Transaction moved to ' + formatMonthLabel(newMid), 'info');
+    }
+  }
 }
 
 /* ── Ledger: save description + update visible cell ── */
@@ -3404,6 +3511,7 @@ async function deleteTx(id) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Transaction deleted', 'success');
     const txRow       = document.getElementById('ltx-' + id);
     const settingsRow = document.getElementById('tx-settings-' + id);
     if (txRow) {
@@ -3487,6 +3595,7 @@ async function archiveBucket(id) {
   if (!confirm('Archive this bucket? It will be hidden from the active view.')) return;
   const result = await saveSetting('bucket_archive', id, true, ACTIVE_MID);
   if (result.ok) {
+    showToast('Bucket archived', 'info');
     document.getElementById('row-' + id)?.remove();
     document.getElementById('settings-' + id)?.remove();
     // Remove from all bucket selects
@@ -3731,6 +3840,7 @@ async function submitAddPaycheck(e) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Paycheck saved', 'info');
     const pc = result.paycheck;
     const tbody = document.getElementById('pc-tbody');
     if (tbody) {
@@ -3780,6 +3890,7 @@ async function submitAddRule(e) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Rule saved', 'info');
     const r = result.rule;
     const tbody = document.getElementById('rules-tbody');
     if (tbody) {
@@ -4581,6 +4692,7 @@ async function applyWhatIf() {
       body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, month: _wiMid}),
     });
   }
+  showToast('Scenario applied to month', 'success');
   if (applyBtn) applyBtn.textContent = 'Apply to Month';
   window.location.reload();
 }
@@ -4968,12 +5080,18 @@ async function sendCoachMessage(text) {
     });
     const data = await res.json();
     thinking.remove();
-    const reply = data.reply || data.error || 'No response.';
-    _coachAppend('coach', reply);
-    _coachHistory.push({role: 'user', content: msg});
-    _coachHistory.push({role: 'assistant', content: reply});
+    if (data.error) {
+      showToast(data.error, 'error');
+      _coachAppend('coach', data.error);
+    } else {
+      const reply = data.reply || 'No response.';
+      _coachAppend('coach', reply);
+      _coachHistory.push({role: 'user', content: msg});
+      _coachHistory.push({role: 'assistant', content: reply});
+    }
   } catch(e) {
     thinking.textContent = 'Error reaching coach.';
+    showToast('Error reaching coach.', 'error');
   }
 }
 
