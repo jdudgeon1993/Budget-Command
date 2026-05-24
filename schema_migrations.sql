@@ -1,6 +1,6 @@
 -- Cura — Incremental migrations for existing Supabase projects
--- Run these statements in order against your existing database.
--- Each statement is idempotent (IF NOT EXISTS / IF NOT EXISTS).
+-- Run these statements in your Supabase SQL editor.
+-- All statements are safe to re-run.
 
 -- ─── bcc_months: columns added post-initial-schema ───────────────────────────
 ALTER TABLE bcc_months ADD COLUMN IF NOT EXISTS closed           BOOLEAN NOT NULL DEFAULT FALSE;
@@ -12,16 +12,6 @@ ALTER TABLE bcc_months ADD COLUMN IF NOT EXISTS closing_date     TEXT;
 -- ─── bcc_accounts: promo period fields ───────────────────────────────────────
 ALTER TABLE bcc_accounts ADD COLUMN IF NOT EXISTS is_promo       BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE bcc_accounts ADD COLUMN IF NOT EXISTS promo_end_date TEXT;
-
--- ─── bcc_buckets: remove unused sinking-fund fields ──────────────────────────
--- These columns exist in some deployments but are not used by the app.
--- Only run these if you want to clean up the schema; safe to skip.
--- ALTER TABLE bcc_buckets DROP COLUMN IF EXISTS target_amount;
--- ALTER TABLE bcc_buckets DROP COLUMN IF EXISTS target_date;
--- ALTER TABLE bcc_buckets DROP COLUMN IF EXISTS contrib_freq;
-
--- ─── bcc_transactions: remove unused income_type field ───────────────────────
--- ALTER TABLE bcc_transactions DROP COLUMN IF EXISTS income_type;
 
 -- ─── bcc_scenarios: new table for What If scenarios ──────────────────────────
 CREATE TABLE IF NOT EXISTS bcc_scenarios (
@@ -38,8 +28,16 @@ CREATE TABLE IF NOT EXISTS bcc_scenarios (
 
 ALTER TABLE bcc_scenarios ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY bcc_scenarios_user_policy ON bcc_scenarios
-    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'bcc_scenarios' AND policyname = 'bcc_scenarios_user_policy'
+  ) THEN
+    CREATE POLICY bcc_scenarios_user_policy ON bcc_scenarios
+      FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_bcc_scenarios_user
     ON bcc_scenarios(user_id, sort_order);
