@@ -1274,29 +1274,54 @@ def _build_available_months(S: dict) -> list[dict]:
     return result
 
 def _get_month_status(active_mid: str, available: list[dict]) -> str:
+    """Returns 'open', 'closed', 'past', or 'future'."""
     m = next((m for m in available if m["id"] == active_mid), None)
     if not m:
-        # Unknown month — treat as future or past by date comparison
-        return "future" if _month_sort_key(active_mid) > _month_sort_key(current_month_id()) else "open"
-    if m["is_open"]:
-        return "open"
+        return "future" if _month_sort_key(active_mid) > _month_sort_key(current_month_id()) else "past"
     if m["closed"]:
         return "closed"
     if m["is_future"]:
         return "future"
-    return "open"  # past, non-closed months remain editable
+    if m["is_open"]:
+        return "open"
+    if m["is_past"]:
+        return "past"  # unclosed past month
+    return "open"
 
-def _show_close_btn(active_mid: str, S: dict) -> bool:
-    """Show Close Month button on the open month when ≤2 days until EOM (or past)."""
-    open_mid = _get_open_mid(S)
-    if active_mid != open_mid:
-        return False
+
+def _close_btn_info(active_mid: str, S: dict) -> dict:
+    """Returns close/lock button info for the month.
+
+    type 'wizard'  — full 6-step close wizard (current open month ≤2 days, or past within 10-day grace)
+    type 'lock'    — simple lock with no wizard (past month past grace window)
+    grace_days     — countdown days remaining in the 10-day grace window (None otherwise)
+    """
+    available = _build_available_months(S)
+    status = _get_month_status(active_mid, available)
+
+    if status in ("closed", "future"):
+        return {"show": False, "type": None, "grace_days": None}
+
     today = date.today()
     yr, m0 = parse_month_id(active_mid)
     cal_month = m0 + 1
-    days_in_month = _cal.monthrange(yr, cal_month)[1]
-    month_end = date(yr, cal_month, days_in_month)
-    return (month_end - today).days <= 2
+    last_day = _cal.monthrange(yr, cal_month)[1]
+    month_end = date(yr, cal_month, last_day)
+
+    if status == "open":
+        days_left = (month_end - today).days
+        if days_left <= 2:
+            return {"show": True, "type": "wizard", "grace_days": None}
+        return {"show": False, "type": None, "grace_days": None}
+
+    if status == "past":
+        days_since = (today - month_end).days
+        grace_remaining = max(0, 10 - days_since)
+        if grace_remaining > 0:
+            return {"show": True, "type": "wizard", "grace_days": grace_remaining}
+        return {"show": True, "type": "lock", "grace_days": None}
+
+    return {"show": False, "type": None, "grace_days": None}
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -1333,7 +1358,7 @@ def _dashboard_inner():
     available_months = _build_available_months(S)
     open_mid         = _get_open_mid(S)
     month_status     = _get_month_status(active_mid, available_months)
-    show_close_btn   = _show_close_btn(active_mid, S)
+    close_btn        = _close_btn_info(active_mid, S)
 
     active_month = next(
         (m for m in all_months if m.get("id") == active_mid),
@@ -1550,7 +1575,7 @@ def _dashboard_inner():
         active_mid=active_mid,
         month_display=f"{MONTH_NAMES[m0]} {year}",
         available_months=available_months, open_mid=open_mid,
-        month_status=month_status, show_close_btn=show_close_btn,
+        month_status=month_status, close_btn=close_btn,
         category_groups=category_groups, grand=grand, rts=rts, aom=aom,
         all_cats=cats_sorted, accounts=accounts,
         debt_accounts=debt_accounts, transfer_buckets=transfer_buckets,
@@ -3715,6 +3740,54 @@ def api_reopen_month():
         return jsonify({"ok": False, "error": "Missing mid"}), 400
     uid, tok = _uid(), _tok()
     _db(tok).table("bcc_months").update({"closed": False}).eq("id", mid).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/lock-month", methods=["POST"])
+def api_lock_month():
+    """Lock a past month as-is — no wizard, no adjustments. Just marks closed + saves snapshot."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid  = (body.get("mid") or "").strip()
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+    uid, tok = _uid(), _tok()
+
+    data = _load(uid, tok)
+    txs  = data.get("txs", [])
+    buckets = data.get("buckets", [])
+    all_months = data.get("months", [])
+    month_obj = next((m for m in all_months if m.get("id") == mid),
+                     {"id": mid, "allocations": {}, "budgets": {}})
+
+    income = sum(float(t.get("amount", 0)) for t in txs
+                 if t.get("monthId") == mid and t.get("type") == "in" and not is_scheduled(t))
+    spent  = sum(float(t.get("amount", 0)) for t in txs
+                 if t.get("monthId") == mid and t.get("type") == "out" and not is_scheduled(t))
+    net    = income - spent
+
+    buckets_snap = []
+    for b in buckets:
+        if b.get("archived"):
+            continue
+        bid = b["id"]
+        alloc = b_alloc(month_obj, bid)
+        b_spent_amt = b_spent(mid, bid, txs)
+        buckets_snap.append({"id": bid, "name": b.get("name", ""), "alloc": alloc, "spent": b_spent_amt})
+
+    closing_snapshot = {"income": income, "spent": spent, "net": net, "buckets": buckets_snap}
+
+    from datetime import date as _date_cls
+    today_str = _date_cls.today().isoformat()
+
+    _ensure_month(uid, tok, mid)
+    _db(tok).table("bcc_months").update({
+        "closed": True,
+        "closing_snapshot": closing_snapshot,
+        "closing_date": today_str,
+    }).eq("id", mid).eq("user_id", uid).execute()
+
     return jsonify({"ok": True})
 
 
