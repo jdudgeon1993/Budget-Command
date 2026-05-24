@@ -1502,36 +1502,124 @@
 
 /* ── Desktop: Buckets + Ledger side by side ── */
 @media (min-width: 900px) {
-  .main-content { display: flex; align-items: flex-start; max-width: 1440px; margin: 0 auto; }
+  /* ── Desktop default: Buckets + Ledger side by side ── */
+  .main-content {
+    display: flex;
+    align-items: flex-start;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 12px;
+    gap: 12px;
+    padding-bottom: 70px;
+  }
 
-  /* Left column: Buckets always visible */
+  /* Left card: Buckets always pinned */
   #panel-buckets {
     display: block !important;
     flex: 0 0 52%;
     max-width: 620px;
-    min-height: calc(100vh - 56px);
-    border-right: 1px solid var(--border2);
+    min-height: calc(100vh - 120px);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
   }
-  #panel-buckets .panel-container { max-width: none; margin: 0; }
+  #panel-buckets .panel-container {
+    max-width: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
 
-  /* Right column: Ledger, More, Coach share this slot */
-  #panel-ledger, #panel-more, #panel-coach { flex: 1; min-width: 0; }
-  #panel-ledger .panel-container,
+  /* Right card: Ledger always pinned */
+  #panel-ledger {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    min-height: calc(100vh - 120px);
+  }
+  #panel-ledger .panel-container {
+    max-width: none;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  /* ── Full-screen overlay panels (More, Coach) ── */
+  #panel-more.active,
+  #panel-coach.active {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 200;
+    overflow-y: auto;
+    background: var(--bg);
+    padding: 0 0 70px;
+  }
   #panel-more .panel-container,
-  #panel-coach .panel-container { max-width: none; margin: 0; }
+  #panel-coach .panel-container {
+    max-width: 1100px;
+    margin: 10px auto;
+  }
 
-  /* Ledger visible by default alongside Buckets */
-  #panel-ledger { display: block; }
+  /* Close button for full-screen panels */
+  .desktop-panel-close {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .desktop-panel-close-btn {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .desktop-panel-close-btn:hover { background: var(--border2); color: var(--text); }
+  .desktop-panel-close-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
 
-  /* When More or Coach is active, push Ledger out of view */
-  .main-content:has(#panel-more.active) #panel-ledger,
-  .main-content:has(#panel-coach.active) #panel-ledger { display: none !important; }
+  /* Nav: hide Buckets + Ledger tabs on desktop, keep others */
+  .nav-tab.nav-desktop-hidden { display: none; }
 
-  /* More/Coach take the right column */
-  #panel-more.active, #panel-coach.active { display: block; }
+  /* Desktop nav bar: reflow as centered flex strip */
+  .bottom-nav { background: var(--bg3); border-top: 1px solid var(--border); }
+  .nav-table { display: flex; justify-content: center; align-items: stretch; height: 46px; width: 100%; }
+  .nav-table tr { display: flex; }
+  .nav-tab { width: 160px; display: flex; align-items: center; justify-content: center; }
+  .nav-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
 }
 .wi-scen-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .wi-scen-row input { flex: 1; min-width: 100px; }
+/* desktop-only elements: hidden on mobile, shown on desktop */
+.desktop-only { display: none; }
+@media (min-width: 900px) { .desktop-only { display: flex; } }
 {% endblock %}
 
 {% block extra_head %}
@@ -2246,6 +2334,10 @@
 
   <!-- More panel -->
   <div id="panel-more" class="panel">
+    <div class="desktop-panel-close desktop-only">
+      <button class="desktop-panel-close-btn" onclick="closeDesktopPanel('more')">← Back</button>
+      <span class="desktop-panel-close-title">More</span>
+    </div>
     <div class="panel-container">
 
       <!-- Top-level: Accounts | Setup | Reports | Plan -->
@@ -3093,6 +3185,10 @@
 
   <!-- Coach panel -->
   <div id="panel-coach" class="panel">
+    <div class="desktop-panel-close desktop-only">
+      <button class="desktop-panel-close-btn" onclick="closeDesktopPanel('coach')">← Back</button>
+      <span class="desktop-panel-close-title">Coach AI</span>
+    </div>
     <div class="panel-container">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
         <div class="coach-header" style="margin:0;">Coach AI</div>
@@ -3193,8 +3289,8 @@
 <nav class="bottom-nav">
   <table class="nav-table">
     <tr>
-      <th class="nav-tab active" onclick="showPanel('buckets', this)">Buckets</th>
-      <th class="nav-tab" onclick="showPanel('ledger', this)">Ledger</th>
+      <th class="nav-tab active nav-desktop-hidden" onclick="showPanel('buckets', this)">Buckets</th>
+      <th class="nav-tab nav-desktop-hidden" onclick="showPanel('ledger', this)">Ledger</th>
       <th class="nav-tab" onclick="showPanel('more', this)">More</th>
       <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
     </tr>
@@ -3654,6 +3750,8 @@ function injectTxRow(tx, activeMid) {
 }
 
 /* ── Panel nav ── */
+const _isDesktop = () => window.innerWidth >= 900;
+
 function showPanel(name, tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -3662,10 +3760,21 @@ function showPanel(name, tab) {
   localStorage.setItem('bc_active_panel', name);
 }
 
+// On desktop, close full-screen overlay and return to Buckets+Ledger view
+function closeDesktopPanel(name) {
+  const panel = document.getElementById('panel-' + name);
+  if (panel) panel.classList.remove('active');
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  localStorage.setItem('bc_active_panel', 'buckets');
+}
+
 // Restore active panel on page load
 (function() {
   const saved = localStorage.getItem('bc_active_panel');
+  // On desktop, only restore overlay panels (more/coach); buckets+ledger are always shown
+  const desktopOverlayPanels = ['more', 'coach'];
   if (saved && saved !== 'buckets') {
+    if (_isDesktop() && !desktopOverlayPanels.includes(saved)) return;
     const panel = document.getElementById('panel-' + saved);
     const tab = document.querySelector(`.nav-tab[onclick*="'${saved}'"]`);
     if (panel && tab) {
