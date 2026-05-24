@@ -1070,8 +1070,11 @@
   text-transform:uppercase; padding:4px 12px 2px;
   border-top:1px solid var(--border2); margin-top:2px;
 }
-.fc-section-head.funded   { color:var(--green); background:rgba(34,197,94,.06); }
-.fc-section-head.unfunded { color:var(--red);   background:rgba(239,68,68,.06); }
+.fc-section-head.funded     { color:var(--green); background:rgba(34,197,94,.06); }
+.fc-section-head.unfunded   { color:var(--red);   background:rgba(239,68,68,.06); }
+.fc-section-head.scenario-off { color:var(--amber); background:color-mix(in srgb,var(--amber) 8%,transparent); }
+.fc-bill-row.scenario-off .fc-bill-label { color:var(--amber); opacity:.85; }
+.fc-bill-row.scenario-off .fc-bill-amt   { color:var(--amber); opacity:.85; }
 .fc-s2s-row { display:flex;align-items:center;gap:6px;padding:8px 12px;margin-top:4px;font-size:13px;border-top:1px solid var(--border);color:var(--text2); }
 .fc-bill-row.funded   .fc-bill-amt { color:var(--green); }
 .fc-bill-row.unfunded .fc-bill-amt { color:var(--red); }
@@ -5931,9 +5934,17 @@ async function loadForecast() {
     if (_fcActiveSc) {
       fetchOpts.method  = 'POST';
       fetchOpts.headers = {'Content-Type': 'application/json'};
-      fetchOpts.body    = JSON.stringify({
-        bucket_overrides: _fcActiveSc.allocations || {},
-        income_override:  _fcActiveSc.incomeOverride ?? null,
+      // Convert schedule {bid: {mid: false}} → {bid: [mid, ...]}
+      const bucketOffMonths = {};
+      for (const [bid, sched] of Object.entries(_fcActiveSc.schedule || {})) {
+        const offMids = Object.entries(sched)
+          .filter(([, val]) => val === false)
+          .map(([mid]) => mid);
+        if (offMids.length) bucketOffMonths[bid] = offMids;
+      }
+      fetchOpts.body = JSON.stringify({
+        bucket_overrides:  _fcActiveSc.allocations || {},
+        bucket_off_months: bucketOffMonths,
       });
     }
     const r = await fetch(url, fetchOpts);
@@ -6067,7 +6078,8 @@ function renderForecast(data) {
 
   const periods = data.periods || [];
   const hasAnyContent = periods.some(p =>
-    (p.period_income || 0) > 0 || (p.funded_days?.length || 0) > 0 || (p.unfunded_days?.length || 0) > 0
+    (p.period_income || 0) > 0 || (p.funded_days?.length || 0) > 0 ||
+    (p.unfunded_days?.length || 0) > 0 || (p.off_days?.length || 0) > 0
   );
   if (!hasAnyContent) {
     el.innerHTML = '<div class="fc-empty">No paychecks or bills found. Add paychecks in More → Settings to get started.</div>';
@@ -6078,15 +6090,19 @@ function renderForecast(data) {
   const totalMoves     = periods.reduce((s,p) => s + (p.period_transfers||0), 0);
   const totalCleared   = periods.reduce((s,p) => s + (p.period_cleared||0), 0);
   const totalUnfunded  = periods.reduce((s,p) => s + (p.period_unfunded||0), 0);
+  const totalOff       = periods.reduce((s,p) => s + (p.period_off||0), 0);
   const shortfallCount = periods.filter(p => p.shortfall).length;
   const s2s            = data.safe_to_spend ?? periods[periods.length-1]?.end_balance ?? 0;
+  const isScenario     = data.scenario_active;
 
   let html = `<div class="fc-summary-bar">
+    ${isScenario ? `<div class="fc-summary-item" style="border-left:2px solid var(--amber);padding-left:8px;"><div class="fc-summary-label" style="color:var(--amber);">Scenario</div><div style="color:var(--amber);font-size:10px;letter-spacing:.06em;">ACTIVE</div></div>` : ''}
     <div class="fc-summary-item"><div class="fc-summary-label">Start</div><div style="color:var(--accent)">${fmtMoney(data.start_balance)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Income</div><div style="color:var(--green)">+${fmtMoney(totalIncome)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Routes Out</div><div style="color:var(--amber)">−${fmtMoney(totalMoves)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Pre-Funded</div><div style="color:var(--text2)">−${fmtMoney(totalCleared)}</div></div>
     <div class="fc-summary-item"><div class="fc-summary-label">Needs Funding</div><div style="color:${totalUnfunded>0?'var(--red)':'var(--text2)'}">−${fmtMoney(totalUnfunded)}</div></div>
+    ${totalOff > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label" style="color:var(--amber);">Freed Up</div><div style="color:var(--amber)">+${fmtMoney(totalOff)}</div></div>` : ''}
     <div class="fc-summary-item"><div class="fc-summary-label">Safe to Spend</div><div style="color:${s2s>=0?'var(--green)':'var(--red)'};font-weight:bold">${fmtMoney(s2s)}</div></div>
     ${shortfallCount > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label">Shortfalls</div><div style="color:var(--red)">${shortfallCount}</div></div>` : ''}
   </div>`;
@@ -6107,7 +6123,8 @@ function renderForecast(data) {
     const hasIncome   = (p.income_events?.length||0) + (p.transfer_events?.length||0) + (p.alloc_events?.length||0) > 0;
     const hasFunded   = (p.funded_days?.length||0) > 0;
     const hasUnfunded = (p.unfunded_days?.length||0) > 0 || plannedItems.length > 0;
-    const hasBody     = hasIncome || hasFunded || hasUnfunded;
+    const hasOff      = (p.off_days?.length||0) > 0;
+    const hasBody     = hasIncome || hasFunded || hasUnfunded || hasOff;
 
     html += `<div class="fc-period${sfClass}${typeClass}">
       <div class="fc-period-header" onclick="toggleFcPeriod(${i})">
@@ -6217,6 +6234,19 @@ function renderForecast(data) {
           if (day.run_balance !== null) {
             html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div>`;
           }
+          html += `</div>`;
+        });
+      }
+
+      // ◎ SCENARIO PAUSED (off_days — balance NOT reduced, money freed up)
+      if (hasOff && p.off_days?.length) {
+        const offTotal = fmtMoney(p.period_off || 0);
+        html += `<div class="fc-section-head scenario-off">◎ Scenario Paused <span style="opacity:.7;font-size:.85em">+${offTotal} freed</span></div>`;
+        p.off_days.forEach(day => {
+          html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
+          day.events.forEach(ev => {
+            html += `<div class="fc-bill-row scenario-off"><span class="fc-bill-label">◎ ${ev.name}</span><span class="fc-bill-amt" style="color:var(--amber);">+${fmtMoney(ev.amount)}</span></div>`;
+          });
           html += `</div>`;
         });
       }
