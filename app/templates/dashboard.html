@@ -1318,7 +1318,7 @@
           <span class="month-badge open">OPEN</span>
         {% elif m.closed %}
           <span class="month-badge closed">✓ CLOSED</span>
-        {% else %}
+        {% elif m.is_future %}
           <span class="month-badge future">FUTURE</span>
         {% endif %}
       </a>
@@ -2380,6 +2380,7 @@
           <button class="acct-tab active" onclick="showSettingsTab('paychecks',this)">Paychecks</button>
           <button class="acct-tab" onclick="showSettingsTab('rules',this)">Allocation Rules</button>
           <button class="acct-tab" onclick="showSettingsTab('payees',this);loadPayees()">Payees</button>
+          <button class="acct-tab" onclick="showSettingsTab('coach-key',this)">Coach AI</button>
         </div>
 
         <!-- ── Paychecks tab ── -->
@@ -2549,6 +2550,23 @@
             <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
           </div>
         </div><!-- end payees tab -->
+
+        <!-- ── Coach AI key tab ── -->
+        <div id="settings-tab-coach-key" style="display:none">
+          <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin:0 0 14px;line-height:1.7;">
+            Coach AI uses the Google Gemini API. Enter your key below — it is saved in your browser only, never sent to our servers.
+            Get a free key at <span style="color:var(--accent)">aistudio.google.com</span>.
+          </p>
+          <div style="display:flex;gap:8px;align-items:center;max-width:480px;">
+            <input type="password" id="gemini-key-input" placeholder="AIza…" autocomplete="off"
+                   style="flex:1;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);
+                          padding:7px 10px;font-family:var(--mono);font-size:12px;color:var(--text);">
+            <button onclick="saveGeminiKey()" class="strip-btn" style="white-space:nowrap;">Save Key</button>
+            <button onclick="clearGeminiKey()" style="background:none;border:1px solid var(--border2);border-radius:var(--r);
+                          padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--text3);cursor:pointer;">Clear</button>
+          </div>
+          <div id="gemini-key-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:8px;"></div>
+        </div><!-- end coach-key tab -->
 
       </div><!-- end settings mode -->
 
@@ -4177,13 +4195,41 @@ function showMoreMode(mode, btn) {
 
 /* ── Settings: sub-tab switch ── */
 function showSettingsTab(tab, btn) {
-  ['paychecks','rules','payees'].forEach(t => {
+  ['paychecks','rules','payees','coach-key'].forEach(t => {
     const el = document.getElementById('settings-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
   document.querySelectorAll('#more-mode-settings .acct-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (tab === 'coach-key') _initCoachKeyTab();
 }
+
+function _initCoachKeyTab() {
+  const inp = document.getElementById('gemini-key-input');
+  const status = document.getElementById('gemini-key-status');
+  const saved = localStorage.getItem('gemini_api_key') || '';
+  if (inp) inp.value = saved ? '●'.repeat(20) : '';
+  if (status) status.textContent = saved ? '✓ Key saved in browser.' : 'No key saved yet.';
+}
+function saveGeminiKey() {
+  const inp = document.getElementById('gemini-key-input');
+  const status = document.getElementById('gemini-key-status');
+  const val = (inp?.value || '').trim();
+  if (!val || val.startsWith('●')) { if (status) status.textContent = 'Enter a new key to save.'; return; }
+  localStorage.setItem('gemini_api_key', val);
+  if (inp) inp.value = '●'.repeat(20);
+  if (status) { status.textContent = '✓ Key saved in browser.'; status.style.color = 'var(--green)'; }
+  showToast('Coach AI key saved', 'success');
+}
+function clearGeminiKey() {
+  localStorage.removeItem('gemini_api_key');
+  const inp = document.getElementById('gemini-key-input');
+  const status = document.getElementById('gemini-key-status');
+  if (inp) inp.value = '';
+  if (status) { status.textContent = 'Key cleared.'; status.style.color = 'var(--text3)'; }
+  showToast('Coach AI key cleared', 'info');
+}
+function _getCoachKey() { return localStorage.getItem('gemini_api_key') || ''; }
 
 let _payeesLoaded = false;
 async function loadPayees() {
@@ -5598,7 +5644,7 @@ async function sendCoachMessage(text) {
     const res = await fetch('/api/coach', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: msg, history: _coachHistory}),
+      body: JSON.stringify({message: msg, history: _coachHistory, api_key: _getCoachKey()}),
     });
     const data = await res.json();
     thinking.remove();
