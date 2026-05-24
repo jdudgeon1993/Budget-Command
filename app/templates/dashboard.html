@@ -72,35 +72,89 @@
   width: 100%;
   background: var(--bg3);
   border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px 14px; gap: 10px; position: relative; flex-wrap: wrap;
 }
-.month-table {
-  width: 100%;
-  max-width: 500px;
-  margin: 0 auto;
-  border-collapse: collapse;
-  table-layout: fixed;
+.month-trigger {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--r); padding: 5px 12px;
+  cursor: pointer; font-family: var(--mono);
+  font-size: clamp(12px, 2vw, 14px); color: var(--text);
+  letter-spacing: .06em; white-space: nowrap;
 }
-.month-table td {
-  text-align: center;
-  padding: 7px 4px;
-  font-size: clamp(12px, 2vw, 14px);
-  font-family: var(--mono);
-  white-space: nowrap;
-  color: var(--text2);
+.month-trigger:hover { border-color: var(--accent); }
+.month-badge {
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 5px; border-radius: 3px; font-family: var(--mono);
 }
-.month-arrow {
-  width: 36px;
+.month-badge.open   { color: var(--green); border: 1px solid var(--green); }
+.month-badge.closed { color: var(--text3); border: 1px solid var(--border2); }
+.month-badge.future { color: var(--amber); border: 1px solid var(--amber); }
+.month-dropdown-panel {
+  position: absolute; top: calc(100% + 2px); left: 50%;
+  transform: translateX(-50%); z-index: 300;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--r); min-width: 230px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.4);
+  overflow: hidden;
+}
+.month-option {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; font-family: var(--mono);
+  font-size: clamp(11px,1.8vw,13px); color: var(--text2);
   text-decoration: none;
-  color: var(--text3);
-  display: block;
-  text-align: center;
-  transition: color .12s;
+  border-bottom: 1px solid var(--border);
 }
-.month-arrow:hover { color: var(--accent); }
-.month-label {
-  letter-spacing: .08em;
-  color: var(--text);
+.month-option:last-child { border-bottom: none; }
+.month-option:hover { background: var(--bg3); color: var(--text); }
+.month-option.active { color: var(--accent); background: color-mix(in srgb,var(--accent) 8%,transparent); }
+.month-now-chip {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent);
+  border: 1px solid var(--accent); padding: 3px 9px;
+  border-radius: var(--r); text-decoration: none; white-space: nowrap;
 }
+.month-now-chip:hover { background: color-mix(in srgb,var(--accent) 12%,transparent); }
+.month-close-btn {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--amber);
+  border: 1px solid var(--amber); padding: 3px 9px;
+  border-radius: var(--r); background: none; cursor: pointer; white-space: nowrap;
+}
+.month-close-btn:hover { background: color-mix(in srgb,var(--amber) 12%,transparent); }
+/* Status banners */
+.month-status-banner {
+  width: 100%; padding: 7px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--mono); font-size: clamp(10px,1.5vw,11px);
+  letter-spacing: .06em; flex-wrap: wrap; gap: 6px;
+}
+.month-status-banner.closed {
+  background: color-mix(in srgb,var(--text3) 8%,transparent);
+  border-bottom: 1px solid var(--border2); color: var(--text3);
+}
+.month-status-banner.future {
+  background: color-mix(in srgb,var(--amber) 8%,transparent);
+  border-bottom: 1px solid var(--amber); color: var(--amber);
+}
+/* Locked / future month: disable editing */
+[data-month-status="closed"] .editable-num,
+[data-month-status="future"] .editable-num { pointer-events: none; cursor: default; opacity: .7; }
+[data-month-status="closed"] .editable-text,
+[data-month-status="future"] .editable-text { pointer-events: none; cursor: default; }
+[data-month-status="closed"] #add-bucket-form,
+[data-month-status="future"] #add-bucket-form { display: none !important; }
+[data-month-status="closed"] #add-tx-form,
+[data-month-status="future"] #add-tx-form { display: none !important; }
+[data-month-status="closed"] .archive-btn,
+[data-month-status="future"] .archive-btn { display: none !important; }
+[data-month-status="closed"] .delete-cat-btn,
+[data-month-status="future"] .delete-cat-btn { display: none !important; }
+[data-month-status="closed"] #fab,
+[data-month-status="future"] #fab { display: none !important; }
+[data-month-status="closed"] .wi-input,
+[data-month-status="future"] .wi-input { pointer-events: none; opacity: .6; }
 
 /* ── Main content ── */
 .main-content {
@@ -1246,21 +1300,58 @@
 
 <!-- Month nav -->
 <div class="month-bar">
-  <table class="month-table">
-    <tr>
-      <td style="width:36px;">
-        <a class="month-arrow" href="/dashboard?month={{ prev_mid }}">&lt;</a>
-      </td>
-      <td class="month-label">{{ month_display }}</td>
-      <td style="width:36px;">
-        <a class="month-arrow" href="/dashboard?month={{ next_mid }}">&gt;</a>
-      </td>
-    </tr>
-  </table>
+  <!-- Month dropdown -->
+  <div style="position:relative;">
+    <button class="month-trigger" id="month-trigger" onclick="toggleMonthDropdown()">
+      <span>{{ month_display }}</span>
+      <span class="month-badge {{ month_status }}">
+        {%- if month_status == 'open' %}OPEN{%- elif month_status == 'closed' %}CLOSED{%- else %}FUTURE{%- endif %}
+      </span>
+      <span style="color:var(--text3);font-size:10px;">▾</span>
+    </button>
+    <div class="month-dropdown-panel" id="month-dropdown-panel" style="display:none">
+      {% for m in available_months %}
+      <a class="month-option {% if m.id == active_mid %}active{% endif %}"
+         href="/dashboard?month={{ m.id }}">
+        <span>{{ m.label }}</span>
+        {% if m.is_open %}
+          <span class="month-badge open">OPEN</span>
+        {% elif m.closed %}
+          <span class="month-badge closed">✓ CLOSED</span>
+        {% else %}
+          <span class="month-badge future">FUTURE</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Back to Now chip -->
+  {% if active_mid != open_mid %}
+  <a class="month-now-chip" href="/dashboard?month={{ open_mid }}">→ Now</a>
+  {% endif %}
+
+  <!-- Close Month button (last 3 days of open month) -->
+  {% if show_close_btn %}
+  <button class="month-close-btn" onclick="confirmCloseMonth()">Close Month</button>
+  {% endif %}
 </div>
 
+<!-- Month status banner -->
+{% if month_status == 'closed' %}
+<div class="month-status-banner closed">
+  <span>🔒 {{ month_display }} — CLOSED</span>
+  <button onclick="reopenMonth()" style="border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:var(--r);cursor:pointer;letter-spacing:.08em;">Reopen</button>
+</div>
+{% elif month_status == 'future' %}
+<div class="month-status-banner future">
+  <span>📅 {{ month_display }} — FUTURE MONTH</span>
+  <span style="color:var(--amber);opacity:.8;">Pre-allocate your buckets below</span>
+</div>
+{% endif %}
+
 <!-- Main content -->
-<div class="main-content">
+<div class="main-content" data-month-status="{{ month_status }}">
 
   <!-- Buckets panel -->
   <div id="panel-buckets" class="panel active">
@@ -5527,6 +5618,49 @@ async function sendCoachMessage(text) {
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
+// ── Month navigation ─────────────────────────────────────────────────────────
+function toggleMonthDropdown() {
+  const panel = document.getElementById('month-dropdown-panel');
+  if (!panel) return;
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    setTimeout(() => document.addEventListener('click', _closeMonthDropdown, {once: true, capture: true}), 10);
+  }
+}
+function _closeMonthDropdown(e) {
+  const panel = document.getElementById('month-dropdown-panel');
+  const trigger = document.getElementById('month-trigger');
+  if (panel && !panel.contains(e.target) && !trigger?.contains(e.target)) {
+    panel.style.display = 'none';
+  } else {
+    document.addEventListener('click', _closeMonthDropdown, {once: true, capture: true});
+  }
+}
+
+function confirmCloseMonth() {
+  const label = document.querySelector('.month-trigger span')?.textContent.trim() || 'this month';
+  if (confirm(`Close ${label}?\n\nThis will lock the month as read-only. You can reopen it later if needed.`)) {
+    _doCloseMonth();
+  }
+}
+async function _doCloseMonth() {
+  const result = await fetch('/api/close-month', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: ACTIVE_MID})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (result.ok) { showToast('Month closed', 'success'); window.location.reload(); }
+  else showToast(result.error || 'Failed to close month.', 'error');
+}
+async function reopenMonth() {
+  const result = await fetch('/api/reopen-month', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: ACTIVE_MID})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (result.ok) { showToast('Month reopened', 'success'); window.location.reload(); }
+  else showToast(result.error || 'Failed to reopen month.', 'error');
+}
+
 // ── Bill Calendar ────────────────────────────────────────────────────────────
 let _billCalendarLoaded = false;
 async function initBillCalendar() {

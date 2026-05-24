@@ -1206,6 +1206,84 @@ def api_copy_month_allocs():
     return jsonify({"ok": True, "copied": copied, **_live_state(data, target_mid)})
 
 
+# ── Month nav helpers ──────────────────────────────────────────────────────────
+
+def _mid_label(mid: str) -> str:
+    yr, m0 = parse_month_id(mid)
+    return f"{MONTH_NAMES[m0]} {yr}"
+
+def _month_sort_key(mid: str) -> tuple:
+    return parse_month_id(mid)
+
+def _get_open_mid(S: dict) -> str:
+    """The 'open' month: current calendar month if not closed, else latest unclosed."""
+    all_months = S.get("months") or []
+    cur_mid = current_month_id()
+    cur_data = next((m for m in all_months if m["id"] == cur_mid), {})
+    if not cur_data.get("closed"):
+        return cur_mid
+    # Current month was closed — find latest unclosed month
+    unclosed = [m for m in all_months if not m.get("closed")]
+    if unclosed:
+        return sorted(unclosed, key=lambda m: _month_sort_key(m["id"]))[-1]["id"]
+    return cur_mid
+
+def _build_available_months(S: dict) -> list[dict]:
+    """Months for the nav dropdown: all history + current + next 2."""
+    today = date.today()
+    all_months = S.get("months") or []
+    known = {m["id"]: m for m in all_months}
+    cur_mid = current_month_id()
+    open_mid = _get_open_mid(S)
+
+    # Always include current + next 2
+    required: set[str] = set()
+    for delta in range(3):
+        mo = today.month + delta
+        yr = today.year
+        while mo > 12:
+            mo -= 12; yr += 1
+        required.add(month_id(yr, mo - 1))
+
+    all_mids = required | set(known.keys())
+    result = []
+    for mid in sorted(all_mids, key=_month_sort_key, reverse=True):
+        yr, m0 = parse_month_id(mid)
+        m_data = known.get(mid, {})
+        closed = bool(m_data.get("closed"))
+        is_future = _month_sort_key(mid) > _month_sort_key(cur_mid)
+        result.append({
+            "id": mid,
+            "label": _mid_label(mid),
+            "closed": closed,
+            "is_future": is_future,
+            "is_open": mid == open_mid and not closed,
+        })
+    return result
+
+def _get_month_status(active_mid: str, available: list[dict]) -> str:
+    m = next((m for m in available if m["id"] == active_mid), None)
+    if not m:
+        return "future"
+    if m["is_open"]:
+        return "open"
+    if m["closed"]:
+        return "closed"
+    return "future"
+
+def _show_close_btn(active_mid: str, S: dict) -> bool:
+    """Show Close Month button on the open month when ≤2 days until EOM (or past)."""
+    open_mid = _get_open_mid(S)
+    if active_mid != open_mid:
+        return False
+    today = date.today()
+    yr, m0 = parse_month_id(active_mid)
+    cal_month = m0 + 1
+    days_in_month = _cal.monthrange(yr, cal_month)[1]
+    month_end = date(yr, cal_month, days_in_month)
+    return (month_end - today).days <= 2
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @app.route("/dashboard")
@@ -1236,8 +1314,11 @@ def _dashboard_inner():
         active_mid = current_month_id()
 
     year, m0 = parse_month_id(active_mid)
-    prev_mid = month_id(year - 1, 11) if m0 == 0 else month_id(year, m0 - 1)
-    next_mid = month_id(year + 1, 0) if m0 == 11 else month_id(year, m0 + 1)
+
+    available_months = _build_available_months(S)
+    open_mid         = _get_open_mid(S)
+    month_status     = _get_month_status(active_mid, available_months)
+    show_close_btn   = _show_close_btn(active_mid, S)
 
     active_month = next(
         (m for m in all_months if m.get("id") == active_mid),
@@ -1451,7 +1532,8 @@ def _dashboard_inner():
         user_email=session.get("user_email"),
         active_mid=active_mid,
         month_display=f"{MONTH_NAMES[m0]} {year}",
-        prev_mid=prev_mid, next_mid=next_mid,
+        available_months=available_months, open_mid=open_mid,
+        month_status=month_status, show_close_btn=show_close_btn,
         category_groups=category_groups, grand=grand, rts=rts, aom=aom,
         all_cats=cats_sorted, accounts=accounts,
         debt_accounts=debt_accounts, transfer_buckets=transfer_buckets,
@@ -2969,6 +3051,35 @@ def api_bill_calendar():
 
     bills.sort(key=lambda x: x["due_date"])
     return jsonify({"ok": True, "bills": bills})
+
+
+# ── API: close / reopen month ─────────────────────────────────────────────────
+
+@app.route("/api/close-month", methods=["POST"])
+def api_close_month():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid  = (body.get("mid") or "").strip()
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+    uid, tok = _uid(), _tok()
+    _ensure_month(uid, tok, mid)
+    _db(tok).table("bcc_months").update({"closed": True}).eq("id", mid).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/reopen-month", methods=["POST"])
+def api_reopen_month():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid  = (body.get("mid") or "").strip()
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+    uid, tok = _uid(), _tok()
+    _db(tok).table("bcc_months").update({"closed": False}).eq("id", mid).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":
