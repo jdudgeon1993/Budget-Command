@@ -3278,6 +3278,163 @@ def api_bill_calendar():
     return jsonify({"ok": True, "bills": bills})
 
 
+@app.route("/api/cashflow")
+def api_cashflow():
+    """Cash Flow Timeline — week-by-week income and bills for a month."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    mid_param = request.args.get("month", current_month_id())
+    try:
+        yr, m0 = parse_month_id(mid_param)
+    except Exception:
+        yr, m0 = parse_month_id(current_month_id())
+    cal_month = m0 + 1
+
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+
+    paychecks   = data.get("paychecks", [])
+    alloc_rules = data.get("allocationRules", [])
+    buckets     = data.get("buckets", [])
+    all_months  = data.get("months", [])
+
+    days_in_month = _cal.monthrange(yr, cal_month)[1]
+    month_start   = date(yr, cal_month, 1)
+    month_end     = date(yr, cal_month, days_in_month)
+    today         = date.today()
+
+    external_rules = [r for r in alloc_rules if r.get("ruleType") == "external" and r.get("active", True)]
+    internal_rules = [r for r in alloc_rules if r.get("ruleType") != "external" and r.get("active", True) and r.get("bucketId")]
+    bucket_name_map = {b["id"]: b.get("name", "") for b in buckets}
+
+    # Paycheck events for this month
+    paycheck_by_date: dict = {}
+    for pc in paychecks:
+        if not pc.get("anchorDate"):
+            continue
+        for pd in _gen_pay_dates(pc["anchorDate"], pc["freq"], month_start, month_end):
+            xfrs  = []
+            for rule in external_rules:
+                amt = float(pc["amount"])
+                computed = round(amt * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
+                xfrs.append({"name": rule["name"], "amount": computed})
+            allocs = []
+            for rule in internal_rules:
+                pc_amt = float(pc["amount"])
+                computed = round(pc_amt * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
+                allocs.append({"bucket": bucket_name_map.get(rule["bucketId"], ""), "amount": computed})
+            paycheck_by_date.setdefault(pd, []).append({
+                "label": pc.get("label", "Paycheck"),
+                "amount": float(pc["amount"]),
+                "transfers": xfrs,
+                "allocs": allocs,
+            })
+
+    # Bills due this month
+    m_obj = next((m for m in all_months if m.get("id") == mid_param), {})
+
+    def _bill_amount_cf(b: dict) -> float:
+        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+
+    def _is_paid_cf(b: dict, d: date) -> bool:
+        mid = _mid_for_date(d)
+        m   = next((x for x in all_months if x.get("id") == mid), {})
+        return (m.get("budgets") or {}).get(b["id"]) == "PAID"
+
+    dated_bills = [
+        b for b in buckets
+        if not b.get("archived") and b.get("dueDay") is not None and _bill_amount_cf(b) > 0
+    ]
+    freq_bills = [
+        b for b in buckets
+        if not b.get("archived") and b.get("dueDay") is None
+        and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
+        and _bill_amount_cf(b) > 0
+    ]
+
+    bill_by_date: dict = {}
+    for b in dated_bills:
+        for bd in _bill_dates_in_range(b["dueDay"], b.get("payFreq"), month_start, month_end):
+            bill_by_date.setdefault(bd, []).append({
+                "name": b["name"], "amount": _bill_amount_cf(b),
+                "paid": _is_paid_cf(b, bd), "bucket_id": b["id"],
+            })
+    for b in freq_bills:
+        for bd in _freq_only_dates_in_range(b["payFreq"], month_start, month_end):
+            bill_by_date.setdefault(bd, []).append({
+                "name": b["name"], "amount": _bill_amount_cf(b),
+                "paid": _is_paid_cf(b, bd), "bucket_id": b["id"],
+            })
+
+    # Build week buckets (Mon-Sun or 7-day chunks from start of month)
+    weeks = []
+    d = month_start
+    while d <= month_end:
+        wend = min(d + timedelta(days=6), month_end)
+        days_out = []
+        dd = d
+        while dd <= wend:
+            days_out.append({
+                "date":    str(dd),
+                "day":     dd.day,
+                "weekday": dd.strftime("%a"),
+                "past":    dd < today,
+                "today":   dd == today,
+                "income":  paycheck_by_date.get(dd, []),
+                "bills":   sorted(bill_by_date.get(dd, []), key=lambda x: -x["amount"]),
+            })
+            dd += timedelta(days=1)
+        w_income = sum(pc["amount"] for day in days_out for pc in day["income"])
+        w_bills  = sum(b["amount"]  for day in days_out for b  in day["bills"])
+        weeks.append({
+            "label":        f"{d.strftime('%b %-d')} – {wend.strftime('%b %-d')}",
+            "start":        str(d),
+            "end":          str(wend),
+            "days":         days_out,
+            "week_income":  round(w_income, 2),
+            "week_bills":   round(w_bills, 2),
+        })
+        d = wend + timedelta(days=1)
+
+    # Summary
+    all_bill_list = [b for day_bills in bill_by_date.values() for b in day_bills]
+    total_income    = round(sum(pc["amount"] for pcs in paycheck_by_date.values() for pc in pcs), 2)
+    total_bills     = round(sum(b["amount"] for b in all_bill_list), 2)
+    paid_total      = round(sum(b["amount"] for b in all_bill_list if b["paid"]), 2)
+    remaining_total = round(total_bills - paid_total, 2)
+    daily_burn      = round(total_bills / days_in_month, 2) if days_in_month else 0
+
+    hitter_map: dict = {}
+    for b in all_bill_list:
+        if b["name"] not in hitter_map:
+            hitter_map[b["name"]] = {"amount": 0.0, "paid": True}
+        hitter_map[b["name"]]["amount"] += b["amount"]
+        if not b["paid"]:
+            hitter_map[b["name"]]["paid"] = False
+    top_hitters = sorted(
+        [{"name": k, "amount": round(v["amount"], 2), "paid": v["paid"],
+          "pct": round(v["amount"] / total_bills * 100) if total_bills else 0}
+         for k, v in hitter_map.items()],
+        key=lambda x: -x["amount"]
+    )[:7]
+
+    return jsonify({
+        "ok":          True,
+        "mid":         mid_param,
+        "month_label": f"{MONTH_NAMES[m0]} {yr}",
+        "weeks":       weeks,
+        "summary": {
+            "total_income":    total_income,
+            "total_bills":     total_bills,
+            "paid_bills":      paid_total,
+            "remaining_bills": remaining_total,
+            "daily_burn":      daily_burn,
+            "top_hitters":     top_hitters,
+        },
+    })
+
+
 # ── API: Close Wizard ────────────────────────────────────────────────────────
 #
 # SQL migrations required before using these endpoints:
