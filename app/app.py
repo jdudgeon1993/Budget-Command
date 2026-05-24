@@ -941,6 +941,47 @@ def api_add_bucket():
 
 # ── API: archive / delete category ───────────────────────────────────────────
 
+@app.route("/api/categories")
+def api_categories():
+    """Return all categories with active/archived bucket counts."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid, tok = _uid(), _tok()
+    data    = _load(uid, tok)
+    cats    = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    buckets = data.get("buckets", [])
+    result  = []
+    for cat in cats:
+        cid = cat["id"]
+        active_bkts = [b for b in buckets if b.get("catId") == cid and not b.get("archived")]
+        arch_bkts   = [b for b in buckets if b.get("catId") == cid and b.get("archived")]
+        result.append({
+            "id":               cid,
+            "name":             cat.get("name", ""),
+            "archived":         bool(cat.get("archived")),
+            "order":            cat.get("order", 0),
+            "active_buckets":   len(active_bkts),
+            "archived_buckets": len(arch_bkts),
+        })
+    return jsonify({"ok": True, "categories": result})
+
+
+@app.route("/api/unarchive-category", methods=["POST"])
+def api_unarchive_category():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body   = request.get_json(silent=True) or {}
+    cat_id = body.get("cat_id", "").strip()
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+    cat = next((c for c in data.get("cats", []) if c["id"] == cat_id), None)
+    if not cat:
+        return jsonify({"ok": False, "error": "Category not found"}), 404
+    cat["archived"] = False
+    _save_category(uid, tok, cat)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/archive-category", methods=["POST"])
 def api_archive_category():
     if not logged_in():

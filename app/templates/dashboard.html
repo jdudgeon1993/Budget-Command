@@ -1487,6 +1487,49 @@
 .cft-burn { display: flex; align-items: baseline; gap: 6px; padding: 8px 0 4px; }
 .cft-burn-num { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text); }
 .cft-burn-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: .06em; text-transform: uppercase; }
+
+/* ── Category Management (Setup tab) ── */
+.cat-mgmt-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 4px; }
+.cat-mgmt-row.archived { opacity: .65; }
+.cat-name-inp { flex: 1; min-width: 0; background: transparent; border: none; border-bottom: 1px solid transparent; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 2px 4px; outline: none; }
+.cat-name-inp:focus { border-bottom-color: var(--accent); background: var(--bg3); border-radius: 3px 3px 0 0; }
+.cat-mgmt-info { font-family: var(--mono); font-size: 10px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+.cat-mgmt-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.cat-mgmt-actions button { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: var(--r); border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer; }
+.cat-mgmt-actions button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.cat-mgmt-actions button.del:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+.cat-mgmt-actions button:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ── Desktop: Buckets + Ledger side by side ── */
+@media (min-width: 900px) {
+  .main-content { display: flex; align-items: flex-start; max-width: 1440px; margin: 0 auto; }
+
+  /* Left column: Buckets always visible */
+  #panel-buckets {
+    display: block !important;
+    flex: 0 0 52%;
+    max-width: 620px;
+    min-height: calc(100vh - 56px);
+    border-right: 1px solid var(--border2);
+  }
+  #panel-buckets .panel-container { max-width: none; margin: 0; }
+
+  /* Right column: Ledger, More, Coach share this slot */
+  #panel-ledger, #panel-more, #panel-coach { flex: 1; min-width: 0; }
+  #panel-ledger .panel-container,
+  #panel-more .panel-container,
+  #panel-coach .panel-container { max-width: none; margin: 0; }
+
+  /* Ledger visible by default alongside Buckets */
+  #panel-ledger { display: block; }
+
+  /* When More or Coach is active, push Ledger out of view */
+  .main-content:has(#panel-more.active) #panel-ledger,
+  .main-content:has(#panel-coach.active) #panel-ledger { display: none !important; }
+
+  /* More/Coach take the right column */
+  #panel-more.active, #panel-coach.active { display: block; }
+}
 .wi-scen-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .wi-scen-row input { flex: 1; min-width: 100px; }
 {% endblock %}
@@ -2642,6 +2685,7 @@
         <div class="acct-tabs" style="margin-bottom:14px;">
           <button class="acct-tab active" onclick="showSettingsTab('paychecks',this)">Paychecks</button>
           <button class="acct-tab" onclick="showSettingsTab('rules',this)">Allocation Rules</button>
+          <button class="acct-tab" onclick="showSettingsTab('categories',this);loadCategories()">Categories</button>
           <button class="acct-tab" onclick="showSettingsTab('payees',this);loadPayees()">Payees</button>
           <button class="acct-tab" onclick="showSettingsTab('coach-key',this)">Coach AI</button>
         </div>
@@ -2803,6 +2847,20 @@
             </tbody>
           </table>
         </div><!-- end rules tab -->
+
+        <!-- ── Categories tab ── -->
+        <div id="settings-tab-categories" style="display:none">
+          <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin:0 0 12px;">
+            All categories and their bucket counts. Rename inline, archive empty ones, or delete categories that have no buckets.
+          </p>
+          <div id="categories-active-list">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+          </div>
+          <div id="categories-archived-section" style="display:none;margin-top:18px;">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);">Archived Categories</div>
+            <div id="categories-archived-list"></div>
+          </div>
+        </div><!-- end categories tab -->
 
         <!-- ── Payees tab ── -->
         <div id="settings-tab-payees" style="display:none">
@@ -4538,7 +4596,7 @@ function showMoreMode(mode, btn) {
 
 /* ── Settings: sub-tab switch ── */
 function showSettingsTab(tab, btn) {
-  ['paychecks','rules','payees','coach-key'].forEach(t => {
+  ['categories','paychecks','rules','payees','coach-key'].forEach(t => {
     const el = document.getElementById('settings-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
@@ -4573,6 +4631,108 @@ function clearGeminiKey() {
   showToast('Coach AI key cleared', 'info');
 }
 function _getCoachKey() { return localStorage.getItem('gemini_api_key') || ''; }
+
+/* ── Categories management ────────────────────────────────────────────────── */
+let _catsLoaded = false;
+
+async function loadCategories() {
+  if (_catsLoaded) return;
+  _catsLoaded = true;
+  await _renderCategoriesTab();
+}
+
+async function _renderCategoriesTab() {
+  const activeEl   = document.getElementById('categories-active-list');
+  const archivedEl = document.getElementById('categories-archived-list');
+  const archSect   = document.getElementById('categories-archived-section');
+  try {
+    const data = await fetch('/api/categories').then(r => r.json());
+    const cats     = data.categories || [];
+    const active   = cats.filter(c => !c.archived);
+    const archived = cats.filter(c => c.archived);
+    activeEl.innerHTML   = _catListHtml(active, false);
+    if (archived.length) {
+      archSect.style.display   = '';
+      archivedEl.innerHTML     = _catListHtml(archived, true);
+    } else {
+      archSect.style.display = 'none';
+    }
+  } catch(e) {
+    activeEl.innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:11px;">Failed to load categories.</div>';
+  }
+}
+
+function _catListHtml(cats, isArchived) {
+  if (!cats.length) return `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 0;">${isArchived ? 'No archived categories.' : 'No active categories.'}</div>`;
+  return cats.map(c => {
+    const total    = c.active_buckets + c.archived_buckets;
+    const canDel   = total === 0;
+    const parts    = [];
+    if (c.active_buckets > 0)   parts.push(`${c.active_buckets} bucket${c.active_buckets!==1?'s':''}`);
+    if (c.archived_buckets > 0) parts.push(`${c.archived_buckets} archived`);
+    const info = parts.join(' · ') || 'empty';
+    const rowClass = isArchived ? 'cat-mgmt-row archived' : 'cat-mgmt-row';
+    const archivedBadge = isArchived ? `<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--amber);border:1px solid var(--amber);padding:1px 5px;border-radius:3px;flex-shrink:0;">ARCHIVED</span>` : '';
+    const restoreBtn = isArchived
+      ? `<button onclick="catUnarchive('${c.id}')">Restore</button>`
+      : (c.active_buckets === 0 ? `<button onclick="catArchive('${c.id}')">Archive</button>` : '');
+    const delTitle = canDel ? '' : `title="${total} bucket${total!==1?'s':''} remaining — delete or move them first"`;
+    return `<div class="${rowClass}" data-cat-id="${c.id}">
+      <input class="cat-name-inp" type="text" value="${c.name.replace(/"/g,'&quot;')}"
+        data-cat-id="${c.id}" data-original="${c.name.replace(/"/g,'&quot;')}"
+        onblur="catRename(this)" onkeydown="if(event.key==='Enter')this.blur()">
+      ${archivedBadge}
+      <span class="cat-mgmt-info">${info}</span>
+      <div class="cat-mgmt-actions">
+        ${restoreBtn}
+        <button class="del" onclick="catDelete('${c.id}','${c.name.replace(/'/g,"\\'")}',${total})" ${canDel?'':'disabled'} ${delTitle}>✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function catRename(inp) {
+  const catId = inp.dataset.catId;
+  const orig  = inp.dataset.original;
+  const val   = inp.value.trim();
+  if (!val || val === orig) { inp.value = orig; return; }
+  await fetch('/api/save', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({field: 'cat_name', id: catId, value: val}),
+  });
+  inp.dataset.original = val;
+  showToast(`Renamed to "${val}"`, 'success');
+}
+
+async function catArchive(catId) {
+  if (!confirm('Archive this category? Its buckets will also be archived.')) return;
+  const r = await fetch('/api/archive-category', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({cat_id: catId, active_mid: ACTIVE_MID}),
+  }).then(r => r.json());
+  if (r.ok) { _catsLoaded = false; await _renderCategoriesTab(); showToast('Category archived', 'success'); }
+  else showToast(r.error || 'Failed to archive', 'error');
+}
+
+async function catUnarchive(catId) {
+  const r = await fetch('/api/unarchive-category', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({cat_id: catId}),
+  }).then(r => r.json());
+  if (r.ok) { _catsLoaded = false; await _renderCategoriesTab(); showToast('Category restored', 'success'); }
+  else showToast(r.error || 'Failed to restore', 'error');
+}
+
+async function catDelete(catId, catName, totalBuckets) {
+  if (totalBuckets > 0) { showToast('Delete or move all buckets first.', 'warning'); return; }
+  if (!confirm(`Delete category "${catName}"? This cannot be undone.`)) return;
+  const r = await fetch('/api/delete-category', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({cat_id: catId}),
+  }).then(r => r.json());
+  if (r.ok) { _catsLoaded = false; await _renderCategoriesTab(); showToast('Category deleted', 'success'); }
+  else showToast(r.error || 'Failed to delete', 'error');
+}
 
 let _payeesLoaded = false;
 let _payeesCache  = null;  // populated by prefetch; reused by loadPayees()
