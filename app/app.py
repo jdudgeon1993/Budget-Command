@@ -1252,11 +1252,13 @@ def _build_available_months(S: dict) -> list[dict]:
         m_data = known.get(mid, {})
         closed = bool(m_data.get("closed"))
         is_future = _month_sort_key(mid) > _month_sort_key(cur_mid)
+        is_past   = _month_sort_key(mid) < _month_sort_key(cur_mid)
         result.append({
             "id": mid,
             "label": _mid_label(mid),
             "closed": closed,
             "is_future": is_future,
+            "is_past": is_past,
             "is_open": mid == open_mid and not closed,
         })
     return result
@@ -1264,12 +1266,15 @@ def _build_available_months(S: dict) -> list[dict]:
 def _get_month_status(active_mid: str, available: list[dict]) -> str:
     m = next((m for m in available if m["id"] == active_mid), None)
     if not m:
-        return "future"
+        # Unknown month — treat as future or past by date comparison
+        return "future" if _month_sort_key(active_mid) > _month_sort_key(current_month_id()) else "open"
     if m["is_open"]:
         return "open"
     if m["closed"]:
         return "closed"
-    return "future"
+    if m["is_future"]:
+        return "future"
+    return "open"  # past, non-closed months remain editable
 
 def _show_close_btn(active_mid: str, S: dict) -> bool:
     """Show Close Month button on the open month when ≤2 days until EOM (or past)."""
@@ -1668,7 +1673,7 @@ def api_payees():
     if not logged_in():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
     uid, tok = _uid(), _tok()
-    txs = _db(tok).table("bcc_transactions").select("desc").eq("user_id", uid).execute().data or []
+    txs = _db(tok).table("bcc_transactions").select("*").eq("user_id", uid).execute().data or []
     counts: dict[str, int] = {}
     for t in txs:
         name = (t.get("desc") or "").strip()
@@ -2844,9 +2849,15 @@ def api_coach():
     if not logged_in():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
 
-    api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
+    # Accept key from request body (client-stored) or fall back to server env var
+    _body_pre = request.get_json(silent=True) or {}
+    api_key = (
+        (_body_pre.get('api_key') or '').strip()
+        or os.environ.get('GEMINI_API_KEY')
+        or os.environ.get('GOOGLE_API_KEY')
+    )
     if not api_key:
-        return jsonify({'error': 'Coach AI is not configured.'}), 200
+        return jsonify({'error': 'No Coach AI key found. Go to More → Setup → Coach AI to add one.'}), 200
 
     # Rate limiting: 15 RPM, 1500 RPD
     now = _time.time()
@@ -2869,7 +2880,7 @@ def api_coach():
     _coach_rpm_times.append(now)
     _coach_rpd_count += 1
 
-    body = request.get_json(silent=True) or {}
+    body = _body_pre
     user_msg = (body.get('message') or '').strip()
     history = body.get('history') or []
     if not user_msg:
