@@ -189,7 +189,8 @@
 
 /* ── Panel container ── */
 .panel-container {
-  margin: 10px;
+  margin: 10px auto;
+  max-width: 1100px;
   padding: 12px;
   background: var(--bg3);
   border: 1px solid var(--border);
@@ -1398,6 +1399,13 @@
 .wi-s-inp { width: 80px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 4px 7px; font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; }
 .wi-s-inp:focus { border-color: var(--accent); outline: none; }
 .wi-s-inp.changed { border-color: var(--amber); color: var(--amber); }
+.wi-sched-btn { background: none; border: 1px solid var(--border2); border-radius: 3px; color: var(--text3); cursor: pointer; font-size: 11px; padding: 2px 5px; line-height: 1; flex-shrink: 0; }
+.wi-sched-btn.has-sched { border-color: var(--amber); color: var(--amber); }
+.wi-sched-pop { position: absolute; z-index: 999; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 8px 10px; box-shadow: 0 4px 16px rgba(0,0,0,.4); min-width: 200px; }
+.wi-sched-pop-title { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+.wi-sched-months { display: flex; flex-wrap: wrap; gap: 4px; }
+.wi-sched-mo { padding: 4px 8px; border-radius: 3px; border: 1px solid var(--border2); font-family: var(--mono); font-size: 10px; cursor: pointer; color: var(--text); background: var(--bg3); }
+.wi-sched-mo.off { background: color-mix(in srgb,var(--red) 15%,transparent); border-color: var(--red); color: var(--red); }
 .wi-chips-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .wi-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--border2); background: var(--bg2); font-family: var(--mono); font-size: 10px; cursor: pointer; color: var(--text); }
 .wi-chip:hover { border-color: var(--accent); color: var(--accent); }
@@ -2858,6 +2866,13 @@
               <div class="fc-planned-list" id="fc-planned-list"></div>
             </div>
           </div>
+          <!-- What-If scenario selector -->
+          <div id="fc-scenario-row" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:7px 10px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);">
+            <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--amber);">SCENARIO</span>
+            <span id="fc-scenario-name" style="font-family:var(--mono);font-size:11px;color:var(--text);"></span>
+            <button onclick="fcClearScenario()" style="margin-left:auto;border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:var(--r);cursor:pointer;">Clear</button>
+          </div>
+          <div id="fc-scenario-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;"></div>
           <!-- Loading -->
           <div id="forecast-loading" style="display:none; padding:20px; text-align:center; font-family:var(--mono); font-size:11px; color:var(--text3); letter-spacing:.1em;">LOADING FORECAST...</div>
           <!-- Content -->
@@ -5302,6 +5317,7 @@ let _forecastMonths  = 2;
 let _awaitingPaycheck = false;
 let _acctChips       = {};   // id → {balance, on}
 let _useCustomBal    = false;
+let _fcActiveSc      = null;  // What-If scenario applied to forecast
 let _forecastExtras  = [];   // planned expenses
 
 function showPlanTab(name, btn) {
@@ -5317,9 +5333,10 @@ function showPlanTab(name, btn) {
 /* ── What-If State ───────────────────────────────────────────────────────── */
 let _wiSimAllocs   = {};       // {bid: number}
 let _wiIncomeSc    = null;     // income override (null = not overridden)
-let _wiScenarios   = [];       // [{id, name, allocations, incomeOverride}]
+let _wiScenarios   = [];       // [{id, name, allocations, incomeOverride, schedule}]
 let _wiActiveSc    = null;     // currently loaded scenario object
-let _wi6Mode       = 'rts';    // '6-month view mode: 'rts' | 'income'
+let _wi6Mode       = 'rts';    // 6-month view mode: 'rts' | 'income'
+let _wiSchedule    = {};       // {bid: {mid: false}} — false = OFF for that month
 
 /* ── Math expression eval (supports: 50, +50, -20, *1.1, /2, =150) ──── */
 function evalMoneyExpr(str, cur, ref) {
@@ -5366,11 +5383,12 @@ function wiSimAllocForMonth(mid) {
   let total = 0;
   for (const g of _wiGroups) {
     for (const b of g.buckets) {
+      // Schedule: if bucket is marked OFF for this month, contribute 0
+      if (_wiSchedule[b.id]?.[mid] === false) { continue; }
       let amt;
       if (isCurrent) {
         amt = _wiSimAllocs[b.id] ?? b.alloc;
       } else {
-        // Future months: use scenario override if set, else default_budget
         amt = (_wiActiveSc?.allocations?.[b.id] !== undefined)
           ? _wiActiveSc.allocations[b.id]
           : (b.budget || 0);
@@ -5379,6 +5397,57 @@ function wiSimAllocForMonth(mid) {
     }
   }
   return total;
+}
+
+/* ── Bucket schedule popover ──────────────────────────────────────── */
+let _wiSchedOpenBid = null;
+let _wiSchedPopEl   = null;
+
+function wiToggleSchedPop(btn, bid) {
+  // Close existing
+  if (_wiSchedPopEl) { _wiSchedPopEl.remove(); _wiSchedPopEl = null; }
+  if (_wiSchedOpenBid === bid) { _wiSchedOpenBid = null; return; }
+  _wiSchedOpenBid = bid;
+  const months = wiMonthsForward(_wiMid, 6);
+  const sched  = _wiSchedule[bid] || {};
+  const rows   = months.map(m => {
+    const isOff = sched[m.id] === false;
+    return `<span class="wi-sched-mo${isOff?' off':''}" onclick="wiToggleSchedMonth('${bid}','${m.id}',this)">${m.label}</span>`;
+  }).join('');
+  const bktName = _wiGroups.flatMap(g => g.buckets).find(b => b.id === bid)?.name || bid;
+  const pop = document.createElement('div');
+  pop.className = 'wi-sched-pop';
+  pop.innerHTML = `<div class="wi-sched-pop-title">${bktName} — skip months</div><div class="wi-sched-months">${rows}</div>
+    <div style="margin-top:8px;text-align:right;"><button class="sf-btn" onclick="wiClearSched('${bid}')">Clear</button></div>`;
+  const rect = btn.getBoundingClientRect();
+  const row  = btn.closest('.wi-bkt-row');
+  pop.style.top  = (btn.offsetTop + btn.offsetHeight + 2) + 'px';
+  pop.style.left = '0';
+  row.appendChild(pop);
+  _wiSchedPopEl = pop;
+  setTimeout(() => document.addEventListener('click', _wiSchedClickaway, {once: true, capture: true}), 0);
+}
+function _wiSchedClickaway(e) {
+  if (_wiSchedPopEl && !_wiSchedPopEl.contains(e.target)) {
+    _wiSchedPopEl.remove(); _wiSchedPopEl = null; _wiSchedOpenBid = null;
+  }
+}
+function wiToggleSchedMonth(bid, mid, el) {
+  if (!_wiSchedule[bid]) _wiSchedule[bid] = {};
+  const cur = _wiSchedule[bid][mid];
+  if (cur === false) { delete _wiSchedule[bid][mid]; el.classList.remove('off'); }
+  else              { _wiSchedule[bid][mid] = false;  el.classList.add('off'); }
+  _renderWi6Month();
+  // Update ⏱ button state
+  const hasSched = Object.keys(_wiSchedule[bid] || {}).length > 0;
+  const schedBtn = document.querySelector(`.wi-sched-btn[onclick*="'${bid}'"]`);
+  if (schedBtn) schedBtn.classList.toggle('has-sched', hasSched);
+}
+function wiClearSched(bid) {
+  delete _wiSchedule[bid];
+  if (_wiSchedPopEl) { _wiSchedPopEl.remove(); _wiSchedPopEl = null; _wiSchedOpenBid = null; }
+  _renderWiBuckets();
+  _renderWi6Month();
 }
 
 /* ── Month ID helpers ─────────────────────────────────────────────── */
@@ -5509,14 +5578,16 @@ function _renderWiBuckets() {
       const diffSpan = diff !== 0
         ? `<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${fmtMoney(diff)}</span>`
         : '';
-      const changed = diff !== 0;
-      html += `<div class="wi-bkt-row">
+      const changed  = diff !== 0;
+      const hasSched = Object.keys(_wiSchedule[b.id] || {}).length > 0;
+      html += `<div class="wi-bkt-row" style="position:relative;">
         <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
         ${diffSpan}
         <input class="wi-s-inp${changed?' changed':''}" type="text" inputmode="decimal"
           data-bid="${b.id}" data-real="${b.alloc}" value="${sim.toFixed(2)}"
           title="Supports: +50, -20, *1.1, =0"
           onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="wi-sched-btn${hasSched?' has-sched':''}" title="Month schedule" onclick="wiToggleSchedPop(this,'${b.id}')">⏱</button>
       </div>`;
     });
     html += `</div>`;
@@ -5642,13 +5713,15 @@ function wiSaveScenario() {
     showToast('Max 8 scenarios — delete one first.', 'warning'); return;
   }
   const allocs = {..._wiSimAllocs};
+  const sched  = JSON.parse(JSON.stringify(_wiSchedule));
   const existing = _wiScenarios.find(s => s.name === name);
   if (existing) {
-    existing.allocations = allocs;
+    existing.allocations   = allocs;
     existing.incomeOverride = _wiIncomeSc;
+    existing.schedule      = sched;
     _wiActiveSc = existing;
   } else {
-    const s = {id: Date.now().toString(), name, allocations: allocs, incomeOverride: _wiIncomeSc};
+    const s = {id: Date.now().toString(), name, allocations: allocs, incomeOverride: _wiIncomeSc, schedule: sched};
     _wiScenarios.push(s);
     _wiActiveSc = s;
   }
@@ -5667,6 +5740,7 @@ function wiDupeScenario() {
 function wiNewScenario() {
   _wiActiveSc = null;
   _wiIncomeSc = null;
+  _wiSchedule  = {};
   _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
   const nameInp = document.getElementById('wi-name-inp');
   if (nameInp) nameInp.value = '';
@@ -5682,6 +5756,7 @@ function wiLoadScenario(id) {
   if (!s) return;
   _wiActiveSc = s;
   _wiIncomeSc = s.incomeOverride ?? null;
+  _wiSchedule  = JSON.parse(JSON.stringify(s.schedule || {}));
   _wiGroups.forEach(g => g.buckets.forEach(b => {
     _wiSimAllocs[b.id] = s.allocations[b.id] ?? b.alloc;
   }));
@@ -5713,6 +5788,7 @@ function wiDeleteScenario(id) {
 function wiReset() {
   _wiActiveSc = null;
   _wiIncomeSc = null;
+  _wiSchedule  = {};
   _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
   const nameInp = document.getElementById('wi-name-inp');
   if (nameInp) nameInp.value = '';
@@ -5794,6 +5870,38 @@ async function initForecast() {
   if (!_forecastData) loadForecast();
 }
 
+function _renderFcScenarioChips() {
+  const chipsEl = document.getElementById('fc-scenario-chips');
+  const banner  = document.getElementById('fc-scenario-row');
+  const nameEl  = document.getElementById('fc-scenario-name');
+  let scenarios = [];
+  try { scenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); } catch {}
+  if (!scenarios.length) {
+    if (chipsEl) chipsEl.innerHTML = '';
+    return;
+  }
+  if (chipsEl) {
+    chipsEl.innerHTML = scenarios.map(s => {
+      const isActive = _fcActiveSc?.id === s.id;
+      return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:3px;border:1px solid ${isActive?'var(--amber)':'var(--border2)'};background:${isActive?'color-mix(in srgb,var(--amber) 12%,transparent)':'var(--bg2)'};font-family:var(--mono);font-size:10px;cursor:pointer;color:${isActive?'var(--amber)':'var(--text)'};" onclick="fcApplyScenario('${s.id}')">${s.name}</span>`;
+    }).join('');
+  }
+  if (banner) banner.style.display = _fcActiveSc ? 'flex' : 'none';
+  if (nameEl && _fcActiveSc) nameEl.textContent = _fcActiveSc.name;
+}
+function fcApplyScenario(id) {
+  let scenarios = [];
+  try { scenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); } catch {}
+  const s = scenarios.find(s => s.id === id);
+  if (!s) return;
+  _fcActiveSc = _fcActiveSc?.id === id ? null : s;  // toggle
+  loadForecast();
+}
+function fcClearScenario() {
+  _fcActiveSc = null;
+  loadForecast();
+}
+
 function _buildForecastUrl() {
   let url = '/api/forecast?months=' + _forecastMonths;
   if (_awaitingPaycheck) url += '&skip_today_income=1';
@@ -5816,8 +5924,19 @@ async function loadForecast() {
   const loading = document.getElementById('forecast-loading');
   if (loading) loading.style.display = '';
   if (el) el.innerHTML = '';
+  _renderFcScenarioChips();
   try {
-    const r = await fetch(_buildForecastUrl());
+    const url = _buildForecastUrl();
+    const fetchOpts = {};
+    if (_fcActiveSc) {
+      fetchOpts.method  = 'POST';
+      fetchOpts.headers = {'Content-Type': 'application/json'};
+      fetchOpts.body    = JSON.stringify({
+        bucket_overrides: _fcActiveSc.allocations || {},
+        income_override:  _fcActiveSc.incomeOverride ?? null,
+      });
+    }
+    const r = await fetch(url, fetchOpts);
     const data = await r.json();
     if (!data.ok) {
       if (el) el.innerHTML = '<div class="fc-empty">Unable to load forecast. Check that paychecks are set up in Settings.</div>';
