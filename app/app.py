@@ -2550,7 +2550,7 @@ def _age_of_money(data: dict):
 
 # ── API: forecast ─────────────────────────────────────────────────────────────
 
-@app.route("/api/forecast")
+@app.route("/api/forecast", methods=["GET", "POST"])
 def api_forecast():
     if not logged_in():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
@@ -2558,6 +2558,10 @@ def api_forecast():
     months_param      = request.args.get('months', '3')
     balance_param     = request.args.get('balance')
     skip_today_income = request.args.get('skip_today_income', '0') == '1'
+
+    body             = request.get_json(silent=True) or {}
+    bucket_overrides = {str(k): float(v) for k, v in body.get("bucket_overrides", {}).items() if v is not None}
+    income_override  = body.get("income_override")  # float or None
 
     try:
         n_months = int(months_param)
@@ -2675,6 +2679,9 @@ def api_forecast():
         b["id"]: float(b.get("defaultBudget") or b.get("dueAmount") or 0)
         for b in buckets
     }
+    # Apply What If scenario overrides
+    for bid, amt in bucket_overrides.items():
+        bucket_default_budget[bid] = amt
 
     def _bill_funded(bucket_id: str, bill_date: date) -> bool:
         mid    = _mid_for_date(bill_date)
@@ -2878,6 +2885,7 @@ def api_forecast():
         "months":           months_param,
         "periods":          period_results,
         "account_balances": account_balances,
+        "scenario_active":  bool(bucket_overrides),
     })
 
 
