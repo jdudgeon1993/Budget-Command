@@ -1432,6 +1432,61 @@
 .wi-6mo-val { flex: 1; min-width: 80px; background: var(--bg3); border-radius: var(--r); padding: 5px 8px; text-align: center; }
 .wi-6mo-val-label { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
 .wi-6mo-val-num { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+
+/* ── Cash Flow Timeline ── */
+.cft-wrap { display: flex; flex-direction: column; gap: 14px; }
+.cft-overview { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.cft-stat { flex: 1; min-width: 80px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 8px 12px; }
+.cft-stat-label { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+.cft-stat-val { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+.cft-week-bars { display: flex; align-items: flex-end; gap: 6px; height: 52px; margin-bottom: 2px; }
+.cft-wb-wrap { flex: 1; display: flex; gap: 2px; align-items: flex-end; height: 100%; }
+.cft-wb-inc { border-radius: 3px 3px 0 0; background: color-mix(in srgb,var(--green) 60%,transparent); min-height: 3px; }
+.cft-wb-bill { border-radius: 3px 3px 0 0; background: color-mix(in srgb,var(--red) 50%,transparent); min-height: 3px; }
+.cft-wb-labels { display: flex; gap: 6px; margin-bottom: 10px; }
+.cft-wb-lbl { flex: 1; text-align: center; font-family: var(--mono); font-size: 9px; color: var(--text3); }
+.cft-week { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.cft-week-hdr { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg2); cursor: pointer; gap: 8px; }
+.cft-week-hdr:hover { background: var(--bg3); }
+.cft-week-label { font-family: var(--mono); font-size: 11px; color: var(--text); letter-spacing: .04em; }
+.cft-week-pills { display: flex; gap: 6px; }
+.cft-week-pill { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 3px; }
+.cft-week-pill.inc { background: color-mix(in srgb,var(--green) 12%,transparent); color: var(--green); }
+.cft-week-pill.bill { background: color-mix(in srgb,var(--red) 10%,transparent); color: var(--red); }
+.cft-week-arrow { font-size: 9px; color: var(--text3); transition: transform .15s; }
+.cft-week-arrow.open { transform: rotate(90deg); }
+.cft-week-body { border-top: 1px solid var(--border); display: none; }
+.cft-week-body.open { display: block; }
+.cft-day { border-bottom: 1px solid var(--border); }
+.cft-day:last-child { border-bottom: none; }
+.cft-day-hdr { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; padding: 5px 12px; color: var(--text3); display: flex; align-items: center; gap: 6px; }
+.cft-day-hdr.today { color: var(--accent); }
+.cft-day-hdr.past { color: var(--text3); opacity: .7; }
+.cft-day-hdr .today-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.cft-income-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 4px 20px; }
+.cft-income-label { font-family: var(--mono); font-size: 12px; color: var(--green); }
+.cft-income-amt { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--green); }
+.cft-xfr-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 12px 2px 28px; }
+.cft-xfr-label { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.cft-xfr-amt { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.cft-bill-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 12px 5px 20px; border-left: 3px solid transparent; }
+.cft-bill-row.big { border-left-color: var(--red); }
+.cft-bill-row.paid { opacity: .55; }
+.cft-bill-name { font-family: var(--mono); font-size: 12px; color: var(--text); }
+.cft-bill-amt { font-family: var(--mono); font-size: 13px; }
+.cft-bill-amt.paid { color: var(--text3); }
+.cft-bill-amt.unpaid { color: var(--red); }
+.cft-hitters { margin-top: 4px; }
+.cft-hitter { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.cft-hitter-name { font-family: var(--mono); font-size: 11px; color: var(--text); width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+.cft-hitter-bar-wrap { flex: 1; height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+.cft-hitter-bar { height: 100%; border-radius: 4px; background: var(--accent); }
+.cft-hitter-bar.paid { background: color-mix(in srgb,var(--green) 70%,transparent); }
+.cft-hitter-pct { font-family: var(--mono); font-size: 10px; color: var(--text3); width: 28px; text-align: right; flex-shrink: 0; }
+.cft-hitter-amt { font-family: var(--mono); font-size: 11px; color: var(--text); width: 70px; text-align: right; flex-shrink: 0; }
+.cft-burn { display: flex; align-items: baseline; gap: 6px; padding: 8px 0 4px; }
+.cft-burn-num { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text); }
+.cft-burn-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: .06em; text-transform: uppercase; }
 .wi-scen-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .wi-scen-row input { flex: 1; min-width: 100px; }
 {% endblock %}
@@ -2827,7 +2882,7 @@
         <!-- Sub-tabs: Forecast | Calendar | What-If -->
         <div class="acct-tabs" style="margin-bottom:14px">
           <button class="acct-tab active" onclick="showPlanTab('forecast', this)">Forecast</button>
-          <button class="acct-tab" onclick="showPlanTab('calendar', this);initBillCalendar()">Calendar</button>
+          <button class="acct-tab" onclick="showPlanTab('calendar', this);initCashflow()">Timeline</button>
           <button class="acct-tab" onclick="showPlanTab('whatif', this)">What-If</button>
         </div>
 
@@ -2882,9 +2937,9 @@
           <div id="forecast-content"></div>
         </div>
 
-        <!-- Bill Calendar tab -->
+        <!-- Cash Flow Timeline tab -->
         <div id="plan-calendar" style="display:none">
-          <div id="bill-calendar-content">
+          <div id="cashflow-content">
             <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
           </div>
         </div>
@@ -4520,17 +4575,21 @@ function clearGeminiKey() {
 function _getCoachKey() { return localStorage.getItem('gemini_api_key') || ''; }
 
 let _payeesLoaded = false;
+let _payeesCache  = null;  // populated by prefetch; reused by loadPayees()
+
 async function loadPayees() {
   if (_payeesLoaded) return;
   _payeesLoaded = true;
   const list = document.getElementById('payees-list');
-  const dl = document.getElementById('payee-suggestions');
+  const dl   = document.getElementById('payee-suggestions');
   try {
-    const data = await fetch('/api/payees').then(r => r.json());
-    const payees = data.payees || [];
-    // Populate datalist
-    if (dl) {
-      dl.innerHTML = '';
+    let payees = _payeesCache;
+    if (payees === null) {
+      const data = await fetch('/api/payees').then(r => r.json());
+      payees = data.payees || [];
+    }
+    // Ensure datalist is populated (in case prefetch beat us here)
+    if (dl && !dl.children.length) {
       payees.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.name;
@@ -4554,16 +4613,16 @@ async function loadPayees() {
   }
 }
 
-// Prefetch payees for autocomplete on page load
+// Prefetch payees for autocomplete on page load — cache data but don't mark as loaded
 fetch('/api/payees').then(r => r.json()).then(data => {
+  _payeesCache = data.payees || [];
   const dl = document.getElementById('payee-suggestions');
   if (!dl) return;
-  (data.payees || []).forEach(p => {
+  _payeesCache.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.name;
     dl.appendChild(opt);
   });
-  _payeesLoaded = true;
 }).catch(() => {});
 
 /* ── Settings: rule kind change ── */
@@ -6416,70 +6475,128 @@ async function lockMonth() {
 }
 
 // ── Bill Calendar ────────────────────────────────────────────────────────────
-let _billCalendarLoaded = false;
-async function initBillCalendar() {
-  if (_billCalendarLoaded) return;
-  _billCalendarLoaded = true;
-  const el = document.getElementById('bill-calendar-content');
+/* ── Cash Flow Timeline ──────────────────────────────────────────────────── */
+let _cashflowLoaded = false;
+let _cashflowMid    = null;
+
+async function initCashflow(mid) {
+  const targetMid = mid || ACTIVE_MID;
+  if (_cashflowLoaded && _cashflowMid === targetMid) return;
+  _cashflowLoaded = true;
+  _cashflowMid    = targetMid;
+  const el = document.getElementById('cashflow-content');
   if (!el) return;
+  el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:12px 0;">Loading timeline…</div>';
   try {
-    const data = await fetch('/api/bill-calendar').then(r => r.json());
-    const bills = data.bills || [];
-    if (!bills.length) {
-      el.innerHTML = '<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:16px 0;">No upcoming bills with due dates. Set a due day and amount on expense buckets to see them here.</p>';
-      return;
-    }
-
-    // Group by month
-    const byMonth = {};
-    bills.forEach(b => {
-      if (!byMonth[b.month_id]) byMonth[b.month_id] = [];
-      byMonth[b.month_id].push(b);
-    });
-
-    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    let html = '';
-    for (const mid of Object.keys(byMonth).sort()) {
-      const [,yr,m0] = mid.split('_');
-      const label = MONTHS[parseInt(m0)] + ' ' + yr;
-      html += `<div style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:16px 0 6px;">${label}</div>`;
-      byMonth[mid].forEach(b => {
-        const d = new Date(b.due_date + 'T12:00:00');
-        const dayLabel = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
-        let badge = '';
-        let nameColor = 'var(--text)';
-        if (b.paid) {
-          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--green);border:1px solid var(--green);padding:1px 5px;border-radius:3px;margin-left:6px;">PAID</span>';
-          nameColor = 'var(--text3)';
-        } else if (b.past) {
-          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--red);border:1px solid var(--red);padding:1px 5px;border-radius:3px;margin-left:6px;">OVERDUE</span>';
-          nameColor = 'var(--red)';
-        } else if (b.today) {
-          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--red);border:1px solid var(--red);padding:1px 5px;border-radius:3px;margin-left:6px;">TODAY</span>';
-        }
-        html += `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;margin-bottom:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);${b.past && !b.paid ? 'border-left:3px solid var(--red);' : b.today ? 'border-left:3px solid var(--amber);' : ''}">
-            <div>
-              <span style="font-family:var(--mono);font-size:clamp(10px,1.6vw,12px);color:${nameColor};">${b.name}</span>${badge}
-              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;">${dayLabel}</div>
-            </div>
-            <span style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);color:${b.paid ? 'var(--text3)' : 'var(--text)'};">${fmtMoney(b.amount)}</span>
-          </div>`;
-      });
-
-      // Month total
-      const total = byMonth[mid].filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
-      const paid = byMonth[mid].filter(b => b.paid).reduce((s, b) => s + b.amount, 0);
-      html += `<div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-align:right;margin-top:2px;">
-        Remaining: <span style="color:var(--text)">${fmtMoney(total)}</span>
-        ${paid > 0 ? ' · Paid: <span style="color:var(--green)">' + fmtMoney(paid) + '</span>' : ''}
-      </div>`;
-    }
-    el.innerHTML = html;
+    const data = await fetch('/api/cashflow?month=' + targetMid).then(r => r.json());
+    if (!data.ok) { el.innerHTML = '<p style="color:var(--red);font-family:var(--mono);font-size:11px;">Failed to load.</p>'; return; }
+    el.innerHTML = _renderCashflow(data);
   } catch(e) {
-    el.innerHTML = '<p style="font-family:var(--mono);font-size:11px;color:var(--red);">Failed to load bill calendar.</p>';
+    el.innerHTML = '<p style="color:var(--red);font-family:var(--mono);font-size:11px;">Error: ' + e.message + '</p>';
   }
 }
+
+function _renderCashflow(data) {
+  const s  = data.summary;
+  const wks = data.weeks || [];
+
+  // Week mini bar chart
+  const maxVal = Math.max(...wks.map(w => Math.max(w.week_income, w.week_bills)), 1);
+  const barHtml = wks.map((w, i) => {
+    const incH  = Math.round(w.week_income / maxVal * 48);
+    const billH = Math.round(w.week_bills  / maxVal * 48);
+    const lbl   = w.label.split('–')[0].trim();
+    return `<div class="cft-wb-wrap" title="${w.label}: +${fmtMoney(w.week_income)} in / −${fmtMoney(w.week_bills)} bills">
+      <div class="cft-wb-inc"  style="height:${Math.max(incH,3)}px;"></div>
+      <div class="cft-wb-bill" style="height:${Math.max(billH,3)}px;"></div>
+    </div>`;
+  }).join('');
+  const lblHtml = wks.map(w => `<div class="cft-wb-lbl">${w.label.split('–')[0].trim()}</div>`).join('');
+
+  // Overview stats
+  const statsHtml = `
+    <div class="cft-stat"><div class="cft-stat-label">Income</div><div class="cft-stat-val" style="color:var(--green)">+${fmtMoney(s.total_income)}</div></div>
+    <div class="cft-stat"><div class="cft-stat-label">Bills Due</div><div class="cft-stat-val" style="color:var(--text)">${fmtMoney(s.total_bills)}</div></div>
+    <div class="cft-stat"><div class="cft-stat-label">Paid</div><div class="cft-stat-val" style="color:var(--text3)">${fmtMoney(s.paid_bills)}</div></div>
+    <div class="cft-stat"><div class="cft-stat-label">Remaining</div><div class="cft-stat-val" style="color:${s.remaining_bills>0?'var(--amber)':'var(--green)'}">${fmtMoney(s.remaining_bills)}</div></div>
+  `;
+
+  // Top hitters
+  const hittersHtml = s.top_hitters.map(h =>
+    `<div class="cft-hitter">
+      <span class="cft-hitter-name" title="${h.name}">${h.paid ? '✓ ' : ''}${h.name}</span>
+      <div class="cft-hitter-bar-wrap"><div class="cft-hitter-bar${h.paid?' paid':''}" style="width:${h.pct}%"></div></div>
+      <span class="cft-hitter-pct">${h.pct}%</span>
+      <span class="cft-hitter-amt">${fmtMoney(h.amount)}</span>
+    </div>`
+  ).join('');
+
+  // Weekly cards
+  const weeksHtml = wks.map((w, wi) => {
+    const hasData = w.days.some(d => d.income.length || d.bills.length);
+    const arrow   = wi === 0 ? 'open' : '';  // auto-open current/first week
+    let daysHtml  = '';
+    w.days.forEach(d => {
+      if (!d.income.length && !d.bills.length) return;
+      const dayClass = d.today ? 'today' : d.past ? 'past' : '';
+      const dot = d.today ? '<span class="today-dot"></span>' : '';
+      daysHtml += `<div class="cft-day">
+        <div class="cft-day-hdr ${dayClass}">${dot}${d.weekday} ${d.day}${d.today ? ' — TODAY' : ''}</div>`;
+      d.income.forEach(pc => {
+        daysHtml += `<div class="cft-income-row">
+          <span class="cft-income-label">💰 ${pc.label}</span>
+          <span class="cft-income-amt">+${fmtMoney(pc.amount)}</span>
+        </div>`;
+        pc.transfers.forEach(xfr => {
+          daysHtml += `<div class="cft-xfr-row"><span class="cft-xfr-label">→ ${xfr.name}</span><span class="cft-xfr-amt">−${fmtMoney(xfr.amount)}</span></div>`;
+        });
+      });
+      // Sort bills by amount desc, top 3 get "big" accent
+      const maxBill = d.bills[0]?.amount || 0;
+      d.bills.forEach((b, bi) => {
+        const big = b.amount >= maxBill * 0.6 && b.amount > 100;
+        daysHtml += `<div class="cft-bill-row${big?' big':''}${b.paid?' paid':''}">
+          <span class="cft-bill-name">${b.paid ? '✓ ' : ''}${b.name}</span>
+          <span class="cft-bill-amt ${b.paid?'paid':'unpaid'}">−${fmtMoney(b.amount)}</span>
+        </div>`;
+      });
+      daysHtml += `</div>`;
+    });
+    if (!daysHtml) daysHtml = `<div style="padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text3);">No income or bills this week.</div>`;
+    const incPill  = w.week_income > 0 ? `<span class="cft-week-pill inc">+${fmtMoney(w.week_income)}</span>` : '';
+    const billPill = w.week_bills  > 0 ? `<span class="cft-week-pill bill">−${fmtMoney(w.week_bills)}</span>`  : '';
+    return `<div class="cft-week">
+      <div class="cft-week-hdr" onclick="cftToggleWeek(this)">
+        <span class="cft-week-label">${w.label}</span>
+        <div class="cft-week-pills">${incPill}${billPill}</div>
+        <span class="cft-week-arrow ${arrow}">▶</span>
+      </div>
+      <div class="cft-week-body${arrow?' open':''}">${daysHtml}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="cft-wrap">
+    <div class="cft-week-bars">${barHtml}</div>
+    <div class="cft-wb-labels">${lblHtml}</div>
+    <div class="cft-overview">${statsHtml}</div>
+    <div style="margin:2px 0 6px;">
+      <div class="cft-burn"><span class="cft-burn-num">${fmtMoney(s.daily_burn)}</span><span class="cft-burn-label">/ day avg bill load</span></div>
+      ${s.top_hitters.length ? `<div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Biggest Hitters</div><div class="cft-hitters">${hittersHtml}</div>` : ''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;">${weeksHtml}</div>
+  </div>`;
+}
+
+function cftToggleWeek(hdr) {
+  const body  = hdr.nextElementSibling;
+  const arrow = hdr.querySelector('.cft-week-arrow');
+  if (!body) return;
+  const open = body.classList.toggle('open');
+  if (arrow) arrow.classList.toggle('open', open);
+}
+
+/* Legacy stub — keeps any old references from throwing */
+async function initBillCalendar() { await initCashflow(); }
 
 // ── Debt payoff projector ─────────────────────────────────────────────────────
 (function computeDebtPayoff() {
