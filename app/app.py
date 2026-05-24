@@ -2,6 +2,7 @@ import os
 import traceback
 import collections
 import time as _time
+import uuid
 from datetime import date, timedelta
 import calendar as _cal
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
@@ -443,9 +444,7 @@ def _due_info(due_day, active_mid: str, status: str) -> dict:
 
 
 def _new_id(prefix: str) -> str:
-    import random, string
-    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
-    return f"{prefix}_{suffix}"
+    return f"{prefix}_{uuid.uuid4().hex[:16]}"
 
 
 # ── Live state (unchanged — formulas work on the same dict) ───────────────────
@@ -536,6 +535,11 @@ def _live_state(data: dict, active_mid: str) -> dict:
         float(t.get("amount", 0)) for t in txs
         if t.get("monthId") == active_mid and t.get("type") == "out" and not is_scheduled(t)
     )
+    unassigned_count = sum(
+        1 for t in txs
+        if t.get("monthId") == active_mid and t.get("type") == "out"
+        and not t.get("bucketId") and not is_scheduled(t)
+    )
 
     return {
         "rts":              _rts_now(data),
@@ -550,6 +554,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
         "grand_totals":     grand,
         "ledger_totals":    {"income": ledger_income, "spent": ledger_out},
         "account_balances": {a["id"]: acct_balance(a, txs) for a in accounts if not a.get("archived")},
+        "unassigned_count": unassigned_count,
     }
 
 
@@ -998,10 +1003,13 @@ def api_archive_category():
 
     cat["archived"] = True
     _save_category(uid, tok, cat)
-    for b in data.get("buckets", []):
-        if b.get("catId") == cat_id:
-            b["archived"] = True
-            _save_bucket(uid, tok, b)
+
+    bucket_ids = [b["id"] for b in data.get("buckets", []) if b.get("catId") == cat_id and not b.get("archived")]
+    if bucket_ids:
+        _db(tok).table("bcc_buckets").update({"archived": True}).in_("id", bucket_ids).eq("user_id", uid).execute()
+        for b in data.get("buckets", []):
+            if b["id"] in bucket_ids:
+                b["archived"] = True
 
     return jsonify({"ok": True, **_live_state(data, active_mid)})
 
@@ -1572,6 +1580,7 @@ def _dashboard_inner():
         all_cats=cats_sorted, accounts=accounts,
         debt_accounts=debt_accounts, transfer_buckets=transfer_buckets,
         ledger_groups=ledger_groups, ledger_income=income_total, ledger_spent=spent_total,
+        unassigned_count=sum(1 for t in ledger_txs if t.get("type") == "out" and not t.get("bucketId") and not is_scheduled(t)),
         expense_buckets=expense_buckets, rule_buckets=rule_buckets,
         cash_accounts=cash_accounts, debt_accounts_display=debt_accounts_display,
         total_cash_val=total_cash_val, total_debt_val=total_debt_val,
@@ -2678,16 +2687,14 @@ def api_forecast():
         bucket_default_budget[bid] = amt
 
     def _bill_funded(bucket_id: str, bill_date: date) -> bool:
-        mid    = _mid_for_date(bill_date)
-        budget = float(monthly_budgets.get(mid, {}).get(bucket_id, 0))
-        alloc  = float(monthly_allocs.get(mid, {}).get(bucket_id, 0))
-        if budget > 0:
-            return alloc >= budget
-        if alloc > 0:
-            # Money allocated but no budget target set — treat as funded
-            return True
-        # No real data (future month) — funded if bucket has a default budget
-        return bucket_default_budget.get(bucket_id, 0) > 0
+        mid      = _mid_for_date(bill_date)
+        budget   = float(monthly_budgets.get(mid, {}).get(bucket_id, 0))
+        alloc    = float(monthly_allocs.get(mid, {}).get(bucket_id, 0))
+        bill_amt = float(bucket_default_budget.get(bucket_id, 0))
+        target   = budget if budget > 0 else bill_amt
+        if target > 0:
+            return alloc >= target * 0.99  # funded = allocated at least the bill amount
+        return alloc > 0  # no target set but money is there
 
     def _bill_paid(bucket_id: str, bill_date: date) -> bool:
         # Only skip if the bill was actually spent (recorded transaction)
@@ -3253,8 +3260,8 @@ def api_cashflow():
 
     def _is_paid_cf(b: dict, d: date) -> bool:
         mid = _mid_for_date(d)
-        m   = next((x for x in all_months if x.get("id") == mid), {})
-        return (m.get("budgets") or {}).get(b["id"]) == "PAID"
+        spent = b_spent(mid, b["id"], data.get("txs", []))
+        return spent >= _bill_amount_cf(b) * 0.99  # 99% threshold allows rounding
 
     dated_bills = [
         b for b in buckets
