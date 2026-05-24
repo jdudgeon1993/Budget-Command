@@ -1359,6 +1359,70 @@
 .cw-income-fields { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .cw-income-fields select, .cw-income-fields input { flex: 1; min-width: 100px; }
 .cw-promo-tag { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; background: color-mix(in srgb,var(--amber) 15%,transparent); color: var(--amber); border: 1px solid var(--amber); padding: 2px 6px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
+/* ── What-If Overhaul ── */
+.wi-wrap { display: flex; flex-direction: column; gap: 10px; }
+.wi-impact-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); font-family: var(--mono); font-size: 11px; }
+.wi-impact-label { color: var(--text3); letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }
+.wi-impact-badge { padding: 2px 8px; border-radius: 3px; font-family: var(--mono); font-size: 10px; letter-spacing: .06em; }
+.wi-impact-badge.pos { background: color-mix(in srgb,var(--green) 15%,transparent); color: var(--green); }
+.wi-impact-badge.neg { background: color-mix(in srgb,var(--red) 15%,transparent); color: var(--red); }
+.wi-impact-badge.zero { background: var(--bg2); color: var(--text3); }
+.wi-impact-hint { color: var(--text3); font-size: 10px; }
+.wi-pane-cols { display: flex; gap: 14px; align-items: flex-start; }
+.wi-pane-left { flex: 1; min-width: 0; }
+.wi-pane-right { width: 210px; flex-shrink: 0; }
+@media (max-width: 680px) { .wi-pane-cols { flex-direction: column; } .wi-pane-right { width: 100%; } }
+.wi-section { margin-bottom: 14px; }
+.wi-section-title { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+.wi-income-compare { display: flex; gap: 8px; margin-bottom: 8px; }
+.wi-ic-card { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 8px 10px; }
+.wi-ic-label { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+.wi-ic-val { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--text); }
+.wi-ic-inp { width: 100%; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 5px 8px; font-family: var(--mono); font-size: 13px; color: var(--text); margin-top: 6px; box-sizing: border-box; }
+.wi-ic-inp:focus { border-color: var(--accent); outline: none; }
+.wi-surplus-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.wi-pill { flex: 1; min-width: 80px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 6px 10px; text-align: center; }
+.wi-pill-label { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
+.wi-pill-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text); }
+.wi-cat-hdr { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); padding: 8px 4px 4px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+.wi-cat-arrow { display: inline-block; transition: transform .15s; font-size: 9px; }
+.wi-cat-arrow.open { transform: rotate(90deg); }
+.wi-cat-diff { font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+.wi-cat-diff.pos { background: color-mix(in srgb,var(--red) 12%,transparent); color: var(--red); }
+.wi-cat-diff.neg { background: color-mix(in srgb,var(--green) 12%,transparent); color: var(--green); }
+.wi-bkt-row { display: flex; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid var(--border); }
+.wi-bkt-label { flex: 1; font-size: clamp(11px,1.8vw,13px); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wi-diff { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+.wi-diff.pos { background: color-mix(in srgb,var(--red) 12%,transparent); color: var(--red); }
+.wi-diff.neg { background: color-mix(in srgb,var(--green) 12%,transparent); color: var(--green); }
+.wi-s-inp { width: 80px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 4px 7px; font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; }
+.wi-s-inp:focus { border-color: var(--accent); outline: none; }
+.wi-s-inp.changed { border-color: var(--amber); color: var(--amber); }
+.wi-chips-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.wi-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--border2); background: var(--bg2); font-family: var(--mono); font-size: 10px; cursor: pointer; color: var(--text); }
+.wi-chip:hover { border-color: var(--accent); color: var(--accent); }
+.wi-chip.active { border-color: var(--accent); background: color-mix(in srgb,var(--accent) 12%,transparent); color: var(--accent); }
+.wi-chip-x { color: var(--text3); padding: 0 2px; }
+.wi-chip-x:hover { color: var(--red); }
+.wi-6mo-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; position: sticky; top: 0; }
+.wi-6mo-title { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.wi-6mo-toggle { display: flex; gap: 3px; margin-left: auto; }
+.wi-6mo-toggle button { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer; }
+.wi-6mo-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.wi-6mo-bars { display: flex; align-items: flex-end; gap: 4px; height: 80px; margin-bottom: 4px; }
+.wi-6mo-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.wi-6mo-bar { width: 100%; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .7; transition: height .2s; min-height: 3px; }
+.wi-6mo-bar.now { opacity: 1; }
+.wi-6mo-bar.neg { background: var(--red); }
+.wi-6mo-labels { display: flex; gap: 4px; margin-top: 4px; }
+.wi-6mo-lbl { flex: 1; text-align: center; font-family: var(--mono); font-size: 9px; color: var(--text3); }
+.wi-6mo-lbl.now { color: var(--accent); }
+.wi-6mo-vals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.wi-6mo-val { flex: 1; min-width: 80px; background: var(--bg3); border-radius: var(--r); padding: 5px 8px; text-align: center; }
+.wi-6mo-val-label { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
+.wi-6mo-val-num { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.wi-scen-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.wi-scen-row input { flex: 1; min-width: 100px; }
 {% endblock %}
 
 {% block extra_head %}
@@ -2813,49 +2877,83 @@
         const _wiRts    = {{ rts }};
         const _wiGrand  = {{ grand | tojson }};
         const _wiMid    = "{{ active_mid }}";
+        const _wiPcks   = {{ paychecks | tojson }};
         </script>
+        <!-- What-If tab -->
         <div id="plan-whatif" style="display:none">
-          <!-- Scenario warning banner (shown when a saved scenario is loaded) -->
-          <div id="wi-scenario-banner" style="display:none;align-items:center;gap:8px;padding:8px 12px;background:color-mix(in srgb,var(--amber) 12%,transparent);border:1px solid var(--amber);border-radius:var(--r);margin-bottom:8px;font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);">
-            <span style="color:var(--amber);letter-spacing:.1em;">SCENARIO:</span>
-            <span class="wi-scenario-name" style="color:var(--text);font-weight:600;"></span>
-            <span style="color:var(--text3);">— edits apply to this scenario, not the real budget</span>
-            <button onclick="resetWhatIf()" style="margin-left:auto;border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:var(--r);cursor:pointer;letter-spacing:.06em;">CLEAR</button>
-          </div>
+          <div class="wi-wrap">
+            <!-- Impact bar -->
+            <div class="wi-impact-bar" id="wi-impact-bar">
+              <span class="wi-impact-label">Impact</span>
+              <span class="wi-impact-hint" id="wi-impact-hint">No changes yet — adjust income or budgets below</span>
+            </div>
 
-          <!-- RTS summary bar -->
-          <div id="wi-banner" style="position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;flex-wrap:wrap;">
-            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Real RTS</span>
-            <span id="wi-real-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);color:var(--green);"></span>
-            <span style="color:var(--text3);">→</span>
-            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Sim RTS</span>
-            <span id="wi-sim-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);"></span>
-            <span id="wi-delta" style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);padding:2px 6px;border-radius:var(--r);background:var(--bg3);"></span>
-            <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="sf-btn" onclick="saveCurrentScenario()">Save Scenario</button>
-              <button class="sf-btn" onclick="resetWhatIf()">Reset</button>
-              <button id="wi-apply-btn" class="sf-btn" onclick="applyWhatIf()" disabled>Apply to Month</button>
+            <div class="wi-pane-cols">
+              <!-- Left panel -->
+              <div class="wi-pane-left" id="wi-left-panel">
+                <!-- Scenario name + save/dupe/new/load -->
+                <div class="wi-section">
+                  <div class="wi-section-title">Scenario</div>
+                  <div class="wi-scen-row">
+                    <input id="wi-name-inp" class="sf-input" type="text" placeholder="Scenario name…" value="">
+                    <button class="sf-btn" onclick="wiSaveScenario()">Save</button>
+                    <button class="sf-btn" onclick="wiDupeScenario()" title="Duplicate">⧉</button>
+                    <button class="sf-btn" onclick="wiNewScenario()" title="New blank">+ New</button>
+                  </div>
+                  <div class="wi-chips-row" id="wi-chips"></div>
+                </div>
+
+                <!-- Income override -->
+                <div class="wi-section">
+                  <div class="wi-section-title">Projected Income — <span id="wi-month-label"></span></div>
+                  <div class="wi-income-compare">
+                    <div class="wi-ic-card">
+                      <div class="wi-ic-label">Real</div>
+                      <div class="wi-ic-val" id="wi-income-real">—</div>
+                    </div>
+                    <div class="wi-ic-card" id="wi-income-sc-card" style="border-color:var(--border);">
+                      <div class="wi-ic-label">Scenario</div>
+                      <div class="wi-ic-val" id="wi-income-sc">—</div>
+                      <input class="wi-ic-inp" id="wi-income-inp" type="text" inputmode="decimal"
+                        placeholder="Override income…" title="Supports: +500, *1.1, =4200"
+                        onchange="wiIncomeChange(this)"
+                        onkeydown="if(event.key==='Enter')this.blur()">
+                    </div>
+                  </div>
+                  <div class="wi-surplus-pills" id="wi-surplus-pills"></div>
+                </div>
+
+                <!-- Budget adjustments -->
+                <div class="wi-section-title">Budget Adjustments <span style="font-family:var(--sans);color:var(--text3);font-size:10px;letter-spacing:0;text-transform:none;font-weight:400;">— supports +50, -20, *1.1, =0</span></div>
+                <div id="wi-buckets-content"></div>
+
+                <!-- Apply / free-up -->
+                <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+                  <button id="wi-apply-btn" class="sf-btn" onclick="wiApply()" disabled>Apply to Month</button>
+                  <button class="sf-btn" onclick="wiReset()">Reset</button>
+                  <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">Free up:</span>
+                  <input id="wi-target-input" type="text" inputmode="decimal" placeholder="$0" style="width:72px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 7px;">
+                  <button class="sf-btn" onclick="wiFreeUp()">Apply</button>
+                </div>
+              </div>
+
+              <!-- Right panel: 6-month projection -->
+              <div class="wi-pane-right">
+                <div class="wi-6mo-panel">
+                  <div class="wi-6mo-title">
+                    6-Month View
+                    <div class="wi-6mo-toggle">
+                      <button id="wi6-rts-btn" class="active" onclick="wiSet6Mode('rts')">RTS</button>
+                      <button id="wi6-inc-btn" onclick="wiSet6Mode('income')">Income</button>
+                    </div>
+                  </div>
+                  <div class="wi-6mo-bars" id="wi-6mo-bars"></div>
+                  <div class="wi-6mo-labels" id="wi-6mo-labels"></div>
+                  <div class="wi-6mo-vals" id="wi-6mo-vals"></div>
+                </div>
+              </div>
             </div>
           </div>
-
-          <!-- Saved scenarios -->
-          <div style="margin-bottom:8px;">
-            <div id="wi-scenarios-list" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px;">
-              <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No saved scenarios.</span>
-            </div>
-          </div>
-
-          <!-- Target / free-up input -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.08em;">FREE UP</span>
-            <input id="wi-target-input" type="text" inputmode="decimal" placeholder="$0.00"
-              style="width:90px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 8px;"
-              onkeydown="if(event.key==='Enter')applyWhatIfTarget()">
-            <button class="sf-btn" onclick="applyWhatIfTarget()">Apply</button>
-            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">reduces all allocations proportionally to hit target RTS increase</span>
-          </div>
-
-          <div id="whatif-content"></div>
         </div>
       </div><!-- end plan mode -->
 
@@ -5216,187 +5314,420 @@ function showPlanTab(name, btn) {
   if (name === 'whatif') initWhatIf();
 }
 
-let _wiSimAllocs = {};
+/* ── What-If State ───────────────────────────────────────────────────────── */
+let _wiSimAllocs   = {};       // {bid: number}
+let _wiIncomeSc    = null;     // income override (null = not overridden)
+let _wiScenarios   = [];       // [{id, name, allocations, incomeOverride}]
+let _wiActiveSc    = null;     // currently loaded scenario object
+let _wi6Mode       = 'rts';    // '6-month view mode: 'rts' | 'income'
 
+/* ── Math expression eval (supports: 50, +50, -20, *1.1, /2, =150) ──── */
+function evalMoneyExpr(str, cur, ref) {
+  if (str === '' || str == null) return cur;
+  const s = str.trim();
+  if (s.startsWith('=')) return Math.max(0, parseFloat(s.slice(1)) || 0);
+  if (s.startsWith('+')) return Math.max(0, cur + (parseFloat(s.slice(1)) || 0));
+  if (s.startsWith('-')) return Math.max(0, cur - (parseFloat(s.slice(1)) || 0));
+  if (s.startsWith('*')) return Math.max(0, cur * (parseFloat(s.slice(1)) || 1));
+  if (s.startsWith('/')) { const d = parseFloat(s.slice(1)); return d ? Math.max(0, cur / d) : cur; }
+  const n = parseFloat(s);
+  return isNaN(n) ? cur : Math.max(0, n);
+}
+
+/* ── Paycheck income projection for a given month ────────────────────── */
+function wiProjectedIncome(mid) {
+  if (!_wiPcks || !_wiPcks.length) return 0;
+  const [yr, m0] = mid.split('_').slice(1).map(Number);
+  const cal = m0 + 1;
+  const daysInMonth = new Date(yr, cal, 0).getDate();
+  const mStart = new Date(yr, cal - 1, 1);
+  const mEnd   = new Date(yr, cal - 1, daysInMonth);
+  let total = 0;
+  for (const p of _wiPcks) {
+    if (!p.anchorDate || !p.freq) continue;
+    let d = new Date(p.anchorDate + 'T00:00:00');
+    const freq = Number(p.freq) || 14;
+    // Walk backwards to before mStart if anchor is after
+    while (d > mEnd) d = new Date(d.getTime() - freq * 86400000);
+    // Walk to first occurrence >= mStart
+    while (d < mStart) d = new Date(d.getTime() + freq * 86400000);
+    // Count occurrences in month
+    while (d >= mStart && d <= mEnd) {
+      total += Number(p.amount) || 0;
+      d = new Date(d.getTime() + freq * 86400000);
+    }
+  }
+  return total;
+}
+
+/* ── Get projected alloc total for a month under current scenario ─── */
+function wiSimAllocForMonth(mid) {
+  const isCurrent = mid === _wiMid;
+  let total = 0;
+  for (const g of _wiGroups) {
+    for (const b of g.buckets) {
+      let amt;
+      if (isCurrent) {
+        amt = _wiSimAllocs[b.id] ?? b.alloc;
+      } else {
+        // Future months: use scenario override if set, else default_budget
+        amt = (_wiActiveSc?.allocations?.[b.id] !== undefined)
+          ? _wiActiveSc.allocations[b.id]
+          : (b.budget || 0);
+      }
+      total += amt;
+    }
+  }
+  return total;
+}
+
+/* ── Month ID helpers ─────────────────────────────────────────────── */
+function wiMonthsForward(fromMid, count) {
+  const parts = fromMid.split('_');
+  let yr = parseInt(parts[1]), m0 = parseInt(parts[2]);
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push({ id: `m_${yr}_${m0}`, label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m0] });
+    m0++;
+    if (m0 > 11) { m0 = 0; yr++; }
+  }
+  return result;
+}
+
+/* ── Init ─────────────────────────────────────────────────────────── */
 function initWhatIf() {
   if (!_wiGroups || !_wiGroups.length) {
-    document.getElementById('whatif-content').innerHTML = '<p style="color:var(--text3);font-family:var(--mono);font-size:11px;padding:20px 4px;">No budget categories found.</p>';
+    document.getElementById('wi-buckets-content').innerHTML =
+      '<p style="color:var(--text3);font-family:var(--mono);font-size:11px;padding:20px 4px;">No budget categories found.</p>';
     return;
   }
   _wiSimAllocs = {};
   _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
-  _loadScenarios();
-  _renderScenarioList();
-  _updateScenarioBanner();
-  _renderWhatIfTable();
-  computeSimRts();
+  _wiIncomeSc = null;
+  _loadWiScenarios();
+  _renderWiChips();
+  _renderWiBuckets();
+  _renderWiImpact();
+  _renderWiIncome();
+  _renderWiSurplus();
+  _renderWi6Month();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const parts = _wiMid.split('_');
+  const lbl = document.getElementById('wi-month-label');
+  if (lbl) lbl.textContent = monthNames[parseInt(parts[2])] + ' ' + parts[1];
 }
 
-function _renderWhatIfTable() {
-  const el = document.getElementById('whatif-content');
-  let html = '<table class="data-table" style="width:100%"><thead><tr>'
-    + '<th style="text-align:left;">Bucket</th>'
-    + '<th style="text-align:right;">Budget</th>'
-    + '<th style="text-align:right;color:var(--text3);">Alloc</th>'
-    + '<th style="text-align:right;">Sim Alloc</th>'
-    + '<th style="text-align:right;">Δ Avail</th>'
-    + '</tr></thead><tbody>';
+/* ── Income override ──────────────────────────────────────────────── */
+function wiIncomeChange(inp) {
+  const real = wiProjectedIncome(_wiMid);
+  const cur  = _wiIncomeSc !== null ? _wiIncomeSc : real;
+  const val  = evalMoneyExpr(inp.value, cur, real);
+  inp.value  = val.toFixed(2);
+  _wiIncomeSc = val;
+  _renderWiIncome();
+  _renderWiSurplus();
+  _renderWiImpact();
+  _renderWi6Month();
+}
+
+function _renderWiIncome() {
+  const real = wiProjectedIncome(_wiMid);
+  const sc   = _wiIncomeSc !== null ? _wiIncomeSc : real;
+  const rEl  = document.getElementById('wi-income-real');
+  const sEl  = document.getElementById('wi-income-sc');
+  const card = document.getElementById('wi-income-sc-card');
+  const inp  = document.getElementById('wi-income-inp');
+  if (rEl) rEl.textContent = fmtMoney(real);
+  if (sEl) {
+    sEl.textContent = fmtMoney(sc);
+    sEl.style.color = sc > real ? 'var(--green)' : sc < real ? 'var(--red)' : 'var(--text)';
+  }
+  if (card) card.style.borderColor = sc !== real ? (sc > real ? 'var(--green)' : 'var(--red)') : 'var(--border)';
+  if (inp && _wiIncomeSc !== null) inp.value = _wiIncomeSc.toFixed(2);
+}
+
+function _renderWiSurplus() {
+  const el = document.getElementById('wi-surplus-pills');
+  if (!el) return;
+  const real    = wiProjectedIncome(_wiMid);
+  const scInc   = _wiIncomeSc !== null ? _wiIncomeSc : real;
+  const simAlloc = Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0);
+  const surplus  = scInc - simAlloc;
+  const surpColor = surplus >= 0 ? 'var(--green)' : 'var(--red)';
+  el.innerHTML = `
+    <div class="wi-pill"><div class="wi-pill-label">Allocated</div><div class="wi-pill-val">${fmtMoney(simAlloc)}</div></div>
+    <div class="wi-pill" style="color:${surpColor}"><div class="wi-pill-label">${surplus>=0?'Surplus':'Deficit'}</div><div class="wi-pill-val">${surplus>=0?'+':''}${fmtMoney(surplus)}</div></div>
+  `;
+}
+
+/* ── Impact bar ───────────────────────────────────────────────────── */
+function _renderWiImpact() {
+  const bar  = document.getElementById('wi-impact-bar');
+  const hint = document.getElementById('wi-impact-hint');
+  if (!bar) return;
+  const realAlloc = _wiGrand.alloc || 0;
+  const simAlloc  = Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0);
+  const real = wiProjectedIncome(_wiMid);
+  const scInc = _wiIncomeSc !== null ? _wiIncomeSc : real;
+  const netDelta = (scInc - simAlloc) - (real - realAlloc);
+  const changedCount = _wiGroups.flatMap(g => g.buckets).filter(b => _wiSimAllocs[b.id] !== b.alloc).length;
+  const incOverridden = _wiIncomeSc !== null;
+  const anyChange = changedCount > 0 || incOverridden;
+  if (!anyChange) {
+    if (hint) hint.style.display = '';
+    // Remove extra badges
+    bar.querySelectorAll('.wi-impact-badge,.wi-net-badge').forEach(e => e.remove());
+    return;
+  }
+  if (hint) hint.style.display = 'none';
+  bar.querySelectorAll('.wi-impact-badge,.wi-net-badge').forEach(e => e.remove());
+  const ndCls  = netDelta > 0 ? 'pos' : netDelta < 0 ? 'neg' : 'zero';
+  const ndStr  = (netDelta >= 0 ? '+' : '') + fmtMoney(netDelta);
+  bar.insertAdjacentHTML('beforeend', `
+    <span class="wi-impact-badge ${ndCls}">${ndStr} net</span>
+    ${changedCount ? `<span class="wi-impact-badge zero">${changedCount} bucket${changedCount!==1?'s':''} changed</span>` : ''}
+    ${incOverridden ? `<span class="wi-impact-badge ${scInc>real?'pos':'neg'}">${scInc>real?'+':''}${fmtMoney(scInc-real)} income</span>` : ''}
+  `);
+}
+
+/* ── Bucket table ─────────────────────────────────────────────────── */
+function _renderWiBuckets() {
+  const el = document.getElementById('wi-buckets-content');
+  if (!el) return;
+  let html = '';
   _wiGroups.forEach(g => {
-    html += `<tr><td colspan="5" style="padding:8px 4px 4px;font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);">${g.name}</td></tr>`;
+    const catDelta = g.buckets.reduce((s, b) => s + ((_wiSimAllocs[b.id] ?? b.alloc) - b.alloc), 0);
+    const diffHtml = catDelta !== 0
+      ? `<span class="wi-cat-diff ${catDelta>0?'pos':'neg'}">${catDelta>0?'+':''}${fmtMoney(catDelta)}</span>`
+      : '';
+    html += `<div class="wi-cat-hdr" onclick="wiToggleCat(this)">
+      <span class="wi-cat-arrow open">▶</span>${g.name}${diffHtml}
+    </div><div class="wi-cat-body">`;
     g.buckets.forEach(b => {
-      const simAlloc = _wiSimAllocs[b.id] ?? b.alloc;
-      const delta = simAlloc - b.alloc;
-      const deltaColor = delta > 0 ? 'var(--red)' : delta < 0 ? 'var(--green)' : 'var(--text3)';
-      const deltaStr = delta === 0 ? '—' : (delta > 0 ? '+' : '') + fmtMoney(delta);
-      html += `<tr>
-        <td style="padding:4px;">${b.name}</td>
-        <td style="text-align:right;padding:4px;">${fmtMoney(b.budget)}</td>
-        <td style="text-align:right;padding:4px;color:var(--text3);">${fmtMoney(b.alloc)}</td>
-        <td style="text-align:right;padding:4px;">
-          <input type="number" class="wi-input${simAlloc !== b.alloc ? ' changed' : ''}"
-            data-bid="${b.id}" data-real="${b.alloc}"
-            value="${simAlloc.toFixed(2)}" step="0.01" min="0"
-            oninput="onWiInput(this)">
-        </td>
-        <td style="text-align:right;padding:4px;color:${deltaColor};">${deltaStr}</td>
-      </tr>`;
+      const sim  = _wiSimAllocs[b.id] ?? b.alloc;
+      const diff = sim - b.alloc;
+      const diffSpan = diff !== 0
+        ? `<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${fmtMoney(diff)}</span>`
+        : '';
+      const changed = diff !== 0;
+      html += `<div class="wi-bkt-row">
+        <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
+        ${diffSpan}
+        <input class="wi-s-inp${changed?' changed':''}" type="text" inputmode="decimal"
+          data-bid="${b.id}" data-real="${b.alloc}" value="${sim.toFixed(2)}"
+          title="Supports: +50, -20, *1.1, =0"
+          onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+      </div>`;
     });
+    html += `</div>`;
   });
-  html += '</tbody></table>';
   el.innerHTML = html;
 }
 
-function onWiInput(input) {
-  const bid = input.dataset.bid;
-  const real = parseFloat(input.dataset.real) || 0;
-  const val = parseFloat(input.value) || 0;
+function wiToggleCat(hdr) {
+  const body = hdr.nextElementSibling;
+  if (!body) return;
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  hdr.querySelector('.wi-cat-arrow').classList.toggle('open', hidden);
+}
+
+function wiBktChange(inp) {
+  const bid  = inp.dataset.bid;
+  const real = parseFloat(inp.dataset.real) || 0;
+  const cur  = _wiSimAllocs[bid] ?? real;
+  const val  = evalMoneyExpr(inp.value, cur, real);
+  inp.value  = val.toFixed(2);
   _wiSimAllocs[bid] = val;
-  input.classList.toggle('changed', val !== real);
-  computeSimRts();
+  inp.classList.toggle('changed', val !== real);
+  // Update cat diff pill
+  const row = inp.closest('.wi-cat-body');
+  const hdr = row?.previousElementSibling;
+  if (hdr) {
+    const bids = [...row.querySelectorAll('[data-bid]')].map(i => i.dataset.bid);
+    const catDelta = bids.reduce((s, k) => {
+      const b = _wiGroups.flatMap(g => g.buckets).find(b => b.id === k);
+      return s + ((_wiSimAllocs[k] ?? (b?.alloc || 0)) - (b?.alloc || 0));
+    }, 0);
+    let dp = hdr.querySelector('.wi-cat-diff');
+    if (catDelta !== 0) {
+      const html = `<span class="wi-cat-diff ${catDelta>0?'pos':'neg'}">${catDelta>0?'+':''}${fmtMoney(catDelta)}</span>`;
+      if (dp) dp.outerHTML = html;
+      else hdr.insertAdjacentHTML('beforeend', html);
+    } else if (dp) dp.remove();
+  }
+  _renderWiImpact();
+  _renderWiSurplus();
+  _renderWi6Month();
   const applyBtn = document.getElementById('wi-apply-btn');
-  const hasChanges = Object.keys(_wiSimAllocs).some(k => {
-    const g = _wiGroups.find(g => g.buckets.find(b => b.id === k));
-    const b = g && g.buckets.find(b => b.id === k);
-    return b && _wiSimAllocs[k] !== b.alloc;
+  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
+  if (applyBtn) applyBtn.disabled = !hasChanges && _wiIncomeSc === null;
+}
+
+/* ── 6-Month projection ───────────────────────────────────────────── */
+function wiSet6Mode(mode) {
+  _wi6Mode = mode;
+  document.getElementById('wi6-rts-btn')?.classList.toggle('active', mode === 'rts');
+  document.getElementById('wi6-inc-btn')?.classList.toggle('active', mode === 'income');
+  _renderWi6Month();
+}
+
+function _renderWi6Month() {
+  const barsEl  = document.getElementById('wi-6mo-bars');
+  const lblsEl  = document.getElementById('wi-6mo-labels');
+  const valsEl  = document.getElementById('wi-6mo-vals');
+  if (!barsEl) return;
+
+  const months = wiMonthsForward(_wiMid, 6);
+  const rows = months.map((m, i) => {
+    const isNow = i === 0;
+    const inc   = isNow
+      ? (_wiIncomeSc !== null ? _wiIncomeSc : wiProjectedIncome(m.id))
+      : wiProjectedIncome(m.id);
+    const alloc = isNow
+      ? Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0)
+      : wiSimAllocForMonth(m.id);
+    const rts   = inc - alloc;
+    const val   = _wi6Mode === 'income' ? inc : rts;
+    return { label: m.label, val, rts, inc, alloc, isNow };
   });
-  if (applyBtn) applyBtn.disabled = !hasChanges;
-}
 
-function computeSimRts() {
-  const realTotalAlloc = _wiGrand.alloc || 0;
-  const simTotalAlloc = Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0);
-  const simRts = _wiRts + realTotalAlloc - simTotalAlloc;
-  const delta = simRts - _wiRts;
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.val)), 1);
 
-  const realEl  = document.getElementById('wi-real-rts');
-  const simEl   = document.getElementById('wi-sim-rts');
-  const deltaEl = document.getElementById('wi-delta');
-
-  if (realEl) realEl.textContent = fmtMoney(_wiRts);
-  if (simEl) {
-    simEl.textContent = fmtMoney(simRts);
-    simEl.style.color = simRts >= 0 ? 'var(--green)' : 'var(--red)';
-  }
-  if (deltaEl) {
-    const sign = delta >= 0 ? '+' : '';
-    deltaEl.textContent = sign + fmtMoney(delta);
-    deltaEl.style.color = delta >= 0 ? 'var(--green)' : 'var(--red)';
-  }
-}
-
-function resetWhatIf() {
-  _wiActiveScenario = null;
-  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
-  _renderWhatIfTable();
-  computeSimRts();
-  const applyBtn = document.getElementById('wi-apply-btn');
-  if (applyBtn) applyBtn.disabled = true;
-  _updateScenarioBanner();
-  _renderScenarioList();
-}
-
-/* ── What-If: Scenarios ─────────────────────────────────────────────────── */
-let _wiScenarios = [];
-let _wiActiveScenario = null;
-
-function _loadScenarios() {
-  try { _wiScenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); }
-  catch(e) { _wiScenarios = []; }
-}
-function _saveScenarios() {
-  localStorage.setItem('bcc_wi_scenarios', JSON.stringify(_wiScenarios));
-}
-function _updateScenarioBanner() {
-  const banner = document.getElementById('wi-scenario-banner');
-  if (!banner) return;
-  if (_wiActiveScenario) {
-    banner.style.display = 'flex';
-    const nameEl = banner.querySelector('.wi-scenario-name');
-    if (nameEl) nameEl.textContent = _wiActiveScenario.name;
-  } else {
-    banner.style.display = 'none';
-  }
-}
-function _renderScenarioList() {
-  const el = document.getElementById('wi-scenarios-list');
-  if (!el) return;
-  if (!_wiScenarios.length) {
-    el.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No saved scenarios — edit allocations and click Save Scenario.</span>';
-    return;
-  }
-  const realAlloc = _wiGrand.alloc || 0;
-  el.innerHTML = _wiScenarios.map(s => {
-    const scenTotal = Object.values(s.allocations).reduce((sum, v) => sum + (v || 0), 0);
-    const rtsDelta = realAlloc - scenTotal;
-    const sign = rtsDelta >= 0 ? '+' : '';
-    const isActive = _wiActiveScenario?.id === s.id;
-    return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--r);border:1px solid ${isActive ? 'var(--accent)' : 'var(--border2)'};background:var(--bg2);cursor:pointer;margin:0 4px 4px 0;" onclick="loadScenario('${s.id}')">
-      <span style="font-family:var(--mono);font-size:11px;color:${isActive ? 'var(--accent)' : 'var(--text)'};">${s.name}</span>
-      <span style="font-family:var(--mono);font-size:10px;color:${rtsDelta >= 0 ? 'var(--green)' : 'var(--red)'};">${sign}${fmtMoney(rtsDelta)}</span>
-      <button onclick="event.stopPropagation();deleteScenario('${s.id}')" style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;" title="Delete">✕</button>
+  barsEl.innerHTML = rows.map(r => {
+    const pct  = Math.max(4, Math.round(Math.abs(r.val) / maxAbs * 96));
+    const neg  = r.val < 0;
+    return `<div class="wi-6mo-bar-wrap">
+      <div class="wi-6mo-bar${r.isNow?' now':''}${neg?' neg':''}" style="height:${pct}%" title="${r.label}: ${fmtMoney(r.val)}"></div>
     </div>`;
   }).join('');
+
+  lblsEl.innerHTML = rows.map(r =>
+    `<div class="wi-6mo-lbl${r.isNow?' now':''}">${r.label}</div>`
+  ).join('');
+
+  const cumRts = rows.reduce((s, r) => s + r.rts, 0);
+  const avgAlloc = rows.reduce((s, r) => s + r.alloc, 0) / rows.length;
+  valsEl.innerHTML = `
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">6mo RTS</div><div class="wi-6mo-val-num" style="color:${cumRts>=0?'var(--green)':'var(--red)'}">${cumRts>=0?'+':''}${fmtMoney(cumRts)}</div></div>
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Alloc</div><div class="wi-6mo-val-num">${fmtMoney(avgAlloc)}</div></div>
+  `;
 }
-function saveCurrentScenario() {
-  const name = prompt('Scenario name:');
-  if (!name || !name.trim()) return;
-  const trimmed = name.trim();
-  if (_wiScenarios.length >= 6 && !_wiScenarios.find(s => s.name === trimmed)) {
-    showToast('Max 6 scenarios — delete one first.', 'warning'); return;
+
+/* ── Scenarios ────────────────────────────────────────────────────── */
+function _loadWiScenarios() {
+  try { _wiScenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); }
+  catch { _wiScenarios = []; }
+}
+function _saveWiScenarios() {
+  localStorage.setItem('bcc_wi_scenarios', JSON.stringify(_wiScenarios));
+}
+function _renderWiChips() {
+  const el = document.getElementById('wi-chips');
+  if (!el) return;
+  if (!_wiScenarios.length) { el.innerHTML = ''; return; }
+  el.innerHTML = _wiScenarios.map(s => {
+    const isActive = _wiActiveSc?.id === s.id;
+    return `<span class="wi-chip${isActive?' active':''}" onclick="wiLoadScenario('${s.id}')">
+      ${s.name}
+      <span class="wi-chip-x" onclick="event.stopPropagation();wiDeleteScenario('${s.id}')">✕</span>
+    </span>`;
+  }).join('');
+}
+function wiSaveScenario() {
+  const nameInp = document.getElementById('wi-name-inp');
+  const name = (nameInp?.value || '').trim();
+  if (!name) { showToast('Enter a scenario name first.', 'warning'); return; }
+  if (_wiScenarios.length >= 8 && !_wiScenarios.find(s => s.name === name)) {
+    showToast('Max 8 scenarios — delete one first.', 'warning'); return;
   }
   const allocs = {..._wiSimAllocs};
-  const existing = _wiScenarios.find(s => s.name === trimmed);
-  if (existing) { existing.allocations = allocs; }
-  else { _wiScenarios.push({id: Date.now().toString(), name: trimmed, allocations: allocs}); }
-  _saveScenarios();
-  _renderScenarioList();
-  showToast(`Scenario "${trimmed}" saved`, 'success');
+  const existing = _wiScenarios.find(s => s.name === name);
+  if (existing) {
+    existing.allocations = allocs;
+    existing.incomeOverride = _wiIncomeSc;
+    _wiActiveSc = existing;
+  } else {
+    const s = {id: Date.now().toString(), name, allocations: allocs, incomeOverride: _wiIncomeSc};
+    _wiScenarios.push(s);
+    _wiActiveSc = s;
+  }
+  _saveWiScenarios();
+  _renderWiChips();
+  showToast(`"${name}" saved`, 'success');
 }
-function loadScenario(id) {
+function wiDupeScenario() {
+  if (!_wiActiveSc) { showToast('Load a scenario first.', 'warning'); return; }
+  const copy = {..._wiActiveSc, id: Date.now().toString(), name: _wiActiveSc.name + ' (copy)'};
+  _wiScenarios.push(copy);
+  _saveWiScenarios();
+  _renderWiChips();
+  showToast(`Duplicated "${_wiActiveSc.name}"`, 'info');
+}
+function wiNewScenario() {
+  _wiActiveSc = null;
+  _wiIncomeSc = null;
+  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  const nameInp = document.getElementById('wi-name-inp');
+  if (nameInp) nameInp.value = '';
+  _renderWiChips();
+  _renderWiBuckets();
+  _renderWiImpact();
+  _renderWiIncome();
+  _renderWiSurplus();
+  _renderWi6Month();
+}
+function wiLoadScenario(id) {
   const s = _wiScenarios.find(s => s.id === id);
   if (!s) return;
-  _wiActiveScenario = s;
+  _wiActiveSc = s;
+  _wiIncomeSc = s.incomeOverride ?? null;
   _wiGroups.forEach(g => g.buckets.forEach(b => {
     _wiSimAllocs[b.id] = s.allocations[b.id] ?? b.alloc;
   }));
-  _renderWhatIfTable();
-  computeSimRts();
-  _renderScenarioList();
-  _updateScenarioBanner();
+  const nameInp = document.getElementById('wi-name-inp');
+  if (nameInp) nameInp.value = s.name;
+  const incInp = document.getElementById('wi-income-inp');
+  if (incInp) incInp.value = _wiIncomeSc !== null ? _wiIncomeSc.toFixed(2) : '';
+  _renderWiChips();
+  _renderWiBuckets();
+  _renderWiImpact();
+  _renderWiIncome();
+  _renderWiSurplus();
+  _renderWi6Month();
   const applyBtn = document.getElementById('wi-apply-btn');
   const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
-  if (applyBtn) applyBtn.disabled = !hasChanges;
+  if (applyBtn) applyBtn.disabled = !hasChanges && _wiIncomeSc === null;
   showToast(`Loaded "${s.name}"`, 'info');
 }
-function deleteScenario(id) {
+function wiDeleteScenario(id) {
   const s = _wiScenarios.find(s => s.id === id);
   _wiScenarios = _wiScenarios.filter(s => s.id !== id);
-  if (_wiActiveScenario?.id === id) { _wiActiveScenario = null; _updateScenarioBanner(); }
-  _saveScenarios();
-  _renderScenarioList();
-  if (s) showToast(`Scenario "${s.name}" deleted`, 'info');
+  if (_wiActiveSc?.id === id) _wiActiveSc = null;
+  _saveWiScenarios();
+  _renderWiChips();
+  if (s) showToast(`Deleted "${s.name}"`, 'info');
 }
-function applyWhatIfTarget() {
+
+/* ── Reset / free-up / apply ─────────────────────────────────────── */
+function wiReset() {
+  _wiActiveSc = null;
+  _wiIncomeSc = null;
+  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  const nameInp = document.getElementById('wi-name-inp');
+  if (nameInp) nameInp.value = '';
+  const incInp = document.getElementById('wi-income-inp');
+  if (incInp) incInp.value = '';
+  _renderWiChips();
+  _renderWiBuckets();
+  _renderWiImpact();
+  _renderWiIncome();
+  _renderWiSurplus();
+  _renderWi6Month();
+  const applyBtn = document.getElementById('wi-apply-btn');
+  if (applyBtn) applyBtn.disabled = true;
+}
+function wiFreeUp() {
   const input = document.getElementById('wi-target-input');
   const target = evalMathExpr(input.value);
   if (!target || target <= 0) { showToast('Enter a positive amount to free up.', 'warning'); return; }
@@ -5408,23 +5739,24 @@ function applyWhatIfTarget() {
   Object.keys(_wiSimAllocs).forEach(k => {
     _wiSimAllocs[k] = Math.round(_wiSimAllocs[k] * scale * 100) / 100;
   });
-  _renderWhatIfTable();
-  computeSimRts();
+  input.value = '';
+  _renderWiBuckets();
+  _renderWiImpact();
+  _renderWiSurplus();
+  _renderWi6Month();
   const applyBtn = document.getElementById('wi-apply-btn');
   const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
-  if (applyBtn) applyBtn.disabled = !hasChanges;
-  input.value = '';
+  if (applyBtn) applyBtn.disabled = !hasChanges && _wiIncomeSc === null;
   showToast(`Freed up ${fmtMoney(target)} across all buckets`, 'success');
 }
-
-async function applyWhatIf() {
+async function wiApply() {
   const changed = [];
   _wiGroups.forEach(g => g.buckets.forEach(b => {
     if (_wiSimAllocs[b.id] !== b.alloc) changed.push({id: b.id, value: _wiSimAllocs[b.id]});
   }));
-  if (!changed.length) return;
+  if (!changed.length) { showToast('No changes to apply.', 'warning'); return; }
   const applyBtn = document.getElementById('wi-apply-btn');
-  if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying...'; }
+  if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying…'; }
   for (const ch of changed) {
     await fetch('/api/save', {
       method: 'POST',
@@ -5436,6 +5768,19 @@ async function applyWhatIf() {
   if (applyBtn) applyBtn.textContent = 'Apply to Month';
   window.location.reload();
 }
+
+/* ── Forecast scenario integration ────────────────────────────────── */
+function wiGetActiveScenario() { return _wiActiveSc; }
+function wiGetSimAllocs()      { return _wiSimAllocs; }
+
+/* Legacy compat — old HTML may reference these */
+function resetWhatIf() { wiReset(); }
+function applyWhatIf()  { wiApply(); }
+function saveCurrentScenario() { wiSaveScenario(); }
+function loadScenario(id) { wiLoadScenario(id); }
+function deleteScenario(id) { wiDeleteScenario(id); }
+function computeSimRts() { _renderWiImpact(); _renderWiSurplus(); }
+function applyWhatIfTarget() { wiFreeUp(); }
 
 function setForecastRange(months, btn) {
   _forecastMonths = months;
