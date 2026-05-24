@@ -1676,7 +1676,7 @@ def api_payees():
     txs = _db(tok).table("bcc_transactions").select("*").eq("user_id", uid).execute().data or []
     counts: dict[str, int] = {}
     for t in txs:
-        name = (t.get("desc") or "").strip()
+        name = (t.get("description") or "").strip()  # raw DB column is "description"
         if name:
             counts[name] = counts.get(name, 0) + 1
     payees = sorted([{"name": k, "count": v} for k, v in counts.items()], key=lambda x: -x["count"])
