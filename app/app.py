@@ -2560,8 +2560,10 @@ def api_forecast():
     skip_today_income = request.args.get('skip_today_income', '0') == '1'
 
     body             = request.get_json(silent=True) or {}
-    bucket_overrides = {str(k): float(v) for k, v in body.get("bucket_overrides", {}).items() if v is not None}
-    income_override  = body.get("income_override")  # float or None
+    bucket_overrides  = {str(k): float(v) for k, v in body.get("bucket_overrides", {}).items() if v is not None}
+    income_override   = body.get("income_override")  # float or None — reserved for future use
+    # {bid: [mid_string, ...]}  — months where bucket is intentionally OFF in the scenario
+    bucket_off_months = {str(k): [str(m) for m in v] for k, v in body.get("bucket_off_months", {}).items()}
 
     try:
         n_months = int(months_param)
@@ -2718,6 +2720,8 @@ def api_forecast():
     ]
 
     def _bill_amount(b: dict) -> float:
+        if b["id"] in bucket_overrides:
+            return bucket_overrides[b["id"]]
         return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
 
     # ── Running cumulative totals per transfer rule across all periods ───────
@@ -2774,12 +2778,20 @@ def api_forecast():
         # ── Collect bills for this period ───────────────────────────────────
         funded_by_day:   dict = {}
         unfunded_by_day: dict = {}
+        off_by_day:      dict = {}  # scenario: bucket intentionally OFF — balance NOT reduced
 
         def _add_bill(b: dict, bd: date, overdue: bool = False) -> None:
             if _bill_paid(b["id"], bd):
                 return
-            amt = _bill_amount(b)
+            amt          = _bill_amount(b)
             display_date = today if (overdue and is_gap) else bd
+            mid_of_bill  = _mid_for_date(bd)
+            # Scenario: bucket is OFF this month — show as paused, skip balance deduction
+            if mid_of_bill in bucket_off_months.get(b["id"], []):
+                off_by_day.setdefault(display_date, []).append(
+                    {"name": b["name"], "amount": amt, "overdue": overdue}
+                )
+                return
             funded = _bill_funded(b["id"], bd)
             row = {"name": b["name"], "amount": amt, "overdue": overdue}
             if funded:
@@ -2826,13 +2838,25 @@ def api_forecast():
                 "run_balance": round(running_balance, 2),
             })
 
+        # Scenario OFF bills — show in amber, do NOT deduct from running_balance
+        off_days = []
+        period_off = 0.0
+        for d in sorted(off_by_day.keys()):
+            amt = sum(ev["amount"] for ev in off_by_day[d])
+            period_off += amt
+            off_days.append({
+                "date":   str(d),
+                "label":  _fc_date_label(d),
+                "events": off_by_day[d],
+            })
+
         period_income       = sum(e["amount"] for e in income_events)
         period_transfers    = sum(e["amount"] for e in transfer_events)
         period_vault_allocs = sum(e["amount"] for e in alloc_events if e.get("is_vault"))
         period_cleared      = sum(b["amount"] for d in funded_days  for b in d["events"])
         period_unfunded     = sum(b["amount"] for d in unfunded_days for b in d["events"])
         # Net = income minus cash moves and unfunded obligations only.
-        # Funded clearings are real outflows but already handled — excluded from the pressure signal.
+        # OFF bills are freed-up scenario savings — excluded from pressure signal.
         period_net          = period_income - period_transfers - period_vault_allocs - period_unfunded
 
         if is_gap or skip_income:
@@ -2856,10 +2880,12 @@ def api_forecast():
             "alloc_events":           alloc_events,
             "funded_days":            funded_days,
             "unfunded_days":          unfunded_days,
+            "off_days":               off_days,
             "period_income":          round(period_income, 2),
             "period_transfers":       round(period_transfers + period_vault_allocs, 2),
             "period_cleared":         round(period_cleared, 2),
             "period_unfunded":        round(period_unfunded, 2),
+            "period_off":             round(period_off, 2),
             "period_net":             round(period_net, 2),
             "end_balance":            round(running_balance, 2),
             "shortfall":              running_balance < 0,
@@ -2885,7 +2911,7 @@ def api_forecast():
         "months":           months_param,
         "periods":          period_results,
         "account_balances": account_balances,
-        "scenario_active":  bool(bucket_overrides),
+        "scenario_active":  bool(bucket_overrides) or bool(bucket_off_months),
     })
 
 
