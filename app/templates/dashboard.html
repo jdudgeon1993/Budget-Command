@@ -4408,35 +4408,6 @@ async function deleteTx(id) {
     `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 })();
 
-/* ── Release rollover balance ── */
-async function releaseRollover(id, month) {
-  const input = document.getElementById('release-input-' + id);
-  const amount = parseFloat(input.value);
-  if (!amount || amount <= 0) { alert('Enter a positive amount to release.'); return; }
-
-  const result = await fetch('/api/release-rollover', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ id, month, amount })
-  }).then(r => r.json()).catch(() => ({ok: false}));
-
-  if (!result.ok) { alert('Release failed: ' + (result.error || 'unknown error')); return; }
-
-  input.value = '';
-
-  // Update rollover max input for this bucket
-  const maxEl = document.getElementById('vault-release-max-' + id);
-  if (maxEl) maxEl.textContent = fmtMoney(result.rollover);
-  const inputEl = document.getElementById('release-input-' + id);
-  if (inputEl) inputEl.max = result.rollover;
-
-  // Update the displayed rollover balance in the settings panel
-  const rollBalEl = document.getElementById('roll-bal-' + id);
-  if (rollBalEl) rollBalEl.textContent = fmtMoney(result.rollover);
-
-  refreshValues(result);
-}
-
 /* ── Archive category (+ all its buckets) ── */
 async function archiveCategory(catId) {
   if (!confirm('Archive this category and all its buckets? They will be hidden but all history is preserved.')) return;
