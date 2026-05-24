@@ -1179,6 +1179,7 @@
 }
 .pace-bar { height: 100%; border-radius: 2px; transition: width .3s; }
 .pace-bar.under { background: var(--green); }
+.pace-bar.warn  { background: var(--amber); }
 .pace-bar.over  { background: var(--red); }
 .pace-marker {
   position: absolute; top: -2px; width: 2px; height: 7px;
@@ -1475,7 +1476,7 @@
                 data-month="{{ active_mid }}"
                 data-raw="{{ b.alloc }}"
                 data-type="number">{{ b.alloc|money }}</td>
-            <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}" data-raw-spent="{{ b.spent if b.type != 'vault' else '' }}" data-raw-budget="{{ b.budget }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
+            <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}" data-raw-spent="{{ b.spent if b.type != 'vault' else '' }}" data-raw-budget="{{ b.budget }}" data-status="{{ b.status }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
                 data-raw="{{ b.avail }}"
@@ -2732,12 +2733,20 @@
   <!-- Coach panel -->
   <div id="panel-coach" class="panel">
     <div class="panel-container">
-      <div class="coach-header">Coach AI</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div class="coach-header" style="margin:0;">Coach AI</div>
+        <div id="coach-rate-status" style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.06em;"></div>
+      </div>
       <div class="coach-messages" id="coach-messages">
         <div id="coach-starters" class="coach-starters">
           <button class="coach-starter" onclick="sendCoachMessage('How am I doing this month?')">How am I doing this month?</button>
           <button class="coach-starter" onclick="sendCoachMessage('Where am I overspending?')">Where am I overspending?</button>
           <button class="coach-starter" onclick="sendCoachMessage('What should I focus on?')">What should I focus on?</button>
+          <button class="coach-starter" onclick="sendCoachMessage('Which bucket should I fund first?')">Which bucket to fund first?</button>
+          <button class="coach-starter" onclick="sendCoachMessage('Analyse my debt situation')">Analyse my debt</button>
+          <button class="coach-starter" onclick="sendCoachMessage('Am I saving enough?')">Am I saving enough?</button>
+          <button class="coach-starter" onclick="sendCoachMessage('Walk me through closing this month')">Walk me through month-close</button>
+          <button class="coach-starter" onclick="sendCoachMessage('What spending trends should I watch?')">Spending trends</button>
         </div>
       </div>
       <div class="coach-input-row">
@@ -5619,6 +5628,38 @@ function toggleFcPeriod(i) {
 
 // ── Coach AI ──────────────────────────────────────────────────────────────────
 let _coachHistory = [];
+const _COACH_RPM  = 15;   // match server limit
+const _COACH_RPD  = 1500;
+let _coachMsgTimes = [];  // timestamps of recent sends (client-side guard)
+let _coachDaySends = {date:'', count:0};
+
+function _coachRateCheck() {
+  const now = Date.now();
+  const today = new Date().toISOString().slice(0,10);
+  // Reset daily counter
+  if (_coachDaySends.date !== today) { _coachDaySends = {date: today, count: 0}; }
+  // Prune RPM window
+  _coachMsgTimes = _coachMsgTimes.filter(t => now - t < 60000);
+  if (_coachMsgTimes.length >= _COACH_RPM) {
+    const wait = Math.ceil((60000 - (now - _coachMsgTimes[0])) / 1000);
+    return {ok: false, reason: `Rate limit — wait ${wait}s`};
+  }
+  if (_coachDaySends.count >= _COACH_RPD) {
+    return {ok: false, reason: 'Daily limit reached. Try again tomorrow.'};
+  }
+  return {ok: true};
+}
+function _coachRateRecord() {
+  _coachMsgTimes.push(Date.now());
+  _coachDaySends.count++;
+  _updateCoachRateStatus();
+}
+function _updateCoachRateStatus() {
+  const el = document.getElementById('coach-rate-status');
+  if (!el) return;
+  const remaining = _COACH_RPM - _coachMsgTimes.filter(t => Date.now()-t < 60000).length;
+  el.textContent = remaining <= 5 ? `${remaining} requests left this minute` : '';
+}
 
 function _coachAppend(role, text) {
   const msgs = document.getElementById('coach-messages');
@@ -5636,7 +5677,16 @@ async function sendCoachMessage(text) {
   const input = document.getElementById('coach-input');
   const msg = (text || (input && input.value.trim()) || '').trim();
   if (!msg) return;
+
+  // Client-side rate guard with user feedback
+  const rateCheck = _coachRateCheck();
+  if (!rateCheck.ok) {
+    showToast(rateCheck.reason, 'info');
+    return;
+  }
+
   if (input) input.value = '';
+  _coachRateRecord();
   _coachAppend('user', msg);
   const thinking = _coachAppend('coach', 'Thinking...');
   thinking.style.color = 'var(--text3)';
@@ -5649,18 +5699,23 @@ async function sendCoachMessage(text) {
     const data = await res.json();
     thinking.remove();
     if (data.error) {
-      showToast(data.error, 'error');
       _coachAppend('coach', data.error);
+      // If it's a key error, nudge to settings
+      if (data.error.includes('key') || data.error.includes('configured')) {
+        showToast('Add your Gemini key under More → Setup → Coach AI', 'info');
+      }
     } else {
       const reply = data.reply || 'No response.';
       _coachAppend('coach', reply);
       _coachHistory.push({role: 'user', content: msg});
       _coachHistory.push({role: 'assistant', content: reply});
+      // Trim history to last 14 turns (client mirrors server)
+      if (_coachHistory.length > 28) _coachHistory = _coachHistory.slice(-28);
     }
   } catch(e) {
-    thinking.textContent = 'Error reaching coach.';
-    showToast('Error reaching coach.', 'error');
+    thinking.textContent = 'Error reaching coach. Check your connection.';
   }
+  _updateCoachRateStatus();
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
@@ -5828,6 +5883,15 @@ function _updatePaceBar(cell, spentVal, pacePct) {
   const budget = parseFloat(cell.dataset.rawBudget) || 0;
   if (budget <= 0) return;
 
+  const status = (cell.dataset.status || '').toUpperCase();
+
+  // Zero spent — never show a bar; just clean up if one exists
+  if (spentVal <= 0 && status !== 'OVER') {
+    const existing = cell.querySelector('.pace-wrap');
+    if (existing) existing.remove();
+    return;
+  }
+
   if (pacePct === undefined) {
     const today = new Date();
     const day = today.getDate();
@@ -5836,7 +5900,19 @@ function _updatePaceBar(cell, spentVal, pacePct) {
   }
 
   const spentPct = Math.min(spentVal / budget, 1);
-  const isOver = spentPct > pacePct + 0.01;
+
+  // Determine bar class:
+  // PAID  → green (goal achieved)
+  // OVER  → red   (over budget)
+  // else  → amber if ahead of pace, green if under/on pace
+  let barClass;
+  if (status === 'PAID') {
+    barClass = 'under';  // green — it's paid, good thing
+  } else if (status === 'OVER' || spentVal > budget + 0.01) {
+    barClass = 'over';   // red — actually overspent
+  } else {
+    barClass = spentPct > pacePct + 0.01 ? 'warn' : 'under';
+  }
 
   let wrap = cell.querySelector('.pace-wrap');
   if (!wrap) {
@@ -5848,8 +5924,10 @@ function _updatePaceBar(cell, spentVal, pacePct) {
   const bar = wrap.querySelector('.pace-bar');
   const marker = wrap.querySelector('.pace-marker');
   bar.style.width = (spentPct * 100).toFixed(1) + '%';
-  bar.className = 'pace-bar ' + (isOver ? 'over' : 'under');
+  bar.className = 'pace-bar ' + barClass;
+  // Only show the pace marker for variable buckets (not PAID/OVER)
   marker.style.left = (pacePct * 100).toFixed(1) + '%';
+  marker.style.display = (status === 'PAID' || status === 'OVER') ? 'none' : '';
 }
 
 // ── Copy last month's allocations ─────────────────────────────────────────────

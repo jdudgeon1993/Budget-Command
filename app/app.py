@@ -2840,6 +2840,209 @@ def api_forecast():
     })
 
 
+# ── Coach AI helpers ──────────────────────────────────────────────────────────
+
+def _build_coach_context(data: dict) -> str:
+    """Build a rich plain-text financial snapshot for the coach system prompt."""
+    all_months     = data.get("months") or []
+    accounts       = data.get("accounts") or []
+    txs            = data.get("txs") or []
+    all_buckets    = data.get("buckets") or []
+    paychecks      = data.get("paychecks") or []
+    alloc_rules    = data.get("allocationRules") or []
+    active_buckets = [b for b in all_buckets if not b.get("archived")]
+    cur_mid        = current_month_id()
+    today_d        = date.today()
+
+    def _get_month(mid):
+        return next((m for m in all_months if m.get("id") == mid),
+                    {"id": mid, "allocations": {}, "budgets": {}, "rolloverReleased": {},
+                     "skippedBuckets": {}, "vaultWithdrawals": {}})
+
+    cur_month = _get_month(cur_mid)
+    yr, m0    = parse_month_id(cur_mid)
+    days_in_month  = _cal.monthrange(yr, m0 + 1)[1]
+    day_of_month   = today_d.day
+    days_left      = days_in_month - day_of_month
+    time_pct       = day_of_month / days_in_month
+
+    # Past 3 months for trend data
+    past_mids = sorted(
+        [m["id"] for m in all_months if _month_sort_key(m["id"]) < _month_sort_key(cur_mid)],
+        key=_month_sort_key
+    )[-3:]
+
+    rts_val   = ready_to_spend(cur_month, all_months, accounts, active_buckets, txs)
+    aom_val   = _age_of_money(data)
+    aom_str   = f"{aom_val}d" if aom_val is not None else "unknown"
+
+    # Income this month
+    income_this_month = sum(
+        t.get("amount", 0) for t in txs
+        if t.get("monthId") == cur_mid and t.get("type") == "in" and not is_scheduled(t)
+    )
+
+    # Total budget targets and spending
+    total_budget = sum(b_budget(cur_month, b["id"]) for b in active_buckets if b.get("type") != "vault")
+    total_spent  = sum(b_spent(cur_mid, b["id"], txs) for b in active_buckets if b.get("type") != "vault")
+    velocity_str = ""
+    if total_budget > 0 and time_pct > 0:
+        spend_pct = total_spent / total_budget
+        v = spend_pct / time_pct
+        if v > 1.15:
+            velocity_str = f"OVERPACING — spending {round((v-1)*100)}% faster than month progress"
+        elif v < 0.75:
+            velocity_str = f"underpacing ({round((1-v)*100)}% slower — either light month or behind on bills)"
+        else:
+            velocity_str = "on pace"
+
+    # Account balances
+    acct_lines, total_cash, total_debt = [], 0.0, 0.0
+    for a in accounts:
+        if a.get("archived"): continue
+        bal = acct_balance(a, txs)
+        atype = a.get("type", "budget")
+        if atype == "debt":
+            total_debt += bal
+        else:
+            total_cash += bal
+        acct_lines.append(f"  {a.get('name','?')} ({atype}): ${bal:,.2f}"
+                          + (f" @ {a.get('debtAPR',0):.1f}% APR" if atype == "debt" and a.get("debtAPR") else ""))
+    net_worth = total_cash - total_debt
+
+    # Bucket detail
+    bucket_lines, over_budget, unfunded = [], [], []
+    for b in active_buckets:
+        if b.get("type") == "vault": continue
+        bid    = b["id"]
+        alloc  = b_alloc(cur_month, bid)
+        budget = b_budget(cur_month, bid)
+        roll   = rollover_bal(b, cur_month, all_months, txs)
+        spent  = b_spent(cur_mid, bid, txs)
+        eff    = alloc + roll
+        avail  = eff - spent
+        skipped = bool((cur_month.get("skippedBuckets") or {}).get(bid))
+        if skipped: continue
+        over_tag = " [OVERSPENT]" if spent > eff + 0.01 else ""
+        gap_tag  = f" [needs ${budget-alloc:.0f} more]" if alloc < budget and budget > 0 else ""
+        roll_tag = f" | rollover +${roll:.0f}" if roll > 0.5 else ""
+        bucket_lines.append(
+            f"  {b.get('name','?')} ({b.get('type','expense')}): "
+            f"budget ${budget:.0f} | alloc ${alloc:.0f}{roll_tag} | spent ${spent:.0f} | avail ${avail:.0f}"
+            f"{over_tag}{gap_tag}"
+        )
+        if spent > eff + 0.01:
+            over_budget.append(f"  {b.get('name','?')}: over by ${spent-eff:.2f}")
+        if budget > 0 and alloc == 0:
+            unfunded.append(b.get("name","?"))
+
+    # Savings goals
+    goal_lines = []
+    for b in active_buckets:
+        if b.get("type") not in ("goal", "sinking") or not b.get("targetAmount"): continue
+        saved = bucket_available(b, cur_month, all_months, txs)
+        tgt   = b.get("targetAmount", 0)
+        pct   = round(saved / tgt * 100) if tgt > 0 else 0
+        goal_lines.append(f"  {b.get('name','?')}: ${saved:.0f}/${tgt:.0f} ({pct}%)"
+                          + (f" — target {b.get('targetDate','')}" if b.get("targetDate") else ""))
+
+    # Debt interest burden
+    monthly_interest = sum(
+        acct_balance(a, txs) * (a.get("debtAPR", 0) / 100 / 12)
+        for a in accounts if a.get("type") == "debt" and (a.get("debtAPR") or 0) > 0
+    )
+
+    # Spending trends (category-level) vs prior months
+    trend_lines = []
+    if past_mids:
+        cats = data.get("cats") or []
+        for cat in cats:
+            bkts = [b for b in active_buckets if b.get("catId") == cat["id"]]
+            if not bkts: continue
+            cur_spend  = sum(b_spent(cur_mid, b["id"], txs) for b in bkts)
+            past_spends = [sum(b_spent(pmid, b["id"], txs) for b in bkts) for pmid in past_mids]
+            avg = sum(past_spends) / len(past_spends) if past_spends else 0
+            if avg > 20 and cur_spend > avg * 1.25:
+                trend_lines.append(f"  {cat.get('name','?')}: ${cur_spend:.0f} this month vs ${avg:.0f} avg (up {round((cur_spend/avg-1)*100)}%)")
+
+    # Income history
+    income_history = []
+    for pmid in past_mids:
+        pm = _get_month(pmid)
+        inc = sum(t.get("amount",0) for t in txs if t.get("monthId")==pmid and t.get("type")=="in" and not is_scheduled(t))
+        pyr, pm0 = parse_month_id(pmid)
+        income_history.append(f"{MONTH_NAMES[pm0][:3]}=${inc:.0f}")
+
+    # Savings rate (last 3 months)
+    sav_rates = []
+    for pmid in past_mids:
+        inc  = sum(t.get("amount",0) for t in txs if t.get("monthId")==pmid and t.get("type")=="in" and not is_scheduled(t))
+        sp   = sum(b_spent(pmid, b["id"], txs) for b in active_buckets if b.get("type") != "vault")
+        if inc > 0: sav_rates.append(round((inc - sp) / inc * 100))
+
+    # Allocation rules summary
+    rule_lines = []
+    for r in alloc_rules:
+        if not r.get("active", True): continue
+        b = next((x for x in all_buckets if x["id"] == r.get("bucketId","")), None)
+        if not b or b.get("archived"): continue
+        val = f"{r['value']}% of income" if r.get("type") == "pct" else f"${r['value']}/paycheck"
+        rule_lines.append(f"  {r.get('name','?')}: {val} → {b.get('name','?')}")
+
+    # Last transaction date (staleness check)
+    last_tx_date = max(
+        (t.get("date","") for t in txs if not is_scheduled(t) and t.get("type") != "opening"),
+        default=""
+    )
+    days_since_tx = (today_d - date.fromisoformat(last_tx_date)).days if last_tx_date else None
+
+    lines = [
+        f"FINANCIAL SNAPSHOT — {MONTH_NAMES[m0]} {yr} | Day {day_of_month}/{days_in_month} ({days_left} days left)",
+        f"Spending velocity: {velocity_str}" if velocity_str else "",
+        f"",
+        f"Ready to Spend (RTS): ${rts_val:,.2f}",
+        f"Age of Money: {aom_str} | Net Worth: ${net_worth:,.2f}",
+        f"Total cash: ${total_cash:,.2f} | Total debt: ${total_debt:,.2f}",
+        f"",
+        f"This month: income logged ${income_this_month:,.2f} | spent ${total_spent:,.2f} / ${total_budget:,.2f} target",
+        (f"Income history (past months): {', '.join(income_history)}" if income_history else ""),
+        (f"3-month avg savings rate: {round(sum(sav_rates)/len(sav_rates))}%" if sav_rates else ""),
+        f"",
+        f"Accounts:",
+        *acct_lines,
+        (f"\nMonthly interest burden: ${monthly_interest:.2f}/mo (${monthly_interest*12:.0f}/yr)" if monthly_interest > 5 else ""),
+        f"",
+        f"Buckets this month:",
+        *bucket_lines,
+        (f"\nOVERSPENT: {'; '.join(over_budget)}" if over_budget else "No overspent buckets."),
+        (f"Unfunded (target set, $0 allocated): {', '.join(unfunded)}" if unfunded else ""),
+        (f"\nSpending trends vs recent avg:\n" + "\n".join(trend_lines) if trend_lines else ""),
+        (f"\nSavings goals:\n" + "\n".join(goal_lines) if goal_lines else ""),
+        (f"\nAllocation rules:\n" + "\n".join(rule_lines) if rule_lines else ""),
+        (f"\nData freshness: last transaction {days_since_tx} days ago — may be missing recent spending." if days_since_tx and days_since_tx >= 5 else ""),
+    ]
+    return "\n".join(l for l in lines if l is not None)
+
+
+def _build_coach_system_prompt(ctx: str) -> str:
+    return f"""You are a personal finance coach inside Cura, an envelope-budgeting app.
+
+ROLE: Advisory only. Analyse the data, ask questions, and push the user to think — never make decisions for them. This app is intentionally user-driven to teach good habits.
+
+STYLE:
+- Plain conversational sentences. No markdown (no **, no #, no bullet dashes).
+- 3–5 sentences unless the user asks for detail.
+- Lead with the most important insight. Reference exact dollar amounts.
+- Do not list every bucket. Focus on the 1–2 that matter most.
+- Ask one follow-up question to keep the user thinking.
+
+INCOME RULE: "Income logged" = received so far this month. Always reason from the full expected income picture, not just what's been logged mid-month.
+
+LIMITS: You cannot change data in the app. If the user needs to act, direct them to the right tab (Buckets, Ledger, More → Setup, etc.).
+
+{ctx}"""
+
+
 # ── API: Coach AI ─────────────────────────────────────────────────────────────
 
 @app.route("/api/coach", methods=["POST"])
@@ -2875,7 +3078,8 @@ def api_coach():
     if _coach_rpd_count >= 1500:
         return jsonify({'error': 'Daily limit reached. Try again tomorrow.'}), 200
     if len(_coach_rpm_times) >= 15:
-        return jsonify({'error': 'Too many requests. Wait a moment and try again.'}), 200
+        wait = max(1, int(60 - (now - _coach_rpm_times[0])))
+        return jsonify({'error': f'Rate limit — wait {wait}s and try again.'}), 200
 
     _coach_rpm_times.append(now)
     _coach_rpd_count += 1
@@ -2889,82 +3093,17 @@ def api_coach():
     uid, tok = _uid(), _tok()
     data = _load(uid, tok)
 
-    all_months     = data.get("months", [])
-    accounts       = data.get("accounts", [])
-    txs            = data.get("txs", [])
-    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    cur_mid        = current_month_id()
-    cur_month      = next(
-        (m for m in all_months if m.get("id") == cur_mid),
-        {"id": cur_mid, "allocations": {}, "budgets": {}, "rolloverReleased": {},
-         "skippedBuckets": {}, "vaultWithdrawals": {}},
-    )
-
-    rts_val = ready_to_spend(cur_month, all_months, accounts, active_buckets, txs)
-    aom_val = _age_of_money(data)
-
-    acct_lines = []
-    total_cash = 0.0
-    for a in accounts:
-        if a.get("archived"):
-            continue
-        bal = acct_balance(a, txs)
-        if a.get("type") != "debt":
-            total_cash += bal
-        acct_lines.append(f"  {a.get('name','?')}: ${bal:,.2f} ({a.get('type','?')})")
-
-    over_budget = []
-    top_spending = []
-    for b in active_buckets:
-        if b.get("type") == "vault":
-            continue
-        bid    = b["id"]
-        spent  = b_spent(cur_mid, bid, txs)
-        budget = b_budget(cur_month, bid)
-        if budget > 0 and spent > budget:
-            over_budget.append((b.get("name","?"), spent - budget, spent, budget))
-        if spent > 0:
-            top_spending.append((b.get("name","?"), spent))
-
-    over_budget.sort(key=lambda x: -x[1])
-    top_spending.sort(key=lambda x: -x[1])
-
-    over_lines = "\n".join(
-        f"  {name}: spent ${spent:,.2f} / budget ${budget:,.2f} (over by ${over:,.2f})"
-        for name, over, spent, budget in over_budget[:5]
-    ) or "  None"
-    spend_lines = "\n".join(
-        f"  {name}: ${spent:,.2f}" for name, spent in top_spending[:5]
-    ) or "  None"
-
-    aom_str = f"{aom_val} days" if aom_val is not None else "unknown"
-
-    ctx = f"""You are a friendly, concise personal finance coach inside the Budget Command app.
-
-Current budget snapshot ({cur_mid}):
-- Ready to Spend (RTS): ${rts_val:,.2f}
-- Age of Money: {aom_str}
-- Total cash on hand: ${total_cash:,.2f}
-
-Account balances:
-{chr(10).join(acct_lines) or '  No accounts'}
-
-Top 5 over-budget buckets this month:
-{over_lines}
-
-Top 5 buckets by spending this month:
-{spend_lines}
-
-Give practical, specific advice based on these numbers. Be brief and conversational. Do not fabricate numbers not shown above."""
+    ctx = _build_coach_context(data)
+    system_prompt = _build_coach_system_prompt(ctx)
 
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=api_key)
 
-    # Build conversation contents
+    # Build conversation — keep last 14 turns to preserve memory without token bloat
     contents = []
-    for h in history[-10:]:  # last 10 turns
+    for h in history[-14:]:
         role = 'user' if h.get('role') == 'user' else 'model'
         contents.append(types.Content(role=role, parts=[types.Part(text=h.get('content', ''))]))
     contents.append(types.Content(role='user', parts=[types.Part(text=user_msg)]))
@@ -2974,7 +3113,7 @@ Give practical, specific advice based on these numbers. Be brief and conversatio
             model='gemini-2.0-flash',
             contents=contents,
             config=types.GenerateContentConfig(
-                system_instruction=ctx,
+                system_instruction=system_prompt,
                 max_output_tokens=512,
                 temperature=0.7,
             )
