@@ -1,8 +1,9 @@
 import os
 import traceback
+import collections
+import time as _time
 from datetime import date, timedelta
 import calendar as _cal
-import anthropic
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -16,6 +17,11 @@ MONTH_NAMES = ["January","February","March","April","May","June",
                "July","August","September","October","November","December"]
 
 load_dotenv()
+
+# ── Coach AI rate limit state (15 RPM, 1500 RPD) ─────────────────────────────
+_coach_rpm_times = collections.deque()  # timestamps of recent requests
+_coach_rpd_count = 0
+_coach_rpd_date = None
 
 app = Flask(__name__)
 app.secret_key = os.environ["FLASK_SECRET_KEY"]
@@ -1161,6 +1167,123 @@ def api_release_rollover():
     })
 
 
+# ── API: copy last month's allocations to active month ───────────────────────
+
+@app.route("/api/copy-month-allocs", methods=["POST"])
+def api_copy_month_allocs():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body      = request.get_json(silent=True) or {}
+    target_mid = (body.get("target_mid") or "").strip()
+    if not target_mid:
+        return jsonify({"ok": False, "error": "Missing target_mid"}), 400
+
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+    all_months = data.get("months", [])
+    buckets    = [b for b in data.get("buckets", []) if not b.get("archived")]
+
+    # Find the most recent month before target
+    from formulas import months_before
+    prior = sorted(months_before(target_mid, all_months), key=lambda m: m["id"], reverse=True)
+    if not prior:
+        return jsonify({"ok": False, "error": "No prior month found to copy from"}), 404
+
+    source_month = prior[0]
+    source_allocs = source_month.get("allocations") or {}
+
+    _ensure_month(uid, tok, target_mid)
+    copied = 0
+    for b in buckets:
+        bid = b["id"]
+        amt = float(source_allocs.get(bid) or 0)
+        if amt > 0:
+            _upsert_alloc(uid, tok, target_mid, bid, amt)
+            copied += 1
+
+    # Reload and return
+    data = _load(uid, tok)
+    return jsonify({"ok": True, "copied": copied, **_live_state(data, target_mid)})
+
+
+# ── Month nav helpers ──────────────────────────────────────────────────────────
+
+def _mid_label(mid: str) -> str:
+    yr, m0 = parse_month_id(mid)
+    return f"{MONTH_NAMES[m0]} {yr}"
+
+def _month_sort_key(mid: str) -> tuple:
+    return parse_month_id(mid)
+
+def _get_open_mid(S: dict) -> str:
+    """The 'open' month: current calendar month if not closed, else latest unclosed."""
+    all_months = S.get("months") or []
+    cur_mid = current_month_id()
+    cur_data = next((m for m in all_months if m["id"] == cur_mid), {})
+    if not cur_data.get("closed"):
+        return cur_mid
+    # Current month was closed — find latest unclosed month
+    unclosed = [m for m in all_months if not m.get("closed")]
+    if unclosed:
+        return sorted(unclosed, key=lambda m: _month_sort_key(m["id"]))[-1]["id"]
+    return cur_mid
+
+def _build_available_months(S: dict) -> list[dict]:
+    """Months for the nav dropdown: all history + current + next 2."""
+    today = date.today()
+    all_months = S.get("months") or []
+    known = {m["id"]: m for m in all_months}
+    cur_mid = current_month_id()
+    open_mid = _get_open_mid(S)
+
+    # Always include current + next 2
+    required: set[str] = set()
+    for delta in range(3):
+        mo = today.month + delta
+        yr = today.year
+        while mo > 12:
+            mo -= 12; yr += 1
+        required.add(month_id(yr, mo - 1))
+
+    all_mids = required | set(known.keys())
+    result = []
+    for mid in sorted(all_mids, key=_month_sort_key, reverse=True):
+        yr, m0 = parse_month_id(mid)
+        m_data = known.get(mid, {})
+        closed = bool(m_data.get("closed"))
+        is_future = _month_sort_key(mid) > _month_sort_key(cur_mid)
+        result.append({
+            "id": mid,
+            "label": _mid_label(mid),
+            "closed": closed,
+            "is_future": is_future,
+            "is_open": mid == open_mid and not closed,
+        })
+    return result
+
+def _get_month_status(active_mid: str, available: list[dict]) -> str:
+    m = next((m for m in available if m["id"] == active_mid), None)
+    if not m:
+        return "future"
+    if m["is_open"]:
+        return "open"
+    if m["closed"]:
+        return "closed"
+    return "future"
+
+def _show_close_btn(active_mid: str, S: dict) -> bool:
+    """Show Close Month button on the open month when ≤2 days until EOM (or past)."""
+    open_mid = _get_open_mid(S)
+    if active_mid != open_mid:
+        return False
+    today = date.today()
+    yr, m0 = parse_month_id(active_mid)
+    cal_month = m0 + 1
+    days_in_month = _cal.monthrange(yr, cal_month)[1]
+    month_end = date(yr, cal_month, days_in_month)
+    return (month_end - today).days <= 2
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @app.route("/dashboard")
@@ -1191,8 +1314,11 @@ def _dashboard_inner():
         active_mid = current_month_id()
 
     year, m0 = parse_month_id(active_mid)
-    prev_mid = month_id(year - 1, 11) if m0 == 0 else month_id(year, m0 - 1)
-    next_mid = month_id(year + 1, 0) if m0 == 11 else month_id(year, m0 + 1)
+
+    available_months = _build_available_months(S)
+    open_mid         = _get_open_mid(S)
+    month_status     = _get_month_status(active_mid, available_months)
+    show_close_btn   = _show_close_btn(active_mid, S)
 
     active_month = next(
         (m for m in all_months if m.get("id") == active_mid),
@@ -1406,7 +1532,8 @@ def _dashboard_inner():
         user_email=session.get("user_email"),
         active_mid=active_mid,
         month_display=f"{MONTH_NAMES[m0]} {year}",
-        prev_mid=prev_mid, next_mid=next_mid,
+        available_months=available_months, open_mid=open_mid,
+        month_status=month_status, show_close_btn=show_close_btn,
         category_groups=category_groups, grand=grand, rts=rts, aom=aom,
         all_cats=cats_sorted, accounts=accounts,
         debt_accounts=debt_accounts, transfer_buckets=transfer_buckets,
@@ -1532,6 +1659,23 @@ def api_delete_transaction():
         return jsonify({"ok": False, "error": "Transaction not found"}), 404
     data["txs"] = [t for t in data.get("txs", []) if t["id"] != tx_id]
     return jsonify({"ok": True, **_live_state(data, active_mid)})
+
+
+# ── API: payees ───────────────────────────────────────────────────────────────
+
+@app.route("/api/payees")
+def api_payees():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid, tok = _uid(), _tok()
+    txs = _db(tok).table("bcc_transactions").select("desc").eq("user_id", uid).execute().data or []
+    counts: dict[str, int] = {}
+    for t in txs:
+        name = (t.get("desc") or "").strip()
+        if name:
+            counts[name] = counts.get(name, 0) + 1
+    payees = sorted([{"name": k, "count": v} for k, v in counts.items()], key=lambda x: -x["count"])
+    return jsonify({"payees": payees[:50]})
 
 
 # ── API: paychecks ────────────────────────────────────────────────────────────
@@ -2695,18 +2839,41 @@ def api_forecast():
 
 @app.route("/api/coach", methods=["POST"])
 def api_coach():
+    global _coach_rpm_times, _coach_rpd_count, _coach_rpd_date
+
     if not logged_in():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
     if not api_key:
-        return jsonify({"ok": False, "error": "Coach AI is not configured (missing API key)."}), 503
+        return jsonify({'error': 'Coach AI is not configured.'}), 200
 
-    body    = request.get_json(silent=True) or {}
-    message = (body.get("message") or "").strip()
-    history = body.get("history") or []
-    if not message:
-        return jsonify({"ok": False, "error": "No message provided"}), 400
+    # Rate limiting: 15 RPM, 1500 RPD
+    now = _time.time()
+    today = _time.strftime('%Y-%m-%d')
+
+    # RPD reset
+    if _coach_rpd_date != today:
+        _coach_rpd_date = today
+        _coach_rpd_count = 0
+
+    # RPM: keep only last 60s
+    while _coach_rpm_times and now - _coach_rpm_times[0] > 60:
+        _coach_rpm_times.popleft()
+
+    if _coach_rpd_count >= 1500:
+        return jsonify({'error': 'Daily limit reached. Try again tomorrow.'}), 200
+    if len(_coach_rpm_times) >= 15:
+        return jsonify({'error': 'Too many requests. Wait a moment and try again.'}), 200
+
+    _coach_rpm_times.append(now)
+    _coach_rpd_count += 1
+
+    body = request.get_json(silent=True) or {}
+    user_msg = (body.get('message') or '').strip()
+    history = body.get('history') or []
+    if not user_msg:
+        return jsonify({'error': 'No message.'}), 200
 
     uid, tok = _uid(), _tok()
     data = _load(uid, tok)
@@ -2741,10 +2908,8 @@ def api_coach():
         if b.get("type") == "vault":
             continue
         bid    = b["id"]
-        alloc  = b_alloc(cur_month, bid)
-        budget = b_budget(cur_month, bid)
         spent  = b_spent(cur_mid, bid, txs)
-        avail  = bucket_available(b, cur_month, all_months, txs)
+        budget = b_budget(cur_month, bid)
         if budget > 0 and spent > budget:
             over_budget.append((b.get("name","?"), spent - budget, spent, budget))
         if spent > 0:
@@ -2763,7 +2928,7 @@ def api_coach():
 
     aom_str = f"{aom_val} days" if aom_val is not None else "unknown"
 
-    system_prompt = f"""You are a friendly, concise personal finance coach inside the Budget Command app.
+    ctx = f"""You are a friendly, concise personal finance coach inside the Budget Command app.
 
 Current budget snapshot ({cur_mid}):
 - Ready to Spend (RTS): ${rts_val:,.2f}
@@ -2781,18 +2946,140 @@ Top 5 buckets by spending this month:
 
 Give practical, specific advice based on these numbers. Be brief and conversational. Do not fabricate numbers not shown above."""
 
-    messages = [{"role": r["role"], "content": r["content"]} for r in history if r.get("role") and r.get("content")]
-    messages.append({"role": "user", "content": message})
+    from google import genai
+    from google.genai import types
 
-    client = anthropic.Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
-        system=system_prompt,
-        messages=messages,
-    )
-    reply = response.content[0].text
-    return jsonify({"ok": True, "reply": reply})
+    client = genai.Client(api_key=api_key)
+
+    # Build conversation contents
+    contents = []
+    for h in history[-10:]:  # last 10 turns
+        role = 'user' if h.get('role') == 'user' else 'model'
+        contents.append(types.Content(role=role, parts=[types.Part(text=h.get('content', ''))]))
+    contents.append(types.Content(role='user', parts=[types.Part(text=user_msg)]))
+
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=ctx,
+                max_output_tokens=512,
+                temperature=0.7,
+            )
+        )
+        reply = response.text or 'No response.'
+    except Exception as e:
+        return jsonify({'error': 'Coach unavailable: ' + str(e)[:80]}), 200
+
+    return jsonify({'reply': reply})
+
+
+# ── API: bill calendar ────────────────────────────────────────────────────────
+
+@app.route("/api/bill-calendar")
+def api_bill_calendar():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+    active_buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    all_months = data.get("months", [])
+    txs = data.get("txs", [])
+
+    today = date.today()
+    cur_mid = current_month_id()
+    next_month = date(today.year + (today.month // 12), (today.month % 12) + 1, 1)
+    next_mid = month_id(next_month.year, next_month.month - 1)
+
+    def _bill_paid_in_month(b: dict, mid: str) -> bool:
+        m = next((m for m in all_months if m.get("id") == mid), None)
+        if not m:
+            return False
+        status = (m.get("budgets") or {}).get(b["id"])
+        return status == "PAID"
+
+    def _days_in_month(yr: int, mo: int) -> int:
+        import calendar as _cal
+        return _cal.monthrange(yr, mo)[1]
+
+    bills = []
+    for b in active_buckets:
+        if b.get("type") in ("vault",):
+            continue
+        due_day = b.get("dueDay")
+        amount = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        if not due_day or not amount:
+            continue
+
+        for mid in [cur_mid, next_mid]:
+            yr, m0 = parse_month_id(mid)
+            cal_month = m0 + 1  # 1-based
+
+            if due_day == "eom":
+                day_num = _days_in_month(yr, cal_month)
+            else:
+                try:
+                    day_num = min(int(due_day), _days_in_month(yr, cal_month))
+                except (ValueError, TypeError):
+                    continue
+
+            try:
+                due_date = date(yr, cal_month, day_num)
+            except ValueError:
+                continue
+
+            is_paid = _bill_paid_in_month(b, mid)
+            is_past = due_date < today
+            is_today = due_date == today
+
+            if is_past and mid != cur_mid:
+                continue  # skip past bills in next month (shouldn't happen)
+
+            bills.append({
+                "bucket_id":  b["id"],
+                "name":       b.get("name", ""),
+                "amount":     amount,
+                "due_date":   due_date.isoformat(),
+                "due_day":    day_num,
+                "month_id":   mid,
+                "paid":       is_paid,
+                "past":       is_past,
+                "today":      is_today,
+            })
+
+    bills.sort(key=lambda x: x["due_date"])
+    return jsonify({"ok": True, "bills": bills})
+
+
+# ── API: close / reopen month ─────────────────────────────────────────────────
+
+@app.route("/api/close-month", methods=["POST"])
+def api_close_month():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid  = (body.get("mid") or "").strip()
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+    uid, tok = _uid(), _tok()
+    _ensure_month(uid, tok, mid)
+    _db(tok).table("bcc_months").update({"closed": True}).eq("id", mid).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/reopen-month", methods=["POST"])
+def api_reopen_month():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid  = (body.get("mid") or "").strip()
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+    uid, tok = _uid(), _tok()
+    _db(tok).table("bcc_months").update({"closed": False}).eq("id", mid).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":

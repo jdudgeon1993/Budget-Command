@@ -91,6 +91,7 @@ Scratch copy of the current month's bucket table — no server saves.
 - Contextual spending analysis against budget
 - Proactive alerts (over budget, large unallocated balance, upcoming due dates)
 - Conversational Q&A about financial state
+- Powered by Google Gemini 2.0 Flash (GEMINI_API_KEY) with in-memory rate limiting (15 RPM / 1500 RPD)
 
 ## 🔲 Phase 16: Final Polish
 - PWA / home screen install

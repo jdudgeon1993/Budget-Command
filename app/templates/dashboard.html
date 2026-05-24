@@ -72,35 +72,89 @@
   width: 100%;
   background: var(--bg3);
   border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px 14px; gap: 10px; position: relative; flex-wrap: wrap;
 }
-.month-table {
-  width: 100%;
-  max-width: 500px;
-  margin: 0 auto;
-  border-collapse: collapse;
-  table-layout: fixed;
+.month-trigger {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--r); padding: 5px 12px;
+  cursor: pointer; font-family: var(--mono);
+  font-size: clamp(12px, 2vw, 14px); color: var(--text);
+  letter-spacing: .06em; white-space: nowrap;
 }
-.month-table td {
-  text-align: center;
-  padding: 7px 4px;
-  font-size: clamp(12px, 2vw, 14px);
-  font-family: var(--mono);
-  white-space: nowrap;
-  color: var(--text2);
+.month-trigger:hover { border-color: var(--accent); }
+.month-badge {
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 5px; border-radius: 3px; font-family: var(--mono);
 }
-.month-arrow {
-  width: 36px;
+.month-badge.open   { color: var(--green); border: 1px solid var(--green); }
+.month-badge.closed { color: var(--text3); border: 1px solid var(--border2); }
+.month-badge.future { color: var(--amber); border: 1px solid var(--amber); }
+.month-dropdown-panel {
+  position: absolute; top: calc(100% + 2px); left: 50%;
+  transform: translateX(-50%); z-index: 300;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--r); min-width: 230px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.4);
+  overflow: hidden;
+}
+.month-option {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; font-family: var(--mono);
+  font-size: clamp(11px,1.8vw,13px); color: var(--text2);
   text-decoration: none;
-  color: var(--text3);
-  display: block;
-  text-align: center;
-  transition: color .12s;
+  border-bottom: 1px solid var(--border);
 }
-.month-arrow:hover { color: var(--accent); }
-.month-label {
-  letter-spacing: .08em;
-  color: var(--text);
+.month-option:last-child { border-bottom: none; }
+.month-option:hover { background: var(--bg3); color: var(--text); }
+.month-option.active { color: var(--accent); background: color-mix(in srgb,var(--accent) 8%,transparent); }
+.month-now-chip {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent);
+  border: 1px solid var(--accent); padding: 3px 9px;
+  border-radius: var(--r); text-decoration: none; white-space: nowrap;
 }
+.month-now-chip:hover { background: color-mix(in srgb,var(--accent) 12%,transparent); }
+.month-close-btn {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--amber);
+  border: 1px solid var(--amber); padding: 3px 9px;
+  border-radius: var(--r); background: none; cursor: pointer; white-space: nowrap;
+}
+.month-close-btn:hover { background: color-mix(in srgb,var(--amber) 12%,transparent); }
+/* Status banners */
+.month-status-banner {
+  width: 100%; padding: 7px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--mono); font-size: clamp(10px,1.5vw,11px);
+  letter-spacing: .06em; flex-wrap: wrap; gap: 6px;
+}
+.month-status-banner.closed {
+  background: color-mix(in srgb,var(--text3) 8%,transparent);
+  border-bottom: 1px solid var(--border2); color: var(--text3);
+}
+.month-status-banner.future {
+  background: color-mix(in srgb,var(--amber) 8%,transparent);
+  border-bottom: 1px solid var(--amber); color: var(--amber);
+}
+/* Locked / future month: disable editing */
+[data-month-status="closed"] .editable-num,
+[data-month-status="future"] .editable-num { pointer-events: none; cursor: default; opacity: .7; }
+[data-month-status="closed"] .editable-text,
+[data-month-status="future"] .editable-text { pointer-events: none; cursor: default; }
+[data-month-status="closed"] #add-bucket-form,
+[data-month-status="future"] #add-bucket-form { display: none !important; }
+[data-month-status="closed"] #add-tx-form,
+[data-month-status="future"] #add-tx-form { display: none !important; }
+[data-month-status="closed"] .archive-btn,
+[data-month-status="future"] .archive-btn { display: none !important; }
+[data-month-status="closed"] .delete-cat-btn,
+[data-month-status="future"] .delete-cat-btn { display: none !important; }
+[data-month-status="closed"] #fab,
+[data-month-status="future"] #fab { display: none !important; }
+[data-month-status="closed"] .wi-input,
+[data-month-status="future"] .wi-input { pointer-events: none; opacity: .6; }
 
 /* ── Main content ── */
 .main-content {
@@ -1081,6 +1135,130 @@
   border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center;
   justify-content: center; flex-shrink: 0; margin-top: 2px;
 }
+
+/* ── Toast notifications ── */
+#toast-container {
+  position: fixed;
+  bottom: 80px; /* above bottom nav */
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  font-family: var(--mono);
+  font-size: clamp(10px,1.6vw,12px);
+  letter-spacing: .04em;
+  padding: 10px 16px;
+  border-radius: var(--r);
+  border: 1px solid var(--border2);
+  background: var(--bg2);
+  color: var(--text);
+  max-width: 280px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity .2s, transform .2s;
+}
+.toast.show { opacity: 1; transform: translateX(0); }
+.toast.t-success { border-color: var(--green); color: var(--green); }
+.toast.t-error   { border-color: var(--red);   color: var(--red);   }
+.toast.t-warning { border-color: var(--amber);  color: var(--amber); }
+.toast.t-info    { border-color: var(--accent);  color: var(--accent); }
+
+/* ── Spending pace bar ── */
+.pace-wrap {
+  margin-top: 3px;
+  height: 3px;
+  background: var(--bg3);
+  border-radius: 2px;
+  position: relative;
+  overflow: visible;
+}
+.pace-bar { height: 100%; border-radius: 2px; transition: width .3s; }
+.pace-bar.under { background: var(--green); }
+.pace-bar.over  { background: var(--red); }
+.pace-marker {
+  position: absolute; top: -2px; width: 2px; height: 7px;
+  background: var(--text3); border-radius: 1px; transform: translateX(-50%);
+}
+
+/* ── FAB quick-add ── */
+#fab {
+  position: fixed;
+  bottom: 82px;
+  left: 16px;
+  z-index: 9998;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(99,102,241,.45);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, box-shadow .15s;
+}
+#fab:hover { transform: scale(1.08); box-shadow: 0 6px 18px rgba(99,102,241,.55); }
+#fab:active { transform: scale(.95); }
+
+#fab-backdrop {
+  display: none;
+  position: fixed; inset: 0; z-index: 9997;
+  background: rgba(0,0,0,.45);
+}
+#fab-backdrop.show { display: block; }
+
+#fab-modal {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 9998;
+  background: var(--bg2);
+  border-top: 1px solid var(--border2);
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px 32px;
+  transform: translateY(100%);
+  transition: transform .25s cubic-bezier(.32,1,.6,1);
+  max-width: 560px;
+  margin: 0 auto;
+}
+#fab-modal.show { transform: translateY(0); }
+.fab-modal-title {
+  font-family: var(--mono);
+  font-size: clamp(10px,1.6vw,11px);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.fab-row {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.fab-field { flex: 1; min-width: 100px; }
+.fab-field input, .fab-field select {
+  width: 100%; padding: 8px 10px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text); border-radius: var(--r);
+  font-family: var(--mono); font-size: clamp(12px,1.8vw,13px);
+}
+.fab-field input:focus, .fab-field select:focus {
+  outline: none; border-color: var(--accent);
+}
+.fab-submit-btn {
+  width: 100%; padding: 11px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--r);
+  font-family: var(--mono); font-size: clamp(11px,1.8vw,13px);
+  letter-spacing: .08em; cursor: pointer;
+  margin-top: 4px;
+  transition: opacity .15s;
+}
+.fab-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
 {% endblock %}
 
 {% block extra_head %}
@@ -1122,21 +1300,58 @@
 
 <!-- Month nav -->
 <div class="month-bar">
-  <table class="month-table">
-    <tr>
-      <td style="width:36px;">
-        <a class="month-arrow" href="/dashboard?month={{ prev_mid }}">&lt;</a>
-      </td>
-      <td class="month-label">{{ month_display }}</td>
-      <td style="width:36px;">
-        <a class="month-arrow" href="/dashboard?month={{ next_mid }}">&gt;</a>
-      </td>
-    </tr>
-  </table>
+  <!-- Month dropdown -->
+  <div style="position:relative;">
+    <button class="month-trigger" id="month-trigger" onclick="toggleMonthDropdown()">
+      <span>{{ month_display }}</span>
+      <span class="month-badge {{ month_status }}">
+        {%- if month_status == 'open' %}OPEN{%- elif month_status == 'closed' %}CLOSED{%- else %}FUTURE{%- endif %}
+      </span>
+      <span style="color:var(--text3);font-size:10px;">▾</span>
+    </button>
+    <div class="month-dropdown-panel" id="month-dropdown-panel" style="display:none">
+      {% for m in available_months %}
+      <a class="month-option {% if m.id == active_mid %}active{% endif %}"
+         href="/dashboard?month={{ m.id }}">
+        <span>{{ m.label }}</span>
+        {% if m.is_open %}
+          <span class="month-badge open">OPEN</span>
+        {% elif m.closed %}
+          <span class="month-badge closed">✓ CLOSED</span>
+        {% else %}
+          <span class="month-badge future">FUTURE</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Back to Now chip -->
+  {% if active_mid != open_mid %}
+  <a class="month-now-chip" href="/dashboard?month={{ open_mid }}">→ Now</a>
+  {% endif %}
+
+  <!-- Close Month button (last 3 days of open month) -->
+  {% if show_close_btn %}
+  <button class="month-close-btn" onclick="confirmCloseMonth()">Close Month</button>
+  {% endif %}
 </div>
 
+<!-- Month status banner -->
+{% if month_status == 'closed' %}
+<div class="month-status-banner closed">
+  <span>🔒 {{ month_display }} — CLOSED</span>
+  <button onclick="reopenMonth()" style="border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:var(--r);cursor:pointer;letter-spacing:.08em;">Reopen</button>
+</div>
+{% elif month_status == 'future' %}
+<div class="month-status-banner future">
+  <span>📅 {{ month_display }} — FUTURE MONTH</span>
+  <span style="color:var(--amber);opacity:.8;">Pre-allocate your buckets below</span>
+</div>
+{% endif %}
+
 <!-- Main content -->
-<div class="main-content">
+<div class="main-content" data-month-status="{{ month_status }}">
 
   <!-- Buckets panel -->
   <div id="panel-buckets" class="panel active">
@@ -1175,7 +1390,10 @@
       <table class="data-table">
         <thead>
           <tr>
-            <td colspan="7" class="tbl-section-head">Buckets</td>
+            <td colspan="7" class="tbl-section-head" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Buckets</span>
+              <button class="sf-btn" style="font-size:9px;padding:2px 8px;letter-spacing:.06em;" onclick="copyLastMonthAllocs()" title="Copy allocations from last month">Copy Last Month</button>
+            </td>
           </tr>
           <tr>
             <th class="col-name">Bucket</th>
@@ -1257,7 +1475,7 @@
                 data-month="{{ active_mid }}"
                 data-raw="{{ b.alloc }}"
                 data-type="number">{{ b.alloc|money }}</td>
-            <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
+            <td class="col-amount col-m-hide" id="spent-{{ b.id }}" data-spent-id="{{ b.id }}" data-raw-spent="{{ b.spent if b.type != 'vault' else '' }}" data-raw-budget="{{ b.budget }}">{% if b.type == 'vault' %}—{% else %}{{ b.spent|money }}{% endif %}</td>
             <td class="col-amount"
                 data-avail-id="{{ b.id }}"
                 data-raw="{{ b.avail }}"
@@ -1519,7 +1737,7 @@
             <input type="date" id="tx-date" required>
           </div>
           <div class="strip-field strip-field-lg">
-            <input type="text" id="tx-desc" placeholder="Description">
+            <input type="text" id="tx-desc" placeholder="Description" list="payee-suggestions" autocomplete="off">
           </div>
           <div class="strip-field strip-field-sm">
             <input type="text" inputmode="decimal" id="tx-amount" placeholder="$ amount" class="math-input" required>
@@ -1739,10 +1957,10 @@
   <div id="panel-more" class="panel">
     <div class="panel-container">
 
-      <!-- Top-level: Accounts | Settings | Reports | Plan -->
+      <!-- Top-level: Accounts | Setup | Reports | Plan -->
       <div class="more-mode-tabs">
         <button class="more-mode-tab active" onclick="showMoreMode('accounts',this)">Accounts</button>
-        <button class="more-mode-tab" onclick="showMoreMode('settings',this)">Settings</button>
+        <button class="more-mode-tab" onclick="showMoreMode('settings',this)">Setup</button>
         <button class="more-mode-tab" onclick="showMoreMode('reports',this)">Reports</button>
         <button class="more-mode-tab" onclick="showMoreMode('plan',this)">Plan</button>
       </div>
@@ -2070,6 +2288,60 @@
           {% endfor %}
           </tbody>
         </table>
+
+        {% if debt_accounts_display %}
+        <!-- Debt Projector -->
+        <div style="margin-top:16px;">
+          <div style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Payoff Projector</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="col-name">Account</th>
+                <th class="col-amount">Balance</th>
+                <th class="col-amount col-m-hide">Monthly Payment</th>
+                <th class="col-amount">Est. Payoff</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for a in debt_accounts_display %}
+            {% if a.balance > 0 %}
+            {% set monthly = a.debt_min_payment|float if a.debt_min_payment else 0 %}
+            {% set apr = a.debt_apr|float if a.debt_apr else 0 %}
+            {% if monthly > 0 %}
+              {% if apr > 0 %}
+                {# Amortization: months = -log(1 - bal*r/pmt) / log(1+r), r = apr/12/100 #}
+                {# Approximate in Jinja — we'll do this client-side #}
+                {% set months_est = (a.balance / monthly)|round(0,'ceil')|int %}
+              {% else %}
+                {% set months_est = (a.balance / monthly)|round(0,'ceil')|int %}
+              {% endif %}
+              <tr>
+                <td class="col-name"><span class="acct-color-dot" style="background:{{ a.color }}"></span>{{ a.name }}</td>
+                <td class="col-amount" style="color:var(--red)">{{ a.balance|money }}</td>
+                <td class="col-amount col-m-hide" style="color:var(--text3)">{{ monthly|money }}/mo</td>
+                <td class="col-amount debt-proj-payoff"
+                    data-balance="{{ a.balance }}"
+                    data-monthly="{{ monthly }}"
+                    data-apr="{{ apr }}"
+                    style="color:var(--amber);font-family:var(--mono);font-size:clamp(11px,1.7vw,12px)">
+                  — mo
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td class="col-name"><span class="acct-color-dot" style="background:{{ a.color }}"></span>{{ a.name }}</td>
+                <td class="col-amount" style="color:var(--red)">{{ a.balance|money }}</td>
+                <td class="col-amount col-m-hide" style="color:var(--text3);">—</td>
+                <td class="col-amount" style="color:var(--text3);font-family:var(--mono);font-size:11px;">Set min payment</td>
+              </tr>
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
       </div>
 
       <!-- ── Internal Savings (Vaults) section ── -->
@@ -2107,6 +2379,7 @@
         <div class="acct-tabs" style="margin-bottom:14px;">
           <button class="acct-tab active" onclick="showSettingsTab('paychecks',this)">Paychecks</button>
           <button class="acct-tab" onclick="showSettingsTab('rules',this)">Allocation Rules</button>
+          <button class="acct-tab" onclick="showSettingsTab('payees',this);loadPayees()">Payees</button>
         </div>
 
         <!-- ── Paychecks tab ── -->
@@ -2267,6 +2540,16 @@
           </table>
         </div><!-- end rules tab -->
 
+        <!-- ── Payees tab ── -->
+        <div id="settings-tab-payees" style="display:none">
+          <p style="font-family:var(--mono);font-size:11px;color:var(--text3);margin:0 0 12px;">
+            Payees are auto-suggested when you type a description. Shown below are your most-used payees.
+          </p>
+          <div id="payees-list" style="display:flex;flex-direction:column;gap:4px;">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+          </div>
+        </div><!-- end payees tab -->
+
       </div><!-- end settings mode -->
 
       <!-- ── Reports mode ── -->
@@ -2315,9 +2598,10 @@
 
       <!-- ── Plan mode ── -->
       <div id="more-mode-plan" style="display:none">
-        <!-- Sub-tabs: Forecast | What-If -->
+        <!-- Sub-tabs: Forecast | Calendar | What-If -->
         <div class="acct-tabs" style="margin-bottom:14px">
           <button class="acct-tab active" onclick="showPlanTab('forecast', this)">Forecast</button>
+          <button class="acct-tab" onclick="showPlanTab('calendar', this);initBillCalendar()">Calendar</button>
           <button class="acct-tab" onclick="showPlanTab('whatif', this)">What-If</button>
         </div>
 
@@ -2365,6 +2649,13 @@
           <div id="forecast-content"></div>
         </div>
 
+        <!-- Bill Calendar tab -->
+        <div id="plan-calendar" style="display:none">
+          <div id="bill-calendar-content">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+          </div>
+        </div>
+
         <!-- What-If tab -->
         <script>
         const _wiGroups = {{ category_groups | tojson }};
@@ -2373,18 +2664,46 @@
         const _wiMid    = "{{ active_mid }}";
         </script>
         <div id="plan-whatif" style="display:none">
-          <div id="wi-banner" style="position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;flex-wrap:wrap;">
+          <!-- Scenario warning banner (shown when a saved scenario is loaded) -->
+          <div id="wi-scenario-banner" style="display:none;align-items:center;gap:8px;padding:8px 12px;background:color-mix(in srgb,var(--amber) 12%,transparent);border:1px solid var(--amber);border-radius:var(--r);margin-bottom:8px;font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);">
+            <span style="color:var(--amber);letter-spacing:.1em;">SCENARIO:</span>
+            <span class="wi-scenario-name" style="color:var(--text);font-weight:600;"></span>
+            <span style="color:var(--text3);">— edits apply to this scenario, not the real budget</span>
+            <button onclick="resetWhatIf()" style="margin-left:auto;border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:var(--r);cursor:pointer;letter-spacing:.06em;">CLEAR</button>
+          </div>
+
+          <!-- RTS summary bar -->
+          <div id="wi-banner" style="position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;flex-wrap:wrap;">
             <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Real RTS</span>
             <span id="wi-real-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);color:var(--green);"></span>
             <span style="color:var(--text3);">→</span>
             <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Sim RTS</span>
             <span id="wi-sim-rts" style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);"></span>
             <span id="wi-delta" style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);padding:2px 6px;border-radius:var(--r);background:var(--bg3);"></span>
-            <div style="margin-left:auto;display:flex;gap:6px;">
+            <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="sf-btn" onclick="saveCurrentScenario()">Save Scenario</button>
               <button class="sf-btn" onclick="resetWhatIf()">Reset</button>
               <button id="wi-apply-btn" class="sf-btn" onclick="applyWhatIf()" disabled>Apply to Month</button>
             </div>
           </div>
+
+          <!-- Saved scenarios -->
+          <div style="margin-bottom:8px;">
+            <div id="wi-scenarios-list" style="display:flex;flex-wrap:wrap;gap:4px;min-height:24px;">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No saved scenarios.</span>
+            </div>
+          </div>
+
+          <!-- Target / free-up input -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.08em;">FREE UP</span>
+            <input id="wi-target-input" type="text" inputmode="decimal" placeholder="$0.00"
+              style="width:90px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 8px;"
+              onkeydown="if(event.key==='Enter')applyWhatIfTarget()">
+            <button class="sf-btn" onclick="applyWhatIfTarget()">Apply</button>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">reduces all allocations proportionally to hit target RTS increase</span>
+          </div>
+
           <div id="whatif-content"></div>
         </div>
       </div><!-- end plan mode -->
@@ -2494,8 +2813,118 @@
   </table>
 </nav>
 
+<div id="toast-container"></div>
+<datalist id="payee-suggestions"></datalist>
+
+<!-- ── FAB quick-add ── -->
+<button id="fab" onclick="openFab()" title="Quick add transaction">+</button>
+<div id="fab-backdrop" onclick="closeFab()"></div>
+<div id="fab-modal">
+  <div class="fab-modal-title">
+    <span>Quick Add Transaction</span>
+    <button onclick="closeFab()" style="border:none;background:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;">×</button>
+  </div>
+  <div class="fab-row">
+    <div class="fab-field" style="max-width:120px;">
+      <select id="fab-type" onchange="handleFabTypeChange(this)">
+        <option value="out">Expense</option>
+        <option value="in">Income</option>
+        <option value="xfr">Transfer</option>
+      </select>
+    </div>
+    <div class="fab-field" style="max-width:130px;">
+      <input type="text" inputmode="decimal" id="fab-amount" placeholder="$ Amount"
+        class="math-input" autocomplete="off">
+    </div>
+    <div class="fab-field" style="max-width:130px;">
+      <input type="date" id="fab-date">
+    </div>
+  </div>
+  <div class="fab-row">
+    <div class="fab-field">
+      <input type="text" id="fab-desc" placeholder="Description (optional)"
+        list="payee-suggestions" autocomplete="off">
+    </div>
+  </div>
+  <div class="fab-row">
+    <div class="fab-field">
+      <select id="fab-account">
+        <option value="">— Account —</option>
+        {% for a in accounts %}
+        <option value="{{ a.id }}">{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fab-field" id="fab-bucket-cell">
+      <select id="fab-bucket">
+        <option value="">— Bucket —</option>
+        {% for b in expense_buckets %}
+        <option value="{{ b.id }}">{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fab-field" id="fab-to-acct-cell" style="display:none">
+      <select id="fab-to-account">
+        <option value="">— To Account —</option>
+        {% for a in accounts %}
+        <option value="{{ a.id }}">{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <button class="fab-submit-btn" onclick="submitFabTx()">Add Transaction</button>
+</div>
+
 <script>
 const ACTIVE_MID = "{{ active_mid }}";
+
+/* ── Toast notification system ── */
+function showToast(msg, type = 'success', duration = 3500) {
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = `toast t-${type}`;
+  t.textContent = msg;
+  if (duration === 0) {
+    t.style.cursor = 'pointer';
+    t.addEventListener('click', () => {
+      t.classList.remove('show');
+      setTimeout(() => t.remove(), 220);
+    });
+  }
+  c.appendChild(t);
+  requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
+  if (duration > 0) {
+    setTimeout(() => {
+      t.classList.remove('show');
+      setTimeout(() => t.remove(), 220);
+    }, duration);
+  }
+}
+
+/* ── 401 session-expired helper ── */
+function _show401Toast() {
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = 'toast t-warning';
+  t.textContent = 'Session expired — tap to refresh';
+  t.style.cursor = 'pointer';
+  t.addEventListener('click', () => window.location.reload());
+  c.appendChild(t);
+  requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
+}
+
+/* ── Transaction date helpers ── */
+function dateToMid(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return `m_${d.getFullYear()}_${d.getMonth()}`; // month is 0-indexed
+}
+function formatMonthLabel(mid) {
+  const parts = mid.split('_'); // ['m', year, monthIdx]
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[parseInt(parts[2])] + ' ' + parts[1];
+}
 
 /* ── Live value refresh — patches every computed cell without a reload ── */
 function refreshValues(state) {
@@ -2530,11 +2959,15 @@ function refreshValues(state) {
     }
   }
 
-  // Bucket spent cells
+  // Bucket spent cells + pace update
   if (state.bucket_spent) {
     for (const [bid, val] of Object.entries(state.bucket_spent)) {
       const cell = document.querySelector(`[data-spent-id="${bid}"]`);
-      if (cell && cell.textContent !== '—') cell.textContent = fmtMoney(val);
+      if (cell && cell.textContent !== '—') {
+        cell.textContent = fmtMoney(val);
+        cell.dataset.rawSpent = val;
+        _updatePaceBar(cell, val);
+      }
     }
   }
 
@@ -2952,6 +3385,13 @@ async function submitAddBucket(e) {
     // Also add the new bucket to all bucket selects across the page
     appendBucketOption(bid, result.bucket_name, result.bucket_type);
 
+    // Toast for new category or new bucket
+    if (catId === '__new__') {
+      showToast('Category added', 'info');
+    } else {
+      showToast('Bucket added', 'info');
+    }
+
     // Update all live values (RTS, totals, etc.)
     refreshValues(result);
 
@@ -3049,7 +3489,13 @@ async function saveSetting(field, id, value, month) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ field, id, value, month })
     });
-    return await r.json();
+    if (r.status === 401) {
+      _show401Toast();
+      return { ok: false };
+    }
+    const result = await r.json();
+    if (result.ok) showToast('Saved', 'success');
+    return result;
   } catch(e) {
     console.error('saveSetting failed', e);
     return { ok: false };
@@ -3315,15 +3761,19 @@ async function submitAddTx(e) {
   if (!accountId) { alert('Select an account.'); return; }
   if (type === 'xfr' && !toAcctId) { alert('Select a destination account.'); return; }
 
-  const result = await fetch('/api/add-transaction', {
+  const _txResp = await fetch('/api/add-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ type, date, desc, amount, account_id: accountId,
                            bucket_id: bucketId, to_account_id: toAcctId,
                            income_type: incomeType, active_mid: ACTIVE_MID })
-  }).then(r => r.json()).catch(() => ({ok: false}));
+  }).catch(() => null);
+  if (!_txResp) { alert('Network error adding transaction.'); return; }
+  if (_txResp.status === 401) { _show401Toast(); return; }
+  const result = await _txResp.json().catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Transaction added', 'success');
     refreshValues(result);
     // Inject row into ledger if this tx belongs to the viewed month
     if (result.month_id === ACTIVE_MID && result.tx) {
@@ -3347,13 +3797,34 @@ function toggleTxSettings(id) {
 
 /* ── Ledger: save a field on a transaction ── */
 async function saveTxField(id, field, value) {
-  const result = await fetch('/api/edit-transaction', {
+  const resp = await fetch('/api/edit-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ id, field, value, active_mid: ACTIVE_MID })
-  }).then(r => r.json()).catch(() => ({ok: false}));
+  }).catch(() => null);
+  if (!resp) { alert('Save failed: network error'); return; }
+  if (resp.status === 401) { _show401Toast(); return; }
+  const result = await resp.json().catch(() => ({ok: false}));
   if (!result.ok) { alert('Save failed: ' + (result.error || 'unknown error')); return; }
   refreshValues(result);
+
+  // Date auto-move: if the date changed and puts tx in a different month, fade row out
+  if (field === 'date' && value) {
+    const newMid = dateToMid(value);
+    if (newMid !== ACTIVE_MID) {
+      const row = document.getElementById('ltx-' + id);
+      const settingsRow = document.getElementById('tx-settings-' + id);
+      if (row) {
+        row.style.transition = 'opacity .3s';
+        row.style.opacity = '0';
+        setTimeout(() => {
+          row.remove();
+          settingsRow?.remove();
+        }, 320);
+      }
+      showToast('Transaction moved to ' + formatMonthLabel(newMid), 'info');
+    }
+  }
 }
 
 /* ── Ledger: save description + update visible cell ── */
@@ -3397,13 +3868,17 @@ document.querySelectorAll('.ledger-desc').forEach(span => {
 /* ── Ledger: delete transaction ── */
 async function deleteTx(id) {
   if (!confirm('Delete this transaction? This cannot be undone.')) return;
-  const result = await fetch('/api/delete-transaction', {
+  const _delResp = await fetch('/api/delete-transaction', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ id, active_mid: ACTIVE_MID })
-  }).then(r => r.json()).catch(() => ({ok: false}));
+  }).catch(() => null);
+  if (!_delResp) { alert('Network error.'); return; }
+  if (_delResp.status === 401) { _show401Toast(); return; }
+  const result = await _delResp.json().catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Transaction deleted', 'success');
     const txRow       = document.getElementById('ltx-' + id);
     const settingsRow = document.getElementById('tx-settings-' + id);
     if (txRow) {
@@ -3487,6 +3962,7 @@ async function archiveBucket(id) {
   if (!confirm('Archive this bucket? It will be hidden from the active view.')) return;
   const result = await saveSetting('bucket_archive', id, true, ACTIVE_MID);
   if (result.ok) {
+    showToast('Bucket archived', 'info');
     document.getElementById('row-' + id)?.remove();
     document.getElementById('settings-' + id)?.remove();
     // Remove from all bucket selects
@@ -3701,13 +4177,60 @@ function showMoreMode(mode, btn) {
 
 /* ── Settings: sub-tab switch ── */
 function showSettingsTab(tab, btn) {
-  ['paychecks','rules'].forEach(t => {
+  ['paychecks','rules','payees'].forEach(t => {
     const el = document.getElementById('settings-tab-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
   document.querySelectorAll('#more-mode-settings .acct-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 }
+
+let _payeesLoaded = false;
+async function loadPayees() {
+  if (_payeesLoaded) return;
+  _payeesLoaded = true;
+  const list = document.getElementById('payees-list');
+  const dl = document.getElementById('payee-suggestions');
+  try {
+    const data = await fetch('/api/payees').then(r => r.json());
+    const payees = data.payees || [];
+    // Populate datalist
+    if (dl) {
+      dl.innerHTML = '';
+      payees.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        dl.appendChild(opt);
+      });
+    }
+    // Render payees list in tab
+    if (list) {
+      if (!payees.length) {
+        list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);">No transactions yet — payees appear here as you add them.</div>';
+      } else {
+        list.innerHTML = payees.map(p => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r)">
+            <span style="font-family:var(--mono);font-size:12px;color:var(--text)">${p.name}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.06em">${p.count}×</span>
+          </div>`).join('');
+      }
+    }
+  } catch(e) {
+    if (list) list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--red);">Failed to load payees.</div>';
+  }
+}
+
+// Prefetch payees for autocomplete on page load
+fetch('/api/payees').then(r => r.json()).then(data => {
+  const dl = document.getElementById('payee-suggestions');
+  if (!dl) return;
+  (data.payees || []).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    dl.appendChild(opt);
+  });
+  _payeesLoaded = true;
+}).catch(() => {});
 
 /* ── Settings: rule kind change ── */
 function handleRuleKindChange(select) {
@@ -3731,6 +4254,7 @@ async function submitAddPaycheck(e) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Paycheck saved', 'info');
     const pc = result.paycheck;
     const tbody = document.getElementById('pc-tbody');
     if (tbody) {
@@ -3780,6 +4304,7 @@ async function submitAddRule(e) {
   }).then(r => r.json()).catch(() => ({ok: false}));
 
   if (result.ok) {
+    showToast('Rule saved', 'info');
     const r = result.rule;
     const tbody = document.getElementById('rules-tbody');
     if (tbody) {
@@ -4464,7 +4989,7 @@ let _useCustomBal    = false;
 let _forecastExtras  = [];   // planned expenses
 
 function showPlanTab(name, btn) {
-  ['forecast','whatif'].forEach(t => {
+  ['forecast','calendar','whatif'].forEach(t => {
     const el = document.getElementById('plan-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
@@ -4482,6 +5007,9 @@ function initWhatIf() {
   }
   _wiSimAllocs = {};
   _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  _loadScenarios();
+  _renderScenarioList();
+  _updateScenarioBanner();
   _renderWhatIfTable();
   computeSimRts();
 }
@@ -4559,11 +5087,116 @@ function computeSimRts() {
 }
 
 function resetWhatIf() {
+  _wiActiveScenario = null;
   _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
   _renderWhatIfTable();
   computeSimRts();
   const applyBtn = document.getElementById('wi-apply-btn');
   if (applyBtn) applyBtn.disabled = true;
+  _updateScenarioBanner();
+  _renderScenarioList();
+}
+
+/* ── What-If: Scenarios ─────────────────────────────────────────────────── */
+let _wiScenarios = [];
+let _wiActiveScenario = null;
+
+function _loadScenarios() {
+  try { _wiScenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); }
+  catch(e) { _wiScenarios = []; }
+}
+function _saveScenarios() {
+  localStorage.setItem('bcc_wi_scenarios', JSON.stringify(_wiScenarios));
+}
+function _updateScenarioBanner() {
+  const banner = document.getElementById('wi-scenario-banner');
+  if (!banner) return;
+  if (_wiActiveScenario) {
+    banner.style.display = 'flex';
+    const nameEl = banner.querySelector('.wi-scenario-name');
+    if (nameEl) nameEl.textContent = _wiActiveScenario.name;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+function _renderScenarioList() {
+  const el = document.getElementById('wi-scenarios-list');
+  if (!el) return;
+  if (!_wiScenarios.length) {
+    el.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--text3);">No saved scenarios — edit allocations and click Save Scenario.</span>';
+    return;
+  }
+  const realAlloc = _wiGrand.alloc || 0;
+  el.innerHTML = _wiScenarios.map(s => {
+    const scenTotal = Object.values(s.allocations).reduce((sum, v) => sum + (v || 0), 0);
+    const rtsDelta = realAlloc - scenTotal;
+    const sign = rtsDelta >= 0 ? '+' : '';
+    const isActive = _wiActiveScenario?.id === s.id;
+    return `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--r);border:1px solid ${isActive ? 'var(--accent)' : 'var(--border2)'};background:var(--bg2);cursor:pointer;margin:0 4px 4px 0;" onclick="loadScenario('${s.id}')">
+      <span style="font-family:var(--mono);font-size:11px;color:${isActive ? 'var(--accent)' : 'var(--text)'};">${s.name}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:${rtsDelta >= 0 ? 'var(--green)' : 'var(--red)'};">${sign}${fmtMoney(rtsDelta)}</span>
+      <button onclick="event.stopPropagation();deleteScenario('${s.id}')" style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;" title="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+function saveCurrentScenario() {
+  const name = prompt('Scenario name:');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  if (_wiScenarios.length >= 6 && !_wiScenarios.find(s => s.name === trimmed)) {
+    showToast('Max 6 scenarios — delete one first.', 'warning'); return;
+  }
+  const allocs = {..._wiSimAllocs};
+  const existing = _wiScenarios.find(s => s.name === trimmed);
+  if (existing) { existing.allocations = allocs; }
+  else { _wiScenarios.push({id: Date.now().toString(), name: trimmed, allocations: allocs}); }
+  _saveScenarios();
+  _renderScenarioList();
+  showToast(`Scenario "${trimmed}" saved`, 'success');
+}
+function loadScenario(id) {
+  const s = _wiScenarios.find(s => s.id === id);
+  if (!s) return;
+  _wiActiveScenario = s;
+  _wiGroups.forEach(g => g.buckets.forEach(b => {
+    _wiSimAllocs[b.id] = s.allocations[b.id] ?? b.alloc;
+  }));
+  _renderWhatIfTable();
+  computeSimRts();
+  _renderScenarioList();
+  _updateScenarioBanner();
+  const applyBtn = document.getElementById('wi-apply-btn');
+  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
+  if (applyBtn) applyBtn.disabled = !hasChanges;
+  showToast(`Loaded "${s.name}"`, 'info');
+}
+function deleteScenario(id) {
+  const s = _wiScenarios.find(s => s.id === id);
+  _wiScenarios = _wiScenarios.filter(s => s.id !== id);
+  if (_wiActiveScenario?.id === id) { _wiActiveScenario = null; _updateScenarioBanner(); }
+  _saveScenarios();
+  _renderScenarioList();
+  if (s) showToast(`Scenario "${s.name}" deleted`, 'info');
+}
+function applyWhatIfTarget() {
+  const input = document.getElementById('wi-target-input');
+  const target = evalMathExpr(input.value);
+  if (!target || target <= 0) { showToast('Enter a positive amount to free up.', 'warning'); return; }
+  const currentTotal = Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0);
+  if (currentTotal <= 0) { showToast('No allocations to reduce.', 'warning'); return; }
+  const newTotal = currentTotal - target;
+  if (newTotal < 0) { showToast('Cannot free up more than is allocated.', 'warning'); return; }
+  const scale = newTotal / currentTotal;
+  Object.keys(_wiSimAllocs).forEach(k => {
+    _wiSimAllocs[k] = Math.round(_wiSimAllocs[k] * scale * 100) / 100;
+  });
+  _renderWhatIfTable();
+  computeSimRts();
+  const applyBtn = document.getElementById('wi-apply-btn');
+  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
+  if (applyBtn) applyBtn.disabled = !hasChanges;
+  input.value = '';
+  showToast(`Freed up ${fmtMoney(target)} across all buckets`, 'success');
 }
 
 async function applyWhatIf() {
@@ -4581,6 +5214,7 @@ async function applyWhatIf() {
       body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, month: _wiMid}),
     });
   }
+  showToast('Scenario applied to month', 'success');
   if (applyBtn) applyBtn.textContent = 'Apply to Month';
   window.location.reload();
 }
@@ -4968,16 +5602,226 @@ async function sendCoachMessage(text) {
     });
     const data = await res.json();
     thinking.remove();
-    const reply = data.reply || data.error || 'No response.';
-    _coachAppend('coach', reply);
-    _coachHistory.push({role: 'user', content: msg});
-    _coachHistory.push({role: 'assistant', content: reply});
+    if (data.error) {
+      showToast(data.error, 'error');
+      _coachAppend('coach', data.error);
+    } else {
+      const reply = data.reply || 'No response.';
+      _coachAppend('coach', reply);
+      _coachHistory.push({role: 'user', content: msg});
+      _coachHistory.push({role: 'assistant', content: reply});
+    }
   } catch(e) {
     thinking.textContent = 'Error reaching coach.';
+    showToast('Error reaching coach.', 'error');
   }
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
+// ── Month navigation ─────────────────────────────────────────────────────────
+function toggleMonthDropdown() {
+  const panel = document.getElementById('month-dropdown-panel');
+  if (!panel) return;
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    setTimeout(() => document.addEventListener('click', _closeMonthDropdown, {once: true, capture: true}), 10);
+  }
+}
+function _closeMonthDropdown(e) {
+  const panel = document.getElementById('month-dropdown-panel');
+  const trigger = document.getElementById('month-trigger');
+  if (panel && !panel.contains(e.target) && !trigger?.contains(e.target)) {
+    panel.style.display = 'none';
+  } else {
+    document.addEventListener('click', _closeMonthDropdown, {once: true, capture: true});
+  }
+}
+
+function confirmCloseMonth() {
+  const label = document.querySelector('.month-trigger span')?.textContent.trim() || 'this month';
+  if (confirm(`Close ${label}?\n\nThis will lock the month as read-only. You can reopen it later if needed.`)) {
+    _doCloseMonth();
+  }
+}
+async function _doCloseMonth() {
+  const result = await fetch('/api/close-month', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: ACTIVE_MID})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (result.ok) { showToast('Month closed', 'success'); window.location.reload(); }
+  else showToast(result.error || 'Failed to close month.', 'error');
+}
+async function reopenMonth() {
+  const result = await fetch('/api/reopen-month', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: ACTIVE_MID})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (result.ok) { showToast('Month reopened', 'success'); window.location.reload(); }
+  else showToast(result.error || 'Failed to reopen month.', 'error');
+}
+
+// ── Bill Calendar ────────────────────────────────────────────────────────────
+let _billCalendarLoaded = false;
+async function initBillCalendar() {
+  if (_billCalendarLoaded) return;
+  _billCalendarLoaded = true;
+  const el = document.getElementById('bill-calendar-content');
+  if (!el) return;
+  try {
+    const data = await fetch('/api/bill-calendar').then(r => r.json());
+    const bills = data.bills || [];
+    if (!bills.length) {
+      el.innerHTML = '<p style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:16px 0;">No upcoming bills with due dates. Set a due day and amount on expense buckets to see them here.</p>';
+      return;
+    }
+
+    // Group by month
+    const byMonth = {};
+    bills.forEach(b => {
+      if (!byMonth[b.month_id]) byMonth[b.month_id] = [];
+      byMonth[b.month_id].push(b);
+    });
+
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let html = '';
+    for (const mid of Object.keys(byMonth).sort()) {
+      const [,yr,m0] = mid.split('_');
+      const label = MONTHS[parseInt(m0)] + ' ' + yr;
+      html += `<div style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:16px 0 6px;">${label}</div>`;
+      byMonth[mid].forEach(b => {
+        const d = new Date(b.due_date + 'T12:00:00');
+        const dayLabel = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+        let badge = '';
+        let nameColor = 'var(--text)';
+        if (b.paid) {
+          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--green);border:1px solid var(--green);padding:1px 5px;border-radius:3px;margin-left:6px;">PAID</span>';
+          nameColor = 'var(--text3)';
+        } else if (b.past) {
+          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--red);border:1px solid var(--red);padding:1px 5px;border-radius:3px;margin-left:6px;">OVERDUE</span>';
+          nameColor = 'var(--red)';
+        } else if (b.today) {
+          badge = '<span style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--red);border:1px solid var(--red);padding:1px 5px;border-radius:3px;margin-left:6px;">TODAY</span>';
+        }
+        html += `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 10px;margin-bottom:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);${b.past && !b.paid ? 'border-left:3px solid var(--red);' : b.today ? 'border-left:3px solid var(--amber);' : ''}">
+            <div>
+              <span style="font-family:var(--mono);font-size:clamp(10px,1.6vw,12px);color:${nameColor};">${b.name}</span>${badge}
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;">${dayLabel}</div>
+            </div>
+            <span style="font-family:var(--mono);font-size:clamp(11px,1.8vw,13px);color:${b.paid ? 'var(--text3)' : 'var(--text)'};">${fmtMoney(b.amount)}</span>
+          </div>`;
+      });
+
+      // Month total
+      const total = byMonth[mid].filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
+      const paid = byMonth[mid].filter(b => b.paid).reduce((s, b) => s + b.amount, 0);
+      html += `<div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-align:right;margin-top:2px;">
+        Remaining: <span style="color:var(--text)">${fmtMoney(total)}</span>
+        ${paid > 0 ? ' · Paid: <span style="color:var(--green)">' + fmtMoney(paid) + '</span>' : ''}
+      </div>`;
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<p style="font-family:var(--mono);font-size:11px;color:var(--red);">Failed to load bill calendar.</p>';
+  }
+}
+
+// ── Debt payoff projector ─────────────────────────────────────────────────────
+(function computeDebtPayoff() {
+  document.querySelectorAll('.debt-proj-payoff').forEach(cell => {
+    const balance = parseFloat(cell.dataset.balance) || 0;
+    const monthly = parseFloat(cell.dataset.monthly) || 0;
+    const apr     = parseFloat(cell.dataset.apr)     || 0;
+    if (!balance || !monthly) return;
+
+    let months;
+    if (apr > 0) {
+      const r = apr / 100 / 12;
+      // Amortization: if pmt <= interest, never pays off
+      if (monthly <= balance * r) {
+        cell.textContent = 'Never (pay more)';
+        cell.style.color = 'var(--red)';
+        return;
+      }
+      months = Math.ceil(-Math.log(1 - balance * r / monthly) / Math.log(1 + r));
+    } else {
+      months = Math.ceil(balance / monthly);
+    }
+
+    const payoffDate = new Date();
+    payoffDate.setMonth(payoffDate.getMonth() + months);
+    const yr = payoffDate.getFullYear();
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][payoffDate.getMonth()];
+
+    if (months > 360) {
+      cell.textContent = '30+ years';
+      cell.style.color = 'var(--red)';
+    } else if (months === 1) {
+      cell.textContent = '1 month (' + mo + ' ' + yr + ')';
+    } else {
+      cell.textContent = months + ' mo (' + mo + ' ' + yr + ')';
+    }
+  });
+})();
+
+// ── Spending pace indicators ──────────────────────────────────────────────────
+(function initPaceBars() {
+  const today = new Date();
+  const day = today.getDate();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const pacePct = day / daysInMonth;  // 0..1
+
+  document.querySelectorAll('[data-spent-id]').forEach(cell => {
+    _updatePaceBar(cell, parseFloat(cell.dataset.rawSpent) || 0, pacePct);
+  });
+})();
+
+function _updatePaceBar(cell, spentVal, pacePct) {
+  if (cell.textContent === '—') return;  // vault
+  const budget = parseFloat(cell.dataset.rawBudget) || 0;
+  if (budget <= 0) return;
+
+  if (pacePct === undefined) {
+    const today = new Date();
+    const day = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    pacePct = day / daysInMonth;
+  }
+
+  const spentPct = Math.min(spentVal / budget, 1);
+  const isOver = spentPct > pacePct + 0.01;
+
+  let wrap = cell.querySelector('.pace-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'pace-wrap';
+    wrap.innerHTML = `<div class="pace-bar"></div><div class="pace-marker"></div>`;
+    cell.appendChild(wrap);
+  }
+  const bar = wrap.querySelector('.pace-bar');
+  const marker = wrap.querySelector('.pace-marker');
+  bar.style.width = (spentPct * 100).toFixed(1) + '%';
+  bar.className = 'pace-bar ' + (isOver ? 'over' : 'under');
+  marker.style.left = (pacePct * 100).toFixed(1) + '%';
+}
+
+// ── Copy last month's allocations ─────────────────────────────────────────────
+async function copyLastMonthAllocs() {
+  if (!confirm('Copy last month\'s allocations to this month? Existing allocations will be overwritten.')) return;
+  const result = await fetch('/api/copy-month-allocs', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({target_mid: ACTIVE_MID})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (result.ok) {
+    showToast(`Copied ${result.copied} allocations from last month`, 'success');
+    refreshValues(result);
+  } else {
+    showToast(result.error || 'Copy failed.', 'error');
+  }
+}
+
 function closeOnboarding() {
   const el = document.getElementById('onboard-backdrop');
   if (el) el.remove();
@@ -4989,6 +5833,68 @@ function closeOnboarding() {
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+}
+
+// ── FAB quick-add ─────────────────────────────────────────────────────────────
+function openFab() {
+  const bd = document.getElementById('fab-backdrop');
+  const modal = document.getElementById('fab-modal');
+  // Default today's date
+  const d = new Date(), pad = n => String(n).padStart(2,'0');
+  document.getElementById('fab-date').value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  bd.classList.add('show');
+  modal.classList.add('show');
+  setTimeout(() => document.getElementById('fab-amount')?.focus(), 280);
+}
+function closeFab() {
+  document.getElementById('fab-backdrop').classList.remove('show');
+  document.getElementById('fab-modal').classList.remove('show');
+}
+function handleFabTypeChange(sel) {
+  const isOut = sel.value === 'out';
+  const isXfr = sel.value === 'xfr';
+  document.getElementById('fab-bucket-cell').style.display = isOut ? '' : 'none';
+  document.getElementById('fab-to-acct-cell').style.display = isXfr ? '' : 'none';
+}
+async function submitFabTx() {
+  const type = document.getElementById('fab-type').value;
+  const amount = evalMathExpr(document.getElementById('fab-amount').value);
+  const date = document.getElementById('fab-date').value;
+  const desc = document.getElementById('fab-desc').value.trim();
+  const accountId = document.getElementById('fab-account').value;
+  const bucketId = type === 'out' ? document.getElementById('fab-bucket').value : '';
+  const toAcctId = type === 'xfr' ? document.getElementById('fab-to-account').value : '';
+
+  if (!amount || amount <= 0) { showToast('Enter an amount.', 'warning'); return; }
+  if (!accountId) { showToast('Select an account.', 'warning'); return; }
+  if (type === 'xfr' && !toAcctId) { showToast('Select a destination account.', 'warning'); return; }
+
+  const btn = document.querySelector('#fab-modal .fab-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+
+  const result = await fetch('/api/add-transaction', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ type, date, desc, amount, account_id: accountId,
+                           bucket_id: bucketId, to_account_id: toAcctId,
+                           income_type: type === 'in' ? 'deposit' : '',
+                           active_mid: ACTIVE_MID })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Add Transaction'; }
+
+  if (result.ok) {
+    closeFab();
+    showToast('Transaction added', 'success');
+    refreshValues(result);
+    if (result.month_id === ACTIVE_MID && result.tx) injectTxRow(result.tx, result.month_id);
+    if (type === 'in' && result.month_id) await showPaydayModal(amount, result.month_id);
+    // Reset FAB fields
+    document.getElementById('fab-amount').value = '';
+    document.getElementById('fab-desc').value = '';
+  } else {
+    showToast(result.error || 'Could not add transaction.', 'error');
+  }
 }
 </script>
 {% endblock %}
