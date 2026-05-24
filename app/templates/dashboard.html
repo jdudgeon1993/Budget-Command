@@ -2314,7 +2314,13 @@
         <tfoot>
           <tr class="ledger-totals-row">
             <th class="col-m-hide"></th>
-            <th></th>
+            <th>
+              {% if unassigned_count > 0 %}
+              <span id="unassigned-badge" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:1px 6px;">{{ unassigned_count }} unassigned</span>
+              {% else %}
+              <span id="unassigned-badge" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:1px 6px;"></span>
+              {% endif %}
+            </th>
             <th class="col-m-hide"></th>
             <th style="text-align:right; font-family:var(--mono); font-size:clamp(9px,1.4vw,10px); color:var(--text3); letter-spacing:.08em; text-transform:uppercase;">
               In: <span data-ledger-in style="color:var(--green);">{{ ledger_income|money }}</span>
@@ -3546,6 +3552,23 @@ function refreshValues(state) {
       const net = lt.income - lt.spent;
       netEl.textContent = fmtMoney(net);
       netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+  }
+
+  // Rollover balance values (in bucket detail modals if open)
+  if (state.bucket_rollover) {
+    for (const [bid, roll] of Object.entries(state.bucket_rollover)) {
+      const el = document.getElementById('roll-bal-' + bid);
+      if (el) el.textContent = fmtMoney(roll);
+    }
+  }
+
+  // Unassigned spending warning badge
+  if (state.unassigned_count !== undefined) {
+    const badge = document.getElementById('unassigned-badge');
+    if (badge) {
+      badge.textContent = state.unassigned_count > 0 ? `${state.unassigned_count} unassigned` : '';
+      badge.style.display = state.unassigned_count > 0 ? '' : 'none';
     }
   }
 }
@@ -5664,16 +5687,31 @@ function wiProjectedIncome(mid) {
   let total = 0;
   for (const p of _wiPcks) {
     if (!p.anchorDate || !p.freq) continue;
-    let d = new Date(p.anchorDate + 'T00:00:00');
     const freq = Number(p.freq) || 14;
-    // Walk backwards to before mStart if anchor is after
-    while (d > mEnd) d = new Date(d.getTime() - freq * 86400000);
-    // Walk to first occurrence >= mStart
-    while (d < mStart) d = new Date(d.getTime() + freq * 86400000);
-    // Count occurrences in month
-    while (d >= mStart && d <= mEnd) {
-      total += Number(p.amount) || 0;
-      d = new Date(d.getTime() + freq * 86400000);
+    const amount = Number(p.amount) || 0;
+
+    if (freq === 15) {
+      // Semi-monthly: always 1st and 15th of the month (matches Python _gen_pay_dates)
+      for (const day of [1, 15]) {
+        const d = new Date(yr, cal - 1, day);
+        if (d >= mStart && d <= mEnd) total += amount;
+      }
+    } else if (freq === 30) {
+      // Monthly: same day-of-month as anchor
+      const anchorDay = new Date(p.anchorDate + 'T00:00:00').getDate();
+      const clampedDay = Math.min(anchorDay, daysInMonth);
+      total += amount;
+      // Only one hit per month regardless of clamping
+      void clampedDay;
+    } else {
+      // Weekly (7) or biweekly (14): walk from anchor
+      let d = new Date(p.anchorDate + 'T00:00:00');
+      while (d > mEnd) d = new Date(d.getTime() - freq * 86400000);
+      while (d < mStart) d = new Date(d.getTime() + freq * 86400000);
+      while (d >= mStart && d <= mEnd) {
+        total += amount;
+        d = new Date(d.getTime() + freq * 86400000);
+      }
     }
   }
   return total;
@@ -6135,30 +6173,32 @@ async function wiApply() {
   if (!changed.length) { showToast('No changes to apply.', 'warning'); return; }
   const applyBtn = document.getElementById('wi-apply-btn');
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying…'; }
+
+  let failed = 0;
   for (const ch of changed) {
-    await fetch('/api/save', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, month: _wiMid}),
-    });
+    try {
+      const r = await fetch('/api/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, month: _wiMid}),
+      }).then(r => r.json());
+      if (!r.ok) failed++;
+    } catch { failed++; }
   }
-  showToast('Scenario applied to month', 'success');
-  if (applyBtn) applyBtn.textContent = 'Apply to Month';
-  window.location.reload();
+
+  if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply to Month'; }
+  if (failed > 0) {
+    showToast(`${failed} allocation(s) failed to save. Please try again.`, 'error');
+  } else {
+    showToast('Scenario applied to month', 'success');
+    window.location.reload();
+  }
 }
 
 /* ── Forecast scenario integration ────────────────────────────────── */
 function wiGetActiveScenario() { return _wiActiveSc; }
 function wiGetSimAllocs()      { return _wiSimAllocs; }
 
-/* Legacy compat — old HTML may reference these */
-function resetWhatIf() { wiReset(); }
-function applyWhatIf()  { wiApply(); }
-function saveCurrentScenario() { wiSaveScenario(); }
-function loadScenario(id) { wiLoadScenario(id); }
-function deleteScenario(id) { wiDeleteScenario(id); }
-function computeSimRts() { _renderWiImpact(); _renderWiSurplus(); }
-function applyWhatIfTarget() { wiFreeUp(); }
 
 function setForecastRange(months, btn) {
   _forecastMonths = months;
