@@ -90,6 +90,7 @@ def _load(uid: str, token: str) -> dict:
         "archived": a.get("archived", False),
         "debtAPR": a.get("debt_apr"), "debtMinPayment": a.get("debt_min_payment"),
         "creditLimit": a.get("credit_limit"),
+        "isPromo": bool(a.get("is_promo")), "promoEndDate": a.get("promo_end_date") or "",
     } for a in sorted(accounts_raw, key=lambda x: x.get("sort_order", 0))]
 
     # Categories
@@ -156,6 +157,11 @@ def _load(uid: str, token: str) -> dict:
         "rolloverReleased": rollrel_by_mid.get(m["id"], {}),
         "skippedBuckets":   skipped_by_mid.get(m["id"], {}),
         "vaultWithdrawals": vaultwd_by_mid.get(m["id"], {}),
+        "closed": m.get("closed", False),
+        "notes": m.get("notes") or "",
+        "aiReport": m.get("ai_report") or "",
+        "closingSnapshot": m.get("closing_snapshot") or {},
+        "closingDate": m.get("closing_date") or "",
     } for m in months_raw]
 
     # Paychecks
@@ -245,6 +251,8 @@ def _save_account(uid: str, token: str, acct: dict) -> None:
         "debt_min_payment": acct.get("debtMinPayment"),
         "credit_limit": acct.get("creditLimit"),
         "archived": acct.get("archived", False),
+        "is_promo": bool(acct.get("isPromo")),
+        "promo_end_date": acct.get("promoEndDate") or None,
     }).eq("id", acct["id"]).eq("user_id", uid).execute()
 
 
@@ -711,6 +719,8 @@ def api_fragment_account():
         "debt_apr": acct.get("debtAPR") if acct.get("debtAPR") is not None else "",
         "debt_min_payment": acct.get("debtMinPayment") if acct.get("debtMinPayment") is not None else "",
         "credit_limit": acct.get("creditLimit") if acct.get("creditLimit") is not None else "",
+        "is_promo": bool(acct.get("isPromo")),
+        "promo_end_date": acct.get("promoEndDate") or "",
     }
 
     a_txs = sorted(
@@ -1423,6 +1433,8 @@ def _dashboard_inner():
             "debt_apr": a.get("debtAPR") if a.get("debtAPR") is not None else "",
             "debt_min_payment": a.get("debtMinPayment") if a.get("debtMinPayment") is not None else "",
             "credit_limit": a.get("creditLimit") if a.get("creditLimit") is not None else "",
+            "is_promo": bool(a.get("isPromo")),
+            "promo_end_date": a.get("promoEndDate") or "",
         })
 
     cash_accounts         = [a for a in accounts_display if a["type"] != "debt"]
@@ -1676,7 +1688,7 @@ def api_payees():
     txs = _db(tok).table("bcc_transactions").select("*").eq("user_id", uid).execute().data or []
     counts: dict[str, int] = {}
     for t in txs:
-        name = (t.get("desc") or "").strip()
+        name = (t.get("description") or "").strip()  # raw DB column is "description"
         if name:
             counts[name] = counts.get(name, 0) + 1
     payees = sorted([{"name": k, "count": v} for k, v in counts.items()], key=lambda x: -x["count"])
@@ -1911,6 +1923,10 @@ def api_save_account():
         acct["debtMinPayment"] = float(value) if value not in (None, "", "0", 0) else None
     elif field == "credit_limit":
         acct["creditLimit"] = float(value) if value not in (None, "", "0", 0) else None
+    elif field == "is_promo":
+        acct["isPromo"] = bool(value)
+    elif field == "promo_end_date":
+        acct["promoEndDate"] = str(value).strip() if value else ""
     elif field == "archived":
         acct["archived"] = True
     else:
@@ -3203,6 +3219,446 @@ def api_bill_calendar():
     return jsonify({"ok": True, "bills": bills})
 
 
+# ── API: Close Wizard ────────────────────────────────────────────────────────
+#
+# SQL migrations required before using these endpoints:
+#   ALTER TABLE bcc_months ADD COLUMN IF NOT EXISTS notes TEXT;
+#   ALTER TABLE bcc_months ADD COLUMN IF NOT EXISTS ai_report TEXT;
+#   ALTER TABLE bcc_months ADD COLUMN IF NOT EXISTS closing_snapshot JSONB;
+#   ALTER TABLE bcc_months ADD COLUMN IF NOT EXISTS closing_date TEXT;
+#   ALTER TABLE bcc_accounts ADD COLUMN IF NOT EXISTS is_promo BOOLEAN DEFAULT FALSE;
+#   ALTER TABLE bcc_accounts ADD COLUMN IF NOT EXISTS promo_end_date TEXT;
+
+import math as _math
+
+
+@app.route("/api/close-wizard-data")
+def api_close_wizard_data():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    mid = (request.args.get("mid") or "").strip()
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+    uid, tok = _uid(), _tok()
+    data = _load(uid, tok)
+
+    all_months = data.get("months", [])
+    txs = data.get("txs", [])
+    accounts = data.get("accounts", [])
+    buckets = data.get("buckets", [])
+    paychecks = data.get("paychecks", [])
+
+    yr, m0 = parse_month_id(mid)
+    cal_month = m0 + 1
+    month_label = f"{MONTH_NAMES[m0]} {yr}"
+
+    month_obj = next(
+        (m for m in all_months if m.get("id") == mid),
+        {"id": mid, "allocations": {}, "budgets": {}, "rolloverReleased": {},
+         "skippedBuckets": {}, "vaultWithdrawals": {}},
+    )
+
+    # ── step1: income ──────────────────────────────────────────────────────────
+    income_actual = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == mid and t.get("type") == "in" and not is_scheduled(t)
+    )
+
+    income_projected = None
+    has_paycheck = bool(paychecks)
+    if paychecks:
+        import calendar as _cal2
+        first_day = date(yr, cal_month, 1)
+        last_day_n = _cal2.monthrange(yr, cal_month)[1]
+        last_day = date(yr, cal_month, last_day_n)
+        proj_total = 0.0
+        for pc in paychecks:
+            anchor = pc.get("anchorDate", "")
+            freq = int(pc.get("freq", 14) or 14)
+            if not anchor:
+                continue
+            pay_dates = _gen_pay_dates(anchor, freq, first_day, last_day)
+            proj_total += len(pay_dates) * float(pc.get("amount", 0))
+        income_projected = proj_total
+
+    step1 = {
+        "income_actual": income_actual,
+        "income_projected": income_projected,
+        "has_paycheck": has_paycheck,
+    }
+
+    # ── step2: overspent buckets ───────────────────────────────────────────────
+    active_buckets = [b for b in buckets if not b.get("archived")]
+    overspent = []
+    for b in active_buckets:
+        if b.get("type") == "vault":
+            continue
+        bid = b["id"]
+        alloc = b_alloc(month_obj, bid)
+        roll = rollover_bal(b, month_obj, all_months, txs)
+        spent = b_spent(mid, bid, txs)
+        effective = alloc + roll
+        if spent <= effective + 0.005:
+            continue
+        over_by = spent - effective
+        target = b_budget(month_obj, bid) or alloc
+        suggested = _math.ceil(spent / 10) * 10
+
+        # streak: how many of last 3 prior months were also overspent
+        prior_mids = sorted(
+            [m["id"] for m in all_months if (lambda k: k < parse_month_id(mid))(parse_month_id(m["id"]))],
+            key=lambda x: parse_month_id(x),
+        )[-3:]
+        streak = 0
+        for pmid in prior_mids:
+            pm_obj = next((m for m in all_months if m["id"] == pmid), None)
+            if pm_obj is None:
+                continue
+            p_alloc = b_alloc(pm_obj, bid)
+            p_roll = rollover_bal(b, pm_obj, all_months, txs)
+            p_spent = b_spent(pmid, bid, txs)
+            if p_spent > p_alloc + p_roll + 0.005:
+                streak += 1
+
+        overspent.append({
+            "id": bid,
+            "name": b.get("name", ""),
+            "target": target,
+            "actual": spent,
+            "over_by": over_by,
+            "suggested": float(suggested),
+            "streak": streak,
+            "current_default": float(b.get("defaultBudget") or 0),
+        })
+
+    step2 = {"overspent": overspent}
+
+    # ── step3: budget/savings accounts ────────────────────────────────────────
+    budget_accounts = []
+    for a in accounts:
+        if a.get("archived"):
+            continue
+        if a.get("type") not in ("budget", "savings"):
+            continue
+        bal = acct_balance(a, txs)
+        budget_accounts.append({
+            "id": a["id"],
+            "name": a.get("name", ""),
+            "type": a.get("type", "budget"),
+            "app_balance": bal,
+        })
+
+    step3 = {"budget_accounts": budget_accounts}
+
+    # ── step4: debt accounts ───────────────────────────────────────────────────
+    debt_accounts_list = []
+    for a in accounts:
+        if a.get("archived"):
+            continue
+        if a.get("type") != "debt":
+            continue
+        bal = acct_balance(a, txs)
+        apr = float(a.get("debtAPR") or 0)
+        is_promo = bool(a.get("isPromo"))
+        promo_end = a.get("promoEndDate") or ""
+        min_pay = float(a.get("debtMinPayment") or 0)
+
+        monthly_interest = 0.0
+        if apr > 0 and not is_promo and bal > 0:
+            monthly_interest = bal * apr / 100 / 12
+
+        promo_suggestion = None
+        if is_promo and promo_end and bal > 0:
+            try:
+                from datetime import date as _date2
+                end_dt = _date2.fromisoformat(promo_end)
+                today_d = _date2.today()
+                months_left = max(1, (end_dt.year - today_d.year) * 12 + (end_dt.month - today_d.month))
+                suggested_payment = _math.ceil(bal / months_left / 10) * 10
+                promo_suggestion = {
+                    "months_left": months_left,
+                    "suggested_payment": float(suggested_payment),
+                }
+            except Exception:
+                pass
+
+        debt_accounts_list.append({
+            "id": a["id"],
+            "name": a.get("name", ""),
+            "app_balance": bal,
+            "apr": apr,
+            "is_promo": is_promo,
+            "promo_end": promo_end,
+            "min_payment": min_pay,
+            "monthly_interest": round(monthly_interest, 2),
+            "promo_suggestion": promo_suggestion,
+        })
+
+    step4 = {"debt_accounts": debt_accounts_list}
+
+    # ── step5: report ──────────────────────────────────────────────────────────
+    step5 = {
+        "existing_report": month_obj.get("aiReport") or "",
+        "existing_notes": month_obj.get("notes") or "",
+    }
+
+    return jsonify({
+        "ok": True,
+        "mid": mid,
+        "month_label": month_label,
+        "step1": step1,
+        "step2": step2,
+        "step3": step3,
+        "step4": step4,
+        "step5": step5,
+        # Also expose budget accounts for income form account selector
+        "budget_accounts_for_income": [
+            {"id": a["id"], "name": a.get("name", "")}
+            for a in accounts
+            if not a.get("archived") and a.get("type") in ("budget", "savings")
+        ],
+    })
+
+
+@app.route("/api/close-wizard/add-income", methods=["POST"])
+def api_cw_add_income():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid = (body.get("mid") or "").strip()
+    amount = float(body.get("amount") or 0)
+    account_id = (body.get("account_id") or "").strip()
+    tx_date = (body.get("date") or "").strip()
+    uid, tok = _uid(), _tok()
+
+    if not mid or not account_id or not tx_date or amount <= 0:
+        return jsonify({"ok": False, "error": "Missing required fields"}), 400
+
+    _ensure_month(uid, tok, mid)
+    tx = {
+        "id": _new_id("tx"),
+        "accountId": account_id,
+        "monthId": mid,
+        "desc": "Income",
+        "amount": amount,
+        "type": "in",
+        "date": tx_date,
+        "reconciled": False,
+        "recurring": False,
+        "incomeType": "paycheck",
+    }
+    _insert_tx(uid, tok, tx)
+
+    # Return updated income_actual
+    data = _load(uid, tok)
+    txs = data.get("txs", [])
+    income_actual = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == mid and t.get("type") == "in" and not is_scheduled(t)
+    )
+    return jsonify({"ok": True, "income_actual": income_actual})
+
+
+@app.route("/api/close-wizard/raise-budget", methods=["POST"])
+def api_cw_raise_budget():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    bucket_id = (body.get("bucket_id") or "").strip()
+    new_default = float(body.get("new_default") or 0)
+    uid, tok = _uid(), _tok()
+
+    if not bucket_id:
+        return jsonify({"ok": False, "error": "Missing bucket_id"}), 400
+
+    _db(tok).table("bcc_buckets").update({"default_budget": new_default}).eq("id", bucket_id).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/close-wizard/adjust-account", methods=["POST"])
+def api_cw_adjust_account():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    account_id = (body.get("account_id") or "").strip()
+    mid = (body.get("mid") or "").strip()
+    delta = float(body.get("delta") or 0)
+    desc = (body.get("desc") or "Reconciliation adjustment").strip()
+    uid, tok = _uid(), _tok()
+
+    if not account_id or not mid:
+        return jsonify({"ok": False, "error": "Missing account_id or mid"}), 400
+    if abs(delta) < 0.005:
+        return jsonify({"ok": False, "error": "Delta too small"}), 400
+
+    data = _load(uid, tok)
+    acct = next((a for a in data.get("accounts", []) if a["id"] == account_id), None)
+    if not acct:
+        return jsonify({"ok": False, "error": "Account not found"}), 404
+
+    # acct_balance adds adjustment amount raw (no mult), so:
+    # positive delta  → bank has more → we need balance to go UP → amount = +delta
+    # negative delta  → bank has less → we need balance to go DOWN → amount = -abs(delta)
+    # Since adjustment uses: balance += amount  (raw, no mult), we pass delta directly.
+    yr, m0 = parse_month_id(mid)
+    cal_month = m0 + 1
+    import calendar as _cal3
+    last_day_n = _cal3.monthrange(yr, cal_month)[1]
+    tx_date = f"{yr}-{cal_month:02d}-{last_day_n:02d}"
+
+    _ensure_month(uid, tok, mid)
+    tx = {
+        "id": _new_id("tx"),
+        "accountId": account_id,
+        "monthId": mid,
+        "desc": desc,
+        "amount": delta,   # raw signed amount — acct_balance does balance += amount for adjustments
+        "type": "adjustment",
+        "date": tx_date,
+        "reconciled": False,
+        "recurring": False,
+    }
+    _insert_tx(uid, tok, tx)
+
+    # Reload and return new balance
+    data2 = _load(uid, tok)
+    acct2 = next((a for a in data2.get("accounts", []) if a["id"] == account_id), acct)
+    new_balance = acct_balance(acct2, data2.get("txs", []))
+    return jsonify({"ok": True, "new_balance": round(new_balance, 2)})
+
+
+@app.route("/api/close-wizard/save-report", methods=["POST"])
+def api_cw_save_report():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid = (body.get("mid") or "").strip()
+    ai_report = (body.get("ai_report") or "").strip()
+    notes = (body.get("notes") or "").strip()
+    uid, tok = _uid(), _tok()
+
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+
+    _ensure_month(uid, tok, mid)
+    _db(tok).table("bcc_months").update({
+        "ai_report": ai_report or None,
+        "notes": notes or None,
+    }).eq("id", mid).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/close-wizard/generate-report", methods=["POST"])
+def api_cw_generate_report():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body = request.get_json(silent=True) or {}
+    mid = (body.get("mid") or "").strip()
+    api_key = (body.get("api_key") or "").strip() or os.environ.get("GOOGLE_API_KEY")
+    uid, tok = _uid(), _tok()
+
+    if not mid:
+        return jsonify({"ok": False, "error": "Missing mid"}), 400
+    if not api_key:
+        return jsonify({"ok": False, "error": "No API key. Add your Gemini API key in Settings → Coach AI."}), 200
+
+    data = _load(uid, tok)
+    txs = data.get("txs", [])
+    accounts = data.get("accounts", [])
+    buckets = data.get("buckets", [])
+    all_months = data.get("months", [])
+
+    yr, m0 = parse_month_id(mid)
+    month_label = f"{MONTH_NAMES[m0]} {yr}"
+
+    month_obj = next(
+        (m for m in all_months if m.get("id") == mid),
+        {"id": mid, "allocations": {}, "budgets": {}, "rolloverReleased": {},
+         "skippedBuckets": {}, "vaultWithdrawals": {}},
+    )
+
+    income_actual = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == mid and t.get("type") == "in" and not is_scheduled(t)
+    )
+    spent_total = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == mid and t.get("type") == "out" and not is_scheduled(t)
+    )
+
+    active_buckets = [b for b in buckets if not b.get("archived")]
+
+    # Find biggest win: bucket with most money under budget
+    best_bucket = None
+    best_surplus = 0.0
+    for b in active_buckets:
+        if b.get("type") == "vault":
+            continue
+        bid = b["id"]
+        alloc = b_alloc(month_obj, bid)
+        roll = rollover_bal(b, month_obj, all_months, txs)
+        spent = b_spent(mid, bid, txs)
+        surplus = (alloc + roll) - spent
+        if alloc > 0 and surplus > best_surplus:
+            best_surplus = surplus
+            best_bucket = b.get("name", "")
+
+    # Find biggest concern: most overspent
+    worst_bucket = None
+    worst_over = 0.0
+    for b in active_buckets:
+        if b.get("type") == "vault":
+            continue
+        bid = b["id"]
+        alloc = b_alloc(month_obj, bid)
+        roll = rollover_bal(b, month_obj, all_months, txs)
+        spent = b_spent(mid, bid, txs)
+        over = spent - (alloc + roll)
+        if over > worst_over:
+            worst_over = over
+            worst_bucket = b.get("name", "")
+
+    ctx_lines = [
+        f"Month: {month_label}",
+        f"Income received: ${income_actual:,.2f}",
+        f"Total spent: ${spent_total:,.2f}",
+        f"Net (income - spent): ${income_actual - spent_total:,.2f}",
+    ]
+    if best_bucket:
+        ctx_lines.append(f"Biggest win: {best_bucket} (${best_surplus:,.2f} under budget)")
+    if worst_bucket and worst_over > 0.5:
+        ctx_lines.append(f"Watch next month: {worst_bucket} (over by ${worst_over:,.2f})")
+
+    context_str = "\n".join(ctx_lines)
+
+    system_prompt = (
+        "You are summarizing a completed budget month. Write 3-4 plain sentences reviewing this "
+        "month's financial performance. Mention: income received, total spent, biggest win "
+        "(most under-budget category or paid-off bucket), and one thing to watch next month. "
+        "Use exact dollar amounts. No markdown, no bullet points, no headers. Conversational tone."
+    )
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[types.Content(role="user", parts=[types.Part(text=context_str)])],
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=256,
+                temperature=0.7,
+            )
+        )
+        report = (response.text or "").strip()
+    except Exception as e:
+        return jsonify({"ok": False, "error": "Could not generate report: " + str(e)[:100]}), 200
+
+    return jsonify({"ok": True, "report": report})
+
+
 # ── API: close / reopen month ─────────────────────────────────────────────────
 
 @app.route("/api/close-month", methods=["POST"])
@@ -3215,7 +3671,37 @@ def api_close_month():
         return jsonify({"ok": False, "error": "Missing mid"}), 400
     uid, tok = _uid(), _tok()
     _ensure_month(uid, tok, mid)
-    _db(tok).table("bcc_months").update({"closed": True}).eq("id", mid).eq("user_id", uid).execute()
+
+    # Build closing snapshot
+    data = _load(uid, tok)
+    accounts = data.get("accounts", [])
+    txs = data.get("txs", [])
+    today_str = str(date.today())
+    _total_cash = sum(acct_balance(a, txs) for a in accounts if a.get("type") != "debt" and not a.get("archived"))
+    _total_debt = sum(acct_balance(a, txs) for a in accounts if a.get("type") == "debt" and not a.get("archived"))
+    _net_worth = _total_cash - _total_debt
+    _income_this_month = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == mid and t.get("type") == "in" and not is_scheduled(t)
+    )
+    _spent_this_month = sum(
+        float(t.get("amount", 0)) for t in txs
+        if t.get("monthId") == mid and t.get("type") == "out" and not is_scheduled(t)
+    )
+    snapshot = {
+        "date": today_str,
+        "cash": round(_total_cash, 2),
+        "net_worth": round(_net_worth, 2),
+        "debt_total": round(_total_debt, 2),
+        "income": round(_income_this_month, 2),
+        "spent": round(_spent_this_month, 2),
+    }
+
+    _db(tok).table("bcc_months").update({
+        "closed": True,
+        "closing_snapshot": snapshot,
+        "closing_date": today_str,
+    }).eq("id", mid).eq("user_id", uid).execute()
     return jsonify({"ok": True})
 
 

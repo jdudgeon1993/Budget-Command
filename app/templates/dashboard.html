@@ -1260,6 +1260,84 @@
   transition: opacity .15s;
 }
 .fab-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Close Wizard Overlay ── */
+.cw-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.65); display: flex;
+  align-items: center; justify-content: center;
+  padding: 16px;
+}
+.cw-box {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--r); width: 100%; max-width: 540px;
+  max-height: 88vh; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.cw-header {
+  padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; gap: 10px;
+}
+.cw-title { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.cw-month { font-weight: 700; font-size: clamp(14px,2.5vw,17px); color: var(--text); }
+.cw-progress { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
+.cw-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background .2s; }
+.cw-dot.done { background: var(--green); }
+.cw-dot.active { background: var(--accent); }
+.cw-body { padding: 20px; flex: 1; }
+.cw-step-label { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text3); margin-bottom: 12px; }
+.cw-heading { font-size: clamp(15px,2.2vw,18px); font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.cw-sub { font-size: clamp(12px,1.8vw,13px); color: var(--text2); line-height: 1.6; margin-bottom: 18px; }
+.cw-stat-row { display: flex; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.cw-stat { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 14px; flex: 1; min-width: 120px; }
+.cw-stat-label { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+.cw-stat-val { font-family: var(--mono); font-size: clamp(14px,2vw,18px); font-weight: 700; color: var(--text); }
+.cw-stat-val.ok { color: var(--green); }
+.cw-stat-val.warn { color: var(--amber); }
+.cw-stat-val.bad { color: var(--red); }
+.cw-bucket-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 12px; }
+.cw-bucket-name { font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 8px; }
+.cw-bucket-streak { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; color: var(--amber); text-transform: uppercase; margin-bottom: 8px; }
+.cw-bucket-nums { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.cw-bucket-num { flex: 1; min-width: 80px; }
+.cw-bucket-num-label { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
+.cw-bucket-num-val { font-family: var(--mono); font-size: 14px; font-weight: 700; }
+.cw-bucket-num-val.bad { color: var(--red); }
+.cw-bucket-num-val.good { color: var(--green); }
+.cw-raise-btn { background: var(--accent); color: var(--bg); border: none; border-radius: var(--r); padding: 7px 16px; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; cursor: pointer; }
+.cw-raise-btn:hover { opacity: .88; }
+.cw-raise-btn.raised { background: var(--green); }
+.cw-keep-btn { background: none; border: 1px solid var(--border2); color: var(--text3); border-radius: var(--r); padding: 7px 14px; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; cursor: pointer; margin-left: 8px; }
+.cw-acct-card { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 14px; }
+.cw-acct-name { font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 10px; }
+.cw-input { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 8px 12px; font-family: var(--mono); font-size: 14px; color: var(--text); width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+.cw-input:focus { border-color: var(--accent); outline: none; }
+.cw-adj-result { font-family: var(--mono); font-size: 11px; color: var(--text2); margin-top: 6px; min-height: 18px; }
+.cw-adj-result.ok { color: var(--green); }
+.cw-adj-result.warn { color: var(--amber); }
+.cw-report-area { width: 100%; min-height: 140px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 12px; font-family: var(--sans); font-size: 13px; color: var(--text2); line-height: 1.7; resize: vertical; box-sizing: border-box; }
+.cw-report-area:focus { border-color: var(--accent); outline: none; }
+.cw-notes-area { width: 100%; min-height: 80px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 12px; font-family: var(--sans); font-size: 12px; color: var(--text2); line-height: 1.6; resize: vertical; box-sizing: border-box; margin-top: 10px; }
+.cw-notes-area:focus { border-color: var(--accent); outline: none; }
+.cw-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 10px; }
+.cw-btn-primary { background: var(--accent); color: var(--bg); border: none; border-radius: var(--r); padding: 10px 24px; font-family: var(--mono); font-size: 12px; letter-spacing: .08em; cursor: pointer; font-weight: 700; }
+.cw-btn-primary:hover { opacity: .88; }
+.cw-btn-primary:disabled { opacity: .4; cursor: default; }
+.cw-btn-secondary { background: none; border: 1px solid var(--border2); color: var(--text3); border-radius: var(--r); padding: 9px 18px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; cursor: pointer; }
+.cw-btn-secondary:hover { color: var(--text); border-color: var(--text2); }
+.cw-close-summary { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+.cw-close-stat { flex: 1; min-width: 100px; text-align: center; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; }
+.cw-close-stat-label { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 5px; }
+.cw-close-stat-val { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--text); }
+.cw-btn-close-final { background: var(--green); color: #000; border: none; border-radius: var(--r); padding: 13px 32px; font-family: var(--mono); font-size: 13px; letter-spacing: .1em; cursor: pointer; font-weight: 700; width: 100%; margin-top: 8px; }
+.cw-btn-close-final:hover { opacity: .88; }
+.cw-generate-btn { background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r); padding: 6px 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; cursor: pointer; margin-bottom: 10px; }
+.cw-generate-btn:hover { background: color-mix(in srgb,var(--accent) 10%,transparent); }
+.cw-add-income-form { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-top: 14px; display: none; }
+.cw-income-fields { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cw-income-fields select, .cw-income-fields input { flex: 1; min-width: 100px; }
+.cw-promo-tag { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; background: color-mix(in srgb,var(--amber) 15%,transparent); color: var(--amber); border: 1px solid var(--amber); padding: 2px 6px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
 {% endblock %}
 
 {% block extra_head %}
@@ -1334,7 +1412,7 @@
 
   <!-- Close Month button (last 3 days of open month) -->
   {% if show_close_btn %}
-  <button class="month-close-btn" onclick="confirmCloseMonth()">Close Month</button>
+  <button class="month-close-btn" onclick="openCloseWizard()">Close Month</button>
   {% endif %}
 </div>
 
@@ -2246,6 +2324,21 @@
                     <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="—"
                            value="{{ a.credit_limit }}"
                            onblur="saveAcctField('{{ a.id }}','credit_limit',evalMathExpr(this.value)||0)">
+                  </div>
+                </div>
+                <!-- Promo rate toggle -->
+                <div class="sf-row" style="align-items:center;gap:12px;margin-top:2px;">
+                  <div class="sf-field" style="flex:0 0 auto;flex-direction:row;align-items:center;gap:8px;">
+                    <input type="checkbox" id="promo-toggle-{{ a.id }}"
+                           {% if a.is_promo %}checked{% endif %}
+                           onchange="cwTogglePromo('{{ a.id }}',this.checked)">
+                    <div class="sf-label" style="margin-bottom:0">0% Promotional Rate</div>
+                  </div>
+                  <div class="sf-field" id="promo-date-field-{{ a.id }}" style="{% if not a.is_promo %}display:none{% endif %}">
+                    <div class="sf-label">Promo End Date</div>
+                    <input class="sf-input" type="date" id="promo-end-{{ a.id }}"
+                           value="{{ a.promo_end_date }}"
+                           onchange="saveAcctField('{{ a.id }}','promo_end_date',this.value)">
                   </div>
                 </div>
                 <!-- Debt payment -->
@@ -4059,6 +4152,37 @@ async function saveAcctField(id, field, value) {
   refreshValues(result);
 }
 
+// ── Phase 29: Promo Period toggle ──────────────────────────────────────────────
+function cwTogglePromo(acctId, isPromo) {
+  const dateField = document.getElementById('promo-date-field-' + acctId);
+  if (dateField) dateField.style.display = isPromo ? '' : 'none';
+  saveAcctField(acctId, 'is_promo', isPromo);
+  if (!isPromo) {
+    saveAcctField(acctId, 'promo_end_date', '');
+  }
+}
+
+// Promo expiry warning on page load
+(function _checkPromoExpiry() {
+  const promoData = {{ debt_accounts_display | tojson }};
+  if (!promoData) return;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const in30 = new Date(today);
+  in30.setDate(in30.getDate() + 30);
+  for (const a of promoData) {
+    if (!a.is_promo || !a.promo_end_date) continue;
+    const end = new Date(a.promo_end_date);
+    end.setHours(0,0,0,0);
+    if (end < today) {
+      setTimeout(() => showToast(`${a.name}: 0% promo period has expired! Update the rate.`, 'error', 6000), 800);
+    } else if (end <= in30) {
+      const days = Math.round((end - today) / 86400000);
+      setTimeout(() => showToast(`${a.name}: 0% promo ends in ${days} day${days !== 1 ? 's' : ''}!`, 'warn', 6000), 800);
+    }
+  }
+})();
+
 async function submitAddAccount(e, section) {
   e.preventDefault();
   const isDebt = section === 'debt';
@@ -5739,20 +5863,6 @@ function _closeMonthDropdown(e) {
   }
 }
 
-function confirmCloseMonth() {
-  const label = document.querySelector('.month-trigger span')?.textContent.trim() || 'this month';
-  if (confirm(`Close ${label}?\n\nThis will lock the month as read-only. You can reopen it later if needed.`)) {
-    _doCloseMonth();
-  }
-}
-async function _doCloseMonth() {
-  const result = await fetch('/api/close-month', {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({mid: ACTIVE_MID})
-  }).then(r => r.json()).catch(() => ({ok: false}));
-  if (result.ok) { showToast('Month closed', 'success'); window.location.reload(); }
-  else showToast(result.error || 'Failed to close month.', 'error');
-}
 async function reopenMonth() {
   const result = await fetch('/api/reopen-month', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -6020,5 +6130,529 @@ async function submitFabTx() {
     showToast(result.error || 'Could not add transaction.', 'error');
   }
 }
+</script>
+
+<!-- ── Close Wizard Overlay ── -->
+<div id="close-wizard-overlay" class="cw-overlay" style="display:none" onclick="cwOverlayClick(event)">
+  <div class="cw-box" id="cw-box">
+    <div class="cw-header">
+      <div>
+        <div class="cw-title">Closing</div>
+        <div class="cw-month" id="cw-month-label">—</div>
+      </div>
+      <div class="cw-progress" id="cw-progress-dots"></div>
+    </div>
+    <div class="cw-body" id="cw-body">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:40px;text-align:center;">Loading…</div>
+    </div>
+    <div class="cw-footer" id="cw-footer">
+      <button class="cw-btn-secondary" onclick="cwSaveAndClose()">Come Back Later</button>
+      <button class="cw-btn-primary" id="cw-next-btn" onclick="cwNext()">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Close Wizard ──────────────────────────────────────────────────────────────
+let _cwData = null;
+let _cwStep = 0;
+let _cwMid = '';
+let _cwAcctIdx = 0;
+let _cwDebtIdx = 0;
+let _cwRaised = {};
+let _cwAdjusted = {};
+let _cwReport = '';
+let _cwNotes = '';
+
+const CW_STEPS = ['Income', 'Overspent', 'Reconcile', 'Debt', 'Report', 'Close'];
+
+async function openCloseWizard() {
+  _cwMid = ACTIVE_MID;
+  const overlay = document.getElementById('close-wizard-overlay');
+  overlay.style.display = 'flex';
+  document.getElementById('cw-month-label').textContent = '…';
+  document.getElementById('cw-body').innerHTML = '<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:40px;text-align:center;">Loading…</div>';
+  document.getElementById('cw-footer').style.display = 'flex';
+
+  const saved = _cwLoadProgress();
+  if (saved) {
+    _cwStep = saved.step;
+    _cwAcctIdx = saved.acctIdx || 0;
+    _cwDebtIdx = saved.debtIdx || 0;
+    _cwRaised = saved.raised || {};
+    _cwAdjusted = saved.adjusted || {};
+    _cwReport = saved.report || '';
+    _cwNotes = saved.notes || '';
+  } else {
+    _cwStep = 0; _cwAcctIdx = 0; _cwDebtIdx = 0;
+    _cwRaised = {}; _cwAdjusted = {}; _cwReport = ''; _cwNotes = '';
+  }
+
+  const res = await fetch(`/api/close-wizard-data?mid=${_cwMid}`).then(r => r.json()).catch(() => null);
+  if (!res || !res.ok) {
+    document.getElementById('cw-body').innerHTML = '<div style="color:var(--red);padding:20px;font-family:var(--mono);">Failed to load wizard data.</div>';
+    return;
+  }
+  _cwData = res;
+  document.getElementById('cw-month-label').textContent = res.month_label;
+  _cwRender();
+}
+
+function cwOverlayClick(e) {
+  // Don't close on background click — user must use "Come Back Later"
+}
+
+function _cwRender() {
+  _cwRenderProgress();
+  switch(_cwStep) {
+    case 0: _cwRenderStep1(); break;
+    case 1: _cwRenderStep2(); break;
+    case 2: _cwRenderStep3(); break;
+    case 3: _cwRenderStep4(); break;
+    case 4: _cwRenderStep5(); break;
+    case 5: _cwRenderStep6(); break;
+  }
+}
+
+function _cwRenderProgress() {
+  const dots = document.getElementById('cw-progress-dots');
+  dots.innerHTML = CW_STEPS.map((_, i) =>
+    `<div class="cw-dot ${i < _cwStep ? 'done' : i === _cwStep ? 'active' : ''}"></div>`
+  ).join('');
+}
+
+// ── STEP 1: Income Check ──
+function _cwRenderStep1() {
+  const s = _cwData.step1;
+  const body = document.getElementById('cw-body');
+  const accounts = _cwData.budget_accounts_for_income || [];
+  const acctOptions = accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
+  let incomeHtml = '';
+  if (s.has_paycheck && s.income_projected != null) {
+    const diff = s.income_actual - s.income_projected;
+    const diffStr = diff >= 0 ? `+$${diff.toFixed(2)}` : `-$${Math.abs(diff).toFixed(2)}`;
+    const diffClass = diff >= 0 ? 'ok' : 'warn';
+    incomeHtml = `
+      <div class="cw-stat-row">
+        <div class="cw-stat"><div class="cw-stat-label">Projected</div><div class="cw-stat-val">$${s.income_projected.toFixed(2)}</div></div>
+        <div class="cw-stat"><div class="cw-stat-label">Logged</div><div class="cw-stat-val">$${s.income_actual.toFixed(2)}</div></div>
+        <div class="cw-stat"><div class="cw-stat-label">Difference</div><div class="cw-stat-val ${diffClass}">${diffStr}</div></div>
+      </div>`;
+  } else {
+    incomeHtml = `
+      <div class="cw-stat-row">
+        <div class="cw-stat"><div class="cw-stat-label">Income Logged</div><div class="cw-stat-val">$${s.income_actual.toFixed(2)}</div></div>
+      </div>`;
+  }
+
+  body.innerHTML = `
+    <div class="cw-step-label">Step 1 of 6</div>
+    <div class="cw-heading">Income Check</div>
+    <p class="cw-sub">Let's make sure all income for ${_cwData.month_label} has been recorded.</p>
+    ${incomeHtml}
+    <p class="cw-sub" style="margin-bottom:8px;">Need to add any income?</p>
+    <div style="display:flex;gap:10px;">
+      <button class="cw-raise-btn" onclick="cwToggleIncomeForm()">+ Add Income</button>
+      <button class="cw-keep-btn" id="cw-income-looks-good" onclick="cwNext()">Looks Good →</button>
+    </div>
+    <div class="cw-add-income-form" id="cw-income-form">
+      <div class="cw-income-fields">
+        <input class="cw-input" type="date" id="cwi-date" style="min-width:130px;">
+        <input class="cw-input" type="number" id="cwi-amount" placeholder="Amount" step="0.01" min="0.01" style="min-width:100px;">
+        <select class="cw-input" id="cwi-account">${acctOptions}</select>
+      </div>
+      <button class="cw-raise-btn" onclick="cwAddIncome()" id="cwi-submit">Add Income</button>
+      <span id="cwi-result" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:10px;"></span>
+    </div>`;
+
+  const yr = parseInt(_cwMid.split('_')[1]);
+  const m0 = parseInt(_cwMid.split('_')[2]);
+  const lastDay = new Date(yr, m0 + 1, 0).getDate();
+  const dateStr = `${yr}-${String(m0+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  const dateEl = document.getElementById('cwi-date');
+  if (dateEl) dateEl.value = dateStr;
+}
+
+function cwToggleIncomeForm() {
+  const form = document.getElementById('cw-income-form');
+  if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+async function cwAddIncome() {
+  const amount = parseFloat(document.getElementById('cwi-amount').value);
+  const txDate = document.getElementById('cwi-date').value;
+  const accountId = document.getElementById('cwi-account').value;
+  const result_el = document.getElementById('cwi-result');
+  if (!amount || amount <= 0 || !txDate || !accountId) {
+    result_el.textContent = 'Fill in all fields.'; return;
+  }
+  const btn = document.getElementById('cwi-submit');
+  btn.disabled = true;
+  const res = await fetch('/api/close-wizard/add-income', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: _cwMid, amount, account_id: accountId, date: txDate})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  btn.disabled = false;
+  if (res.ok) {
+    _cwData.step1.income_actual = res.income_actual;
+    result_el.style.color = 'var(--green)';
+    result_el.textContent = `✓ $${amount.toFixed(2)} added`;
+    document.getElementById('cwi-amount').value = '';
+    _cwRenderStep1();
+    setTimeout(() => {
+      const form = document.getElementById('cw-income-form');
+      if (form) form.style.display = 'block';
+    }, 10);
+  } else {
+    result_el.style.color = 'var(--red)';
+    result_el.textContent = res.error || 'Error.';
+  }
+}
+
+// ── STEP 2: Overspent Buckets ──
+function _cwRenderStep2() {
+  const overspent = _cwData.step2.overspent;
+  const body = document.getElementById('cw-body');
+  if (!overspent.length) {
+    body.innerHTML = `
+      <div class="cw-step-label">Step 2 of 6</div>
+      <div class="cw-heading">Overspent Buckets</div>
+      <div style="text-align:center;padding:32px 0;">
+        <div style="font-size:32px;margin-bottom:10px;">🎉</div>
+        <div style="font-family:var(--mono);color:var(--green);font-size:14px;letter-spacing:.06em;">Nothing overspent this month!</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:8px;">Every bucket came in on target.</div>
+      </div>`;
+    return;
+  }
+
+  const cards = overspent.map(b => {
+    const raised = _cwRaised[b.id];
+    const streakHtml = b.streak >= 2 ? `<div class="cw-bucket-streak">⚠ Overspent ${b.streak + 1} months in a row</div>` : '';
+    if (raised !== undefined && raised !== null) {
+      return `<div class="cw-bucket-card" id="cwb-${b.id}" style="border-color:var(--green)">
+        <div class="cw-bucket-name">✓ ${b.name}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--green);">Target raised to $${raised.toFixed(0)}</div>
+      </div>`;
+    }
+    if (_cwRaised[b.id] === null) {
+      return `<div class="cw-bucket-card" id="cwb-${b.id}" style="opacity:.5">
+        <div class="cw-bucket-name">${b.name}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Keeping at $${b.target.toFixed(0)}</div>
+      </div>`;
+    }
+    return `<div class="cw-bucket-card" id="cwb-${b.id}">
+      <div class="cw-bucket-name">${b.name}</div>
+      ${streakHtml}
+      <div class="cw-bucket-nums">
+        <div class="cw-bucket-num"><div class="cw-bucket-num-label">Target</div><div class="cw-bucket-num-val">$${b.target.toFixed(2)}</div></div>
+        <div class="cw-bucket-num"><div class="cw-bucket-num-label">Actual</div><div class="cw-bucket-num-val bad">$${b.actual.toFixed(2)}</div></div>
+        <div class="cw-bucket-num"><div class="cw-bucket-num-label">Over by</div><div class="cw-bucket-num-val bad">$${b.over_by.toFixed(2)}</div></div>
+        <div class="cw-bucket-num"><div class="cw-bucket-num-label">Suggested</div><div class="cw-bucket-num-val good">$${b.suggested.toFixed(0)}</div></div>
+      </div>
+      <div>
+        <button class="cw-raise-btn" onclick="cwRaiseBudget('${b.id}',${b.suggested})">Raise to $${b.suggested.toFixed(0)}</button>
+        <button class="cw-keep-btn" onclick="cwSkipBudget('${b.id}')">Keep $${b.target.toFixed(0)}</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="cw-step-label">Step 2 of 6</div>
+    <div class="cw-heading">Overspent Buckets</div>
+    <p class="cw-sub">Review buckets that went over. Raise the default target for next month, or keep it the same.</p>
+    ${cards}`;
+}
+
+async function cwRaiseBudget(bid, newDefault) {
+  const res = await fetch('/api/close-wizard/raise-budget', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({bucket_id: bid, new_default: newDefault})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (res.ok) {
+    _cwRaised[bid] = newDefault;
+    _cwSaveProgress();
+    _cwRenderStep2();
+  } else showToast('Failed to raise budget', 'error');
+}
+
+function cwSkipBudget(bid) {
+  _cwRaised[bid] = null;
+  _cwSaveProgress();
+  _cwRenderStep2();
+}
+
+// ── STEP 3: Budget Account Reconcile ──
+function _cwRenderStep3() {
+  const accounts = _cwData.step3.budget_accounts;
+  const body = document.getElementById('cw-body');
+  if (!accounts.length) {
+    body.innerHTML = `<div class="cw-step-label">Step 3 of 6</div><div class="cw-heading">Account Reconciliation</div><p class="cw-sub">No budget accounts found.</p>`;
+    return;
+  }
+  if (_cwAcctIdx >= accounts.length) {
+    body.innerHTML = `
+      <div class="cw-step-label">Step 3 of 6</div>
+      <div class="cw-heading">Accounts Reconciled ✓</div>
+      <div style="text-align:center;padding:32px 0;">
+        <div style="font-size:32px;margin-bottom:10px;">✓</div>
+        <div style="font-family:var(--mono);color:var(--green);font-size:14px;">All budget accounts checked.</div>
+      </div>`;
+    return;
+  }
+  const a = accounts[_cwAcctIdx];
+  const adjusted = _cwAdjusted[a.id];
+  const displayBal = adjusted !== undefined ? (a.app_balance + adjusted) : a.app_balance;
+  body.innerHTML = `
+    <div class="cw-step-label">Step 3 of 6 — Account ${_cwAcctIdx+1} of ${accounts.length}</div>
+    <div class="cw-heading">Reconcile: ${a.name}</div>
+    <p class="cw-sub">Compare the app balance to your bank statement.</p>
+    <div class="cw-stat-row">
+      <div class="cw-stat"><div class="cw-stat-label">App Balance</div><div class="cw-stat-val" id="cw-app-bal">$${displayBal.toFixed(2)}</div></div>
+    </div>
+    <div class="cw-acct-card">
+      <div class="cw-acct-name">What does your bank statement show?</div>
+      <input class="cw-input" type="number" id="cw-bank-bal" placeholder="Bank balance" step="0.01" oninput="cwCheckAdjustment('${a.id}',${displayBal})">
+      <div class="cw-adj-result" id="cw-adj-result"></div>
+      <div id="cw-adj-actions" style="margin-top:10px;display:none;">
+        <button class="cw-raise-btn" onclick="cwPostAdjustment('${a.id}',${displayBal})">Post Adjustment</button>
+        <button class="cw-keep-btn" onclick="cwSkipAdjustment()">Skip</button>
+      </div>
+    </div>
+    ${adjusted !== undefined ? `<div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-bottom:8px;">✓ Adjustment posted for this account.</div>` : ''}
+    <button class="cw-keep-btn" style="margin-top:4px;" onclick="cwNextAccount()">Next Account →</button>`;
+}
+
+function cwCheckAdjustment(acctId, appBal) {
+  const bankVal = parseFloat(document.getElementById('cw-bank-bal').value);
+  const result = document.getElementById('cw-adj-result');
+  const actions = document.getElementById('cw-adj-actions');
+  if (isNaN(bankVal)) { result.textContent = ''; actions.style.display='none'; return; }
+  const delta = bankVal - appBal;
+  if (Math.abs(delta) < 0.01) {
+    result.className = 'cw-adj-result ok'; result.textContent = '✓ Balances match!';
+    actions.style.display = 'none';
+  } else {
+    result.className = 'cw-adj-result warn';
+    result.textContent = `Difference: ${delta > 0 ? '+' : ''}$${delta.toFixed(2)} — post an adjustment?`;
+    actions.style.display = 'block';
+  }
+}
+
+async function cwPostAdjustment(acctId, appBal) {
+  const bankVal = parseFloat(document.getElementById('cw-bank-bal').value);
+  if (isNaN(bankVal)) return;
+  const delta = bankVal - appBal;
+  const res = await fetch('/api/close-wizard/adjust-account', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({account_id: acctId, mid: _cwMid, delta, desc: 'Reconciliation adjustment'})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (res.ok) {
+    _cwAdjusted[acctId] = delta;
+    _cwData.step3.budget_accounts[_cwAcctIdx].app_balance = res.new_balance;
+    _cwSaveProgress(); _cwRenderStep3();
+  } else showToast('Failed to post adjustment', 'error');
+}
+
+function cwSkipAdjustment() { cwNextAccount(); }
+function cwNextAccount() { _cwAcctIdx++; _cwSaveProgress(); _cwRenderStep3(); }
+
+// ── STEP 4: Debt Account Reconcile ──
+function _cwRenderStep4() {
+  const accounts = _cwData.step4.debt_accounts;
+  const body = document.getElementById('cw-body');
+  if (!accounts.length) {
+    body.innerHTML = `<div class="cw-step-label">Step 4 of 6</div><div class="cw-heading">Debt Reconciliation</div><p class="cw-sub">No debt accounts to reconcile.</p>`;
+    return;
+  }
+  if (_cwDebtIdx >= accounts.length) {
+    body.innerHTML = `
+      <div class="cw-step-label">Step 4 of 6</div>
+      <div class="cw-heading">Debt Accounts Reconciled ✓</div>
+      <div style="text-align:center;padding:32px 0;"><div style="font-size:32px;margin-bottom:10px;">✓</div><div style="font-family:var(--mono);color:var(--green);font-size:14px;">All debt accounts checked.</div></div>`;
+    return;
+  }
+  const a = accounts[_cwDebtIdx];
+  const adjusted = _cwAdjusted['debt_'+a.id];
+  const displayBal = adjusted !== undefined ? (a.app_balance + adjusted) : a.app_balance;
+
+  let debtHint = '';
+  if (a.is_promo) {
+    debtHint = `<div class="cw-promo-tag">0% Promo</div>`;
+    if (a.promo_end) debtHint += `<div style="font-family:var(--mono);font-size:11px;color:var(--amber);margin-bottom:10px;">Promo ends ${a.promo_end}</div>`;
+    if (a.promo_suggestion) {
+      debtHint += `<div style="font-family:var(--mono);font-size:11px;color:var(--text2);margin-bottom:12px;">To clear before promo ends: pay $${a.promo_suggestion.suggested_payment}/mo for ${a.promo_suggestion.months_left} months.</div>`;
+    }
+  } else if (a.apr > 0 && a.monthly_interest > 0) {
+    debtHint = `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:10px;">Est. interest this month: $${a.monthly_interest.toFixed(2)} @ ${a.apr}% APR — check if it was logged as a transaction.</div>`;
+  }
+
+  body.innerHTML = `
+    <div class="cw-step-label">Step 4 of 6 — Debt ${_cwDebtIdx+1} of ${accounts.length}</div>
+    <div class="cw-heading">Reconcile: ${a.name}</div>
+    <p class="cw-sub">Compare the app's tracked balance to your statement.</p>
+    ${debtHint}
+    <div class="cw-stat-row">
+      <div class="cw-stat"><div class="cw-stat-label">App Balance (owed)</div><div class="cw-stat-val bad">$${displayBal.toFixed(2)}</div></div>
+    </div>
+    <div class="cw-acct-card">
+      <div class="cw-acct-name">What does your statement show?</div>
+      <input class="cw-input" type="number" id="cw-debt-bank-bal" placeholder="Statement balance (amount owed)" step="0.01" oninput="cwCheckDebtAdj('${a.id}',${displayBal})">
+      <div class="cw-adj-result" id="cw-debt-adj-result"></div>
+      <div id="cw-debt-adj-actions" style="margin-top:10px;display:none;">
+        <button class="cw-raise-btn" onclick="cwPostDebtAdj('${a.id}',${displayBal})">Post Adjustment</button>
+        <button class="cw-keep-btn" onclick="cwNextDebt()">Skip</button>
+      </div>
+    </div>
+    <button class="cw-keep-btn" style="margin-top:8px;" onclick="cwNextDebt()">Next →</button>`;
+}
+
+function cwCheckDebtAdj(acctId, appBal) {
+  const bankVal = parseFloat(document.getElementById('cw-debt-bank-bal').value);
+  const result = document.getElementById('cw-debt-adj-result');
+  const actions = document.getElementById('cw-debt-adj-actions');
+  if (isNaN(bankVal)) { result.textContent=''; actions.style.display='none'; return; }
+  const delta = bankVal - appBal;
+  if (Math.abs(delta) < 0.01) {
+    result.className='cw-adj-result ok'; result.textContent='✓ Balances match!'; actions.style.display='none';
+  } else {
+    result.className='cw-adj-result warn';
+    const msg = delta > 0 ? `You owe $${delta.toFixed(2)} more than the app shows` : `App shows $${Math.abs(delta).toFixed(2)} more than your statement`;
+    result.textContent = `${msg} — post an adjustment?`;
+    actions.style.display='block';
+  }
+}
+
+async function cwPostDebtAdj(acctId, appBal) {
+  const bankVal = parseFloat(document.getElementById('cw-debt-bank-bal').value);
+  if (isNaN(bankVal)) return;
+  const delta = bankVal - appBal;
+  const res = await fetch('/api/close-wizard/adjust-account', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({account_id: acctId, mid: _cwMid, delta, desc: 'Debt reconciliation adjustment'})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (res.ok) {
+    _cwAdjusted['debt_'+acctId] = delta;
+    _cwData.step4.debt_accounts[_cwDebtIdx].app_balance = res.new_balance;
+    _cwSaveProgress(); _cwRenderStep4();
+  } else showToast('Failed to post adjustment','error');
+}
+
+function cwNextDebt() { _cwDebtIdx++; _cwSaveProgress(); _cwRenderStep4(); }
+
+// ── STEP 5: AI Report ──
+function _cwRenderStep5() {
+  const s = _cwData.step5;
+  const report = _cwReport || s.existing_report || '';
+  const notes = _cwNotes || s.existing_notes || '';
+  const body = document.getElementById('cw-body');
+  body.innerHTML = `
+    <div class="cw-step-label">Step 5 of 6</div>
+    <div class="cw-heading">${_cwData.month_label} Review</div>
+    <p class="cw-sub">Generate an AI summary of this month, or write your own. Add personal notes — these are editable forever.</p>
+    <button class="cw-generate-btn" id="cw-gen-btn" onclick="cwGenerateReport()">✦ Generate AI Summary</button>
+    <textarea class="cw-report-area" id="cw-report-text" placeholder="AI-generated summary will appear here, or write your own…">${report}</textarea>
+    <textarea class="cw-notes-area" id="cw-notes-text" placeholder="Personal notes (always editable after close)…">${notes}</textarea>`;
+}
+
+async function cwGenerateReport() {
+  const btn = document.getElementById('cw-gen-btn');
+  const area = document.getElementById('cw-report-text');
+  btn.textContent = '✦ Generating…'; btn.disabled = true;
+  const res = await fetch('/api/close-wizard/generate-report', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: _cwMid, api_key: _getCoachKey()})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  btn.textContent = '✦ Regenerate'; btn.disabled = false;
+  if (res.ok && res.report) {
+    area.value = res.report;
+    _cwReport = res.report;
+  } else {
+    showToast(res.error || 'Could not generate report', 'error');
+  }
+}
+
+// ── STEP 6: Close ──
+function _cwRenderStep6() {
+  const income = _cwData.step1.income_actual;
+  const body = document.getElementById('cw-body');
+  body.innerHTML = `
+    <div class="cw-step-label">Step 6 of 6</div>
+    <div class="cw-heading">Ready to Close</div>
+    <p class="cw-sub">Everything looks good. Close this month to lock it and advance to the next one.</p>
+    <div class="cw-close-summary">
+      <div class="cw-close-stat"><div class="cw-close-stat-label">Income</div><div class="cw-close-stat-val" style="color:var(--green)">$${income.toFixed(2)}</div></div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:20px;letter-spacing:.06em;">This month will be locked. You can reopen it later from the month dropdown if needed.</div>
+    <button class="cw-btn-close-final" onclick="cwFinalClose()">Close ${_cwData.month_label}</button>`;
+
+  document.getElementById('cw-footer').style.display = 'none';
+}
+
+async function cwFinalClose() {
+  const reportText = document.getElementById('cw-report-text')?.value || _cwReport;
+  const notesText = document.getElementById('cw-notes-text')?.value || _cwNotes;
+  if (reportText || notesText) {
+    await fetch('/api/close-wizard/save-report', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({mid: _cwMid, ai_report: reportText, notes: notesText})
+    });
+  }
+  const res = await fetch('/api/close-month', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mid: _cwMid})
+  }).then(r => r.json()).catch(() => ({ok: false}));
+  if (res.ok) {
+    _cwClearProgress();
+    document.getElementById('close-wizard-overlay').style.display = 'none';
+    showToast(`${_cwData.month_label} closed ✓`, 'success');
+    const parts = _cwMid.replace('m_','').split('_');
+    const yr = parseInt(parts[0]);
+    const m0 = parseInt(parts[1]);
+    const nextM0 = m0 + 1;
+    const nextYr = nextM0 > 11 ? yr + 1 : yr;
+    const nextMidStr = `m_${nextYr}_${nextM0 > 11 ? 0 : nextM0}`;
+    setTimeout(() => { window.location.href = `/dashboard?month=${nextMidStr}`; }, 800);
+  } else {
+    showToast(res.error || 'Failed to close month', 'error');
+  }
+}
+
+// ── Navigation ──
+function cwNext() {
+  if (_cwStep === 4) {
+    _cwReport = document.getElementById('cw-report-text')?.value || _cwReport;
+    _cwNotes = document.getElementById('cw-notes-text')?.value || _cwNotes;
+  }
+  _cwStep++;
+  if (_cwStep > 5) _cwStep = 5;
+  _cwSaveProgress();
+  document.getElementById('cw-footer').style.display = 'flex';
+  _cwRender();
+}
+
+function cwSaveAndClose() {
+  if (_cwStep === 4) {
+    _cwReport = document.getElementById('cw-report-text')?.value || _cwReport;
+    _cwNotes = document.getElementById('cw-notes-text')?.value || _cwNotes;
+  }
+  _cwSaveProgress();
+  document.getElementById('close-wizard-overlay').style.display = 'none';
+  showToast('Progress saved — wizard will reopen when you return', 'info');
+}
+
+// ── Progress Persistence ──
+function _cwProgressKey() { return `cw_progress_${ACTIVE_MID}`; }
+function _cwSaveProgress() {
+  localStorage.setItem(_cwProgressKey(), JSON.stringify({
+    step: _cwStep, acctIdx: _cwAcctIdx, debtIdx: _cwDebtIdx,
+    raised: _cwRaised, adjusted: _cwAdjusted,
+    report: _cwReport, notes: _cwNotes
+  }));
+}
+function _cwLoadProgress() {
+  try { return JSON.parse(localStorage.getItem(_cwProgressKey())); } catch { return null; }
+}
+function _cwClearProgress() { localStorage.removeItem(_cwProgressKey()); }
 </script>
 {% endblock %}
