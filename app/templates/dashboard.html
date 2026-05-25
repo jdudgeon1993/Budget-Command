@@ -6974,36 +6974,28 @@ function renderDebtPayoff() {
     payment: (_debtCustomPay[d.id] > 0) ? _debtCustomPay[d.id] : d.min,
   }));
 
-  // Multi-debt simulation: roll freed minimums + extra into next debt
-  // We'll do a month-by-month sim for up to 600 months
+  // Multi-debt simulation: roll freed minimums + extra into the focus debt each month
   const MAX_MONTHS = 600;
   const state = debts.map(d => ({ ...d, bal: d.balance, paid: 0, interest: 0, paidOffMonth: null }));
-  let extraPool = extra;
 
   for (let m = 1; m <= MAX_MONTHS; m++) {
-    // First debt in order gets extra pool
-    let carryover = extraPool;
+    // Pool = extra + all freed minimums from previously paid debts
+    let pool = extra;
+    for (const s of state) { if (s.paidOffMonth !== null) pool += s.payment; }
+
+    // Apply: first unpaid debt gets the full pool; others get only their minimum
+    let poolApplied = false;
     for (let i = 0; i < state.length; i++) {
       const s = state[i];
-      if (s.paidOffMonth !== null) {
-        // Already paid — freed minimum cascades
-        carryover += s.payment;
-        continue;
-      }
+      if (s.paidOffMonth !== null) continue;
       const r = s.apr / 100 / 12;
       const interest = s.bal * r;
       s.interest += interest;
-      const totalPay = Math.min(s.bal + interest, s.payment + (i === 0 ? carryover : 0));
+      const totalPay = Math.min(s.bal + interest, s.payment + (poolApplied ? 0 : pool));
       s.bal = Math.max(0, s.bal + interest - totalPay);
       s.paid += totalPay;
-      if (s.bal < 0.01) {
-        s.bal = 0;
-        s.paidOffMonth = m;
-        // Freed payment cascades to next debt
-        carryover = Math.max(0, totalPay - (s.payment + (i === 0 ? carryover : 0)));
-      } else {
-        carryover = 0;
-      }
+      poolApplied = true;
+      if (s.bal < 0.01) { s.bal = 0; s.paidOffMonth = m; }
     }
     if (state.every(s => s.paidOffMonth !== null)) break;
   }
