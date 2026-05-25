@@ -555,6 +555,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
         "ledger_totals":    {"income": ledger_income, "spent": ledger_out},
         "account_balances": {a["id"]: acct_balance(a, txs) for a in accounts if not a.get("archived")},
         "unassigned_count": unassigned_count,
+        "over_count":       sum(1 for v in bucket_statuses.values() if v == "OVER"),
     }
 
 
@@ -629,8 +630,8 @@ def _bucket_row_ctx(b: dict, active_month: dict, all_months: list, txs: list, ac
     progress_pct  = 0
     if btype == "vault" and target_amount > 0:
         progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
-    elif btype in ("sinking", "goal") and target_amount > 0:
-        progress_pct = min(100, max(0, round(avail / target_amount * 100)))
+    elif btype in ("savings", "sinking", "goal") and target_amount > 0:
+        progress_pct = min(100, max(0, round(max(0, avail) / target_amount * 100)))
 
     skipped = bool((active_month.get("skippedBuckets") or {}).get(b["id"]))
     status  = bucket_status(alloc, budget, spent, avail)
@@ -807,6 +808,8 @@ def api_save():
             bucket["type"] = str(value or "expense")
             if bucket["type"] == "vault":
                 bucket["rollover"] = False
+            elif bucket["type"] == "savings":
+                bucket["rollover"] = True
             _save_bucket(uid, tok, bucket)
 
     elif field == "bucket_cat":
@@ -929,7 +932,7 @@ def api_add_bucket():
     bucket_id = _new_id("bkt")
     new_bucket = {
         "id": bucket_id, "catId": cat_id, "name": bucket_name,
-        "type": bucket_type, "rollover": bucket_type in ("sinking", "goal"),
+        "type": bucket_type, "rollover": bucket_type in ("savings", "sinking", "goal"),
         "recurring": False, "archived": False, "defaultBudget": 0, "order": 0, "notes": None,
     }
     data.setdefault("buckets", []).append(new_bucket)
@@ -1071,6 +1074,72 @@ def api_reorder():
     db.table(table).update({"sort_order": items[idx]["order"]}).eq("id", items[idx]["id"]).eq("user_id", uid).execute()
     db.table(table).update({"sort_order": items[swap_idx]["order"]}).eq("id", items[swap_idx]["id"]).eq("user_id", uid).execute()
     return jsonify({"ok": True})
+
+
+# ── API: What-If Scenarios (Supabase-backed) ─────────────────────────────────
+
+@app.route("/api/scenarios", methods=["GET"])
+def api_scenarios_list():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid, tok = _uid(), _tok()
+    try:
+        rows = (_db(tok).table("bcc_scenarios")
+                .select("*").eq("user_id", uid)
+                .order("sort_order").execute().data or [])
+        scenarios = [{
+            "id":             r["id"],
+            "name":           r["name"],
+            "allocations":    r.get("allocations") or {},
+            "incomeOverride": r.get("income_override"),
+            "schedule":       r.get("schedule") or {},
+            "sortOrder":      r.get("sort_order", 0),
+        } for r in rows]
+        return jsonify({"ok": True, "scenarios": scenarios})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/scenarios", methods=["POST"])
+def api_scenarios_save():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid, tok = _uid(), _tok()
+    body = request.get_json(silent=True) or {}
+    scenario_id = body.get("id", "").strip()
+    name        = (body.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Name required"}), 400
+
+    row = {
+        "id":              scenario_id or _new_id("sc"),
+        "user_id":         uid,
+        "name":            name,
+        "allocations":     body.get("allocations") or {},
+        "income_override": body.get("incomeOverride"),
+        "schedule":        body.get("schedule") or {},
+        "sort_order":      body.get("sortOrder", 0),
+        "updated_at":      "now()",
+    }
+    try:
+        result = (_db(tok).table("bcc_scenarios")
+                  .upsert(row, on_conflict="id").execute().data or [{}])
+        saved = result[0]
+        return jsonify({"ok": True, "id": saved.get("id", row["id"]), "name": name})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/scenarios/<scenario_id>", methods=["DELETE"])
+def api_scenarios_delete(scenario_id):
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid, tok = _uid(), _tok()
+    try:
+        _db(tok).table("bcc_scenarios").delete().eq("user_id", uid).eq("id", scenario_id).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ── API: vault withdraw / transfer ────────────────────────────────────────────
@@ -1404,8 +1473,8 @@ def _dashboard_inner():
             progress_pct = 0
             if btype == "vault" and target_amount > 0:
                 progress_pct = min(100, max(0, round(vault_total / target_amount * 100)))
-            elif btype in ("sinking", "goal") and target_amount > 0:
-                progress_pct = min(100, max(0, round(avail / target_amount * 100)))
+            elif btype in ("savings", "sinking", "goal") and target_amount > 0:
+                progress_pct = min(100, max(0, round(max(0, avail) / target_amount * 100)))
             due = _due_info(b.get("dueDay"), active_mid, status)
 
             rows.append({
@@ -1581,6 +1650,7 @@ def _dashboard_inner():
         debt_accounts=debt_accounts, transfer_buckets=transfer_buckets,
         ledger_groups=ledger_groups, ledger_income=income_total, ledger_spent=spent_total,
         unassigned_count=sum(1 for t in ledger_txs if t.get("type") == "out" and not t.get("bucketId") and not is_scheduled(t)),
+        over_count=_live_state(S, active_mid).get("over_count", 0),
         expense_buckets=expense_buckets, rule_buckets=rule_buckets,
         cash_accounts=cash_accounts, debt_accounts_display=debt_accounts_display,
         total_cash_val=total_cash_val, total_debt_val=total_debt_val,
@@ -1882,7 +1952,7 @@ def api_apply_payday():
         amt = float(item.get("amount") or 0)
         if bid and amt > 0:
             current = float((month.get("allocations") or {}).get(bid) or 0)
-            new_val = current + amt
+            new_val = max(current, amt)  # never double-stack: take the higher value
             month.setdefault("allocations", {})[bid] = new_val
             _upsert_alloc(uid, tok, mid, bid, new_val)
 
@@ -2103,6 +2173,7 @@ def api_reports():
             bucket_rows.append({
                 "name":      b["name"],
                 "allocated": alloc,
+                "budget":    budget,
                 "spent":     b_spent_val,
                 "avail":     avail,
                 "status":    status,
@@ -2562,7 +2633,12 @@ def api_forecast():
 
     body             = request.get_json(silent=True) or {}
     bucket_overrides  = {str(k): float(v) for k, v in body.get("bucket_overrides", {}).items() if v is not None}
-    income_override   = body.get("income_override")  # float or None — reserved for future use
+    income_override   = body.get("income_override")  # float or None — total monthly income override
+    if income_override is not None:
+        try:
+            income_override = float(income_override)
+        except (TypeError, ValueError):
+            income_override = None
     # {bid: [mid_string, ...]}  — months where bucket is intentionally OFF in the scenario
     bucket_off_months = {str(k): [str(m) for m in v] for k, v in body.get("bucket_off_months", {}).items()}
 
@@ -2618,6 +2694,18 @@ def api_forecast():
     bucket_name_map = {b["id"]: b["name"] for b in buckets}
     bucket_type_map = {b["id"]: b.get("type", "expense") for b in buckets}
 
+    # Compute income scale factor for What-If income override
+    income_scale = 1.0
+    if income_override is not None and income_override >= 0:
+        month_start_today = date(today.year, today.month, 1)
+        month_end_today   = date(today.year, today.month, _cal.monthrange(today.year, today.month)[1])
+        real_monthly = sum(
+            float(pc["amount"]) * len(_gen_pay_dates(pc.get("anchorDate",""), pc.get("freq", 14), month_start_today, month_end_today))
+            for pc in paychecks if pc.get("anchorDate")
+        )
+        if real_monthly > 0:
+            income_scale = income_override / real_monthly
+
     pay_events: dict = {}  # date → list of paycheck hit dicts
     for pc in paychecks:
         if not pc.get("anchorDate"):
@@ -2644,7 +2732,7 @@ def api_forecast():
                 alloc_events.append({"bucket": bucket_name, "bucket_id": bid, "amount": computed, "is_vault": is_vault})
             pay_events[pd].append({
                 "label":        pc["label"],
-                "amount":       float(pc["amount"]),
+                "amount":       round(float(pc["amount"]) * income_scale, 2),
                 "transfers":    transfers,
                 "alloc_events": alloc_events,
             })

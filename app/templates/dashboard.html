@@ -1651,6 +1651,11 @@
             </div>
             {% endif %}
           </div>
+          {% if over_count > 0 %}
+          <div id="over-badge" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;" onclick="showPanel('buckets',document.querySelector('.nav-tab'))">{{ over_count }} overspent</div>
+          {% else %}
+          <div id="over-badge" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;"></div>
+          {% endif %}
           <div class="h-user">{{ user_email }}</div>
           <a class="h-logout" href="/logout">Out</a>
         </div>
@@ -1755,8 +1760,7 @@
           <div class="strip-field strip-field-sm">
             <select id="strip-type">
               <option value="expense">Expense</option>
-              <option value="sinking">Sinking Fund</option>
-              <option value="goal">Goal</option>
+              <option value="savings">Savings</option>
               <option value="vault">Vault</option>
             </select>
           </div>
@@ -1831,11 +1835,14 @@
                 </div>
                 <div class="progress-label">{{ b.progress_pct }}%</div>
                 {% endif %}
-              {% elif b.type in ('sinking', 'goal') and b.progress_pct > 0 %}
+              {% elif b.type in ('savings','sinking','goal') %}
+                <div class="vault-total" id="vault-row-total-{{ b.id }}" style="color:var(--green)">{{ b.avail|money }} saved</div>
+                {% if b.progress_pct > 0 %}
                 <div class="progress-wrap">
                   <div class="progress-bar {% if b.progress_pct >= 100 %}complete{% endif %}" style="width:{{ b.progress_pct }}%"></div>
                 </div>
                 <div class="progress-label">{{ b.progress_pct }}%</div>
+                {% endif %}
               {% endif %}
             </td>
             <td class="col-status">
@@ -1888,10 +1895,9 @@
                   <div class="sf-field">
                     <div class="sf-label">Type</div>
                     <select class="sf-input" onchange="switchBucketType(this,'{{ b.id }}')">
-                      <option value="expense" {% if b.type == 'expense' or b.type == 'regular' %}selected{% endif %}>Expense</option>
-                      <option value="sinking" {% if b.type == 'sinking' %}selected{% endif %}>Sinking Fund</option>
-                      <option value="goal"    {% if b.type == 'goal'    %}selected{% endif %}>Goal</option>
-                      <option value="vault"   {% if b.type == 'vault'   %}selected{% endif %}>Vault</option>
+                      <option value="expense" {% if b.type in ('expense','regular','') %}selected{% endif %}>Expense</option>
+                      <option value="savings" {% if b.type in ('savings','sinking','goal') %}selected{% endif %}>Savings</option>
+                      <option value="vault"   {% if b.type == 'vault' %}selected{% endif %}>Vault</option>
                     </select>
                   </div>
                 </div>
@@ -1935,12 +1941,12 @@
                   </div>
                 </div>
 
-                <!-- Sinking/goal fields (NOT vault) -->
-                <div class="sf-group sf-savings" {% if b.type not in ('sinking','goal') %}style="display:none"{% endif %}>
+                <!-- Savings fields: goal tracking -->
+                <div class="sf-group sf-savings" {% if b.type not in ('savings','sinking','goal') %}style="display:none"{% endif %}>
                   <div class="sf-row">
                     <div class="sf-field">
                       <div class="sf-label">Target Amount</div>
-                      <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="$ goal"
+                      <input class="sf-input math-input" type="text" inputmode="decimal" data-step="0.01" placeholder="$ goal (optional)"
                              value="{{ b.target_amount if b.target_amount else '' }}"
                              onblur="saveSettingNum('bucket_target_amount','{{ b.id }}',this.value,'')">
                     </div>
@@ -1950,18 +1956,6 @@
                              value="{{ b.target_date or '' }}"
                              onblur="saveSettingText('bucket_target_date','{{ b.id }}',this.value,'')">
                     </div>
-                  </div>
-                  <div class="sf-row">
-                    <div class="sf-field">
-                      <div class="sf-label">Contribution Frequency</div>
-                      <select class="sf-input" onchange="saveSetting('bucket_contrib_freq','{{ b.id }}',this.value,'')">
-                        <option value="" {% if not b.contrib_freq %}selected{% endif %}>— none —</option>
-                        <option value="monthly"  {% if b.contrib_freq == 'monthly'  %}selected{% endif %}>Monthly</option>
-                        <option value="biweekly" {% if b.contrib_freq == 'biweekly' %}selected{% endif %}>Biweekly</option>
-                        <option value="weekly"   {% if b.contrib_freq == 'weekly'   %}selected{% endif %}>Weekly</option>
-                      </select>
-                    </div>
-                    <div class="sf-field"></div>
                   </div>
                 </div>
 
@@ -2992,13 +2986,9 @@
       <!-- ── Reports mode ── -->
       <div id="more-mode-reports" style="display:none">
         <!-- Sub-tabs -->
-        <div class="more-mode-tabs" id="report-tabs" style="flex-wrap:wrap; gap:0">
+        <div class="more-mode-tabs" id="report-tabs" style="gap:0">
           <button class="more-mode-tab active" onclick="showReportTab('summary',this)">Summary</button>
-          <button class="more-mode-tab" onclick="showReportTab('budget',this)">Budget</button>
-          <button class="more-mode-tab" onclick="showReportTab('cashflow',this)">Cash Flow</button>
-          <button class="more-mode-tab" onclick="showReportTab('ytd',this)">YTD</button>
-          <button class="more-mode-tab" onclick="showReportTab('income',this)">Income</button>
-          <button class="more-mode-tab" onclick="showReportTab('trends',this)">Trends</button>
+          <button class="more-mode-tab" onclick="showReportTab('budget',this)">Actual vs Budget</button>
           <button class="more-mode-tab" onclick="showReportTab('networth',this)">Net Worth</button>
         </div>
         <!-- Loading state -->
@@ -3007,25 +2997,9 @@
         <div id="report-summary" class="report-tab-pane">
           <div id="report-summary-content"></div>
         </div>
-        <!-- Budget tab -->
+        <!-- Actual vs Budget tab -->
         <div id="report-budget" class="report-tab-pane" style="display:none">
           <div id="report-budget-content"></div>
-        </div>
-        <!-- Cash Flow tab -->
-        <div id="report-cashflow" class="report-tab-pane" style="display:none">
-          <div id="report-cashflow-content"></div>
-        </div>
-        <!-- YTD tab -->
-        <div id="report-ytd" class="report-tab-pane" style="display:none">
-          <div id="report-ytd-content"></div>
-        </div>
-        <!-- Income tab -->
-        <div id="report-income" class="report-tab-pane" style="display:none">
-          <div id="report-income-content"></div>
-        </div>
-        <!-- Trends tab -->
-        <div id="report-trends" class="report-tab-pane" style="display:none">
-          <div id="report-trends-content"></div>
         </div>
         <!-- Net Worth tab -->
         <div id="report-networth" class="report-tab-pane" style="display:none">
@@ -3035,24 +3009,35 @@
 
       <!-- ── Plan mode ── -->
       <div id="more-mode-plan" style="display:none">
-        <!-- Sub-tabs: Forecast | Calendar | What-If -->
+        <script>
+        const _wiGroups = {{ category_groups | tojson }};
+        const _wiRts    = {{ rts }};
+        const _wiGrand  = {{ grand | tojson }};
+        const _wiMid    = "{{ active_mid }}";
+        const _wiPcks   = {{ paychecks | tojson }};
+        </script>
+
+        <!-- Sub-tabs: Forecast | Timeline -->
         <div class="acct-tabs" style="margin-bottom:14px">
           <button class="acct-tab active" onclick="showPlanTab('forecast', this)">Forecast</button>
           <button class="acct-tab" onclick="showPlanTab('calendar', this);initCashflow()">Timeline</button>
-          <button class="acct-tab" onclick="showPlanTab('whatif', this)">What-If</button>
         </div>
 
-        <!-- Forecast tab -->
+        <!-- ── Forecast tab (unified with What-If) ── -->
         <div id="plan-forecast">
-          <!-- Time range selector -->
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-            <span style="font-family:var(--mono); font-size:clamp(9px,1.4vw,10px); color:var(--text3); letter-spacing:.1em; text-transform:uppercase;">Projection range</span>
+
+          <!-- Top toolbar: range + What-If toggle -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Range</span>
             <button class="fc-range-btn active" data-months="2" onclick="setForecastRange(2,this)">2 Mo</button>
             <button class="fc-range-btn" data-months="3" onclick="setForecastRange(3,this)">3 Mo</button>
             <button class="fc-range-btn" data-months="6" onclick="setForecastRange(6,this)">6 Mo</button>
             <button class="fc-range-btn" data-months="12" onclick="setForecastRange(12,this)">12 Mo</button>
-            <button class="fc-range-btn" data-months="0" onclick="setForecastRange(0,this)">End of Year</button>
+            <button class="fc-range-btn" data-months="0" onclick="setForecastRange(0,this)">Year</button>
+            <div style="flex:1;"></div>
+            <button id="wi-drawer-btn" class="fc-range-btn" onclick="toggleWiDrawer()" style="letter-spacing:.06em;">What If ▾</button>
           </div>
+
           <!-- Account balance selector -->
           <div id="fc-acct-chips" class="fc-acct-chips"></div>
           <div id="fc-custom-bal" class="fc-custom-bal">
@@ -3060,6 +3045,83 @@
             <input type="text" inputmode="decimal" class="math-input" id="fc-custom-bal-input" placeholder="$0.00" onblur="applyCustomBalance()">
             <button class="fc-range-btn" onclick="applyCustomBalance()">Apply</button>
           </div>
+
+          <!-- ── What-If drawer (collapsible) ── -->
+          <div id="wi-drawer" style="display:none;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:12px;overflow:hidden;">
+            <!-- Drawer header -->
+            <div style="background:var(--bg2);padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+              <span style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">What If Scenario</span>
+              <div style="flex:1;"></div>
+              <button class="sf-btn" onclick="wiProject()" id="wi-project-btn">Project →</button>
+              <button class="sf-btn" onclick="wiReset();wiProject()">Reset</button>
+              <button id="wi-apply-btn" class="sf-btn" onclick="wiApply()" disabled style="opacity:.5;">Apply to Month</button>
+            </div>
+
+            <!-- Impact bar -->
+            <div class="wi-impact-bar" id="wi-impact-bar" style="border-radius:0;border-left:none;border-right:none;">
+              <span class="wi-impact-label">Impact</span>
+              <span class="wi-impact-hint" id="wi-impact-hint">Adjust income or budgets below, then click Project</span>
+            </div>
+
+            <div style="padding:12px;display:flex;flex-direction:column;gap:12px;">
+              <!-- Scenario name row -->
+              <div>
+                <div class="wi-section-title" style="margin-bottom:6px;">Scenario</div>
+                <div class="wi-scen-row" style="margin-bottom:6px;">
+                  <input id="wi-name-inp" class="sf-input" type="text" placeholder="Scenario name…" value="">
+                  <button class="sf-btn" onclick="wiSaveScenario()">Save</button>
+                  <button class="sf-btn" onclick="wiDupeScenario()" title="Duplicate">⧉</button>
+                  <button class="sf-btn" onclick="wiNewScenario()">+ New</button>
+                </div>
+                <div class="wi-chips-row" id="wi-chips"></div>
+              </div>
+
+              <!-- Income override -->
+              <div>
+                <div class="wi-section-title" style="margin-bottom:6px;">Income Override — <span id="wi-month-label"></span></div>
+                <div class="wi-income-compare">
+                  <div class="wi-ic-card">
+                    <div class="wi-ic-label">Real</div>
+                    <div class="wi-ic-val" id="wi-income-real">—</div>
+                  </div>
+                  <div class="wi-ic-card" id="wi-income-sc-card" style="border-color:var(--border);">
+                    <div class="wi-ic-label">Scenario</div>
+                    <div class="wi-ic-val" id="wi-income-sc">—</div>
+                    <input class="wi-ic-inp" id="wi-income-inp" type="text" inputmode="decimal"
+                      placeholder="Override income…" title="Supports: +500, *1.1, =4200"
+                      onchange="wiIncomeChange(this)"
+                      onkeydown="if(event.key==='Enter')this.blur()">
+                  </div>
+                </div>
+                <div class="wi-surplus-pills" id="wi-surplus-pills"></div>
+              </div>
+
+              <!-- Budget adjustments -->
+              <div>
+                <div class="wi-section-title" style="margin-bottom:4px;">
+                  Budget Adjustments
+                  <span style="font-family:var(--sans);color:var(--text3);font-size:10px;letter-spacing:0;text-transform:none;font-weight:400;"> — supports +50, -20, *1.1, =0</span>
+                </div>
+                <div id="wi-buckets-content"></div>
+              </div>
+
+              <!-- Free-up tool -->
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--border);">
+                <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">Free up:</span>
+                <input id="wi-target-input" type="text" inputmode="decimal" placeholder="$0"
+                  style="width:72px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 7px;">
+                <button class="sf-btn" onclick="wiFreeUp()">Apply</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active scenario banner -->
+          <div id="fc-scenario-row" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:7px 10px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);">
+            <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--amber);">◉ SCENARIO</span>
+            <span id="fc-scenario-name" style="font-family:var(--mono);font-size:11px;color:var(--text);"></span>
+            <button onclick="fcClearScenario()" style="margin-left:auto;border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:var(--r);cursor:pointer;">Clear Scenario</button>
+          </div>
+
           <!-- Planned expenses -->
           <div class="fc-planned-form">
             <div class="fc-planned-head" onclick="togglePlannedForm()">
@@ -3080,110 +3142,19 @@
               <div class="fc-planned-list" id="fc-planned-list"></div>
             </div>
           </div>
-          <!-- What-If scenario selector -->
-          <div id="fc-scenario-row" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:7px 10px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);">
-            <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--amber);">SCENARIO</span>
-            <span id="fc-scenario-name" style="font-family:var(--mono);font-size:11px;color:var(--text);"></span>
-            <button onclick="fcClearScenario()" style="margin-left:auto;border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:var(--r);cursor:pointer;">Clear</button>
-          </div>
-          <div id="fc-scenario-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;"></div>
-          <!-- Loading -->
-          <div id="forecast-loading" style="display:none; padding:20px; text-align:center; font-family:var(--mono); font-size:11px; color:var(--text3); letter-spacing:.1em;">LOADING FORECAST...</div>
-          <!-- Content -->
+
+          <!-- Loading + content -->
+          <div id="forecast-loading" style="display:none;padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;">LOADING FORECAST...</div>
           <div id="forecast-content"></div>
         </div>
 
-        <!-- Cash Flow Timeline tab -->
+        <!-- ── Timeline tab ── -->
         <div id="plan-calendar" style="display:none">
           <div id="cashflow-content">
             <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
           </div>
         </div>
 
-        <!-- What-If tab -->
-        <script>
-        const _wiGroups = {{ category_groups | tojson }};
-        const _wiRts    = {{ rts }};
-        const _wiGrand  = {{ grand | tojson }};
-        const _wiMid    = "{{ active_mid }}";
-        const _wiPcks   = {{ paychecks | tojson }};
-        </script>
-        <!-- What-If tab -->
-        <div id="plan-whatif" style="display:none">
-          <div class="wi-wrap">
-            <!-- Impact bar -->
-            <div class="wi-impact-bar" id="wi-impact-bar">
-              <span class="wi-impact-label">Impact</span>
-              <span class="wi-impact-hint" id="wi-impact-hint">No changes yet — adjust income or budgets below</span>
-            </div>
-
-            <div class="wi-pane-cols">
-              <!-- Left panel -->
-              <div class="wi-pane-left" id="wi-left-panel">
-                <!-- Scenario name + save/dupe/new/load -->
-                <div class="wi-section">
-                  <div class="wi-section-title">Scenario</div>
-                  <div class="wi-scen-row">
-                    <input id="wi-name-inp" class="sf-input" type="text" placeholder="Scenario name…" value="">
-                    <button class="sf-btn" onclick="wiSaveScenario()">Save</button>
-                    <button class="sf-btn" onclick="wiDupeScenario()" title="Duplicate">⧉</button>
-                    <button class="sf-btn" onclick="wiNewScenario()" title="New blank">+ New</button>
-                  </div>
-                  <div class="wi-chips-row" id="wi-chips"></div>
-                </div>
-
-                <!-- Income override -->
-                <div class="wi-section">
-                  <div class="wi-section-title">Projected Income — <span id="wi-month-label"></span></div>
-                  <div class="wi-income-compare">
-                    <div class="wi-ic-card">
-                      <div class="wi-ic-label">Real</div>
-                      <div class="wi-ic-val" id="wi-income-real">—</div>
-                    </div>
-                    <div class="wi-ic-card" id="wi-income-sc-card" style="border-color:var(--border);">
-                      <div class="wi-ic-label">Scenario</div>
-                      <div class="wi-ic-val" id="wi-income-sc">—</div>
-                      <input class="wi-ic-inp" id="wi-income-inp" type="text" inputmode="decimal"
-                        placeholder="Override income…" title="Supports: +500, *1.1, =4200"
-                        onchange="wiIncomeChange(this)"
-                        onkeydown="if(event.key==='Enter')this.blur()">
-                    </div>
-                  </div>
-                  <div class="wi-surplus-pills" id="wi-surplus-pills"></div>
-                </div>
-
-                <!-- Budget adjustments -->
-                <div class="wi-section-title">Budget Adjustments <span style="font-family:var(--sans);color:var(--text3);font-size:10px;letter-spacing:0;text-transform:none;font-weight:400;">— supports +50, -20, *1.1, =0</span></div>
-                <div id="wi-buckets-content"></div>
-
-                <!-- Apply / free-up -->
-                <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center;">
-                  <button id="wi-apply-btn" class="sf-btn" onclick="wiApply()" disabled>Apply to Month</button>
-                  <button class="sf-btn" onclick="wiReset()">Reset</button>
-                  <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">Free up:</span>
-                  <input id="wi-target-input" type="text" inputmode="decimal" placeholder="$0" style="width:72px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 7px;">
-                  <button class="sf-btn" onclick="wiFreeUp()">Apply</button>
-                </div>
-              </div>
-
-              <!-- Right panel: 6-month projection -->
-              <div class="wi-pane-right">
-                <div class="wi-6mo-panel">
-                  <div class="wi-6mo-title">
-                    6-Month View
-                    <div class="wi-6mo-toggle">
-                      <button id="wi6-rts-btn" class="active" onclick="wiSet6Mode('rts')">RTS</button>
-                      <button id="wi6-inc-btn" onclick="wiSet6Mode('income')">Income</button>
-                    </div>
-                  </div>
-                  <div class="wi-6mo-bars" id="wi-6mo-bars"></div>
-                  <div class="wi-6mo-labels" id="wi-6mo-labels"></div>
-                  <div class="wi-6mo-vals" id="wi-6mo-vals"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div><!-- end plan mode -->
 
     </div>
@@ -3569,6 +3540,18 @@ function refreshValues(state) {
     if (badge) {
       badge.textContent = state.unassigned_count > 0 ? `${state.unassigned_count} unassigned` : '';
       badge.style.display = state.unassigned_count > 0 ? '' : 'none';
+    }
+  }
+  // Overspent badge in header
+  if (state.over_count !== undefined) {
+    const ob = document.getElementById('over-badge');
+    if (ob) {
+      if (state.over_count > 0) {
+        ob.textContent = `${state.over_count} overspent`;
+        ob.style.display = '';
+      } else {
+        ob.style.display = 'none';
+      }
     }
   }
 }
@@ -4165,14 +4148,17 @@ async function switchBucketType(select, id) {
   const toggles      = settingsRow.querySelectorAll('.sf-check');
 
   expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
-  savingsGroup.style.display = (type === 'sinking' || type === 'goal') ? '' : 'none';
+  savingsGroup.style.display = (type === 'savings') ? '' : 'none';
   vaultGroup.style.display   = type === 'vault' ? '' : 'none';
-  // Hide toggles for vault (rollover/recurring/skip don't apply)
+  // Hide toggles for vault (rollover/recurring/skip don't apply); for savings rollover is always on
   toggles.forEach(t => { t.style.display = type === 'vault' ? 'none' : ''; });
 
   const result = await saveSetting('bucket_type', id, type, '');
+  // Auto-configure rollover based on type
   if (type === 'vault') {
     await saveSetting('bucket_rollover', id, false, '');
+  } else if (type === 'savings') {
+    await saveSetting('bucket_rollover', id, true, '');
   }
   if (result && result.ok) refreshValues(result);
 }
@@ -5193,10 +5179,6 @@ async function loadReports() {
     _reportsData = data;
     renderReportSummary(data);
     renderReportBudget(data);
-    renderReportTrends(data);
-    renderReportCashFlow(data);
-    renderReportYTD(data);
-    renderReportIncome(data);
     renderReportNetWorth(data);
   } catch(e) {
     console.error('loadReports error', e);
@@ -5270,7 +5252,19 @@ function renderReportSummary(data) {
 
 function renderReportBudget(data) {
   const cats = data.category_breakdown || [];
+  const s = data.summary || {};
   let html = `<button class="rpt-export-btn" onclick="exportCSV()">&#11015; Export CSV</button>`;
+
+  // Month totals row — use "budget" (target) if set, else fall back to allocated
+  const totalBudget = cats.reduce((a, c) => a + (c.budget || c.allocated || 0), 0);
+  const totalSpent  = cats.reduce((a, c) => a + (c.spent || 0), 0);
+  const totalDelta  = totalBudget - totalSpent;
+  const deltaClass  = totalDelta >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+  html += `<div class="report-kpi-row" style="margin-bottom:16px">
+    <div class="report-kpi"><div class="report-kpi-label">Budgeted</div><div class="report-kpi-val accent">${fmtMoney(totalBudget)}</div></div>
+    <div class="report-kpi"><div class="report-kpi-label">Actual</div><div class="report-kpi-val" style="color:var(--amber)">${fmtMoney(totalSpent)}</div></div>
+    <div class="report-kpi"><div class="report-kpi-label">Remaining</div><div class="report-kpi-val" style="${deltaClass}">${fmtMoney(totalDelta)}</div></div>
+  </div>`;
 
   if (cats.length === 0) {
     html += `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No budget data for this month.</div>`;
@@ -5278,21 +5272,40 @@ function renderReportBudget(data) {
     return;
   }
 
+  // Column headers
+  html += `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:4px 10px;font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;padding:0 0 4px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+    <span>Category / Bucket</span>
+    <span style="text-align:right">Budgeted</span>
+    <span style="text-align:right">Actual</span>
+    <span style="text-align:right">Left</span>
+  </div>`;
+
   cats.forEach((cat, ci) => {
-    const pct = Math.min(cat.pct_spent || 0, 100);
-    const overClass = cat.over ? 'over' : 'ok';
-    html += `<div class="report-section-head" style="cursor:pointer" onclick="toggleBuckets('rpt-buckets-${ci}')">
-      <span>${cat.name}</span>
-      <span style="float:right;font-family:var(--mono);font-size:clamp(9px,1.3vw,10px);color:${cat.over ? 'var(--red)' : 'var(--text3)'}">${fmtMoney(cat.spent)} / ${fmtMoney(cat.allocated)}</span>
+    const catBudget = cat.budget || cat.allocated || 0;
+    const catSpent  = cat.spent || 0;
+    const catDelta  = catBudget - catSpent;
+    const catOver   = catDelta < 0;
+    const pct       = catBudget > 0 ? Math.min(catSpent / catBudget * 100, 100) : (catSpent > 0 ? 100 : 0);
+
+    html += `<div onclick="toggleBuckets('rpt-buckets-${ci}')" style="cursor:pointer;display:grid;grid-template-columns:1fr auto auto auto;gap:4px 10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);">
+      <span style="color:var(--text2);font-weight:600;">${cat.name}</span>
+      <span style="text-align:right;color:var(--text3)">${fmtMoney(catBudget)}</span>
+      <span style="text-align:right;color:var(--amber)">${fmtMoney(catSpent)}</span>
+      <span style="text-align:right;${catOver?'color:var(--red)':'color:var(--green)'}">${fmtMoney(catDelta)}</span>
     </div>`;
-    html += `<div class="rpt-bar-track"><div class="rpt-bar-fill ${overClass}" style="width:${pct}%"></div></div>`;
-    html += `<div id="rpt-buckets-${ci}" class="rpt-bucket-list" style="display:none">`;
+    html += `<div class="rpt-bar-track" style="margin-bottom:2px"><div class="rpt-bar-fill ${catOver?'over':'ok'}" style="width:${pct.toFixed(1)}%"></div></div>`;
+
+    html += `<div id="rpt-buckets-${ci}" class="rpt-bucket-list" style="display:none;margin-bottom:4px">`;
     (cat.buckets || []).forEach(b => {
-      const overAmt = b.spent > b.allocated && b.allocated > 0;
-      html += `<div class="rpt-bucket-row">
-        <span class="rpt-bucket-name">${b.name}</span>
-        <span class="rpt-bucket-amt ${overAmt ? 'rpt-bucket-over' : ''}">${fmtMoney(b.spent)} / ${fmtMoney(b.allocated)}</span>
-        ${b.status ? `<span style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:8px">${b.status}</span>` : ''}
+      const bBudget = b.budget || b.allocated || 0;
+      const bSpent  = b.spent || 0;
+      const bDelta  = bBudget - bSpent;
+      const bOver   = bDelta < 0 && bBudget > 0;
+      html += `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:4px 10px;align-items:center;padding:4px 0 4px 12px;font-family:var(--mono);font-size:clamp(10px,1.4vw,11px);">
+        <span style="color:var(--text3)">${b.name}${b.status ? ` <span style="opacity:.6">${b.status}</span>` : ''}</span>
+        <span style="text-align:right;color:var(--text3)">${fmtMoney(bBudget)}</span>
+        <span style="text-align:right;color:var(--amber)">${fmtMoney(bSpent)}</span>
+        <span style="text-align:right;${bOver?'color:var(--red)':'color:var(--text3)'}">${fmtMoney(bDelta)}</span>
       </div>`;
     });
     html += `</div>`;
@@ -5306,234 +5319,6 @@ function toggleBuckets(id) {
   if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
 }
 
-function renderReportTrends(data) {
-  const trends = data.monthly_trends || [];
-  if (trends.length === 0) {
-    document.getElementById('report-trends-content').innerHTML =
-      `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No trend data available.</div>`;
-    return;
-  }
-
-  const svgW = 800, svgH = 300, padL = 60, padR = 20, padT = 20, padB = 50;
-  const chartW = svgW - padL - padR;
-  const chartH = svgH - padT - padB;
-  const maxVal = Math.max(...trends.map(m => Math.max(m.income || 0, m.spent || 0)), 1);
-  const n = trends.length;
-  const slotW = chartW / n;
-  const barW = Math.floor(slotW * 0.35);
-  const gap = Math.floor(slotW * 0.05);
-
-  // Grid lines
-  let gridLines = '';
-  for (let i = 0; i <= 4; i++) {
-    const y = padT + (chartH / 4) * i;
-    const val = maxVal * (1 - i / 4);
-    gridLines += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
-    gridLines += `<text x="${padL - 4}" y="${y + 4}" text-anchor="end" font-family="monospace" font-size="10" fill="var(--text3)">${fmtMoney(val).replace(/\.00$/, '')}</text>`;
-  }
-
-  // Bars and labels
-  let bars = '';
-  let labels = '';
-  trends.forEach((m, i) => {
-    const slotX = padL + i * slotW;
-    const centerX = slotX + slotW / 2;
-    const incomeH = ((m.income || 0) / maxVal) * chartH;
-    const spentH = ((m.spent || 0) / maxVal) * chartH;
-    const incomeX = centerX - barW - gap / 2;
-    const spentX = centerX + gap / 2;
-    bars += `<rect x="${incomeX.toFixed(1)}" y="${(padT + chartH - incomeH).toFixed(1)}" width="${barW}" height="${incomeH.toFixed(1)}" fill="var(--green)" rx="2"/>`;
-    bars += `<rect x="${spentX.toFixed(1)}" y="${(padT + chartH - spentH).toFixed(1)}" width="${barW}" height="${spentH.toFixed(1)}" fill="var(--amber)" rx="2"/>`;
-    labels += `<text x="${centerX.toFixed(1)}" y="${svgH - padB + 14}" text-anchor="middle" font-family="monospace" font-size="9" fill="var(--text3)">${m.label}</text>`;
-  });
-
-  // Legend
-  const legend = `<g transform="translate(${padL}, ${svgH - 12})">
-    <rect x="0" y="-8" width="10" height="10" fill="var(--green)" rx="2"/>
-    <text x="14" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Income</text>
-    <rect x="70" y="-8" width="10" height="10" fill="var(--amber)" rx="2"/>
-    <text x="84" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Spending</text>
-  </g>`;
-
-  const svg = `<svg viewBox="0 0 ${svgW} ${svgH}" width="100%" height="auto" style="display:block;overflow:visible">
-    ${gridLines}
-    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
-    <line x1="${padL}" y1="${padT + chartH}" x2="${svgW - padR}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
-    ${bars}
-    ${labels}
-    ${legend}
-  </svg>`;
-
-  document.getElementById('report-trends-content').innerHTML =
-    `<div class="report-section-head">Income vs Spending — Last 12 Months</div>` + svg;
-}
-
-function renderReportCashFlow(data) {
-  const weeks = data.cash_flow || [];
-  const el = document.getElementById('report-cashflow-content');
-  if (!el) return;
-  if (weeks.length === 0) {
-    el.innerHTML = `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No cash flow data for this month.</div>`;
-    return;
-  }
-
-  const svgW = 700, svgH = 260, padL = 60, padR = 20, padT = 20, padB = 50;
-  const chartW = svgW - padL - padR;
-  const chartH = svgH - padT - padB;
-  const maxVal = Math.max(...weeks.map(w => Math.max(w.income, w.spending)), 1);
-  const n = weeks.length;
-  const slotW = chartW / n;
-  const barW = Math.floor(slotW * 0.32);
-  const gap = Math.floor(slotW * 0.04);
-
-  let gridLines = '';
-  for (let i = 0; i <= 4; i++) {
-    const y = padT + (chartH / 4) * i;
-    const val = maxVal * (1 - i / 4);
-    gridLines += `<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>`;
-    gridLines += `<text x="${padL - 4}" y="${y + 4}" text-anchor="end" font-family="monospace" font-size="10" fill="var(--text3)">${fmtMoney(val).replace(/\.00$/, '')}</text>`;
-  }
-
-  let bars = '', labels = '';
-  weeks.forEach((w, i) => {
-    const slotX = padL + i * slotW;
-    const cx = slotX + slotW / 2;
-    const incH = (w.income / maxVal) * chartH;
-    const spdH = (w.spending / maxVal) * chartH;
-    const incX = cx - barW - gap / 2;
-    const spdX = cx + gap / 2;
-    bars += `<rect x="${incX.toFixed(1)}" y="${(padT + chartH - incH).toFixed(1)}" width="${barW}" height="${incH.toFixed(1)}" fill="var(--green)" rx="2"/>`;
-    bars += `<rect x="${spdX.toFixed(1)}" y="${(padT + chartH - spdH).toFixed(1)}" width="${barW}" height="${spdH.toFixed(1)}" fill="var(--amber)" rx="2"/>`;
-    labels += `<text x="${cx.toFixed(1)}" y="${svgH - padB + 14}" text-anchor="middle" font-family="monospace" font-size="9" fill="var(--text3)">${w.week}</text>`;
-  });
-
-  const legend = `<g transform="translate(${padL},${svgH - 12})">
-    <rect x="0" y="-8" width="10" height="10" fill="var(--green)" rx="2"/>
-    <text x="14" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Income</text>
-    <rect x="70" y="-8" width="10" height="10" fill="var(--amber)" rx="2"/>
-    <text x="84" y="0" font-family="monospace" font-size="10" fill="var(--text2)">Spending</text>
-  </g>`;
-
-  const svg = `<svg viewBox="0 0 ${svgW} ${svgH}" width="100%" height="auto" style="display:block;overflow:visible">
-    ${gridLines}
-    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
-    <line x1="${padL}" y1="${padT + chartH}" x2="${svgW - padR}" y2="${padT + chartH}" stroke="var(--border)" stroke-width="1"/>
-    ${bars}${labels}${legend}
-  </svg>`;
-
-  let tableRows = weeks.map(w =>
-    `<tr>
-      <td style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text2)">${w.week}</td>
-      <td class="col-amount" style="color:var(--green);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(w.income)}</td>
-      <td class="col-amount" style="color:var(--amber);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(w.spending)}</td>
-    </tr>`
-  ).join('');
-
-  el.innerHTML = `<div class="report-section-head">Cash Flow — Weekly Breakdown</div>
-    ${svg}
-    <table class="data-table" style="margin-top:16px">
-      <thead><tr><th>Week</th><th class="col-amount">Income</th><th class="col-amount">Spending</th></tr></thead>
-      <tbody>${tableRows}</tbody>
-    </table>`;
-}
-
-function renderReportYTD(data) {
-  const ytd = data.ytd || {};
-  const el = document.getElementById('report-ytd-content');
-  if (!el) return;
-
-  const inc = ytd.income || 0;
-  const spd = ytd.spending || 0;
-  const sav = ytd.savings || 0;
-  const rate = ytd.savings_rate || 0;
-  const months = ytd.months || [];
-
-  const savClass = sav >= 0 ? 'pos' : 'neg';
-  const barPct = inc > 0 ? Math.min(100, Math.round(spd / inc * 100)) : 0;
-
-  let html = `<div class="report-section-head">Year-to-Date Summary</div>
-    <div class="report-kpi-row">
-      <div class="report-kpi"><div class="report-kpi-label">YTD Income</div><div class="report-kpi-val pos">${fmtMoney(inc)}</div></div>
-      <div class="report-kpi"><div class="report-kpi-label">YTD Spending</div><div class="report-kpi-val" style="color:var(--amber)">${fmtMoney(spd)}</div></div>
-      <div class="report-kpi"><div class="report-kpi-label">YTD Savings</div><div class="report-kpi-val ${savClass}">${fmtMoney(sav)}</div></div>
-      <div class="report-kpi"><div class="report-kpi-label">Savings Rate</div><div class="report-kpi-val accent">${rate}%</div></div>
-    </div>`;
-
-  if (inc > 0) {
-    html += `<div class="report-section-head">Income vs Spending</div>
-      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:4px">Spending: ${barPct}% of income</div>
-      <div class="rpt-bar-track" style="height:16px;border-radius:4px">
-        <div class="rpt-bar-fill ${spd > inc ? 'over' : 'ok'}" style="width:${barPct}%;height:100%"></div>
-      </div>`;
-  }
-
-  if (months.length > 0) {
-    const monthMax = Math.max(...months.map(m => Math.max(m.income, m.spending)), 1);
-    let tableRows = months.map(m => {
-      const saved = m.income - m.spending;
-      const savedClass = saved >= 0 ? 'color:var(--green)' : 'color:var(--red)';
-      return `<tr>
-        <td style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text2)">${m.label}</td>
-        <td class="col-amount" style="color:var(--green);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(m.income)}</td>
-        <td class="col-amount" style="color:var(--amber);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(m.spending)}</td>
-        <td class="col-amount" style="${savedClass};font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(saved)}</td>
-      </tr>`;
-    }).join('');
-    html += `<div class="report-section-head">Monthly Breakdown</div>
-      <table class="data-table">
-        <thead><tr><th>Month</th><th class="col-amount">Income</th><th class="col-amount">Spending</th><th class="col-amount">Saved</th></tr></thead>
-        <tbody>${tableRows}</tbody>
-      </table>`;
-  }
-
-  el.innerHTML = html;
-}
-
-function renderReportIncome(data) {
-  const sources = data.income_sources || [];
-  const el = document.getElementById('report-income-content');
-  if (!el) return;
-
-  const total = sources.reduce((a, s) => a + s.total, 0);
-  let html = `<div class="report-section-head">Income This Month</div>
-    <div class="report-kpi-row">
-      <div class="report-kpi"><div class="report-kpi-label">Total Income</div><div class="report-kpi-val pos">${fmtMoney(total)}</div></div>
-      <div class="report-kpi"><div class="report-kpi-label">Sources</div><div class="report-kpi-val accent">${sources.length}</div></div>
-    </div>`;
-
-  if (sources.length === 0) {
-    html += `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0">No income recorded this month.</div>`;
-    el.innerHTML = html;
-    return;
-  }
-
-  html += `<div class="report-section-head">By Source</div>`;
-  sources.forEach(s => {
-    html += `<div class="rpt-cat-row">
-      <div class="rpt-cat-name">
-        <span>${s.name}</span>
-        <span class="rpt-cat-amounts">${fmtMoney(s.total)}</span>
-      </div>
-      <div class="rpt-bar-track"><div class="rpt-bar-fill ok" style="width:${s.pct}%"></div></div>
-    </div>`;
-  });
-
-  let tableRows = sources.map(s =>
-    `<tr>
-      <td class="col-name" style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${s.name}</td>
-      <td class="col-amount" style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text3)">${s.count}×</td>
-      <td class="col-amount" style="color:var(--green);font-family:var(--mono);font-size:clamp(10px,1.5vw,12px)">${fmtMoney(s.total)}</td>
-      <td class="col-amount" style="font-family:var(--mono);font-size:clamp(10px,1.5vw,12px);color:var(--text3)">${s.pct}%</td>
-    </tr>`
-  ).join('');
-
-  html += `<table class="data-table" style="margin-top:16px">
-    <thead><tr><th class="col-name">Source</th><th class="col-amount">Count</th><th class="col-amount">Total</th><th class="col-amount">% of Income</th></tr></thead>
-    <tbody>${tableRows}</tbody>
-  </table>`;
-
-  el.innerHTML = html;
-}
 
 function renderReportNetWorth(data) {
   const nw = data.net_worth || {};
@@ -5646,13 +5431,70 @@ let _fcActiveSc      = null;  // What-If scenario applied to forecast
 let _forecastExtras  = [];   // planned expenses
 
 function showPlanTab(name, btn) {
-  ['forecast','calendar','whatif'].forEach(t => {
+  ['forecast','calendar'].forEach(t => {
     const el = document.getElementById('plan-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
   document.querySelectorAll('#more-mode-plan .acct-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  if (name === 'whatif') initWhatIf();
+  if (name === 'forecast') initForecast();
+}
+
+/* ── What-If drawer toggle ─────────────────────────────────────────── */
+function toggleWiDrawer() {
+  const drawer = document.getElementById('wi-drawer');
+  const btn    = document.getElementById('wi-drawer-btn');
+  if (!drawer) return;
+  const opening = drawer.style.display === 'none';
+  drawer.style.display = opening ? '' : 'none';
+  if (btn) btn.textContent = opening ? 'What If ▴' : 'What If ▾';
+  if (opening) {
+    // Initialize WI state on first open
+    if (!Object.keys(_wiSimAllocs).length) {
+      _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+    }
+    // Set month label
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const lbl = document.getElementById('wi-month-label');
+    if (lbl) { const p = _wiMid.split('_'); lbl.textContent = monthNames[parseInt(p[2])] + ' ' + p[1]; }
+    _loadWiScenarios();  // async: fetches from Supabase, then renders chips
+    _renderWiBuckets();
+    _renderWiIncome();
+    _renderWiSurplus();
+    _renderWiImpact();
+  }
+}
+
+/* ── wiProject: apply current WI state to forecast ────────────────── */
+function wiProject() {
+  // Build a transient scenario from current WI state
+  const allocations = {};
+  _wiGroups.forEach(g => g.buckets.forEach(b => {
+    if (_wiSimAllocs[b.id] !== b.alloc) allocations[b.id] = _wiSimAllocs[b.id];
+  }));
+
+  const hasAllocChanges = Object.keys(allocations).length > 0;
+  const hasIncomeOverride = _wiIncomeSc !== null;
+  const hasSchedule = Object.keys(_wiSchedule).length > 0;
+
+  if (!hasAllocChanges && !hasIncomeOverride && !hasSchedule) {
+    // Nothing differs from real — just clear scenario and reload
+    _fcActiveSc = null;
+    loadForecast();
+    return;
+  }
+
+  // Build a synthetic scenario object for loadForecast
+  _fcActiveSc = {
+    id: '__wi_projection__',
+    name: document.getElementById('wi-name-inp')?.value?.trim() || 'What If Projection',
+    allocations,
+    incomeOverride: _wiIncomeSc,
+    schedule: _wiSchedule,
+  };
+
+  loadForecast();
+  showToast('Forecast updated with What If scenario', 'info');
 }
 
 /* ── What-If State ───────────────────────────────────────────────────────── */
@@ -5803,28 +5645,6 @@ function wiMonthsForward(fromMid, count) {
   return result;
 }
 
-/* ── Init ─────────────────────────────────────────────────────────── */
-function initWhatIf() {
-  if (!_wiGroups || !_wiGroups.length) {
-    document.getElementById('wi-buckets-content').innerHTML =
-      '<p style="color:var(--text3);font-family:var(--mono);font-size:11px;padding:20px 4px;">No budget categories found.</p>';
-    return;
-  }
-  _wiSimAllocs = {};
-  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
-  _wiIncomeSc = null;
-  _loadWiScenarios();
-  _renderWiChips();
-  _renderWiBuckets();
-  _renderWiImpact();
-  _renderWiIncome();
-  _renderWiSurplus();
-  _renderWi6Month();
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const parts = _wiMid.split('_');
-  const lbl = document.getElementById('wi-month-label');
-  if (lbl) lbl.textContent = monthNames[parseInt(parts[2])] + ' ' + parts[1];
-}
 
 /* ── Income override ──────────────────────────────────────────────── */
 function wiIncomeChange(inp) {
@@ -6025,14 +5845,43 @@ function _renderWi6Month() {
   `;
 }
 
-/* ── Scenarios ────────────────────────────────────────────────────── */
-function _loadWiScenarios() {
-  try { _wiScenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); }
-  catch { _wiScenarios = []; }
+/* ── Scenarios (Supabase-backed) ──────────────────────────────────── */
+async function _loadWiScenarios() {
+  try {
+    const r = await fetch('/api/scenarios').then(r => r.json());
+    if (r.ok) {
+      _wiScenarios = r.scenarios || [];
+      // Migrate any remaining localStorage scenarios on first run
+      const legacy = (() => { try { return JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); } catch { return []; } })();
+      if (legacy.length && !_wiScenarios.length) {
+        for (const s of legacy) {
+          await _apiSaveScenario(s);
+        }
+        localStorage.removeItem('bcc_wi_scenarios');
+        const r2 = await fetch('/api/scenarios').then(r => r.json());
+        if (r2.ok) _wiScenarios = r2.scenarios || [];
+      }
+    }
+  } catch { _wiScenarios = []; }
+  _renderWiChips();
 }
-function _saveWiScenarios() {
-  localStorage.setItem('bcc_wi_scenarios', JSON.stringify(_wiScenarios));
+
+async function _apiSaveScenario(s) {
+  try {
+    return await fetch('/api/scenarios', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(s),
+    }).then(r => r.json());
+  } catch { return {ok: false}; }
 }
+
+async function _apiDeleteScenario(id) {
+  try {
+    return await fetch('/api/scenarios/' + id, {method: 'DELETE'}).then(r => r.json());
+  } catch { return {ok: false}; }
+}
+
 function _renderWiChips() {
   const el = document.getElementById('wi-chips');
   if (!el) return;
@@ -6045,38 +5894,50 @@ function _renderWiChips() {
     </span>`;
   }).join('');
 }
-function wiSaveScenario() {
+
+async function wiSaveScenario() {
   const nameInp = document.getElementById('wi-name-inp');
   const name = (nameInp?.value || '').trim();
   if (!name) { showToast('Enter a scenario name first.', 'warning'); return; }
-  if (_wiScenarios.length >= 8 && !_wiScenarios.find(s => s.name === name)) {
-    showToast('Max 8 scenarios — delete one first.', 'warning'); return;
-  }
-  const allocs = {..._wiSimAllocs};
-  const sched  = JSON.parse(JSON.stringify(_wiSchedule));
+
+  const allocs   = {..._wiSimAllocs};
+  const sched    = JSON.parse(JSON.stringify(_wiSchedule));
   const existing = _wiScenarios.find(s => s.name === name);
+  const payload  = {
+    id:             existing?.id || null,
+    name,
+    allocations:    allocs,
+    incomeOverride: _wiIncomeSc,
+    schedule:       sched,
+    sortOrder:      existing?.sortOrder ?? _wiScenarios.length,
+  };
+
+  const r = await _apiSaveScenario(payload);
+  if (!r.ok) { showToast('Failed to save scenario.', 'error'); return; }
+
   if (existing) {
-    existing.allocations   = allocs;
-    existing.incomeOverride = _wiIncomeSc;
-    existing.schedule      = sched;
+    Object.assign(existing, {allocations: allocs, incomeOverride: _wiIncomeSc, schedule: sched});
     _wiActiveSc = existing;
   } else {
-    const s = {id: Date.now().toString(), name, allocations: allocs, incomeOverride: _wiIncomeSc, schedule: sched};
+    const s = {...payload, id: r.id};
     _wiScenarios.push(s);
     _wiActiveSc = s;
   }
-  _saveWiScenarios();
   _renderWiChips();
   showToast(`"${name}" saved`, 'success');
 }
-function wiDupeScenario() {
+
+async function wiDupeScenario() {
   if (!_wiActiveSc) { showToast('Load a scenario first.', 'warning'); return; }
-  const copy = {..._wiActiveSc, id: Date.now().toString(), name: _wiActiveSc.name + ' (copy)'};
+  const copy = {..._wiActiveSc, id: null, name: _wiActiveSc.name + ' (copy)', sortOrder: _wiScenarios.length};
+  const r = await _apiSaveScenario(copy);
+  if (!r.ok) { showToast('Failed to duplicate.', 'error'); return; }
+  copy.id = r.id;
   _wiScenarios.push(copy);
-  _saveWiScenarios();
   _renderWiChips();
   showToast(`Duplicated "${_wiActiveSc.name}"`, 'info');
 }
+
 function wiNewScenario() {
   _wiActiveSc = null;
   _wiIncomeSc = null;
@@ -6091,6 +5952,7 @@ function wiNewScenario() {
   _renderWiSurplus();
   _renderWi6Month();
 }
+
 function wiLoadScenario(id) {
   const s = _wiScenarios.find(s => s.id === id);
   if (!s) return;
@@ -6115,11 +5977,12 @@ function wiLoadScenario(id) {
   if (applyBtn) applyBtn.disabled = !hasChanges && _wiIncomeSc === null;
   showToast(`Loaded "${s.name}"`, 'info');
 }
-function wiDeleteScenario(id) {
+
+async function wiDeleteScenario(id) {
   const s = _wiScenarios.find(s => s.id === id);
   _wiScenarios = _wiScenarios.filter(s => s.id !== id);
   if (_wiActiveSc?.id === id) _wiActiveSc = null;
-  _saveWiScenarios();
+  await _apiDeleteScenario(id);
   _renderWiChips();
   if (s) showToast(`Deleted "${s.name}"`, 'info');
 }
@@ -6216,14 +6079,14 @@ function _renderFcScenarioChips() {
   const chipsEl = document.getElementById('fc-scenario-chips');
   const banner  = document.getElementById('fc-scenario-row');
   const nameEl  = document.getElementById('fc-scenario-name');
-  let scenarios = [];
-  try { scenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); } catch {}
-  if (!scenarios.length) {
+  if (!_wiScenarios.length) {
     if (chipsEl) chipsEl.innerHTML = '';
+    if (banner) banner.style.display = _fcActiveSc ? 'flex' : 'none';
+    if (nameEl && _fcActiveSc) nameEl.textContent = _fcActiveSc.name;
     return;
   }
   if (chipsEl) {
-    chipsEl.innerHTML = scenarios.map(s => {
+    chipsEl.innerHTML = _wiScenarios.map(s => {
       const isActive = _fcActiveSc?.id === s.id;
       return `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:3px;border:1px solid ${isActive?'var(--amber)':'var(--border2)'};background:${isActive?'color-mix(in srgb,var(--amber) 12%,transparent)':'var(--bg2)'};font-family:var(--mono);font-size:10px;cursor:pointer;color:${isActive?'var(--amber)':'var(--text)'};" onclick="fcApplyScenario('${s.id}')">${s.name}</span>`;
     }).join('');
@@ -6232,9 +6095,7 @@ function _renderFcScenarioChips() {
   if (nameEl && _fcActiveSc) nameEl.textContent = _fcActiveSc.name;
 }
 function fcApplyScenario(id) {
-  let scenarios = [];
-  try { scenarios = JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); } catch {}
-  const s = scenarios.find(s => s.id === id);
+  const s = _wiScenarios.find(s => s.id === id);
   if (!s) return;
   _fcActiveSc = _fcActiveSc?.id === id ? null : s;  // toggle
   loadForecast();
@@ -6281,10 +6142,12 @@ async function loadForecast() {
           .map(([mid]) => mid);
         if (offMids.length) bucketOffMonths[bid] = offMids;
       }
-      fetchOpts.body = JSON.stringify({
+      const body = {
         bucket_overrides:  _fcActiveSc.allocations || {},
         bucket_off_months: bucketOffMonths,
-      });
+      };
+      if (_fcActiveSc.incomeOverride != null) body.income_override = _fcActiveSc.incomeOverride;
+      fetchOpts.body = JSON.stringify(body);
     }
     const r = await fetch(url, fetchOpts);
     const data = await r.json();
