@@ -2033,14 +2033,16 @@
                   </div>
                 </div>
 
-                <!-- Toggles + archive (vault only shows archive) -->
+                <!-- Toggles + archive -->
                 <div class="sf-row sf-toggles">
-                  {% if b.type != 'vault' %}
+                  {% if b.type not in ('vault', 'savings') %}
                   <label class="sf-check">
                     <input type="checkbox" {% if b.rollover %}checked{% endif %}
                            onchange="saveSetting('bucket_rollover','{{ b.id }}',this.checked,'')">
                     Rollover
                   </label>
+                  {% endif %}
+                  {% if b.type != 'vault' %}
                   <label class="sf-check">
                     <input type="checkbox" {% if b.skipped %}checked{% endif %}
                            onchange="saveSetting('bucket_skip','{{ b.id }}',this.checked,'{{ active_mid }}')">
@@ -2145,8 +2147,29 @@
         </div>
       </form>
 
+      <!-- Ledger search bar -->
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+        <input type="text" id="ledger-search" placeholder="Search description…"
+          style="flex:1;min-width:120px;font-family:var(--mono);font-size:clamp(11px,1.7vw,12px);background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:5px 10px;"
+          oninput="filterLedger()">
+        <select id="ledger-filter-type" style="font-family:var(--mono);font-size:clamp(10px,1.6vw,11px);background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:5px 8px;" onchange="filterLedger()">
+          <option value="">All types</option>
+          <option value="out">Expense</option>
+          <option value="in">Income</option>
+          <option value="xfr">Transfer</option>
+        </select>
+        <select id="ledger-filter-account" style="font-family:var(--mono);font-size:clamp(10px,1.6vw,11px);background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:5px 8px;max-width:130px;" onchange="filterLedger()">
+          <option value="">All accounts</option>
+          {% for a in accounts %}
+          <option value="{{ a.id }}">{{ a.name }}</option>
+          {% endfor %}
+        </select>
+        <span id="ledger-filter-count" style="font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap;"></span>
+        <button onclick="clearLedgerFilter()" id="ledger-filter-clear" style="display:none;font-family:var(--mono);font-size:10px;background:none;border:1px solid var(--border2);color:var(--text3);border-radius:var(--r);padding:3px 8px;cursor:pointer;">Clear</button>
+      </div>
+
       <!-- Ledger table -->
-      <table class="data-table">
+      <table class="data-table" id="ledger-table">
         <thead>
           <tr>
             <td colspan="6" class="tbl-section-head">Ledger — {{ month_display }}</td>
@@ -2187,7 +2210,7 @@
           {% endif %}
           {% set amt_class = 'ledger-amt-in' if t.type == 'in' else ('ledger-amt-xfr' if t.type == 'xfr' else 'ledger-amt-out') %}
 
-          <tr id="ltx-{{ t.id }}" class="{{ row_class }}">
+          <tr id="ltx-{{ t.id }}" class="{{ row_class }}" data-tx-type="{{ t.type }}" data-acct-id="{{ t.account_id or '' }}">
             <td class="col-date col-m-hide" style="color:var(--text3); font-family:var(--mono); font-size:clamp(10px,1.5vw,11px);">
               {{ t.date }}
             </td>
@@ -2688,55 +2711,95 @@
         </table>
 
         {% if debt_accounts_display %}
-        <!-- Debt Projector -->
-        <div style="margin-top:16px;">
-          <div style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Payoff Projector</div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="col-name">Account</th>
-                <th class="col-amount">Balance</th>
-                <th class="col-amount col-m-hide">Monthly Payment</th>
-                <th class="col-amount">Est. Payoff</th>
-              </tr>
-            </thead>
-            <tbody>
+        <!-- Debt Payoff Calculator -->
+        <div id="debt-payoff-section" style="margin-top:20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Payoff Calculator</span>
+            <div style="flex:1;"></div>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">Strategy:</span>
+            <button class="fc-range-btn active" id="debt-strat-avalanche" onclick="setDebtStrategy('avalanche',this)" title="Highest APR first — saves most interest">Avalanche</button>
+            <button class="fc-range-btn" id="debt-strat-snowball" onclick="setDebtStrategy('snowball',this)" title="Lowest balance first — fastest wins">Snowball</button>
+          </div>
+
+          <!-- Extra payment input -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);">
+            <span style="font-family:var(--mono);font-size:11px;color:var(--text3);">Extra monthly payment:</span>
+            <input type="text" inputmode="decimal" id="debt-extra-payment" value="0" placeholder="$0"
+              style="width:80px;font-family:var(--mono);font-size:12px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 8px;"
+              oninput="renderDebtPayoff()">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">on top of minimums</span>
+            <div style="flex:1"></div>
+            <span id="debt-payoff-summary" style="font-family:var(--mono);font-size:11px;color:var(--text2);"></span>
+          </div>
+
+          <!-- Per-debt rows -->
+          <div id="debt-payoff-rows">
             {% for a in debt_accounts_display %}
             {% if a.balance > 0 %}
-            {% set monthly = a.debt_min_payment|float if a.debt_min_payment else 0 %}
-            {% set apr = a.debt_apr|float if a.debt_apr else 0 %}
-            {% if monthly > 0 %}
-              {% if apr > 0 %}
-                {# Amortization: months = -log(1 - bal*r/pmt) / log(1+r), r = apr/12/100 #}
-                {# Approximate in Jinja — we'll do this client-side #}
-                {% set months_est = (a.balance / monthly)|round(0,'ceil')|int %}
-              {% else %}
-                {% set months_est = (a.balance / monthly)|round(0,'ceil')|int %}
+            <div class="debt-payoff-row" id="dpr-{{ a.id }}"
+                 data-balance="{{ a.balance }}"
+                 data-apr="{{ a.debt_apr|float if a.debt_apr else 0 }}"
+                 data-min="{{ a.debt_min_payment|float if a.debt_min_payment else 0 }}"
+                 data-name="{{ a.name }}"
+                 data-color="{{ a.color }}"
+                 {% if a.is_promo %}data-promo="1" data-promo-end="{{ a.promo_end_date }}"{% endif %}
+                 style="border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;overflow:hidden;">
+              <!-- Header row -->
+              <div style="display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px 10px;align-items:center;padding:8px 12px;background:var(--bg2);cursor:pointer;" onclick="toggleDebtDetail('{{ a.id }}')">
+                <span class="acct-color-dot" style="background:{{ a.color }};width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+                <span style="font-family:var(--mono);font-size:clamp(11px,1.7vw,13px);color:var(--text);">{{ a.name }}</span>
+                <span style="font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);color:var(--red);">{{ a.balance|money }}</span>
+                {% if a.debt_apr %}<span style="font-family:var(--mono);font-size:10px;color:var(--text3);">{{ a.debt_apr }}% APR</span>{% endif %}
+                <span class="debt-payoff-date" id="dpd-{{ a.id }}" style="font-family:var(--mono);font-size:clamp(10px,1.5vw,11px);color:var(--amber);">—</span>
+              </div>
+              <!-- Promo alert -->
+              {% if a.is_promo and a.promo_end_date %}
+              <div style="padding:5px 12px;background:color-mix(in srgb,var(--amber) 8%,transparent);border-bottom:1px solid color-mix(in srgb,var(--amber) 20%,transparent);font-family:var(--mono);font-size:10px;color:var(--amber);">
+                ⚠ Promo rate — expires {{ a.promo_end_date }}. <span id="promo-advice-{{ a.id }}"></span>
+              </div>
               {% endif %}
-              <tr>
-                <td class="col-name"><span class="acct-color-dot" style="background:{{ a.color }}"></span>{{ a.name }}</td>
-                <td class="col-amount" style="color:var(--red)">{{ a.balance|money }}</td>
-                <td class="col-amount col-m-hide" style="color:var(--text3)">{{ monthly|money }}/mo</td>
-                <td class="col-amount debt-proj-payoff"
-                    data-balance="{{ a.balance }}"
-                    data-monthly="{{ monthly }}"
-                    data-apr="{{ apr }}"
-                    style="color:var(--amber);font-family:var(--mono);font-size:clamp(11px,1.7vw,12px)">
-                  — mo
-                </td>
-              </tr>
-            {% else %}
-              <tr>
-                <td class="col-name"><span class="acct-color-dot" style="background:{{ a.color }}"></span>{{ a.name }}</td>
-                <td class="col-amount" style="color:var(--red)">{{ a.balance|money }}</td>
-                <td class="col-amount col-m-hide" style="color:var(--text3);">—</td>
-                <td class="col-amount" style="color:var(--text3);font-family:var(--mono);font-size:11px;">Set min payment</td>
-              </tr>
-            {% endif %}
+              <!-- Detail drawer -->
+              <div id="debt-detail-{{ a.id }}" style="display:none;padding:12px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:10px;">
+                  <div style="background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center;">
+                    <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Balance</div>
+                    <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--red);">{{ a.balance|money }}</div>
+                  </div>
+                  <div style="background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center;">
+                    <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">APR</div>
+                    <div style="font-family:var(--mono);font-size:13px;font-weight:700;">{{ a.debt_apr or '0' }}%</div>
+                  </div>
+                  <div style="background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center;">
+                    <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Min Payment</div>
+                    <div style="font-family:var(--mono);font-size:13px;font-weight:700;">{{ a.debt_min_payment|float|money if a.debt_min_payment else '—' }}</div>
+                  </div>
+                  <div style="background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center;">
+                    <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Total Interest</div>
+                    <div class="debt-total-interest" id="dti-{{ a.id }}" style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--amber);">—</div>
+                  </div>
+                </div>
+                <!-- Payment customizer -->
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">Custom monthly payment:</span>
+                  <input type="text" inputmode="decimal" id="custom-pay-{{ a.id }}"
+                    placeholder="min payment"
+                    style="width:90px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 8px;"
+                    oninput="recalcDebtRow('{{ a.id }}')">
+                  <span style="font-family:var(--mono);font-size:10px;" id="custom-pay-result-{{ a.id }}"></span>
+                </div>
+                <!-- Balance-over-time mini bar chart -->
+                <div id="debt-chart-{{ a.id }}" style="margin-top:10px;"></div>
+              </div>
+            </div>
             {% endif %}
             {% endfor %}
-            </tbody>
-          </table>
+          </div>
+
+          <!-- Multi-debt strategy result -->
+          <div id="debt-strategy-panel" style="margin-top:8px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-family:var(--mono);font-size:11px;display:none;">
+            <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Strategy Result</div>
+            <div id="debt-strategy-detail"></div>
+          </div>
         </div>
         {% endif %}
 
@@ -2985,6 +3048,18 @@
 
       <!-- ── Reports mode ── -->
       <div id="more-mode-reports" style="display:none">
+        <!-- Month picker (independent from main app month) -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Month</span>
+          <div style="position:relative;display:inline-block;">
+            <select id="report-month-select" class="sf-input" style="font-family:var(--mono);font-size:clamp(10px,1.6vw,12px);padding:4px 28px 4px 10px;min-width:140px;cursor:pointer;" onchange="setReportMonth(this.value)">
+              {% for m in all_months_list %}
+              <option value="{{ m.id }}" {% if m.id == active_mid %}selected{% endif %}>{{ m.label }}{% if m.closed %} ✓{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <span id="report-month-status" style="font-family:var(--mono);font-size:10px;color:var(--text3);"></span>
+        </div>
         <!-- Sub-tabs -->
         <div class="more-mode-tabs" id="report-tabs" style="gap:0">
           <button class="more-mode-tab active" onclick="showReportTab('summary',this)">Summary</button>
@@ -4145,13 +4220,9 @@ async function switchBucketType(select, id) {
   const expenseGroup = settingsRow.querySelector('.sf-expense');
   const savingsGroup = settingsRow.querySelector('.sf-savings');
   const vaultGroup   = settingsRow.querySelector('.sf-vault');
-  const toggles      = settingsRow.querySelectorAll('.sf-check');
-
   expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
   savingsGroup.style.display = (type === 'savings') ? '' : 'none';
   vaultGroup.style.display   = type === 'vault' ? '' : 'none';
-  // Hide toggles for vault (rollover/recurring/skip don't apply); for savings rollover is always on
-  toggles.forEach(t => { t.style.display = type === 'vault' ? 'none' : ''; });
 
   const result = await saveSetting('bucket_type', id, type, '');
   // Auto-configure rollover based on type
@@ -4243,6 +4314,77 @@ async function vaultTransfer(vaultId, month) {
   }
 
   refreshValues(result);
+}
+
+/* ── Ledger: search / filter ── */
+function filterLedger() {
+  const q       = (document.getElementById('ledger-search')?.value || '').toLowerCase().trim();
+  const typeF   = document.getElementById('ledger-filter-type')?.value || '';
+  const acctF   = document.getElementById('ledger-filter-account')?.value || '';
+  const isActive = !!(q || typeF || acctF);
+
+  const clearBtn = document.getElementById('ledger-filter-clear');
+  const countEl  = document.getElementById('ledger-filter-count');
+  if (clearBtn) clearBtn.style.display = isActive ? '' : 'none';
+
+  const tbody = document.getElementById('ledger-body');
+  if (!tbody) return;
+
+  let visibleTx = 0;
+  let currentGroup = null;
+  const rows = tbody.querySelectorAll('tr');
+
+  // Reset group visibility
+  rows.forEach(row => { if (row.dataset.date) row._hasVisible = false; });
+
+  rows.forEach(row => {
+    // Date group header
+    if (row.dataset.date) {
+      currentGroup = row;
+      return;
+    }
+    // Settings expand rows — keep in sync with parent tx visibility
+    if (row.id && row.id.startsWith('tx-settings-')) return;
+
+    if (!row.id || !row.id.startsWith('ltx-')) return;
+
+    const desc      = (row.querySelector('.ledger-desc')?.textContent || '').toLowerCase();
+    const rowType   = row.dataset.txType  || '';
+    const rowAcct   = row.dataset.acctId  || '';
+
+    const matchQ    = !q     || desc.includes(q);
+    const matchType = !typeF || rowType === typeF;
+    const matchAcct = !acctF || rowAcct === acctF;
+
+    const visible = matchQ && matchType && matchAcct;
+    row.style.display = visible ? '' : 'none';
+
+    // Also hide/show corresponding settings row
+    const settingsRow = document.getElementById('tx-settings-' + row.id.slice(4));
+    if (settingsRow && !visible) settingsRow.style.display = 'none';
+
+    if (visible) {
+      visibleTx++;
+      if (currentGroup) currentGroup._hasVisible = true;
+    }
+  });
+
+  // Show/hide date group headers
+  rows.forEach(row => {
+    if (row.dataset.date) row.style.display = (!isActive || row._hasVisible) ? '' : 'none';
+  });
+
+  if (countEl) countEl.textContent = isActive ? `${visibleTx} result${visibleTx !== 1 ? 's' : ''}` : '';
+}
+
+function clearLedgerFilter() {
+  const s = document.getElementById('ledger-search');
+  const t = document.getElementById('ledger-filter-type');
+  const a = document.getElementById('ledger-filter-account');
+  if (s) s.value = '';
+  if (t) t.value = '';
+  if (a) a.value = '';
+  filterLedger();
 }
 
 /* ── Ledger: type change (show/hide bucket vs to-account cell) ── */
@@ -5167,13 +5309,20 @@ document.addEventListener('mousedown', e => {
 });
 
 /* ── Reports ── */
-let _reportsData = null;
+let _reportsData  = null;
+let _reportsMid   = ACTIVE_MID;
+
+function setReportMonth(mid) {
+  _reportsMid  = mid;
+  _reportsData = null;
+  loadReports();
+}
 
 async function loadReports() {
   const loading = document.getElementById('report-loading');
   if (loading) loading.style.display = '';
   try {
-    const r = await fetch('/api/reports?month=' + ACTIVE_MID);
+    const r = await fetch('/api/reports?month=' + _reportsMid);
     const data = await r.json();
     if (!data.ok) return;
     _reportsData = data;
@@ -6741,43 +6890,227 @@ function cftToggleWeek(hdr) {
 /* Legacy stub — keeps any old references from throwing */
 async function initBillCalendar() { await initCashflow(); }
 
-// ── Debt payoff projector ─────────────────────────────────────────────────────
-(function computeDebtPayoff() {
-  document.querySelectorAll('.debt-proj-payoff').forEach(cell => {
-    const balance = parseFloat(cell.dataset.balance) || 0;
-    const monthly = parseFloat(cell.dataset.monthly) || 0;
-    const apr     = parseFloat(cell.dataset.apr)     || 0;
-    if (!balance || !monthly) return;
+// ── Debt payoff calculator ────────────────────────────────────────────────────
+let _debtStrategy = 'avalanche';
+// Per-debt custom payment overrides: id → float (0 = use min)
+const _debtCustomPay = {};
 
-    let months;
-    if (apr > 0) {
-      const r = apr / 100 / 12;
-      // Amortization: if pmt <= interest, never pays off
-      if (monthly <= balance * r) {
-        cell.textContent = 'Never (pay more)';
-        cell.style.color = 'var(--red)';
-        return;
+function _debtPayoffMonths(balance, apr, payment) {
+  if (!balance || !payment) return Infinity;
+  if (apr > 0) {
+    const r = apr / 100 / 12;
+    if (payment <= balance * r) return Infinity;
+    return -Math.log(1 - balance * r / payment) / Math.log(1 + r);
+  }
+  return balance / payment;
+}
+
+function _debtTotalInterest(balance, apr, payment) {
+  if (!balance || !payment) return 0;
+  if (apr <= 0) return 0;
+  const r = apr / 100 / 12;
+  if (payment <= balance * r) return Infinity;
+  const months = _debtPayoffMonths(balance, apr, payment);
+  return Math.max(0, payment * months - balance);
+}
+
+function _monthLabel(monthsFromNow) {
+  if (!isFinite(monthsFromNow) || monthsFromNow > 1200) return null;
+  const d = new Date();
+  d.setMonth(d.getMonth() + Math.ceil(monthsFromNow));
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function setDebtStrategy(strategy, btn) {
+  _debtStrategy = strategy;
+  document.querySelectorAll('#debt-strat-avalanche,#debt-strat-snowball').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderDebtPayoff();
+}
+
+function toggleDebtDetail(id) {
+  const drawer = document.getElementById('debt-detail-' + id);
+  if (!drawer) return;
+  const open = drawer.style.display !== 'none';
+  drawer.style.display = open ? 'none' : 'block';
+  if (!open) renderDebtPayoff();
+}
+
+function recalcDebtRow(id) {
+  const inp = document.getElementById('custom-pay-' + id);
+  _debtCustomPay[id] = inp ? (parseFloat(inp.value) || 0) : 0;
+  renderDebtPayoff();
+}
+
+function renderDebtPayoff() {
+  const extra = parseFloat(document.getElementById('debt-extra-payment')?.value) || 0;
+
+  // Collect all debt rows
+  const rows = Array.from(document.querySelectorAll('#debt-payoff-rows .debt-payoff-row'));
+  if (!rows.length) return;
+
+  let debts = rows.map(row => ({
+    id:      row.id.replace('dpr-', ''),
+    name:    row.dataset.name || '',
+    balance: parseFloat(row.dataset.balance) || 0,
+    apr:     parseFloat(row.dataset.apr) || 0,
+    min:     parseFloat(row.dataset.min) || 0,
+    promo:   row.dataset.promo === '1',
+    promoEnd: row.dataset.promoEnd || '',
+  })).filter(d => d.balance > 0);
+
+  if (!debts.length) return;
+
+  // Sort by strategy
+  if (_debtStrategy === 'avalanche') {
+    debts.sort((a, b) => b.apr - a.apr);
+  } else {
+    debts.sort((a, b) => a.balance - b.balance);
+  }
+
+  // Apply custom payments — overrides the minimum for that debt
+  debts = debts.map(d => ({
+    ...d,
+    payment: (_debtCustomPay[d.id] > 0) ? _debtCustomPay[d.id] : d.min,
+  }));
+
+  // Multi-debt simulation: roll freed minimums + extra into next debt
+  // We'll do a month-by-month sim for up to 600 months
+  const MAX_MONTHS = 600;
+  const state = debts.map(d => ({ ...d, bal: d.balance, paid: 0, interest: 0, paidOffMonth: null }));
+  let extraPool = extra;
+
+  for (let m = 1; m <= MAX_MONTHS; m++) {
+    // First debt in order gets extra pool
+    let carryover = extraPool;
+    for (let i = 0; i < state.length; i++) {
+      const s = state[i];
+      if (s.paidOffMonth !== null) {
+        // Already paid — freed minimum cascades
+        carryover += s.payment;
+        continue;
       }
-      months = Math.ceil(-Math.log(1 - balance * r / monthly) / Math.log(1 + r));
-    } else {
-      months = Math.ceil(balance / monthly);
+      const r = s.apr / 100 / 12;
+      const interest = s.bal * r;
+      s.interest += interest;
+      const totalPay = Math.min(s.bal + interest, s.payment + (i === 0 ? carryover : 0));
+      s.bal = Math.max(0, s.bal + interest - totalPay);
+      s.paid += totalPay;
+      if (s.bal < 0.01) {
+        s.bal = 0;
+        s.paidOffMonth = m;
+        // Freed payment cascades to next debt
+        carryover = Math.max(0, totalPay - (s.payment + (i === 0 ? carryover : 0)));
+      } else {
+        carryover = 0;
+      }
+    }
+    if (state.every(s => s.paidOffMonth !== null)) break;
+  }
+
+  // Update per-debt header dates and detail interest
+  let totalInterest = 0;
+  let lastPayoffMonth = 0;
+  state.forEach(s => {
+    const dateEl = document.getElementById('dpd-' + s.id);
+    const intEl  = document.getElementById('dti-' + s.id);
+    const resEl  = document.getElementById('custom-pay-result-' + s.id);
+    const promoEl = document.getElementById('promo-advice-' + s.id);
+    totalInterest += s.interest;
+    if (s.paidOffMonth !== null) lastPayoffMonth = Math.max(lastPayoffMonth, s.paidOffMonth);
+
+    const lbl = s.paidOffMonth ? _monthLabel(s.paidOffMonth) : null;
+    if (dateEl) {
+      dateEl.textContent = lbl ? lbl : '30+ yrs';
+      dateEl.style.color = lbl ? 'var(--green)' : 'var(--red)';
+    }
+    if (intEl) {
+      intEl.textContent = isFinite(s.interest) ? '$' + s.interest.toFixed(0) : '∞';
+    }
+    if (resEl) {
+      if (_debtCustomPay[s.id] > 0) {
+        const singleMonths = _debtPayoffMonths(s.balance, s.apr, _debtCustomPay[s.id]);
+        const singleLabel  = _monthLabel(singleMonths);
+        resEl.textContent = singleLabel ? '→ ' + singleLabel : '→ never (pay more)';
+        resEl.style.color  = singleLabel ? 'var(--green)' : 'var(--red)';
+      } else {
+        resEl.textContent = '';
+      }
+    }
+    // Promo advice: how much per month to clear before promo expires?
+    if (promoEl && s.promo && s.promoEnd) {
+      const end = new Date(s.promoEnd);
+      const now = new Date();
+      const moLeft = Math.max(1, (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth()));
+      const needed = Math.ceil(s.balance / moLeft);
+      promoEl.textContent = 'Pay $' + needed + '/mo to clear before promo ends.';
     }
 
-    const payoffDate = new Date();
-    payoffDate.setMonth(payoffDate.getMonth() + months);
-    const yr = payoffDate.getFullYear();
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][payoffDate.getMonth()];
-
-    if (months > 360) {
-      cell.textContent = '30+ years';
-      cell.style.color = 'var(--red)';
-    } else if (months === 1) {
-      cell.textContent = '1 month (' + mo + ' ' + yr + ')';
-    } else {
-      cell.textContent = months + ' mo (' + mo + ' ' + yr + ')';
-    }
+    // Mini balance-over-time bar chart
+    _renderDebtMiniChart(s);
   });
-})();
+
+  // Summary line
+  const summaryEl = document.getElementById('debt-payoff-summary');
+  if (summaryEl) {
+    const debtFreeLabel = _monthLabel(lastPayoffMonth);
+    summaryEl.textContent = debtFreeLabel
+      ? 'Debt-free: ' + debtFreeLabel + ' · $' + totalInterest.toFixed(0) + ' total interest'
+      : 'Debt-free: 30+ years · increase payments';
+    summaryEl.style.color = debtFreeLabel ? 'var(--green)' : 'var(--red)';
+  }
+
+  // Strategy panel
+  const panel  = document.getElementById('debt-strategy-panel');
+  const detail = document.getElementById('debt-strategy-detail');
+  if (panel && detail) {
+    panel.style.display = 'block';
+    const stratLabel = _debtStrategy === 'avalanche' ? 'Avalanche (highest APR first)' : 'Snowball (lowest balance first)';
+    const rows = state.map(s => {
+      const lbl = s.paidOffMonth ? _monthLabel(s.paidOffMonth) : '30+ yrs';
+      return '<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--border);">'
+        + '<span style="color:var(--text)">' + (s.name || s.id).substring(0,24) + '</span>'
+        + '<span style="color:var(--text3)">$' + s.interest.toFixed(0) + ' interest · ' + lbl + '</span>'
+        + '</div>';
+    }).join('');
+    detail.innerHTML = '<div style="color:var(--text2);margin-bottom:6px;">' + stratLabel + '</div>' + rows;
+  }
+}
+
+function _renderDebtMiniChart(s) {
+  const container = document.getElementById('debt-chart-' + s.id);
+  if (!container) return;
+  if (container.style.display === 'none' || !document.getElementById('debt-detail-' + s.id) || document.getElementById('debt-detail-' + s.id).style.display === 'none') return;
+
+  // Build monthly balances for sparkline
+  const MAX_M = Math.min(s.paidOffMonth || 360, 120);
+  const points = [];
+  let bal = s.balance;
+  const r = s.apr / 100 / 12;
+  const pmt = (_debtCustomPay[s.id] > 0) ? _debtCustomPay[s.id] : s.payment;
+  for (let m = 0; m <= MAX_M; m++) {
+    points.push(bal);
+    if (bal <= 0) break;
+    const interest = bal * r;
+    bal = Math.max(0, bal + interest - pmt);
+  }
+
+  const maxBal = points[0] || 1;
+  const barW = Math.max(2, Math.floor(240 / points.length));
+  const chartH = 40;
+  const bars = points.map((b, i) => {
+    const h = Math.round((b / maxBal) * chartH);
+    const color = i === 0 ? 'var(--red)' : (b === 0 ? 'var(--green)' : 'var(--amber)');
+    return '<div style="width:' + barW + 'px;height:' + h + 'px;background:' + color + ';border-radius:1px 1px 0 0;align-self:flex-end;"></div>';
+  }).join('');
+
+  container.innerHTML = '<div style="display:flex;align-items:flex-end;gap:1px;height:' + chartH + 'px;overflow:hidden;">' + bars + '</div>'
+    + '<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px;">'
+    + points.length + ' months shown · $' + maxBal.toFixed(0) + ' → $0</div>';
+}
+
+// Initial render when page loads
+(function() { renderDebtPayoff(); })();
 
 // ── Spending pace indicators ──────────────────────────────────────────────────
 (function initPaceBars() {
