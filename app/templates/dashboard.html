@@ -2895,6 +2895,7 @@
               <td style="color:var(--text2)">{{ freq_labels.get(pc.freq, pc.freq ~ 'd') }}</td>
               <td class="col-m-hide" style="color:var(--text3);font-family:var(--mono);font-size:11px">{{ pc.anchorDate or '—' }}</td>
               <td class="col-settings">
+                <button class="delete-cat-btn" onclick="editPaycheck('{{ pc.id }}','{{ pc.label }}','{{ pc.amount }}','{{ pc.freq }}','{{ pc.anchorDate or '' }}')" title="Edit" style="margin-right:4px;">✎</button>
                 <button class="delete-cat-btn" onclick="deletePaycheck('{{ pc.id }}')">✕</button>
               </td>
             </tr>
@@ -3104,8 +3105,8 @@
           <!-- Top toolbar: range + What-If toggle -->
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
             <span style="font-family:var(--mono);font-size:clamp(9px,1.4vw,10px);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Range</span>
-            <button class="fc-range-btn active" data-months="2" onclick="setForecastRange(2,this)">2 Mo</button>
-            <button class="fc-range-btn" data-months="3" onclick="setForecastRange(3,this)">3 Mo</button>
+            <button class="fc-range-btn" data-months="2" onclick="setForecastRange(2,this)">2 Mo</button>
+            <button class="fc-range-btn active" data-months="3" onclick="setForecastRange(3,this)">3 Mo</button>
             <button class="fc-range-btn" data-months="6" onclick="setForecastRange(6,this)">6 Mo</button>
             <button class="fc-range-btn" data-months="12" onclick="setForecastRange(12,this)">12 Mo</button>
             <button class="fc-range-btn" data-months="0" onclick="setForecastRange(0,this)">Year</button>
@@ -3169,6 +3170,20 @@
                   </div>
                 </div>
                 <div class="wi-surplus-pills" id="wi-surplus-pills"></div>
+              </div>
+
+              <!-- 6-month projection mini chart -->
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                  <span style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">6-Month Projection</span>
+                  <div style="display:flex;gap:3px;margin-left:auto;">
+                    <button id="wi6-rts-btn" class="fc-range-btn active" style="font-size:9px;padding:2px 7px;" onclick="wiSet6Mode('rts')">RTS</button>
+                    <button id="wi6-inc-btn" class="fc-range-btn" style="font-size:9px;padding:2px 7px;" onclick="wiSet6Mode('income')">Income</button>
+                  </div>
+                </div>
+                <div id="wi-6mo-bars" style="display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:4px;"></div>
+                <div id="wi-6mo-labels" style="display:flex;gap:4px;margin-top:4px;"></div>
+                <div id="wi-6mo-vals" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
               </div>
 
               <!-- Budget adjustments -->
@@ -5069,6 +5084,39 @@ async function deletePaycheck(id) {
   else { alert('Delete failed: ' + (result.error || 'unknown error')); }
 }
 
+function editPaycheck(id, label, amount, freq, anchor) {
+  const newLabel  = prompt('Label:', label);
+  if (newLabel === null) return;
+  const newAmount = prompt('Amount per check ($):', amount);
+  if (newAmount === null) return;
+  const newFreq   = prompt('Frequency (7=weekly, 14=biweekly, 15=semi-monthly, 30=monthly):', freq);
+  if (newFreq === null) return;
+  const newAnchor = prompt('Anchor date (YYYY-MM-DD):', anchor);
+  if (newAnchor === null) return;
+
+  fetch('/api/update-paycheck', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id, label: newLabel, amount: newAmount, freq: newFreq, anchorDate: newAnchor}),
+  }).then(r => r.json()).then(res => {
+    if (res.ok) {
+      showToast('Paycheck updated', 'info');
+      // Update the row display
+      const row = document.getElementById('pc-row-' + id);
+      if (row) {
+        const freqLabels = {7:'Weekly', 14:'Biweekly', 15:'Semi-monthly', 30:'Monthly'};
+        const cells = row.querySelectorAll('td');
+        if (cells[0]) cells[0].textContent = newLabel;
+        if (cells[1]) cells[1].textContent = '$' + parseFloat(newAmount).toFixed(2);
+        if (cells[2]) cells[2].textContent = freqLabels[parseInt(newFreq)] || newFreq + 'd';
+        if (cells[3]) cells[3].textContent = newAnchor || '—';
+      }
+    } else {
+      alert('Error: ' + (res.error || 'Could not update paycheck.'));
+    }
+  });
+}
+
 /* ── Allocation rules ── */
 async function submitAddRule(e) {
   e.preventDefault();
@@ -5572,7 +5620,7 @@ async function exportCSV() {
 
 /* ── Plan tab ── */
 let _forecastData    = null;
-let _forecastMonths  = 2;
+let _forecastMonths  = 3;
 let _awaitingPaycheck = false;
 let _acctChips       = {};   // id → {balance, on}
 let _useCustomBal    = false;
@@ -5961,9 +6009,9 @@ function _renderWi6Month() {
   const months = wiMonthsForward(_wiMid, 6);
   const rows = months.map((m, i) => {
     const isNow = i === 0;
-    const inc   = isNow
-      ? (_wiIncomeSc !== null ? _wiIncomeSc : wiProjectedIncome(m.id))
-      : wiProjectedIncome(m.id);
+    const realInc = wiProjectedIncome(m.id);
+    // Income override represents a permanent change — apply to all months
+    const inc = _wiIncomeSc !== null ? _wiIncomeSc : realInc;
     const alloc = isNow
       ? Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0)
       : wiSimAllocForMonth(m.id);
@@ -6974,36 +7022,28 @@ function renderDebtPayoff() {
     payment: (_debtCustomPay[d.id] > 0) ? _debtCustomPay[d.id] : d.min,
   }));
 
-  // Multi-debt simulation: roll freed minimums + extra into next debt
-  // We'll do a month-by-month sim for up to 600 months
+  // Multi-debt simulation: roll freed minimums + extra into the focus debt each month
   const MAX_MONTHS = 600;
   const state = debts.map(d => ({ ...d, bal: d.balance, paid: 0, interest: 0, paidOffMonth: null }));
-  let extraPool = extra;
 
   for (let m = 1; m <= MAX_MONTHS; m++) {
-    // First debt in order gets extra pool
-    let carryover = extraPool;
+    // Pool = extra + all freed minimums from previously paid debts
+    let pool = extra;
+    for (const s of state) { if (s.paidOffMonth !== null) pool += s.payment; }
+
+    // Apply: first unpaid debt gets the full pool; others get only their minimum
+    let poolApplied = false;
     for (let i = 0; i < state.length; i++) {
       const s = state[i];
-      if (s.paidOffMonth !== null) {
-        // Already paid — freed minimum cascades
-        carryover += s.payment;
-        continue;
-      }
+      if (s.paidOffMonth !== null) continue;
       const r = s.apr / 100 / 12;
       const interest = s.bal * r;
       s.interest += interest;
-      const totalPay = Math.min(s.bal + interest, s.payment + (i === 0 ? carryover : 0));
+      const totalPay = Math.min(s.bal + interest, s.payment + (poolApplied ? 0 : pool));
       s.bal = Math.max(0, s.bal + interest - totalPay);
       s.paid += totalPay;
-      if (s.bal < 0.01) {
-        s.bal = 0;
-        s.paidOffMonth = m;
-        // Freed payment cascades to next debt
-        carryover = Math.max(0, totalPay - (s.payment + (i === 0 ? carryover : 0)));
-      } else {
-        carryover = 0;
-      }
+      poolApplied = true;
+      if (s.bal < 0.01) { s.bal = 0; s.paidOffMonth = m; }
     }
     if (state.every(s => s.paidOffMonth !== null)) break;
   }
