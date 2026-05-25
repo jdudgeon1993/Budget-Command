@@ -104,7 +104,7 @@ def _load(uid: str, token: str) -> dict:
     buckets = [{
         "id": b["id"], "catId": b.get("cat_id") or "",
         "name": b["name"], "type": b.get("type", "expense"),
-        "rollover": b.get("rollover", False), "recurring": b.get("recurring", False),
+        "rollover": b.get("rollover", False),
         "archived": b.get("archived", False),
         "defaultBudget": float(b.get("default_budget") or 0),
         "order": b.get("sort_order", 0), "notes": b.get("notes"),
@@ -123,7 +123,6 @@ def _load(uid: str, token: str) -> dict:
         "type": t.get("type", "out"),
         "date": str(t.get("date") or ""),
         "reconciled": t.get("reconciled", False),
-        "recurring": t.get("recurring", False),
         "bucketId": t.get("bucket_id"),
         "toAccountId": t.get("to_account_id"),
         "incomeType": t.get("income_type"),
@@ -276,7 +275,6 @@ def _save_bucket(uid: str, token: str, b: dict) -> None:
         "name": b.get("name"), "type": b.get("type", "expense"),
         "cat_id": b.get("catId") or None,
         "rollover": b.get("rollover", False),
-        "recurring": b.get("recurring", False),
         "archived": b.get("archived", False),
         "due_day": str(b["dueDay"]) if b.get("dueDay") is not None else None,
         "pay_freq": b.get("payFreq"), "due_amount": b.get("dueAmount"),
@@ -298,7 +296,6 @@ def _insert_bucket(uid: str, token: str, b: dict) -> None:
         "id": b["id"], "user_id": uid, "cat_id": cat_id,
         "name": b["name"], "type": b.get("type", "expense"),
         "rollover": b.get("rollover", False),
-        "recurring": b.get("recurring", False),
         "archived": False,
         "default_budget": float(b.get("defaultBudget") or 0),
         "sort_order": sort_order,
@@ -336,7 +333,6 @@ def _insert_tx(uid: str, token: str, tx: dict) -> None:
         "debt_payment_account_id": tx.get("debtPaymentAccountId"),
         "income_type": tx.get("incomeType"),
         "reconciled": tx.get("reconciled", False),
-        "recurring": tx.get("recurring", False),
     }).execute()
 
 
@@ -640,7 +636,7 @@ def _bucket_row_ctx(b: dict, active_month: dict, all_months: list, txs: list, ac
     return {
         "id": b["id"], "name": b.get("name", ""), "type": btype,
         "cat_id": b.get("catId", ""), "rollover": b.get("rollover", False),
-        "recurring": b.get("recurring", False), "skipped": skipped,
+        "skipped": skipped,
         "due_day": b.get("dueDay", "") or "", "pay_freq": b.get("payFreq", "") or "",
         "due_amount": b.get("dueAmount", "") or "", "debt_account_id": b.get("debtAccountId", "") or "",
         "notes": b.get("notes", "") or "", "target_amount": target_amount,
@@ -822,11 +818,6 @@ def api_save():
             bucket["rollover"] = bool(value)
             _save_bucket(uid, tok, bucket)
 
-    elif field == "bucket_recurring":
-        if bucket:
-            bucket["recurring"] = bool(value)
-            _save_bucket(uid, tok, bucket)
-
     elif field == "bucket_due_day":
         if bucket:
             v = str(value or "").strip()
@@ -933,7 +924,7 @@ def api_add_bucket():
     new_bucket = {
         "id": bucket_id, "catId": cat_id, "name": bucket_name,
         "type": bucket_type, "rollover": bucket_type in ("savings", "sinking", "goal"),
-        "recurring": False, "archived": False, "defaultBudget": 0, "order": 0, "notes": None,
+        "archived": False, "defaultBudget": 0, "order": 0, "notes": None,
     }
     data.setdefault("buckets", []).append(new_bucket)
     _insert_bucket(uid, tok, new_bucket)
@@ -1480,7 +1471,7 @@ def _dashboard_inner():
             rows.append({
                 "id": b["id"], "name": b["name"], "type": btype,
                 "cat_id": b.get("catId", cid), "rollover": b.get("rollover", False),
-                "recurring": b.get("recurring", False), "skipped": skipped,
+                "skipped": skipped,
                 "due_day": b.get("dueDay") or "", "pay_freq": b.get("payFreq") or "",
                 "due_amount": b.get("dueAmount") or "", "debt_account_id": b.get("debtAccountId") or "",
                 "notes": b.get("notes") or "", "target_amount": target_amount,
@@ -1644,6 +1635,7 @@ def _dashboard_inner():
         active_mid=active_mid,
         month_display=f"{MONTH_NAMES[m0]} {year}",
         available_months=available_months, open_mid=open_mid,
+        all_months_list=available_months,
         month_status=month_status, close_btn=close_btn,
         category_groups=category_groups, grand=grand, rts=rts, aom=aom,
         all_cats=cats_sorted, accounts=accounts,
@@ -1693,7 +1685,7 @@ def api_add_transaction():
     tx = {
         "id": _new_id("tx"), "accountId": acct_id, "monthId": mid,
         "desc": desc, "amount": amount, "type": ttype, "date": date,
-        "reconciled": False, "recurring": False,
+        "reconciled": False,
     }
     if ttype == "out" and bkt_id:   tx["bucketId"]    = bkt_id
     if ttype == "xfr":              tx["toAccountId"] = to_acct
@@ -2071,7 +2063,7 @@ def api_debt_payment():
         "debtPaymentAccountId": debt_id, "monthId": mid,
         "desc": f"Payment — {debt_acct.get('name', '')}",
         "amount": amount, "type": "out", "date": date,
-        "reconciled": False, "recurring": False,
+        "reconciled": False,
     }
     if bucket_id:
         tx["bucketId"] = bucket_id
@@ -2585,11 +2577,14 @@ def _age_of_money(data: dict):
     ago90    = today_d - timedelta(days=90)
 
     current_cash = sum(acct_balance(a, txs) for a in accounts
-                       if a.get("type") != "debt" and not a.get("archived"))
+                       if a.get("type") == "budget" and not a.get("archived"))
 
-    # Net transaction impact per date (positive = in, negative = out)
+    budget_acct_ids_aom = {a["id"] for a in accounts if a.get("type") == "budget" and not a.get("archived")}
+    # Net transaction impact per date (positive = in, negative = out) — budget accounts only
     tx_net_by_date: dict = {}
     for t in txs:
+        if t.get("accountId") not in budget_acct_ids_aom:
+            continue
         try:
             t_date = date.fromisoformat(t.get("date", ""))
         except (ValueError, TypeError):
@@ -2608,9 +2603,11 @@ def _age_of_money(data: dict):
 
     avg_14 = sum(daily_balances) / len(daily_balances)
 
+    budget_ids = {a["id"] for a in accounts if a.get("type") == "budget" and not a.get("archived")}
     spent_90 = sum(
         float(t.get("amount", 0)) for t in txs
         if t.get("type") == "out"
+        and t.get("accountId") in budget_ids
         and not is_scheduled(t)
         and str(ago90) <= t.get("date", "") <= str(today_d)
     )
@@ -3669,7 +3666,6 @@ def api_cw_add_income():
         "type": "in",
         "date": tx_date,
         "reconciled": False,
-        "recurring": False,
         "incomeType": "paycheck",
     }
     _insert_tx(uid, tok, tx)
@@ -3741,7 +3737,6 @@ def api_cw_adjust_account():
         "type": "adjustment",
         "date": tx_date,
         "reconciled": False,
-        "recurring": False,
     }
     _insert_tx(uid, tok, tx)
 
