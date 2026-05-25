@@ -5797,11 +5797,31 @@ function _midCmp(a, b) {
 }
 
 function wiBucketStateAt(bid, mid) {
-  // Returns 'on' or 'off' for bucket at the given month per effective-date schedule.
-  // Only considers events whose from_mid <= mid (i.e., events that have taken effect).
-  const events = (_wiSchedule[bid] || []).filter(e => _midCmp(e.from_mid, mid) <= 0);
-  if (!events.length) return 'on';
-  return events.reduce((a, b) => _midCmp(a.from_mid, b.from_mid) >= 0 ? a : b).state;
+  // Returns 'on' or 'off' for bucket bid at month mid.
+  //
+  // Rule: the first (earliest) event in the schedule implies the state BEFORE it:
+  //   - first event = "Turn ON"  → implies OFF before that date
+  //   - first event = "Turn OFF" → implies ON before that date (normal default)
+  //
+  // This means "Turn ON in Sep" = OFF until Sep, ON from Sep.
+  //             "Turn OFF in Sep" = ON until Sep, OFF from Sep.
+
+  const allEvents = _wiSchedule[bid] || [];
+  if (!allEvents.length) return 'on';  // no schedule → always on
+
+  // Events that have already taken effect (from_mid <= mid)
+  const pastEvents = allEvents.filter(e => _midCmp(e.from_mid, mid) <= 0);
+
+  if (pastEvents.length) {
+    // Use the most recent past event
+    return pastEvents.reduce((a, b) => _midCmp(a.from_mid, b.from_mid) >= 0 ? a : b).state;
+  }
+
+  // No event has taken effect yet — infer the state before the first event from its type:
+  // "Turn ON in X" implies the bucket was OFF before X
+  // "Turn OFF in X" implies the bucket was ON before X
+  const firstEvent = allEvents.reduce((a, b) => _midCmp(a.from_mid, b.from_mid) <= 0 ? a : b);
+  return firstEvent.state === 'on' ? 'off' : 'on';
 }
 
 function _migrateSchedule(raw) {
@@ -5868,7 +5888,7 @@ function wiProjectedIncome(mid) {
 function wiEffectiveIncome(mid) {
   const base = _wiIncomeSc !== null ? _wiIncomeSc : wiProjectedIncome(mid);
   const extras = _wiExtraStreams
-    .filter(s => s.from_mid <= mid && (!s.to_mid || s.to_mid >= mid))
+    .filter(s => _midCmp(s.from_mid, mid) <= 0 && (!s.to_mid || _midCmp(s.to_mid, mid) >= 0))
     .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   return base + extras;
 }
@@ -5904,8 +5924,9 @@ function wiToggleTimeline(btn, bid) {
 }
 
 function _renderTimelineMonthSelect(bid) {
-  const months = wiMonthsForward(_wiMid, 12);
-  return months.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
+  // Start from next month — schedule only affects future months, not current
+  const allMonths = wiMonthsForward(_wiMid, 13);
+  return allMonths.slice(1).map(m => `<option value="${m.id}">${m.label}</option>`).join('');
 }
 
 function _renderTimelineEvents(bid) {
@@ -5915,15 +5936,21 @@ function _renderTimelineEvents(bid) {
   const eventsEl = panel.querySelector('.wi-tl-events');
   if (!eventsEl) return;
   if (!events.length) {
-    eventsEl.innerHTML = '<span style="color:var(--text3);font-size:11px;">No changes — bucket follows default</span>';
+    eventsEl.innerHTML = '<span style="color:var(--text3);font-size:11px;">No events — bucket is ON by default</span>';
     return;
   }
-  eventsEl.innerHTML = events.map(e => {
+  // Show implied initial state before first event
+  const firstEvent = events[0];
+  const impliedInitial = firstEvent.state === 'on' ? 'off' : 'on';
+  const moLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const initialHtml = `<div class="wi-tl-event ${impliedInitial}" style="opacity:.6;">
+    <span>${impliedInitial === 'off' ? '⊘' : '✓'} Until ${moLabels[parseInt(firstEvent.from_mid.split('_')[2])]} ${firstEvent.from_mid.split('_')[1]}: ${impliedInitial.toUpperCase()}</span>
+  </div>`;
+  eventsEl.innerHTML = initialHtml + events.map(e => {
     const parts = e.from_mid.split('_');
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(parts[2])];
-    const lbl = mo + ' ' + parts[1];
+    const lbl = moLabels[parseInt(parts[2])] + ' ' + parts[1];
     return `<div class="wi-tl-event ${e.state}">
-      <span>${e.state === 'off' ? '⊘' : '✓'} ${lbl}: turn ${e.state}</span>
+      <span>${e.state === 'off' ? '⊘' : '✓'} From ${lbl}: ${e.state.toUpperCase()}</span>
       <button class="wi-tl-rm" onclick="wiRemoveTimelineEvent('${bid}','${e.from_mid}')">✕</button>
     </div>`;
   }).join('');
