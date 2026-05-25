@@ -2647,6 +2647,16 @@ def _age_of_money(data: dict):
 
 # ── API: forecast ─────────────────────────────────────────────────────────────
 
+def _bucket_state_at(bucket_schedule: list, bucket_id: str, mid: str) -> str:
+    """Return 'on' or 'off' for bucket_id at month mid using effective-date schedule."""
+    relevant = [e for e in bucket_schedule
+                if str(e.get("bucket_id")) == bucket_id and str(e.get("from_mid", "")) <= mid]
+    if not relevant:
+        return "on"
+    latest = max(relevant, key=lambda e: str(e.get("from_mid", "")))
+    return latest.get("state", "on")
+
+
 @app.route("/api/forecast", methods=["GET", "POST"])
 def api_forecast():
     if not logged_in():
@@ -2664,8 +2674,10 @@ def api_forecast():
             income_override = float(income_override)
         except (TypeError, ValueError):
             income_override = None
-    # {bid: [mid_string, ...]}  — months where bucket is intentionally OFF in the scenario
+    # {bid: [mid_string, ...]}  — legacy skip-month format (still accepted)
     bucket_off_months = {str(k): [str(m) for m in v] for k, v in body.get("bucket_off_months", {}).items()}
+    # [{bucket_id, from_mid, state}]  — new effective-date timeline format
+    bucket_schedule   = [e for e in body.get("bucket_schedule", []) if isinstance(e, dict)]
 
     try:
         n_months = int(months_param)
@@ -2896,8 +2908,9 @@ def api_forecast():
             amt          = _bill_amount(b)
             display_date = today if (overdue and is_gap) else bd
             mid_of_bill  = _mid_for_date(bd)
-            # Scenario: bucket is OFF this month — show as paused, skip balance deduction
-            if mid_of_bill in bucket_off_months.get(b["id"], []):
+            # Scenario: bucket is OFF this period — legacy list OR new timeline schedule
+            if (mid_of_bill in bucket_off_months.get(b["id"], [])
+                    or _bucket_state_at(bucket_schedule, b["id"], mid_of_bill) == "off"):
                 off_by_day.setdefault(display_date, []).append(
                     {"name": b["name"], "amount": amt, "overdue": overdue}
                 )
@@ -3021,7 +3034,7 @@ def api_forecast():
         "months":           months_param,
         "periods":          period_results,
         "account_balances": account_balances,
-        "scenario_active":  bool(bucket_overrides) or bool(bucket_off_months),
+        "scenario_active":  bool(bucket_overrides) or bool(bucket_off_months) or bool(bucket_schedule),
     })
 
 
