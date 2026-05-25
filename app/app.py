@@ -1078,14 +1078,19 @@ def api_scenarios_list():
         rows = (_db(tok).table("bcc_scenarios")
                 .select("*").eq("user_id", uid)
                 .order("sort_order").execute().data or [])
-        scenarios = [{
-            "id":             r["id"],
-            "name":           r["name"],
-            "allocations":    r.get("allocations") or {},
-            "incomeOverride": r.get("income_override"),
-            "schedule":       r.get("schedule") or {},
-            "sortOrder":      r.get("sort_order", 0),
-        } for r in rows]
+        scenarios = []
+        for r in rows:
+            sched = r.get("schedule") or {}
+            extra_streams = sched.pop("__streams", None) or []
+            scenarios.append({
+                "id":             r["id"],
+                "name":           r["name"],
+                "allocations":    r.get("allocations") or {},
+                "incomeOverride": r.get("income_override"),
+                "schedule":       sched,
+                "extraStreams":   extra_streams,
+                "sortOrder":      r.get("sort_order", 0),
+            })
         return jsonify({"ok": True, "scenarios": scenarios})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -1097,10 +1102,16 @@ def api_scenarios_save():
         return jsonify({"ok": False, "error": "Not logged in"}), 401
     uid, tok = _uid(), _tok()
     body = request.get_json(silent=True) or {}
-    scenario_id = body.get("id", "").strip()
+    scenario_id = (body.get("id") or "").strip()
     name        = (body.get("name") or "").strip()
     if not name:
         return jsonify({"ok": False, "error": "Name required"}), 400
+
+    # Store extraStreams inside schedule to avoid needing a new DB column
+    schedule = body.get("schedule") or {}
+    extra_streams = body.get("extraStreams")
+    if extra_streams:
+        schedule = {**schedule, "__streams": extra_streams}
 
     row = {
         "id":              scenario_id or _new_id("sc"),
@@ -1108,9 +1119,8 @@ def api_scenarios_save():
         "name":            name,
         "allocations":     body.get("allocations") or {},
         "income_override": body.get("incomeOverride"),
-        "schedule":        body.get("schedule") or {},
+        "schedule":        schedule,
         "sort_order":      body.get("sortOrder", 0),
-        "updated_at":      "now()",
     }
     try:
         result = (_db(tok).table("bcc_scenarios")
