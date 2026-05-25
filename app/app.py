@@ -1830,6 +1830,34 @@ def api_delete_paycheck():
     return jsonify({"ok": True})
 
 
+@app.route("/api/update-paycheck", methods=["POST"])
+def api_update_paycheck():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    uid, tok = _uid(), _tok()
+    body   = request.get_json(silent=True) or {}
+    pc_id  = body.get("id", "").strip()
+    label  = body.get("label", "").strip()
+    amount = body.get("amount")
+    freq   = body.get("freq")
+    anchor = body.get("anchorDate", "").strip()
+    if not pc_id:
+        return jsonify({"ok": False, "error": "Missing id"}), 400
+    update = {}
+    if label:   update["label"]       = label
+    if amount is not None:
+        try:    update["amount"]       = float(amount)
+        except: pass
+    if freq is not None:
+        try:    update["freq"]         = int(freq)
+        except: pass
+    if anchor:  update["anchor_date"] = anchor
+    if not update:
+        return jsonify({"ok": False, "error": "Nothing to update"}), 400
+    _db(tok).table("bcc_paychecks").update(update).eq("id", pc_id).eq("user_id", uid).execute()
+    return jsonify({"ok": True})
+
+
 # ── API: allocation rules ─────────────────────────────────────────────────────
 
 @app.route("/api/add-rule", methods=["POST"])
@@ -2653,11 +2681,11 @@ def api_forecast():
     alloc_rules = data.get("allocationRules", [])
     buckets     = data.get("buckets", [])
 
-    # Starting balance: sum of all non-archived, non-debt accounts
+    # Starting balance: sum of all non-archived budget accounts
     budget_bal = sum(
         acct_balance(a, txs)
         for a in accounts
-        if a.get("type") != "debt" and not a.get("archived")
+        if a.get("type") == "budget" and not a.get("archived")
     )
 
     # Override with custom balance if provided
@@ -2672,7 +2700,7 @@ def api_forecast():
         {"id": a["id"], "name": a["name"], "type": a["type"],
          "balance": round(acct_balance(a, txs), 2)}
         for a in accounts
-        if a.get("type") != "debt" and not a.get("archived")
+        if a.get("type") == "budget" and not a.get("archived")
     ]
 
     today = date.today()
@@ -2710,17 +2738,15 @@ def api_forecast():
         for pd in _gen_pay_dates(pc["anchorDate"], pc["freq"], today, end_date):
             if pd not in pay_events:
                 pay_events[pd] = []
+            scaled_amount = float(pc["amount"]) * income_scale
             transfers = []
             for rule in external_rules:
-                amt = float(pc["amount"])
-                computed = round(amt * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
+                computed = round(scaled_amount * rule["value"] / 100, 2) if rule.get("type") == "pct" else float(rule["value"])
                 transfers.append({"name": rule["name"], "amount": computed})
-            # Build internal allocation events
             alloc_events = []
             for rule in internal_rules:
-                pc_amount = float(pc["amount"])
                 if rule.get("type") == "pct":
-                    computed = round(pc_amount * rule["value"] / 100, 2)
+                    computed = round(scaled_amount * rule["value"] / 100, 2)
                 else:
                     computed = float(rule["value"])
                 bid = rule["bucketId"]
@@ -2729,7 +2755,7 @@ def api_forecast():
                 alloc_events.append({"bucket": bucket_name, "bucket_id": bid, "amount": computed, "is_vault": is_vault})
             pay_events[pd].append({
                 "label":        pc["label"],
-                "amount":       round(float(pc["amount"]) * income_scale, 2),
+                "amount":       round(scaled_amount, 2),
                 "transfers":    transfers,
                 "alloc_events": alloc_events,
             })
