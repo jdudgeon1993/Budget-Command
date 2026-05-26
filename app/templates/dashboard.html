@@ -1415,6 +1415,7 @@
 .wi-tl-sel { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 3px 6px; font-family: var(--mono); font-size: 11px; color: var(--text); }
 .wi-bkt-off { opacity: .45; text-decoration: line-through; }
 .wi-bkt-off-badge { font-family: var(--mono); font-size: 9px; letter-spacing: .06em; color: var(--red); background: color-mix(in srgb,var(--red) 12%,transparent); border-radius: 3px; padding: 1px 5px; }
+.wi-bkt-sched-badge { font-family: var(--mono); font-size: 9px; color: var(--accent); background: color-mix(in srgb,var(--accent) 12%,transparent); border-radius: 3px; padding: 1px 5px; }
 .wi-tl-rm { background: none; border: none; color: var(--text3); cursor: pointer; padding: 0 2px; font-size: 10px; margin-left: auto; }
 .wi-tl-rm:hover { color: var(--red); }
 .wi-tpl-btn { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--r); color: var(--text2); font-family: var(--mono); font-size: 10px; padding: 3px 8px; cursor: pointer; transition: border-color .15s,color .15s; }
@@ -5711,10 +5712,6 @@ function toggleWiDrawer() {
   drawer.style.display = opening ? '' : 'none';
   if (btn) btn.textContent = opening ? 'What If ▴' : 'What If ▾';
   if (opening) {
-    // Initialize WI state on first open
-    if (!Object.keys(_wiSimAllocs).length) {
-      _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
-    }
     // Set month label
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const lbl = document.getElementById('wi-month-label');
@@ -5732,12 +5729,7 @@ function toggleWiDrawer() {
 /* ── wiProject: apply current WI state to forecast ────────────────── */
 function wiProject() {
   // Build a transient scenario from current WI state
-  const allocations = {};
-  _wiGroups.forEach(g => g.buckets.forEach(b => {
-    if (_wiSimAllocs[b.id] !== b.alloc) allocations[b.id] = _wiSimAllocs[b.id];
-  }));
-
-  const hasAllocChanges = Object.keys(allocations).length > 0;
+  const hasAllocChanges = Object.keys(_wiOverrides).length > 0;
   const hasIncomeOverride = _wiIncomeSc !== null;
   const hasSchedule = Object.keys(_wiSchedule).length > 0;
 
@@ -5755,7 +5747,7 @@ function wiProject() {
   _fcActiveSc = {
     id: '__wi_projection__',
     name: document.getElementById('wi-name-inp')?.value?.trim() || 'What If Projection',
-    allocations,
+    allocations: {..._wiOverrides},
     incomeOverride: (effectiveIncome !== wiProjectedIncome(_wiMid)) ? effectiveIncome : _wiIncomeSc,
     schedule: _wiSchedule,
     extraStreams: _wiExtraStreams,
@@ -5766,7 +5758,7 @@ function wiProject() {
 }
 
 /* ── What-If State ───────────────────────────────────────────────────────── */
-let _wiSimAllocs   = {};       // {bid: number}
+let _wiOverrides   = {};       // {bid: number} — only buckets the user explicitly changed; baseline is b.budget
 let _wiIncomeSc    = null;     // income override (null = not overridden)
 let _wiScenarios   = [];       // [{id, name, allocations, incomeOverride, schedule, extraStreams}]
 let _wiActiveSc    = null;     // currently loaded scenario object
@@ -5894,16 +5886,13 @@ function wiEffectiveIncome(mid) {
 }
 
 /* ── Get projected alloc total for a month under current scenario ─── */
-function wiSimAllocForMonth(mid) {
+/* ── Core allocation calc: sum of ON buckets using target (b.budget) as baseline ── */
+function wiCalcMonthAlloc(mid) {
   let total = 0;
   for (const g of _wiGroups) {
     for (const b of g.buckets) {
       if (wiBucketStateAt(b.id, mid) === 'off') continue;
-      // If the user explicitly changed the amount in the drawer, use that everywhere.
-      // Otherwise use the budget target (b.budget) for future months as the baseline.
-      const userChanged = (_wiSimAllocs[b.id] !== undefined) && (_wiSimAllocs[b.id] !== b.alloc);
-      const amt = userChanged ? _wiSimAllocs[b.id] : (b.budget || 0);
-      total += amt;
+      total += (_wiOverrides[b.id] ?? b.budget ?? 0);
     }
   }
   return total;
@@ -6123,15 +6112,15 @@ function _renderWiSurplus() {
 
 /* ── Affordability bar ────────────────────────────────────────────── */
 function _renderWiAffordability() {
-  const projected = wiProjectedIncome(_wiMid);
-  const income    = wiEffectiveIncome(_wiMid);
-  // Schedule gates which buckets are active this month
-  // e.g. "Turn ON in Sep" → Mortgage is OFF in May, so it's excluded here
-  const alloc     = _wiGroups.flatMap(g => g.buckets)
-    .reduce((s, b) => wiBucketStateAt(b.id, _wiMid) === 'off' ? s : s + (_wiSimAllocs[b.id] ?? b.alloc), 0);
-  const surplus   = income - alloc;
-  const pct       = income > 0 ? Math.min(110, Math.round(alloc / income * 100)) : 0;
+  const projected  = wiProjectedIncome(_wiMid);
+  const income     = wiEffectiveIncome(_wiMid);
+  const alloc      = wiCalcMonthAlloc(_wiMid);
+  const surplus    = income - alloc;
+  const pct        = income > 0 ? Math.min(110, Math.round(alloc / income * 100)) : 0;
   const overBudget = alloc > income;
+  // Baseline = all buckets ON, no overrides (what targets sum to with no schedule)
+  const baseAlloc  = _wiGroups.flatMap(g => g.buckets).reduce((s, b) => s + (b.budget || 0), 0);
+  const delta      = alloc - baseAlloc;
 
   const incEl  = document.getElementById('wi-afford-income');
   const subEl  = document.getElementById('wi-afford-income-sub');
@@ -6145,9 +6134,7 @@ function _renderWiAffordability() {
   if (subEl) subEl.textContent = _wiIncomeSc !== null ? `Projected: ${fmtMoney(projected)}` : '';
   if (alcEl) { alcEl.textContent = fmtMoney(alloc); alcEl.style.color = overBudget ? 'var(--red)' : 'var(--text)'; }
   if (dltEl) {
-    const baseAlloc = _wiGrand.alloc || 0;
-    const delta = alloc - baseAlloc;
-    dltEl.textContent = delta !== 0 ? `${delta>0?'+':''}${fmtMoney(delta)} vs real` : '';
+    dltEl.textContent = delta !== 0 ? `${delta>0?'+':''}${fmtMoney(delta)} vs targets` : '';
     dltEl.style.color = delta > 0 ? 'var(--amber)' : 'var(--green)';
   }
   if (surEl) {
@@ -6168,22 +6155,22 @@ function _renderWiAffordability() {
   }
 }
 
-/* ── Impact bar (kept for backward compat, now delegates) ─────────── */
+/* ── Impact bar ───────────────────────────────────────────────────── */
 function _renderWiImpact() {
   _renderWiAffordability();
   const bar  = document.getElementById('wi-impact-bar');
   const hint = document.getElementById('wi-impact-hint');
   if (!bar) return;
-  const realAlloc = _wiGrand.alloc || 0;
-  // Schedule gates which buckets are active — same rule as affordability bar
-  const simAlloc  = _wiGroups.flatMap(g => g.buckets)
-    .reduce((s, b) => wiBucketStateAt(b.id, _wiMid) === 'off' ? s : s + (_wiSimAllocs[b.id] ?? b.alloc), 0);
-  const real  = wiProjectedIncome(_wiMid);
-  const scInc = wiEffectiveIncome(_wiMid);
-  const netDelta    = (scInc - simAlloc) - (real - realAlloc);
-  const changedCount = _wiGroups.flatMap(g => g.buckets).filter(b => _wiSimAllocs[b.id] !== b.alloc).length;
+  const simAlloc     = wiCalcMonthAlloc(_wiMid);
+  const real         = wiProjectedIncome(_wiMid);
+  const scInc        = wiEffectiveIncome(_wiMid);
+  // Baseline RTS = income - sum of all targets (no schedule, no overrides)
+  const baseAlloc    = _wiGroups.flatMap(g => g.buckets).reduce((s, b) => s + (b.budget || 0), 0);
+  const netDelta     = (scInc - simAlloc) - (real - baseAlloc);
+  const overrideCount = Object.keys(_wiOverrides).length;
   const incOverridden = _wiIncomeSc !== null || _wiExtraStreams.length > 0;
-  const anyChange = changedCount > 0 || incOverridden || Object.keys(_wiSchedule).length > 0;
+  const schedCount    = Object.keys(_wiSchedule).length;
+  const anyChange     = overrideCount > 0 || incOverridden || schedCount > 0;
   if (!anyChange) {
     if (hint) hint.style.display = '';
     bar.querySelectorAll('.wi-impact-badge,.wi-net-badge').forEach(e => e.remove());
@@ -6191,12 +6178,11 @@ function _renderWiImpact() {
   }
   if (hint) hint.style.display = 'none';
   bar.querySelectorAll('.wi-impact-badge,.wi-net-badge').forEach(e => e.remove());
-  const ndCls  = netDelta > 0 ? 'pos' : netDelta < 0 ? 'neg' : 'zero';
-  const ndStr  = (netDelta >= 0 ? '+' : '') + fmtMoney(netDelta);
-  const schedCount = Object.keys(_wiSchedule).length;
+  const ndCls = netDelta > 0 ? 'pos' : netDelta < 0 ? 'neg' : 'zero';
+  const ndStr = (netDelta >= 0 ? '+' : '') + fmtMoney(netDelta);
   bar.insertAdjacentHTML('beforeend', `
     <span class="wi-impact-badge ${ndCls}">${ndStr} net</span>
-    ${changedCount ? `<span class="wi-impact-badge zero">${changedCount} bucket${changedCount!==1?'s':''} changed</span>` : ''}
+    ${overrideCount ? `<span class="wi-impact-badge zero">${overrideCount} bucket${overrideCount!==1?'s':''} changed</span>` : ''}
     ${schedCount ? `<span class="wi-impact-badge zero">${schedCount} scheduled</span>` : ''}
     ${incOverridden ? `<span class="wi-impact-badge ${scInc>real?'pos':'neg'}">${scInc>real?'+':''}${fmtMoney(scInc-real)} income</span>` : ''}
   `);
@@ -6208,7 +6194,11 @@ function _renderWiBuckets() {
   if (!el) return;
   let html = '';
   _wiGroups.forEach(g => {
-    const catDelta = g.buckets.reduce((s, b) => s + ((_wiSimAllocs[b.id] ?? b.alloc) - b.alloc), 0);
+    // Category delta: compare overridden values vs budget targets, only for ON buckets
+    const catDelta = g.buckets.reduce((s, b) => {
+      if (wiBucketStateAt(b.id, _wiMid) === 'off') return s;
+      return s + ((_wiOverrides[b.id] ?? b.budget ?? 0) - (b.budget || 0));
+    }, 0);
     const diffHtml = catDelta !== 0
       ? `<span class="wi-cat-diff ${catDelta>0?'pos':'neg'}">${catDelta>0?'+':''}${fmtMoney(catDelta)}</span>`
       : '';
@@ -6216,26 +6206,28 @@ function _renderWiBuckets() {
       <span class="wi-cat-arrow open">▶</span>${g.name}${diffHtml}
     </div><div class="wi-cat-body">`;
     g.buckets.forEach(b => {
-      const isOff  = wiBucketStateAt(b.id, _wiMid) === 'off';
-      const sim    = _wiSimAllocs[b.id] ?? b.alloc;
-      const diff   = isOff ? 0 : sim - b.alloc;
+      const isOff    = wiBucketStateAt(b.id, _wiMid) === 'off';
+      const base     = b.budget || 0;
+      const val      = _wiOverrides[b.id] ?? base;
+      const diff     = isOff ? 0 : val - base;
       const diffSpan = diff !== 0
         ? `<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${fmtMoney(diff)}</span>`
         : '';
-      const changed  = diff !== 0;
-      const events   = _wiSchedule[b.id] || [];
-      const hasSched = events.length > 0;
-      const offBadge = isOff ? `<span class="wi-bkt-off-badge">OFF</span>` : '';
-      const schedBadge = (!isOff && hasSched) ? `<span class="wi-bkt-off-badge" style="color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);" title="${events.length} event(s)">${events.length}⏱</span>` : '';
-      const moOpts   = _renderTimelineMonthSelect(b.id);
+      const changed    = _wiOverrides[b.id] !== undefined;
+      const events     = _wiSchedule[b.id] || [];
+      const hasSched   = events.length > 0;
+      const offBadge   = isOff ? `<span class="wi-bkt-off-badge">OFF</span>` : '';
+      const schedBadge = hasSched ? `<span class="wi-bkt-sched-badge" title="${events.length} schedule event(s)">⏱ ${events.length}</span>` : '';
+      const moOpts     = _renderTimelineMonthSelect(b.id);
       html += `<div class="wi-bkt-row${isOff?' wi-bkt-row-off':''}" data-bid="${b.id}">
         <span class="wi-bkt-label${isOff?' wi-bkt-off':''}" title="${b.name}">${b.name}</span>
         ${offBadge}${schedBadge}${diffSpan}
         <input class="wi-s-inp${changed?' changed':''}" type="text" inputmode="decimal"
-          data-bid="${b.id}" data-real="${b.alloc}" value="${sim.toFixed(2)}"
-          title="Supports: +50, -20, *1.1, =0"
+          data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
+          title="Target: ${fmtMoney(base)} · Supports: +50, -20, *1.1, =0"
+          ${isOff ? 'disabled' : ''}
           onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
-        <button class="wi-sched-btn${hasSched?' has-sched':''}" data-bid="${b.id}" title="Timeline schedule" onclick="wiToggleTimeline(this,'${b.id}')">⏱</button>
+        <button class="wi-sched-btn${hasSched?' has-sched':''}" data-bid="${b.id}" title="Schedule on/off" onclick="wiToggleTimeline(this,'${b.id}')">⏱</button>
       </div>
       <div class="wi-tl-panel" id="wt-${b.id}" style="display:none;">
         <div class="wi-tl-header">
@@ -6256,7 +6248,7 @@ function _renderWiBuckets() {
     html += `</div>`;
   });
   el.innerHTML = html;
-  // Render timeline events for any open panels (after innerHTML set)
+  // Render timeline events for any buckets that have schedules
   _wiGroups.flatMap(g => g.buckets).forEach(b => {
     if ((_wiSchedule[b.id] || []).length > 0) _renderTimelineEvents(b.id);
   });
@@ -6272,34 +6264,38 @@ function wiToggleCat(hdr) {
 
 function wiBktChange(inp) {
   const bid  = inp.dataset.bid;
-  const real = parseFloat(inp.dataset.real) || 0;
-  const cur  = _wiSimAllocs[bid] ?? real;
-  const val  = evalMoneyExpr(inp.value, cur, real);
+  const base = parseFloat(inp.dataset.base) || 0;
+  const cur  = _wiOverrides[bid] ?? base;
+  const val  = evalMoneyExpr(inp.value, cur, base);
   inp.value  = val.toFixed(2);
-  _wiSimAllocs[bid] = val;
-  inp.classList.toggle('changed', val !== real);
-  // Update cat diff pill
-  const row = inp.closest('.wi-cat-body');
-  const hdr = row?.previousElementSibling;
+  // Only store in overrides if the user actually changed from the target
+  if (Math.abs(val - base) < 0.005) {
+    delete _wiOverrides[bid];
+    inp.classList.remove('changed');
+  } else {
+    _wiOverrides[bid] = val;
+    inp.classList.add('changed');
+  }
+  // Update category diff pill
+  const body = inp.closest('.wi-cat-body');
+  const hdr  = body?.previousElementSibling;
   if (hdr) {
-    const bids = [...row.querySelectorAll('[data-bid]')].map(i => i.dataset.bid);
-    const catDelta = bids.reduce((s, k) => {
-      const b = _wiGroups.flatMap(g => g.buckets).find(b => b.id === k);
-      return s + ((_wiSimAllocs[k] ?? (b?.alloc || 0)) - (b?.alloc || 0));
+    const catBuckets = [...body.querySelectorAll('[data-bid]')]
+      .map(i => _wiGroups.flatMap(g => g.buckets).find(b => b.id === i.dataset.bid))
+      .filter(Boolean);
+    const catDelta = catBuckets.reduce((s, b) => {
+      if (wiBucketStateAt(b.id, _wiMid) === 'off') return s;
+      return s + ((_wiOverrides[b.id] ?? b.budget ?? 0) - (b.budget || 0));
     }, 0);
     let dp = hdr.querySelector('.wi-cat-diff');
     if (catDelta !== 0) {
       const html = `<span class="wi-cat-diff ${catDelta>0?'pos':'neg'}">${catDelta>0?'+':''}${fmtMoney(catDelta)}</span>`;
-      if (dp) dp.outerHTML = html;
-      else hdr.insertAdjacentHTML('beforeend', html);
+      if (dp) dp.outerHTML = html; else hdr.insertAdjacentHTML('beforeend', html);
     } else if (dp) dp.remove();
   }
   _renderWiImpact();
   _renderWiSurplus();
   _renderWi6Month();
-  const applyBtn = document.getElementById('wi-apply-btn');
-  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
-  if (applyBtn) applyBtn.disabled = !hasChanges && _wiIncomeSc === null;
 }
 
 /* ── Projection chart ─────────────────────────────────────────────── */
@@ -6327,16 +6323,12 @@ function _renderWi6Month() {
 
   const months = wiMonthsForward(_wiMid, _wi6Months);
   const rows = months.map((m, i) => {
-    const isNow = i === 0;
+    const isNow   = i === 0;
     const realInc = wiProjectedIncome(m.id);
-    const inc = wiEffectiveIncome(m.id);
-    // All months: schedule gates which buckets are active
-    const alloc = isNow
-      ? _wiGroups.flatMap(g => g.buckets)
-          .reduce((s, b) => wiBucketStateAt(b.id, m.id) === 'off' ? s : s + (_wiSimAllocs[b.id] ?? b.alloc), 0)
-      : wiSimAllocForMonth(m.id);
-    const rts   = inc - alloc;
-    const val   = _wi6Mode === 'income' ? inc : rts;
+    const inc     = wiEffectiveIncome(m.id);
+    const alloc   = wiCalcMonthAlloc(m.id);  // same formula for every month
+    const rts     = inc - alloc;
+    const val     = _wi6Mode === 'income' ? inc : rts;
     return { label: m.label, val, rts, inc, alloc, isNow };
   });
 
@@ -6394,7 +6386,7 @@ function wiApplyTemplate(tpl) {
   const _scaleBuckets = (catKeyword, factor) => {
     _wiGroups.forEach(g => {
       if (!g.name.toLowerCase().includes(catKeyword)) return;
-      g.buckets.forEach(b => { _wiSimAllocs[b.id] = Math.round((b.alloc || 0) * factor); });
+      g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * factor); });
     });
   };
   const _addStream = (name, amount) => {
@@ -6407,38 +6399,34 @@ function wiApplyTemplate(tpl) {
   } else if (tpl === 'jobloss') {
     if (nameInp) nameInp.value = 'Job Loss';
     _setIncome(0);
-    // Cut discretionary spending by half
     _wiGroups.forEach(g => {
       const name = g.name.toLowerCase();
       if (name.includes('entertainment') || name.includes('dining') || name.includes('fun') || name.includes('personal')) {
-        g.buckets.forEach(b => { _wiSimAllocs[b.id] = Math.round((b.alloc || 0) * 0.25); });
+        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 0.25); });
       }
     });
   } else if (tpl === 'home') {
     if (nameInp) nameInp.value = 'New Home';
-    // Add typical home ownership costs as extra streams
     _addStream('Mortgage/Rent ↑', Math.round(projected * 0.08));
     _addStream('Utilities ↑', 200);
     _addStream('Home Maintenance', 150);
-    // Reduce dining/entertainment (less going out)
     _wiGroups.forEach(g => {
       const name = g.name.toLowerCase();
       if (name.includes('entertainment') || name.includes('dining')) {
-        g.buckets.forEach(b => { _wiSimAllocs[b.id] = Math.round((b.alloc || 0) * 0.70); });
+        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 0.70); });
       }
     });
   } else if (tpl === 'baby') {
     if (nameInp) nameInp.value = 'New Baby';
-    _addStream('Childcare', -1200);  // negative = extra expense (reduce RTS)
+    _addStream('Childcare', -1200);
     _addStream('Baby Supplies', -300);
-    // Increase healthcare/groceries
     _wiGroups.forEach(g => {
       const name = g.name.toLowerCase();
       if (name.includes('health') || name.includes('medical')) {
-        g.buckets.forEach(b => { _wiSimAllocs[b.id] = Math.round((b.alloc || 0) * 1.3); });
+        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 1.3); });
       }
       if (name.includes('food') || name.includes('grocer')) {
-        g.buckets.forEach(b => { _wiSimAllocs[b.id] = Math.round((b.alloc || 0) * 1.2); });
+        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 1.2); });
       }
     });
   }
@@ -6507,14 +6495,13 @@ async function wiSaveScenario() {
   const name = (nameInp?.value || '').trim();
   if (!name) { showToast('Enter a scenario name first.', 'warning'); return; }
 
-  const allocs   = {..._wiSimAllocs};
-  const sched    = JSON.parse(JSON.stringify(_wiSchedule));  // {bid: [{from_mid, state}]}
+  const sched    = JSON.parse(JSON.stringify(_wiSchedule));
   const streams  = JSON.parse(JSON.stringify(_wiExtraStreams));
   const existing = _wiScenarios.find(s => s.name === name);
   const payload  = {
     id:             existing?.id || null,
     name,
-    allocations:    allocs,
+    allocations:    {..._wiOverrides},   // only stores user-changed values; baseline is b.budget
     incomeOverride: _wiIncomeSc,
     schedule:       sched,
     extraStreams:   streams,
@@ -6525,7 +6512,7 @@ async function wiSaveScenario() {
   if (!r.ok) { showToast('Failed to save scenario.', 'error'); return; }
 
   if (existing) {
-    Object.assign(existing, {allocations: allocs, incomeOverride: _wiIncomeSc, schedule: sched, extraStreams: streams});
+    Object.assign(existing, {allocations: {..._wiOverrides}, incomeOverride: _wiIncomeSc, schedule: sched, extraStreams: streams});
     _wiActiveSc = existing;
   } else {
     const s = {...payload, id: r.id};
@@ -6548,11 +6535,11 @@ async function wiDupeScenario() {
 }
 
 function wiNewScenario() {
-  _wiActiveSc = null;
-  _wiIncomeSc = null;
-  _wiSchedule  = {};
+  _wiActiveSc    = null;
+  _wiIncomeSc    = null;
+  _wiSchedule    = {};
   _wiExtraStreams = [];
-  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  _wiOverrides   = {};
   const nameInp = document.getElementById('wi-name-inp');
   if (nameInp) nameInp.value = '';
   _renderWiChips();
@@ -6567,13 +6554,11 @@ function wiNewScenario() {
 function wiLoadScenario(id) {
   const s = _wiScenarios.find(s => s.id === id);
   if (!s) return;
-  _wiActiveSc = s;
-  _wiIncomeSc = s.incomeOverride ?? null;
-  _wiSchedule  = _migrateSchedule(JSON.parse(JSON.stringify(s.schedule || {})));
+  _wiActiveSc    = s;
+  _wiIncomeSc    = s.incomeOverride ?? null;
+  _wiSchedule    = _migrateSchedule(JSON.parse(JSON.stringify(s.schedule || {})));
   _wiExtraStreams = JSON.parse(JSON.stringify(s.extraStreams || []));
-  _wiGroups.forEach(g => g.buckets.forEach(b => {
-    _wiSimAllocs[b.id] = s.allocations[b.id] ?? b.alloc;
-  }));
+  _wiOverrides   = JSON.parse(JSON.stringify(s.allocations || {}));
   const nameInp = document.getElementById('wi-name-inp');
   if (nameInp) nameInp.value = s.name;
   const incInp = document.getElementById('wi-income-inp');
@@ -6585,9 +6570,6 @@ function wiLoadScenario(id) {
   _renderWiSurplus();
   _renderExtraStreams();
   _renderWi6Month();
-  const applyBtn = document.getElementById('wi-apply-btn');
-  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
-  if (applyBtn) applyBtn.disabled = !hasChanges && _wiIncomeSc === null;
   showToast(`Loaded "${s.name}"`, 'info');
 }
 
@@ -6602,11 +6584,11 @@ async function wiDeleteScenario(id) {
 
 /* ── Reset / free-up / apply ─────────────────────────────────────── */
 function wiReset() {
-  _wiActiveSc = null;
-  _wiIncomeSc = null;
-  _wiSchedule  = {};
+  _wiActiveSc    = null;
+  _wiIncomeSc    = null;
+  _wiSchedule    = {};
   _wiExtraStreams = [];
-  _wiGroups.forEach(g => g.buckets.forEach(b => { _wiSimAllocs[b.id] = b.alloc; }));
+  _wiOverrides   = {};
   const nameInp = document.getElementById('wi-name-inp');
   if (nameInp) nameInp.value = '';
   const incInp = document.getElementById('wi-income-inp');
@@ -6618,35 +6600,33 @@ function wiReset() {
   _renderWiSurplus();
   _renderExtraStreams();
   _renderWi6Month();
-  const applyBtn = document.getElementById('wi-apply-btn');
-  if (applyBtn) applyBtn.disabled = true;
 }
 function wiFreeUp() {
   const input = document.getElementById('wi-target-input');
   const target = evalMathExpr(input.value);
   if (!target || target <= 0) { showToast('Enter a positive amount to free up.', 'warning'); return; }
-  const currentTotal = Object.values(_wiSimAllocs).reduce((s, v) => s + v, 0);
+  const currentTotal = wiCalcMonthAlloc(_wiMid);
   if (currentTotal <= 0) { showToast('No allocations to reduce.', 'warning'); return; }
   const newTotal = currentTotal - target;
   if (newTotal < 0) { showToast('Cannot free up more than is allocated.', 'warning'); return; }
   const scale = newTotal / currentTotal;
-  Object.keys(_wiSimAllocs).forEach(k => {
-    _wiSimAllocs[k] = Math.round(_wiSimAllocs[k] * scale * 100) / 100;
+  // Scale each ON bucket's effective value and store as override
+  _wiGroups.flatMap(g => g.buckets).forEach(b => {
+    if (wiBucketStateAt(b.id, _wiMid) === 'off') return;
+    const cur = _wiOverrides[b.id] ?? b.budget ?? 0;
+    _wiOverrides[b.id] = Math.round(cur * scale * 100) / 100;
   });
   input.value = '';
   _renderWiBuckets();
   _renderWiImpact();
   _renderWiSurplus();
   _renderWi6Month();
-  const applyBtn = document.getElementById('wi-apply-btn');
-  const hasChanges = _wiGroups.flatMap(g => g.buckets).some(b => _wiSimAllocs[b.id] !== b.alloc);
-  if (applyBtn) applyBtn.disabled = !hasChanges && _wiIncomeSc === null;
   showToast(`Freed up ${fmtMoney(target)} across all buckets`, 'success');
 }
 async function wiApply() {
   const changed = [];
   _wiGroups.forEach(g => g.buckets.forEach(b => {
-    if (_wiSimAllocs[b.id] !== b.alloc) changed.push({id: b.id, value: _wiSimAllocs[b.id]});
+    if (_wiOverrides[b.id] !== undefined) changed.push({id: b.id, value: _wiOverrides[b.id]});
   }));
   if (!changed.length) { showToast('No changes to apply.', 'warning'); return; }
   const applyBtn = document.getElementById('wi-apply-btn');
@@ -6675,7 +6655,7 @@ async function wiApply() {
 
 /* ── Forecast scenario integration ────────────────────────────────── */
 function wiGetActiveScenario() { return _wiActiveSc; }
-function wiGetSimAllocs()      { return _wiSimAllocs; }
+function wiGetSimAllocs()      { return _wiOverrides; }  // backward-compat alias
 
 
 function setForecastRange(months, btn) {
