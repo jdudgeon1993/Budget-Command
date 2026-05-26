@@ -5951,6 +5951,7 @@ function _renderWiScenarios() {
   el.innerHTML = _wiSavedScenarios.map(s => `
     <div class="wi-sc-row">
       <span class="wi-sc-name" onclick="wiApplyScenario('${s.id}')" title="Load scenario">${s.name}</span>
+      <button class="wi-sc-btn" onclick="wiUpdateScenario('${s.id}')">Save</button>
       <button class="wi-sc-btn" onclick="wiDuplicateScenario('${s.id}')">Dup</button>
       <button class="wi-sc-btn del" onclick="wiDeleteScenario('${s.id}')">Del</button>
     </div>`).join('');
@@ -5962,6 +5963,20 @@ function wiApplyScenario(id) {
   _wiOverrides = Object.assign({}, s.allocations || {});
   _wiOff       = new Set(s.offBuckets || []);
   _renderWi();
+}
+
+async function wiUpdateScenario(id) {
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  try {
+    const res  = await fetch('/api/scenarios', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, offBuckets: [..._wiOff] })
+    });
+    const data = await res.json();
+    if (data.ok) await wiLoadScenarios();
+  } catch { /* silently ignore */ }
 }
 
 function wiShowSaveForm() {
