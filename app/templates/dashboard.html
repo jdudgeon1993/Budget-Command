@@ -3136,138 +3136,43 @@
 
           <!-- ── What-If drawer (collapsible) ── -->
           <div id="wi-drawer" style="display:none;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:12px;overflow:hidden;">
-            <!-- Drawer header -->
+            <!-- Header -->
             <div style="background:var(--bg2);padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
-              <span style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">What If Scenario</span>
+              <span style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">What If</span>
+              <span id="wi-month-label" style="font-family:var(--mono);font-size:10px;color:var(--text3);"></span>
               <div style="flex:1;"></div>
-              <button class="sf-btn" onclick="wiProject()" id="wi-project-btn">Project →</button>
-              <button class="sf-btn" onclick="wiReset();wiProject()">Reset</button>
-              <button id="wi-apply-btn" class="sf-btn" onclick="wiApply()" disabled style="opacity:.5;">Apply to Month</button>
+              <button class="sf-btn" onclick="wiReset()">Reset</button>
             </div>
 
-            <!-- Affordability bar -->
-            <div id="wi-afford-wrap" style="border-radius:0;border-left:none;border-right:none;padding:10px 12px;background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+            <!-- Summary: Income / Allocated / Surplus -->
+            <div style="padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--border);">
               <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:80px;">
                   <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;">Income</div>
-                  <div id="wi-afford-income" style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green);">—</div>
-                  <div id="wi-afford-income-sub" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:1px;"></div>
+                  <div id="wi-income" style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green);">—</div>
                 </div>
                 <div style="flex:1;min-width:80px;">
                   <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;">Allocated</div>
-                  <div id="wi-afford-alloc" style="font-family:var(--mono);font-size:15px;font-weight:700;">—</div>
-                  <div id="wi-afford-delta" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:1px;"></div>
+                  <div id="wi-alloc" style="font-family:var(--mono);font-size:15px;font-weight:700;">—</div>
                 </div>
                 <div style="flex:1;min-width:80px;">
-                  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;">Surplus / Deficit</div>
-                  <div id="wi-afford-surplus" style="font-family:var(--mono);font-size:15px;font-weight:700;">—</div>
+                  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;">Surplus</div>
+                  <div id="wi-surplus" style="font-family:var(--mono);font-size:15px;font-weight:700;">—</div>
                 </div>
               </div>
               <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
-                <div id="wi-afford-fill" style="height:100%;border-radius:3px;background:var(--green);width:0%;transition:width .3s;"></div>
+                <div id="wi-fill" style="height:100%;border-radius:3px;background:var(--green);width:0%;transition:width .3s;"></div>
               </div>
-              <div id="wi-afford-pct" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;"></div>
+              <div id="wi-pct" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;"></div>
             </div>
 
-            <div style="padding:12px;display:flex;flex-direction:column;gap:12px;">
-              <!-- Scenario name row -->
-              <div>
-                <div class="wi-section-title" style="margin-bottom:6px;">Scenario</div>
-                <div class="wi-scen-row" style="margin-bottom:6px;">
-                  <input id="wi-name-inp" class="sf-input" type="text" placeholder="Scenario name…" value="">
-                  <button class="sf-btn" onclick="wiSaveScenario()">Save</button>
-                  <button class="sf-btn" onclick="wiDupeScenario()" title="Duplicate">⧉</button>
-                  <button class="sf-btn" onclick="wiNewScenario()">+ New</button>
-                </div>
-                <div class="wi-chips-row" id="wi-chips"></div>
-                <!-- Scenario templates -->
-                <div style="margin-top:8px;">
-                  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;">Quick Templates</div>
-                  <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                    <button class="wi-tpl-btn" onclick="wiApplyTemplate('raise')" title="Model a pay raise">📈 Pay Raise</button>
-                    <button class="wi-tpl-btn" onclick="wiApplyTemplate('jobloss')" title="Model job loss / reduced income">💼 Job Loss</button>
-                    <button class="wi-tpl-btn" onclick="wiApplyTemplate('home')" title="Model buying a home">🏠 New Home</button>
-                    <button class="wi-tpl-btn" onclick="wiApplyTemplate('baby')" title="Model a new baby">👶 New Baby</button>
-                  </div>
-                </div>
+            <!-- Bucket list -->
+            <div style="padding:10px 12px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">
+                Buckets — Target Amounts
+                <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);"> · type a new value or +50 / -20 / *1.1 / =0</span>
               </div>
-
-              <!-- Income override -->
-              <div>
-                <div class="wi-section-title" style="margin-bottom:6px;">Income — <span id="wi-month-label"></span></div>
-                <div class="wi-income-compare">
-                  <div class="wi-ic-card">
-                    <div class="wi-ic-label">Projected</div>
-                    <div class="wi-ic-val" id="wi-income-real">—</div>
-                    <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px;" id="wi-income-actual-row"></div>
-                  </div>
-                  <div class="wi-ic-card" id="wi-income-sc-card" style="border-color:var(--border);">
-                    <div class="wi-ic-label">What If</div>
-                    <div class="wi-ic-val" id="wi-income-sc">—</div>
-                    <input class="wi-ic-inp" id="wi-income-inp" type="text" inputmode="decimal"
-                      placeholder="+500 · *1.1 · =4200"
-                      title="Supports: +500, *1.1, =4200 — applies to all months"
-                      onchange="wiIncomeChange(this)"
-                      onkeydown="if(event.key==='Enter')this.blur()">
-                  </div>
-                </div>
-                <!-- Extra income streams -->
-                <div style="margin-top:8px;">
-                  <div style="display:flex;align-items:center;margin-bottom:5px;">
-                    <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);">Income Adjustments</span>
-                    <button class="sf-btn" style="margin-left:auto;font-size:10px;padding:2px 8px;" onclick="wiShowAddStream()">+ Add</button>
-                  </div>
-                  <div id="wi-extra-streams"></div>
-                  <div id="wi-add-stream-form" style="display:none;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:8px;margin-top:4px;">
-                    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px;">
-                      <input id="ws-name" type="text" placeholder="Name (e.g. Freelance)" style="flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 7px;font-family:var(--mono);font-size:11px;">
-                      <input id="ws-amount" type="text" inputmode="decimal" placeholder="Amount" style="width:80px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 7px;font-family:var(--mono);font-size:11px;">
-                    </div>
-                    <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
-                      <select id="ws-from" style="background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:3px 6px;font-family:var(--mono);font-size:11px;"></select>
-                      <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">to</span>
-                      <select id="ws-to" style="background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:3px 6px;font-family:var(--mono);font-size:11px;">
-                        <option value="">Ongoing</option>
-                      </select>
-                      <button class="sf-btn" style="font-size:11px;padding:3px 8px;" onclick="wiConfirmAddStream()">Add</button>
-                      <button class="sf-btn" style="font-size:11px;padding:3px 8px;" onclick="wiHideAddStream()">Cancel</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Projection mini chart -->
-              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                  <span id="wi6-title" style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">6-Month Projection</span>
-                  <div style="display:flex;gap:3px;margin-left:auto;flex-wrap:wrap;">
-                    <button id="wi6-6mo-btn" class="fc-range-btn active" style="font-size:9px;padding:2px 7px;" onclick="wiSet6Range(6)">6 Mo</button>
-                    <button id="wi6-12mo-btn" class="fc-range-btn" style="font-size:9px;padding:2px 7px;" onclick="wiSet6Range(12)">12 Mo</button>
-                    <button id="wi6-rts-btn" class="fc-range-btn active" style="font-size:9px;padding:2px 7px;" onclick="wiSet6Mode('rts')">RTS</button>
-                    <button id="wi6-inc-btn" class="fc-range-btn" style="font-size:9px;padding:2px 7px;" onclick="wiSet6Mode('income')">Income</button>
-                  </div>
-                </div>
-                <div id="wi-6mo-bars" style="display:flex;align-items:flex-end;gap:3px;height:80px;margin-bottom:4px;"></div>
-                <div id="wi-6mo-labels" style="display:flex;gap:3px;margin-top:4px;"></div>
-                <div id="wi-6mo-vals" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
-              </div>
-
-              <!-- Budget adjustments -->
-              <div>
-                <div class="wi-section-title" style="margin-bottom:4px;">
-                  Budget Adjustments
-                  <span style="font-family:var(--sans);color:var(--text3);font-size:10px;letter-spacing:0;text-transform:none;font-weight:400;"> — amount: +50, -20, *1.1, =0 · ⏱ = timeline on/off</span>
-                </div>
-                <div id="wi-buckets-content"></div>
-              </div>
-
-              <!-- Free-up tool -->
-              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--border);">
-                <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">Free up:</span>
-                <input id="wi-target-input" type="text" inputmode="decimal" placeholder="$0"
-                  style="width:72px;font-family:var(--mono);font-size:12px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:var(--r);padding:4px 7px;">
-                <button class="sf-btn" onclick="wiFreeUp()">Apply</button>
-              </div>
+              <div id="wi-buckets-content"></div>
             </div>
           </div>
 
@@ -5703,71 +5608,34 @@ function showPlanTab(name, btn) {
   if (name === 'forecast') initForecast();
 }
 
-/* ── What-If drawer toggle ─────────────────────────────────────────── */
-function toggleWiDrawer() {
-  const drawer = document.getElementById('wi-drawer');
-  const btn    = document.getElementById('wi-drawer-btn');
-  if (!drawer) return;
-  const opening = drawer.style.display === 'none';
-  drawer.style.display = opening ? '' : 'none';
-  if (btn) btn.textContent = opening ? 'What If ▴' : 'What If ▾';
-  if (opening) {
-    // Set month label
-    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const lbl = document.getElementById('wi-month-label');
-    if (lbl) { const p = _wiMid.split('_'); lbl.textContent = monthNames[parseInt(p[2])] + ' ' + p[1]; }
-    _loadWiScenarios();  // async: fetches from Supabase, then renders chips
-    _renderWiBuckets();
-    _renderWiIncome();
-    _renderWiSurplus();
-    _renderWiAffordability();
-    _renderWiImpact();
-    _renderExtraStreams();
+/* ════════════════════════════════════════════════════════════════════
+   WHAT IF — clean rewrite
+   State: _wiOverrides {bid: number} — only buckets the user changed.
+   Baseline for every bucket is b.budget (target). No alloc from DB.
+   ════════════════════════════════════════════════════════════════════ */
+
+let _wiOverrides = {};   // {bid: number} — user overrides; baseline is b.budget
+let _wiScenarios = [];   // forecast scenario chips still reference this; stays empty for now
+
+/* Migrate old schedule format — still used by forecast scenario loading */
+function _migrateSchedule(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const result = {};
+  for (const [bid, val] of Object.entries(raw)) {
+    if (bid === '__streams') continue;
+    if (Array.isArray(val)) { result[bid] = val; }
+    else if (val && typeof val === 'object') {
+      const arr = Object.entries(val)
+        .filter(([, v]) => v === false)
+        .map(([mid]) => ({from_mid: mid, state: 'off'}))
+        .sort((a, b) => _midCmp(a.from_mid, b.from_mid));
+      if (arr.length) result[bid] = arr;
+    }
   }
+  return result;
 }
 
-/* ── wiProject: apply current WI state to forecast ────────────────── */
-function wiProject() {
-  // Build a transient scenario from current WI state
-  const hasAllocChanges = Object.keys(_wiOverrides).length > 0;
-  const hasIncomeOverride = _wiIncomeSc !== null;
-  const hasSchedule = Object.keys(_wiSchedule).length > 0;
-
-  if (!hasAllocChanges && !hasIncomeOverride && !hasSchedule) {
-    // Nothing differs from real — just clear scenario and reload
-    _fcActiveSc = null;
-    loadForecast();
-    return;
-  }
-
-  // Compute effective income for the current month (accounts for extra streams)
-  const effectiveIncome = wiEffectiveIncome ? wiEffectiveIncome(_wiMid) : _wiIncomeSc;
-
-  // Build a synthetic scenario object for loadForecast
-  _fcActiveSc = {
-    id: '__wi_projection__',
-    name: document.getElementById('wi-name-inp')?.value?.trim() || 'What If Projection',
-    allocations: {..._wiOverrides},
-    incomeOverride: (effectiveIncome !== wiProjectedIncome(_wiMid)) ? effectiveIncome : _wiIncomeSc,
-    schedule: _wiSchedule,
-    extraStreams: _wiExtraStreams,
-  };
-
-  loadForecast();
-  showToast('Forecast updated with What If scenario', 'info');
-}
-
-/* ── What-If State ───────────────────────────────────────────────────────── */
-let _wiOverrides   = {};       // {bid: number} — only buckets the user explicitly changed; baseline is b.budget
-let _wiIncomeSc    = null;     // income override (null = not overridden)
-let _wiScenarios   = [];       // [{id, name, allocations, incomeOverride, schedule, extraStreams}]
-let _wiActiveSc    = null;     // currently loaded scenario object
-let _wi6Mode       = 'rts';    // 6-month view mode: 'rts' | 'income'
-let _wi6Months     = 6;        // projection range: 6 or 12
-let _wiSchedule    = {};       // {bid: [{from_mid, state}]} — effective-date timeline
-let _wiExtraStreams = [];       // [{id, name, amount, from_mid, to_mid|null}]
-
-/* ── Math expression eval (supports: 50, +50, -20, *1.1, /2, =150) ──── */
+/* ── Math expression eval  (+50, -20, *1.1, /2, =150, or plain number) ── */
 function evalMoneyExpr(str, cur, ref) {
   if (str === '' || str == null) return cur;
   const s = str.trim();
@@ -5780,882 +5648,180 @@ function evalMoneyExpr(str, cur, ref) {
   return isNaN(n) ? cur : Math.max(0, n);
 }
 
-/* ── Timeline schedule helpers ───────────────────────────────────────── */
-/* Numeric month-ID compare: returns negative/0/positive like sort comparator */
+/* ── Numeric month-ID compare  m_YYYY_M ─────────────────────────────── */
 function _midCmp(a, b) {
   const pa = a.split('_').slice(1).map(Number);
   const pb = b.split('_').slice(1).map(Number);
   return pa[0] !== pb[0] ? pa[0] - pb[0] : pa[1] - pb[1];
 }
 
-function wiBucketStateAt(bid, mid) {
-  // Returns 'on' or 'off' for bucket bid at month mid.
-  //
-  // Rule: the first (earliest) event in the schedule implies the state BEFORE it:
-  //   - first event = "Turn ON"  → implies OFF before that date
-  //   - first event = "Turn OFF" → implies ON before that date (normal default)
-  //
-  // This means "Turn ON in Sep" = OFF until Sep, ON from Sep.
-  //             "Turn OFF in Sep" = ON until Sep, OFF from Sep.
-
-  const allEvents = _wiSchedule[bid] || [];
-  if (!allEvents.length) return 'on';  // no schedule → always on
-
-  // Events that have already taken effect (from_mid <= mid)
-  const pastEvents = allEvents.filter(e => _midCmp(e.from_mid, mid) <= 0);
-
-  if (pastEvents.length) {
-    // Use the most recent past event
-    return pastEvents.reduce((a, b) => _midCmp(a.from_mid, b.from_mid) >= 0 ? a : b).state;
-  }
-
-  // No event has taken effect yet — infer the state before the first event from its type:
-  // "Turn ON in X" implies the bucket was OFF before X
-  // "Turn OFF in X" implies the bucket was ON before X
-  const firstEvent = allEvents.reduce((a, b) => _midCmp(a.from_mid, b.from_mid) <= 0 ? a : b);
-  return firstEvent.state === 'on' ? 'off' : 'on';
-}
-
-function _migrateSchedule(raw) {
-  // Migrate old {bid: {mid: false}} format → new {bid: [{from_mid, state}]}
-  if (!raw || typeof raw !== 'object') return {};
-  const result = {};
-  for (const [bid, val] of Object.entries(raw)) {
-    if (bid === '__streams') continue;  // stored separately, not a bucket schedule
-    if (Array.isArray(val)) {
-      result[bid] = val;
-    } else if (val && typeof val === 'object') {
-      const arr = Object.entries(val)
-        .filter(([, v]) => v === false)
-        .map(([mid]) => ({from_mid: mid, state: 'off'}))
-        .sort((a, b) => _midCmp(a.from_mid, b.from_mid));
-      if (arr.length) result[bid] = arr;
-    }
-  }
-  return result;
-}
-
-/* ── Paycheck income projection for a given month ────────────────────── */
+/* ── Projected income for a month from paycheck schedules ─────────── */
 function wiProjectedIncome(mid) {
   if (!_wiPcks || !_wiPcks.length) return 0;
-  const [yr, m0] = mid.split('_').slice(1).map(Number);
-  const cal = m0 + 1;
-  const daysInMonth = new Date(yr, cal, 0).getDate();
-  const mStart = new Date(yr, cal - 1, 1);
-  const mEnd   = new Date(yr, cal - 1, daysInMonth);
+  const parts = mid.split('_');
+  const yr = parseInt(parts[1]), mo = parseInt(parts[2]);
+  const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const midStr = `${yr}-${String(mo + 1).padStart(2,'0')}`;
   let total = 0;
   for (const p of _wiPcks) {
-    if (!p.anchorDate || !p.freq) continue;
-    const freq = Number(p.freq) || 14;
-    const amount = Number(p.amount) || 0;
-
+    if (!p.anchor_date || !p.amount) continue;
+    const freq = p.freq || 14;
     if (freq === 15) {
-      // Semi-monthly: always 1st and 15th of the month (matches Python _gen_pay_dates)
-      for (const day of [1, 15]) {
-        const d = new Date(yr, cal - 1, day);
-        if (d >= mStart && d <= mEnd) total += amount;
-      }
-    } else if (freq === 30) {
-      // Monthly: same day-of-month as anchor
-      const anchorDay = new Date(p.anchorDate + 'T00:00:00').getDate();
-      const clampedDay = Math.min(anchorDay, daysInMonth);
-      total += amount;
-      // Only one hit per month regardless of clamping
-      void clampedDay;
-    } else {
-      // Weekly (7) or biweekly (14): walk from anchor
-      let d = new Date(p.anchorDate + 'T00:00:00');
-      while (d > mEnd) d = new Date(d.getTime() - freq * 86400000);
-      while (d < mStart) d = new Date(d.getTime() + freq * 86400000);
-      while (d >= mStart && d <= mEnd) {
-        total += amount;
-        d = new Date(d.getTime() + freq * 86400000);
-      }
+      total += p.amount * 2;
+      continue;
     }
+    const anchor = new Date(p.anchor_date + 'T12:00:00');
+    const monthStart = new Date(yr, mo, 1);
+    const monthEnd   = new Date(yr, mo, daysInMonth);
+    let d = new Date(anchor);
+    while (d > monthStart) d = new Date(d.getTime() - freq * 86400000);
+    while (d < monthStart) d = new Date(d.getTime() + freq * 86400000);
+    let count = 0;
+    while (d <= monthEnd) { count++; d = new Date(d.getTime() + freq * 86400000); }
+    total += count * p.amount;
   }
   return total;
 }
 
-/* ── Effective income for a scenario month (override + extra streams) ── */
-function wiEffectiveIncome(mid) {
-  const base = _wiIncomeSc !== null ? _wiIncomeSc : wiProjectedIncome(mid);
-  const extras = _wiExtraStreams
-    .filter(s => _midCmp(s.from_mid, mid) <= 0 && (!s.to_mid || _midCmp(s.to_mid, mid) >= 0))
-    .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-  return base + extras;
-}
-
-/* ── Get projected alloc total for a month under current scenario ─── */
-/* ── Core allocation calc: sum of ON buckets using target (b.budget) as baseline ── */
-function wiCalcMonthAlloc(mid) {
+/* ── Total allocation: sum of ON buckets using b.budget as baseline ── */
+function wiCalcAlloc() {
   let total = 0;
   for (const g of _wiGroups) {
     for (const b of g.buckets) {
-      if (wiBucketStateAt(b.id, mid) === 'off') continue;
       total += (_wiOverrides[b.id] ?? b.budget ?? 0);
     }
   }
   return total;
 }
 
-/* ── Timeline editor (Phase 1-3: effective-date scheduling) ─────────── */
-function wiToggleTimeline(btn, bid) {
-  const panel = document.getElementById('wt-' + bid);
-  if (!panel) return;
-  const opening = panel.style.display === 'none';
-  panel.style.display = opening ? '' : 'none';
-  btn.classList.toggle('active', opening);
-}
-
-function _renderTimelineMonthSelect(bid) {
-  // Start from next month — schedule only affects future months, not current
-  const allMonths = wiMonthsForward(_wiMid, 13);
-  return allMonths.slice(1).map(m => `<option value="${m.id}">${m.label}</option>`).join('');
-}
-
-function _renderTimelineEvents(bid) {
-  const events = (_wiSchedule[bid] || []).slice().sort((a, b) => _midCmp(a.from_mid, b.from_mid));
-  const panel  = document.getElementById('wt-' + bid);
-  if (!panel) return;
-  const eventsEl = panel.querySelector('.wi-tl-events');
-  if (!eventsEl) return;
-  if (!events.length) {
-    eventsEl.innerHTML = '<span style="color:var(--text3);font-size:11px;">No events — bucket is ON by default</span>';
-    return;
+/* ── Open / close drawer ─────────────────────────────────────────── */
+function toggleWiDrawer() {
+  const drawer = document.getElementById('wi-drawer');
+  const btn    = document.getElementById('wi-drawer-btn');
+  if (!drawer) return;
+  const opening = drawer.style.display === 'none';
+  drawer.style.display = opening ? '' : 'none';
+  if (btn) btn.textContent = opening ? 'What If ▴' : 'What If ▾';
+  if (opening) {
+    const mo = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const p  = _wiMid.split('_');
+    const lbl = document.getElementById('wi-month-label');
+    if (lbl) lbl.textContent = mo[parseInt(p[2])] + ' ' + p[1];
+    _renderWi();
   }
-  // Show implied initial state before first event
-  const firstEvent = events[0];
-  const impliedInitial = firstEvent.state === 'on' ? 'off' : 'on';
-  const moLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const initialHtml = `<div class="wi-tl-event ${impliedInitial}" style="opacity:.6;">
-    <span>${impliedInitial === 'off' ? '⊘' : '✓'} Until ${moLabels[parseInt(firstEvent.from_mid.split('_')[2])]} ${firstEvent.from_mid.split('_')[1]}: ${impliedInitial.toUpperCase()}</span>
-  </div>`;
-  eventsEl.innerHTML = initialHtml + events.map(e => {
-    const parts = e.from_mid.split('_');
-    const lbl = moLabels[parseInt(parts[2])] + ' ' + parts[1];
-    return `<div class="wi-tl-event ${e.state}">
-      <span>${e.state === 'off' ? '⊘' : '✓'} From ${lbl}: ${e.state.toUpperCase()}</span>
-      <button class="wi-tl-rm" onclick="wiRemoveTimelineEvent('${bid}','${e.from_mid}')">✕</button>
-    </div>`;
-  }).join('');
 }
 
-function wiAddTimelineEvent(bid) {
-  const panel = document.getElementById('wt-' + bid);
-  if (!panel) return;
-  const midSel   = panel.querySelector('.wi-tl-sel-mid');
-  const stateSel = panel.querySelector('.wi-tl-sel-state');
-  if (!midSel || !stateSel) return;
-  const mid   = midSel.value;
-  const state = stateSel.value;
-  if (!mid) return;
-  if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
-  // Replace any existing event for same from_mid
-  _wiSchedule[bid] = _wiSchedule[bid].filter(e => e.from_mid !== mid);
-  _wiSchedule[bid].push({from_mid: mid, state});
-  _renderTimelineEvents(bid);
-  _updateTimelineBtn(bid);
-  _renderWiBuckets_UpdateRow(bid);
-  _renderWiAffordability();
-  _renderWi6Month();
-}
-
-function wiRemoveTimelineEvent(bid, from_mid) {
-  if (!_wiSchedule[bid]) return;
-  _wiSchedule[bid] = _wiSchedule[bid].filter(e => e.from_mid !== from_mid);
-  if (!_wiSchedule[bid].length) delete _wiSchedule[bid];
-  _renderTimelineEvents(bid);
-  _updateTimelineBtn(bid);
-  _renderWiBuckets_UpdateRow(bid);
-  _renderWiAffordability();
-  _renderWi6Month();
-}
-
-function wiClearTimeline(bid) {
-  delete _wiSchedule[bid];
-  _renderTimelineEvents(bid);
-  _updateTimelineBtn(bid);
-  _renderWiBuckets_UpdateRow(bid);
-  _renderWiAffordability();
-  _renderWi6Month();
-}
-
-function _updateTimelineBtn(bid) {
-  const hasSched = (_wiSchedule[bid] || []).length > 0;
-  const btn = document.querySelector(`.wi-sched-btn[data-bid="${bid}"]`);
-  if (btn) btn.classList.toggle('has-sched', hasSched);
-}
-
-function _renderWiBuckets_UpdateRow(bid) {
-  // Full re-render is simplest — avoids stale state in partial updates
+/* ── Full render ─────────────────────────────────────────────────── */
+function _renderWi() {
+  _renderWiSummary();
   _renderWiBuckets();
 }
 
-/* ── Month ID helpers ─────────────────────────────────────────────── */
-function wiMonthsForward(fromMid, count) {
-  const parts = fromMid.split('_');
-  let yr = parseInt(parts[1]), m0 = parseInt(parts[2]);
-  const result = [];
-  for (let i = 0; i < count; i++) {
-    result.push({ id: `m_${yr}_${m0}`, label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m0] });
-    m0++;
-    if (m0 > 11) { m0 = 0; yr++; }
-  }
-  return result;
-}
-
-
-/* ── Income override ──────────────────────────────────────────────── */
-function wiIncomeChange(inp) {
-  const real = wiProjectedIncome(_wiMid);
-  const cur  = _wiIncomeSc !== null ? _wiIncomeSc : real;
-  const val  = evalMoneyExpr(inp.value, cur, real);
-  inp.value  = val.toFixed(2);
-  _wiIncomeSc = val;
-  _renderWiIncome();
-  _renderWiSurplus();
-  _renderWiImpact();
-  _renderWi6Month();
-}
-
-/* ── Extra income streams ─────────────────────────────────────────── */
-function _renderExtraStreams() {
-  const el = document.getElementById('wi-extra-streams');
-  if (!el) return;
-  if (!_wiExtraStreams.length) {
-    el.innerHTML = '<span style="font-family:var(--mono);font-size:10px;color:var(--text3);">None — add freelance, bonus, childcare costs, etc.</span>';
-    return;
-  }
-  el.innerHTML = _wiExtraStreams.map(s => {
-    const fromParts = s.from_mid.split('_');
-    const fromLbl   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(fromParts[2])] + ' ' + fromParts[1];
-    const toLbl     = s.to_mid ? (() => { const p = s.to_mid.split('_'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[2])] + ' ' + p[1]; })() : 'Ongoing';
-    return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;">
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${s.name}">${s.name}</span>
-      <span style="color:${s.amount >= 0 ? 'var(--green)' : 'var(--red)'};">${s.amount >= 0 ? '+' : ''}${fmtMoney(s.amount)}/mo</span>
-      <span style="color:var(--text3);">${fromLbl}→${toLbl}</span>
-      <button style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 2px;font-size:10px;" onclick="wiRemoveExtraStream('${s.id}')" title="Remove">✕</button>
-    </div>`;
-  }).join('');
-}
-
-function wiShowAddStream() {
-  const form = document.getElementById('wi-add-stream-form');
-  if (!form) return;
-  form.style.display = '';
-  // Populate month selects
-  const months = wiMonthsForward(_wiMid, 12);
-  const opts = months.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
-  const toOpts = '<option value="">Ongoing</option>' + opts;
-  const fromSel = document.getElementById('ws-from');
-  const toSel   = document.getElementById('ws-to');
-  if (fromSel) fromSel.innerHTML = opts;
-  if (toSel)   toSel.innerHTML   = toOpts;
-}
-
-function wiHideAddStream() {
-  const form = document.getElementById('wi-add-stream-form');
-  if (form) form.style.display = 'none';
-}
-
-function wiConfirmAddStream() {
-  const name   = document.getElementById('ws-name')?.value?.trim();
-  const amount = parseFloat(document.getElementById('ws-amount')?.value) || 0;
-  const from   = document.getElementById('ws-from')?.value;
-  const to     = document.getElementById('ws-to')?.value || null;
-  if (!name || !amount || !from) { showToast('Fill in name, amount, and start month.', 'warning'); return; }
-  _wiExtraStreams.push({ id: 'xs_' + Date.now(), name, amount, from_mid: from, to_mid: to });
-  wiHideAddStream();
-  _renderExtraStreams();
-  _renderWiIncome();
-  _renderWiImpact();
-  _renderWi6Month();
-}
-
-function wiRemoveExtraStream(id) {
-  _wiExtraStreams = _wiExtraStreams.filter(s => s.id !== id);
-  _renderExtraStreams();
-  _renderWiIncome();
-  _renderWiImpact();
-  _renderWi6Month();
-}
-
-
-function _renderWiIncome() {
-  const projected = wiProjectedIncome(_wiMid);
-  const sc        = wiEffectiveIncome(_wiMid);
-  const rEl   = document.getElementById('wi-income-real');
-  const subEl = document.getElementById('wi-income-actual-row');
-  const sEl   = document.getElementById('wi-income-sc');
-  const card  = document.getElementById('wi-income-sc-card');
-  const inp   = document.getElementById('wi-income-inp');
-  if (rEl) rEl.textContent = fmtMoney(projected);
-  if (subEl) {
-    if (_wiRealIncome > 0) {
-      const pct = projected > 0 ? Math.round(_wiRealIncome / projected * 100) : 0;
-      subEl.textContent = `Actual so far: ${fmtMoney(_wiRealIncome)} (${pct}%)`;
-    } else {
-      subEl.textContent = '';
-    }
-  }
-  if (sEl) {
-    sEl.textContent = fmtMoney(sc);
-    sEl.style.color = sc > projected ? 'var(--green)' : sc < projected ? 'var(--red)' : 'var(--text)';
-  }
-  if (card) card.style.borderColor = sc !== projected ? (sc > projected ? 'var(--green)' : 'var(--red)') : 'var(--border)';
-  if (inp && _wiIncomeSc !== null) inp.value = _wiIncomeSc.toFixed(2);
-}
-
-function _renderWiSurplus() {
-  // Surplus pills removed — affordability bar handles this now
-}
-
-/* ── Affordability bar ────────────────────────────────────────────── */
-function _renderWiAffordability() {
-  const projected  = wiProjectedIncome(_wiMid);
-  const income     = wiEffectiveIncome(_wiMid);
-  const alloc      = wiCalcMonthAlloc(_wiMid);
+/* ── Summary bar: Income / Allocated / Surplus ───────────────────── */
+function _renderWiSummary() {
+  const income     = wiProjectedIncome(_wiMid);
+  const alloc      = wiCalcAlloc();
   const surplus    = income - alloc;
-  const pct        = income > 0 ? Math.min(110, Math.round(alloc / income * 100)) : 0;
   const overBudget = alloc > income;
-  // Baseline = all buckets ON, no overrides (what targets sum to with no schedule)
-  const baseAlloc  = _wiGroups.flatMap(g => g.buckets).reduce((s, b) => s + (b.budget || 0), 0);
-  const delta      = alloc - baseAlloc;
+  const pct        = income > 0 ? Math.min(110, Math.round(alloc / income * 100)) : 0;
 
-  const incEl  = document.getElementById('wi-afford-income');
-  const subEl  = document.getElementById('wi-afford-income-sub');
-  const alcEl  = document.getElementById('wi-afford-alloc');
-  const dltEl  = document.getElementById('wi-afford-delta');
-  const surEl  = document.getElementById('wi-afford-surplus');
-  const fillEl = document.getElementById('wi-afford-fill');
-  const pctEl  = document.getElementById('wi-afford-pct');
+  const incEl  = document.getElementById('wi-income');
+  const alcEl  = document.getElementById('wi-alloc');
+  const surEl  = document.getElementById('wi-surplus');
+  const fillEl = document.getElementById('wi-fill');
+  const pctEl  = document.getElementById('wi-pct');
 
-  if (incEl) { incEl.textContent = fmtMoney(income); incEl.style.color = 'var(--green)'; }
-  if (subEl) subEl.textContent = _wiIncomeSc !== null ? `Projected: ${fmtMoney(projected)}` : '';
+  if (incEl) incEl.textContent = fmtMoney(income);
   if (alcEl) { alcEl.textContent = fmtMoney(alloc); alcEl.style.color = overBudget ? 'var(--red)' : 'var(--text)'; }
-  if (dltEl) {
-    dltEl.textContent = delta !== 0 ? `${delta>0?'+':''}${fmtMoney(delta)} vs targets` : '';
-    dltEl.style.color = delta > 0 ? 'var(--amber)' : 'var(--green)';
-  }
   if (surEl) {
     surEl.textContent = (surplus >= 0 ? '+' : '') + fmtMoney(surplus);
-    surEl.style.color  = surplus >= 0 ? 'var(--green)' : 'var(--red)';
-    surEl.style.fontWeight = '700';
+    surEl.style.color = surplus >= 0 ? 'var(--green)' : 'var(--red)';
   }
   if (fillEl) {
     fillEl.style.width      = Math.min(pct, 100) + '%';
     fillEl.style.background = overBudget ? 'var(--red)' : pct > 88 ? 'var(--amber)' : 'var(--green)';
   }
   if (pctEl) {
-    const offCount = _wiGroups.flatMap(g=>g.buckets).filter(b => wiBucketStateAt(b.id,_wiMid)==='off').length;
-    pctEl.textContent = `${pct}% of income allocated`
-      + (offCount ? ` · ${offCount} bucket${offCount!==1?'s':''} OFF` : '')
-      + (overBudget ? ' — OVER BUDGET' : '');
+    pctEl.textContent = `${pct}% of income allocated${overBudget ? ' — OVER BUDGET' : ''}`;
     pctEl.style.color = overBudget ? 'var(--red)' : 'var(--text3)';
   }
 }
 
-/* ── Impact bar ───────────────────────────────────────────────────── */
-function _renderWiImpact() {
-  _renderWiAffordability();
-  const bar  = document.getElementById('wi-impact-bar');
-  const hint = document.getElementById('wi-impact-hint');
-  if (!bar) return;
-  const simAlloc     = wiCalcMonthAlloc(_wiMid);
-  const real         = wiProjectedIncome(_wiMid);
-  const scInc        = wiEffectiveIncome(_wiMid);
-  // Baseline RTS = income - sum of all targets (no schedule, no overrides)
-  const baseAlloc    = _wiGroups.flatMap(g => g.buckets).reduce((s, b) => s + (b.budget || 0), 0);
-  const netDelta     = (scInc - simAlloc) - (real - baseAlloc);
-  const overrideCount = Object.keys(_wiOverrides).length;
-  const incOverridden = _wiIncomeSc !== null || _wiExtraStreams.length > 0;
-  const schedCount    = Object.keys(_wiSchedule).length;
-  const anyChange     = overrideCount > 0 || incOverridden || schedCount > 0;
-  if (!anyChange) {
-    if (hint) hint.style.display = '';
-    bar.querySelectorAll('.wi-impact-badge,.wi-net-badge').forEach(e => e.remove());
-    return;
-  }
-  if (hint) hint.style.display = 'none';
-  bar.querySelectorAll('.wi-impact-badge,.wi-net-badge').forEach(e => e.remove());
-  const ndCls = netDelta > 0 ? 'pos' : netDelta < 0 ? 'neg' : 'zero';
-  const ndStr = (netDelta >= 0 ? '+' : '') + fmtMoney(netDelta);
-  bar.insertAdjacentHTML('beforeend', `
-    <span class="wi-impact-badge ${ndCls}">${ndStr} net</span>
-    ${overrideCount ? `<span class="wi-impact-badge zero">${overrideCount} bucket${overrideCount!==1?'s':''} changed</span>` : ''}
-    ${schedCount ? `<span class="wi-impact-badge zero">${schedCount} scheduled</span>` : ''}
-    ${incOverridden ? `<span class="wi-impact-badge ${scInc>real?'pos':'neg'}">${scInc>real?'+':''}${fmtMoney(scInc-real)} income</span>` : ''}
-  `);
-}
-
-/* ── Bucket table ─────────────────────────────────────────────────── */
+/* ── Bucket list ─────────────────────────────────────────────────── */
 function _renderWiBuckets() {
   const el = document.getElementById('wi-buckets-content');
   if (!el) return;
   let html = '';
   _wiGroups.forEach(g => {
-    // Category delta: compare overridden values vs budget targets, only for ON buckets
-    const catDelta = g.buckets.reduce((s, b) => {
-      if (wiBucketStateAt(b.id, _wiMid) === 'off') return s;
-      return s + ((_wiOverrides[b.id] ?? b.budget ?? 0) - (b.budget || 0));
-    }, 0);
-    const diffHtml = catDelta !== 0
-      ? `<span class="wi-cat-diff ${catDelta>0?'pos':'neg'}">${catDelta>0?'+':''}${fmtMoney(catDelta)}</span>`
-      : '';
     html += `<div class="wi-cat-hdr" onclick="wiToggleCat(this)">
-      <span class="wi-cat-arrow open">▶</span>${g.name}${diffHtml}
+      <span class="wi-cat-arrow open">▶</span>${g.name}
     </div><div class="wi-cat-body">`;
     g.buckets.forEach(b => {
-      const isOff    = wiBucketStateAt(b.id, _wiMid) === 'off';
-      const base     = b.budget || 0;
-      const val      = _wiOverrides[b.id] ?? base;
-      const diff     = isOff ? 0 : val - base;
-      const diffSpan = diff !== 0
-        ? `<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${fmtMoney(diff)}</span>`
+      const base    = b.budget ?? 0;
+      const val     = _wiOverrides[b.id] ?? base;
+      const changed = _wiOverrides[b.id] !== undefined;
+      const diff    = val - base;
+      const diffSpan = changed
+        ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
         : '';
-      const changed    = _wiOverrides[b.id] !== undefined;
-      const events     = _wiSchedule[b.id] || [];
-      const hasSched   = events.length > 0;
-      const offBadge   = isOff ? `<span class="wi-bkt-off-badge">OFF</span>` : '';
-      const schedBadge = hasSched ? `<span class="wi-bkt-sched-badge" title="${events.length} schedule event(s)">⏱ ${events.length}</span>` : '';
-      const moOpts     = _renderTimelineMonthSelect(b.id);
-      html += `<div class="wi-bkt-row${isOff?' wi-bkt-row-off':''}" data-bid="${b.id}">
-        <span class="wi-bkt-label${isOff?' wi-bkt-off':''}" title="${b.name}">${b.name}</span>
-        ${offBadge}${schedBadge}${diffSpan}
-        <input class="wi-s-inp${changed?' changed':''}" type="text" inputmode="decimal"
+      html += `<div class="wi-bkt-row" data-bid="${b.id}">
+        <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
+        ${diffSpan}
+        <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
           data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
-          title="Target: ${fmtMoney(base)} · Supports: +50, -20, *1.1, =0"
-          ${isOff ? 'disabled' : ''}
+          title="Target: ${fmtMoney(base)}"
           onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
-        <button class="wi-sched-btn${hasSched?' has-sched':''}" data-bid="${b.id}" title="Schedule on/off" onclick="wiToggleTimeline(this,'${b.id}')">⏱</button>
-      </div>
-      <div class="wi-tl-panel" id="wt-${b.id}" style="display:none;">
-        <div class="wi-tl-header">
-          <span style="font-size:11px;font-weight:600;color:var(--text2);">Schedule for ${b.name}</span>
-          <button class="sf-btn" style="margin-left:auto;font-size:10px;padding:2px 6px;" onclick="wiClearTimeline('${b.id}')">Clear</button>
-        </div>
-        <div class="wi-tl-events" id="wte-${b.id}"></div>
-        <div class="wi-tl-add">
-          <select class="wi-tl-sel wi-tl-sel-mid">${moOpts}</select>
-          <select class="wi-tl-sel wi-tl-sel-state">
-            <option value="off">Turn OFF</option>
-            <option value="on">Turn ON</option>
-          </select>
-          <button class="sf-btn" style="font-size:11px;padding:3px 8px;" onclick="wiAddTimelineEvent('${b.id}')">+ Add</button>
-        </div>
       </div>`;
     });
     html += `</div>`;
   });
   el.innerHTML = html;
-  // Render timeline events for any buckets that have schedules
-  _wiGroups.flatMap(g => g.buckets).forEach(b => {
-    if ((_wiSchedule[b.id] || []).length > 0) _renderTimelineEvents(b.id);
-  });
 }
 
-function wiToggleCat(hdr) {
-  const body = hdr.nextElementSibling;
-  if (!body) return;
-  const hidden = body.style.display === 'none';
-  body.style.display = hidden ? '' : 'none';
-  hdr.querySelector('.wi-cat-arrow').classList.toggle('open', hidden);
-}
-
+/* ── Bucket amount change ────────────────────────────────────────── */
 function wiBktChange(inp) {
   const bid  = inp.dataset.bid;
   const base = parseFloat(inp.dataset.base) || 0;
   const cur  = _wiOverrides[bid] ?? base;
   const val  = evalMoneyExpr(inp.value, cur, base);
   inp.value  = val.toFixed(2);
-  // Only store in overrides if the user actually changed from the target
   if (Math.abs(val - base) < 0.005) {
     delete _wiOverrides[bid];
     inp.classList.remove('changed');
+    const diffSpan = inp.closest('.wi-bkt-row')?.querySelector('.wi-diff');
+    if (diffSpan) diffSpan.remove();
   } else {
     _wiOverrides[bid] = val;
     inp.classList.add('changed');
+    const row   = inp.closest('.wi-bkt-row');
+    const diff  = val - base;
+    const dHtml = `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`;
+    const existing = row?.querySelector('.wi-diff');
+    if (existing) existing.outerHTML = dHtml;
+    else inp.closest('.wi-bkt-row')?.querySelector('.wi-bkt-label')?.insertAdjacentHTML('afterend', dHtml);
   }
-  // Update category diff pill
-  const body = inp.closest('.wi-cat-body');
-  const hdr  = body?.previousElementSibling;
-  if (hdr) {
-    const catBuckets = [...body.querySelectorAll('[data-bid]')]
-      .map(i => _wiGroups.flatMap(g => g.buckets).find(b => b.id === i.dataset.bid))
-      .filter(Boolean);
-    const catDelta = catBuckets.reduce((s, b) => {
-      if (wiBucketStateAt(b.id, _wiMid) === 'off') return s;
-      return s + ((_wiOverrides[b.id] ?? b.budget ?? 0) - (b.budget || 0));
-    }, 0);
-    let dp = hdr.querySelector('.wi-cat-diff');
-    if (catDelta !== 0) {
-      const html = `<span class="wi-cat-diff ${catDelta>0?'pos':'neg'}">${catDelta>0?'+':''}${fmtMoney(catDelta)}</span>`;
-      if (dp) dp.outerHTML = html; else hdr.insertAdjacentHTML('beforeend', html);
-    } else if (dp) dp.remove();
-  }
-  _renderWiImpact();
-  _renderWiSurplus();
-  _renderWi6Month();
+  _renderWiSummary();
 }
 
-/* ── Projection chart ─────────────────────────────────────────────── */
-function wiSet6Mode(mode) {
-  _wi6Mode = mode;
-  document.getElementById('wi6-rts-btn')?.classList.toggle('active', mode === 'rts');
-  document.getElementById('wi6-inc-btn')?.classList.toggle('active', mode === 'income');
-  _renderWi6Month();
+/* ── Toggle category open/closed ─────────────────────────────────── */
+function wiToggleCat(hdr) {
+  const body = hdr.nextElementSibling;
+  if (!body) return;
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  hdr.querySelector('.wi-cat-arrow')?.classList.toggle('open', hidden);
 }
 
-function wiSet6Range(n) {
-  _wi6Months = n;
-  document.getElementById('wi6-6mo-btn')?.classList.toggle('active', n === 6);
-  document.getElementById('wi6-12mo-btn')?.classList.toggle('active', n === 12);
-  const titleEl = document.getElementById('wi6-title');
-  if (titleEl) titleEl.textContent = n + '-Month Projection';
-  _renderWi6Month();
-}
-
-function _renderWi6Month() {
-  const barsEl  = document.getElementById('wi-6mo-bars');
-  const lblsEl  = document.getElementById('wi-6mo-labels');
-  const valsEl  = document.getElementById('wi-6mo-vals');
-  if (!barsEl) return;
-
-  const months = wiMonthsForward(_wiMid, _wi6Months);
-  const rows = months.map((m, i) => {
-    const isNow   = i === 0;
-    const realInc = wiProjectedIncome(m.id);
-    const inc     = wiEffectiveIncome(m.id);
-    const alloc   = wiCalcMonthAlloc(m.id);  // same formula for every month
-    const rts     = inc - alloc;
-    const val     = _wi6Mode === 'income' ? inc : rts;
-    return { label: m.label, val, rts, inc, alloc, isNow };
-  });
-
-  const maxAbs = Math.max(...rows.map(r => Math.abs(r.val)), 1);
-
-  barsEl.innerHTML = rows.map(r => {
-    const pct  = Math.max(4, Math.round(Math.abs(r.val) / maxAbs * 96));
-    const neg  = r.val < 0;
-    return `<div class="wi-6mo-bar-wrap">
-      <div class="wi-6mo-bar${r.isNow?' now':''}${neg?' neg':''}" style="height:${pct}%" title="${r.label}: ${fmtMoney(r.val)}"></div>
-    </div>`;
-  }).join('');
-
-  lblsEl.innerHTML = rows.map(r =>
-    `<div class="wi-6mo-lbl${r.isNow?' now':''}">${r.label}</div>`
-  ).join('');
-
-  const cumRts = rows.reduce((s, r) => s + r.rts, 0);
-  const avgAlloc = rows.reduce((s, r) => s + r.alloc, 0) / rows.length;
-  const avgInc   = rows.reduce((s, r) => s + r.inc,   0) / rows.length;
-
-  // Balance runway: how many months until balance hits 0 (using forecast start_balance)
-  const startBal = _forecastData?.start_balance ?? null;
-  let runwayHtml = '';
-  if (startBal !== null && startBal > 0) {
-    const avgMonthlyRts = cumRts / rows.length;
-    if (avgMonthlyRts < 0) {
-      const runway = Math.floor(startBal / Math.abs(avgMonthlyRts));
-      runwayHtml = `<div class="wi-6mo-val"><div class="wi-6mo-val-label">Runway</div><div class="wi-6mo-val-num" style="color:${runway<6?'var(--red)':'var(--amber)'}">${runway} mo</div></div>`;
-    } else {
-      runwayHtml = `<div class="wi-6mo-val"><div class="wi-6mo-val-label">Runway</div><div class="wi-6mo-val-num" style="color:var(--green)">∞</div></div>`;
-    }
-  }
-
-  const moLabel = _wi6Months + 'mo';
-  valsEl.innerHTML = `
-    <div class="wi-6mo-val"><div class="wi-6mo-val-label">${moLabel} RTS</div><div class="wi-6mo-val-num" style="color:${cumRts>=0?'var(--green)':'var(--red)'}">${cumRts>=0?'+':''}${fmtMoney(cumRts)}</div></div>
-    <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Alloc</div><div class="wi-6mo-val-num">${fmtMoney(avgAlloc)}</div></div>
-    <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Income</div><div class="wi-6mo-val-num">${fmtMoney(avgInc)}</div></div>
-    ${runwayHtml}
-  `;
-}
-
-/* ── Scenario templates (Phase 6) ────────────────────────────────── */
-function wiApplyTemplate(tpl) {
-  wiNewScenario();
-  const nameInp = document.getElementById('wi-name-inp');
-  const incInp  = document.getElementById('wi-income-inp');
-  const projected = wiProjectedIncome(_wiMid);
-
-  const _setIncome = (val) => {
-    _wiIncomeSc = val;
-    if (incInp) incInp.value = val.toFixed(2);
-  };
-  const _scaleBuckets = (catKeyword, factor) => {
-    _wiGroups.forEach(g => {
-      if (!g.name.toLowerCase().includes(catKeyword)) return;
-      g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * factor); });
-    });
-  };
-  const _addStream = (name, amount) => {
-    _wiExtraStreams.push({ id: 'xs_' + Date.now() + Math.random(), name, amount, from_mid: _wiMid, to_mid: null });
-  };
-
-  if (tpl === 'raise') {
-    if (nameInp) nameInp.value = 'Pay Raise (+10%)';
-    _setIncome(Math.round(projected * 1.10));
-  } else if (tpl === 'jobloss') {
-    if (nameInp) nameInp.value = 'Job Loss';
-    _setIncome(0);
-    _wiGroups.forEach(g => {
-      const name = g.name.toLowerCase();
-      if (name.includes('entertainment') || name.includes('dining') || name.includes('fun') || name.includes('personal')) {
-        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 0.25); });
-      }
-    });
-  } else if (tpl === 'home') {
-    if (nameInp) nameInp.value = 'New Home';
-    _addStream('Mortgage/Rent ↑', Math.round(projected * 0.08));
-    _addStream('Utilities ↑', 200);
-    _addStream('Home Maintenance', 150);
-    _wiGroups.forEach(g => {
-      const name = g.name.toLowerCase();
-      if (name.includes('entertainment') || name.includes('dining')) {
-        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 0.70); });
-      }
-    });
-  } else if (tpl === 'baby') {
-    if (nameInp) nameInp.value = 'New Baby';
-    _addStream('Childcare', -1200);
-    _addStream('Baby Supplies', -300);
-    _wiGroups.forEach(g => {
-      const name = g.name.toLowerCase();
-      if (name.includes('health') || name.includes('medical')) {
-        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 1.3); });
-      }
-      if (name.includes('food') || name.includes('grocer')) {
-        g.buckets.forEach(b => { _wiOverrides[b.id] = Math.round((b.budget || 0) * 1.2); });
-      }
-    });
-  }
-
-  _renderWiBuckets();
-  _renderWiIncome();
-  _renderWiAffordability();
-  _renderWiImpact();
-  _renderExtraStreams();
-  _renderWi6Month();
-  showToast(`Template "${tpl}" applied — customize and save`, 'info');
-}
-
-/* ── Scenarios (Supabase-backed) ──────────────────────────────────── */
-async function _loadWiScenarios() {
-  try {
-    const r = await fetch('/api/scenarios').then(r => r.json());
-    if (r.ok) {
-      _wiScenarios = r.scenarios || [];
-      // Migrate any remaining localStorage scenarios on first run
-      const legacy = (() => { try { return JSON.parse(localStorage.getItem('bcc_wi_scenarios') || '[]'); } catch { return []; } })();
-      if (legacy.length && !_wiScenarios.length) {
-        for (const s of legacy) {
-          await _apiSaveScenario(s);
-        }
-        localStorage.removeItem('bcc_wi_scenarios');
-        const r2 = await fetch('/api/scenarios').then(r => r.json());
-        if (r2.ok) _wiScenarios = r2.scenarios || [];
-      }
-    }
-  } catch { _wiScenarios = []; }
-  _renderWiChips();
-}
-
-async function _apiSaveScenario(s) {
-  try {
-    return await fetch('/api/scenarios', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(s),
-    }).then(r => r.json());
-  } catch { return {ok: false}; }
-}
-
-async function _apiDeleteScenario(id) {
-  try {
-    return await fetch('/api/scenarios/' + id, {method: 'DELETE'}).then(r => r.json());
-  } catch { return {ok: false}; }
-}
-
-function _renderWiChips() {
-  const el = document.getElementById('wi-chips');
-  if (!el) return;
-  if (!_wiScenarios.length) { el.innerHTML = ''; return; }
-  el.innerHTML = _wiScenarios.map(s => {
-    const isActive = _wiActiveSc?.id === s.id;
-    return `<span class="wi-chip${isActive?' active':''}" onclick="wiLoadScenario('${s.id}')">
-      ${s.name}
-      <span class="wi-chip-x" onclick="event.stopPropagation();wiDeleteScenario('${s.id}')">✕</span>
-    </span>`;
-  }).join('');
-}
-
-async function wiSaveScenario() {
-  const nameInp = document.getElementById('wi-name-inp');
-  const name = (nameInp?.value || '').trim();
-  if (!name) { showToast('Enter a scenario name first.', 'warning'); return; }
-
-  const sched    = JSON.parse(JSON.stringify(_wiSchedule));
-  const streams  = JSON.parse(JSON.stringify(_wiExtraStreams));
-  const existing = _wiScenarios.find(s => s.name === name);
-  const payload  = {
-    id:             existing?.id || null,
-    name,
-    allocations:    {..._wiOverrides},   // only stores user-changed values; baseline is b.budget
-    incomeOverride: _wiIncomeSc,
-    schedule:       sched,
-    extraStreams:   streams,
-    sortOrder:      existing?.sortOrder ?? _wiScenarios.length,
-  };
-
-  const r = await _apiSaveScenario(payload);
-  if (!r.ok) { showToast('Failed to save scenario.', 'error'); return; }
-
-  if (existing) {
-    Object.assign(existing, {allocations: {..._wiOverrides}, incomeOverride: _wiIncomeSc, schedule: sched, extraStreams: streams});
-    _wiActiveSc = existing;
-  } else {
-    const s = {...payload, id: r.id};
-    _wiScenarios.push(s);
-    _wiActiveSc = s;
-  }
-  _renderWiChips();
-  showToast(`"${name}" saved`, 'success');
-}
-
-async function wiDupeScenario() {
-  if (!_wiActiveSc) { showToast('Load a scenario first.', 'warning'); return; }
-  const copy = {..._wiActiveSc, id: null, name: _wiActiveSc.name + ' (copy)', sortOrder: _wiScenarios.length};
-  const r = await _apiSaveScenario(copy);
-  if (!r.ok) { showToast('Failed to duplicate.', 'error'); return; }
-  copy.id = r.id;
-  _wiScenarios.push(copy);
-  _renderWiChips();
-  showToast(`Duplicated "${_wiActiveSc.name}"`, 'info');
-}
-
-function wiNewScenario() {
-  _wiActiveSc    = null;
-  _wiIncomeSc    = null;
-  _wiSchedule    = {};
-  _wiExtraStreams = [];
-  _wiOverrides   = {};
-  const nameInp = document.getElementById('wi-name-inp');
-  if (nameInp) nameInp.value = '';
-  _renderWiChips();
-  _renderWiBuckets();
-  _renderWiImpact();
-  _renderWiIncome();
-  _renderWiSurplus();
-  _renderExtraStreams();
-  _renderWi6Month();
-}
-
-function wiLoadScenario(id) {
-  const s = _wiScenarios.find(s => s.id === id);
-  if (!s) return;
-  _wiActiveSc    = s;
-  _wiIncomeSc    = s.incomeOverride ?? null;
-  _wiSchedule    = _migrateSchedule(JSON.parse(JSON.stringify(s.schedule || {})));
-  _wiExtraStreams = JSON.parse(JSON.stringify(s.extraStreams || []));
-  _wiOverrides   = JSON.parse(JSON.stringify(s.allocations || {}));
-  const nameInp = document.getElementById('wi-name-inp');
-  if (nameInp) nameInp.value = s.name;
-  const incInp = document.getElementById('wi-income-inp');
-  if (incInp) incInp.value = _wiIncomeSc !== null ? _wiIncomeSc.toFixed(2) : '';
-  _renderWiChips();
-  _renderWiBuckets();
-  _renderWiImpact();
-  _renderWiIncome();
-  _renderWiSurplus();
-  _renderExtraStreams();
-  _renderWi6Month();
-  showToast(`Loaded "${s.name}"`, 'info');
-}
-
-async function wiDeleteScenario(id) {
-  const s = _wiScenarios.find(s => s.id === id);
-  _wiScenarios = _wiScenarios.filter(s => s.id !== id);
-  if (_wiActiveSc?.id === id) _wiActiveSc = null;
-  await _apiDeleteScenario(id);
-  _renderWiChips();
-  if (s) showToast(`Deleted "${s.name}"`, 'info');
-}
-
-/* ── Reset / free-up / apply ─────────────────────────────────────── */
+/* ── Reset all overrides ─────────────────────────────────────────── */
 function wiReset() {
-  _wiActiveSc    = null;
-  _wiIncomeSc    = null;
-  _wiSchedule    = {};
-  _wiExtraStreams = [];
-  _wiOverrides   = {};
-  const nameInp = document.getElementById('wi-name-inp');
-  if (nameInp) nameInp.value = '';
-  const incInp = document.getElementById('wi-income-inp');
-  if (incInp) incInp.value = '';
-  _renderWiChips();
-  _renderWiBuckets();
-  _renderWiImpact();
-  _renderWiIncome();
-  _renderWiSurplus();
-  _renderExtraStreams();
-  _renderWi6Month();
-}
-function wiFreeUp() {
-  const input = document.getElementById('wi-target-input');
-  const target = evalMathExpr(input.value);
-  if (!target || target <= 0) { showToast('Enter a positive amount to free up.', 'warning'); return; }
-  const currentTotal = wiCalcMonthAlloc(_wiMid);
-  if (currentTotal <= 0) { showToast('No allocations to reduce.', 'warning'); return; }
-  const newTotal = currentTotal - target;
-  if (newTotal < 0) { showToast('Cannot free up more than is allocated.', 'warning'); return; }
-  const scale = newTotal / currentTotal;
-  // Scale each ON bucket's effective value and store as override
-  _wiGroups.flatMap(g => g.buckets).forEach(b => {
-    if (wiBucketStateAt(b.id, _wiMid) === 'off') return;
-    const cur = _wiOverrides[b.id] ?? b.budget ?? 0;
-    _wiOverrides[b.id] = Math.round(cur * scale * 100) / 100;
-  });
-  input.value = '';
-  _renderWiBuckets();
-  _renderWiImpact();
-  _renderWiSurplus();
-  _renderWi6Month();
-  showToast(`Freed up ${fmtMoney(target)} across all buckets`, 'success');
-}
-async function wiApply() {
-  const changed = [];
-  _wiGroups.forEach(g => g.buckets.forEach(b => {
-    if (_wiOverrides[b.id] !== undefined) changed.push({id: b.id, value: _wiOverrides[b.id]});
-  }));
-  if (!changed.length) { showToast('No changes to apply.', 'warning'); return; }
-  const applyBtn = document.getElementById('wi-apply-btn');
-  if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying…'; }
-
-  let failed = 0;
-  for (const ch of changed) {
-    try {
-      const r = await fetch('/api/save', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({field: 'bucket_alloc', id: ch.id, value: ch.value, month: _wiMid}),
-      }).then(r => r.json());
-      if (!r.ok) failed++;
-    } catch { failed++; }
-  }
-
-  if (applyBtn) { applyBtn.disabled = false; applyBtn.textContent = 'Apply to Month'; }
-  if (failed > 0) {
-    showToast(`${failed} allocation(s) failed to save. Please try again.`, 'error');
-  } else {
-    showToast('Scenario applied to month', 'success');
-    window.location.reload();
-  }
+  _wiOverrides = {};
+  _renderWi();
 }
 
-/* ── Forecast scenario integration ────────────────────────────────── */
-function wiGetActiveScenario() { return _wiActiveSc; }
-function wiGetSimAllocs()      { return _wiOverrides; }  // backward-compat alias
+/* ── Forecast integration stubs (kept for forecast wiring) ────────── */
+function wiGetActiveScenario() { return null; }
+function wiGetSimAllocs()      { return _wiOverrides; }
 
 
 function setForecastRange(months, btn) {
