@@ -1079,7 +1079,7 @@ def api_scenarios_list():
                 .select("*").eq("user_id", uid)
                 .execute().data or [])
         # Sort in Python — avoids failure if sort_order column doesn't exist
-        rows.sort(key=lambda r: r.get("sort_order", 0))
+        rows.sort(key=lambda r: r.get("sort_order") or 0)
         scenarios = []
         for r in rows:
             # Schedule + streams may be stored in allocations._schedule / ._streams
@@ -1122,9 +1122,9 @@ def api_scenarios_save():
     schedule = body.get("schedule") or {}
     streams  = body.get("extraStreams") or []
     sort_ord = body.get("sortOrder", 0)
-    if schedule:  allocs["_schedule"] = schedule
-    if streams:   allocs["_streams"]  = streams
-    if sort_ord:  allocs["_sort"]     = sort_ord
+    if schedule:              allocs["_schedule"] = schedule
+    if streams:               allocs["_streams"]  = streams
+    if sort_ord is not None:  allocs["_sort"]     = sort_ord
 
     row = {
         "id":              scenario_id or _new_id("sc"),
