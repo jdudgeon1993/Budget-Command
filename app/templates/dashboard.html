@@ -5895,19 +5895,14 @@ function wiEffectiveIncome(mid) {
 
 /* ── Get projected alloc total for a month under current scenario ─── */
 function wiSimAllocForMonth(mid) {
-  const isCurrent = mid === _wiMid;
   let total = 0;
   for (const g of _wiGroups) {
     for (const b of g.buckets) {
-      if (wiBucketStateAt(b.id, mid) === 'off') { continue; }
-      let amt;
-      if (isCurrent) {
-        amt = _wiSimAllocs[b.id] ?? b.alloc;
-      } else {
-        amt = (_wiActiveSc?.allocations?.[b.id] !== undefined)
-          ? _wiActiveSc.allocations[b.id]
-          : (b.budget || 0);
-      }
+      if (wiBucketStateAt(b.id, mid) === 'off') continue;
+      // If the user explicitly changed the amount in the drawer, use that everywhere.
+      // Otherwise use the budget target (b.budget) for future months as the baseline.
+      const userChanged = (_wiSimAllocs[b.id] !== undefined) && (_wiSimAllocs[b.id] !== b.alloc);
+      const amt = userChanged ? _wiSimAllocs[b.id] : (b.budget || 0);
       total += amt;
     }
   }
@@ -6003,20 +5998,8 @@ function _updateTimelineBtn(bid) {
 }
 
 function _renderWiBuckets_UpdateRow(bid) {
-  // Update the schedule indicator badge for a single bucket row
-  const row = document.querySelector(`.wi-bkt-row[data-bid="${bid}"]`);
-  if (!row) return;
-  const events = _wiSchedule[bid] || [];
-  const hasSched = events.length > 0;
-  const lbl = row.querySelector('.wi-bkt-label');
-  const badge = row.querySelector('.wi-bkt-off-badge');
-  if (hasSched && !badge) {
-    lbl?.insertAdjacentHTML('afterend', `<span class="wi-bkt-off-badge" style="color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);">${events.length}⏱</span>`);
-  } else if (hasSched && badge) {
-    badge.textContent = `${events.length}⏱`;
-  } else if (!hasSched && badge) {
-    badge.remove();
-  }
+  // Full re-render is simplest — avoids stale state in partial updates
+  _renderWiBuckets();
 }
 
 /* ── Month ID helpers ─────────────────────────────────────────────── */
@@ -6142,9 +6125,10 @@ function _renderWiSurplus() {
 function _renderWiAffordability() {
   const projected = wiProjectedIncome(_wiMid);
   const income    = wiEffectiveIncome(_wiMid);
-  // Current-month alloc ignores schedule — schedule only applies to future months
+  // Schedule gates which buckets are active this month
+  // e.g. "Turn ON in Sep" → Mortgage is OFF in May, so it's excluded here
   const alloc     = _wiGroups.flatMap(g => g.buckets)
-    .reduce((s, b) => s + (_wiSimAllocs[b.id] ?? b.alloc), 0);
+    .reduce((s, b) => wiBucketStateAt(b.id, _wiMid) === 'off' ? s : s + (_wiSimAllocs[b.id] ?? b.alloc), 0);
   const surplus   = income - alloc;
   const pct       = income > 0 ? Math.min(110, Math.round(alloc / income * 100)) : 0;
   const overBudget = alloc > income;
@@ -6191,9 +6175,9 @@ function _renderWiImpact() {
   const hint = document.getElementById('wi-impact-hint');
   if (!bar) return;
   const realAlloc = _wiGrand.alloc || 0;
-  // Current month: no schedule — schedule only affects future months in the projection
+  // Schedule gates which buckets are active — same rule as affordability bar
   const simAlloc  = _wiGroups.flatMap(g => g.buckets)
-    .reduce((s, b) => s + (_wiSimAllocs[b.id] ?? b.alloc), 0);
+    .reduce((s, b) => wiBucketStateAt(b.id, _wiMid) === 'off' ? s : s + (_wiSimAllocs[b.id] ?? b.alloc), 0);
   const real  = wiProjectedIncome(_wiMid);
   const scInc = wiEffectiveIncome(_wiMid);
   const netDelta    = (scInc - simAlloc) - (real - realAlloc);
@@ -6232,20 +6216,21 @@ function _renderWiBuckets() {
       <span class="wi-cat-arrow open">▶</span>${g.name}${diffHtml}
     </div><div class="wi-cat-body">`;
     g.buckets.forEach(b => {
+      const isOff  = wiBucketStateAt(b.id, _wiMid) === 'off';
       const sim    = _wiSimAllocs[b.id] ?? b.alloc;
-      const diff   = sim - b.alloc;
+      const diff   = isOff ? 0 : sim - b.alloc;
       const diffSpan = diff !== 0
         ? `<span class="wi-diff ${diff>0?'pos':'neg'}">${diff>0?'+':''}${fmtMoney(diff)}</span>`
         : '';
-      const changed   = diff !== 0;
-      const events    = _wiSchedule[b.id] || [];
-      const hasSched  = events.length > 0;
-      // Show future schedule indicator (not affecting current month)
-      const schedBadge = hasSched ? `<span class="wi-bkt-off-badge" style="color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);" title="${events.length} schedule event(s)">${events.length}⏱</span>` : '';
-      const moOpts    = _renderTimelineMonthSelect(b.id);
-      html += `<div class="wi-bkt-row" data-bid="${b.id}">
-        <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
-        ${schedBadge}${diffSpan}
+      const changed  = diff !== 0;
+      const events   = _wiSchedule[b.id] || [];
+      const hasSched = events.length > 0;
+      const offBadge = isOff ? `<span class="wi-bkt-off-badge">OFF</span>` : '';
+      const schedBadge = (!isOff && hasSched) ? `<span class="wi-bkt-off-badge" style="color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);" title="${events.length} event(s)">${events.length}⏱</span>` : '';
+      const moOpts   = _renderTimelineMonthSelect(b.id);
+      html += `<div class="wi-bkt-row${isOff?' wi-bkt-row-off':''}" data-bid="${b.id}">
+        <span class="wi-bkt-label${isOff?' wi-bkt-off':''}" title="${b.name}">${b.name}</span>
+        ${offBadge}${schedBadge}${diffSpan}
         <input class="wi-s-inp${changed?' changed':''}" type="text" inputmode="decimal"
           data-bid="${b.id}" data-real="${b.alloc}" value="${sim.toFixed(2)}"
           title="Supports: +50, -20, *1.1, =0"
@@ -6345,10 +6330,10 @@ function _renderWi6Month() {
     const isNow = i === 0;
     const realInc = wiProjectedIncome(m.id);
     const inc = wiEffectiveIncome(m.id);
-    // Current month: no schedule (schedule only applies to future months)
+    // All months: schedule gates which buckets are active
     const alloc = isNow
       ? _wiGroups.flatMap(g => g.buckets)
-          .reduce((s, b) => s + (_wiSimAllocs[b.id] ?? b.alloc), 0)
+          .reduce((s, b) => wiBucketStateAt(b.id, m.id) === 'off' ? s : s + (_wiSimAllocs[b.id] ?? b.alloc), 0)
       : wiSimAllocForMonth(m.id);
     const rts   = inc - alloc;
     const val   = _wi6Mode === 'income' ? inc : rts;

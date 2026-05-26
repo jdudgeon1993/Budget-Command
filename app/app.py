@@ -1077,23 +1077,32 @@ def api_scenarios_list():
     try:
         rows = (_db(tok).table("bcc_scenarios")
                 .select("*").eq("user_id", uid)
-                .order("sort_order").execute().data or [])
+                .execute().data or [])
+        # Sort in Python — avoids failure if sort_order column doesn't exist
+        rows.sort(key=lambda r: r.get("sort_order", 0))
         scenarios = []
         for r in rows:
-            sched = r.get("schedule") or {}
-            extra_streams = sched.pop("__streams", None) or []
+            # Schedule + streams may be stored in allocations._schedule / ._streams
+            # (resilient storage that doesn't require new DB columns)
+            allocs   = dict(r.get("allocations") or {})
+            sched    = allocs.pop("_schedule", None) or r.get("schedule") or {}
+            streams  = allocs.pop("_streams",  None) or []
+            sort_ord = allocs.pop("_sort", r.get("sort_order", 0))
+            # Also strip __streams from old schedule format if present
+            if isinstance(sched, dict):
+                streams = sched.pop("__streams", streams) or streams
             scenarios.append({
                 "id":             r["id"],
                 "name":           r["name"],
-                "allocations":    r.get("allocations") or {},
+                "allocations":    allocs,
                 "incomeOverride": r.get("income_override"),
                 "schedule":       sched,
-                "extraStreams":   extra_streams,
-                "sortOrder":      r.get("sort_order", 0),
+                "extraStreams":   streams,
+                "sortOrder":      sort_ord,
             })
         return jsonify({"ok": True, "scenarios": scenarios})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e), "trace": traceback.format_exc()}), 500
 
 
 @app.route("/api/scenarios", methods=["POST"])
@@ -1107,20 +1116,22 @@ def api_scenarios_save():
     if not name:
         return jsonify({"ok": False, "error": "Name required"}), 400
 
-    # Store extraStreams inside schedule to avoid needing a new DB column
+    # Store schedule, streams, and sort order inside allocations JSONB
+    # so we don't depend on optional DB columns that may not exist.
+    allocs   = dict(body.get("allocations") or {})
     schedule = body.get("schedule") or {}
-    extra_streams = body.get("extraStreams")
-    if extra_streams:
-        schedule = {**schedule, "__streams": extra_streams}
+    streams  = body.get("extraStreams") or []
+    sort_ord = body.get("sortOrder", 0)
+    if schedule:  allocs["_schedule"] = schedule
+    if streams:   allocs["_streams"]  = streams
+    if sort_ord:  allocs["_sort"]     = sort_ord
 
     row = {
         "id":              scenario_id or _new_id("sc"),
         "user_id":         uid,
         "name":            name,
-        "allocations":     body.get("allocations") or {},
+        "allocations":     allocs,
         "income_override": body.get("incomeOverride"),
-        "schedule":        schedule,
-        "sort_order":      body.get("sortOrder", 0),
     }
     try:
         result = (_db(tok).table("bcc_scenarios")
@@ -1128,7 +1139,7 @@ def api_scenarios_save():
         saved = result[0]
         return jsonify({"ok": True, "id": saved.get("id", row["id"]), "name": name})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e), "trace": traceback.format_exc()}), 500
 
 
 @app.route("/api/scenarios/<scenario_id>", methods=["DELETE"])
@@ -2657,14 +2668,38 @@ def _age_of_money(data: dict):
 
 # ── API: forecast ─────────────────────────────────────────────────────────────
 
+def _mid_sort_key(mid: str):
+    """Convert 'm_YYYY_M' to (year, month) tuple for correct numeric comparison."""
+    try:
+        parts = mid.split("_")
+        return (int(parts[1]), int(parts[2]))
+    except Exception:
+        return (0, 0)
+
+
 def _bucket_state_at(bucket_schedule: list, bucket_id: str, mid: str) -> str:
-    """Return 'on' or 'off' for bucket_id at month mid using effective-date schedule."""
-    relevant = [e for e in bucket_schedule
-                if str(e.get("bucket_id")) == bucket_id and str(e.get("from_mid", "")) <= mid]
-    if not relevant:
+    """Return 'on' or 'off' for bucket_id at month mid.
+
+    Mirrors JS wiBucketStateAt logic exactly:
+    - If the first (earliest) event is 'Turn ON', the state before it is 'off'
+    - If the first (earliest) event is 'Turn OFF', the state before it is 'on'
+    This means 'Turn ON in Sep' = OFF until Sep, ON from Sep onward.
+    """
+    mid_key    = _mid_sort_key(mid)
+    all_events = [e for e in bucket_schedule if str(e.get("bucket_id")) == str(bucket_id)]
+    if not all_events:
         return "on"
-    latest = max(relevant, key=lambda e: str(e.get("from_mid", "")))
-    return latest.get("state", "on")
+
+    past_events = [e for e in all_events
+                   if _mid_sort_key(str(e.get("from_mid", ""))) <= mid_key]
+
+    if past_events:
+        latest = max(past_events, key=lambda e: _mid_sort_key(str(e.get("from_mid", ""))))
+        return latest.get("state", "on")
+
+    # No past events — infer state from the first future event's type
+    first = min(all_events, key=lambda e: _mid_sort_key(str(e.get("from_mid", ""))))
+    return "off" if first.get("state") == "on" else "on"
 
 
 @app.route("/api/forecast", methods=["GET", "POST"])
