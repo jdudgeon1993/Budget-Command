@@ -1453,6 +1453,14 @@
 .wi-toggle.off { color: var(--text3); border-color: var(--border); }
 .wi-bkt-row.off .wi-bkt-label { opacity: .4; text-decoration: line-through; }
 .wi-bkt-row.off .wi-s-inp { opacity: .35; pointer-events: none; }
+.wi-sched-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 4px 6px 36px; border-bottom: 1px solid var(--border); }
+.wi-sched-chip { display: inline-flex; align-items: center; gap: 3px; font-family: var(--mono); font-size: 9px; padding: 2px 6px; border-radius: 3px; background: color-mix(in srgb,var(--accent) 12%,transparent); color: var(--accent); }
+.wi-sched-chip.off { background: color-mix(in srgb,var(--red) 12%,transparent); color: var(--red); }
+.wi-sched-chip-x { cursor: pointer; opacity: .6; font-size: 10px; line-height: 1; }
+.wi-sched-chip-x:hover { opacity: 1; }
+.wi-sched-sel { font-family: var(--mono); font-size: 11px; padding: 3px 6px; border: 1px solid var(--border2); border-radius: 3px; background: var(--bg2); color: var(--text); }
+.wi-sched-add-btn { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer; }
+.wi-sched-add-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── Cash Flow Timeline ── */
 .cft-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -3179,7 +3187,7 @@
         <!-- ── What If tab ── -->
         <div id="plan-whatif" style="display:none">
           <!-- Header row -->
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <div>
               <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);">What If</div>
               <div id="wi-month-label" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;"></div>
@@ -3188,6 +3196,22 @@
               <button class="sf-btn" onclick="wiShowSaveForm()">Save</button>
               <button class="sf-btn" onclick="wiReset()">Reset</button>
             </div>
+          </div>
+
+          <!-- Inline save form -->
+          <div id="wi-save-form" style="display:none;margin-bottom:8px;">
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="wi-sc-name-input" type="text" placeholder="Scenario name…"
+                style="flex:1;font-family:var(--mono);font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);"
+                onkeydown="if(event.key==='Enter')wiConfirmSave();if(event.key==='Escape')wiHideSaveForm();">
+              <button class="sf-btn" onclick="wiConfirmSave()">Confirm</button>
+              <button class="sf-btn" onclick="wiHideSaveForm()">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Scenarios list (just below header) -->
+          <div id="wi-scenarios-list" style="margin-bottom:12px;">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:4px 0;">No saved scenarios.</div>
           </div>
 
           <!-- Summary: Income / Allocated / Surplus -->
@@ -3226,24 +3250,6 @@
             <span style="font-weight:400;text-transform:none;letter-spacing:0;"> · edit any value or +50 / -20 / *1.1 / =0</span>
           </div>
           <div id="wi-buckets-content"></div>
-
-          <!-- Scenarios -->
-          <div style="margin-top:18px;">
-            <div style="margin-bottom:8px;">
-              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Saved Scenarios</div>
-            </div>
-            <!-- Inline save form -->
-            <div id="wi-save-form" style="display:none;margin-bottom:10px;display:none;">
-              <div style="display:flex;gap:6px;align-items:center;">
-                <input id="wi-sc-name-input" type="text" placeholder="Scenario name…"
-                  style="flex:1;font-family:var(--mono);font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);"
-                  onkeydown="if(event.key==='Enter')wiConfirmSave();if(event.key==='Escape')wiHideSaveForm();">
-                <button class="sf-btn" onclick="wiConfirmSave()">Confirm</button>
-                <button class="sf-btn" onclick="wiHideSaveForm()">Cancel</button>
-              </div>
-            </div>
-            <div id="wi-scenarios-list"><div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 4px;">No saved scenarios.</div></div>
-          </div>
         </div>
 
         <!-- ── Timeline tab ── -->
@@ -5653,7 +5659,9 @@ function showPlanTab(name, btn) {
    ════════════════════════════════════════════════════════════════════ */
 
 let _wiOverrides = {};      // {bid: number} — user overrides; baseline is b.budget
-let _wiOff       = new Set(); // bucket IDs the user toggled OFF
+let _wiOff       = new Set(); // bucket IDs the user toggled OFF globally
+let _wiSchedule  = {};      // {bid: [{mid, state}]} — per-month on/off events
+let _wiSchedOpen = null;    // bid whose schedule form is open
 let _wiScenarios = [];      // forecast scenario chips still reference this; stays empty for now
 
 /* Migrate old schedule format — still used by forecast scenario loading */
@@ -5738,15 +5746,42 @@ function wiMonthsForward(fromMid, count) {
   return result;
 }
 
-/* ── Total allocation: sum of all buckets using b.budget as baseline ── */
-function wiCalcAlloc() {
+/* ── Month ID numeric value for sorting ──────────────────────────── */
+function _midVal(mid) {
+  const p = mid.split('_');
+  return parseInt(p[1], 10) * 12 + parseInt(p[2], 10);
+}
+
+function _midLabel(mid) {
+  const p = mid.split('_');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[2], 10)];
+}
+
+/* ── Effective bucket state at a given month ─────────────────────── */
+function wiBucketStateAt(bid, mid) {
+  const base   = _wiOff.has(bid) ? 'off' : 'on';
+  const events = (_wiSchedule[bid] || []).slice()
+    .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
+  let state = base;
+  const mv = _midVal(mid);
+  for (const ev of events) {
+    if (_midVal(ev.mid) <= mv) state = ev.state;
+    else break;
+  }
+  return state;
+}
+
+/* ── Total allocation for a specific month ───────────────────────── */
+function wiCalcAllocForMonth(mid) {
   let total = 0;
   for (const g of _wiGroups)
     for (const b of g.buckets)
-      if (!_wiOff.has(b.id))
+      if (wiBucketStateAt(b.id, mid) === 'on')
         total += (_wiOverrides[b.id] ?? b.budget ?? 0);
   return total;
 }
+
+function wiCalcAlloc() { return wiCalcAllocForMonth(_wiMid); }
 
 /* ── Init when tab is opened ─────────────────────────────────────── */
 function _initWi() {
@@ -5772,10 +5807,10 @@ function _renderWi6Month() {
   const valsEl = document.getElementById('wi-6mo-vals');
   if (!barsEl || !lblsEl || !valsEl) return;
 
-  const alloc  = wiCalcAlloc();   // same targets every month for now
   const months = wiMonthsForward(_wiMid, 6);
   const rows   = months.map((m, i) => {
     const inc     = wiProjectedIncome(m.id);
+    const alloc   = wiCalcAllocForMonth(m.id);
     const surplus = inc - alloc;
     return { label: m.label, inc, alloc, surplus, isNow: i === 0 };
   });
@@ -5857,6 +5892,14 @@ function _renderWiBuckets() {
         ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
         : '';
       const isOff = _wiOff.has(b.id);
+      const schedEvents = (_wiSchedule[b.id] || []).slice()
+        .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
+      const chips = schedEvents.map((ev, idx) =>
+        `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${_midLabel(ev.mid)} ${ev.state.toUpperCase()} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}',${idx})">×</span></span>`
+      ).join('');
+      const formOpen = _wiSchedOpen === b.id;
+      const monthOpts = wiMonthsForward(_wiMid, 6).map(m =>
+        `<option value="${m.id}">${m.label}</option>`).join('');
       html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
         <button class="wi-toggle${isOff ? ' off' : ''}" onclick="wiBktToggle('${b.id}')">${isOff ? 'OFF' : 'ON'}</button>
         <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
@@ -5865,7 +5908,18 @@ function _renderWiBuckets() {
           data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
           title="Target: ${fmtMoney(base)}"
           onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="wi-sched-add-btn" onclick="wiShowSchedForm('${b.id}')" title="Schedule on/off by month">+</button>
       </div>`;
+      if (chips || formOpen) {
+        html += `<div class="wi-sched-sub">${chips}`;
+        if (formOpen) {
+          html += `<select id="wi-sched-mo-${b.id}" class="wi-sched-sel">${monthOpts}</select>
+            <button class="wi-sched-add-btn" onclick="wiAddSched('${b.id}','on')">ON</button>
+            <button class="wi-sched-add-btn" onclick="wiAddSched('${b.id}','off')">OFF</button>
+            <button class="wi-sched-add-btn" onclick="wiCloseSchedForm()">✕</button>`;
+        }
+        html += `</div>`;
+      }
     });
     html += `</div>`;
   });
@@ -5901,7 +5955,6 @@ function wiBktChange(inp) {
 /* ── Bucket on/off toggle ────────────────────────────────────────── */
 function wiBktToggle(bid) {
   if (_wiOff.has(bid)) _wiOff.delete(bid); else _wiOff.add(bid);
-  // Update just this row in the DOM — avoids wiping input values
   const row = document.querySelector(`.wi-bkt-row[data-bid="${bid}"]`);
   if (row) {
     const isOff = _wiOff.has(bid);
@@ -5909,6 +5962,40 @@ function wiBktToggle(bid) {
     const btn = row.querySelector('.wi-toggle');
     if (btn) { btn.textContent = isOff ? 'OFF' : 'ON'; btn.classList.toggle('off', isOff); }
   }
+  _renderWiSummary();
+  _renderWi6Month();
+}
+
+/* ── Per-month schedule ──────────────────────────────────────────── */
+function wiShowSchedForm(bid) {
+  _wiSchedOpen = _wiSchedOpen === bid ? null : bid;
+  _renderWiBuckets();
+}
+
+function wiCloseSchedForm() {
+  _wiSchedOpen = null;
+  _renderWiBuckets();
+}
+
+function wiAddSched(bid, state) {
+  const sel = document.getElementById(`wi-sched-mo-${bid}`);
+  if (!sel) return;
+  const mid = sel.value;
+  if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
+  const existing = _wiSchedule[bid].findIndex(e => e.mid === mid);
+  if (existing >= 0) _wiSchedule[bid][existing].state = state;
+  else _wiSchedule[bid].push({ mid, state });
+  _wiSchedOpen = null;
+  _renderWiBuckets();
+  _renderWiSummary();
+  _renderWi6Month();
+}
+
+function wiRemoveSched(bid, idx) {
+  if (!_wiSchedule[bid]) return;
+  _wiSchedule[bid].splice(idx, 1);
+  if (!_wiSchedule[bid].length) delete _wiSchedule[bid];
+  _renderWiBuckets();
   _renderWiSummary();
   _renderWi6Month();
 }
@@ -5922,10 +6009,12 @@ function wiToggleCat(hdr) {
   hdr.querySelector('.wi-cat-arrow')?.classList.toggle('open', hidden);
 }
 
-/* ── Reset all overrides + toggles ──────────────────────────────── */
+/* ── Reset all overrides, toggles, and schedule ─────────────────── */
 function wiReset() {
   _wiOverrides = {};
   _wiOff       = new Set();
+  _wiSchedule  = {};
+  _wiSchedOpen = null;
   _renderWi();
 }
 
@@ -5962,6 +6051,8 @@ function wiApplyScenario(id) {
   if (!s) return;
   _wiOverrides = Object.assign({}, s.allocations || {});
   _wiOff       = new Set(s.offBuckets || []);
+  _wiSchedule  = JSON.parse(JSON.stringify(s.schedule || {}));
+  _wiSchedOpen = null;
   _renderWi();
 }
 
@@ -5972,7 +6063,7 @@ async function wiUpdateScenario(id) {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, offBuckets: [..._wiOff] })
+      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, offBuckets: [..._wiOff], schedule: _wiSchedule })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
@@ -6001,7 +6092,7 @@ async function wiConfirmSave() {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, allocations: _wiOverrides, offBuckets: [..._wiOff] })
+      body: JSON.stringify({ name, allocations: _wiOverrides, offBuckets: [..._wiOff], schedule: _wiSchedule })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
