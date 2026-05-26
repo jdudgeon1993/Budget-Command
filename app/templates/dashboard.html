@@ -1449,6 +1449,10 @@
 .wi-sc-btn { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer; white-space: nowrap; }
 .wi-sc-btn:hover { border-color: var(--accent); color: var(--accent); }
 .wi-sc-btn.del:hover { border-color: var(--red); color: var(--red); }
+.wi-toggle { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--green); cursor: pointer; white-space: nowrap; letter-spacing: .04em; }
+.wi-toggle.off { color: var(--text3); border-color: var(--border); }
+.wi-bkt-row.off .wi-bkt-label { opacity: .4; text-decoration: line-through; }
+.wi-bkt-row.off .wi-s-inp { opacity: .35; pointer-events: none; }
 
 /* ── Cash Flow Timeline ── */
 .cft-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -3180,7 +3184,10 @@
               <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);">What If</div>
               <div id="wi-month-label" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;"></div>
             </div>
-            <button class="sf-btn" onclick="wiReset()">Reset</button>
+            <div style="display:flex;gap:6px;">
+              <button class="sf-btn" onclick="wiShowSaveForm()">Save</button>
+              <button class="sf-btn" onclick="wiReset()">Reset</button>
+            </div>
           </div>
 
           <!-- Summary: Income / Allocated / Surplus -->
@@ -3222,9 +3229,8 @@
 
           <!-- Scenarios -->
           <div style="margin-top:18px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="margin-bottom:8px;">
               <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Saved Scenarios</div>
-              <button class="sf-btn" onclick="wiShowSaveForm()">Save Current</button>
             </div>
             <!-- Inline save form -->
             <div id="wi-save-form" style="display:none;margin-bottom:10px;display:none;">
@@ -5646,8 +5652,9 @@ function showPlanTab(name, btn) {
    Baseline for every bucket is b.budget (target). No alloc from DB.
    ════════════════════════════════════════════════════════════════════ */
 
-let _wiOverrides = {};   // {bid: number} — user overrides; baseline is b.budget
-let _wiScenarios = [];   // forecast scenario chips still reference this; stays empty for now
+let _wiOverrides = {};      // {bid: number} — user overrides; baseline is b.budget
+let _wiOff       = new Set(); // bucket IDs the user toggled OFF
+let _wiScenarios = [];      // forecast scenario chips still reference this; stays empty for now
 
 /* Migrate old schedule format — still used by forecast scenario loading */
 function _migrateSchedule(raw) {
@@ -5736,7 +5743,8 @@ function wiCalcAlloc() {
   let total = 0;
   for (const g of _wiGroups)
     for (const b of g.buckets)
-      total += (_wiOverrides[b.id] ?? b.budget ?? 0);
+      if (!_wiOff.has(b.id))
+        total += (_wiOverrides[b.id] ?? b.budget ?? 0);
   return total;
 }
 
@@ -5848,7 +5856,9 @@ function _renderWiBuckets() {
       const diffSpan = changed
         ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
         : '';
-      html += `<div class="wi-bkt-row" data-bid="${b.id}">
+      const isOff = _wiOff.has(b.id);
+      html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
+        <button class="wi-toggle${isOff ? ' off' : ''}" onclick="wiBktToggle('${b.id}')">${isOff ? 'OFF' : 'ON'}</button>
         <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
         ${diffSpan}
         <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
@@ -5888,6 +5898,21 @@ function wiBktChange(inp) {
   _renderWi6Month();
 }
 
+/* ── Bucket on/off toggle ────────────────────────────────────────── */
+function wiBktToggle(bid) {
+  if (_wiOff.has(bid)) _wiOff.delete(bid); else _wiOff.add(bid);
+  // Update just this row in the DOM — avoids wiping input values
+  const row = document.querySelector(`.wi-bkt-row[data-bid="${bid}"]`);
+  if (row) {
+    const isOff = _wiOff.has(bid);
+    row.classList.toggle('off', isOff);
+    const btn = row.querySelector('.wi-toggle');
+    if (btn) { btn.textContent = isOff ? 'OFF' : 'ON'; btn.classList.toggle('off', isOff); }
+  }
+  _renderWiSummary();
+  _renderWi6Month();
+}
+
 /* ── Toggle category open/closed ─────────────────────────────────── */
 function wiToggleCat(hdr) {
   const body = hdr.nextElementSibling;
@@ -5897,9 +5922,10 @@ function wiToggleCat(hdr) {
   hdr.querySelector('.wi-cat-arrow')?.classList.toggle('open', hidden);
 }
 
-/* ── Reset all overrides ─────────────────────────────────────────── */
+/* ── Reset all overrides + toggles ──────────────────────────────── */
 function wiReset() {
   _wiOverrides = {};
+  _wiOff       = new Set();
   _renderWi();
 }
 
@@ -5925,6 +5951,7 @@ function _renderWiScenarios() {
   el.innerHTML = _wiSavedScenarios.map(s => `
     <div class="wi-sc-row">
       <span class="wi-sc-name" onclick="wiApplyScenario('${s.id}')" title="Load scenario">${s.name}</span>
+      <button class="wi-sc-btn" onclick="wiUpdateScenario('${s.id}')">Save</button>
       <button class="wi-sc-btn" onclick="wiDuplicateScenario('${s.id}')">Dup</button>
       <button class="wi-sc-btn del" onclick="wiDeleteScenario('${s.id}')">Del</button>
     </div>`).join('');
@@ -5934,8 +5961,22 @@ function wiApplyScenario(id) {
   const s = _wiSavedScenarios.find(x => x.id === id);
   if (!s) return;
   _wiOverrides = Object.assign({}, s.allocations || {});
+  _wiOff       = new Set(s.offBuckets || []);
   _renderWi();
-  _renderWiBuckets();
+}
+
+async function wiUpdateScenario(id) {
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  try {
+    const res  = await fetch('/api/scenarios', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, offBuckets: [..._wiOff] })
+    });
+    const data = await res.json();
+    if (data.ok) await wiLoadScenarios();
+  } catch { /* silently ignore */ }
 }
 
 function wiShowSaveForm() {
@@ -5960,7 +6001,7 @@ async function wiConfirmSave() {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, allocations: _wiOverrides })
+      body: JSON.stringify({ name, allocations: _wiOverrides, offBuckets: [..._wiOff] })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
