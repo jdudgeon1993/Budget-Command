@@ -3199,6 +3199,14 @@
             <div id="wi-pct" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:5px;"></div>
           </div>
 
+          <!-- 6-Month Projection Chart -->
+          <div class="wi-6mo-panel" style="margin-bottom:12px;">
+            <div class="wi-6mo-title">6-Month Projection</div>
+            <div class="wi-6mo-bars" id="wi-6mo-bars"></div>
+            <div class="wi-6mo-labels" id="wi-6mo-labels"></div>
+            <div class="wi-6mo-vals" id="wi-6mo-vals"></div>
+          </div>
+
           <!-- Bucket list -->
           <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">
             Buckets — Target Amounts
@@ -5671,27 +5679,39 @@ function wiProjectedIncome(mid) {
       total += p.amount * 2;
       continue;
     }
-    const anchor = new Date(anchorStr + 'T12:00:00');
-    const monthStart = new Date(yr, mo, 1);
-    const monthEnd   = new Date(yr, mo, daysInMonth);
+    const anchor     = new Date(anchorStr + 'T12:00:00');
+    const monthStart = new Date(yr, mo, 1, 0, 0, 0, 0);
+    const monthEnd   = new Date(yr, mo, daysInMonth, 23, 59, 59, 999);  // full last day
     let d = new Date(anchor);
-    while (d > monthStart) d = new Date(d.getTime() - freq * 86400000);
-    while (d < monthStart) d = new Date(d.getTime() + freq * 86400000);
+    // Walk back to a date at or before monthStart, then forward into the month
+    while (d > monthStart) d.setDate(d.getDate() - freq);
+    while (d < monthStart) d.setDate(d.getDate() + freq);
     let count = 0;
-    while (d <= monthEnd) { count++; d = new Date(d.getTime() + freq * 86400000); }
+    while (d <= monthEnd) { count++; d.setDate(d.getDate() + freq); }
     total += count * p.amount;
   }
   return total;
 }
 
-/* ── Total allocation: sum of ON buckets using b.budget as baseline ── */
+/* ── Month sequence helper ───────────────────────────────────────── */
+function wiMonthsForward(fromMid, count) {
+  const parts = fromMid.split('_');
+  let yr = parseInt(parts[1]), mo = parseInt(parts[2]);
+  const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push({ id: `m_${yr}_${mo}`, label: labels[mo] });
+    if (++mo > 11) { mo = 0; yr++; }
+  }
+  return result;
+}
+
+/* ── Total allocation: sum of all buckets using b.budget as baseline ── */
 function wiCalcAlloc() {
   let total = 0;
-  for (const g of _wiGroups) {
-    for (const b of g.buckets) {
+  for (const g of _wiGroups)
+    for (const b of g.buckets)
       total += (_wiOverrides[b.id] ?? b.budget ?? 0);
-    }
-  }
   return total;
 }
 
@@ -5707,7 +5727,52 @@ function _initWi() {
 /* ── Full render ─────────────────────────────────────────────────── */
 function _renderWi() {
   _renderWiSummary();
+  _renderWi6Month();
   _renderWiBuckets();
+}
+
+/* ── 6-Month Projection ──────────────────────────────────────────── */
+function _renderWi6Month() {
+  const barsEl = document.getElementById('wi-6mo-bars');
+  const lblsEl = document.getElementById('wi-6mo-labels');
+  const valsEl = document.getElementById('wi-6mo-vals');
+  if (!barsEl) return;
+
+  const alloc  = wiCalcAlloc();   // same targets every month for now
+  const months = wiMonthsForward(_wiMid, 6);
+  const rows   = months.map((m, i) => {
+    const inc     = wiProjectedIncome(m.id);
+    const surplus = inc - alloc;
+    return { label: m.label, inc, alloc, surplus, isNow: i === 0 };
+  });
+
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.surplus)), 1);
+
+  barsEl.innerHTML = rows.map(r => {
+    const pct = Math.max(4, Math.round(Math.abs(r.surplus) / maxAbs * 90));
+    const neg = r.surplus < 0;
+    return `<div class="wi-6mo-bar-wrap">
+      <div class="wi-6mo-bar${r.isNow ? ' now' : ''}${neg ? ' neg' : ''}" style="height:${pct}%"
+        title="${r.label}: Income ${fmtMoney(r.inc)} · Alloc ${fmtMoney(r.alloc)} · Surplus ${fmtMoney(r.surplus)}"></div>
+    </div>`;
+  }).join('');
+
+  lblsEl.innerHTML = rows.map(r =>
+    `<div class="wi-6mo-lbl${r.isNow ? ' now' : ''}">${r.label}</div>`
+  ).join('');
+
+  // Summary row: 6-month totals
+  const cumInc  = rows.reduce((s, r) => s + r.inc, 0);
+  const cumSur  = rows.reduce((s, r) => s + r.surplus, 0);
+  const avgInc  = cumInc / rows.length;
+  valsEl.innerHTML = `
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">6mo Surplus</div>
+      <div class="wi-6mo-val-num" style="color:${cumSur>=0?'var(--green)':'var(--red)'}">${cumSur>=0?'+':''}${fmtMoney(cumSur)}</div></div>
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Income</div>
+      <div class="wi-6mo-val-num">${fmtMoney(avgInc)}</div></div>
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Alloc</div>
+      <div class="wi-6mo-val-num">${fmtMoney(alloc)}</div></div>
+  `;
 }
 
 /* ── Summary bar: Income / Allocated / Surplus ───────────────────── */
