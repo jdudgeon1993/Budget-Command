@@ -3105,9 +3105,10 @@
         const _wiRealIncome  = {{ ledger_income | default(0) }};  // actual income entered this month
         </script>
 
-        <!-- Sub-tabs: Forecast | Timeline -->
+        <!-- Sub-tabs: Forecast | What If | Timeline -->
         <div class="acct-tabs" style="margin-bottom:14px">
           <button class="acct-tab active" onclick="showPlanTab('forecast', this)">Forecast</button>
+          <button class="acct-tab" onclick="showPlanTab('whatif', this)">What If</button>
           <button class="acct-tab" onclick="showPlanTab('calendar', this);initCashflow()">Timeline</button>
         </div>
 
@@ -3122,8 +3123,6 @@
             <button class="fc-range-btn" data-months="6" onclick="setForecastRange(6,this)">6 Mo</button>
             <button class="fc-range-btn" data-months="12" onclick="setForecastRange(12,this)">12 Mo</button>
             <button class="fc-range-btn" data-months="0" onclick="setForecastRange(0,this)">Year</button>
-            <div style="flex:1;"></div>
-            <button id="wi-drawer-btn" class="fc-range-btn" onclick="toggleWiDrawer()" style="letter-spacing:.06em;">What If ▾</button>
           </div>
 
           <!-- Account balance selector -->
@@ -3132,48 +3131,6 @@
             <span>Custom balance:</span>
             <input type="text" inputmode="decimal" class="math-input" id="fc-custom-bal-input" placeholder="$0.00" onblur="applyCustomBalance()">
             <button class="fc-range-btn" onclick="applyCustomBalance()">Apply</button>
-          </div>
-
-          <!-- ── What-If drawer (collapsible) ── -->
-          <div id="wi-drawer" style="display:none;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:12px;overflow:hidden;">
-            <!-- Header -->
-            <div style="background:var(--bg2);padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
-              <span style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">What If</span>
-              <span id="wi-month-label" style="font-family:var(--mono);font-size:10px;color:var(--text3);"></span>
-              <div style="flex:1;"></div>
-              <button class="sf-btn" onclick="wiReset()">Reset</button>
-            </div>
-
-            <!-- Summary: Income / Allocated / Surplus -->
-            <div style="padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--border);">
-              <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:80px;">
-                  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;">Income</div>
-                  <div id="wi-income" style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green);">—</div>
-                </div>
-                <div style="flex:1;min-width:80px;">
-                  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;">Allocated</div>
-                  <div id="wi-alloc" style="font-family:var(--mono);font-size:15px;font-weight:700;">—</div>
-                </div>
-                <div style="flex:1;min-width:80px;">
-                  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;">Surplus</div>
-                  <div id="wi-surplus" style="font-family:var(--mono);font-size:15px;font-weight:700;">—</div>
-                </div>
-              </div>
-              <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
-                <div id="wi-fill" style="height:100%;border-radius:3px;background:var(--green);width:0%;transition:width .3s;"></div>
-              </div>
-              <div id="wi-pct" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;"></div>
-            </div>
-
-            <!-- Bucket list -->
-            <div style="padding:10px 12px;">
-              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">
-                Buckets — Target Amounts
-                <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);"> · type a new value or +50 / -20 / *1.1 / =0</span>
-              </div>
-              <div id="wi-buckets-content"></div>
-            </div>
           </div>
 
           <!-- Active scenario banner -->
@@ -3207,6 +3164,47 @@
           <!-- Loading + content -->
           <div id="forecast-loading" style="display:none;padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;">LOADING FORECAST...</div>
           <div id="forecast-content"></div>
+        </div>
+
+        <!-- ── What If tab ── -->
+        <div id="plan-whatif" style="display:none">
+          <!-- Header row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div>
+              <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);">What If</div>
+              <div id="wi-month-label" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;"></div>
+            </div>
+            <button class="sf-btn" onclick="wiReset()">Reset</button>
+          </div>
+
+          <!-- Summary: Income / Allocated / Surplus -->
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px;">
+            <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:80px;">
+                <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Income</div>
+                <div id="wi-income" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green);">—</div>
+              </div>
+              <div style="flex:1;min-width:80px;">
+                <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Allocated</div>
+                <div id="wi-alloc" style="font-family:var(--mono);font-size:18px;font-weight:700;">—</div>
+              </div>
+              <div style="flex:1;min-width:80px;">
+                <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Surplus</div>
+                <div id="wi-surplus" style="font-family:var(--mono);font-size:18px;font-weight:700;">—</div>
+              </div>
+            </div>
+            <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
+              <div id="wi-fill" style="height:100%;border-radius:3px;background:var(--green);width:0%;transition:width .3s;"></div>
+            </div>
+            <div id="wi-pct" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:5px;"></div>
+          </div>
+
+          <!-- Bucket list -->
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">
+            Buckets — Target Amounts
+            <span style="font-weight:400;text-transform:none;letter-spacing:0;"> · edit any value or +50 / -20 / *1.1 / =0</span>
+          </div>
+          <div id="wi-buckets-content"></div>
         </div>
 
         <!-- ── Timeline tab ── -->
@@ -5599,13 +5597,14 @@ let _fcActiveSc      = null;  // What-If scenario applied to forecast
 let _forecastExtras  = [];   // planned expenses
 
 function showPlanTab(name, btn) {
-  ['forecast','calendar'].forEach(t => {
+  ['forecast','whatif','calendar'].forEach(t => {
     const el = document.getElementById('plan-' + t);
     if (el) el.style.display = t === name ? '' : 'none';
   });
   document.querySelectorAll('#more-mode-plan .acct-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (name === 'forecast') initForecast();
+  if (name === 'whatif')   _initWi();
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -5665,13 +5664,14 @@ function wiProjectedIncome(mid) {
   const midStr = `${yr}-${String(mo + 1).padStart(2,'0')}`;
   let total = 0;
   for (const p of _wiPcks) {
-    if (!p.anchor_date || !p.amount) continue;
+    const anchorStr = p.anchorDate || p.anchor_date || '';
+    if (!anchorStr || !p.amount) continue;
     const freq = p.freq || 14;
     if (freq === 15) {
       total += p.amount * 2;
       continue;
     }
-    const anchor = new Date(p.anchor_date + 'T12:00:00');
+    const anchor = new Date(anchorStr + 'T12:00:00');
     const monthStart = new Date(yr, mo, 1);
     const monthEnd   = new Date(yr, mo, daysInMonth);
     let d = new Date(anchor);
@@ -5695,21 +5695,13 @@ function wiCalcAlloc() {
   return total;
 }
 
-/* ── Open / close drawer ─────────────────────────────────────────── */
-function toggleWiDrawer() {
-  const drawer = document.getElementById('wi-drawer');
-  const btn    = document.getElementById('wi-drawer-btn');
-  if (!drawer) return;
-  const opening = drawer.style.display === 'none';
-  drawer.style.display = opening ? '' : 'none';
-  if (btn) btn.textContent = opening ? 'What If ▴' : 'What If ▾';
-  if (opening) {
-    const mo = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const p  = _wiMid.split('_');
-    const lbl = document.getElementById('wi-month-label');
-    if (lbl) lbl.textContent = mo[parseInt(p[2])] + ' ' + p[1];
-    _renderWi();
-  }
+/* ── Init when tab is opened ─────────────────────────────────────── */
+function _initWi() {
+  const mo  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const p   = _wiMid.split('_');
+  const lbl = document.getElementById('wi-month-label');
+  if (lbl) lbl.textContent = mo[parseInt(p[2])] + ' ' + p[1];
+  _renderWi();
 }
 
 /* ── Full render ─────────────────────────────────────────────────── */
