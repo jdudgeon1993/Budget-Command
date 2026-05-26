@@ -5696,7 +5696,7 @@ function wiProjectedIncome(mid) {
 /* ── Month sequence helper ───────────────────────────────────────── */
 function wiMonthsForward(fromMid, count) {
   const parts = fromMid.split('_');
-  let yr = parseInt(parts[1]), mo = parseInt(parts[2]);
+  let yr = parseInt(parts[1], 10), mo = parseInt(parts[2], 10);
   const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const result = [];
   for (let i = 0; i < count; i++) {
@@ -5736,7 +5736,7 @@ function _renderWi6Month() {
   const barsEl = document.getElementById('wi-6mo-bars');
   const lblsEl = document.getElementById('wi-6mo-labels');
   const valsEl = document.getElementById('wi-6mo-vals');
-  if (!barsEl) return;
+  if (!barsEl || !lblsEl || !valsEl) return;
 
   const alloc  = wiCalcAlloc();   // same targets every month for now
   const months = wiMonthsForward(_wiMid, 6);
@@ -5859,6 +5859,7 @@ function wiBktChange(inp) {
     else inp.closest('.wi-bkt-row')?.querySelector('.wi-bkt-label')?.insertAdjacentHTML('afterend', dHtml);
   }
   _renderWiSummary();
+  _renderWi6Month();
 }
 
 /* ── Toggle category open/closed ─────────────────────────────────── */
