@@ -1443,6 +1443,12 @@
 .wi-6mo-val { flex: 1; min-width: 80px; background: var(--bg3); border-radius: var(--r); padding: 5px 8px; text-align: center; }
 .wi-6mo-val-label { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
 .wi-6mo-val-num { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.wi-sc-row { display: flex; align-items: center; gap: 6px; padding: 7px 4px; border-bottom: 1px solid var(--border); }
+.wi-sc-name { flex: 1; font-size: clamp(11px,1.8vw,13px); color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wi-sc-name:hover { color: var(--accent); }
+.wi-sc-btn { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer; white-space: nowrap; }
+.wi-sc-btn:hover { border-color: var(--accent); color: var(--accent); }
+.wi-sc-btn.del:hover { border-color: var(--red); color: var(--red); }
 
 /* ── Cash Flow Timeline ── */
 .cft-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -3213,6 +3219,25 @@
             <span style="font-weight:400;text-transform:none;letter-spacing:0;"> · edit any value or +50 / -20 / *1.1 / =0</span>
           </div>
           <div id="wi-buckets-content"></div>
+
+          <!-- Scenarios -->
+          <div style="margin-top:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);">Saved Scenarios</div>
+              <button class="sf-btn" onclick="wiShowSaveForm()">Save Current</button>
+            </div>
+            <!-- Inline save form -->
+            <div id="wi-save-form" style="display:none;margin-bottom:10px;display:none;">
+              <div style="display:flex;gap:6px;align-items:center;">
+                <input id="wi-sc-name-input" type="text" placeholder="Scenario name…"
+                  style="flex:1;font-family:var(--mono);font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);"
+                  onkeydown="if(event.key==='Enter')wiConfirmSave();if(event.key==='Escape')wiHideSaveForm();">
+                <button class="sf-btn" onclick="wiConfirmSave()">Confirm</button>
+                <button class="sf-btn" onclick="wiHideSaveForm()">Cancel</button>
+              </div>
+            </div>
+            <div id="wi-scenarios-list"><div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 4px;">No saved scenarios.</div></div>
+          </div>
         </div>
 
         <!-- ── Timeline tab ── -->
@@ -5722,6 +5747,7 @@ function _initWi() {
   const lbl = document.getElementById('wi-month-label');
   if (lbl) lbl.textContent = mo[parseInt(p[2])] + ' ' + p[1];
   _renderWi();
+  wiLoadScenarios();
 }
 
 /* ── Full render ─────────────────────────────────────────────────── */
@@ -5875,6 +5901,91 @@ function wiToggleCat(hdr) {
 function wiReset() {
   _wiOverrides = {};
   _renderWi();
+}
+
+/* ── Scenarios ───────────────────────────────────────────────────── */
+let _wiSavedScenarios = [];
+
+async function wiLoadScenarios() {
+  try {
+    const res  = await fetch('/api/scenarios');
+    const data = await res.json();
+    _wiSavedScenarios = data.ok ? (data.scenarios || []) : [];
+  } catch { _wiSavedScenarios = []; }
+  _renderWiScenarios();
+}
+
+function _renderWiScenarios() {
+  const el = document.getElementById('wi-scenarios-list');
+  if (!el) return;
+  if (!_wiSavedScenarios.length) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 4px;">No saved scenarios.</div>';
+    return;
+  }
+  el.innerHTML = _wiSavedScenarios.map(s => `
+    <div class="wi-sc-row">
+      <span class="wi-sc-name" onclick="wiApplyScenario('${s.id}')" title="Load scenario">${s.name}</span>
+      <button class="wi-sc-btn" onclick="wiDuplicateScenario('${s.id}')">Dup</button>
+      <button class="wi-sc-btn del" onclick="wiDeleteScenario('${s.id}')">Del</button>
+    </div>`).join('');
+}
+
+function wiApplyScenario(id) {
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  _wiOverrides = Object.assign({}, s.allocations || {});
+  _renderWi();
+  _renderWiBuckets();
+}
+
+function wiShowSaveForm() {
+  const form = document.getElementById('wi-save-form');
+  if (!form) return;
+  form.style.display = '';
+  const inp = document.getElementById('wi-sc-name-input');
+  if (inp) { inp.value = ''; inp.focus(); }
+}
+
+function wiHideSaveForm() {
+  const form = document.getElementById('wi-save-form');
+  if (form) form.style.display = 'none';
+}
+
+async function wiConfirmSave() {
+  const inp  = document.getElementById('wi-sc-name-input');
+  const name = (inp?.value || '').trim();
+  if (!name) { if (inp) inp.focus(); return; }
+  wiHideSaveForm();
+  try {
+    const res  = await fetch('/api/scenarios', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, allocations: _wiOverrides })
+    });
+    const data = await res.json();
+    if (data.ok) await wiLoadScenarios();
+  } catch { /* silently ignore network errors */ }
+}
+
+async function wiDeleteScenario(id) {
+  try {
+    await fetch(`/api/scenarios/${id}`, { method: 'DELETE' });
+    await wiLoadScenarios();
+  } catch { /* silently ignore */ }
+}
+
+async function wiDuplicateScenario(id) {
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  try {
+    const res  = await fetch('/api/scenarios', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name: `Copy of ${s.name}`, allocations: s.allocations || {} })
+    });
+    const data = await res.json();
+    if (data.ok) await wiLoadScenarios();
+  } catch { /* silently ignore */ }
 }
 
 /* ── Forecast integration stubs (kept for forecast wiring) ────────── */
