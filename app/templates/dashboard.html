@@ -1394,13 +1394,18 @@
 .wi-cat-arrow { display: inline-block; transition: transform .15s; font-size: 9px; }
 .wi-cat-arrow.open { transform: rotate(90deg); }
 .wi-cat-diff { font-size: 10px; padding: 1px 6px; border-radius: 3px; }
-.wi-cat-diff.pos { background: color-mix(in srgb,var(--red) 12%,transparent); color: var(--red); }
-.wi-cat-diff.neg { background: color-mix(in srgb,var(--green) 12%,transparent); color: var(--green); }
+.wi-cat-diff.pos { background: color-mix(in srgb,var(--amber,#f5a623) 14%,transparent); color: var(--amber,#f5a623); }
+.wi-cat-diff.neg { background: color-mix(in srgb,var(--amber,#f5a623) 10%,transparent); color: var(--amber,#f5a623); }
 .wi-bkt-row { display: flex; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid var(--border); }
 .wi-bkt-label { flex: 1; font-size: clamp(11px,1.8vw,13px); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wi-diff { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 3px; }
-.wi-diff.pos { background: color-mix(in srgb,var(--red) 12%,transparent); color: var(--red); }
-.wi-diff.neg { background: color-mix(in srgb,var(--green) 12%,transparent); color: var(--green); }
+.wi-diff.pos { background: color-mix(in srgb,var(--amber,#f5a623) 14%,transparent); color: var(--amber,#f5a623); }
+.wi-diff.neg { background: color-mix(in srgb,var(--amber,#f5a623) 10%,transparent); color: var(--amber,#f5a623); }
+.wi-sc-row.active { background: color-mix(in srgb,var(--accent) 8%,transparent); border-radius: var(--r); }
+.wi-sc-name.active { color: var(--accent); }
+.wi-fc-dot { font-size: 7px; line-height: 1; flex-shrink: 0; margin-right: -2px; }
+.wi-fc-dot.exists { color: var(--green); }
+.wi-fc-dot.override { color: var(--blue,#4a9eff); }
 .wi-s-inp { width: 80px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 4px 7px; font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; }
 .wi-s-inp:focus { border-color: var(--accent); outline: none; }
 .wi-s-inp.changed { border-color: var(--amber); color: var(--amber); }
@@ -1473,6 +1478,7 @@
 .wi-sched-add-btn:hover { border-color: var(--accent); color: var(--accent); }
 .wi-sched-add-btn.off:hover { border-color: var(--red); color: var(--red); }
 .wi-sched-add-btn.on:hover { border-color: var(--green); color: var(--green); }
+.wi-sched-add-btn.has-events { border-color: var(--amber,#f5a623); color: var(--amber,#f5a623); }
 .wi-sched-from { font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; }
 .wi-sched-hint { flex-basis: 100%; font-family: var(--mono); font-size: 9px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
 .wi-state-bar { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
@@ -3240,7 +3246,7 @@
             <div style="display:flex;gap:6px;align-items:center;">
               <input id="wi-sc-name-input" type="text" placeholder="Scenario name…"
                 style="flex:1;font-family:var(--mono);font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);"
-                onkeydown="if(event.key==='Enter')wiConfirmSave();if(event.key==='Escape')wiHideSaveForm();">
+                onkeydown="if(event.key==='Enter')wiConfirmSave();else if(event.key==='Escape')wiHideSaveForm();">
               <button class="sf-btn" onclick="wiConfirmSave()">Confirm</button>
               <button class="sf-btn" onclick="wiHideSaveForm()">Cancel</button>
             </div>
@@ -5704,6 +5710,18 @@ let _wiSchedule         = {};  // {bid: [{mid, state}]} — per-month on/off eve
 let _wiSchedOpen        = null;
 let _wiRuleOverrides    = {};  // {ruleId: number} — overridden rule values (% or fixed $)
 let _wiDueDateOverrides = {};  // {bid: number} — due day override (1-31 or "eom")
+let _wiActiveScId       = null; // id of the scenario currently loaded into state
+
+/* One-shot state check from sorted events — avoids re-sorting per call */
+function _stateFromSorted(sortedEvents, mid) {
+  let state = 'on';
+  const mv = _midVal(mid);
+  for (const ev of sortedEvents) {
+    if (_midVal(ev.mid) <= mv) state = ev.state;
+    else break;
+  }
+  return state;
+}
 
 const _escHTML = s => (s == null ? '' : String(s))
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -5845,15 +5863,9 @@ function wiCalcRulesForMonth(mid) {
 /* ── Effective bucket state at a given month ─────────────────────── */
 /* Base is always 'on'; only schedule events can change it.           */
 function wiBucketStateAt(bid, mid) {
-  const events = (_wiSchedule[bid] || []).slice()
-    .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
-  let state = 'on';
-  const mv = _midVal(mid);
-  for (const ev of events) {
-    if (_midVal(ev.mid) <= mv) state = ev.state;
-    else break;
-  }
-  return state;
+  const sorted = (_wiSchedule[bid] || []).slice()
+    .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
+  return _stateFromSorted(sorted, mid);
 }
 
 /* ── Total allocation for a specific month ───────────────────────── */
@@ -5993,11 +6005,20 @@ function _renderWiRules() {
 }
 
 function wiRuleChange(inp) {
-  const rid  = inp.dataset.rid;
-  const base = parseFloat(inp.dataset.base) || 0;
-  const val  = Math.max(0, parseFloat(inp.value) || 0);
-  inp.value  = inp.dataset.type === 'pct' ? val.toFixed(1) : val.toFixed(2);
-  if (Math.abs(val - base) < 0.001) {
+  const rid    = inp.dataset.rid;
+  const base   = parseFloat(inp.dataset.base) || 0;
+  const parsed = parseFloat(inp.value);
+  // Revert to base on empty / non-numeric input
+  if (isNaN(parsed)) {
+    inp.value = inp.dataset.type === 'pct' ? base.toFixed(1) : base.toFixed(2);
+    delete _wiRuleOverrides[rid];
+    inp.classList.remove('changed');
+    _renderWiRules(); _renderWiSummary(); _renderWi6Month();
+    return;
+  }
+  const val = Math.max(0, parsed);
+  inp.value = inp.dataset.type === 'pct' ? val.toFixed(1) : val.toFixed(2);
+  if (Math.abs(val - base) < 0.005) {
     delete _wiRuleOverrides[rid];
     inp.classList.remove('changed');
   } else {
@@ -6058,27 +6079,39 @@ function _renderWiBuckets() {
         const diffSpan = changed
           ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
           : '';
-        const isOff = wiBucketStateAt(b.id, _wiMid) === 'off';
+        // Sort schedule events once — reuse for isOff, stateDots, and chips
         const schedEvents = (_wiSchedule[b.id] || []).slice()
-          .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
+          .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
+        const isOff = _stateFromSorted(schedEvents, _wiMid) === 'off';
         const chips = schedEvents.map(ev =>
           `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${ev.state==='off'?'OFF':'ON'} from ${_midLabel(ev.mid)} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}','${ev.mid}')">×</span></span>`
         ).join('');
         const formOpen = _wiSchedOpen === b.id;
         const months6 = wiMonthsForward(_wiMid, 6);
         const monthOpts = months6.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
-        // 6-month state bar: colored dots showing ON/OFF per projected month
+        // 6-month state bar: reuse sorted events via _stateFromSorted (no re-sort)
         const stateDots = schedEvents.length
           ? months6.map(m => {
-              const st = wiBucketStateAt(b.id, m.id);
+              const st = _stateFromSorted(schedEvents, m.id);
               return `<span class="wi-state-dot ${st}" title="${m.label}: ${st.toUpperCase()}"></span>`;
             }).join('')
           : '';
-        const dueDayBase = b.due_day !== undefined && b.due_day !== null && b.due_day !== '' ? b.due_day : '';
-        const dueDayVal  = _wiDueDateOverrides[b.id] !== undefined ? _wiDueDateOverrides[b.id] : dueDayBase;
-        const dueDayChg  = _wiDueDateOverrides[b.id] !== undefined;
+        const dueDayBase  = b.due_day !== undefined && b.due_day !== null && b.due_day !== '' ? b.due_day : '';
+        const dueDayChg   = _wiDueDateOverrides[b.id] !== undefined;
+        const dueDayVal   = dueDayChg ? _wiDueDateOverrides[b.id] : dueDayBase;
+        const inForecast  = dueDayBase !== '' || b.pay_freq;
+        const fcDot       = dueDayChg
+          ? `<span class="wi-fc-dot override" title="Due day overridden — will appear in Forecast">●</span>`
+          : inForecast
+          ? `<span class="wi-fc-dot exists" title="Already in Forecast (due day: ${_escHTML(String(dueDayBase))}${b.pay_freq ? ', freq: '+_escHTML(b.pay_freq) : ''})">●</span>`
+          : '';
+        const dueTip = dueDayChg
+          ? `Overrides due day (base: ${dueDayBase || 'none'}). Clear to restore.`
+          : dueDayBase !== ''
+          ? `Due day: ${dueDayBase}. Edit to override for this scenario.`
+          : 'Enter a due day (1–31 or eom) to include this bucket in Forecast.';
         html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
-          <span class="wi-bkt-label" title="${_escHTML(b.name)}">${_escHTML(b.name)}</span>
+          ${fcDot}<span class="wi-bkt-label" title="${_escHTML(b.name)}">${_escHTML(b.name)}</span>
           ${diffSpan}
           ${stateDots ? `<span class="wi-state-bar">${stateDots}</span>` : ''}
           <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
@@ -6088,9 +6121,9 @@ function _renderWiBuckets() {
           <input class="wi-due-inp${dueDayChg ? ' changed' : ''}" type="text" inputmode="numeric"
             data-bid="${b.id}" data-base-due="${_escHTML(String(dueDayBase))}"
             value="${_escHTML(String(dueDayVal))}" placeholder="day"
-            title="Due day (1-31 or eom). Sets or overrides when this bucket appears in Forecast."
+            title="${dueTip}"
             onchange="wiDueDayChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
-          <button class="wi-sched-add-btn" onclick="wiShowSchedForm('${b.id}')" title="Schedule on/off by month">+</button>
+          <button class="wi-sched-add-btn${schedEvents.length ? ' has-events' : ''}" onclick="wiShowSchedForm('${b.id}')" title="Schedule on/off by month">+</button>
         </div>`;
         if (chips || formOpen) {
           html += `<div class="wi-sched-sub">${chips}`;
@@ -6144,8 +6177,9 @@ function wiDueDayChange(inp) {
   const bid     = inp.dataset.bid;
   const baseDue = inp.dataset.baseDue;
   const raw     = inp.value.trim().toLowerCase();
-  if (!raw || raw === baseDue) {
+  if (!raw || raw === String(baseDue)) {
     delete _wiDueDateOverrides[bid];
+    inp.value = String(baseDue);
     inp.classList.remove('changed');
   } else if (raw === 'eom' || (parseInt(raw, 10) >= 1 && parseInt(raw, 10) <= 31)) {
     const val = raw === 'eom' ? 'eom' : parseInt(raw, 10);
@@ -6153,8 +6187,11 @@ function wiDueDayChange(inp) {
     inp.value = String(val);
     inp.classList.add('changed');
   } else {
-    // Restore last valid value
-    const cur = _wiDueDateOverrides[bid] ?? baseDue;
+    // Invalid — flash red, restore previous value
+    inp.style.borderColor = 'var(--red)';
+    inp.style.color = 'var(--red)';
+    setTimeout(() => { inp.style.borderColor = ''; inp.style.color = ''; }, 800);
+    const cur = _wiDueDateOverrides[bid] !== undefined ? _wiDueDateOverrides[bid] : baseDue;
     inp.value = String(cur);
   }
 }
@@ -6210,7 +6247,9 @@ function wiReset() {
   _wiSchedOpen        = null;
   _wiRuleOverrides    = {};
   _wiDueDateOverrides = {};
+  _wiActiveScId       = null;
   _renderWi();
+  _renderWiScenarios();
 }
 
 /* ── Scenarios ───────────────────────────────────────────────────── */
@@ -6233,22 +6272,30 @@ function _renderWiScenarios() {
     el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 4px;">No saved scenarios.</div>';
     return;
   }
-  el.innerHTML = _wiSavedScenarios.map(s => `
-    <div class="wi-sc-row">
-      <span class="wi-sc-name" onclick="wiApplyScenario('${s.id}')" title="Load scenario">${s.name}</span>
+  el.innerHTML = _wiSavedScenarios.map(s => {
+    const isActive = _wiActiveScId === s.id;
+    return `<div class="wi-sc-row${isActive ? ' active' : ''}">
+      <span class="wi-sc-name${isActive ? ' active' : ''}" onclick="wiApplyScenario('${s.id}')" title="${isActive ? 'Active — click to deselect' : 'Load scenario'}">${_escHTML(s.name)}</span>
       <button class="wi-sc-btn" onclick="wiUpdateScenario('${s.id}')">Save</button>
       <button class="wi-sc-btn" onclick="wiDuplicateScenario('${s.id}')">Dup</button>
       <button class="wi-sc-btn del" onclick="wiDeleteScenario('${s.id}')">Del</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function wiApplyScenario(id) {
+  // Toggle off if already active
+  if (_wiActiveScId === id) {
+    wiReset();
+    return;
+  }
   const s = _wiSavedScenarios.find(x => x.id === id);
   if (!s) return;
   _wiOverrides        = Object.assign({}, s.allocations || {});
   _wiSchedule         = _migrateSchedule(s.schedule || {});
   _wiRuleOverrides    = Object.assign({}, s.ruleOverrides || {});
   _wiDueDateOverrides = Object.assign({}, s.dueDateOverrides || {});
+  _wiActiveScId       = id;
   // Legacy: offBuckets[] → schedule events at _wiMid so prior months stay unaffected
   for (const bid of (s.offBuckets || [])) {
     if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
@@ -6257,6 +6304,7 @@ function wiApplyScenario(id) {
   }
   _wiSchedOpen = null;
   _renderWi();
+  _renderWiScenarios();
 }
 
 async function wiUpdateScenario(id) {
