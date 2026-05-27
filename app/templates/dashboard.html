@@ -5844,14 +5844,15 @@ function wiBucketStateAt(bid, mid) {
 }
 
 /* ── Total allocation for a specific month ───────────────────────── */
-/* Includes bucket targets (ON buckets) + internal rule auto-amounts.  */
+/* Includes bucket targets (ON buckets) + all rule auto-amounts.       */
 function wiCalcAllocForMonth(mid) {
   let total = 0;
   for (const g of _wiGroups)
     for (const b of g.buckets)
       if (wiBucketStateAt(b.id, mid) === 'on')
         total += (_wiOverrides[b.id] ?? b.budget ?? 0);
-  total += wiCalcRulesForMonth(mid).totalInternal;
+  const rules = wiCalcRulesForMonth(mid);
+  total += rules.totalInternal + rules.totalExternal;
   return total;
 }
 
@@ -5957,7 +5958,7 @@ function _renderWiRules() {
         onchange="wiRuleChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
       <span class="wi-rule-unit">${unitLbl}</span>
       ${bktName ? `<span class="wi-rule-bkt" title="${_escHTML(bktName)}">→ ${_escHTML(bktName)}</span>` : ''}
-      <span class="wi-rule-amt${isExt ? ' ext' : ''}">${isExt ? '-' : ''}${fmtMoney(r.amount)}</span>
+      <span class="wi-rule-amt">${fmtMoney(r.amount)}</span>
     </div>`;
   };
 
@@ -5970,11 +5971,9 @@ function _renderWiRules() {
     html += external.map(r => ruleRow(r, true)).join('');
   }
 
-  const parts = [];
-  if (totalInternal) parts.push(`+${fmtMoney(totalInternal)} auto-alloc`);
-  if (totalExternal) parts.push(`-${fmtMoney(totalExternal)} ext. transfers`);
-  if (parts.length)
-    html += `<div class="wi-rule-totals">${parts.map(p => `<span>${p}</span>`).join('')}</div>`;
+  const totalRules = totalInternal + totalExternal;
+  if (totalRules)
+    html += `<div class="wi-rule-totals"><span>+${fmtMoney(totalRules)} total auto-allocated</span></div>`;
 
   html += `</div>`;
   el.innerHTML = html;
@@ -6000,8 +5999,7 @@ function wiRuleChange(inp) {
 /* ── Summary bar: Income / Allocated / Surplus ───────────────────── */
 function _renderWiSummary() {
   const gross      = wiProjectedIncome(_wiMid);
-  const rules      = wiCalcRulesForMonth(_wiMid);
-  const income     = gross - rules.totalExternal;  // net after external transfers
+  const income     = gross;
   const alloc      = wiCalcAlloc();
   const surplus    = income - alloc;
   const overBudget = alloc > income;
@@ -6013,17 +6011,7 @@ function _renderWiSummary() {
   const fillEl = document.getElementById('wi-fill');
   const pctEl  = document.getElementById('wi-pct');
 
-  if (incEl) {
-    incEl.textContent = fmtMoney(income);
-    const hint = incEl.nextElementSibling;
-    if (rules.totalExternal > 0) {
-      const hintEl = hint && hint.classList.contains('wi-income-hint') ? hint
-        : (() => { const d = document.createElement('div'); d.className = 'wi-income-hint'; incEl.after(d); return d; })();
-      hintEl.textContent = `-${fmtMoney(rules.totalExternal)} ext.`;
-    } else if (hint && hint.classList.contains('wi-income-hint')) {
-      hint.remove();
-    }
-  }
+  if (incEl) incEl.textContent = fmtMoney(income);
   if (alcEl) { alcEl.textContent = fmtMoney(alloc); alcEl.style.color = overBudget ? 'var(--red)' : 'var(--text)'; }
   if (surEl) {
     surEl.textContent = (surplus >= 0 ? '+' : '') + fmtMoney(surplus);
