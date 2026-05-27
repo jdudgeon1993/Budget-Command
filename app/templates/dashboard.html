@@ -1404,6 +1404,10 @@
 .wi-s-inp { width: 80px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 4px 7px; font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; }
 .wi-s-inp:focus { border-color: var(--accent); outline: none; }
 .wi-s-inp.changed { border-color: var(--amber); color: var(--amber); }
+.wi-due-inp { width: 38px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 4px 5px; font-family: var(--mono); font-size: 11px; color: var(--text3); text-align: center; }
+.wi-due-inp:focus { border-color: var(--accent); outline: none; color: var(--text); }
+.wi-due-inp.changed { border-color: var(--blue,#4a9eff); color: var(--blue,#4a9eff); }
+.wi-bkt-row.off .wi-due-inp { opacity: .35; }
 .wi-sched-btn { background: none; border: 1px solid var(--border2); border-radius: 3px; color: var(--text3); cursor: pointer; font-size: 11px; padding: 2px 5px; line-height: 1; flex-shrink: 0; }
 .wi-sched-btn.has-sched { border-color: var(--amber); color: var(--amber); }
 .wi-sched-btn.active { border-color: var(--accent); color: var(--accent); }
@@ -5695,10 +5699,11 @@ function showPlanTab(name, btn) {
    Baseline for every bucket is b.budget (target). No alloc from DB.
    ════════════════════════════════════════════════════════════════════ */
 
-let _wiOverrides     = {};  // {bid: number} — user overrides; baseline is b.budget
-let _wiSchedule      = {};  // {bid: [{mid, state}]} — per-month on/off events
-let _wiSchedOpen     = null;
-let _wiRuleOverrides = {};  // {ruleId: number} — overridden rule values (% or fixed $)
+let _wiOverrides        = {};  // {bid: number} — user overrides; baseline is b.budget
+let _wiSchedule         = {};  // {bid: [{mid, state}]} — per-month on/off events
+let _wiSchedOpen        = null;
+let _wiRuleOverrides    = {};  // {ruleId: number} — overridden rule values (% or fixed $)
+let _wiDueDateOverrides = {};  // {bid: number} — due day override (1-31 or "eom")
 
 const _escHTML = s => (s == null ? '' : String(s))
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -6069,6 +6074,9 @@ function _renderWiBuckets() {
               return `<span class="wi-state-dot ${st}" title="${m.label}: ${st.toUpperCase()}"></span>`;
             }).join('')
           : '';
+        const dueDayBase = b.due_day !== undefined && b.due_day !== null && b.due_day !== '' ? b.due_day : '';
+        const dueDayVal  = _wiDueDateOverrides[b.id] !== undefined ? _wiDueDateOverrides[b.id] : dueDayBase;
+        const dueDayChg  = _wiDueDateOverrides[b.id] !== undefined;
         html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
           <span class="wi-bkt-label" title="${_escHTML(b.name)}">${_escHTML(b.name)}</span>
           ${diffSpan}
@@ -6077,6 +6085,11 @@ function _renderWiBuckets() {
             data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
             title="Target: ${fmtMoney(base)}"
             onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+          <input class="wi-due-inp${dueDayChg ? ' changed' : ''}" type="text" inputmode="numeric"
+            data-bid="${b.id}" data-base-due="${_escHTML(String(dueDayBase))}"
+            value="${_escHTML(String(dueDayVal))}" placeholder="day"
+            title="Due day (1-31 or eom). Sets or overrides when this bucket appears in Forecast."
+            onchange="wiDueDayChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
           <button class="wi-sched-add-btn" onclick="wiShowSchedForm('${b.id}')" title="Schedule on/off by month">+</button>
         </div>`;
         if (chips || formOpen) {
@@ -6126,6 +6139,26 @@ function wiBktChange(inp) {
   _renderWi6Month();
 }
 
+/* ── Per-bucket due day override ─────────────────────────────────── */
+function wiDueDayChange(inp) {
+  const bid     = inp.dataset.bid;
+  const baseDue = inp.dataset.baseDue;
+  const raw     = inp.value.trim().toLowerCase();
+  if (!raw || raw === baseDue) {
+    delete _wiDueDateOverrides[bid];
+    inp.classList.remove('changed');
+  } else if (raw === 'eom' || (parseInt(raw, 10) >= 1 && parseInt(raw, 10) <= 31)) {
+    const val = raw === 'eom' ? 'eom' : parseInt(raw, 10);
+    _wiDueDateOverrides[bid] = val;
+    inp.value = String(val);
+    inp.classList.add('changed');
+  } else {
+    // Restore last valid value
+    const cur = _wiDueDateOverrides[bid] ?? baseDue;
+    inp.value = String(cur);
+  }
+}
+
 /* ── Per-month schedule ──────────────────────────────────────────── */
 function wiShowSchedForm(bid) {
   _wiSchedOpen = _wiSchedOpen === bid ? null : bid;
@@ -6172,10 +6205,11 @@ function wiToggleCat(hdr) {
 
 /* ── Reset all overrides and schedule ───────────────────────────── */
 function wiReset() {
-  _wiOverrides     = {};
-  _wiSchedule      = {};
-  _wiSchedOpen     = null;
-  _wiRuleOverrides = {};
+  _wiOverrides        = {};
+  _wiSchedule         = {};
+  _wiSchedOpen        = null;
+  _wiRuleOverrides    = {};
+  _wiDueDateOverrides = {};
   _renderWi();
 }
 
@@ -6211,9 +6245,10 @@ function _renderWiScenarios() {
 function wiApplyScenario(id) {
   const s = _wiSavedScenarios.find(x => x.id === id);
   if (!s) return;
-  _wiOverrides     = Object.assign({}, s.allocations || {});
-  _wiSchedule      = _migrateSchedule(s.schedule || {});
-  _wiRuleOverrides = Object.assign({}, s.ruleOverrides || {});
+  _wiOverrides        = Object.assign({}, s.allocations || {});
+  _wiSchedule         = _migrateSchedule(s.schedule || {});
+  _wiRuleOverrides    = Object.assign({}, s.ruleOverrides || {});
+  _wiDueDateOverrides = Object.assign({}, s.dueDateOverrides || {});
   // Legacy: offBuckets[] → schedule events at _wiMid so prior months stay unaffected
   for (const bid of (s.offBuckets || [])) {
     if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
@@ -6231,7 +6266,7 @@ async function wiUpdateScenario(id) {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides })
+      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides, dueDateOverrides: _wiDueDateOverrides })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
@@ -6260,7 +6295,7 @@ async function wiConfirmSave() {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides })
+      body: JSON.stringify({ name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides, dueDateOverrides: _wiDueDateOverrides })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
@@ -6282,10 +6317,11 @@ async function wiDuplicateScenario(id) {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        name:          `Copy of ${s.name}`,
-        allocations:   s.allocations   || {},
-        schedule:      s.schedule      || {},
-        ruleOverrides: s.ruleOverrides || {}
+        name:            `Copy of ${s.name}`,
+        allocations:     s.allocations     || {},
+        schedule:        s.schedule        || {},
+        ruleOverrides:   s.ruleOverrides   || {},
+        dueDateOverrides: s.dueDateOverrides || {}
       })
     });
     const data = await res.json();
@@ -6388,9 +6424,10 @@ async function loadForecast() {
         );
       }
       const body = {
-        bucket_overrides: _fcActiveSc.allocations    || {},
-        bucket_schedule:  bucketSchedule,
-        rule_overrides:   _fcActiveSc.ruleOverrides  || {},
+        bucket_overrides:  _fcActiveSc.allocations      || {},
+        bucket_schedule:   bucketSchedule,
+        rule_overrides:    _fcActiveSc.ruleOverrides     || {},
+        due_day_overrides: _fcActiveSc.dueDateOverrides  || {},
       };
       if (_fcActiveSc.incomeOverride != null) body.income_override = _fcActiveSc.incomeOverride;
       fetchOpts.body = JSON.stringify(body);

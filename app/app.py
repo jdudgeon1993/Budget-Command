@@ -1089,20 +1089,22 @@ def api_scenarios_list():
             streams        = allocs.pop("_streams",        None) or []
             sort_ord       = allocs.pop("_sort",           r.get("sort_order", 0))
             off_buckets    = allocs.pop("_off_buckets",    None) or []
-            rule_overrides = allocs.pop("_rule_overrides", None) or {}
+            rule_overrides      = allocs.pop("_rule_overrides",       None) or {}
+            due_date_overrides  = allocs.pop("_due_date_overrides",   None) or {}
             # Also strip __streams from old schedule format if present
             if isinstance(sched, dict):
                 streams = sched.pop("__streams", streams) or streams
             scenarios.append({
-                "id":             r["id"],
-                "name":           r["name"],
-                "allocations":    allocs,
-                "incomeOverride": r.get("income_override"),
-                "schedule":       sched,
-                "extraStreams":   streams,
-                "sortOrder":      sort_ord,
-                "offBuckets":     off_buckets,
-                "ruleOverrides":  rule_overrides,
+                "id":               r["id"],
+                "name":             r["name"],
+                "allocations":      allocs,
+                "incomeOverride":   r.get("income_override"),
+                "schedule":         sched,
+                "extraStreams":      streams,
+                "sortOrder":        sort_ord,
+                "offBuckets":       off_buckets,
+                "ruleOverrides":    rule_overrides,
+                "dueDateOverrides": due_date_overrides,
             })
         return jsonify({"ok": True, "scenarios": scenarios})
     except Exception as e:
@@ -1122,17 +1124,19 @@ def api_scenarios_save():
 
     # Store schedule, streams, and sort order inside allocations JSONB
     # so we don't depend on optional DB columns that may not exist.
-    allocs         = dict(body.get("allocations") or {})
-    schedule       = body.get("schedule") or {}
-    streams        = body.get("extraStreams") or []
-    sort_ord       = body.get("sortOrder", 0)
-    off_buckets    = body.get("offBuckets") or []
-    rule_overrides = body.get("ruleOverrides") or {}
-    if schedule:              allocs["_schedule"]        = schedule
-    if streams:               allocs["_streams"]         = streams
-    if sort_ord is not None:  allocs["_sort"]            = sort_ord
-    if off_buckets:           allocs["_off_buckets"]     = off_buckets
-    if rule_overrides:        allocs["_rule_overrides"]  = rule_overrides
+    allocs              = dict(body.get("allocations") or {})
+    schedule            = body.get("schedule") or {}
+    streams             = body.get("extraStreams") or []
+    sort_ord            = body.get("sortOrder", 0)
+    off_buckets         = body.get("offBuckets") or []
+    rule_overrides      = body.get("ruleOverrides") or {}
+    due_date_overrides  = body.get("dueDateOverrides") or {}
+    if schedule:                allocs["_schedule"]             = schedule
+    if streams:                 allocs["_streams"]              = streams
+    if sort_ord is not None:    allocs["_sort"]                 = sort_ord
+    if off_buckets:             allocs["_off_buckets"]          = off_buckets
+    if rule_overrides:          allocs["_rule_overrides"]       = rule_overrides
+    if due_date_overrides:      allocs["_due_date_overrides"]   = due_date_overrides
 
     row = {
         "id":              scenario_id or _new_id("sc"),
@@ -2732,6 +2736,20 @@ def api_forecast():
     bucket_off_months = {str(k): [str(m) for m in v] for k, v in body.get("bucket_off_months", {}).items()}
     # [{bucket_id, from_mid, state}]  — new effective-date timeline format
     bucket_schedule   = [e for e in body.get("bucket_schedule", []) if isinstance(e, dict)]
+    # {bid: day_number_or_"eom"}  — per-bucket due day overrides from What If
+    due_day_overrides = {}
+    for k, v in body.get("due_day_overrides", {}).items():
+        if v is not None:
+            raw = str(v).strip().lower()
+            if raw == "eom":
+                due_day_overrides[str(k)] = "eom"
+            else:
+                try:
+                    d = int(raw)
+                    if 1 <= d <= 31:
+                        due_day_overrides[str(k)] = d
+                except ValueError:
+                    pass
 
     try:
         n_months = int(months_param)
@@ -2883,27 +2901,41 @@ def api_forecast():
         return (_mid_for_date(bill_date) == today_mid
                 and cur_statuses.get(bucket_id, "") == "PAID")
 
+    # Apply due_day_overrides: patch each bucket's dueDay for this scenario run.
+    # Buckets that previously had no dueDay gain one; existing ones are replaced.
+    if due_day_overrides:
+        patched = []
+        for b in buckets:
+            bid = str(b.get("id", ""))
+            if bid in due_day_overrides:
+                b = {**b, "dueDay": due_day_overrides[bid]}
+            patched.append(b)
+        buckets = patched
+
     # ── Recurring bills: dated (have dueDay) and freq-only (payFreq, no dueDay)
     # No "recurring" flag required — if a bucket has a due day or frequency + amount,
     # it belongs in the forecast. The user set it up; the intent is clear.
+    # A What-If due_day_override gives any bucket a dueDay, making it eligible here.
     dated_bills = [
         b for b in buckets
         if not b.get("archived")
         and b.get("dueDay") is not None
-        and (b.get("dueAmount") or b.get("defaultBudget"))
+        and (b.get("dueAmount") or b.get("defaultBudget") or b.get("budget")
+             or bucket_overrides.get(str(b.get("id",""))))
     ]
     freq_bills = [
         b for b in buckets
         if not b.get("archived")
         and b.get("dueDay") is None
         and b.get("payFreq") in ('weekly', 'biweekly', 'triweekly', 'monthly')
-        and (b.get("dueAmount") or b.get("defaultBudget"))
+        and (b.get("dueAmount") or b.get("defaultBudget") or bucket_overrides.get(str(b.get("id",""))))
     ]
 
     def _bill_amount(b: dict) -> float:
-        if b["id"] in bucket_overrides:
-            return bucket_overrides[b["id"]]
-        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        bid = str(b["id"])
+        if bid in bucket_overrides:
+            return bucket_overrides[bid]
+        return float(b.get("dueAmount") or b.get("defaultBudget") or b.get("budget") or 0)
 
     # ── Running cumulative totals per transfer rule across all periods ───────
     rule_cumulative: dict = {}   # rule_name → running cumulative total
