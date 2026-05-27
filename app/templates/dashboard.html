@@ -6366,8 +6366,15 @@ async function loadForecast() {
     if (_fcActiveSc) {
       fetchOpts.method  = 'POST';
       fetchOpts.headers = {'Content-Type': 'application/json'};
-      // Convert schedule {bid: [{mid, state}]} → flat [{bucket_id, from_mid, state}] for backend
-      const migratedSched  = _migrateSchedule(_fcActiveSc.schedule || {});
+      // Migrate schedule — same logic as wiApplyScenario
+      const migratedSched = _migrateSchedule(_fcActiveSc.schedule || {});
+      // Legacy: offBuckets → explicit OFF event at current month (_wiMid)
+      for (const bid of (_fcActiveSc.offBuckets || [])) {
+        if (!migratedSched[bid]) migratedSched[bid] = [];
+        if (!migratedSched[bid].some(e => e.mid === _wiMid))
+          migratedSched[bid].push({ mid: _wiMid, state: 'off' });
+      }
+      // Convert {bid: [{mid, state}]} → flat [{bucket_id, from_mid, state}] for backend
       const bucketSchedule = [];
       for (const [bid, events] of Object.entries(migratedSched)) {
         (events || []).forEach(evt =>

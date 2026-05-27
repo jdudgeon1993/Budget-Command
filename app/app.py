@@ -2692,26 +2692,21 @@ def _mid_sort_key(mid: str):
 def _bucket_state_at(bucket_schedule: list, bucket_id: str, mid: str) -> str:
     """Return 'on' or 'off' for bucket_id at month mid.
 
-    Mirrors JS wiBucketStateAt logic exactly:
-    - If the first (earliest) event is 'Turn ON', the state before it is 'off'
-    - If the first (earliest) event is 'Turn OFF', the state before it is 'on'
-    This means 'Turn ON in Sep' = OFF until Sep, ON from Sep onward.
+    Base is always 'on'. Schedule events override from their month forward.
+    Mirrors JS wiBucketStateAt exactly — no inference from future events.
     """
-    mid_key    = _mid_sort_key(mid)
-    all_events = [e for e in bucket_schedule if str(e.get("bucket_id")) == str(bucket_id)]
+    mid_key     = _mid_sort_key(mid)
+    all_events  = [e for e in bucket_schedule if str(e.get("bucket_id")) == str(bucket_id)]
     if not all_events:
         return "on"
 
     past_events = [e for e in all_events
-                   if _mid_sort_key(str(e.get("from_mid", ""))) <= mid_key]
+                   if _mid_sort_key(str(e.get("from_mid") or "")) <= mid_key]
+    if not past_events:
+        return "on"  # no events at or before this month — base is 'on'
 
-    if past_events:
-        latest = max(past_events, key=lambda e: _mid_sort_key(str(e.get("from_mid", ""))))
-        return latest.get("state", "on")
-
-    # No past events — infer state from the first future event's type
-    first = min(all_events, key=lambda e: _mid_sort_key(str(e.get("from_mid", ""))))
-    return "off" if first.get("state") == "on" else "on"
+    latest = max(past_events, key=lambda e: _mid_sort_key(str(e.get("from_mid") or "")))
+    return latest.get("state", "on")
 
 
 @app.route("/api/forecast", methods=["GET", "POST"])
