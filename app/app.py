@@ -5,7 +5,7 @@ import time as _time
 import uuid
 from datetime import date, timedelta
 import calendar as _cal
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from formulas import (
@@ -1416,11 +1416,10 @@ def dashboard():
     if not logged_in():
         return redirect(url_for("login"))
     try:
-        resp = _dashboard_inner()
-        if hasattr(resp, 'headers'):
-            resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            resp.headers['Pragma']        = 'no-cache'
-            resp.headers['Expires']       = '0'
+        resp = make_response(_dashboard_inner())
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        resp.headers['Pragma']        = 'no-cache'
+        resp.headers['Expires']       = '0'
         return resp
     except Exception as e:
         app.logger.error("dashboard error: %s\n%s", e, traceback.format_exc())
