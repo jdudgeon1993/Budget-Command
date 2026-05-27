@@ -1416,7 +1416,12 @@ def dashboard():
     if not logged_in():
         return redirect(url_for("login"))
     try:
-        return _dashboard_inner()
+        resp = _dashboard_inner()
+        if hasattr(resp, 'headers'):
+            resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            resp.headers['Pragma']        = 'no-cache'
+            resp.headers['Expires']       = '0'
+        return resp
     except Exception as e:
         app.logger.error("dashboard error: %s\n%s", e, traceback.format_exc())
         raise
