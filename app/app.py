@@ -2725,12 +2725,14 @@ def api_forecast():
 
     body             = request.get_json(silent=True) or {}
     bucket_overrides  = {str(k): float(v) for k, v in body.get("bucket_overrides", {}).items() if v is not None}
-    income_override   = body.get("income_override")  # float or None — total monthly income override
+    income_override   = body.get("income_override")
     if income_override is not None:
         try:
             income_override = float(income_override)
         except (TypeError, ValueError):
             income_override = None
+    # {rid: new_value} — override rule percentages/amounts from What-If scenario
+    rule_overrides    = {str(k): float(v) for k, v in body.get("rule_overrides", {}).items() if v is not None}
     # {bid: [mid_string, ...]}  — legacy skip-month format (still accepted)
     bucket_off_months = {str(k): [str(m) for m in v] for k, v in body.get("bucket_off_months", {}).items()}
     # [{bucket_id, from_mid, state}]  — new effective-date timeline format
@@ -2748,6 +2750,11 @@ def api_forecast():
     txs         = data.get("txs", [])
     paychecks   = data.get("paychecks", [])
     alloc_rules = data.get("allocationRules", [])
+    if rule_overrides:
+        alloc_rules = [
+            {**r, "value": rule_overrides[str(r["id"])]} if str(r["id"]) in rule_overrides else r
+            for r in alloc_rules
+        ]
     buckets     = data.get("buckets", [])
 
     # Starting balance: sum of all non-archived budget accounts
