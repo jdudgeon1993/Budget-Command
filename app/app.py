@@ -1084,11 +1084,12 @@ def api_scenarios_list():
         for r in rows:
             # Schedule + streams may be stored in allocations._schedule / ._streams
             # (resilient storage that doesn't require new DB columns)
-            allocs      = dict(r.get("allocations") or {})
-            sched       = allocs.pop("_schedule",    None) or r.get("schedule") or {}
-            streams     = allocs.pop("_streams",     None) or []
-            sort_ord    = allocs.pop("_sort",        r.get("sort_order", 0))
-            off_buckets = allocs.pop("_off_buckets", None) or []
+            allocs         = dict(r.get("allocations") or {})
+            sched          = allocs.pop("_schedule",       None) or r.get("schedule") or {}
+            streams        = allocs.pop("_streams",        None) or []
+            sort_ord       = allocs.pop("_sort",           r.get("sort_order", 0))
+            off_buckets    = allocs.pop("_off_buckets",    None) or []
+            rule_overrides = allocs.pop("_rule_overrides", None) or {}
             # Also strip __streams from old schedule format if present
             if isinstance(sched, dict):
                 streams = sched.pop("__streams", streams) or streams
@@ -1101,6 +1102,7 @@ def api_scenarios_list():
                 "extraStreams":   streams,
                 "sortOrder":      sort_ord,
                 "offBuckets":     off_buckets,
+                "ruleOverrides":  rule_overrides,
             })
         return jsonify({"ok": True, "scenarios": scenarios})
     except Exception as e:
@@ -1120,15 +1122,17 @@ def api_scenarios_save():
 
     # Store schedule, streams, and sort order inside allocations JSONB
     # so we don't depend on optional DB columns that may not exist.
-    allocs      = dict(body.get("allocations") or {})
-    schedule    = body.get("schedule") or {}
-    streams     = body.get("extraStreams") or []
-    sort_ord    = body.get("sortOrder", 0)
-    off_buckets = body.get("offBuckets") or []
-    if schedule:              allocs["_schedule"]    = schedule
-    if streams:               allocs["_streams"]     = streams
-    if sort_ord is not None:  allocs["_sort"]        = sort_ord
-    if off_buckets:           allocs["_off_buckets"] = off_buckets
+    allocs         = dict(body.get("allocations") or {})
+    schedule       = body.get("schedule") or {}
+    streams        = body.get("extraStreams") or []
+    sort_ord       = body.get("sortOrder", 0)
+    off_buckets    = body.get("offBuckets") or []
+    rule_overrides = body.get("ruleOverrides") or {}
+    if schedule:              allocs["_schedule"]        = schedule
+    if streams:               allocs["_streams"]         = streams
+    if sort_ord is not None:  allocs["_sort"]            = sort_ord
+    if off_buckets:           allocs["_off_buckets"]     = off_buckets
+    if rule_overrides:        allocs["_rule_overrides"]  = rule_overrides
 
     row = {
         "id":              scenario_id or _new_id("sc"),

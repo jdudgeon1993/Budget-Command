@@ -1469,6 +1469,21 @@
 .wi-state-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .wi-state-dot.on  { background: var(--green); }
 .wi-state-dot.off { background: var(--red); }
+.wi-income-hint { font-family: var(--mono); font-size: 9px; color: var(--amber); margin-top: 2px; }
+.wi-rules-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.wi-rules-section-hdr { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); padding: 5px 10px 4px; border-bottom: 1px solid var(--border); }
+.wi-rules-section-hdr.external { color: var(--amber); }
+.wi-rule-row { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
+.wi-rule-row:last-child { border-bottom: none; }
+.wi-rule-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); }
+.wi-rule-bkt { color: var(--text3); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+.wi-rule-inp { width: 52px; text-align: right; font-family: var(--mono); font-size: 11px; padding: 3px 6px; border: 1px solid var(--border2); border-radius: 3px; background: var(--bg3); color: var(--text); flex-shrink: 0; }
+.wi-rule-inp.changed { border-color: var(--amber); color: var(--amber); }
+.wi-rule-unit { color: var(--text3); font-size: 10px; flex-shrink: 0; }
+.wi-rule-amt { font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0; color: var(--text); }
+.wi-rule-amt.ext { color: var(--amber); }
+.wi-rule-totals { display: flex; gap: 10px; padding: 6px 10px; background: var(--bg3); font-family: var(--mono); font-size: 10px; color: var(--text3); flex-wrap: wrap; border-top: 1px solid var(--border); }
+.wi-rule-totals b { color: var(--text); }
 
 /* ── Cash Flow Timeline ── */
 .cft-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -3128,7 +3143,8 @@
         const _wiGrand       = {{ grand | tojson }};
         const _wiMid         = "{{ active_mid }}";
         const _wiPcks        = {{ paychecks | tojson }};
-        const _wiRealIncome  = {{ ledger_income | default(0) }};  // actual income entered this month
+        const _wiRealIncome  = {{ ledger_income | default(0) }};
+        const _wiRulesData   = {{ allocation_rules | tojson }};
         </script>
 
         <!-- Sub-tabs: Forecast | What If | Timeline -->
@@ -3252,6 +3268,9 @@
             <div class="wi-6mo-detail" id="wi-6mo-detail"></div>
             <div class="wi-6mo-vals" id="wi-6mo-vals"></div>
           </div>
+
+          <!-- Rules panel -->
+          <div id="wi-rules-content" style="margin-bottom:12px;"></div>
 
           <!-- Bucket list -->
           <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">
@@ -5667,10 +5686,11 @@ function showPlanTab(name, btn) {
    Baseline for every bucket is b.budget (target). No alloc from DB.
    ════════════════════════════════════════════════════════════════════ */
 
-let _wiOverrides = {};      // {bid: number} — user overrides; baseline is b.budget
-let _wiSchedule  = {};      // {bid: [{mid, state}]} — per-month on/off events
-let _wiSchedOpen = null;    // bid whose schedule form is open
-let _wiScenarios = [];      // forecast scenario chips still reference this; stays empty for now
+let _wiOverrides     = {};  // {bid: number} — user overrides; baseline is b.budget
+let _wiSchedule      = {};  // {bid: [{mid, state}]} — per-month on/off events
+let _wiSchedOpen     = null;
+let _wiRuleOverrides = {};  // {ruleId: number} — overridden rule values (% or fixed $)
+let _wiScenarios     = [];
 
 const _escHTML = s => (s == null ? '' : String(s))
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -5776,6 +5796,39 @@ function _midLabel(mid) {
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[2], 10)] || '?';
 }
 
+/* ── Bucket name lookup ──────────────────────────────────────────── */
+function _wiBucketName(bid) {
+  if (!bid) return '';
+  for (const g of (_wiGroups || []))
+    for (const b of (g.buckets || []))
+      if (b.id === bid) return b.name;
+  return '';
+}
+
+/* ── Compute rule projections for a given month ──────────────────── */
+function wiCalcRulesForMonth(mid) {
+  const income = wiProjectedIncome(mid);
+  const internal = [], external = [];
+  for (const rule of (_wiRulesData || [])) {
+    if (!rule.active) continue;
+    const val    = _wiRuleOverrides[rule.id] ?? rule.value;
+    const amount = rule.type === 'pct'
+      ? Math.round(income * val / 100 * 100) / 100
+      : val;
+    const item = { id: rule.id, name: rule.name, ruleType: rule.ruleType,
+                   type: rule.type, base: rule.value, val, amount,
+                   bucketId: rule.bucketId };
+    if (rule.ruleType === 'external') external.push(item);
+    else internal.push(item);
+  }
+  return {
+    internal,
+    external,
+    totalInternal: internal.reduce((s, r) => s + r.amount, 0),
+    totalExternal: external.reduce((s, r) => s + r.amount, 0),
+  };
+}
+
 /* ── Effective bucket state at a given month ─────────────────────── */
 /* Base is always 'on'; only schedule events can change it.           */
 function wiBucketStateAt(bid, mid) {
@@ -5791,12 +5844,14 @@ function wiBucketStateAt(bid, mid) {
 }
 
 /* ── Total allocation for a specific month ───────────────────────── */
+/* Includes bucket targets (ON buckets) + internal rule auto-amounts.  */
 function wiCalcAllocForMonth(mid) {
   let total = 0;
   for (const g of _wiGroups)
     for (const b of g.buckets)
       if (wiBucketStateAt(b.id, mid) === 'on')
         total += (_wiOverrides[b.id] ?? b.budget ?? 0);
+  total += wiCalcRulesForMonth(mid).totalInternal;
   return total;
 }
 
@@ -5817,6 +5872,7 @@ function _initWi() {
 /* Each sub-render is isolated so a failure in one can never blank the others. */
 function _renderWi() {
   try { _renderWiBuckets(); } catch (e) { console.error('WhatIf buckets render:', e); }
+  try { _renderWiRules();   } catch (e) { console.error('WhatIf rules render:', e); }
   try { _renderWiSummary(); } catch (e) { console.error('WhatIf summary render:', e); }
   try { _renderWi6Month();  } catch (e) { console.error('WhatIf 6mo render:', e); }
 }
@@ -5878,9 +5934,74 @@ function _renderWi6Month() {
 
 function wiSelect6mo(i) { _wi6moSel = i; _renderWi6Month(); }
 
+/* ── Rules panel ─────────────────────────────────────────────────── */
+function _renderWiRules() {
+  const el = document.getElementById('wi-rules-content');
+  if (!el) return;
+  const active = (_wiRulesData || []).filter(r => r.active);
+  if (!active.length) { el.innerHTML = ''; return; }
+
+  const { internal, external, totalInternal, totalExternal } = wiCalcRulesForMonth(_wiMid);
+  let html = `<div class="wi-rules-panel">`;
+
+  const ruleRow = (r, isExt) => {
+    const changed  = _wiRuleOverrides[r.id] !== undefined;
+    const unitLbl  = r.type === 'pct' ? '%' : '$';
+    const dispVal  = r.type === 'pct' ? r.val.toFixed(1) : r.val.toFixed(2);
+    const bktName  = isExt ? '' : _wiBucketName(r.bucketId);
+    return `<div class="wi-rule-row">
+      <span class="wi-rule-name" title="${_escHTML(r.name)}">${_escHTML(r.name)}</span>
+      <input class="wi-rule-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
+        data-rid="${r.id}" data-base="${r.base}" data-type="${r.type}"
+        value="${dispVal}"
+        onchange="wiRuleChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <span class="wi-rule-unit">${unitLbl}</span>
+      ${bktName ? `<span class="wi-rule-bkt" title="${_escHTML(bktName)}">→ ${_escHTML(bktName)}</span>` : ''}
+      <span class="wi-rule-amt${isExt ? ' ext' : ''}">${isExt ? '-' : ''}${fmtMoney(r.amount)}</span>
+    </div>`;
+  };
+
+  if (internal.length) {
+    html += `<div class="wi-rules-section-hdr">Internal — Auto-Allocations</div>`;
+    html += internal.map(r => ruleRow(r, false)).join('');
+  }
+  if (external.length) {
+    html += `<div class="wi-rules-section-hdr external">External — Transfers</div>`;
+    html += external.map(r => ruleRow(r, true)).join('');
+  }
+
+  const parts = [];
+  if (totalInternal) parts.push(`+${fmtMoney(totalInternal)} auto-alloc`);
+  if (totalExternal) parts.push(`-${fmtMoney(totalExternal)} ext. transfers`);
+  if (parts.length)
+    html += `<div class="wi-rule-totals">${parts.map(p => `<span>${p}</span>`).join('')}</div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function wiRuleChange(inp) {
+  const rid  = inp.dataset.rid;
+  const base = parseFloat(inp.dataset.base) || 0;
+  const val  = Math.max(0, parseFloat(inp.value) || 0);
+  inp.value  = inp.dataset.type === 'pct' ? val.toFixed(1) : val.toFixed(2);
+  if (Math.abs(val - base) < 0.001) {
+    delete _wiRuleOverrides[rid];
+    inp.classList.remove('changed');
+  } else {
+    _wiRuleOverrides[rid] = val;
+    inp.classList.add('changed');
+  }
+  _renderWiRules();
+  _renderWiSummary();
+  _renderWi6Month();
+}
+
 /* ── Summary bar: Income / Allocated / Surplus ───────────────────── */
 function _renderWiSummary() {
-  const income     = wiProjectedIncome(_wiMid);
+  const gross      = wiProjectedIncome(_wiMid);
+  const rules      = wiCalcRulesForMonth(_wiMid);
+  const income     = gross - rules.totalExternal;  // net after external transfers
   const alloc      = wiCalcAlloc();
   const surplus    = income - alloc;
   const overBudget = alloc > income;
@@ -5892,7 +6013,17 @@ function _renderWiSummary() {
   const fillEl = document.getElementById('wi-fill');
   const pctEl  = document.getElementById('wi-pct');
 
-  if (incEl) incEl.textContent = fmtMoney(income);
+  if (incEl) {
+    incEl.textContent = fmtMoney(income);
+    const hint = incEl.nextElementSibling;
+    if (rules.totalExternal > 0) {
+      const hintEl = hint && hint.classList.contains('wi-income-hint') ? hint
+        : (() => { const d = document.createElement('div'); d.className = 'wi-income-hint'; incEl.after(d); return d; })();
+      hintEl.textContent = `-${fmtMoney(rules.totalExternal)} ext.`;
+    } else if (hint && hint.classList.contains('wi-income-hint')) {
+      hint.remove();
+    }
+  }
   if (alcEl) { alcEl.textContent = fmtMoney(alloc); alcEl.style.color = overBudget ? 'var(--red)' : 'var(--text)'; }
   if (surEl) {
     surEl.textContent = (surplus >= 0 ? '+' : '') + fmtMoney(surplus);
@@ -6043,9 +6174,10 @@ function wiToggleCat(hdr) {
 
 /* ── Reset all overrides and schedule ───────────────────────────── */
 function wiReset() {
-  _wiOverrides = {};
-  _wiSchedule  = {};
-  _wiSchedOpen = null;
+  _wiOverrides     = {};
+  _wiSchedule      = {};
+  _wiSchedOpen     = null;
+  _wiRuleOverrides = {};
   _renderWi();
 }
 
@@ -6080,8 +6212,9 @@ function _renderWiScenarios() {
 function wiApplyScenario(id) {
   const s = _wiSavedScenarios.find(x => x.id === id);
   if (!s) return;
-  _wiOverrides = Object.assign({}, s.allocations || {});
-  _wiSchedule  = _migrateSchedule(s.schedule || {});
+  _wiOverrides     = Object.assign({}, s.allocations || {});
+  _wiSchedule      = _migrateSchedule(s.schedule || {});
+  _wiRuleOverrides = Object.assign({}, s.ruleOverrides || {});
   // Legacy: offBuckets[] → schedule events at _wiMid so prior months stay unaffected
   for (const bid of (s.offBuckets || [])) {
     if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
@@ -6099,7 +6232,7 @@ async function wiUpdateScenario(id) {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, schedule: _wiSchedule })
+      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
@@ -6128,7 +6261,7 @@ async function wiConfirmSave() {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, allocations: _wiOverrides, schedule: _wiSchedule })
+      body: JSON.stringify({ name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
@@ -6150,9 +6283,10 @@ async function wiDuplicateScenario(id) {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        name:        `Copy of ${s.name}`,
-        allocations: s.allocations || {},
-        schedule:    s.schedule    || {}
+        name:          `Copy of ${s.name}`,
+        allocations:   s.allocations   || {},
+        schedule:      s.schedule      || {},
+        ruleOverrides: s.ruleOverrides || {}
       })
     });
     const data = await res.json();
