@@ -5664,6 +5664,10 @@ let _wiSchedule  = {};      // {bid: [{mid, state}]} — per-month on/off events
 let _wiSchedOpen = null;    // bid whose schedule form is open
 let _wiScenarios = [];      // forecast scenario chips still reference this; stays empty for now
 
+const _escHTML = s => (s == null ? '' : String(s))
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
 /* Migrate old schedule format — still used by forecast scenario loading */
 function _migrateSchedule(raw) {
   if (!raw || typeof raw !== 'object') return {};
@@ -5748,13 +5752,15 @@ function wiMonthsForward(fromMid, count) {
 
 /* ── Month ID numeric value for sorting ──────────────────────────── */
 function _midVal(mid) {
+  if (!mid || typeof mid !== 'string') return 0;
   const p = mid.split('_');
   return parseInt(p[1], 10) * 12 + parseInt(p[2], 10);
 }
 
 function _midLabel(mid) {
+  if (!mid || typeof mid !== 'string') return '?';
   const p = mid.split('_');
-  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[2], 10)];
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(p[2], 10)] || '?';
 }
 
 /* ── Effective bucket state at a given month ─────────────────────── */
@@ -5882,7 +5888,7 @@ function _renderWiBuckets() {
   try {
     (_wiGroups || []).forEach(g => {
       html += `<div class="wi-cat-hdr" onclick="wiToggleCat(this)">
-        <span class="wi-cat-arrow open">▶</span>${g.name}
+        <span class="wi-cat-arrow open">▶</span>${_escHTML(g.name)}
       </div><div class="wi-cat-body">`;
       (g.buckets || []).forEach(b => {
         const base    = b.budget ?? 0;
@@ -5895,15 +5901,15 @@ function _renderWiBuckets() {
         const isOff = _wiOff.has(b.id);
         const schedEvents = (_wiSchedule[b.id] || []).slice()
           .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
-        const chips = schedEvents.map((ev, idx) =>
-          `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${_midLabel(ev.mid)} ${ev.state.toUpperCase()} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}',${idx})">×</span></span>`
+        const chips = schedEvents.map(ev =>
+          `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${_midLabel(ev.mid)} ${ev.state.toUpperCase()} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}','${ev.mid}')">×</span></span>`
         ).join('');
         const formOpen = _wiSchedOpen === b.id;
         const monthOpts = wiMonthsForward(_wiMid, 6).map(m =>
           `<option value="${m.id}">${m.label}</option>`).join('');
         html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
           <button class="wi-toggle${isOff ? ' off' : ''}" onclick="wiBktToggle('${b.id}')">${isOff ? 'OFF' : 'ON'}</button>
-          <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
+          <span class="wi-bkt-label" title="${_escHTML(b.name)}">${_escHTML(b.name)}</span>
           ${diffSpan}
           <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
             data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
@@ -5985,6 +5991,7 @@ function wiAddSched(bid, state) {
   const sel = document.getElementById(`wi-sched-mo-${bid}`);
   if (!sel) return;
   const mid = sel.value;
+  if (!mid || !bid) return;
   if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
   const existing = _wiSchedule[bid].findIndex(e => e.mid === mid);
   if (existing >= 0) _wiSchedule[bid][existing].state = state;
@@ -5995,9 +6002,9 @@ function wiAddSched(bid, state) {
   _renderWi6Month();
 }
 
-function wiRemoveSched(bid, idx) {
+function wiRemoveSched(bid, mid) {
   if (!_wiSchedule[bid]) return;
-  _wiSchedule[bid].splice(idx, 1);
+  _wiSchedule[bid] = _wiSchedule[bid].filter(e => e.mid !== mid);
   if (!_wiSchedule[bid].length) delete _wiSchedule[bid];
   _renderWiBuckets();
   _renderWiSummary();
@@ -6055,7 +6062,7 @@ function wiApplyScenario(id) {
   if (!s) return;
   _wiOverrides = Object.assign({}, s.allocations || {});
   _wiOff       = new Set(s.offBuckets || []);
-  _wiSchedule  = JSON.parse(JSON.stringify(s.schedule || {}));
+  _wiSchedule  = _migrateSchedule(s.schedule || {});
   _wiSchedOpen = null;
   _renderWi();
 }
