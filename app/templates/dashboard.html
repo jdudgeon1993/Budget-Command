@@ -1455,8 +1455,6 @@
 .wi-sc-btn { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer; white-space: nowrap; }
 .wi-sc-btn:hover { border-color: var(--accent); color: var(--accent); }
 .wi-sc-btn.del:hover { border-color: var(--red); color: var(--red); }
-.wi-toggle { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--green); cursor: pointer; white-space: nowrap; letter-spacing: .04em; }
-.wi-toggle.off { color: var(--text3); border-color: var(--border); }
 .wi-bkt-row.off .wi-bkt-label { opacity: .4; text-decoration: line-through; }
 .wi-bkt-row.off .wi-s-inp { opacity: .35; pointer-events: none; }
 .wi-sched-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 4px 6px 36px; border-bottom: 1px solid var(--border); }
@@ -5945,7 +5943,6 @@ function _renderWiBuckets() {
             }).join('')
           : '';
         html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
-          <button class="wi-toggle${isOff ? ' off' : ''}" onclick="wiBktToggle('${b.id}')">${isOff ? 'OFF' : 'ON'}</button>
           <span class="wi-bkt-label" title="${_escHTML(b.name)}">${_escHTML(b.name)}</span>
           ${diffSpan}
           ${stateDots ? `<span class="wi-state-bar">${stateDots}</span>` : ''}
@@ -5996,42 +5993,6 @@ function wiBktChange(inp) {
     if (existing) existing.outerHTML = dHtml;
     else inp.closest('.wi-bkt-row')?.querySelector('.wi-bkt-label')?.insertAdjacentHTML('afterend', dHtml);
   }
-  _renderWiSummary();
-  _renderWi6Month();
-}
-
-/* ── Bucket on/off toggle ────────────────────────────────────────── */
-/* Adds/flips a schedule event at the current month (_wiMid) only.    */
-/* Prior months are untouched.                                         */
-function wiBktToggle(bid) {
-  const curState = wiBucketStateAt(bid, _wiMid);
-  const newState = curState === 'on' ? 'off' : 'on';
-
-  if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
-
-  // What would the state be at _wiMid without any event exactly at _wiMid?
-  const mv = _midVal(_wiMid);
-  const priorEvents = _wiSchedule[bid]
-    .filter(e => e.mid !== _wiMid)
-    .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
-  let stateWithout = 'on';
-  for (const ev of priorEvents) {
-    if (_midVal(ev.mid) <= mv) stateWithout = ev.state;
-    else break;
-  }
-
-  if (newState === stateWithout) {
-    // Removing the event at _wiMid naturally restores the desired state
-    _wiSchedule[bid] = _wiSchedule[bid].filter(e => e.mid !== _wiMid);
-    if (!_wiSchedule[bid].length) delete _wiSchedule[bid];
-  } else {
-    // Upsert an event at _wiMid
-    const idx = _wiSchedule[bid].findIndex(e => e.mid === _wiMid);
-    if (idx >= 0) _wiSchedule[bid][idx].state = newState;
-    else _wiSchedule[bid].push({ mid: _wiMid, state: newState });
-  }
-
-  _renderWiBuckets();
   _renderWiSummary();
   _renderWi6Month();
 }
