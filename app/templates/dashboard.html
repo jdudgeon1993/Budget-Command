@@ -5879,50 +5879,54 @@ function _renderWiBuckets() {
   const el = document.getElementById('wi-buckets-content');
   if (!el) return;
   let html = '';
-  _wiGroups.forEach(g => {
-    html += `<div class="wi-cat-hdr" onclick="wiToggleCat(this)">
-      <span class="wi-cat-arrow open">▶</span>${g.name}
-    </div><div class="wi-cat-body">`;
-    g.buckets.forEach(b => {
-      const base    = b.budget ?? 0;
-      const val     = _wiOverrides[b.id] ?? base;
-      const changed = _wiOverrides[b.id] !== undefined;
-      const diff    = val - base;
-      const diffSpan = changed
-        ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
-        : '';
-      const isOff = _wiOff.has(b.id);
-      const schedEvents = (_wiSchedule[b.id] || []).slice()
-        .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
-      const chips = schedEvents.map((ev, idx) =>
-        `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${_midLabel(ev.mid)} ${ev.state.toUpperCase()} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}',${idx})">×</span></span>`
-      ).join('');
-      const formOpen = _wiSchedOpen === b.id;
-      const monthOpts = wiMonthsForward(_wiMid, 6).map(m =>
-        `<option value="${m.id}">${m.label}</option>`).join('');
-      html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
-        <button class="wi-toggle${isOff ? ' off' : ''}" onclick="wiBktToggle('${b.id}')">${isOff ? 'OFF' : 'ON'}</button>
-        <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
-        ${diffSpan}
-        <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
-          data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
-          title="Target: ${fmtMoney(base)}"
-          onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
-        <button class="wi-sched-add-btn" onclick="wiShowSchedForm('${b.id}')" title="Schedule on/off by month">+</button>
-      </div>`;
-      if (chips || formOpen) {
-        html += `<div class="wi-sched-sub">${chips}`;
-        if (formOpen) {
-          html += `<select id="wi-sched-mo-${b.id}" class="wi-sched-sel">${monthOpts}</select>
-            <button class="wi-sched-add-btn" onclick="wiAddSched('${b.id}','on')">ON</button>
-            <button class="wi-sched-add-btn" onclick="wiAddSched('${b.id}','off')">OFF</button>
-            <button class="wi-sched-add-btn" onclick="wiCloseSchedForm()">✕</button>`;
+  try {
+    (_wiGroups || []).forEach(g => {
+      html += `<div class="wi-cat-hdr" onclick="wiToggleCat(this)">
+        <span class="wi-cat-arrow open">▶</span>${g.name}
+      </div><div class="wi-cat-body">`;
+      (g.buckets || []).forEach(b => {
+        const base    = b.budget ?? 0;
+        const val     = _wiOverrides[b.id] ?? base;
+        const changed = _wiOverrides[b.id] !== undefined;
+        const diff    = val - base;
+        const diffSpan = changed
+          ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
+          : '';
+        const isOff = _wiOff.has(b.id);
+        const schedEvents = (_wiSchedule[b.id] || []).slice()
+          .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
+        const chips = schedEvents.map((ev, idx) =>
+          `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${_midLabel(ev.mid)} ${ev.state.toUpperCase()} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}',${idx})">×</span></span>`
+        ).join('');
+        const formOpen = _wiSchedOpen === b.id;
+        const monthOpts = wiMonthsForward(_wiMid, 6).map(m =>
+          `<option value="${m.id}">${m.label}</option>`).join('');
+        html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
+          <button class="wi-toggle${isOff ? ' off' : ''}" onclick="wiBktToggle('${b.id}')">${isOff ? 'OFF' : 'ON'}</button>
+          <span class="wi-bkt-label" title="${b.name}">${b.name}</span>
+          ${diffSpan}
+          <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
+            data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
+            title="Target: ${fmtMoney(base)}"
+            onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+          <button class="wi-sched-add-btn" onclick="wiShowSchedForm('${b.id}')" title="Schedule on/off by month">+</button>
+        </div>`;
+        if (chips || formOpen) {
+          html += `<div class="wi-sched-sub">${chips}`;
+          if (formOpen) {
+            html += `<select id="wi-sched-mo-${b.id}" class="wi-sched-sel">${monthOpts}</select>
+              <button class="wi-sched-add-btn" onclick="wiAddSched('${b.id}','on')">ON</button>
+              <button class="wi-sched-add-btn" onclick="wiAddSched('${b.id}','off')">OFF</button>
+              <button class="wi-sched-add-btn" onclick="wiCloseSchedForm()">✕</button>`;
+          }
+          html += `</div>`;
         }
-        html += `</div>`;
-      }
+      });
+      html += `</div>`;
     });
-    html += `</div>`;
-  });
+  } catch(e) {
+    html += `<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:8px 4px;">Error: ${e.message}</div>`;
+  }
   el.innerHTML = html;
 }
 
