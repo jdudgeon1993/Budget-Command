@@ -1467,6 +1467,10 @@
 .wi-sched-sel { font-family: var(--mono); font-size: 11px; padding: 3px 6px; border: 1px solid var(--border2); border-radius: 3px; background: var(--bg2); color: var(--text); }
 .wi-sched-add-btn { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border2); background: none; color: var(--text3); cursor: pointer; }
 .wi-sched-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+.wi-state-bar { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
+.wi-state-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.wi-state-dot.on  { background: var(--green); }
+.wi-state-dot.off { background: var(--red); }
 
 /* ── Cash Flow Timeline ── */
 .cft-wrap { display: flex; flex-direction: column; gap: 14px; }
@@ -5666,7 +5670,6 @@ function showPlanTab(name, btn) {
    ════════════════════════════════════════════════════════════════════ */
 
 let _wiOverrides = {};      // {bid: number} — user overrides; baseline is b.budget
-let _wiOff       = new Set(); // bucket IDs the user toggled OFF globally
 let _wiSchedule  = {};      // {bid: [{mid, state}]} — per-month on/off events
 let _wiSchedOpen = null;    // bid whose schedule form is open
 let _wiScenarios = [];      // forecast scenario chips still reference this; stays empty for now
@@ -5776,11 +5779,11 @@ function _midLabel(mid) {
 }
 
 /* ── Effective bucket state at a given month ─────────────────────── */
+/* Base is always 'on'; only schedule events can change it.           */
 function wiBucketStateAt(bid, mid) {
-  const base   = _wiOff.has(bid) ? 'off' : 'on';
   const events = (_wiSchedule[bid] || []).slice()
-    .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
-  let state = base;
+    .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
+  let state = 'on';
   const mv = _midVal(mid);
   for (const ev of events) {
     if (_midVal(ev.mid) <= mv) state = ev.state;
@@ -5925,19 +5928,27 @@ function _renderWiBuckets() {
         const diffSpan = changed
           ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
           : '';
-        const isOff = _wiOff.has(b.id);
+        const isOff = wiBucketStateAt(b.id, _wiMid) === 'off';
         const schedEvents = (_wiSchedule[b.id] || []).slice()
           .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
         const chips = schedEvents.map(ev =>
           `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${_midLabel(ev.mid)} ${ev.state.toUpperCase()} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}','${ev.mid}')">×</span></span>`
         ).join('');
         const formOpen = _wiSchedOpen === b.id;
-        const monthOpts = wiMonthsForward(_wiMid, 6).map(m =>
-          `<option value="${m.id}">${m.label}</option>`).join('');
+        const months6 = wiMonthsForward(_wiMid, 6);
+        const monthOpts = months6.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
+        // 6-month state bar: colored dots showing ON/OFF per projected month
+        const stateDots = schedEvents.length
+          ? months6.map(m => {
+              const st = wiBucketStateAt(b.id, m.id);
+              return `<span class="wi-state-dot ${st}" title="${m.label}: ${st.toUpperCase()}"></span>`;
+            }).join('')
+          : '';
         html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
           <button class="wi-toggle${isOff ? ' off' : ''}" onclick="wiBktToggle('${b.id}')">${isOff ? 'OFF' : 'ON'}</button>
           <span class="wi-bkt-label" title="${_escHTML(b.name)}">${_escHTML(b.name)}</span>
           ${diffSpan}
+          ${stateDots ? `<span class="wi-state-bar">${stateDots}</span>` : ''}
           <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
             data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
             title="Target: ${fmtMoney(base)}"
@@ -5990,15 +6001,37 @@ function wiBktChange(inp) {
 }
 
 /* ── Bucket on/off toggle ────────────────────────────────────────── */
+/* Adds/flips a schedule event at the current month (_wiMid) only.    */
+/* Prior months are untouched.                                         */
 function wiBktToggle(bid) {
-  if (_wiOff.has(bid)) _wiOff.delete(bid); else _wiOff.add(bid);
-  const row = document.querySelector(`.wi-bkt-row[data-bid="${bid}"]`);
-  if (row) {
-    const isOff = _wiOff.has(bid);
-    row.classList.toggle('off', isOff);
-    const btn = row.querySelector('.wi-toggle');
-    if (btn) { btn.textContent = isOff ? 'OFF' : 'ON'; btn.classList.toggle('off', isOff); }
+  const curState = wiBucketStateAt(bid, _wiMid);
+  const newState = curState === 'on' ? 'off' : 'on';
+
+  if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
+
+  // What would the state be at _wiMid without any event exactly at _wiMid?
+  const mv = _midVal(_wiMid);
+  const priorEvents = _wiSchedule[bid]
+    .filter(e => e.mid !== _wiMid)
+    .sort((a, ev) => _midVal(a.mid) - _midVal(ev.mid));
+  let stateWithout = 'on';
+  for (const ev of priorEvents) {
+    if (_midVal(ev.mid) <= mv) stateWithout = ev.state;
+    else break;
   }
+
+  if (newState === stateWithout) {
+    // Removing the event at _wiMid naturally restores the desired state
+    _wiSchedule[bid] = _wiSchedule[bid].filter(e => e.mid !== _wiMid);
+    if (!_wiSchedule[bid].length) delete _wiSchedule[bid];
+  } else {
+    // Upsert an event at _wiMid
+    const idx = _wiSchedule[bid].findIndex(e => e.mid === _wiMid);
+    if (idx >= 0) _wiSchedule[bid][idx].state = newState;
+    else _wiSchedule[bid].push({ mid: _wiMid, state: newState });
+  }
+
+  _renderWiBuckets();
   _renderWiSummary();
   _renderWi6Month();
 }
@@ -6047,10 +6080,9 @@ function wiToggleCat(hdr) {
   hdr.querySelector('.wi-cat-arrow')?.classList.toggle('open', hidden);
 }
 
-/* ── Reset all overrides, toggles, and schedule ─────────────────── */
+/* ── Reset all overrides and schedule ───────────────────────────── */
 function wiReset() {
   _wiOverrides = {};
-  _wiOff       = new Set();
   _wiSchedule  = {};
   _wiSchedOpen = null;
   _renderWi();
@@ -6088,8 +6120,13 @@ function wiApplyScenario(id) {
   const s = _wiSavedScenarios.find(x => x.id === id);
   if (!s) return;
   _wiOverrides = Object.assign({}, s.allocations || {});
-  _wiOff       = new Set(s.offBuckets || []);
   _wiSchedule  = _migrateSchedule(s.schedule || {});
+  // Legacy: offBuckets[] → schedule events at _wiMid so prior months stay unaffected
+  for (const bid of (s.offBuckets || [])) {
+    if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
+    if (!_wiSchedule[bid].some(e => e.mid === _wiMid))
+      _wiSchedule[bid].push({ mid: _wiMid, state: 'off' });
+  }
   _wiSchedOpen = null;
   _renderWi();
 }
@@ -6101,7 +6138,7 @@ async function wiUpdateScenario(id) {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, offBuckets: [..._wiOff], schedule: _wiSchedule })
+      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, schedule: _wiSchedule })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
@@ -6130,7 +6167,7 @@ async function wiConfirmSave() {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name, allocations: _wiOverrides, offBuckets: [..._wiOff], schedule: _wiSchedule })
+      body: JSON.stringify({ name, allocations: _wiOverrides, schedule: _wiSchedule })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
@@ -6154,7 +6191,6 @@ async function wiDuplicateScenario(id) {
       body: JSON.stringify({
         name:        `Copy of ${s.name}`,
         allocations: s.allocations || {},
-        offBuckets:  s.offBuckets  || [],
         schedule:    s.schedule    || {}
       })
     });
