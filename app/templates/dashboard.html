@@ -1433,12 +1433,18 @@
 .wi-6mo-toggle button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .wi-6mo-bars { display: flex; align-items: flex-end; gap: 4px; height: 80px; margin-bottom: 4px; }
 .wi-6mo-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
-.wi-6mo-bar { width: 100%; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .7; transition: height .2s; min-height: 3px; }
-.wi-6mo-bar.now { opacity: 1; }
+.wi-6mo-bar-wrap { cursor: pointer; }
+.wi-6mo-bar { width: 100%; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .55; transition: height .2s, opacity .15s; min-height: 3px; }
+.wi-6mo-bar.now { opacity: .8; }
 .wi-6mo-bar.neg { background: var(--red); }
+.wi-6mo-bar.sel { opacity: 1; box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent) 50%,transparent); }
+.wi-6mo-bar.neg.sel { box-shadow: 0 0 0 2px color-mix(in srgb,var(--red) 50%,transparent); }
 .wi-6mo-labels { display: flex; gap: 4px; margin-top: 4px; }
-.wi-6mo-lbl { flex: 1; text-align: center; font-family: var(--mono); font-size: 9px; color: var(--text3); }
+.wi-6mo-lbl { flex: 1; text-align: center; font-family: var(--mono); font-size: 9px; color: var(--text3); cursor: pointer; }
 .wi-6mo-lbl.now { color: var(--accent); }
+.wi-6mo-lbl.sel { color: var(--text); font-weight: 700; }
+.wi-6mo-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; padding: 7px 10px; background: var(--bg3); border-radius: var(--r); font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.wi-6mo-detail .wi-6mo-detail-mo { font-weight: 700; color: var(--text); letter-spacing: .06em; }
 .wi-6mo-vals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .wi-6mo-val { flex: 1; min-width: 80px; background: var(--bg3); border-radius: var(--r); padding: 5px 8px; text-align: center; }
 .wi-6mo-val-label { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
@@ -3238,9 +3244,10 @@
 
           <!-- 6-Month Projection Chart -->
           <div class="wi-6mo-panel" style="margin-bottom:12px;">
-            <div class="wi-6mo-title">6-Month Projection</div>
+            <div class="wi-6mo-title">6-Month Projection <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">· tap a bar</span></div>
             <div class="wi-6mo-bars" id="wi-6mo-bars"></div>
             <div class="wi-6mo-labels" id="wi-6mo-labels"></div>
+            <div class="wi-6mo-detail" id="wi-6mo-detail"></div>
             <div class="wi-6mo-vals" id="wi-6mo-vals"></div>
           </div>
 
@@ -5668,18 +5675,23 @@ const _escHTML = s => (s == null ? '' : String(s))
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-/* Migrate old schedule format — still used by forecast scenario loading */
+/* Normalize a stored schedule into the canonical {bid: [{mid, state}]} shape.
+   Handles: new array format, and a legacy {bid: {mid: false}} object format. */
 function _migrateSchedule(raw) {
   if (!raw || typeof raw !== 'object') return {};
   const result = {};
   for (const [bid, val] of Object.entries(raw)) {
     if (bid === '__streams') continue;
-    if (Array.isArray(val)) { result[bid] = val; }
-    else if (val && typeof val === 'object') {
+    if (Array.isArray(val)) {
+      const arr = val
+        .map(e => ({ mid: e.mid || e.from_mid, state: e.state === 'off' ? 'off' : 'on' }))
+        .filter(e => e.mid);
+      if (arr.length) result[bid] = arr;
+    } else if (val && typeof val === 'object') {
       const arr = Object.entries(val)
         .filter(([, v]) => v === false)
-        .map(([mid]) => ({from_mid: mid, state: 'off'}))
-        .sort((a, b) => _midCmp(a.from_mid, b.from_mid));
+        .map(([mid]) => ({ mid, state: 'off' }))
+        .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
       if (arr.length) result[bid] = arr;
     }
   }
@@ -5710,7 +5722,7 @@ function _midCmp(a, b) {
 function wiProjectedIncome(mid) {
   if (!_wiPcks || !_wiPcks.length) return 0;
   const parts = mid.split('_');
-  const yr = parseInt(parts[1]), mo = parseInt(parts[2]);
+  const yr = parseInt(parts[1], 10), mo = parseInt(parts[2], 10);
   const daysInMonth = new Date(yr, mo + 1, 0).getDate();
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const midStr = `${yr}-${String(mo + 1).padStart(2,'0')}`;
@@ -5794,61 +5806,76 @@ function _initWi() {
   const mo  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const p   = _wiMid.split('_');
   const lbl = document.getElementById('wi-month-label');
-  if (lbl) lbl.textContent = mo[parseInt(p[2])] + ' ' + p[1];
+  if (lbl) lbl.textContent = mo[parseInt(p[2], 10)] + ' ' + p[1];
+  _wi6moSel = 0;
   _renderWi();
   wiLoadScenarios();
 }
 
 /* ── Full render ─────────────────────────────────────────────────── */
+/* Each sub-render is isolated so a failure in one can never blank the others. */
 function _renderWi() {
-  _renderWiSummary();
-  _renderWi6Month();
-  _renderWiBuckets();
+  try { _renderWiBuckets(); } catch (e) { console.error('WhatIf buckets render:', e); }
+  try { _renderWiSummary(); } catch (e) { console.error('WhatIf summary render:', e); }
+  try { _renderWi6Month();  } catch (e) { console.error('WhatIf 6mo render:', e); }
 }
 
 /* ── 6-Month Projection ──────────────────────────────────────────── */
+let _wi6moSel = 0;   // index of the bar whose detail is shown
+
 function _renderWi6Month() {
   const barsEl = document.getElementById('wi-6mo-bars');
   const lblsEl = document.getElementById('wi-6mo-labels');
   const valsEl = document.getElementById('wi-6mo-vals');
+  const detEl  = document.getElementById('wi-6mo-detail');
   if (!barsEl || !lblsEl || !valsEl) return;
 
-  const months = wiMonthsForward(_wiMid, 6);
-  const rows   = months.map((m, i) => {
-    const inc     = wiProjectedIncome(m.id);
-    const alloc   = wiCalcAllocForMonth(m.id);
-    const surplus = inc - alloc;
-    return { label: m.label, inc, alloc, surplus, isNow: i === 0 };
+  const rows = wiMonthsForward(_wiMid, 6).map((m, i) => {
+    const inc   = wiProjectedIncome(m.id);
+    const alloc = wiCalcAllocForMonth(m.id);
+    return { label: m.label, inc, alloc, surplus: inc - alloc, isNow: i === 0 };
   });
+  if (_wi6moSel < 0 || _wi6moSel >= rows.length) _wi6moSel = 0;
 
   const maxAbs = Math.max(...rows.map(r => Math.abs(r.surplus)), 1);
 
-  barsEl.innerHTML = rows.map(r => {
+  barsEl.innerHTML = rows.map((r, i) => {
     const pct = Math.max(4, Math.round(Math.abs(r.surplus) / maxAbs * 90));
-    const neg = r.surplus < 0;
-    return `<div class="wi-6mo-bar-wrap">
-      <div class="wi-6mo-bar${r.isNow ? ' now' : ''}${neg ? ' neg' : ''}" style="height:${pct}%"
-        title="${r.label}: Income ${fmtMoney(r.inc)} · Alloc ${fmtMoney(r.alloc)} · Surplus ${fmtMoney(r.surplus)}"></div>
+    const cls = `${r.isNow ? ' now' : ''}${r.surplus < 0 ? ' neg' : ''}${i === _wi6moSel ? ' sel' : ''}`;
+    return `<div class="wi-6mo-bar-wrap" onclick="wiSelect6mo(${i})">
+      <div class="wi-6mo-bar${cls}" style="height:${pct}%"></div>
     </div>`;
   }).join('');
 
-  lblsEl.innerHTML = rows.map(r =>
-    `<div class="wi-6mo-lbl${r.isNow ? ' now' : ''}">${r.label}</div>`
+  lblsEl.innerHTML = rows.map((r, i) =>
+    `<div class="wi-6mo-lbl${r.isNow ? ' now' : ''}${i === _wi6moSel ? ' sel' : ''}" onclick="wiSelect6mo(${i})">${r.label}</div>`
   ).join('');
 
-  // Summary row: 6-month totals
-  const cumInc  = rows.reduce((s, r) => s + r.inc, 0);
-  const cumSur  = rows.reduce((s, r) => s + r.surplus, 0);
-  const avgInc  = cumInc / rows.length;
+  // Detail for the selected month (touch-friendly — replaces hover tooltips)
+  if (detEl) {
+    const r = rows[_wi6moSel];
+    detEl.innerHTML =
+      `<span class="wi-6mo-detail-mo">${r.label}${r.isNow ? ' (now)' : ''}</span>` +
+      `<span>Income <b style="color:var(--green)">${fmtMoney(r.inc)}</b></span>` +
+      `<span>Alloc <b>${fmtMoney(r.alloc)}</b></span>` +
+      `<span>Surplus <b style="color:${r.surplus>=0?'var(--green)':'var(--red)'}">${r.surplus>=0?'+':''}${fmtMoney(r.surplus)}</b></span>`;
+  }
+
+  // 6-month totals
+  const cumSur   = rows.reduce((s, r) => s + r.surplus, 0);
+  const avgInc   = rows.reduce((s, r) => s + r.inc,   0) / rows.length;
+  const avgAlloc = rows.reduce((s, r) => s + r.alloc, 0) / rows.length;
   valsEl.innerHTML = `
     <div class="wi-6mo-val"><div class="wi-6mo-val-label">6mo Surplus</div>
       <div class="wi-6mo-val-num" style="color:${cumSur>=0?'var(--green)':'var(--red)'}">${cumSur>=0?'+':''}${fmtMoney(cumSur)}</div></div>
     <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Income</div>
       <div class="wi-6mo-val-num">${fmtMoney(avgInc)}</div></div>
     <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Alloc</div>
-      <div class="wi-6mo-val-num">${fmtMoney(alloc)}</div></div>
+      <div class="wi-6mo-val-num">${fmtMoney(avgAlloc)}</div></div>
   `;
 }
+
+function wiSelect6mo(i) { _wi6moSel = i; _renderWi6Month(); }
 
 /* ── Summary bar: Income / Allocated / Surplus ───────────────────── */
 function _renderWiSummary() {
@@ -5884,7 +5911,7 @@ function _renderWiSummary() {
 function _renderWiBuckets() {
   const el = document.getElementById('wi-buckets-content');
   if (!el) return;
-  let html = `<div id="wi-dbg" style="font-family:monospace;font-size:10px;color:#888;padding:2px 4px 6px;">groups:${(_wiGroups||[]).length}</div>`;
+  let html = '';
   try {
     (_wiGroups || []).forEach(g => {
       html += `<div class="wi-cat-hdr" onclick="wiToggleCat(this)">
@@ -6124,7 +6151,12 @@ async function wiDuplicateScenario(id) {
     const res  = await fetch('/api/scenarios', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name: `Copy of ${s.name}`, allocations: s.allocations || {} })
+      body: JSON.stringify({
+        name:        `Copy of ${s.name}`,
+        allocations: s.allocations || {},
+        offBuckets:  s.offBuckets  || [],
+        schedule:    s.schedule    || {}
+      })
     });
     const data = await res.json();
     if (data.ok) await wiLoadScenarios();
