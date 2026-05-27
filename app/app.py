@@ -2920,7 +2920,8 @@ def api_forecast():
         b for b in buckets
         if not b.get("archived")
         and b.get("dueDay") is not None
-        and (b.get("dueAmount") or b.get("defaultBudget") or b.get("budget")
+        and (b.get("dueAmount") or b.get("defaultBudget")
+             or monthly_budgets.get(today_mid, {}).get(b["id"])
              or bucket_overrides.get(str(b.get("id",""))))
     ]
     freq_bills = [
@@ -2928,14 +2929,17 @@ def api_forecast():
         if not b.get("archived")
         and b.get("dueDay") is None
         and b.get("payFreq") in ('weekly', 'biweekly', 'triweekly', 'monthly')
-        and (b.get("dueAmount") or b.get("defaultBudget") or bucket_overrides.get(str(b.get("id",""))))
+        and (b.get("dueAmount") or b.get("defaultBudget")
+             or monthly_budgets.get(today_mid, {}).get(b["id"])
+             or bucket_overrides.get(str(b.get("id",""))))
     ]
 
     def _bill_amount(b: dict) -> float:
         bid = str(b["id"])
         if bid in bucket_overrides:
             return bucket_overrides[bid]
-        return float(b.get("dueAmount") or b.get("defaultBudget") or b.get("budget") or 0)
+        return float(b.get("dueAmount") or b.get("defaultBudget")
+                     or monthly_budgets.get(today_mid, {}).get(b["id"]) or 0)
 
     # ── Running cumulative totals per transfer rule across all periods ───────
     rule_cumulative: dict = {}   # rule_name → running cumulative total
