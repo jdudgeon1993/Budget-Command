@@ -1409,6 +1409,8 @@
 .wi-s-inp { width: 80px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 4px 7px; font-family: var(--mono); font-size: 12px; color: var(--text); text-align: right; }
 .wi-s-inp:focus { border-color: var(--accent); outline: none; }
 .wi-s-inp.changed { border-color: var(--amber); color: var(--amber); }
+.pc-edit-inp { height: 28px; padding: 0 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); color: var(--text); font-size: 12px; }
+.pc-edit-inp:focus { border-color: var(--accent); outline: none; }
 .wi-due-inp { width: 38px; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r); padding: 4px 5px; font-family: var(--mono); font-size: 11px; color: var(--text3); text-align: center; }
 .wi-due-inp:focus { border-color: var(--accent); outline: none; color: var(--text); }
 .wi-due-inp.changed { border-color: var(--blue,#4a9eff); color: var(--blue,#4a9eff); }
@@ -1676,18 +1678,513 @@
   /* Nav: hide Buckets + Ledger tabs on desktop, keep others */
   .nav-tab.nav-desktop-hidden { display: none; }
 
-  /* Desktop nav bar: reflow as centered flex strip */
-  .bottom-nav { background: var(--bg3); border-top: 1px solid var(--border); }
-  .nav-table { display: flex; justify-content: center; align-items: stretch; height: 46px; width: 100%; }
-  .nav-table tr { display: flex; }
-  .nav-tab { width: 160px; display: flex; align-items: center; justify-content: center; }
-  .nav-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+  /* Desktop: hide old nav bar entirely — sidebar takes over */
+  .bottom-nav { display: none; }
+
+  /* Reports/Coach panels: NOT fixed overlays on desktop — regular content */
+  #panel-more.active,
+  #panel-coach.active {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    z-index: auto !important;
+  }
+  /* Hide the ← Back buttons — sidebar handles navigation */
+  .desktop-panel-close { display: none !important; }
+  /* Hide buckets+ledger split when a reports/coach panel is active */
+  .main-content.panel-reports-active #panel-buckets { display: none !important; }
+  .main-content.panel-reports-active #panel-ledger  { display: none !important; }
+  .main-content.panel-reports-active #panel-more.active { display: block; }
+  .main-content.panel-coach-active   #panel-buckets { display: none !important; }
+  .main-content.panel-coach-active   #panel-ledger  { display: none !important; }
+  .main-content.panel-coach-active   #panel-coach.active { display: block; }
 }
+
+/* ── Cura sidebar ──────────────────────────────────────────────── */
+:root { --sidebar-w: 228px; }
+
+#cura-sidebar {
+  display: none; /* mobile: hidden */
+}
+
+@media (min-width: 900px) {
+  /* Sidebar */
+  #cura-sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    z-index: 150;
+    overflow-y: auto;
+  }
+
+  /* Shift everything right of the sidebar */
+  .app-header  { margin-left: var(--sidebar-w); }
+  .month-bar   { margin-left: var(--sidebar-w); }
+  .main-content { margin-left: var(--sidebar-w); }
+
+  /* Sidebar already shows logo — hide it from header to avoid duplication */
+  .h-logo { display: none; }
+  /* Slim the header slightly on desktop */
+  .header-table { height: 42px; }
+}
+
+/* Sidebar internals */
+.sb-logo {
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sb-logo-name {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: .14em;
+  color: var(--accent);
+  line-height: 1;
+}
+.sb-logo-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+.sb-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sb-kpi {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 7px 9px;
+}
+.sb-kpi-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 2px;
+}
+.sb-kpi-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.sb-nav {
+  flex: 1;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text3);
+  transition: background .12s, color .12s;
+  user-select: none;
+  border: 1px solid transparent;
+}
+.sb-item:hover { background: var(--bg3); color: var(--text2); }
+.sb-item.active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+}
+.sb-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+.sb-divider { height: 1px; background: var(--border); margin: 5px 8px; }
+
+.sb-add {
+  margin: 4px 10px 8px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity .15s;
+  border: none;
+  font-weight: 700;
+}
+.sb-add:hover  { opacity: .85; }
+.sb-add:active { opacity: .7; }
+
+.sb-settings {
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  transition: color .15s;
+}
+.sb-settings:hover { color: var(--text2); }
+.sb-settings svg { width: 14px; height: 14px; }
+
+/* ── Mobile-only fixes ──────────────────────────────────────────── */
+@media (max-width: 899px) {
+  /* Hide columns marked for desktop-only on small screens */
+  .col-m-hide { display: none; }
+  /* Pad content above bottom nav (58px tall + 2px breathing room) */
+  .main-content { padding-bottom: 72px !important; }
+}
+
+/* ── Updated mobile bottom nav ─────────────────────────────────── */
+@media (max-width: 899px) {
+  .bottom-nav {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 6px 0 0;
+    height: 58px;
+  }
+  .nav-table { display: none; } /* hide old table nav */
+
+  /* New icon tabs */
+  .cura-nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 100%;
+    cursor: pointer;
+    color: var(--text3);
+    transition: color .15s;
+    position: relative;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cura-nav-tab:active { opacity: .6; }
+  .cura-nav-tab.active { color: var(--accent); }
+  .cura-nav-tab-dot {
+    position: absolute;
+    top: 7px;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .cura-nav-tab.active .cura-nav-tab-dot { opacity: 1; }
+  .cura-nav-tab svg { width: 20px; height: 20px; }
+  .cura-nav-tab-label {
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  /* + action button */
+  .cura-nav-add {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    margin: 0 8px 0 4px;
+    flex-shrink: 0;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    transition: transform .15s, opacity .15s;
+    user-select: none;
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .cura-nav-add:active { transform: scale(.91); }
+  /* old nav-tab hidden on mobile (replaced by cura-nav-tab) */
+  .nav-tab { display: none; }
+}
+
+/* ── Settings overlay ──────────────────────────────────────────── */
+#settings-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(7,17,32,.75);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+}
+#settings-overlay.show { display: flex; }
+@media (max-width: 899px) {
+  #settings-overlay.show { display: block; background: var(--bg); }
+  #settings-panel { width: 100% !important; max-height: 100vh !important; border-radius: 0 !important; border: none !important; }
+}
+#settings-panel {
+  width: 520px;
+  max-height: 88vh;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow-y: auto;
+}
+.settings-overlay-head {
+  position: sticky; top: 0;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 14px 18px; z-index: 1;
+}
+.settings-overlay-title {
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text2); flex: 1;
+}
+.settings-overlay-close {
+  font-family: var(--mono); font-size: 16px;
+  color: var(--text3); cursor: pointer; line-height: 1;
+  transition: color .15s;
+}
+.settings-overlay-close:hover { color: var(--red); }
+.settings-overlay-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 18px;
+}
+.settings-overlay-tab {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text3); padding: 10px 14px;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.settings-overlay-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.settings-overlay-body { padding: 16px 18px 28px; }
+.settings-overlay-pane { display: none; }
+.settings-overlay-pane.active { display: block; }
 .wi-scen-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .wi-scen-row input { flex: 1; min-width: 100px; }
 /* desktop-only elements: hidden on mobile, shown on desktop */
 .desktop-only { display: none; }
 @media (min-width: 900px) { .desktop-only { display: flex; } }
+
+/* ══════════════════════════════════════════════════
+   PHASE 3: Card-style rows — Buckets + Ledger
+   ══════════════════════════════════════════════════ */
+
+/* ── Bucket table ── */
+.bucket-card-tbl {
+  border-collapse: separate;
+  border-spacing: 0 3px;
+}
+.bucket-card-tbl thead th {
+  position: static !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--border);
+}
+.bucket-card-tbl .tbl-section-head { background: transparent; border: none; }
+.bucket-card-tbl .tbl-cat-head     { background: transparent !important; border: none !important; padding: 14px 4px 3px; }
+
+/* Bucket data rows: card */
+.bucket-card-tbl tr[id^="row-"] td {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 6px;
+  transition: border-color .12s;
+}
+.bucket-card-tbl tr[id^="row-"] td:first-child {
+  border-left: 1px solid var(--border);
+  border-radius: var(--r) 0 0 var(--r);
+}
+.bucket-card-tbl tr[id^="row-"] td:last-child {
+  border-right: 1px solid var(--border);
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.bucket-card-tbl tr[id^="row-"]:hover td { border-color: var(--border2); }
+
+/* Status accent border (now actually visible!) */
+.bucket-card-tbl tr.bucket-paid   td:first-child { border-left: 3px solid var(--green); }
+.bucket-card-tbl tr.bucket-funded td:first-child { border-left: 3px solid var(--accent); }
+.bucket-card-tbl tr.bucket-ok    td:first-child { border-left: 3px solid var(--amber); }
+.bucket-card-tbl tr.bucket-over  td:first-child { border-left: 3px solid var(--red); }
+
+/* Inline settings expand rows */
+.bucket-card-tbl .bucket-settings-row td {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--r) !important;
+  padding: 0 !important;
+}
+
+/* Category total rows */
+.bucket-card-tbl .tbl-cat-total th {
+  background: transparent;
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+  font-size: clamp(9px,1.4vw,11px);
+  color: var(--text3);
+  padding: 3px 6px 6px;
+}
+.bucket-card-tbl .tbl-grand-total th {
+  background: transparent;
+  border-top: 1px solid var(--border2);
+  border-bottom: none;
+  padding: 8px 6px;
+}
+
+/* Bucket progress bar */
+.bpbar {
+  height: 3px;
+  background: var(--bg3);
+  border-radius: 2px;
+  margin-top: 5px;
+  overflow: hidden;
+  max-width: 120px;
+}
+.bpbar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .4s;
+}
+
+/* ── Ledger table ── */
+.ledger-card-tbl {
+  border-collapse: separate;
+  border-spacing: 0 3px;
+}
+.ledger-card-tbl thead th {
+  position: static !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--border);
+}
+.ledger-card-tbl .tbl-section-head { background: transparent; border: none; }
+
+/* Date group rows: plain label, no card */
+.ledger-card-tbl tr[data-date] td {
+  background: transparent !important;
+  border: none !important;
+  padding: 12px 4px 3px;
+  font-size: clamp(9px,1.3vw,10px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+
+/* Transaction rows: card */
+.ledger-card-tbl tr[id^="ltx-"] td {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 6px;
+  transition: border-color .12s;
+}
+.ledger-card-tbl tr[id^="ltx-"] td:first-child {
+  border-left: 1px solid var(--border);
+  border-radius: var(--r) 0 0 var(--r);
+}
+.ledger-card-tbl tr[id^="ltx-"] td:last-child {
+  border-right: 1px solid var(--border);
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.ledger-card-tbl tr[id^="ltx-"]:hover td { border-color: var(--border2); }
+
+/* Tx type accent borders */
+.ledger-card-tbl tr.tx-in    td:first-child { border-left: 3px solid var(--green); }
+.ledger-card-tbl tr.tx-out   td:first-child { border-left: 3px solid var(--red); }
+.ledger-card-tbl tr.tx-xfr   td:first-child { border-left: 3px solid var(--accent); }
+.ledger-card-tbl tr.tx-sched td:first-child { border-left: 3px solid var(--amber); }
+
+/* Tx expand rows */
+.ledger-card-tbl .bucket-settings-row td {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--r) !important;
+  padding: 0 !important;
+}
+
+/* Ledger footer totals */
+.ledger-card-tbl tfoot tr th {
+  background: transparent;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  padding: 8px 6px;
+}
+
+/* ══════════════════════════════════════════════════
+   PHASE 4: Quick Add modal — desktop polish
+   ══════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  /* Sidebar already has + button — hide the floating FAB */
+  #fab { display: none !important; }
+
+  /* Desktop: center modal in content area (right of sidebar) */
+  #fab-modal {
+    bottom: auto;
+    top: 50%;
+    left: calc(50% + var(--sidebar-w) / 2); /* center of content area */
+    right: auto;
+    width: min(480px, calc(100vw - var(--sidebar-w) - 48px));
+    max-width: 480px;
+    transform: translate(-50%, -54%) scale(.96);
+    opacity: 0;
+    border-radius: 6px;
+    border-top: none;
+    border: 1px solid var(--border2);
+    padding: 22px 24px 26px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.55);
+    /* reset mobile transition */
+    transition: transform .18s ease, opacity .18s ease;
+  }
+  #fab-modal.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  /* Bigger amount input on desktop */
+  #fab-amount {
+    font-size: 22px !important;
+    text-align: center;
+    padding: 10px 12px !important;
+    letter-spacing: .02em;
+  }
+
+  /* Modal title tweaks */
+  .fab-modal-title {
+    font-size: 11px;
+    margin-bottom: 18px;
+  }
+}
 {% endblock %}
 
 {% block extra_head %}
@@ -1699,7 +2196,78 @@
 {% endblock %}
 
 {% block content %}
-<!-- Header -->
+
+<!-- ── Cura Sidebar (desktop only) ──────────────────────────────── -->
+<aside id="cura-sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-name">Cura</div>
+    <div class="sb-logo-sub">{{ month_display }}</div>
+  </div>
+
+  <div class="sb-kpi-grid">
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Ready</div>
+      <div class="sb-kpi-val" id="sb-rts" style="color:var(--green)">{{ rts|money }}</div>
+    </div>
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Income</div>
+      <div class="sb-kpi-val" style="color:var(--accent)">{{ income|money if income is defined else '—' }}</div>
+    </div>
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Allocated</div>
+      <div class="sb-kpi-val" style="color:var(--text2)">{{ allocated|money if allocated is defined else '—' }}</div>
+    </div>
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Spent</div>
+      <div class="sb-kpi-val" style="color:var(--amber)">{{ spent|money if spent is defined else '—' }}</div>
+    </div>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-item active" id="sb-budget" onclick="showPanel('buckets', null)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      Buckets &amp; Ledger
+    </div>
+    <div class="sb-item" id="sb-more" onclick="showPanel('more', null)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      Reports
+    </div>
+    <div class="sb-item" id="sb-coach" onclick="showPanel('coach', null)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Coach AI
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="sb-item" id="sb-plan" onclick="showPanel('more', null); setTimeout(()=>showMoreMode('plan', document.querySelector('.more-mode-tab[onclick*=\'plan\']')),50)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Forecast
+    </div>
+  </nav>
+
+  <button class="sb-add" onclick="openFab()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Transaction
+  </button>
+
+  <div class="sb-settings" onclick="openSettings()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+    </svg>
+    Setup &amp; Accounts
+  </div>
+</aside>
+
+<!-- ── Header ──────────────────────────────────────────────────── -->
 <header class="app-header">
   <table class="header-table">
     <tr>
@@ -1720,11 +2288,14 @@
             {% endif %}
           </div>
           {% if over_count > 0 %}
-          <div id="over-badge" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;" onclick="showPanel('buckets',document.querySelector('.nav-tab'))">{{ over_count }} overspent</div>
+          <div id="over-badge" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;" onclick="showCuraPanel('buckets')">{{ over_count }} overspent</div>
           {% else %}
           <div id="over-badge" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;"></div>
           {% endif %}
           <div class="h-user">{{ user_email }}</div>
+          <div onclick="openSettings()" title="Setup & Accounts" style="cursor:pointer;color:var(--text3);display:flex;align-items:center;transition:color .15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </div>
           <a class="h-logout" href="/logout">Out</a>
         </div>
       </td>
@@ -1838,7 +2409,7 @@
         </div>
       </form>
 
-      <table class="data-table">
+      <table class="data-table bucket-card-tbl">
         <thead>
           <tr>
             <td colspan="7" class="tbl-section-head" style="display:flex;align-items:center;justify-content:space-between;">
@@ -2237,7 +2808,7 @@
       </div>
 
       <!-- Ledger table -->
-      <table class="data-table" id="ledger-table">
+      <table class="data-table ledger-card-tbl" id="ledger-table">
         <thead>
           <tr>
             <td colspan="6" class="tbl-section-head">Ledger — {{ month_display }}</td>
@@ -2963,8 +3534,25 @@
               <td style="color:var(--text2)">{{ freq_labels.get(pc.freq, pc.freq ~ 'd') }}</td>
               <td class="col-m-hide" style="color:var(--text3);font-family:var(--mono);font-size:11px">{{ pc.anchorDate or '—' }}</td>
               <td class="col-settings">
-                <button class="delete-cat-btn" onclick="editPaycheck('{{ pc.id }}','{{ pc.label }}','{{ pc.amount }}','{{ pc.freq }}','{{ pc.anchorDate or '' }}')" title="Edit" style="margin-right:4px;">✎</button>
+                <button class="delete-cat-btn" onclick="togglePcEdit('{{ pc.id }}')" title="Edit" style="margin-right:4px;">✎</button>
                 <button class="delete-cat-btn" onclick="deletePaycheck('{{ pc.id }}')">✕</button>
+              </td>
+            </tr>
+            <tr id="pc-edit-{{ pc.id }}" style="display:none">
+              <td colspan="5" style="padding:8px 6px;background:var(--bg2)">
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <input type="text" id="pce-label-{{ pc.id }}" value="{{ pc.label }}" placeholder="Label" class="pc-edit-inp" style="flex:1;min-width:120px">
+                  <input type="number" id="pce-amount-{{ pc.id }}" value="{{ pc.amount }}" step="0.01" min="0" placeholder="Amount" class="pc-edit-inp" style="width:80px">
+                  <select id="pce-freq-{{ pc.id }}" class="pc-edit-inp" style="width:120px">
+                    <option value="7"{% if pc.freq==7 %} selected{% endif %}>Weekly</option>
+                    <option value="14"{% if pc.freq==14 %} selected{% endif %}>Biweekly</option>
+                    <option value="15"{% if pc.freq==15 %} selected{% endif %}>Semi-monthly</option>
+                    <option value="30"{% if pc.freq==30 %} selected{% endif %}>Monthly</option>
+                  </select>
+                  <input type="date" id="pce-anchor-{{ pc.id }}" value="{{ pc.anchorDate or '' }}" class="pc-edit-inp" style="width:130px">
+                  <button class="strip-btn" onclick="savePaycheck('{{ pc.id }}')" style="height:28px;padding:0 12px;font-size:11px">Save</button>
+                  <button class="delete-cat-btn" onclick="togglePcEdit('{{ pc.id }}')" style="width:auto;padding:0 10px;height:28px">Cancel</button>
+                </div>
               </td>
             </tr>
             {% endfor %}
@@ -3027,7 +3615,7 @@
             <tr id="rule-row-{{ r.id }}" {% if not r.active %}style="opacity:.5"{% endif %}>
               <td style="text-align:center">
                 <input type="checkbox" {% if r.active %}checked{% endif %}
-                       onchange="toggleRule('{{ r.id }}')"
+                       onchange="toggleRule('{{ r.id }}',this)"
                        style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">
               </td>
               <td class="col-name">{{ r.name }}</td>
@@ -3050,7 +3638,7 @@
             <tr id="rule-row-{{ r.id }}" {% if not r.active %}style="opacity:.5"{% endif %}>
               <td style="text-align:center">
                 <input type="checkbox" {% if r.active %}checked{% endif %}
-                       onchange="toggleRule('{{ r.id }}')"
+                       onchange="toggleRule('{{ r.id }}',this)"
                        style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">
               </td>
               <td class="col-name">{{ r.name }}</td>
@@ -3135,8 +3723,9 @@
           <button class="more-mode-tab" onclick="showReportTab('budget',this)">Actual vs Budget</button>
           <button class="more-mode-tab" onclick="showReportTab('networth',this)">Net Worth</button>
         </div>
-        <!-- Loading state -->
+        <!-- Loading state / error -->
         <div id="report-loading" style="display:none; padding:40px; text-align:center; font-family:var(--mono); color:var(--text3); font-size:12px; letter-spacing:.1em;">LOADING...</div>
+        <div id="report-error" style="display:none; padding:12px 16px; font-family:var(--mono); font-size:12px; color:var(--red); background:color-mix(in srgb,var(--red) 10%,transparent); border-radius:var(--r); margin-bottom:8px;"></div>
         <!-- Summary tab -->
         <div id="report-summary" class="report-tab-pane">
           <div id="report-summary-content"></div>
@@ -3393,7 +3982,7 @@
 <!-- Onboarding modal -->
 <div id="onboard-backdrop" class="onboard-backdrop">
   <div class="onboard-modal">
-    <h2>Welcome to Budget Command</h2>
+    <h2>Welcome to Cura</h2>
     <ul class="onboard-steps">
       <li>
         <div class="onboard-step-num">1</div>
@@ -3415,15 +4004,107 @@
 
 <!-- Bottom nav -->
 <nav class="bottom-nav">
-  <table class="nav-table">
-    <tr>
-      <th class="nav-tab active nav-desktop-hidden" onclick="showPanel('buckets', this)">Buckets</th>
-      <th class="nav-tab nav-desktop-hidden" onclick="showPanel('ledger', this)">Ledger</th>
-      <th class="nav-tab" onclick="showPanel('more', this)">More</th>
-      <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
-    </tr>
-  </table>
+  <!-- Legacy table nav (hidden on mobile via CSS, was hidden on desktop already) -->
+  <table class="nav-table" style="display:none"><tr>
+    <th class="nav-tab active nav-desktop-hidden" onclick="showPanel('buckets', this)">Buckets</th>
+    <th class="nav-tab nav-desktop-hidden" onclick="showPanel('ledger', this)">Ledger</th>
+    <th class="nav-tab" onclick="showPanel('more', this)">More</th>
+    <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
+  </tr></table>
+
+  <!-- New icon nav (mobile only) -->
+  <div class="cura-nav-tab active" id="cntab-buckets" onclick="showCuraPanel('buckets')">
+    <div class="cura-nav-tab-dot"></div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+    </svg>
+    <div class="cura-nav-tab-label">Buckets</div>
+  </div>
+
+  <div class="cura-nav-tab" id="cntab-ledger" onclick="showCuraPanel('ledger')">
+    <div class="cura-nav-tab-dot"></div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+      <circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/>
+      <circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>
+      <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
+    </svg>
+    <div class="cura-nav-tab-label">Ledger</div>
+  </div>
+
+  <div class="cura-nav-tab" id="cntab-more" onclick="showCuraPanel('more')">
+    <div class="cura-nav-tab-dot"></div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+    <div class="cura-nav-tab-label">Reports</div>
+  </div>
+
+  <div class="cura-nav-add" onclick="openFab()" title="Add transaction">+</div>
 </nav>
+
+<!-- ── Settings Overlay (Accounts + Setup) ──────────────────────── -->
+<div id="settings-overlay" onclick="maybeCloseSettings(event)">
+  <div id="settings-panel">
+    <div class="settings-overlay-head">
+      <span class="settings-overlay-title">Setup &amp; Accounts</span>
+      <span class="settings-overlay-close" onclick="closeSettings()">✕</span>
+    </div>
+    <div class="settings-overlay-tabs">
+      <div class="settings-overlay-tab active" onclick="showSettingsOverlayTab('accounts',this)">Accounts</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('paychecks',this)">Paychecks</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('rules',this)">Rules</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('categories',this);loadCategories()">Categories</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('payees',this);loadPayees()">Payees</div>
+    </div>
+    <div class="settings-overlay-body">
+      <!-- Accounts pane — mirrors More > Accounts -->
+      <div class="settings-overlay-pane active" id="sop-accounts">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.06em;margin-bottom:10px;">
+          Manage your cash, savings, and debt accounts. Changes reflect immediately.
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+          <button class="acct-tab active" onclick="showSettingsAcctSection('cash',this)">Cash &amp; Savings</button>
+          <button class="acct-tab" onclick="showSettingsAcctSection('debt',this)">Debt</button>
+          {% if vault_buckets_display %}
+          <button class="acct-tab" onclick="showSettingsAcctSection('vault',this)">Internal Savings</button>
+          {% endif %}
+        </div>
+        <!-- Actual account content lives in panel-more; we link to it -->
+        <div id="sop-acct-link" style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:12px 0">
+          <a href="#" onclick="closeSettings();showPanel('more',null);showMoreMode('accounts',document.querySelector('.more-mode-tab[onclick*=\'accounts\']'));return false" style="color:var(--accent);text-decoration:none;letter-spacing:.06em">
+            → Open full Accounts panel
+          </a>
+          <div style="margin-top:6px;font-size:10px">
+            Cash total: <strong style="color:var(--green)">{{ total_cash_val|money }}</strong>
+          </div>
+        </div>
+      </div>
+      <!-- Paychecks pane — links into More > Setup -->
+      <div class="settings-overlay-pane" id="sop-paychecks">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:.06em">
+          <a href="#" onclick="closeSettings();showPanel('more',null);showMoreMode('settings',document.querySelector('.more-mode-tab[onclick*=\'settings\']'));showSettingsTab('paychecks',document.querySelector('#more-mode-settings .acct-tab'));return false" style="color:var(--accent);text-decoration:none">
+            → Open Paychecks in full panel
+          </a>
+        </div>
+      </div>
+      <div class="settings-overlay-pane" id="sop-rules">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:.06em">
+          <a href="#" onclick="closeSettings();showPanel('more',null);showMoreMode('settings',document.querySelector('.more-mode-tab[onclick*=\'settings\']'));showSettingsTab('rules',document.querySelector('#more-mode-settings .acct-tab:nth-child(2)'));return false" style="color:var(--accent);text-decoration:none">
+            → Open Allocation Rules in full panel
+          </a>
+        </div>
+      </div>
+      <div class="settings-overlay-pane" id="sop-categories">
+        <div id="sop-cats-inner" style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+      </div>
+      <div class="settings-overlay-pane" id="sop-payees">
+        <div id="sop-payees-inner" style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="toast-container"></div>
 <datalist id="payee-suggestions"></datalist>
@@ -3515,6 +4196,29 @@ function showToast(msg, type = 'success', duration = 3500) {
 }
 
 /* ── 401 session-expired helper ── */
+
+// ── Settings overlay ─────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('settings-overlay').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('show');
+}
+function maybeCloseSettings(e) {
+  if (e.target === document.getElementById('settings-overlay')) closeSettings();
+}
+function showSettingsOverlayTab(name, btn) {
+  document.querySelectorAll('.settings-overlay-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.settings-overlay-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('sop-' + name)?.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+function showSettingsAcctSection(section, btn) {
+  // Delegate to the existing account section handler in panel-more
+  document.querySelectorAll('#more-mode-accounts .acct-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
 function _show401Toast() {
   const c = document.getElementById('toast-container');
   if (!c) return;
@@ -3537,15 +4241,30 @@ function formatMonthLabel(mid) {
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return months[parseInt(parts[2])] + ' ' + parts[1];
 }
+/* Matches server-side _date_label: "Today", "Yesterday", or "Wednesday, May 28" */
+function formatDateLabel(dateStr) {
+  const d   = new Date(dateStr + 'T12:00:00');
+  const now = new Date();
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, now)) return 'Today';
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  if (sameDay(d, yesterday)) return 'Yesterday';
+  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
+}
 
 /* ── Live value refresh — patches every computed cell without a reload ── */
 function refreshValues(state) {
   if (!state) return;
 
-  // RTS header
+  // RTS header + sidebar
   if (state.rts !== undefined) {
     const el = document.querySelector('.h-rts');
     if (el) el.textContent = fmtMoney(state.rts);
+    const sbRts = document.getElementById('sb-rts');
+    if (sbRts) sbRts.textContent = fmtMoney(state.rts);
   }
 
   // Bucket alloc cells
@@ -3578,7 +4297,7 @@ function refreshValues(state) {
       if (cell && cell.textContent !== '—') {
         cell.textContent = fmtMoney(val);
         cell.dataset.rawSpent = val;
-        _updatePaceBar(cell, val);
+        try { _updatePaceBar(cell, val); } catch(e) { console.warn('pace bar error', bid, e); }
       }
     }
   }
@@ -3621,6 +4340,9 @@ function refreshValues(state) {
         badge.textContent = status;
         badge.className = status ? 'badge-' + status.toLowerCase() : '';
       }
+      // Keep the spent cell's data-status in sync so _updatePaceBar sees the current status
+      const spentCell = document.querySelector(`[data-spent-id="${bid}"]`);
+      if (spentCell) spentCell.dataset.status = status;
     }
   }
 
@@ -3894,7 +4616,7 @@ function injectTxRow(tx, activeMid) {
     // Create a new date group header; display the ISO date as-is (matches server format)
     const htr = document.createElement('tr');
     htr.dataset.date = tx.date;
-    htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${tx.date}</td>`;
+    htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${formatDateLabel(tx.date)}</td>`;
     body.prepend(settingsRow);
     body.prepend(tr);
     body.prepend(htr);
@@ -3904,42 +4626,69 @@ function injectTxRow(tx, activeMid) {
   document.getElementById('ledger-empty')?.remove();
   // Wire calc inputs in dynamically created settings row
   wireMathInputs(settingsRow);
+  // Re-apply active filters so the new row is shown/hidden consistently
+  filterLedger();
 }
 
 /* ── Panel nav ── */
 const _isDesktop = () => window.innerWidth >= 900;
 
+// ── Panel navigation ─────────────────────────────────────────────
+
 function showPanel(name, tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('panel-' + name);
+  if (el) el.classList.add('active');
+
+  // Legacy nav-tab (still used in some places)
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('panel-' + name).classList.add('active');
-  tab.classList.add('active');
+  if (tab) tab.classList.add('active');
+
+  // Sidebar active state
+  _updateSidebarActive(name);
+
+  // Main-content class for desktop CSS panel switching
+  const mc = document.querySelector('.main-content');
+  if (mc) {
+    mc.classList.remove('panel-reports-active', 'panel-coach-active');
+    if (name === 'more')  mc.classList.add('panel-reports-active');
+    if (name === 'coach') mc.classList.add('panel-coach-active');
+  }
+
   localStorage.setItem('bc_active_panel', name);
 }
 
-// On desktop, close full-screen overlay and return to Buckets+Ledger view
+// Mobile new nav — wraps showPanel without needing a tab element
+function showCuraPanel(name) {
+  showPanel(name, null);
+  // Update mobile icon tabs
+  document.querySelectorAll('.cura-nav-tab').forEach(t => t.classList.remove('active'));
+  const nt = document.getElementById('cntab-' + name);
+  if (nt) nt.classList.add('active');
+}
+
+function _updateSidebarActive(name) {
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  const map = { buckets: 'sb-budget', ledger: 'sb-budget', more: 'sb-more', coach: 'sb-coach' };
+  const sid = map[name];
+  if (sid) document.getElementById(sid)?.classList.add('active');
+}
+
+// Desktop: no longer needed as overlay — kept for compatibility
 function closeDesktopPanel(name) {
-  const panel = document.getElementById('panel-' + name);
-  if (panel) panel.classList.remove('active');
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  localStorage.setItem('bc_active_panel', 'buckets');
+  showPanel('buckets', null);
 }
 
 // Restore active panel on page load
 (function() {
   const saved = localStorage.getItem('bc_active_panel');
-  // On desktop, only restore overlay panels (more/coach); buckets+ledger are always shown
-  const desktopOverlayPanels = ['more', 'coach'];
   if (saved && saved !== 'buckets') {
-    if (_isDesktop() && !desktopOverlayPanels.includes(saved)) return;
-    const panel = document.getElementById('panel-' + saved);
-    const tab = document.querySelector(`.nav-tab[onclick*="'${saved}'"]`);
-    if (panel && tab) {
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-      panel.classList.add('active');
-      tab.classList.add('active');
-    }
+    showPanel(saved, null);
+    // Sync mobile icon tabs
+    document.querySelectorAll('.cura-nav-tab').forEach(t => t.classList.remove('active'));
+    const mobileMap = { more: 'cntab-more', coach: 'cntab-more', ledger: 'cntab-ledger' };
+    const mnt = document.getElementById(mobileMap[saved] || 'cntab-buckets');
+    if (mnt) mnt.classList.add('active');
   }
 })();
 
@@ -4136,7 +4885,7 @@ function fmtMoney(v) {
 }
 
 /* ── Generic save ── */
-async function saveSetting(field, id, value, month) {
+async function saveSetting(field, id, value, month, opts = {}) {
   try {
     const r = await fetch('/api/save', {
       method: 'POST',
@@ -4148,7 +4897,7 @@ async function saveSetting(field, id, value, month) {
       return { ok: false };
     }
     const result = await r.json();
-    if (result.ok) showToast('Saved', 'success');
+    if (result.ok && !opts.silent) showToast('Saved', 'success');
     return result;
   } catch(e) {
     console.error('saveSetting failed', e);
@@ -4293,21 +5042,24 @@ function moveBucketToCategory(select, bucketId) {
 async function switchBucketType(select, id) {
   const type = select.value;
   const settingsRow = document.getElementById('settings-' + id);
-  const expenseGroup = settingsRow.querySelector('.sf-expense');
-  const savingsGroup = settingsRow.querySelector('.sf-savings');
-  const vaultGroup   = settingsRow.querySelector('.sf-vault');
-  expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
-  savingsGroup.style.display = (type === 'savings') ? '' : 'none';
-  vaultGroup.style.display   = type === 'vault' ? '' : 'none';
+  const expenseGroup = settingsRow?.querySelector('.sf-expense');
+  const savingsGroup = settingsRow?.querySelector('.sf-savings');
+  const vaultGroup   = settingsRow?.querySelector('.sf-vault');
+  if (expenseGroup) expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
+  if (savingsGroup) savingsGroup.style.display = (type === 'savings') ? '' : 'none';
+  if (vaultGroup)   vaultGroup.style.display   = type === 'vault' ? '' : 'none';
 
-  const result = await saveSetting('bucket_type', id, type, '');
-  // Auto-configure rollover based on type
+  // Auto-configure rollover based on type — save both changes and use the final state
+  const needsRolloverChange = type === 'vault' || type === 'savings';
+  const typeResult     = await saveSetting('bucket_type', id, type, '', { silent: needsRolloverChange });
+  let   finalResult    = typeResult;
   if (type === 'vault') {
-    await saveSetting('bucket_rollover', id, false, '');
+    finalResult = await saveSetting('bucket_rollover', id, false, '');
   } else if (type === 'savings') {
-    await saveSetting('bucket_rollover', id, true, '');
+    finalResult = await saveSetting('bucket_rollover', id, true, '');
   }
-  if (result && result.ok) refreshValues(result);
+  if (finalResult?.ok) refreshValues(finalResult);
+  else if (typeResult?.ok) refreshValues(typeResult);
 }
 
 /* ── Text/number blur helpers for settings inputs ── */
@@ -4503,9 +5255,12 @@ async function submitAddTx(e) {
     if (result.month_id === ACTIVE_MID && result.tx) {
       injectTxRow(result.tx, result.month_id);
     }
-    // Reset form (keep date and account for speed)
-    document.getElementById('tx-desc').value = '';
+    // Reset form (keep date and account for speed; clear bucket/type so next tx starts fresh)
+    document.getElementById('tx-desc').value   = '';
     document.getElementById('tx-amount').value = '';
+    document.getElementById('tx-bucket').value = '';
+    const incTypeEl = document.getElementById('tx-income-type');
+    if (incTypeEl) incTypeEl.value = 'paycheck';
     if (type === 'in' && incomeType === 'paycheck') {
       await showPaydayModal(amount, result.month_id);
     }
@@ -4623,6 +5378,7 @@ async function deleteTx(id) {
       }
     }
     refreshValues(result);
+    filterLedger();  // update count if a filter is active
   } else {
     alert('Delete failed: ' + (result.error || 'unknown error'));
   }
@@ -4745,15 +5501,20 @@ function cwTogglePromo(acctId, isPromo) {
   today.setHours(0,0,0,0);
   const in30 = new Date(today);
   in30.setDate(in30.getDate() + 30);
+  let delay = 800;
   for (const a of promoData) {
     if (!a.is_promo || !a.promo_end_date) continue;
     const end = new Date(a.promo_end_date);
     end.setHours(0,0,0,0);
     if (end < today) {
-      setTimeout(() => showToast(`${a.name}: 0% promo period has expired! Update the rate.`, 'error', 6000), 800);
+      const msg = `${a.name}: 0% promo period has expired! Update the rate.`;
+      setTimeout(() => showToast(msg, 'error', 6000), delay);
+      delay += 1200;
     } else if (end <= in30) {
       const days = Math.round((end - today) / 86400000);
-      setTimeout(() => showToast(`${a.name}: 0% promo ends in ${days} day${days !== 1 ? 's' : ''}!`, 'warn', 6000), 800);
+      const msg = `${a.name}: 0% promo ends in ${days} day${days !== 1 ? 's' : ''}!`;
+      setTimeout(() => showToast(msg, 'warning', 6000), delay);
+      delay += 1200;
     }
   }
 })();
@@ -4898,7 +5659,11 @@ function showMoreMode(mode, btn) {
   moreTabs.forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (mode === 'reports' && !_reportsData) loadReports();
-  if (mode === 'plan') initForecast();
+  if (mode === 'plan') {
+    // Only init forecast if the forecast sub-tab is currently active (default)
+    const activePlanTab = document.querySelector('#more-mode-plan .acct-tab.active');
+    if (!activePlanTab || activePlanTab.textContent.trim() === 'Forecast') initForecast();
+  }
 }
 
 /* ── Settings: sub-tab switch ── */
@@ -5003,12 +5768,17 @@ async function catRename(inp) {
   const orig  = inp.dataset.original;
   const val   = inp.value.trim();
   if (!val || val === orig) { inp.value = orig; return; }
-  await fetch('/api/save', {
+  const r = await fetch('/api/save', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({field: 'cat_name', id: catId, value: val}),
-  });
-  inp.dataset.original = val;
-  showToast(`Renamed to "${val}"`, 'success');
+  }).then(res => res.json()).catch(() => ({ok: false}));
+  if (r.ok) {
+    inp.dataset.original = val;
+    showToast(`Renamed to "${val}"`, 'success');
+  } else {
+    inp.value = orig;
+    showToast(r.error || 'Rename failed', 'error');
+  }
 }
 
 async function catArchive(catId) {
@@ -5105,7 +5875,7 @@ async function submitAddPaycheck(e) {
   const freq   = parseInt(document.getElementById('pc-freq').value);
   const anchor = document.getElementById('pc-anchor').value;
 
-  if (!label || !amount) { alert('Label and amount required.'); return; }
+  if (!label || !amount) { showToast('Label and amount required', 'warning'); return; }
 
   const result = await fetch('/api/add-paycheck', {
     method: 'POST',
@@ -5119,18 +5889,40 @@ async function submitAddPaycheck(e) {
     const tbody = document.getElementById('pc-tbody');
     if (tbody) {
       document.getElementById('pc-empty')?.remove();
+      const freqLabels = {7:'Weekly', 14:'Biweekly', 15:'Semi-monthly', 30:'Monthly'};
+      const freqOpts = [7,14,15,30].map(f =>
+        `<option value="${f}"${f===pc.freq?' selected':''}>${freqLabels[f]}</option>`
+      ).join('');
       const tr = document.createElement('tr');
       tr.id = 'pc-row-' + pc.id;
       tr.innerHTML = `
-        <td class="col-name">${pc.label}</td>
+        <td class="col-name">${_escHTML(pc.label)}</td>
         <td class="col-amount" style="color:var(--green);font-family:var(--mono)">${fmtMoney(pc.amount)}</td>
-        <td style="color:var(--text2)">${pc.freq_label}</td>
-        <td class="col-m-hide" style="color:var(--text3);font-family:var(--mono);font-size:11px">${pc.anchor}</td>
-        <td class="col-settings"><button class="delete-cat-btn" onclick="deletePaycheck('${pc.id}')">✕</button></td>`;
+        <td style="color:var(--text2)">${freqLabels[pc.freq] || pc.freq + 'd'}</td>
+        <td class="col-m-hide" style="color:var(--text3);font-family:var(--mono);font-size:11px">${pc.anchor || '—'}</td>
+        <td class="col-settings">
+          <button class="delete-cat-btn" onclick="togglePcEdit('${pc.id}')" title="Edit" style="margin-right:4px;">✎</button>
+          <button class="delete-cat-btn" onclick="deletePaycheck('${pc.id}')">✕</button>
+        </td>`;
       tbody.appendChild(tr);
+      const editTr = document.createElement('tr');
+      editTr.id = 'pc-edit-' + pc.id;
+      editTr.style.display = 'none';
+      editTr.innerHTML = `
+        <td colspan="5" style="padding:8px 6px;background:var(--bg2)">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="pce-label-${pc.id}" value="${_escHTML(pc.label)}" placeholder="Label" class="pc-edit-inp" style="flex:1;min-width:120px">
+            <input type="number" id="pce-amount-${pc.id}" value="${pc.amount}" step="0.01" min="0" placeholder="Amount" class="pc-edit-inp" style="width:80px">
+            <select id="pce-freq-${pc.id}" class="pc-edit-inp" style="width:120px">${freqOpts}</select>
+            <input type="date" id="pce-anchor-${pc.id}" value="${pc.anchor || ''}" class="pc-edit-inp" style="width:130px">
+            <button class="strip-btn" onclick="savePaycheck('${pc.id}')" style="height:28px;padding:0 12px;font-size:11px">Save</button>
+            <button class="delete-cat-btn" onclick="togglePcEdit('${pc.id}')" style="width:auto;padding:0 10px;height:28px">Cancel</button>
+          </div>
+        </td>`;
+      tbody.appendChild(editTr);
       e.target.reset();
     }
-  } else { alert('Error: ' + (result.error || 'Could not add paycheck.')); }
+  } else { showToast(result.error || 'Could not add paycheck', 'error'); }
 }
 
 async function deletePaycheck(id) {
@@ -5141,41 +5933,50 @@ async function deletePaycheck(id) {
     body: JSON.stringify({ id })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (result.ok) { document.getElementById('pc-row-' + id)?.remove(); }
-  else { alert('Delete failed: ' + (result.error || 'unknown error')); }
+  if (result.ok) {
+    document.getElementById('pc-row-'  + id)?.remove();
+    document.getElementById('pc-edit-' + id)?.remove();
+  } else { showToast(result.error || 'Delete failed', 'error'); }
 }
 
-function editPaycheck(id, label, amount, freq, anchor) {
-  const newLabel  = prompt('Label:', label);
-  if (newLabel === null) return;
-  const newAmount = prompt('Amount per check ($):', amount);
-  if (newAmount === null) return;
-  const newFreq   = prompt('Frequency (7=weekly, 14=biweekly, 15=semi-monthly, 30=monthly):', freq);
-  if (newFreq === null) return;
-  const newAnchor = prompt('Anchor date (YYYY-MM-DD):', anchor);
-  if (newAnchor === null) return;
+function togglePcEdit(id) {
+  const editRow = document.getElementById('pc-edit-' + id);
+  if (!editRow) return;
+  const opening = editRow.style.display === 'none';
+  // Close any other open edit rows
+  document.querySelectorAll('[id^="pc-edit-"]').forEach(r => { r.style.display = 'none'; });
+  if (opening) editRow.style.display = '';
+}
 
-  fetch('/api/update-paycheck', {
+async function savePaycheck(id) {
+  const label  = document.getElementById('pce-label-'  + id)?.value.trim();
+  const amount = parseFloat(document.getElementById('pce-amount-' + id)?.value || 0);
+  const freq   = parseInt(document.getElementById('pce-freq-'   + id)?.value || 14);
+  const anchor = document.getElementById('pce-anchor-' + id)?.value || '';
+
+  if (!label || !amount) { showToast('Label and amount required', 'warning'); return; }
+
+  const result = await fetch('/api/update-paycheck', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({id, label: newLabel, amount: newAmount, freq: newFreq, anchorDate: newAnchor}),
-  }).then(r => r.json()).then(res => {
-    if (res.ok) {
-      showToast('Paycheck updated', 'info');
-      // Update the row display
-      const row = document.getElementById('pc-row-' + id);
-      if (row) {
-        const freqLabels = {7:'Weekly', 14:'Biweekly', 15:'Semi-monthly', 30:'Monthly'};
-        const cells = row.querySelectorAll('td');
-        if (cells[0]) cells[0].textContent = newLabel;
-        if (cells[1]) cells[1].textContent = '$' + parseFloat(newAmount).toFixed(2);
-        if (cells[2]) cells[2].textContent = freqLabels[parseInt(newFreq)] || newFreq + 'd';
-        if (cells[3]) cells[3].textContent = newAnchor || '—';
-      }
-    } else {
-      alert('Error: ' + (res.error || 'Could not update paycheck.'));
+    body: JSON.stringify({ id, label, amount, freq, anchorDate: anchor })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (result.ok) {
+    showToast('Paycheck updated', 'info');
+    const freqLabels = {7:'Weekly', 14:'Biweekly', 15:'Semi-monthly', 30:'Monthly'};
+    const row = document.getElementById('pc-row-' + id);
+    if (row) {
+      const cells = row.querySelectorAll('td');
+      if (cells[0]) cells[0].textContent = label;
+      if (cells[1]) { cells[1].textContent = fmtMoney(amount); cells[1].style.color = 'var(--green)'; }
+      if (cells[2]) cells[2].textContent = freqLabels[freq] || freq + 'd';
+      if (cells[3]) cells[3].textContent = anchor || '—';
     }
-  });
+    document.getElementById('pc-edit-' + id).style.display = 'none';
+  } else {
+    showToast(result.error || 'Could not update paycheck', 'error');
+  }
 }
 
 /* ── Allocation rules ── */
@@ -5187,8 +5988,8 @@ async function submitAddRule(e) {
   const valType = document.getElementById('rule-val-type').value;
   const value   = parseFloat(document.getElementById('rule-value').value);
 
-  if (!name || !value) { alert('Name and amount required.'); return; }
-  if (kind === 'internal' && !bucket) { alert('Select a bucket for internal rule.'); return; }
+  if (!name || !value) { showToast('Name and amount required', 'warning'); return; }
+  if (kind === 'internal' && !bucket) { showToast('Select a bucket for internal rule', 'warning'); return; }
 
   const result = await fetch('/api/add-rule', {
     method: 'POST',
@@ -5219,19 +6020,21 @@ async function submitAddRule(e) {
       const tr = document.createElement('tr');
       tr.id = 'rule-row-' + r.id;
       tr.innerHTML = `
-        <td style="text-align:center"><input type="checkbox" checked onchange="toggleRule('${r.id}')" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"></td>
-        <td class="col-name">${r.name}</td>
+        <td style="text-align:center"><input type="checkbox" checked onchange="toggleRule('${r.id}',this)" style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer"></td>
+        <td class="col-name">${_escHTML(r.name)}</td>
         <td class="col-amount" style="font-family:var(--mono);color:${color}">${valStr}</td>
         <td class="col-m-hide" style="color:var(--text3)">${targetStr}</td>
         <td class="col-settings"><button class="delete-cat-btn" onclick="deleteRule('${r.id}')">✕</button></td>`;
       tbody.appendChild(tr);
       e.target.reset();
-      document.getElementById('rule-bucket-field')?.style && (document.getElementById('rule-bucket-field').style.display = 'none');
+      const bucketField = document.getElementById('rule-bucket-field');
+      if (bucketField) bucketField.style.display = 'none';
     }
-  } else { alert('Error: ' + (result.error || 'Could not add rule.')); }
+  } else { showToast(result.error || 'Could not add rule', 'error'); }
 }
 
-async function toggleRule(id) {
+async function toggleRule(id, cb) {
+  const prev = cb ? cb.checked : null;
   const result = await fetch('/api/toggle-rule', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -5241,8 +6044,10 @@ async function toggleRule(id) {
   if (result.ok) {
     const row = document.getElementById('rule-row-' + id);
     if (row) row.style.opacity = result.active ? '1' : '0.5';
+    if (cb) cb.checked = result.active;
   } else {
-    alert('Toggle failed: ' + (result.error || 'unknown error'));
+    if (cb && prev !== null) cb.checked = prev;  // revert optimistic change
+    showToast('Toggle failed: ' + (result.error || 'unknown error'), 'error');
   }
 }
 
@@ -5254,8 +6059,8 @@ async function deleteRule(id) {
     body: JSON.stringify({ id })
   }).then(r => r.json()).catch(() => ({ok: false}));
 
-  if (result.ok) { document.getElementById('rule-row-' + id)?.remove(); }
-  else { alert('Delete failed: ' + (result.error || 'unknown error')); }
+  if (result.ok) { document.getElementById('rule-row-' + id)?.remove(); showToast('Rule deleted', 'info'); }
+  else { showToast(result.error || 'Delete failed', 'error'); }
 }
 
 /* ── Payday modal ── */
@@ -5321,22 +6126,23 @@ async function applyPayday() {
     }
   });
 
-  let liveState = null;
-  if (allocations.length > 0) {
-    const result = await fetch('/api/apply-payday', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ month: mid, allocations })
-    }).then(r => r.json()).catch(() => ({ok: false}));
-
-    if (!result.ok) {
-      alert('Could not apply allocations: ' + (result.error || 'unknown error'));
-      return;
-    }
-    liveState = result;
+  if (allocations.length === 0) {
+    closePaydayModal();
+    return;
   }
 
-  refreshValues(liveState);
+  const result = await fetch('/api/apply-payday', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ month: mid, allocations })
+  }).then(r => r.json()).catch(() => ({ok: false}));
+
+  if (!result.ok) {
+    showToast('Could not apply allocations: ' + (result.error || 'unknown error'), 'error');
+    return;
+  }
+
+  refreshValues(result);
   closePaydayModal();
 }
 
@@ -5432,14 +6238,21 @@ async function loadReports() {
   if (loading) loading.style.display = '';
   try {
     const r = await fetch('/api/reports?month=' + _reportsMid);
+    if (r.status === 401) { _show401Toast(); return; }
     const data = await r.json();
-    if (!data.ok) return;
+    if (!data.ok) {
+      const errEl = document.getElementById('report-error');
+      if (errEl) { errEl.textContent = data.error || 'Failed to load report.'; errEl.style.display = ''; }
+      return;
+    }
     _reportsData = data;
     renderReportSummary(data);
     renderReportBudget(data);
     renderReportNetWorth(data);
   } catch(e) {
     console.error('loadReports error', e);
+    const errEl = document.getElementById('report-error');
+    if (errEl) { errEl.textContent = 'Network error loading report.'; errEl.style.display = ''; }
   } finally {
     if (loading) loading.style.display = 'none';
   }
@@ -7369,7 +8182,7 @@ async function copyLastMonthAllocs() {
 function closeOnboarding() {
   const el = document.getElementById('onboard-backdrop');
   if (el) el.remove();
-  showPanel('more', document.querySelector('.nav-tab[onclick*="more"]'));
+  showPanel('more', null);
   showMoreMode('settings', document.querySelector('.more-mode-tab[onclick*="settings"]'));
   showSettingsTab('paychecks', document.querySelector('.acct-tab[onclick*="paychecks"]'));
 }
@@ -7964,5 +8777,27 @@ function _cwLoadProgress() {
   try { return JSON.parse(localStorage.getItem(_cwProgressKey())); } catch { return null; }
 }
 function _cwClearProgress() { localStorage.removeItem(_cwProgressKey()); }
+
+// ── Phase 3: bucket row progress bars ──
+function initBucketProgressBars() {
+  document.querySelectorAll('#panel-buckets tr[id^="row-"]').forEach(tr => {
+    const id = tr.id.replace('row-', '');
+    const spentTd = document.getElementById('spent-' + id);
+    const nameTd  = tr.querySelector('.col-name');
+    if (!spentTd || !nameTd) return;
+    if (nameTd.querySelector('.bpbar, .progress-wrap')) return; // vault/savings already have one
+    const spent  = parseFloat(spentTd.dataset.rawSpent  || '0');
+    const budget = parseFloat(spentTd.dataset.rawBudget || '0');
+    if (budget <= 0) return;
+    const pct   = Math.min(100, Math.max(0, (spent / budget) * 100));
+    const color = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--amber)' : 'var(--accent)';
+    const bar   = document.createElement('div');
+    bar.className = 'bpbar';
+    bar.innerHTML = `<div class="bpbar-fill" style="width:${pct.toFixed(1)}%;background:${color}"></div>`;
+    nameTd.appendChild(bar);
+  });
+}
+// Run on page load
+initBucketProgressBars();
 </script>
 {% endblock %}
