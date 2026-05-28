@@ -72,11 +72,32 @@ select.field-input { cursor: pointer; }
 
 /* ── Sidebar ── */
 #sidebar {
-  width: var(--sidebar-w); min-height: calc(100dvh - 48px);
+  width: var(--sidebar-w); height: calc(100dvh - 48px);
   background: var(--bg2); border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   position: fixed; top: 48px; left: 0; z-index: 10;
+  overflow-y: auto;
 }
+/* Bucket type badge */
+.btype-tag {
+  display: inline-block;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text3);
+  border: 1px solid var(--border2); border-radius: 3px;
+  padding: 1px 5px; margin-left: 7px; vertical-align: middle;
+  position: relative; top: -1px;
+}
+/* Ledger KPI strip */
+.ledger-kpis {
+  display: flex; gap: 8px; padding: 0 0 8px;
+}
+.ledger-kpi {
+  flex: 1; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 14px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.ledger-kpi-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
+.ledger-kpi-val   { font-family: var(--mono); font-size: 15px; font-weight: 700; }
 .sb-logo { padding: 18px 18px 14px; border-bottom: 1px solid var(--border); }
 .sb-logo-name {
   font-family: var(--display); font-size: 26px; letter-spacing: .08em;
@@ -408,7 +429,7 @@ select.field-input { cursor: pointer; }
             <div class="row-top">
               <div class="row-bar"></div>
               <div style="flex:1">
-                <div class="row-name" data-name="{{ b.id }}">{{ b.name }}</div>
+                <div class="row-name" data-name="{{ b.id }}">{{ b.name }}{% if b.type and b.type != 'expense' %}<span class="btype-tag">{{ b.type }}</span>{% endif %}</div>
                 <div class="row-sub d-only">{{ b.budget|money }} budget &middot; {{ b.spent|money }} spent</div>
               </div>
               <div class="row-val" data-avail="{{ b.id }}">{{ b.avail|money }}</div>
@@ -461,6 +482,22 @@ select.field-input { cursor: pointer; }
 
     <!-- ── LEDGER PANEL ── -->
     <div id="panel-ledger" class="panel">
+
+      <!-- Ledger KPI strip -->
+      <div class="ledger-kpis">
+        <div class="ledger-kpi">
+          <span class="ledger-kpi-label">Income</span>
+          <span class="ledger-kpi-val" id="ldg-income" style="color:var(--green)">{{ ledger_income|money }}</span>
+        </div>
+        <div class="ledger-kpi">
+          <span class="ledger-kpi-label">Spent</span>
+          <span class="ledger-kpi-val" id="ldg-spent" style="color:var(--red)">{{ ledger_spent|money }}</span>
+        </div>
+        <div class="ledger-kpi">
+          <span class="ledger-kpi-label">Ready</span>
+          <span class="ledger-kpi-val" id="ldg-rts" style="color:var(--accent)">{{ rts|money }}</span>
+        </div>
+      </div>
 
       {% if ledger_groups %}
         {% for group in ledger_groups %}
@@ -862,11 +899,11 @@ function refreshKpis(state) {
   if (!state) return;
   if (state.ledger_totals) {
     const inc = state.ledger_totals.income, sp = state.ledger_totals.spent;
-    ['sb-income','mob-income'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(inc); });
-    ['sb-spent', 'mob-spent' ].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(sp);  });
+    ['sb-income','mob-income','ldg-income'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(inc); });
+    ['sb-spent', 'mob-spent', 'ldg-spent' ].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(sp);  });
   }
   if (state.rts !== undefined) {
-    ['sb-rts','mob-rts'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(state.rts); });
+    ['sb-rts','mob-rts','ldg-rts'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(state.rts); });
   }
   if (state.bucket_avails) {
     Object.entries(state.bucket_avails).forEach(([bid, val]) => {
