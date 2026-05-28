@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Budget Command — Nav Prototype</title>
+  <title>Budget Command — Prototype</title>
   <style>
     :root {
       --bg:      #0f0f11;
@@ -20,6 +20,7 @@
       --blue:    #4a9eff;
       --r:       8px;
       --mono:    'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+      --sidebar: 220px;
       --nav-h:   62px;
       --hdr-h:   52px;
     }
@@ -31,191 +32,245 @@
       color: var(--text);
       font-family: var(--mono);
       min-height: 100vh;
-      max-width: 430px;
-      margin: 0 auto;
       overflow-x: hidden;
-      position: relative;
     }
 
-    /* ── Header ─────────────────────────────────────────────────── */
-    .app-header {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      max-width: 430px;
-      margin: 0 auto;
-      height: var(--hdr-h);
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
+    /* ════════════════════════════════════════════════════
+       DESKTOP LAYOUT  (>= 768px)
+    ════════════════════════════════════════════════════ */
+
+    .layout {
       display: flex;
-      align-items: center;
-      padding: 0 14px;
-      z-index: 90;
-      gap: 10px;
+      min-height: 100vh;
     }
 
-    .hdr-logo {
-      font-size: 13px;
+    /* ── Sidebar ──────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar);
+      flex-shrink: 0;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 50;
+    }
+
+    .sidebar-logo {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo-name {
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: .14em;
+      letter-spacing: .18em;
       text-transform: uppercase;
       color: var(--accent);
-      flex: 1;
+    }
+    .sidebar-logo-sub {
+      font-size: 9px;
+      letter-spacing: .1em;
+      color: var(--text3);
+      margin-top: 2px;
+      text-transform: uppercase;
     }
 
-    .hdr-month {
-      font-size: 11px;
-      color: var(--text2);
-      letter-spacing: .06em;
+    .sidebar-month {
+      margin: 12px 12px 0;
       background: var(--bg3);
       border: 1px solid var(--border);
       border-radius: var(--r);
-      padding: 4px 10px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .sidebar-month:hover { border-color: var(--text3); }
+    .sidebar-month-label { font-size: 12px; color: var(--text2); }
+    .sidebar-month-chevron { font-size: 10px; color: var(--text3); }
+
+    .sidebar-kpis {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-kpi {
+      background: var(--bg3);
+      border-radius: var(--r);
+      padding: 7px 8px;
+    }
+    .sidebar-kpi-label { font-size: 8px; letter-spacing: .09em; text-transform: uppercase; color: var(--text3); margin-bottom: 2px; }
+    .sidebar-kpi-val   { font-size: 13px; font-weight: 700; }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: var(--r);
+      cursor: pointer;
+      color: var(--text3);
+      font-size: 12px;
+      letter-spacing: .05em;
+      transition: background .12s, color .12s;
+      user-select: none;
+    }
+    .sidebar-nav-item:hover { background: var(--bg3); color: var(--text2); }
+    .sidebar-nav-item.active { background: color-mix(in srgb,var(--accent) 12%,transparent); color: var(--accent); }
+    .sidebar-nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    .sidebar-divider { height: 1px; background: var(--border); margin: 6px 8px; }
+
+    .sidebar-add {
+      margin: 0 12px 8px;
+      padding: 11px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: var(--r);
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity .15s, transform .1s;
+      user-select: none;
+      box-shadow: 0 4px 14px rgba(99,102,241,.35);
     }
+    .sidebar-add:hover  { opacity: .9; }
+    .sidebar-add:active { transform: scale(.98); }
 
-    .hdr-gear {
-      width: 34px; height: 34px;
-      border-radius: var(--r);
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      color: var(--text3);
-      transition: color .15s, border-color .15s;
-    }
-    .hdr-gear:hover { color: var(--text); border-color: var(--text3); }
-    .hdr-gear:active { background: var(--bg); }
-
-    /* ── Panels ──────────────────────────────────────────────────── */
-    .panel {
-      display: none;
-      padding: 12px 12px calc(var(--nav-h) + 20px);
-      margin-top: var(--hdr-h);
-      min-height: calc(100vh - var(--hdr-h));
-    }
-    .panel.active { display: block; }
-
-    /* ── Bottom Nav ──────────────────────────────────────────────── */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      max-width: 430px;
-      margin: 0 auto;
-      height: var(--nav-h);
-      background: var(--bg2);
+    .sidebar-settings {
+      padding: 10px 12px 14px;
       border-top: 1px solid var(--border);
       display: flex;
       align-items: center;
-      padding: 0 6px 0 0;
-      z-index: 100;
-    }
-
-    .nav-tab {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      height: 100%;
+      gap: 8px;
       cursor: pointer;
       color: var(--text3);
+      font-size: 11px;
+      letter-spacing: .06em;
       transition: color .15s;
-      position: relative;
-      user-select: none;
     }
-    .nav-tab:active { opacity: .7; }
+    .sidebar-settings:hover { color: var(--text2); }
+    .sidebar-settings svg { width: 15px; height: 15px; }
 
-    .nav-tab.active { color: var(--accent); }
-
-    .nav-tab-dot {
-      position: absolute;
-      top: 8px;
-      width: 4px; height: 4px;
-      border-radius: 50%;
-      background: var(--accent);
-      opacity: 0;
-      transition: opacity .15s;
-    }
-    .nav-tab.active .nav-tab-dot { opacity: 1; }
-
-    .nav-tab svg { width: 22px; height: 22px; }
-    .nav-tab-label {
-      font-size: 9px;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      line-height: 1;
-    }
-
-    /* + button */
-    .nav-add {
-      width: 50px; height: 50px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      margin: 0 8px 0 4px;
-      flex-shrink: 0;
-      box-shadow: 0 4px 16px rgba(99,102,241,.5);
-      font-size: 26px;
-      line-height: 1;
-      font-weight: 300;
-      transition: transform .15s, box-shadow .15s;
-      user-select: none;
-      position: relative;
-    }
-    .nav-add:hover  { transform: scale(1.06); box-shadow: 0 6px 20px rgba(99,102,241,.6); }
-    .nav-add:active { transform: scale(.93); }
-
-    /* ─── BUCKETS panel ─────────────────────────────────────────── */
-    .month-kpi-row {
-      display: flex; gap: 8px; margin-bottom: 14px;
-    }
-    .kpi-card {
+    /* ── Main content ─────────────────────────────────── */
+    .main {
       flex: 1;
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 10px 10px 8px;
-      display: flex; flex-direction: column; gap: 3px;
+      margin-left: var(--sidebar);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
-    .kpi-label { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--text3); }
-    .kpi-val   { font-size: 15px; font-weight: 700; }
-    .kpi-val.pos { color: var(--green); }
-    .kpi-val.acc { color: var(--accent); }
-    .kpi-val.amb { color: var(--amber); }
+
+    .main-header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .main-header-title {
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text2);
+      flex: 1;
+    }
+
+    .main-body {
+      flex: 1;
+      padding: 20px 24px;
+    }
+
+    /* Desktop split: Buckets + Ledger side by side */
+    .split-view {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .split-col-head {
+      font-size: 9px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+
+    /* ── Panels ──────────────────────────────────────── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .panel-split { display: none; }
+    .panel-split.active { display: grid; }
+
+    /* ════════════════════════════════════════════════════
+       SHARED COMPONENTS
+    ════════════════════════════════════════════════════ */
 
     .section-head {
       font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
       color: var(--text3); padding: 6px 2px 8px; margin-top: 4px;
     }
 
+    /* Bucket rows */
     .bucket-row {
       background: var(--bg2);
       border: 1px solid var(--border);
       border-radius: var(--r);
       padding: 10px 12px 9px;
       margin-bottom: 6px;
+      transition: border-color .15s;
     }
+    .bucket-row:hover { border-color: var(--text3); }
     .bucket-top {
       display: flex; align-items: baseline; justify-content: space-between;
       margin-bottom: 7px;
     }
     .bucket-name { font-size: 12px; color: var(--text); }
-    .bucket-amt  { font-size: 12px; font-family: var(--mono); }
-    .bucket-bar-bg {
-      height: 4px; border-radius: 2px; background: var(--bg3); overflow: hidden;
-    }
-    .bucket-bar-fill {
-      height: 100%; border-radius: 2px;
-      transition: width .3s;
-    }
+    .bucket-bar-bg { height: 4px; border-radius: 2px; background: var(--bg3); overflow: hidden; }
+    .bucket-bar-fill { height: 100%; border-radius: 2px; transition: width .3s; }
 
-    /* ─── LEDGER panel ──────────────────────────────────────────── */
+    /* KPI row (used in header area on mobile) */
+    .kpi-strip {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .kpi-card {
+      flex: 1;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px 8px;
+    }
+    .kpi-label { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--text3); margin-bottom: 3px; }
+    .kpi-val   { font-size: 15px; font-weight: 700; }
+
+    /* Ledger */
     .ledger-search {
       width: 100%;
       background: var(--bg2);
@@ -229,96 +284,108 @@
       outline: none;
     }
     .ledger-search:focus { border-color: var(--accent); }
-
     .date-head {
       font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
-      color: var(--text3); padding: 10px 2px 6px;
+      color: var(--text3); padding: 8px 2px 6px;
     }
     .tx-row {
       display: flex; align-items: center;
       background: var(--bg2); border: 1px solid var(--border);
       border-radius: var(--r); padding: 9px 12px;
       margin-bottom: 5px; gap: 10px;
+      transition: border-color .15s;
     }
-    .tx-dot {
-      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-    }
-    .tx-desc { flex: 1; font-size: 12px; color: var(--text); }
-    .tx-bucket-badge {
-      font-size: 9px; letter-spacing: .06em;
-      color: var(--text3);
-    }
-    .tx-amt { font-size: 12px; font-family: var(--mono); }
+    .tx-row:hover { border-color: var(--text3); }
+    .tx-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .tx-info { flex: 1; min-width: 0; }
+    .tx-desc { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-badge { font-size: 9px; color: var(--text3); margin-top: 2px; letter-spacing: .04em; }
+    .tx-amt { font-size: 12px; font-family: var(--mono); flex-shrink: 0; }
     .tx-amt.out { color: var(--red); }
     .tx-amt.inc { color: var(--green); }
 
-    /* ─── REPORTS panel ─────────────────────────────────────────── */
+    /* Reports */
     .report-tabs {
-      display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto;
-      padding-bottom: 2px;
+      display: flex; gap: 6px; margin-bottom: 16px;
+      overflow-x: auto; padding-bottom: 2px;
     }
     .report-tab {
       font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
-      padding: 6px 14px; border-radius: 99px;
+      padding: 6px 16px; border-radius: 99px;
       border: 1px solid var(--border); color: var(--text3);
       cursor: pointer; white-space: nowrap; background: var(--bg2);
       transition: all .15s;
     }
-    .report-tab.active {
-      background: var(--accent); border-color: var(--accent); color: #fff;
-    }
+    .report-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-    .report-kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .report-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
     .report-kpi {
       background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; gap: 4px;
+      border-radius: var(--r); padding: 14px;
     }
-    .report-kpi-label { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--text3); }
-    .report-kpi-val   { font-size: 18px; font-weight: 700; }
+    .report-kpi-label { font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--text3); margin-bottom: 5px; }
+    .report-kpi-val   { font-size: 22px; font-weight: 700; }
 
-    .report-chart-placeholder {
+    .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .report-card {
       background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--r); padding: 20px;
-      margin-bottom: 12px;
+      border-radius: var(--r); padding: 18px;
     }
-    .chart-title { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--text3); margin-bottom: 16px; }
-    .fake-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
-    .fake-bar { flex: 1; border-radius: 3px 3px 0 0; min-height: 6px; }
-    .fake-bar-labels { display: flex; gap: 6px; margin-top: 6px; }
-    .fake-bar-label { flex: 1; font-size: 8px; color: var(--text3); letter-spacing: .06em; text-align: center; }
+    .report-card-title {
+      font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--text3); margin-bottom: 14px;
+    }
+    .fake-bars { display: flex; align-items: flex-end; gap: 8px; height: 100px; }
+    .fake-bar  { flex: 1; border-radius: 3px 3px 0 0; min-height: 6px; }
+    .fake-bar-labels { display: flex; gap: 8px; margin-top: 8px; }
+    .fake-bar-label  { flex: 1; font-size: 8px; color: var(--text3); letter-spacing: .06em; text-align: center; }
 
     .spend-row {
       display: flex; align-items: center; gap: 10px;
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--r); padding: 10px 12px; margin-bottom: 5px;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
     }
-    .spend-color { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-    .spend-name { flex: 1; font-size: 11px; color: var(--text2); }
-    .spend-pct  { font-size: 10px; color: var(--text3); }
-    .spend-amt  { font-size: 11px; color: var(--text); font-family: var(--mono); }
+    .spend-row:last-child { border-bottom: none; }
+    .spend-color { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .spend-name  { flex: 1; font-size: 11px; color: var(--text2); }
+    .spend-pct   { font-size: 10px; color: var(--text3); }
+    .spend-amt   { font-size: 11px; font-family: var(--mono); }
 
-    /* ─── Quick Add modal ───────────────────────────────────────── */
+    .report-pane { display: none; }
+    .report-pane.active { display: block; }
+
+    /* ── Quick Add modal ─────────────────────────────── */
     .modal-backdrop {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,.6); z-index: 200; backdrop-filter: blur(3px);
+      background: rgba(0,0,0,.55); z-index: 200; backdrop-filter: blur(4px);
     }
     .modal-backdrop.show { display: block; }
 
     .quick-add-modal {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      max-width: 430px; margin: 0 auto;
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(.97);
+      width: 420px;
       background: var(--bg2);
-      border-top: 1px solid var(--border);
-      border-radius: 16px 16px 0 0;
-      padding: 20px 16px 32px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
       z-index: 201;
-      transform: translateY(100%);
-      transition: transform .25s cubic-bezier(.32,0,.67,0);
+      opacity: 0;
+      transition: opacity .2s, transform .2s;
     }
-    .quick-add-modal.show { transform: translateY(0); }
+    .quick-add-modal.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
-    .modal-drag { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 18px; }
-    .modal-title { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--text2); margin-bottom: 16px; text-align: center; }
+    .modal-title {
+      font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--text2); margin-bottom: 18px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-close {
+      color: var(--text3); cursor: pointer; font-size: 18px; line-height: 1;
+      transition: color .15s;
+    }
+    .modal-close:hover { color: var(--text); }
 
     .modal-type-row { display: flex; gap: 6px; margin-bottom: 14px; }
     .type-btn {
@@ -333,56 +400,55 @@
     .modal-input {
       width: 100%; background: var(--bg3); border: 1px solid var(--border);
       border-radius: var(--r); color: var(--text); font-family: var(--mono);
-      font-size: 13px; padding: 11px 14px; margin-bottom: 10px; outline: none;
+      font-size: 13px; padding: 10px 14px; margin-bottom: 10px; outline: none;
+      transition: border-color .15s;
     }
     .modal-input:focus { border-color: var(--accent); }
-    .modal-input.big { font-size: 22px; text-align: center; }
+    .modal-input.big { font-size: 24px; text-align: center; letter-spacing: .02em; }
 
     .modal-row { display: flex; gap: 8px; margin-bottom: 10px; }
     .modal-row .modal-input { margin-bottom: 0; }
 
     .modal-submit {
-      width: 100%; padding: 14px;
+      width: 100%; padding: 12px;
       background: var(--accent); color: #fff;
       border: none; border-radius: var(--r);
-      font-family: var(--mono); font-size: 13px;
-      letter-spacing: .08em; cursor: pointer;
-      margin-top: 6px; text-transform: uppercase;
+      font-family: var(--mono); font-size: 12px;
+      letter-spacing: .1em; cursor: pointer;
+      margin-top: 4px; text-transform: uppercase;
       transition: opacity .15s;
+      box-shadow: 0 4px 12px rgba(99,102,241,.3);
     }
+    .modal-submit:hover  { opacity: .9; }
     .modal-submit:active { opacity: .8; }
 
-    /* ─── Settings overlay ──────────────────────────────────────── */
+    /* ── Settings overlay ────────────────────────────── */
     .settings-overlay {
       display: none; position: fixed; inset: 0;
-      background: var(--bg); z-index: 300; overflow-y: auto;
-      padding: 0 0 32px;
+      z-index: 300; background: rgba(0,0,0,.5); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
     }
-    .settings-overlay.show { display: block; }
+    .settings-overlay.show { display: flex; }
 
+    .settings-panel {
+      width: 480px; max-height: 85vh;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; overflow-y: auto;
+    }
     .settings-header {
       position: sticky; top: 0;
       display: flex; align-items: center; gap: 12px;
       background: var(--bg2); border-bottom: 1px solid var(--border);
-      padding: 14px 16px; z-index: 1;
+      padding: 16px 20px; z-index: 1;
     }
-    .settings-back {
-      width: 32px; height: 32px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--accent); cursor: pointer; font-size: 18px;
-    }
-    .settings-title { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--text2); }
-
-    .settings-body { padding: 16px; }
-    .settings-section { margin-bottom: 24px; }
-    .settings-section-head {
-      font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
-      color: var(--text3); margin-bottom: 10px; padding-left: 2px;
-    }
+    .settings-title { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--text2); flex: 1; }
+    .settings-body { padding: 16px 20px 24px; }
+    .settings-section { margin-bottom: 20px; }
+    .settings-section-head { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; padding-left: 2px; }
     .settings-row {
       display: flex; align-items: center; justify-content: space-between;
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: var(--r); padding: 12px 14px; margin-bottom: 6px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 11px 14px; margin-bottom: 5px;
       cursor: pointer; transition: border-color .15s;
     }
     .settings-row:hover { border-color: var(--text3); }
@@ -390,337 +456,428 @@
     .settings-row-icon { color: var(--accent); }
     .settings-row-name { font-size: 12px; color: var(--text); }
     .settings-row-hint { font-size: 10px; color: var(--text3); margin-top: 2px; }
-    .settings-row-arrow { color: var(--text3); font-size: 14px; }
+    .settings-row-arrow { color: var(--text3); }
 
-    /* ─── Prototype label ───────────────────────────────────────── */
+    /* Proto badge */
     .proto-badge {
-      position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+      position: fixed; top: 10px; right: 10px;
       background: var(--amber); color: #000;
       font-size: 8px; letter-spacing: .12em; text-transform: uppercase;
-      padding: 2px 8px; border-radius: 99px; z-index: 999;
+      padding: 3px 10px; border-radius: 99px; z-index: 999;
       font-weight: 700; pointer-events: none;
     }
 
-    /* ─── Report sub-pane ───────────────────────────────────────── */
-    .report-pane { display: none; }
-    .report-pane.active { display: block; }
+    /* ════════════════════════════════════════════════════
+       MOBILE  (< 768px)
+    ════════════════════════════════════════════════════ */
+    @media (max-width: 767px) {
+      .sidebar      { display: none; }
+      .main         { margin-left: 0; }
+      .main-header  { display: none; }
 
+      /* Mobile header */
+      .mobile-header {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: var(--hdr-h);
+        background: var(--bg2); border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; padding: 0 14px; gap: 10px;
+        z-index: 90;
+      }
+      .mobile-logo { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); flex: 1; }
+      .mobile-month {
+        font-size: 11px; color: var(--text2); letter-spacing: .06em;
+        background: var(--bg3); border: 1px solid var(--border);
+        border-radius: var(--r); padding: 4px 10px; cursor: pointer;
+      }
+      .mobile-gear {
+        width: 32px; height: 32px; border-radius: var(--r);
+        background: var(--bg3); border: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; color: var(--text3);
+      }
+
+      .main-body {
+        padding: 12px 12px calc(var(--nav-h) + 16px);
+        margin-top: var(--hdr-h);
+      }
+
+      /* Mobile KPI strip */
+      .kpi-strip { gap: 6px; margin-bottom: 12px; }
+      .kpi-val   { font-size: 14px; }
+
+      /* Hide sidebar KPIs on mobile (shown in panel instead) */
+      .report-kpi-row { grid-template-columns: 1fr 1fr; }
+      .report-grid    { grid-template-columns: 1fr; }
+
+      /* Bottom nav */
+      .bottom-nav {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        height: var(--nav-h);
+        background: var(--bg2); border-top: 1px solid var(--border);
+        display: flex; align-items: center;
+        padding: 0 6px 0 0; z-index: 100;
+      }
+      .nav-tab {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 4px; height: 100%; cursor: pointer;
+        color: var(--text3); transition: color .15s;
+        position: relative; user-select: none;
+      }
+      .nav-tab:active { opacity: .7; }
+      .nav-tab.active { color: var(--accent); }
+      .nav-tab-dot {
+        position: absolute; top: 8px;
+        width: 4px; height: 4px; border-radius: 50%;
+        background: var(--accent); opacity: 0; transition: opacity .15s;
+      }
+      .nav-tab.active .nav-tab-dot { opacity: 1; }
+      .nav-tab svg { width: 22px; height: 22px; }
+      .nav-tab-label { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; line-height: 1; }
+      .nav-add {
+        width: 50px; height: 50px; border-radius: 50%;
+        background: var(--accent); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; margin: 0 8px 0 4px; flex-shrink: 0;
+        box-shadow: 0 4px 16px rgba(99,102,241,.5);
+        font-size: 26px; font-weight: 300; line-height: 1;
+        transition: transform .15s; user-select: none;
+      }
+      .nav-add:active { transform: scale(.93); }
+
+      /* Mobile quick-add is a bottom sheet */
+      .quick-add-modal {
+        top: auto; left: 0; right: 0; bottom: 0;
+        width: 100%; border-radius: 16px 16px 0 0;
+        transform: translateY(100%);
+        padding: 20px 16px 32px;
+      }
+      .quick-add-modal.show {
+        opacity: 1; transform: translateY(0);
+      }
+      .modal-drag {
+        width: 36px; height: 4px; border-radius: 2px;
+        background: var(--border); margin: 0 auto 16px;
+      }
+
+      /* Settings is full screen on mobile */
+      .settings-overlay.show { display: block; background: var(--bg); }
+      .settings-panel { width: 100%; max-height: 100vh; border-radius: 0; border: none; }
+
+      /* Split → single column on mobile */
+      .split-view { grid-template-columns: 1fr; }
+
+      /* Proto badge */
+      .proto-badge { top: 8px; right: 8px; }
+    }
+
+    /* Desktop: hide mobile-only elements */
+    @media (min-width: 768px) {
+      .mobile-header { display: none; }
+      .bottom-nav    { display: none; }
+      .modal-drag    { display: none; }
+      .kpi-strip     { display: none; } /* KPIs live in sidebar on desktop */
+    }
   </style>
 </head>
 <body>
 
 <div class="proto-badge">Prototype</div>
 
-<!-- ── Header ───────────────────────────────────────────────────── -->
-<header class="app-header">
-  <div class="hdr-logo">Budget Command</div>
-  <div class="hdr-month" onclick="alert('Month picker — coming in real app')">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-    May 2026
-  </div>
-  <div class="hdr-gear" onclick="openSettings()" title="Setup & Settings">
+<!-- ══════════════════════════════════════════════════════
+     LAYOUT WRAPPER
+══════════════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- ── Sidebar (desktop only) ──────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-name">Budget Command</div>
+      <div class="sidebar-logo-sub">May 2026</div>
+    </div>
+
+    <div class="sidebar-month" onclick="">
+      <span class="sidebar-month-label">← Apr &nbsp; May 2026 &nbsp; Jun →</span>
+    </div>
+
+    <div class="sidebar-kpis">
+      <div class="sidebar-kpi">
+        <div class="sidebar-kpi-label">Income</div>
+        <div class="sidebar-kpi-val" style="color:var(--green)">$4,900</div>
+      </div>
+      <div class="sidebar-kpi">
+        <div class="sidebar-kpi-label">Ready</div>
+        <div class="sidebar-kpi-val" style="color:var(--green)">$1,053</div>
+      </div>
+      <div class="sidebar-kpi">
+        <div class="sidebar-kpi-label">Spent</div>
+        <div class="sidebar-kpi-val" style="color:var(--amber)">$2,847</div>
+      </div>
+      <div class="sidebar-kpi">
+        <div class="sidebar-kpi-label">Allocated</div>
+        <div class="sidebar-kpi-val" style="color:var(--accent)">$3,200</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-nav-item active" id="snav-budget" onclick="showPanel('budget')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        Buckets + Ledger
+      </div>
+      <div class="sidebar-nav-item" id="snav-reports" onclick="showPanel('reports')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        Reports
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-nav-item" id="snav-forecast" onclick="showPanel('forecast')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Forecast
+      </div>
+      <div class="sidebar-nav-item" id="snav-coach" onclick="showPanel('coach')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Coach AI
+      </div>
+    </nav>
+
+    <div class="sidebar-add" onclick="openQuickAdd()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Transaction
+    </div>
+
+    <div class="sidebar-settings" onclick="openSettings()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+      </svg>
+      Setup & Settings
+    </div>
+  </aside>
+
+  <!-- ── Main area ────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Desktop main header -->
+    <div class="main-header">
+      <span class="main-header-title" id="main-title">Buckets + Ledger</span>
+      <div style="font-size:9px;letter-spacing:.08em;color:var(--text3);text-transform:uppercase;">May 2026</div>
+    </div>
+
+    <div class="main-body">
+
+      <!-- Mobile KPI strip (hidden on desktop) -->
+      <div class="kpi-strip">
+        <div class="kpi-card"><div class="kpi-label">Income</div><div class="kpi-val" style="color:var(--green)">$4,900</div></div>
+        <div class="kpi-card"><div class="kpi-label">Spent</div><div class="kpi-val" style="color:var(--amber)">$2,847</div></div>
+        <div class="kpi-card"><div class="kpi-label">Ready</div><div class="kpi-val" style="color:var(--green)">$1,053</div></div>
+      </div>
+
+      <!-- ── BUDGET: Buckets + Ledger split ─────────── -->
+      <div id="panel-budget" class="panel-split active split-view">
+
+        <!-- Buckets column -->
+        <div>
+          <div class="split-col-head">Buckets</div>
+
+          <div class="section-head">Essential</div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Rent</span><span style="font-size:12px;color:var(--green)">$1,200 / $1,200</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--green)"></div></div>
+          </div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Groceries</span><span style="font-size:12px;color:var(--text2)">$340 / $500</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:68%;background:var(--accent)"></div></div>
+          </div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Utilities</span><span style="font-size:12px;color:var(--text2)">$78 / $120</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:65%;background:var(--accent)"></div></div>
+          </div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Transport</span><span style="font-size:12px;color:var(--text2)">$89 / $150</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:59%;background:var(--accent)"></div></div>
+          </div>
+
+          <div class="section-head">Lifestyle</div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Dining Out</span><span style="font-size:12px;color:var(--red)">$234 / $200 ▲</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--red)"></div></div>
+          </div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Entertainment</span><span style="font-size:12px;color:var(--red)">$156 / $100 ▲</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--red)"></div></div>
+          </div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Subscriptions</span><span style="font-size:12px;color:var(--text2)">$47 / $80</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:59%;background:var(--accent)"></div></div>
+          </div>
+
+          <div class="section-head">Savings</div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Emergency Fund</span><span style="font-size:12px;color:var(--green)">$500 / $500</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--green)"></div></div>
+          </div>
+          <div class="bucket-row">
+            <div class="bucket-top"><span class="bucket-name">Vacation</span><span style="font-size:12px;color:var(--text2)">$200 / $400</span></div>
+            <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:50%;background:var(--accent)"></div></div>
+          </div>
+        </div>
+
+        <!-- Ledger column -->
+        <div>
+          <div class="split-col-head">Ledger</div>
+          <input class="ledger-search" type="text" placeholder="Search transactions…">
+
+          <div class="date-head">Today — May 28</div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--accent)"></div><div class="tx-info"><div class="tx-desc">Trader Joe's</div><div class="tx-badge">Groceries</div></div><span class="tx-amt out">−$47.32</span></div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--blue)"></div><div class="tx-info"><div class="tx-desc">Netflix</div><div class="tx-badge">Subscriptions</div></div><span class="tx-amt out">−$15.99</span></div>
+
+          <div class="date-head">Yesterday — May 27</div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--amber)"></div><div class="tx-info"><div class="tx-desc">Shell Gas</div><div class="tx-badge">Transport</div></div><span class="tx-amt out">−$62.40</span></div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--red)"></div><div class="tx-info"><div class="tx-desc">Chipotle</div><div class="tx-badge">Dining Out</div></div><span class="tx-amt out">−$14.50</span></div>
+
+          <div class="date-head">Sunday, May 25</div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--green)"></div><div class="tx-info"><div class="tx-desc">Paycheck — Main Job</div><div class="tx-badge">Income</div></div><span class="tx-amt inc">+$2,450.00</span></div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--accent)"></div><div class="tx-info"><div class="tx-desc">Amazon</div><div class="tx-badge">Entertainment</div></div><span class="tx-amt out">−$89.99</span></div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--accent)"></div><div class="tx-info"><div class="tx-desc">Whole Foods</div><div class="tx-badge">Groceries</div></div><span class="tx-amt out">−$73.15</span></div>
+
+          <div class="date-head">Saturday, May 24</div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--red)"></div><div class="tx-info"><div class="tx-desc">Nobu Restaurant</div><div class="tx-badge">Dining Out</div></div><span class="tx-amt out">−$148.00</span></div>
+          <div class="tx-row"><div class="tx-dot" style="background:var(--green)"></div><div class="tx-info"><div class="tx-desc">Paycheck — Side Gig</div><div class="tx-badge">Income</div></div><span class="tx-amt inc">+$450.00</span></div>
+        </div>
+
+      </div><!-- /panel-budget -->
+
+      <!-- ── REPORTS panel ──────────────────────────── -->
+      <div id="panel-reports" class="panel">
+        <div class="report-tabs">
+          <div class="report-tab active" onclick="showReportTab('summary',this)">Summary</div>
+          <div class="report-tab" onclick="showReportTab('budget',this)">vs Budget</div>
+          <div class="report-tab" onclick="showReportTab('networth',this)">Net Worth</div>
+        </div>
+
+        <div class="report-pane active" id="rpane-summary">
+          <div class="report-kpi-row">
+            <div class="report-kpi"><div class="report-kpi-label">Income</div><div class="report-kpi-val" style="color:var(--green)">$4,900</div></div>
+            <div class="report-kpi"><div class="report-kpi-label">Allocated</div><div class="report-kpi-val" style="color:var(--accent)">$3,200</div></div>
+            <div class="report-kpi"><div class="report-kpi-label">Spent</div><div class="report-kpi-val" style="color:var(--amber)">$2,847</div></div>
+            <div class="report-kpi"><div class="report-kpi-label">Ready to Spend</div><div class="report-kpi-val" style="color:var(--green)">$1,053</div></div>
+          </div>
+          <div class="report-grid">
+            <div class="report-card">
+              <div class="report-card-title">Spending by Category</div>
+              <div class="fake-bars">
+                <div class="fake-bar" style="height:100%;background:var(--accent)"></div>
+                <div class="fake-bar" style="height:70%;background:var(--blue)"></div>
+                <div class="fake-bar" style="height:85%;background:var(--green)"></div>
+                <div class="fake-bar" style="height:55%;background:var(--amber)"></div>
+                <div class="fake-bar" style="height:40%;background:var(--red)"></div>
+                <div class="fake-bar" style="height:28%;background:var(--text3)"></div>
+              </div>
+              <div class="fake-bar-labels">
+                <div class="fake-bar-label">Rent</div><div class="fake-bar-label">Food</div>
+                <div class="fake-bar-label">Save</div><div class="fake-bar-label">Trans</div>
+                <div class="fake-bar-label">Fun</div><div class="fake-bar-label">Other</div>
+              </div>
+            </div>
+            <div class="report-card">
+              <div class="report-card-title">Top Spending</div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--accent)"></div><div class="spend-name">Rent</div><span class="spend-pct">42%</span><span class="spend-amt">$1,200</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--blue)"></div><div class="spend-name">Groceries</div><span class="spend-pct">14%</span><span class="spend-amt">$413</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Savings</div><span class="spend-pct">12%</span><span class="spend-amt">$340</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Dining Out</div><span class="spend-pct">8%</span><span class="spend-amt">$234</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--amber)"></div><div class="spend-name">Transport</div><span class="spend-pct">6%</span><span class="spend-amt">$152</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-pane" id="rpane-budget">
+          <div class="report-grid">
+            <div class="report-card">
+              <div class="report-card-title">Over Budget</div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Dining Out</div><span class="spend-pct" style="color:var(--red)">+17%</span><span class="spend-amt">$234</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Entertainment</div><span class="spend-pct" style="color:var(--red)">+56%</span><span class="spend-amt">$156</span></div>
+            </div>
+            <div class="report-card">
+              <div class="report-card-title">On Track</div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Rent</div><span class="spend-pct" style="color:var(--green)">100%</span><span class="spend-amt">$1,200</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--accent)"></div><div class="spend-name">Groceries</div><span class="spend-pct">68%</span><span class="spend-amt">$340</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Emergency Fund</div><span class="spend-pct" style="color:var(--green)">100%</span><span class="spend-amt">$500</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-pane" id="rpane-networth">
+          <div class="report-kpi-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+            <div class="report-kpi"><div class="report-kpi-label">Assets</div><div class="report-kpi-val" style="color:var(--green)">$24,400</div></div>
+            <div class="report-kpi"><div class="report-kpi-label">Debts</div><div class="report-kpi-val" style="color:var(--red)">$8,200</div></div>
+            <div class="report-kpi"><div class="report-kpi-label">Net Worth</div><div class="report-kpi-val" style="color:var(--accent)">$16,200</div></div>
+            <div class="report-kpi"><div class="report-kpi-label">vs Last Month</div><div class="report-kpi-val" style="color:var(--green)">+$842</div></div>
+          </div>
+          <div class="report-grid">
+            <div class="report-card">
+              <div class="report-card-title">Assets</div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Chase Checking</div><span class="spend-amt" style="color:var(--green)">$4,200</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">HYSA</div><span class="spend-amt" style="color:var(--green)">$12,000</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Brokerage</div><span class="spend-amt" style="color:var(--green)">$8,200</span></div>
+            </div>
+            <div class="report-card">
+              <div class="report-card-title">Debts</div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Chase Visa</div><span class="spend-amt" style="color:var(--red)">−$3,400</span></div>
+              <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Student Loan</div><span class="spend-amt" style="color:var(--red)">−$4,800</span></div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /panel-reports -->
+
+      <!-- ── FORECAST panel ─────────────────────────── -->
+      <div id="panel-forecast" class="panel">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:40px;text-align:center;color:var(--text3);font-size:11px;letter-spacing:.06em">
+          Forecast & What If live here
+        </div>
+      </div>
+
+      <!-- ── COACH panel ────────────────────────────── -->
+      <div id="panel-coach" class="panel">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:12px">
+          <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Coach AI — May 2026</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.7">
+            You're 17% over on Dining Out and 56% over on Entertainment this month.
+            At current pace you'll finish $127 in the red across those two categories.
+            Consider moving $60 from Subscriptions to cover the gap.
+          </div>
+        </div>
+        <input class="modal-input" type="text" placeholder="Ask your coach something…" style="margin-bottom:8px">
+        <button class="modal-submit">Send</button>
+      </div>
+
+    </div><!-- /main-body -->
+  </main>
+
+</div><!-- /layout -->
+
+<!-- ── Mobile header ──────────────────────────────────── -->
+<header class="mobile-header">
+  <div class="mobile-logo">Budget Command</div>
+  <div class="mobile-month">May 2026</div>
+  <div class="mobile-gear" onclick="openSettings()">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
       <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
     </svg>
   </div>
 </header>
 
-<!-- ── BUCKETS panel ─────────────────────────────────────────────── -->
-<div id="panel-buckets" class="panel active">
-
-  <div class="month-kpi-row">
-    <div class="kpi-card">
-      <div class="kpi-label">Income</div>
-      <div class="kpi-val pos">$4,900</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Allocated</div>
-      <div class="kpi-val acc">$3,200</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Ready</div>
-      <div class="kpi-val pos">$1,053</div>
-    </div>
-  </div>
-
-  <div class="section-head">Essential</div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Rent</span>
-      <span class="bucket-amt" style="color:var(--green)">$1,200 / $1,200</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--green)"></div></div>
-  </div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Groceries</span>
-      <span class="bucket-amt" style="color:var(--text2)">$340 / $500</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:68%;background:var(--accent)"></div></div>
-  </div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Utilities</span>
-      <span class="bucket-amt" style="color:var(--text2)">$78 / $120</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:65%;background:var(--accent)"></div></div>
-  </div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Transport</span>
-      <span class="bucket-amt" style="color:var(--text2)">$89 / $150</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:59%;background:var(--accent)"></div></div>
-  </div>
-
-  <div class="section-head">Lifestyle</div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Dining Out</span>
-      <span class="bucket-amt" style="color:var(--red)">$234 / $200 ▲</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--red)"></div></div>
-  </div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Entertainment</span>
-      <span class="bucket-amt" style="color:var(--red)">$156 / $100 ▲</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--red)"></div></div>
-  </div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Subscriptions</span>
-      <span class="bucket-amt" style="color:var(--text2)">$47 / $80</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:59%;background:var(--accent)"></div></div>
-  </div>
-
-  <div class="section-head">Savings</div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Emergency Fund</span>
-      <span class="bucket-amt" style="color:var(--green)">$500 / $500</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:100%;background:var(--green)"></div></div>
-  </div>
-
-  <div class="bucket-row">
-    <div class="bucket-top">
-      <span class="bucket-name">Vacation</span>
-      <span class="bucket-amt" style="color:var(--text2)">$200 / $400</span>
-    </div>
-    <div class="bucket-bar-bg"><div class="bucket-bar-fill" style="width:50%;background:var(--accent)"></div></div>
-  </div>
-
-</div>
-
-<!-- ── LEDGER panel ──────────────────────────────────────────────── -->
-<div id="panel-ledger" class="panel">
-
-  <input class="ledger-search" type="text" placeholder="Search transactions…">
-
-  <div class="date-head">Today — May 28</div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--accent)"></div>
-    <div>
-      <div class="tx-desc">Trader Joe's</div>
-      <div class="tx-bucket-badge">Groceries</div>
-    </div>
-    <span class="tx-amt out">−$47.32</span>
-  </div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--blue)"></div>
-    <div>
-      <div class="tx-desc">Netflix</div>
-      <div class="tx-bucket-badge">Subscriptions</div>
-    </div>
-    <span class="tx-amt out">−$15.99</span>
-  </div>
-
-  <div class="date-head">Yesterday — May 27</div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--amber)"></div>
-    <div>
-      <div class="tx-desc">Shell Gas</div>
-      <div class="tx-bucket-badge">Transport</div>
-    </div>
-    <span class="tx-amt out">−$62.40</span>
-  </div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--red)"></div>
-    <div>
-      <div class="tx-desc">Chipotle</div>
-      <div class="tx-bucket-badge">Dining Out</div>
-    </div>
-    <span class="tx-amt out">−$14.50</span>
-  </div>
-
-  <div class="date-head">Sunday, May 25</div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--green)"></div>
-    <div>
-      <div class="tx-desc">Paycheck — Main Job</div>
-      <div class="tx-bucket-badge">Income</div>
-    </div>
-    <span class="tx-amt inc">+$2,450.00</span>
-  </div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--accent)"></div>
-    <div>
-      <div class="tx-desc">Amazon</div>
-      <div class="tx-bucket-badge">Entertainment</div>
-    </div>
-    <span class="tx-amt out">−$89.99</span>
-  </div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--accent)"></div>
-    <div>
-      <div class="tx-desc">Whole Foods</div>
-      <div class="tx-bucket-badge">Groceries</div>
-    </div>
-    <span class="tx-amt out">−$73.15</span>
-  </div>
-
-  <div class="date-head">Saturday, May 24</div>
-
-  <div class="tx-row">
-    <div class="tx-dot" style="background:var(--red)"></div>
-    <div>
-      <div class="tx-desc">Nobu Restaurant</div>
-      <div class="tx-bucket-badge">Dining Out</div>
-    </div>
-    <span class="tx-amt out">−$148.00</span>
-  </div>
-
-</div>
-
-<!-- ── REPORTS panel ─────────────────────────────────────────────── -->
-<div id="panel-reports" class="panel">
-
-  <div class="report-tabs">
-    <div class="report-tab active" onclick="showReportTab('summary',this)">Summary</div>
-    <div class="report-tab" onclick="showReportTab('budget',this)">vs Budget</div>
-    <div class="report-tab" onclick="showReportTab('networth',this)">Net Worth</div>
-    <div class="report-tab" onclick="showReportTab('forecast',this)">Forecast</div>
-    <div class="report-tab" onclick="showReportTab('coach',this)">Coach AI</div>
-  </div>
-
-  <!-- Summary pane -->
-  <div class="report-pane active" id="rpane-summary">
-    <div class="report-kpi-row">
-      <div class="report-kpi">
-        <div class="report-kpi-label">Income</div>
-        <div class="report-kpi-val" style="color:var(--green)">$4,900</div>
-      </div>
-      <div class="report-kpi">
-        <div class="report-kpi-label">Allocated</div>
-        <div class="report-kpi-val" style="color:var(--accent)">$3,200</div>
-      </div>
-      <div class="report-kpi">
-        <div class="report-kpi-label">Spent</div>
-        <div class="report-kpi-val" style="color:var(--amber)">$2,847</div>
-      </div>
-      <div class="report-kpi">
-        <div class="report-kpi-label">Ready</div>
-        <div class="report-kpi-val" style="color:var(--green)">$1,053</div>
-      </div>
-    </div>
-
-    <div class="report-chart-placeholder">
-      <div class="chart-title">Spending by Category</div>
-      <div class="fake-bars">
-        <div class="fake-bar" style="height:100%;background:var(--accent)"></div>
-        <div class="fake-bar" style="height:70%;background:var(--blue)"></div>
-        <div class="fake-bar" style="height:85%;background:var(--green)"></div>
-        <div class="fake-bar" style="height:55%;background:var(--amber)"></div>
-        <div class="fake-bar" style="height:40%;background:var(--red)"></div>
-        <div class="fake-bar" style="height:30%;background:var(--text3)"></div>
-      </div>
-      <div class="fake-bar-labels">
-        <div class="fake-bar-label">Rent</div>
-        <div class="fake-bar-label">Food</div>
-        <div class="fake-bar-label">Save</div>
-        <div class="fake-bar-label">Trans</div>
-        <div class="fake-bar-label">Fun</div>
-        <div class="fake-bar-label">Other</div>
-      </div>
-    </div>
-
-    <div class="section-head">Top Spending</div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--accent)"></div><div class="spend-name">Rent</div><span class="spend-pct">42%</span><span class="spend-amt">$1,200</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--blue)"></div><div class="spend-name">Groceries</div><span class="spend-pct">14%</span><span class="spend-amt">$413</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Savings</div><span class="spend-pct">12%</span><span class="spend-amt">$340</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Dining Out</div><span class="spend-pct">8%</span><span class="spend-amt">$234</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--amber)"></div><div class="spend-name">Transport</div><span class="spend-pct">6%</span><span class="spend-amt">$152</span></div>
-  </div>
-
-  <!-- Budget pane -->
-  <div class="report-pane" id="rpane-budget">
-    <div class="section-head">Actual vs Budget — May 2026</div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Rent</div><span class="spend-pct" style="color:var(--green)">on budget</span><span class="spend-amt">$1,200</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--accent)"></div><div class="spend-name">Groceries</div><span class="spend-pct">68%</span><span class="spend-amt">$340</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Dining Out</div><span class="spend-pct" style="color:var(--red)">+17% over</span><span class="spend-amt">$234</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Entertainment</div><span class="spend-pct" style="color:var(--red)">+56% over</span><span class="spend-amt">$156</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Emergency Fund</div><span class="spend-pct" style="color:var(--green)">on budget</span><span class="spend-amt">$500</span></div>
-  </div>
-
-  <!-- Net Worth pane -->
-  <div class="report-pane" id="rpane-networth">
-    <div class="report-kpi-row" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="report-kpi"><div class="report-kpi-label">Assets</div><div class="report-kpi-val" style="color:var(--green);font-size:15px">$24,400</div></div>
-      <div class="report-kpi"><div class="report-kpi-label">Debts</div><div class="report-kpi-val" style="color:var(--red);font-size:15px">$8,200</div></div>
-      <div class="report-kpi"><div class="report-kpi-label">Net Worth</div><div class="report-kpi-val" style="color:var(--accent);font-size:15px">$16,200</div></div>
-    </div>
-    <div class="section-head">Accounts</div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">Chase Checking</div><span class="spend-amt" style="color:var(--green)">$4,200</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--green)"></div><div class="spend-name">HYSA</div><span class="spend-amt" style="color:var(--green)">$12,000</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Visa — Chase</div><span class="spend-amt" style="color:var(--red)">−$3,400</span></div>
-    <div class="spend-row"><div class="spend-color" style="background:var(--red)"></div><div class="spend-name">Student Loan</div><span class="spend-amt" style="color:var(--red)">−$4,800</span></div>
-  </div>
-
-  <!-- Forecast pane -->
-  <div class="report-pane" id="rpane-forecast">
-    <div class="section-head">6-Month Forecast</div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center;color:var(--text3);font-size:11px;letter-spacing:.06em">
-      Forecast data loads here — bills, paychecks, projected balances
-    </div>
-  </div>
-
-  <!-- Coach AI pane -->
-  <div class="report-pane" id="rpane-coach">
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px">
-      <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Coach AI</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6">
-        You're 17% over budget on Dining Out this month and 56% over on Entertainment.
-        If the trend continues you'll finish $127 in the hole across those two categories.
-      </div>
-    </div>
-    <input class="modal-input" type="text" placeholder="Ask your coach something…">
-    <button class="modal-submit" style="margin-top:0">Send</button>
-  </div>
-
-</div>
-
-<!-- ── Bottom Nav ────────────────────────────────────────────────── -->
+<!-- ── Mobile bottom nav ───────────────────────────────── -->
 <nav class="bottom-nav">
-
-  <div class="nav-tab active" id="ntab-buckets" onclick="showPanel('buckets')">
+  <div class="nav-tab active" id="ntab-budget" onclick="showPanel('budget')">
     <div class="nav-tab-dot"></div>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
@@ -728,8 +885,7 @@
     </svg>
     <div class="nav-tab-label">Buckets</div>
   </div>
-
-  <div class="nav-tab" id="ntab-ledger" onclick="showPanel('ledger')">
+  <div class="nav-tab" id="ntab-ledger" onclick="showMobilePanel('ledger')">
     <div class="nav-tab-dot"></div>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
       <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
@@ -739,121 +895,119 @@
     </svg>
     <div class="nav-tab-label">Ledger</div>
   </div>
-
   <div class="nav-tab" id="ntab-reports" onclick="showPanel('reports')">
     <div class="nav-tab-dot"></div>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
-      <line x1="6"  y1="20" x2="6"  y2="14"/>
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
     <div class="nav-tab-label">Reports</div>
   </div>
-
-  <div class="nav-add" onclick="openQuickAdd()" title="Quick add transaction">+</div>
-
+  <div class="nav-add" onclick="openQuickAdd()">+</div>
 </nav>
 
-<!-- ── Quick Add modal ───────────────────────────────────────────── -->
+<!-- ── Quick Add modal ────────────────────────────────── -->
 <div class="modal-backdrop" id="qa-backdrop" onclick="closeQuickAdd()"></div>
 <div class="quick-add-modal" id="qa-modal">
   <div class="modal-drag"></div>
-  <div class="modal-title">Quick Add</div>
+  <div class="modal-title">
+    Quick Add Transaction
+    <span class="modal-close" onclick="closeQuickAdd()">×</span>
+  </div>
   <div class="modal-type-row">
-    <div class="type-btn active" onclick="setType(this,'out')">Expense</div>
-    <div class="type-btn" onclick="setType(this,'in')">Income</div>
-    <div class="type-btn" onclick="setType(this,'xfr')">Transfer</div>
+    <div class="type-btn active" onclick="setType(this)">Expense</div>
+    <div class="type-btn" onclick="setType(this)">Income</div>
+    <div class="type-btn" onclick="setType(this)">Transfer</div>
   </div>
   <input class="modal-input big" type="text" inputmode="decimal" placeholder="$0.00">
   <input class="modal-input" type="text" placeholder="Description (optional)">
   <div class="modal-row">
     <select class="modal-input" style="margin-bottom:0">
-      <option>Groceries</option>
-      <option>Rent</option>
-      <option>Dining Out</option>
-      <option>Transport</option>
-      <option>Entertainment</option>
-      <option>Subscriptions</option>
+      <option>Groceries</option><option>Rent</option><option>Dining Out</option>
+      <option>Transport</option><option>Entertainment</option><option>Subscriptions</option>
     </select>
     <input class="modal-input" type="date" style="margin-bottom:0;width:140px;flex-shrink:0">
   </div>
   <button class="modal-submit" onclick="closeQuickAdd()">Add Transaction</button>
 </div>
 
-<!-- ── Settings overlay ──────────────────────────────────────────── -->
-<div class="settings-overlay" id="settings-overlay">
-  <div class="settings-header">
-    <div class="settings-back" onclick="closeSettings()">←</div>
-    <div class="settings-title">Setup & Settings</div>
-  </div>
-  <div class="settings-body">
-
-    <div class="settings-section">
-      <div class="settings-section-head">Accounts</div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <span class="settings-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
-          <div><div class="settings-row-name">Cash Accounts</div><div class="settings-row-hint">3 accounts</div></div>
-        </div>
-        <span class="settings-row-arrow">›</span>
+<!-- ── Settings overlay ───────────────────────────────── -->
+<div class="settings-overlay" id="settings-overlay" onclick="maybeCloseSettings(event)">
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-header">
+      <div class="settings-title">Setup & Settings</div>
+      <span class="modal-close" onclick="closeSettings()">×</span>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <div class="settings-section-head">Accounts</div>
+        <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span><div><div class="settings-row-name">Cash Accounts</div><div class="settings-row-hint">3 accounts</div></div></div><span class="settings-row-arrow">›</span></div>
+        <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><div><div class="settings-row-name">Debt Accounts</div><div class="settings-row-hint">2 accounts — 1 promo active</div></div></div><span class="settings-row-arrow">›</span></div>
       </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <span class="settings-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
-          <div><div class="settings-row-name">Debt Accounts</div><div class="settings-row-hint">2 accounts — 1 promo</div></div>
-        </div>
-        <span class="settings-row-arrow">›</span>
+      <div class="settings-section">
+        <div class="settings-section-head">Income</div>
+        <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><div><div class="settings-row-name">Paychecks</div><div class="settings-row-hint">2 configured</div></div></div><span class="settings-row-arrow">›</span></div>
+        <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span><div><div class="settings-row-name">Allocation Rules</div><div class="settings-row-hint">4 rules active</div></div></div><span class="settings-row-arrow">›</span></div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-head">Organisation</div>
+        <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span><div><div class="settings-row-name">Categories</div><div class="settings-row-hint">3 active</div></div></div><span class="settings-row-arrow">›</span></div>
+        <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><div><div class="settings-row-name">Payees</div><div class="settings-row-hint">12 payees</div></div></div><span class="settings-row-arrow">›</span></div>
       </div>
     </div>
-
-    <div class="settings-section">
-      <div class="settings-section-head">Income</div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <span class="settings-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-          <div><div class="settings-row-name">Paychecks</div><div class="settings-row-hint">2 paychecks configured</div></div>
-        </div>
-        <span class="settings-row-arrow">›</span>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <span class="settings-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-          <div><div class="settings-row-name">Allocation Rules</div><div class="settings-row-hint">4 rules active</div></div>
-        </div>
-        <span class="settings-row-arrow">›</span>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <div class="settings-section-head">Organisation</div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <span class="settings-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
-          <div><div class="settings-row-name">Categories</div><div class="settings-row-hint">3 active categories</div></div>
-        </div>
-        <span class="settings-row-arrow">›</span>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row-left">
-          <span class="settings-row-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-          <div><div class="settings-row-name">Payees</div><div class="settings-row-hint">12 payees</div></div>
-        </div>
-        <span class="settings-row-arrow">›</span>
-      </div>
-    </div>
-
   </div>
 </div>
 
 <script>
-  /* ── Panel switching ─────────────────────────────────────────── */
+  const titles = { budget:'Buckets + Ledger', reports:'Reports', forecast:'Forecast', coach:'Coach AI' };
+
   function showPanel(name) {
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    // Panels
+    document.querySelectorAll('.panel, .panel-split').forEach(p => p.classList.remove('active'));
+    const el = document.getElementById('panel-' + name);
+    if (el) el.classList.add('active');
+
+    // Sidebar nav
+    document.querySelectorAll('.sidebar-nav-item').forEach(i => i.classList.remove('active'));
+    const sn = document.getElementById('snav-' + name);
+    if (sn) sn.classList.add('active');
+
+    // Mobile nav tabs
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('panel-' + name)?.classList.add('active');
-    document.getElementById('ntab-' + name)?.classList.add('active');
+    const nt = document.getElementById('ntab-' + name);
+    if (nt) nt.classList.add('active');
+
+    // Header title
+    const t = document.getElementById('main-title');
+    if (t) t.textContent = titles[name] || name;
+
+    // Reset mobile split: show buckets column by default
+    _mobileSplit = 'buckets';
+    const splitEl = document.getElementById('panel-budget');
+    if (splitEl && name === 'budget') {
+      splitEl.querySelectorAll('.split-view > div').forEach((col,i) => {
+        col.style.display = '';
+      });
+    }
   }
 
-  /* ── Report sub-tabs ─────────────────────────────────────────── */
+  // On mobile the split shows one column at a time
+  let _mobileSplit = 'buckets';
+  function showMobilePanel(col) {
+    // Switch to budget panel first
+    showPanel('budget');
+    // Hide/show columns on mobile
+    if (window.innerWidth < 768) {
+      const cols = document.querySelectorAll('#panel-budget .split-view > div');
+      if (col === 'ledger') {
+        cols[0].style.display = 'none';
+        cols[1].style.display = '';
+        document.getElementById('ntab-ledger')?.classList.add('active');
+        document.getElementById('ntab-budget')?.classList.remove('active');
+      }
+    }
+    _mobileSplit = col;
+  }
+
   function showReportTab(name, btn) {
     document.querySelectorAll('.report-pane').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.report-tab').forEach(b => b.classList.remove('active'));
@@ -861,40 +1015,41 @@
     if (btn) btn.classList.add('active');
   }
 
-  /* ── Quick Add ───────────────────────────────────────────────── */
   function openQuickAdd() {
     document.getElementById('qa-backdrop').classList.add('show');
     document.getElementById('qa-modal').classList.add('show');
-    // Set today's date
     const d = new Date(), pad = n => String(n).padStart(2,'0');
-    const dateInp = document.querySelector('#qa-modal input[type="date"]');
-    if (dateInp) dateInp.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    setTimeout(() => document.querySelector('#qa-modal .modal-input.big')?.focus(), 250);
+    const di = document.querySelector('#qa-modal input[type="date"]');
+    if (di) di.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    setTimeout(() => document.querySelector('#qa-modal .modal-input.big')?.focus(), 220);
   }
-
   function closeQuickAdd() {
     document.getElementById('qa-backdrop').classList.remove('show');
     document.getElementById('qa-modal').classList.remove('show');
   }
-
-  function setType(btn, type) {
+  function setType(btn) {
     document.querySelectorAll('#qa-modal .type-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
   }
 
-  /* ── Settings ────────────────────────────────────────────────── */
   function openSettings()  { document.getElementById('settings-overlay').classList.add('show'); }
   function closeSettings() { document.getElementById('settings-overlay').classList.remove('show'); }
+  function maybeCloseSettings(e) {
+    if (e.target === document.getElementById('settings-overlay')) closeSettings();
+  }
 
-  /* ── Swipe to close modal ────────────────────────────────────── */
-  let startY = 0;
-  const modal = document.getElementById('qa-modal');
-  modal.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, {passive:true});
-  modal.addEventListener('touchmove', e => {
-    const dy = e.touches[0].clientY - startY;
-    if (dy > 60) closeQuickAdd();
-  }, {passive:true});
+  // Set today's date on load
+  (function() {
+    const d = new Date(), pad = n => String(n).padStart(2,'0');
+    const di = document.querySelector('#qa-modal input[type="date"]');
+    if (di) di.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  })();
+
+  // Mobile swipe down to close modal
+  let _startY = 0;
+  const _modal = document.getElementById('qa-modal');
+  _modal.addEventListener('touchstart', e => { _startY = e.touches[0].clientY; }, {passive:true});
+  _modal.addEventListener('touchmove',  e => { if (e.touches[0].clientY - _startY > 60) closeQuickAdd(); }, {passive:true});
 </script>
-
 </body>
 </html>
