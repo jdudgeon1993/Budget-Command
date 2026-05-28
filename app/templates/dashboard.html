@@ -2127,6 +2127,51 @@
   border-bottom: none;
   padding: 8px 6px;
 }
+
+/* ══════════════════════════════════════════════════
+   PHASE 4: Quick Add modal — desktop polish
+   ══════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  /* Sidebar already has + button — hide the floating FAB */
+  #fab { display: none !important; }
+
+  /* Desktop: center modal in content area (right of sidebar) */
+  #fab-modal {
+    bottom: auto;
+    top: 50%;
+    left: calc(50% + var(--sidebar-w) / 2); /* center of content area */
+    right: auto;
+    width: min(480px, calc(100vw - var(--sidebar-w) - 48px));
+    max-width: 480px;
+    transform: translate(-50%, -54%) scale(.96);
+    opacity: 0;
+    border-radius: 6px;
+    border-top: none;
+    border: 1px solid var(--border2);
+    padding: 22px 24px 26px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.55);
+    /* reset mobile transition */
+    transition: transform .18s ease, opacity .18s ease;
+  }
+  #fab-modal.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  /* Bigger amount input on desktop */
+  #fab-amount {
+    font-size: 22px !important;
+    text-align: center;
+    padding: 10px 12px !important;
+    letter-spacing: .02em;
+  }
+
+  /* Modal title tweaks */
+  .fab-modal-title {
+    font-size: 11px;
+    margin-bottom: 18px;
+  }
+}
 {% endblock %}
 
 {% block extra_head %}
