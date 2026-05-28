@@ -3537,6 +3537,19 @@ function formatMonthLabel(mid) {
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return months[parseInt(parts[2])] + ' ' + parts[1];
 }
+/* Matches server-side _date_label: "Today", "Yesterday", or "Wednesday, May 28" */
+function formatDateLabel(dateStr) {
+  const d   = new Date(dateStr + 'T12:00:00');
+  const now = new Date();
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, now)) return 'Today';
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  if (sameDay(d, yesterday)) return 'Yesterday';
+  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
+}
 
 /* ── Live value refresh — patches every computed cell without a reload ── */
 function refreshValues(state) {
@@ -3578,7 +3591,7 @@ function refreshValues(state) {
       if (cell && cell.textContent !== '—') {
         cell.textContent = fmtMoney(val);
         cell.dataset.rawSpent = val;
-        _updatePaceBar(cell, val);
+        try { _updatePaceBar(cell, val); } catch(e) { console.warn('pace bar error', bid, e); }
       }
     }
   }
@@ -3621,6 +3634,9 @@ function refreshValues(state) {
         badge.textContent = status;
         badge.className = status ? 'badge-' + status.toLowerCase() : '';
       }
+      // Keep the spent cell's data-status in sync so _updatePaceBar sees the current status
+      const spentCell = document.querySelector(`[data-spent-id="${bid}"]`);
+      if (spentCell) spentCell.dataset.status = status;
     }
   }
 
@@ -3894,7 +3910,7 @@ function injectTxRow(tx, activeMid) {
     // Create a new date group header; display the ISO date as-is (matches server format)
     const htr = document.createElement('tr');
     htr.dataset.date = tx.date;
-    htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${tx.date}</td>`;
+    htr.innerHTML = `<td colspan="6" class="tbl-cat-head">${formatDateLabel(tx.date)}</td>`;
     body.prepend(settingsRow);
     body.prepend(tr);
     body.prepend(htr);
@@ -3904,6 +3920,8 @@ function injectTxRow(tx, activeMid) {
   document.getElementById('ledger-empty')?.remove();
   // Wire calc inputs in dynamically created settings row
   wireMathInputs(settingsRow);
+  // Re-apply active filters so the new row is shown/hidden consistently
+  filterLedger();
 }
 
 /* ── Panel nav ── */
@@ -4136,7 +4154,7 @@ function fmtMoney(v) {
 }
 
 /* ── Generic save ── */
-async function saveSetting(field, id, value, month) {
+async function saveSetting(field, id, value, month, opts = {}) {
   try {
     const r = await fetch('/api/save', {
       method: 'POST',
@@ -4148,7 +4166,7 @@ async function saveSetting(field, id, value, month) {
       return { ok: false };
     }
     const result = await r.json();
-    if (result.ok) showToast('Saved', 'success');
+    if (result.ok && !opts.silent) showToast('Saved', 'success');
     return result;
   } catch(e) {
     console.error('saveSetting failed', e);
@@ -4293,21 +4311,24 @@ function moveBucketToCategory(select, bucketId) {
 async function switchBucketType(select, id) {
   const type = select.value;
   const settingsRow = document.getElementById('settings-' + id);
-  const expenseGroup = settingsRow.querySelector('.sf-expense');
-  const savingsGroup = settingsRow.querySelector('.sf-savings');
-  const vaultGroup   = settingsRow.querySelector('.sf-vault');
-  expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
-  savingsGroup.style.display = (type === 'savings') ? '' : 'none';
-  vaultGroup.style.display   = type === 'vault' ? '' : 'none';
+  const expenseGroup = settingsRow?.querySelector('.sf-expense');
+  const savingsGroup = settingsRow?.querySelector('.sf-savings');
+  const vaultGroup   = settingsRow?.querySelector('.sf-vault');
+  if (expenseGroup) expenseGroup.style.display = (type === 'expense' || type === 'regular') ? '' : 'none';
+  if (savingsGroup) savingsGroup.style.display = (type === 'savings') ? '' : 'none';
+  if (vaultGroup)   vaultGroup.style.display   = type === 'vault' ? '' : 'none';
 
-  const result = await saveSetting('bucket_type', id, type, '');
-  // Auto-configure rollover based on type
+  // Auto-configure rollover based on type — save both changes and use the final state
+  const needsRolloverChange = type === 'vault' || type === 'savings';
+  const typeResult     = await saveSetting('bucket_type', id, type, '', { silent: needsRolloverChange });
+  let   finalResult    = typeResult;
   if (type === 'vault') {
-    await saveSetting('bucket_rollover', id, false, '');
+    finalResult = await saveSetting('bucket_rollover', id, false, '');
   } else if (type === 'savings') {
-    await saveSetting('bucket_rollover', id, true, '');
+    finalResult = await saveSetting('bucket_rollover', id, true, '');
   }
-  if (result && result.ok) refreshValues(result);
+  if (finalResult?.ok) refreshValues(finalResult);
+  else if (typeResult?.ok) refreshValues(typeResult);
 }
 
 /* ── Text/number blur helpers for settings inputs ── */
@@ -4503,9 +4524,12 @@ async function submitAddTx(e) {
     if (result.month_id === ACTIVE_MID && result.tx) {
       injectTxRow(result.tx, result.month_id);
     }
-    // Reset form (keep date and account for speed)
-    document.getElementById('tx-desc').value = '';
+    // Reset form (keep date and account for speed; clear bucket/type so next tx starts fresh)
+    document.getElementById('tx-desc').value   = '';
     document.getElementById('tx-amount').value = '';
+    document.getElementById('tx-bucket').value = '';
+    const incTypeEl = document.getElementById('tx-income-type');
+    if (incTypeEl) incTypeEl.value = 'paycheck';
     if (type === 'in' && incomeType === 'paycheck') {
       await showPaydayModal(amount, result.month_id);
     }
@@ -4623,6 +4647,7 @@ async function deleteTx(id) {
       }
     }
     refreshValues(result);
+    filterLedger();  // update count if a filter is active
   } else {
     alert('Delete failed: ' + (result.error || 'unknown error'));
   }

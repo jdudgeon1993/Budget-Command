@@ -1713,9 +1713,11 @@ def api_add_transaction():
     if amount <= 0: return jsonify({"ok": False, "error": "Amount must be positive"}), 400
     if ttype == "xfr" and not to_acct:
         return jsonify({"ok": False, "error": "Destination account required for transfer"}), 400
-
+    try:
+        mid = _date_to_month_id(date)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Invalid date format"}), 400
     data = _load(uid, tok)
-    mid  = _date_to_month_id(date)
     _ensure_month(uid, tok, mid)
     _find_or_create_month(data, mid)
 
@@ -1766,10 +1768,15 @@ def api_edit_transaction():
     elif field == "amount":
         tx["amount"] = float(value or 0)
     elif field == "date":
-        tx["date"]    = str(value or "").strip()
-        tx["monthId"] = _date_to_month_id(tx["date"])
-        _ensure_month(uid, tok, tx["monthId"])
-        _find_or_create_month(data, tx["monthId"])
+        new_date = str(value or "").strip()
+        try:
+            new_mid = _date_to_month_id(new_date)
+        except (ValueError, TypeError):
+            return jsonify({"ok": False, "error": "Invalid date format"}), 400
+        tx["date"]    = new_date
+        tx["monthId"] = new_mid
+        _ensure_month(uid, tok, new_mid)
+        _find_or_create_month(data, new_mid)
     elif field == "bucket_id":
         tx["bucketId"] = str(value or "") or None
     elif field == "account_id":
