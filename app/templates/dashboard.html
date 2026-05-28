@@ -1849,11 +1849,12 @@ function showAcctTab(btn, name) {
 
 // ── Month navigation ─────────────────────────────────────────────
 function changeMonth(dir) {
-  const [y, m] = ACTIVE_MID.split('-').map(Number);
-  let nm = m + dir, ny = y;
-  if (nm > 12) { nm = 1;  ny++; }
-  if (nm <  1) { nm = 12; ny--; }
-  window.location.href = `/dashboard?month=${ny}-${String(nm).padStart(2,'0')}`;
+  const p  = ACTIVE_MID.split('_');              // ['m','2026','4']
+  let yr   = parseInt(p[1], 10);
+  let mo   = parseInt(p[2], 10) + dir;           // 0-indexed
+  if (mo > 11) { mo = 0;  yr++; }
+  if (mo <  0) { mo = 11; yr--; }
+  window.location.href = `/dashboard?month=m_${yr}_${mo}`;
 }
 
 // ── Bucket save & archive ────────────────────────────────────────
@@ -2475,25 +2476,34 @@ let _fcActiveSc      = null;
 let _forecastExtras  = [];
 
 /* ── Month ID helpers (YYYY-MM) ──────────────────────────────────── */
+/* ── Month ID helpers — format is m_YYYY_M (0-indexed month) ────── */
+/* e.g. May 2026 = m_2026_4 */
 function _midVal(mid) {
   if (!mid || typeof mid !== 'string') return 0;
-  const [y, m] = mid.split('-').map(Number);
-  return y * 12 + (m - 1);
+  const p = mid.split('_');                      // ['m','2026','4']
+  return parseInt(p[1], 10) * 12 + parseInt(p[2], 10);
 }
 
-function _midLabel(mid) {
+function _midLabel(mid, long) {
   if (!mid || typeof mid !== 'string') return '?';
-  const MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return MNAMES[parseInt(mid.split('-')[1], 10) - 1] || '?';
+  const SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const LONG  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const p  = mid.split('_');
+  const mo = parseInt(p[2], 10);                 // 0-indexed
+  const yr = parseInt(p[1], 10);
+  const name = long ? (LONG[mo] || '?') : (SHORT[mo] || '?');
+  return long ? `${name} ${yr}` : `${name} '${String(yr).slice(-2)}`;
 }
 
 function wiMonthsForward(fromMid, count) {
-  const MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let [yr, mo] = fromMid.split('-').map(Number);
+  const SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const p   = fromMid.split('_');
+  let yr    = parseInt(p[1], 10);
+  let mo    = parseInt(p[2], 10);                // 0-indexed
   const result = [];
   for (let i = 0; i < count; i++) {
-    result.push({ id: `${yr}-${String(mo).padStart(2,'0')}`, label: MNAMES[mo - 1] });
-    if (++mo > 12) { mo = 1; yr++; }
+    result.push({ id: `m_${yr}_${mo}`, label: `${SHORT[mo]} '${String(yr).slice(-2)}` });
+    if (++mo > 11) { mo = 0; yr++; }
   }
   return result;
 }
@@ -2501,23 +2511,25 @@ function wiMonthsForward(fromMid, count) {
 /* ── Projected income from paycheck schedules ────────────────────── */
 function wiProjectedIncome(mid) {
   if (!PAYCHECKS_DATA || !PAYCHECKS_DATA.length) return 0;
-  const [yr, mo] = mid.split('-').map(Number);
-  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const p  = mid.split('_');
+  const yr = parseInt(p[1], 10);
+  const mo = parseInt(p[2], 10);                 // 0-indexed
+  const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+  const monthStart  = new Date(yr, mo, 1, 0, 0, 0, 0);
+  const monthEnd    = new Date(yr, mo, daysInMonth, 23, 59, 59, 999);
   let total = 0;
-  for (const p of PAYCHECKS_DATA) {
-    const anchorStr = p.anchorDate || p.anchor_date || '';
-    if (!anchorStr || !p.amount) continue;
-    const freq = p.freq || 14;
-    if (freq === 15) { total += p.amount * 2; continue; }
-    const anchor     = new Date(anchorStr + 'T12:00:00');
-    const monthStart = new Date(yr, mo - 1, 1, 0, 0, 0, 0);
-    const monthEnd   = new Date(yr, mo - 1, daysInMonth, 23, 59, 59, 999);
+  for (const pc of PAYCHECKS_DATA) {
+    const anchorStr = pc.anchorDate || pc.anchor_date || '';
+    if (!anchorStr || !pc.amount) continue;
+    const freq = pc.freq || 14;
+    if (freq === 15) { total += pc.amount * 2; continue; }
+    const anchor = new Date(anchorStr + 'T12:00:00');
     let d = new Date(anchor);
     while (d > monthStart) d.setDate(d.getDate() - freq);
     while (d < monthStart) d.setDate(d.getDate() + freq);
-    let count = 0;
-    while (d <= monthEnd) { count++; d.setDate(d.getDate() + freq); }
-    total += count * p.amount;
+    let cnt = 0;
+    while (d <= monthEnd) { cnt++; d.setDate(d.getDate() + freq); }
+    total += cnt * pc.amount;
   }
   return total;
 }
@@ -2626,10 +2638,8 @@ function wiCalcAlloc() { return wiCalcAllocForMonth(ACTIVE_MID); }
 
 /* ── Init when tab opens ─────────────────────────────────────────── */
 function _initWi() {
-  const MNAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const [yr, mo] = ACTIVE_MID.split('-').map(Number);
   const lbl = document.getElementById('wi-month-label');
-  if (lbl) lbl.textContent = MNAMES[mo - 1] + ' ' + yr;
+  if (lbl) lbl.textContent = _midLabel(ACTIVE_MID, true);
   _wi6moSel = 0;
   _renderWi();
   wiLoadScenarios();
