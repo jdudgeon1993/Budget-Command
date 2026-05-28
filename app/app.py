@@ -1025,6 +1025,21 @@ def api_delete_category():
     return jsonify({"ok": True})
 
 
+@app.route("/api/add-category", methods=["POST"])
+def api_add_category():
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body   = request.get_json(silent=True) or {}
+    name   = body.get("name", "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Category name required"}), 400
+    uid, tok = _uid(), _tok()
+    cat_id   = _new_id("cat")
+    new_cat  = {"id": cat_id, "name": name, "color": "", "order": 0, "archived": False}
+    _insert_category(uid, tok, new_cat)
+    return jsonify({"ok": True, "cat_id": cat_id, "name": name})
+
+
 # ── API: reorder ──────────────────────────────────────────────────────────────
 
 @app.route("/api/reorder", methods=["POST"])

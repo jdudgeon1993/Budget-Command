@@ -187,7 +187,7 @@ select.field-input { cursor: pointer; }
 }
 .row-bar   { width: 3px; height: 30px; border-radius: 2px; flex-shrink: 0; background: var(--border2); }
 .row-name  { flex: 1; font-size: 15px; font-weight: 600; line-height: 1.2; }
-.row-sub   { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.row-sub   { font-size: 12px; color: #7a7a96; margin-top: 1px; }
 .row-val   { font-family: var(--mono); font-size: 15px; font-weight: 700; white-space: nowrap; }
 .row-caret { color: var(--text3); flex-shrink: 0; transition: transform .2s cubic-bezier(.4,0,.2,1); }
 .row.open .row-caret { transform: rotate(180deg); }
@@ -314,12 +314,12 @@ select.field-input { cursor: pointer; }
 .acct-tab-content.active { display: flex; }
 .acct-tx {
   display: flex; align-items: center; gap: 10px;
-  padding: 7px 0; border-bottom: 1px solid var(--border);
+  padding: 9px 0; border-bottom: 1px solid var(--border);
 }
 .acct-tx:last-child { border-bottom: none; }
 .acct-tx-date { font-family: var(--mono); font-size: 11px; color: var(--text3); width: 36px; flex-shrink: 0; }
-.acct-tx-desc { flex: 1; font-size: 13px; }
-.acct-tx-amt  { font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.acct-tx-desc { flex: 1; font-size: 13px; font-weight: 500; }
+.acct-tx-amt  { font-family: var(--mono); font-size: 14px; font-weight: 700; white-space: nowrap; }
 
 /* ── What-If — small action button ── */
 .sf-btn { font-family:var(--mono); font-size:10px; padding:4px 10px; border-radius:var(--r); border:1px solid var(--border2); background:none; color:var(--text3); cursor:pointer; transition:color .12s,border-color .12s; }
@@ -684,6 +684,36 @@ select.field-input { cursor: pointer; }
 .ldg-err.show { display:block; }
 .ldg-empty { text-align:center; padding:40px 0; font-family:var(--mono); font-size:11px; color:var(--text3); letter-spacing:.08em; }
 
+/* ── Touch interaction — prevents ghost-tap dropdowns on iOS ── */
+.row, .ldg-tx, .nav-tab, .nav-plus, .add-row-btn { touch-action: manipulation; }
+.row-top { user-select: none; -webkit-user-select: none; }
+
+/* ── Ledger readability ── */
+.ldg-tx           { padding: 11px 4px; gap: 12px; }
+.ldg-tx-type      { width: 8px; height: 8px; }
+.ldg-tx-desc      { font-size: 14px; font-weight: 600; }
+.ldg-tx-meta      { font-size: 11px; gap: 8px; }
+.ldg-tx-amt       { font-size: 14px; }
+.ldg-tx:hover     { background: rgba(255,255,255,.025); }
+.ldg-day-hdr      { font-size: 11px; font-weight: 600; color: var(--text2); padding: 13px 4px 5px; letter-spacing: .12em; }
+.ldg-day-hdr:first-child { padding-top: 4px; }
+
+/* ── Category manager (Setup panel) ── */
+.cat-mgr-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 4px 8px; margin-bottom: 8px; min-height: 36px; }
+.cat-mgr-row { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--border); }
+.cat-mgr-row:last-child { border-bottom: none; }
+.cat-mgr-input {
+  flex: 1; background: transparent; border: 1px solid transparent;
+  border-radius: 4px; color: var(--text); font-family: var(--sans);
+  font-size: 14px; font-weight: 600; padding: 3px 6px; outline: none;
+  transition: border-color .15s, background .15s; min-width: 0;
+}
+.cat-mgr-input:hover { border-color: var(--border2); background: var(--bg3); }
+.cat-mgr-input:focus { border-color: var(--accent); background: var(--bg3); }
+.cat-mgr-count { font-family: var(--mono); font-size: 10px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+.cat-mgr-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 3px; flex-shrink: 0; line-height: 1; transition: color .12s; }
+.cat-mgr-del:hover { color: var(--red); }
+
 /* ── Empty state ── */
 .empty-state {
   flex: 1; display: flex; align-items: center; justify-content: center;
@@ -935,7 +965,7 @@ select.field-input { cursor: pointer; }
                   <input class="field-input" type="number" data-field="budget" value="{{ b.budget }}" step="0.01" min="0">
                 </div>
                 <div class="field-group">
-                  <label class="field-label">Category</label>
+                  <label class="field-label">Category &mdash; move bucket</label>
                   <select class="field-input" data-field="cat_id">
                     {% for cat in all_cats %}
                     <option value="{{ cat.id }}"{% if cat.id == b.cat_id %} selected{% endif %}>{{ cat.name }}</option>
@@ -1696,6 +1726,16 @@ select.field-input { cursor: pointer; }
       </button>
 
       <!-- ── Month Tools ── -->
+      <div class="section-label">Categories</div>
+      <div class="cat-mgr-wrap" id="cat-manager-list">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:8px 4px;">Loading…</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+        <input class="field-input" id="new-cat-name" type="text" placeholder="New category name…" style="flex:1;font-size:14px;">
+        <button class="btn btn-ghost btn-sm" onclick="addCategoryUI()">Add</button>
+      </div>
+      <div id="cat-mgr-err" style="font-family:var(--mono);font-size:11px;color:var(--red);display:none;margin-bottom:8px;"></div>
+
       <div class="section-label">Month Tools</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:4px 0;">
         <button class="btn btn-ghost btn-sm" onclick="copyLastMonthAllocs(this)">Copy Last Month's Allocations</button>
@@ -2144,6 +2184,7 @@ function showPanel(name, el, ctx) {
   if (el) el.classList.add('active');
   document.querySelectorAll('.row.open').forEach(r => r.classList.remove('open'));
   if (name === 'reports') loadTimeline();
+  if (name === 'setup')   loadCategoryManager();
 }
 
 // ── Expandable rows ──────────────────────────────────────────────
@@ -2152,6 +2193,13 @@ function toggleRow(el) {
   document.querySelectorAll('.row.open').forEach(r => r.classList.remove('open'));
   if (!isOpen) {
     el.classList.add('open');
+    // Block pointer events on editor for 380ms — prevents iOS ghost-tap from
+    // landing on a <select> that just appeared at the tap coordinates
+    const editor = el.querySelector('.row-editor');
+    if (editor) {
+      editor.style.pointerEvents = 'none';
+      setTimeout(() => { editor.style.pointerEvents = ''; }, 380);
+    }
     setTimeout(() => el.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
   }
 }
@@ -4011,6 +4059,66 @@ async function copyLastMonthAllocs(btn) {
   } catch(e) {
     setBtn(btn, 'err');
   }
+}
+
+// ── Category management ───────────────────────────────────────────
+async function loadCategoryManager() {
+  const list = document.getElementById('cat-manager-list');
+  if (!list) return;
+  try {
+    const data = await api('/api/categories');
+    if (!data.ok) {
+      list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--red);padding:8px 4px;">Failed to load.</div>';
+      return;
+    }
+    const active = (data.categories || []).filter(c => !c.archived);
+    if (!active.length) {
+      list.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 4px;">No categories yet.</div>';
+      return;
+    }
+    list.innerHTML = active.map(c => `
+      <div class="cat-mgr-row" id="cmr-${c.id}">
+        <input class="cat-mgr-input" value="${_escHTML(c.name)}" data-catid="${c.id}"
+          onblur="saveCatName(this)" onkeydown="if(event.key==='Enter')this.blur()">
+        <span class="cat-mgr-count">${c.active_buckets} bkt${c.active_buckets !== 1 ? 's' : ''}</span>
+        ${c.active_buckets === 0 ? `<button class="cat-mgr-del" title="Remove empty category" onclick="archiveCategoryUI('${c.id}')">&#x2715;</button>` : ''}
+      </div>`).join('');
+  } catch(e) { /* silently ignore */ }
+}
+
+async function saveCatName(inp) {
+  const catId = inp.dataset.catid;
+  const name  = inp.value.trim();
+  if (!name) { inp.value = inp.getAttribute('value') || ''; return; }
+  inp.setAttribute('value', name);
+  await api('/api/save', { field: 'cat_name', id: catId, value: name, month: ACTIVE_MID });
+}
+
+async function addCategoryUI() {
+  const inp = document.getElementById('new-cat-name');
+  const err = document.getElementById('cat-mgr-err');
+  const name = (inp ? inp.value : '').trim();
+  if (err) err.style.display = 'none';
+  if (!name) {
+    if (err) { err.textContent = 'Enter a category name.'; err.style.display = ''; }
+    return;
+  }
+  try {
+    const data = await api('/api/add-category', { name });
+    if (!data.ok) throw new Error(data.error || 'Failed');
+    if (inp) inp.value = '';
+    loadCategoryManager();
+  } catch(e) {
+    if (err) { err.textContent = e.message; err.style.display = ''; }
+  }
+}
+
+async function archiveCategoryUI(catId) {
+  try {
+    const data = await api('/api/archive-category', { cat_id: catId, active_mid: ACTIVE_MID });
+    if (!data.ok) throw new Error(data.error || 'Failed');
+    loadCategoryManager();
+  } catch(e) { /* silently ignore */ }
 }
 
 // ── Payday Suggestions sheet ──────────────────────────────────────
