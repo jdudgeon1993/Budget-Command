@@ -321,16 +321,42 @@ select.field-input { cursor: pointer; }
 .acct-tx-desc { flex: 1; font-size: 13px; }
 .acct-tx-amt  { font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; }
 
-/* ── Forecast ── */
-.fc-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 4px; }
-.fc-month-row {
-  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
-  padding: 12px 14px;
+/* ── What-If bucket rows ── */
+.wi-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 4px; }
+.wi-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  transition: opacity .15s;
 }
-.fc-month-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-.fc-month-name { font-size: 14px; font-weight: 600; }
-.fc-month-net  { font-family: var(--mono); font-size: 14px; font-weight: 700; }
-.fc-month-detail { font-family: var(--mono); font-size: 11px; color: var(--text3); display: flex; gap: 8px; }
+.wi-row.off { opacity: .45; }
+.wi-row-name   { font-size: 14px; font-weight: 600; }
+.wi-row-sub    { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.wi-row-budget { font-family: var(--mono); font-size: 13px; color: var(--text2); white-space: nowrap; flex-shrink: 0; margin-right: 6px; }
+
+/* ── Forecast period cards ── */
+.fc-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 4px; }
+.fc-period {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.fc-period.fc-shortfall { border-color: rgba(239,68,68,.45); }
+.fc-period-head  { display: flex; justify-content: space-between; align-items: flex-start; }
+.fc-period-label { font-size: 14px; font-weight: 600; }
+.fc-period-range { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
+.fc-period-bal   { font-family: var(--mono); font-size: 16px; font-weight: 700; white-space: nowrap; }
+.fc-income-line  { font-family: var(--mono); font-size: 12px; color: var(--green); }
+.fc-bills        { display: flex; flex-wrap: wrap; gap: 5px; }
+.fc-bill         { font-family: var(--mono); font-size: 11px; border-radius: 4px; padding: 3px 8px; white-space: nowrap; }
+.fc-bill-ok      { background: rgba(34,197,94,.12);  color: var(--green); }
+.fc-bill-warn    { background: rgba(239,68,68,.12);  color: var(--red); }
+.fc-bill-off     { background: rgba(245,158,11,.12); color: var(--amber); }
+
+/* ── What-If/Forecast bar chart ── */
+.fc-bars-wrap  { display: flex; gap: 3px; height: 64px; align-items: flex-end; padding: 4px 0 18px; }
+.fc-bar-col    { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; min-width: 20px; }
+.fc-bar-fill   { width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; }
+.fc-bar-lbl    { font-family: var(--mono); font-size: 8px; color: var(--text3); text-align: center; position: absolute; bottom: 0; white-space: nowrap; }
 
 /* ── Mobile header extra controls ── */
 .hdr-gear {
@@ -963,28 +989,74 @@ select.field-input { cursor: pointer; }
     <div id="panel-reports" class="panel">
       <div class="panel-tabs">
         <button class="ptab active" id="ptab-btn-timeline" onclick="showPanelTab('timeline',this)">Timeline</button>
-        <button class="ptab" id="ptab-btn-history"  onclick="showPanelTab('history',this)">History</button>
-        <button class="ptab" id="ptab-btn-forecast" onclick="showPanelTab('forecast',this)">Forecast</button>
+        <button class="ptab" id="ptab-btn-history"   onclick="showPanelTab('history',this)">History</button>
+        <button class="ptab" id="ptab-btn-whatif"    onclick="showPanelTab('whatif',this)">What&#8209;If</button>
+        <button class="ptab" id="ptab-btn-forecast"  onclick="showPanelTab('forecast',this)">Forecast</button>
       </div>
+
+      <!-- Timeline tab -->
       <div id="ptab-timeline" class="ptab-content active">
         <div class="tl-empty" id="tl-empty">Loading…</div>
       </div>
+
+      <!-- History tab -->
       <div id="ptab-history" class="ptab-content">
         <div class="rpt-loading" id="rpt-loader">Loading…</div>
       </div>
+
+      <!-- What-If tab: scenario bucket builder -->
+      <div id="ptab-whatif" class="ptab-content">
+        <div class="wi-controls">
+          <div class="field-group">
+            <label class="field-label">Income Override ($/mo)</label>
+            <input class="field-input" id="wi-income" type="number" placeholder="Leave blank for actual" step="0.01" min="0">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Scenario Length</label>
+            <select class="field-input" id="wi-months">
+              <option value="3">3 months</option>
+              <option value="6" selected>6 months</option>
+              <option value="12">12 months</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <button class="btn btn-primary btn-sm" id="wi-run-btn" onclick="runWhatIf()">Run Scenario</button>
+        </div>
+        <div class="section-label">Buckets — Toggle Off to Exclude from Scenario</div>
+        <div id="wi-bucket-list"><div class="tl-empty">Loading…</div></div>
+        <div id="wi-result"></div>
+      </div>
+
+      <!-- Forecast tab: real cash flow by account + length -->
       <div id="ptab-forecast" class="ptab-content">
         <div class="fc-controls">
           <div class="field-group">
-            <label class="field-label">Income Change (%)</label>
-            <input class="field-input" id="fc-income-adj" type="number" value="0" step="1" placeholder="0" oninput="renderForecast()">
+            <label class="field-label">Account</label>
+            <select class="field-input" id="fc-account">
+              <option value="">All Checking Accounts</option>
+              {% for a in cash_accounts %}
+              <option value="{{ a.id }}" data-bal="{{ a.balance }}">{{ a.name }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="field-group">
-            <label class="field-label">Expense Change (%)</label>
-            <input class="field-input" id="fc-expense-adj" type="number" value="0" step="1" placeholder="0" oninput="renderForecast()">
+            <label class="field-label">Forecast Length</label>
+            <select class="field-input" id="fc-months">
+              <option value="2">2 months</option>
+              <option value="3" selected>3 months</option>
+              <option value="6">6 months</option>
+              <option value="12">12 months</option>
+              <option value="0">End of year</option>
+            </select>
           </div>
+        </div>
+        <div>
+          <button class="btn btn-primary btn-sm" id="fc-run-btn" onclick="loadForecast()">Run Forecast</button>
         </div>
         <div id="forecast-output"></div>
       </div>
+
     </div>
 
 
@@ -1440,11 +1512,7 @@ const PAYCHECKS_DATA = {{ paychecks | tojson | safe }};
 const DUE_BUCKETS    = [{% for group in category_groups %}{% for b in group.buckets %}{% if b.due_day %}{n:{{ b.name | tojson }},d:{{ b.due_day }},a:{{ b.due_amount or b.budget }},s:{{ b.status | tojson }}},{% endif %}{% endfor %}{% endfor %}];
 const MONTHLY_BUDGET = {{ grand.budget|round(2) }};
 const CURRENT_CASH   = {{ total_cash_val|round(2) }};
-// Monthly income estimate from paycheck frequencies
-const MONTHLY_INCOME = (() => {
-  const mults = {7:52, 14:26, 15:24, 30:12};
-  return PAYCHECKS_DATA.reduce((s, p) => s + (p.amount || 0) * (mults[p.freq] || 12) / 12, 0);
-})();
+const ALL_BUCKETS    = [{% for group in category_groups %}{% for b in group.buckets %}{id:{{ b.id|tojson }},name:{{ b.name|tojson }},budget:{{ b.budget }},type:{{ (b.type or 'expense')|tojson }},due_day:{{ b.due_day if b.due_day else 'null' }},cat:{{ group.name|tojson }}},{% endfor %}{% endfor %}];
 
 // ── Utilities ────────────────────────────────────────────────────
 async function api(endpoint, body) {
@@ -1775,7 +1843,8 @@ function showPanelTab(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'history')  loadReports();
   if (name === 'timeline') loadTimeline();
-  if (name === 'forecast') renderForecast();
+  if (name === 'whatif')   initWhatIf();
+  if (name === 'forecast') {} // user clicks Run Forecast
 }
 
 // ── Timeline ─────────────────────────────────────────────────────
@@ -2172,54 +2241,172 @@ async function submitRuleSheet() {
   }
 }
 
-// ── Forecast / What-If ───────────────────────────────────────────
-function renderForecast() {
-  const incAdj  = parseFloat(document.getElementById('fc-income-adj')?.value)  || 0;
-  const expAdj  = parseFloat(document.getElementById('fc-expense-adj')?.value) || 0;
-  const projInc = MONTHLY_INCOME * (1 + incAdj  / 100);
-  const projExp = MONTHLY_BUDGET * (1 + expAdj  / 100);
-  const net     = projInc - projExp;
+// ── What-If scenario builder ──────────────────────────────────────
+const wiOff = new Set();
 
-  const MNAMES  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const [baseY, baseM] = ACTIVE_MID.split('-').map(Number);
-  let balance = CURRENT_CASH;
-  const months = [];
-  for (let i = 1; i <= 6; i++) {
-    const rawM = baseM - 1 + i;
-    const y = baseY + Math.floor(rawM / 12);
-    const m = rawM % 12;
-    balance += net;
-    months.push({ label: MNAMES[m] + ' ' + y, net, balance });
+function initWhatIf() {
+  const list = document.getElementById('wi-bucket-list');
+  if (!list || list.dataset.init) return;
+  list.dataset.init = '1';
+  if (!ALL_BUCKETS.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:20px 0"><p>No buckets</p></div>';
+    return;
   }
+  let lastCat = null, html = '';
+  for (const b of ALL_BUCKETS) {
+    if (b.cat !== lastCat) {
+      lastCat = b.cat;
+      html += `<div class="section-label" style="padding-top:10px">${b.cat}</div>`;
+    }
+    const dueStr = b.due_day ? ` · due ${b.due_day}` : '';
+    html += `<div class="wi-row" id="wi-row-${b.id}">
+      <div style="flex:1">
+        <div class="wi-row-name">${b.name}</div>
+        <div class="wi-row-sub">${b.type}${dueStr}</div>
+      </div>
+      <div class="wi-row-budget">${fmtMoney(b.budget)}</div>
+      <label class="toggle">
+        <input type="checkbox" checked onchange="toggleWiBucket('${b.id}',this)">
+        <div class="toggle-track"></div>
+      </label>
+    </div>`;
+  }
+  list.innerHTML = html;
+}
+
+function toggleWiBucket(bid, cb) {
+  const row = document.getElementById('wi-row-' + bid);
+  if (cb.checked) { wiOff.delete(bid); if (row) row.classList.remove('off'); }
+  else            { wiOff.add(bid);    if (row) row.classList.add('off'); }
+}
+
+async function runWhatIf() {
+  const btn     = document.getElementById('wi-run-btn');
+  const months  = document.getElementById('wi-months')?.value || '6';
+  const incVal  = document.getElementById('wi-income')?.value;
+  const body    = {};
+
+  if (incVal) body.income_override = parseFloat(incVal);
+
+  if (wiOff.size) {
+    const offMonths = {};
+    const [y, m] = ACTIVE_MID.split('-').map(Number);
+    for (const bid of wiOff) {
+      const offs = [];
+      for (let i = 0; i < parseInt(months); i++) {
+        const nm = m + i;
+        const ny = y + Math.floor((nm - 1) / 12);
+        const mm = ((nm - 1) % 12) + 1;
+        offs.push(`${ny}-${String(mm).padStart(2,'0')}`);
+      }
+      offMonths[bid] = offs;
+    }
+    body.bucket_off_months = offMonths;
+  }
+
+  setBtn(btn, 'loading');
+  try {
+    const r = await fetch(`/api/forecast?months=${months}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Failed');
+    setBtn(btn, 'ok');
+    renderForecastPeriods(r, 'wi-result');
+  } catch(e) {
+    setBtn(btn, 'err');
+  }
+}
+
+// ── Cash flow forecast ────────────────────────────────────────────
+async function loadForecast() {
+  const btn    = document.getElementById('fc-run-btn');
+  const months = document.getElementById('fc-months')?.value || '3';
+  const acctSel = document.getElementById('fc-account');
+  const bal    = acctSel?.options[acctSel?.selectedIndex]?.dataset?.bal;
+
+  let url = `/api/forecast?months=${months}`;
+  if (bal !== undefined && bal !== '') url += `&balance=${encodeURIComponent(bal)}`;
+
+  setBtn(btn, 'loading');
+  try {
+    const r = await fetch(url).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Failed');
+    setBtn(btn, 'ok');
+    renderForecastPeriods(r, 'forecast-output');
+  } catch(e) {
+    setBtn(btn, 'err');
+  }
+}
+
+// ── Shared period renderer (used by both What-If and Forecast) ────
+function renderForecastPeriods(data, outId) {
+  const out = document.getElementById(outId);
+  if (!out) return;
+
+  const periods = data.periods || [];
+  if (!periods.length) { out.innerHTML = '<div class="tl-empty">No forecast data — add paychecks in Setup</div>'; return; }
 
   const nc = v => v >= 0 ? 'var(--green)' : 'var(--red)';
 
-  let html = `<div class="rpt-nw-grid">
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Monthly Income</div><div class="rpt-nw-val" style="color:var(--green)">${fmtMoney(projInc)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Monthly Budget</div><div class="rpt-nw-val" style="color:var(--amber)">${fmtMoney(projExp)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Monthly Net</div><div class="rpt-nw-val" style="color:${nc(net)}">${fmtMoney(net)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Cash Now</div><div class="rpt-nw-val">${fmtMoney(CURRENT_CASH)}</div></div>
-  </div>
-  <div class="section-label" style="padding-top:12px">6-Month Projection</div>`;
+  // Summary strip
+  const totalOff = periods.reduce((s, p) => s + (p.period_off || 0), 0);
+  const endBal   = periods[periods.length - 1]?.end_balance || 0;
+  let html = `<div class="rpt-nw-grid" style="margin-top:8px">
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Start</div><div class="rpt-nw-val">${fmtMoney(data.start_balance)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">End</div><div class="rpt-nw-val" style="color:${nc(endBal)}">${fmtMoney(endBal)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Safe to Spend</div><div class="rpt-nw-val" style="color:var(--accent)">${fmtMoney(data.safe_to_spend)}</div></div>
+    ${totalOff ? `<div class="rpt-nw-card"><div class="rpt-nw-label">Freed (Off)</div><div class="rpt-nw-val" style="color:var(--amber)">${fmtMoney(totalOff)}</div></div>` : ''}
+  </div>`;
 
-  for (const mo of months) {
-    html += `<div class="fc-month-row">
-      <div class="fc-month-top">
-        <span class="fc-month-name">${mo.label}</span>
-        <span class="fc-month-net" style="color:${nc(mo.net)}">${mo.net >= 0 ? '+' : ''}${fmtMoney(mo.net)}</span>
+  // Balance bar chart (end balance per period, normalized)
+  const maxBal = Math.max(...periods.map(p => Math.abs(p.end_balance)), 1);
+  html += '<div class="fc-bars-wrap">';
+  for (const p of periods) {
+    const h   = Math.max(4, Math.round(Math.abs(p.end_balance) / maxBal * 50));
+    const col = p.end_balance >= 0 ? 'var(--green)' : 'var(--red)';
+    const lbl = p.label.slice(0, 8);
+    html += `<div class="fc-bar-col">
+      <div class="fc-bar-fill" style="height:${h}px;background:${col}" title="${fmtMoney(p.end_balance)}"></div>
+      <div class="fc-bar-lbl">${lbl}</div>
+    </div>`;
+  }
+  html += '</div>';
+
+  // Period cards
+  html += '<div class="section-label" style="padding-top:4px">Paycheck Periods</div>';
+  for (const p of periods) {
+    const hasUnfunded = p.unfunded_days?.length > 0;
+
+    let fundedPills = (p.funded_days || [])
+      .flatMap(d => d.events.map(ev => `<span class="fc-bill fc-bill-ok">✓ ${ev.name} ${fmtMoney(ev.amount)}</span>`))
+      .join('');
+    let unfundedPills = (p.unfunded_days || [])
+      .flatMap(d => d.events.map(ev => `<span class="fc-bill fc-bill-warn">⚠ ${ev.name} ${fmtMoney(ev.amount)}</span>`))
+      .join('');
+    let offPills = (p.off_days || [])
+      .flatMap(d => d.events.map(ev => `<span class="fc-bill fc-bill-off">↷ ${ev.name} ${fmtMoney(ev.amount)}</span>`))
+      .join('');
+
+    const incomeLines = (p.income_events || [])
+      .map(e => `<span style="color:var(--green)">+${fmtMoney(e.amount)} ${e.label}</span>`)
+      .join('<span style="color:var(--text3)"> · </span>');
+
+    html += `<div class="fc-period${hasUnfunded ? ' fc-shortfall' : ''}">
+      <div class="fc-period-head">
+        <div>
+          <div class="fc-period-label">${p.label}</div>
+          <div class="fc-period-range">${p.date_range}</div>
+        </div>
+        <div class="fc-period-bal" style="color:${nc(p.end_balance)}">${fmtMoney(p.end_balance)}</div>
       </div>
-      <div class="fc-month-detail">
-        <span style="color:var(--green)">+${fmtMoney(projInc)} in</span>
-        <span>·</span>
-        <span style="color:var(--red)">-${fmtMoney(projExp)} out</span>
-        <span>·</span>
-        <span>Balance ${fmtMoney(mo.balance)}</span>
-      </div>
+      ${incomeLines ? `<div class="fc-income-line">${incomeLines}</div>` : ''}
+      ${(fundedPills || unfundedPills || offPills) ? `<div class="fc-bills">${fundedPills}${unfundedPills}${offPills}</div>` : ''}
     </div>`;
   }
 
-  const out = document.getElementById('forecast-output');
-  if (out) out.innerHTML = html;
+  out.innerHTML = html;
 }
 
 // ── Month close ───────────────────────────────────────────────────
