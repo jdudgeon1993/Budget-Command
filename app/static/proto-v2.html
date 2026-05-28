@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cura</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+
+/* ═══════════════════════════════════════════
+   DESIGN SYSTEM
+   Single source of truth for all visual rules
+   ═══════════════════════════════════════════ */
+:root {
+  /* Typography */
+  --sans:    'Rajdhani', system-ui, sans-serif;
+  --mono:    'Share Tech Mono', monospace;
+  --display: 'Bebas Neue', sans-serif;
+
+  /* Colors */
+  --bg:      #0f0f11;
+  --bg2:     #1a1a1f;
+  --bg3:     #222228;
+  --border:  #2a2a35;
+  --border2: #44445a;
+  --text:    #e2e2e8;
+  --text2:   #a0a0b0;
+  --text3:   #55556a;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --rbg:     #2d1515;
+  --amber:   #f5a623;
+  --accent:  #6366f1;
+
+  /* Layout */
+  --r:         8px;
+  --sidebar-w: 220px;
+  --nav-h:     64px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ── Shared: Fields ── */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.field-input {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  padding: 9px 11px;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s;
+  -webkit-appearance: none;
+}
+.field-input:focus { border-color: var(--accent); }
+select.field-input { cursor: pointer; }
+
+/* Amount field */
+.amount-wrap { position: relative; }
+.amount-prefix {
+  position: absolute; left: 12px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 16px;
+  pointer-events: none;
+}
+.amount-wrap .field-input {
+  padding-left: 26px;
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+/* ── Shared: Buttons ── */
+.btn {
+  border: none; cursor: pointer; border-radius: 6px;
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 9px 18px; transition: opacity .12s; white-space: nowrap;
+}
+.btn:active { opacity: .7; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-ghost   { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+.btn-danger  { background: var(--rbg); color: var(--red); border: 1px solid rgba(239,68,68,.4); }
+.btn-sm { padding: 7px 14px; font-size: 13px; }
+
+/* ── App Shell ── */
+#app {
+  display: flex;
+  min-height: 100dvh;
+}
+
+/* ═══════════════════════════════════════════
+   SIDEBAR  (desktop only)
+   ═══════════════════════════════════════════ */
+#sidebar {
+  width: var(--sidebar-w);
+  min-height: 100dvh;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 10;
+}
+
+.sb-logo {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sb-logo-name {
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: .08em;
+  color: var(--accent);
+  line-height: 1;
+}
+.sb-logo-month {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
+.sb-kpis {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.sb-kpi { display: flex; justify-content: space-between; align-items: baseline; }
+.sb-kpi-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text3);
+}
+.sb-kpi-val { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+
+.sb-nav {
+  flex: 1;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 10px; border-radius: 6px; cursor: pointer;
+  color: var(--text2); font-size: 15px; font-weight: 600;
+  border: none; background: transparent; width: 100%; text-align: left;
+  transition: background .1s, color .1s;
+}
+.sb-item:hover  { background: var(--bg3); color: var(--text); }
+.sb-item.active { background: var(--bg3); color: var(--accent); }
+.sb-item svg    { width: 17px; height: 17px; flex-shrink: 0; }
+
+.sb-footer {
+  padding: 12px 10px;
+  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.sb-add-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; cursor: pointer; width: 100%;
+  padding: 11px; font-family: var(--sans); font-size: 14px; font-weight: 700;
+  letter-spacing: .04em; transition: opacity .12s;
+}
+.sb-add-btn:active { opacity: .8; }
+.sb-setup-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 6px; cursor: pointer; padding: 8px 10px;
+  color: var(--text2); font-family: var(--sans); font-size: 13px;
+  transition: background .12s; width: 100%;
+}
+.sb-setup-btn:hover { background: var(--bg3); }
+.sb-setup-btn svg { width: 14px; height: 14px; }
+
+/* ═══════════════════════════════════════════
+   MAIN CONTENT
+   ═══════════════════════════════════════════ */
+.main {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Panel ── */
+.panel { display: none; flex: 1; flex-direction: column; gap: 6px; padding: 20px 20px 24px; }
+.panel.active { display: flex; }
+
+/* ── Section header (category label) ── */
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text3);
+  padding: 14px 2px 5px;
+}
+.section-label:first-child { padding-top: 0; }
+
+/* ═══════════════════════════════════════════
+   EXPANDABLE ROW  (shared by buckets + ledger)
+   ═══════════════════════════════════════════ */
+.row {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .12s;
+}
+.row:hover          { border-color: var(--border2); }
+.row.open           { border-color: var(--border2); cursor: default; }
+
+/* Summary line */
+.row-top {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 14px;
+}
+.row-bar  { width: 3px; height: 30px; border-radius: 2px; flex-shrink: 0; background: var(--border2); }
+.row-name { flex: 1; font-size: 15px; font-weight: 600; line-height: 1.2; }
+.row-sub  { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.row-val  { font-family: var(--mono); font-size: 15px; font-weight: 700; white-space: nowrap; }
+.row-caret {
+  color: var(--text3); flex-shrink: 0;
+  transition: transform .2s cubic-bezier(.4,0,.2,1);
+}
+.row.open .row-caret { transform: rotate(180deg); }
+
+/* Progress bar (buckets) */
+.row-prog {
+  height: 3px; background: var(--bg3);
+  margin: 0; overflow: hidden;
+}
+.row-prog-fill { height: 100%; transition: width .4s; }
+
+/* Inline editor */
+.row-editor {
+  display: none;
+  flex-direction: column; gap: 12px;
+  padding: 16px 14px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg3);
+}
+.row.open .row-editor { display: flex; }
+
+.editor-grid { display: grid; gap: 10px; }
+.editor-grid.cols2 { grid-template-columns: 1fr 1fr; }
+.editor-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+.span2 { grid-column: 1 / -1; }
+
+.editor-actions {
+  display: flex; gap: 8px; align-items: center;
+  padding-top: 2px;
+}
+.editor-spacer { flex: 1; }
+
+/* Status bar color variants */
+.s-green  .row-bar { background: var(--green); }
+.s-accent .row-bar { background: var(--accent); }
+.s-amber  .row-bar { background: var(--amber); }
+.s-red    .row-bar { background: var(--red); }
+
+.s-green  .row-val { color: var(--green); }
+.s-accent .row-val { color: var(--accent); }
+.s-amber  .row-val { color: var(--amber); }
+.s-red    .row-val { color: var(--red); }
+
+/* ── Ledger-specific ── */
+.row-date {
+  font-family: var(--mono); font-size: 12px; color: var(--text3);
+  width: 40px; flex-shrink: 0;
+}
+
+/* Stat pill (read-only summary inside editor) */
+.stat-pill {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 9px 12px;
+  font-family: var(--mono); font-size: 13px; color: var(--text2);
+  line-height: 1.4;
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE KPI STRIP
+   ═══════════════════════════════════════════ */
+.mobile-kpis {
+  display: none; /* shown via media query */
+  gap: 8px; padding: 12px 12px 4px;
+}
+.mob-kpi {
+  flex: 1; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 10px 10px 8px;
+}
+.mob-kpi-label {
+  font-family: var(--mono); font-size: 8px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text3);
+  margin-bottom: 3px;
+}
+.mob-kpi-val {
+  font-family: var(--mono); font-size: 16px; font-weight: 700; line-height: 1;
+}
+
+/* ═══════════════════════════════════════════
+   SLIDE-UP SHEET  (Add Transaction)
+   ═══════════════════════════════════════════ */
+.backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 100;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.backdrop.on { display: block; }
+
+#sheet {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border2);
+  border-radius: 16px 16px 0 0;
+  z-index: 101;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  transform: translateY(100%);
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  max-height: 92dvh;
+  overflow-y: auto;
+}
+#sheet.on { transform: translateY(0); }
+
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: var(--border2); border-radius: 2px;
+  margin: 12px auto 0;
+}
+.sheet-head {
+  font-family: var(--display);
+  font-size: 22px; letter-spacing: .06em;
+  padding: 16px 20px 4px;
+}
+.sheet-body {
+  padding: 12px 20px 28px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.sheet-row { display: grid; gap: 12px; }
+.sheet-row.cols2 { grid-template-columns: 1fr 1fr; }
+.sheet-actions { display: flex; gap: 8px; }
+.sheet-actions .btn-primary { flex: 1; }
+
+/* ═══════════════════════════════════════════
+   MOBILE BOTTOM NAV
+   ═══════════════════════════════════════════ */
+#bottom-nav {
+  display: none; /* shown via media query */
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  z-index: 20;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.nav-row {
+  display: flex; align-items: center; justify-content: space-around;
+  height: 100%; padding: 0 8px;
+}
+.nav-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  flex: 1; padding: 6px 0; border: none; background: transparent;
+  color: var(--text3); cursor: pointer; transition: color .12s;
+}
+.nav-tab.active { color: var(--accent); }
+.nav-tab svg { width: 22px; height: 22px; }
+.nav-tab-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.nav-plus {
+  width: 50px; height: 50px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(99,102,241,.45);
+  transition: transform .15s, box-shadow .15s;
+}
+.nav-plus:active { transform: scale(.91); box-shadow: 0 2px 8px rgba(99,102,241,.3); }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 899px) {
+  #sidebar       { display: none; }
+  .main          { margin-left: 0; padding-bottom: var(--nav-h); }
+  #bottom-nav    { display: block; }
+  .mobile-kpis   { display: flex; }
+  .panel         { padding: 0 12px 16px; }
+  .d-only        { display: none !important; } /* desktop-only meta text */
+}
+
+@media (min-width: 900px) {
+  /* Sheet becomes centered modal on desktop */
+  #sheet {
+    left: 50%;
+    right: auto; bottom: auto; top: 50%;
+    width: min(480px, calc(100vw - var(--sidebar-w) - 48px));
+    border-radius: var(--r);
+    border: 1px solid var(--border2);
+    border-top: 1px solid var(--border2);
+    transform: translate(-50%, -46%) scale(.97);
+    opacity: 0;
+    transition: transform .2s ease, opacity .2s ease;
+    max-height: 85vh;
+    box-shadow: 0 24px 64px rgba(0,0,0,.65);
+  }
+  #sheet.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  .sheet-handle { display: none; }
+}
+
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══════════════════════════════════
+       SIDEBAR
+       ═══════════════════════════════════ -->
+  <aside id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-name">Cura</div>
+      <div class="sb-logo-month">May 2026</div>
+    </div>
+
+    <div class="sb-kpis">
+      <div class="sb-kpi">
+        <span class="sb-kpi-label">Income</span>
+        <span class="sb-kpi-val" style="color:var(--green)">$4,200.00</span>
+      </div>
+      <div class="sb-kpi">
+        <span class="sb-kpi-label">Spent</span>
+        <span class="sb-kpi-val" style="color:var(--amber)">$1,850.00</span>
+      </div>
+      <div class="sb-kpi">
+        <span class="sb-kpi-label">Ready to Spend</span>
+        <span class="sb-kpi-val" style="color:var(--accent)">$2,350.00</span>
+      </div>
+    </div>
+
+    <nav class="sb-nav">
+      <button class="sb-item active" onclick="showPanel('buckets',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Buckets
+      </button>
+      <button class="sb-item" onclick="showPanel('ledger',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+        Ledger
+      </button>
+      <button class="sb-item" onclick="showPanel('reports',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Reports
+      </button>
+    </nav>
+
+    <div class="sb-footer">
+      <button class="sb-add-btn" onclick="openSheet()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Transaction
+      </button>
+      <button class="sb-setup-btn" onclick="showPanel('setup',null)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Setup
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════════════
+       MAIN
+       ═══════════════════════════════════ -->
+  <main class="main">
+
+    <!-- ── BUCKETS PANEL ── -->
+    <div id="panel-buckets" class="panel active">
+
+      <!-- Mobile KPI strip -->
+      <div class="mobile-kpis">
+        <div class="mob-kpi">
+          <div class="mob-kpi-label">Income</div>
+          <div class="mob-kpi-val" style="color:var(--green)">$4,200</div>
+        </div>
+        <div class="mob-kpi">
+          <div class="mob-kpi-label">Spent</div>
+          <div class="mob-kpi-val" style="color:var(--amber)">$1,850</div>
+        </div>
+        <div class="mob-kpi">
+          <div class="mob-kpi-label">Ready</div>
+          <div class="mob-kpi-val" style="color:var(--accent)">$2,350</div>
+        </div>
+      </div>
+
+      <div class="section-label">Housing</div>
+
+      <!-- Bucket row: Rent -->
+      <div class="row s-accent" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-bar"></div>
+          <div style="flex:1">
+            <div class="row-name">Rent</div>
+            <div class="row-sub d-only">$1,500 budget &middot; $975 spent</div>
+          </div>
+          <div class="row-val">$525.00</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-prog"><div class="row-prog-fill" style="width:65%;background:var(--accent)"></div></div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Bucket Name</label>
+              <input class="field-input" type="text" value="Rent">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Monthly Budget</label>
+              <input class="field-input" type="number" value="1500">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Category</label>
+              <select class="field-input">
+                <option selected>Housing</option>
+                <option>Food</option>
+                <option>Transport</option>
+                <option>Savings</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Budget · Spent · Available</label>
+              <div class="stat-pill">$1,500 &nbsp;&middot;&nbsp; $975 &nbsp;&middot;&nbsp; <span style="color:var(--accent)">$525</span></div>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bucket row: Electric -->
+      <div class="row s-amber" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-bar"></div>
+          <div style="flex:1">
+            <div class="row-name">Electric</div>
+            <div class="row-sub d-only">$150 budget &middot; $127 spent</div>
+          </div>
+          <div class="row-val">$23.00</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-prog"><div class="row-prog-fill" style="width:85%;background:var(--amber)"></div></div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Bucket Name</label>
+              <input class="field-input" type="text" value="Electric">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Monthly Budget</label>
+              <input class="field-input" type="number" value="150">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Category</label>
+              <select class="field-input">
+                <option selected>Housing</option>
+                <option>Food</option>
+                <option>Transport</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Budget · Spent · Available</label>
+              <div class="stat-pill">$150 &nbsp;&middot;&nbsp; $127 &nbsp;&middot;&nbsp; <span style="color:var(--amber)">$23</span></div>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Food</div>
+
+      <!-- Bucket row: Groceries (over budget) -->
+      <div class="row s-red" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-bar"></div>
+          <div style="flex:1">
+            <div class="row-name">Groceries</div>
+            <div class="row-sub d-only">$400 budget &middot; $420 spent</div>
+          </div>
+          <div class="row-val">-$20.00</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-prog"><div class="row-prog-fill" style="width:100%;background:var(--red)"></div></div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Bucket Name</label>
+              <input class="field-input" type="text" value="Groceries">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Monthly Budget</label>
+              <input class="field-input" type="number" value="400">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Category</label>
+              <select class="field-input">
+                <option>Housing</option>
+                <option selected>Food</option>
+                <option>Transport</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Budget · Spent · Available</label>
+              <div class="stat-pill">$400 &nbsp;&middot;&nbsp; $420 &nbsp;&middot;&nbsp; <span style="color:var(--red)">-$20</span></div>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bucket row: Dining Out (paid/done) -->
+      <div class="row s-green" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-bar"></div>
+          <div style="flex:1">
+            <div class="row-name">Dining Out</div>
+            <div class="row-sub d-only">$200 budget &middot; $200 spent</div>
+          </div>
+          <div class="row-val">$0.00</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-prog"><div class="row-prog-fill" style="width:100%;background:var(--green)"></div></div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Bucket Name</label>
+              <input class="field-input" type="text" value="Dining Out">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Monthly Budget</label>
+              <input class="field-input" type="number" value="200">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Category</label>
+              <select class="field-input">
+                <option>Housing</option>
+                <option selected>Food</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Budget · Spent · Available</label>
+              <div class="stat-pill">$200 &nbsp;&middot;&nbsp; $200 &nbsp;&middot;&nbsp; <span style="color:var(--green)">$0</span></div>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Transport</div>
+
+      <div class="row s-accent" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-bar"></div>
+          <div style="flex:1">
+            <div class="row-name">Gas</div>
+            <div class="row-sub d-only">$100 budget &middot; $40 spent</div>
+          </div>
+          <div class="row-val">$60.00</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-prog"><div class="row-prog-fill" style="width:40%;background:var(--accent)"></div></div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Bucket Name</label>
+              <input class="field-input" type="text" value="Gas">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Monthly Budget</label>
+              <input class="field-input" type="number" value="100">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Category</label>
+              <select class="field-input">
+                <option>Housing</option>
+                <option>Food</option>
+                <option selected>Transport</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Budget · Spent · Available</label>
+              <div class="stat-pill">$100 &nbsp;&middot;&nbsp; $40 &nbsp;&middot;&nbsp; <span style="color:var(--accent)">$60</span></div>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-buckets -->
+
+
+    <!-- ── LEDGER PANEL ── -->
+    <div id="panel-ledger" class="panel">
+
+      <div class="section-label">May 2026</div>
+
+      <div class="row" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-date">05/27</div>
+          <div style="flex:1">
+            <div class="row-name">Whole Foods</div>
+            <div class="row-sub">Groceries &middot; Checking</div>
+          </div>
+          <div class="row-val" style="color:var(--red)">-$85.40</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Date</label>
+              <input class="field-input" type="date" value="2026-05-27">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Amount</label>
+              <input class="field-input" type="number" value="-85.40" step="0.01">
+            </div>
+            <div class="field-group span2">
+              <label class="field-label">Payee</label>
+              <input class="field-input" type="text" value="Whole Foods">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Bucket</label>
+              <select class="field-input">
+                <option>Rent</option>
+                <option selected>Groceries</option>
+                <option>Electric</option>
+                <option>Gas</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Account</label>
+              <select class="field-input">
+                <option selected>Checking</option>
+                <option>Savings</option>
+                <option>Credit Card</option>
+              </select>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-date">05/26</div>
+          <div style="flex:1">
+            <div class="row-name">Netflix</div>
+            <div class="row-sub">Subscriptions &middot; Credit Card</div>
+          </div>
+          <div class="row-val" style="color:var(--red)">-$15.99</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Date</label>
+              <input class="field-input" type="date" value="2026-05-26">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Amount</label>
+              <input class="field-input" type="number" value="-15.99" step="0.01">
+            </div>
+            <div class="field-group span2">
+              <label class="field-label">Payee</label>
+              <input class="field-input" type="text" value="Netflix">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Bucket</label>
+              <select class="field-input">
+                <option>Rent</option>
+                <option>Groceries</option>
+                <option selected>Subscriptions</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Account</label>
+              <select class="field-input">
+                <option>Checking</option>
+                <option>Savings</option>
+                <option selected>Credit Card</option>
+              </select>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-date">05/15</div>
+          <div style="flex:1">
+            <div class="row-name">Paycheck</div>
+            <div class="row-sub">Income &middot; Checking</div>
+          </div>
+          <div class="row-val" style="color:var(--green)">+$2,100.00</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Date</label>
+              <input class="field-input" type="date" value="2026-05-15">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Amount</label>
+              <input class="field-input" type="number" value="2100.00" step="0.01">
+            </div>
+            <div class="field-group span2">
+              <label class="field-label">Payee / Source</label>
+              <input class="field-input" type="text" value="Paycheck">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Bucket</label>
+              <select class="field-input">
+                <option selected>Income</option>
+                <option>Rent</option>
+                <option>Groceries</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Account</label>
+              <select class="field-input">
+                <option selected>Checking</option>
+                <option>Savings</option>
+              </select>
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-ledger -->
+
+
+    <!-- ── REPORTS PANEL ── -->
+    <div id="panel-reports" class="panel">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--text3)">
+        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase">Reports coming soon</span>
+      </div>
+    </div>
+
+
+    <!-- ── SETUP PANEL ── -->
+    <div id="panel-setup" class="panel">
+      <div class="section-label">Accounts</div>
+
+      <div class="row" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div style="flex:1"><div class="row-name">Checking</div><div class="row-sub">Bank of America</div></div>
+          <div class="row-val" style="color:var(--green)">$3,240.00</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="editor-grid cols2">
+            <div class="field-group">
+              <label class="field-label">Account Name</label>
+              <input class="field-input" type="text" value="Checking">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Institution</label>
+              <input class="field-input" type="text" value="Bank of America">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Type</label>
+              <select class="field-input"><option selected>Checking</option><option>Savings</option><option>Credit Card</option></select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Current Balance</label>
+              <input class="field-input" type="number" value="3240.00" step="0.01">
+            </div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-primary btn-sm">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-setup -->
+
+  </main><!-- /main -->
+
+
+  <!-- ═══════════════════════════════════
+       MOBILE BOTTOM NAV
+       ═══════════════════════════════════ -->
+  <nav id="bottom-nav">
+    <div class="nav-row">
+      <button class="nav-tab active" id="ntab-buckets" onclick="showPanel('buckets',this,'mob')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span class="nav-tab-lbl">Buckets</span>
+      </button>
+      <button class="nav-tab" id="ntab-ledger" onclick="showPanel('ledger',this,'mob')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+        <span class="nav-tab-lbl">Ledger</span>
+      </button>
+      <button class="nav-plus" onclick="openSheet()">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <button class="nav-tab" id="ntab-reports" onclick="showPanel('reports',this,'mob')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span class="nav-tab-lbl">Reports</span>
+      </button>
+      <button class="nav-tab" id="ntab-setup" onclick="showPanel('setup',this,'mob')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="nav-tab-lbl">Setup</span>
+      </button>
+    </div>
+  </nav>
+
+</div><!-- /app -->
+
+
+<!-- ═══════════════════════════════════
+     ADD TRANSACTION SHEET
+     ═══════════════════════════════════ -->
+<div id="backdrop" class="backdrop" onclick="closeSheet()"></div>
+
+<div id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">Add Transaction</div>
+  <div class="sheet-body">
+
+    <div class="sheet-row">
+      <div class="field-group">
+        <label class="field-label">Amount</label>
+        <div class="amount-wrap">
+          <span class="amount-prefix">$</span>
+          <input class="field-input" id="s-amount" type="number" placeholder="0.00" step="0.01" inputmode="decimal" autofocus>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-row cols2">
+      <div class="field-group">
+        <label class="field-label">Date</label>
+        <input class="field-input" id="s-date" type="date">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Type</label>
+        <select class="field-input" id="s-type">
+          <option value="-1">Expense</option>
+          <option value="1">Income</option>
+          <option value="0">Transfer</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sheet-row">
+      <div class="field-group">
+        <label class="field-label">Payee</label>
+        <input class="field-input" id="s-payee" type="text" placeholder="Who did you pay?">
+      </div>
+    </div>
+
+    <div class="sheet-row cols2">
+      <div class="field-group">
+        <label class="field-label">Bucket</label>
+        <select class="field-input" id="s-bucket">
+          <option value="">— select —</option>
+          <option>Rent</option>
+          <option>Electric</option>
+          <option>Groceries</option>
+          <option>Dining Out</option>
+          <option>Gas</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Account</label>
+        <select class="field-input" id="s-account">
+          <option>Checking</option>
+          <option>Savings</option>
+          <option>Credit Card</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn btn-primary" onclick="closeSheet()">Add Transaction</button>
+      <button class="btn btn-ghost" onclick="closeSheet()">Cancel</button>
+    </div>
+
+  </div>
+</div>
+
+
+<script>
+// ── Panel switching ──────────────────────────────────────────────
+function showPanel(name, el, ctx) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('panel-' + name);
+  if (panel) panel.classList.add('active');
+
+  if (ctx === 'mob') {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  } else {
+    document.querySelectorAll('.sb-item').forEach(t => t.classList.remove('active'));
+  }
+  if (el) el.classList.add('active');
+
+  // Close any open rows when switching panels
+  document.querySelectorAll('.row.open').forEach(r => r.classList.remove('open'));
+}
+
+// ── Expandable rows ──────────────────────────────────────────────
+function toggleRow(el) {
+  const isOpen = el.classList.contains('open');
+  // Close all open rows
+  document.querySelectorAll('.row.open').forEach(r => r.classList.remove('open'));
+  if (!isOpen) {
+    el.classList.add('open');
+    setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  }
+}
+
+function closeRow(btn) {
+  btn.closest('.row').classList.remove('open');
+}
+
+// ── Sheet ────────────────────────────────────────────────────────
+function openSheet() {
+  document.getElementById('s-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('backdrop').classList.add('on');
+  document.getElementById('sheet').classList.add('on');
+  setTimeout(() => document.getElementById('s-amount').focus(), 320);
+}
+
+function closeSheet() {
+  document.getElementById('backdrop').classList.remove('on');
+  document.getElementById('sheet').classList.remove('on');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+</script>
+
+</body>
+</html>
