@@ -1773,6 +1773,28 @@ select.field-input { cursor: pointer; }
 
 </div><!-- /app -->
 
+{% if welcome %}
+<!-- ═══════════════ WELCOME / ONBOARDING OVERLAY ═══════════════ -->
+<div id="backdrop-welcome" class="backdrop on" onclick="closeWelcome()" style="z-index:200"></div>
+<div id="sheet-welcome" style="
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);
+  z-index:201;width:min(480px,calc(100vw - 32px));padding:32px 28px;
+  box-shadow:0 24px 64px rgba(0,0,0,.7);">
+  <div style="font-family:var(--display);font-size:32px;letter-spacing:.08em;color:var(--accent);margin-bottom:6px;">Welcome to Cura</div>
+  <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:20px;">Your budget is ready to build</div>
+  <div style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:24px;">
+    Here's how to get started in 3 steps:<br><br>
+    <b style="color:var(--text)">1. Add an account</b> — tap <em>Accounts</em> and add your checking account.<br>
+    <b style="color:var(--text)">2. Add buckets</b> — tap <em>Buckets</em> to create categories like Groceries, Rent, etc.<br>
+    <b style="color:var(--text)">3. Log income</b> — tap the <em>+ button</em> to record a paycheck and allocate funds.
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn btn-primary" onclick="closeWelcome();showPanel('accounts',document.querySelector('.sb-item:nth-child(3)'))">Set up Accounts</button>
+    <button class="btn btn-ghost" onclick="closeWelcome()">I'll explore on my own</button>
+  </div>
+</div>
+{% endif %}
 
 <!-- ═══════════════ ADD BUCKET SHEET ═══════════════ -->
 <div id="backdrop-bucket" class="backdrop" onclick="closeBucketSheet()"></div>
@@ -2226,6 +2248,25 @@ function changeMonth(dir) {
 }
 
 // ── Bucket save & archive ────────────────────────────────────────
+// ── Panel partial-refresh ─────────────────────────────────────────
+async function _refreshPanels(names) {
+  try {
+    const resp = await fetch(`/dashboard?month=${ACTIVE_MID}`);
+    if (!resp.ok) throw new Error('fetch failed');
+    const text = await resp.text();
+    const doc  = new DOMParser().parseFromString(text, 'text/html');
+    names.forEach(name => {
+      const src = doc.getElementById('panel-' + name);
+      const dst = document.getElementById('panel-' + name);
+      if (src && dst) {
+        const wasActive = dst.classList.contains('active');
+        dst.innerHTML = src.innerHTML;
+        if (wasActive) dst.classList.add('active');
+      }
+    });
+  } catch(e) { window.location.reload(); }
+}
+
 async function saveBucket(btn, bucketId, origCatId) {
   const editor = btn.closest('.row-editor');
   const name   = editor.querySelector('[data-field="name"]').value.trim();
@@ -2239,40 +2280,52 @@ async function saveBucket(btn, bucketId, origCatId) {
     return;
   }
   setBtn(btn, 'loading');
-  const btype   = editor.querySelector('[data-field="type"]').value;
-  const notes   = (editor.querySelector('[data-field="notes"]')?.value || '').trim();
-  const dueDay  = editor.querySelector('[data-field="due_day"]')?.value;
-  const tgtAmt  = editor.querySelector('[data-field="target_amount"]')?.value;
+  const btype      = editor.querySelector('[data-field="type"]').value;
+  const notes      = (editor.querySelector('[data-field="notes"]')?.value || '').trim();
+  const dueDay     = editor.querySelector('[data-field="due_day"]')?.value || '';
+  const tgtAmt     = editor.querySelector('[data-field="target_amount"]')?.value;
+  const payFreqEl  = editor.querySelector('[data-field="pay_freq"]');
+  const dueAmtEl   = editor.querySelector('[data-field="due_amount"]');
+  const rolloverEl = editor.querySelector('[data-field="rollover"]');
+  const skipEl     = editor.querySelector('[data-field="skip"]');
+  const payload    = {
+    bucket_id: bucketId, month: ACTIVE_MID,
+    name, type: btype, alloc, budget, cat_id: catId, notes,
+    rollover: rolloverEl?.checked ?? false,
+    skip:     skipEl?.checked ?? false,
+  };
+  if (btype === 'expense') {
+    payload.due_day    = dueDay;
+    payload.pay_freq   = payFreqEl?.value || '';
+    payload.due_amount = parseFloat(dueAmtEl?.value) || 0;
+  } else {
+    payload.target_amount = parseFloat(tgtAmt) || 0;
+  }
   try {
-    await api('/api/save', {field:'bucket_name',   id:bucketId, value:name,   month:ACTIVE_MID});
-    await api('/api/save', {field:'bucket_type',   id:bucketId, value:btype,  month:ACTIVE_MID});
-    await api('/api/save', {field:'bucket_alloc',  id:bucketId, value:alloc,  month:ACTIVE_MID});
-    const state = await api('/api/save', {field:'bucket_target', id:bucketId, value:budget, month:ACTIVE_MID});
-    if (catId !== origCatId) await api('/api/save', {field:'bucket_cat',  id:bucketId, value:catId, month:ACTIVE_MID});
-    if (notes !== undefined) await api('/api/save', {field:'bucket_notes', id:bucketId, value:notes, month:ACTIVE_MID});
-    if (dueDay !== undefined && btype === 'expense') await api('/api/save', {field:'bucket_due_day', id:bucketId, value:dueDay, month:ACTIVE_MID});
-    if (tgtAmt !== undefined && btype !== 'expense') await api('/api/save', {field:'bucket_target_amount', id:bucketId, value:tgtAmt, month:ACTIVE_MID});
-    const payFreqEl   = editor.querySelector('[data-field="pay_freq"]');
-    const dueAmtEl    = editor.querySelector('[data-field="due_amount"]');
-    const rolloverEl  = editor.querySelector('[data-field="rollover"]');
-    const skipEl      = editor.querySelector('[data-field="skip"]');
-    if (payFreqEl   && btype === 'expense') await api('/api/save', {field:'bucket_pay_freq',  id:bucketId, value:payFreqEl.value, month:ACTIVE_MID});
-    if (dueAmtEl    && btype === 'expense') await api('/api/save', {field:'bucket_due_amount', id:bucketId, value:dueAmtEl.value,  month:ACTIVE_MID});
-    if (rolloverEl) await api('/api/save', {field:'bucket_rollover', id:bucketId, value:rolloverEl.checked, month:ACTIVE_MID});
-    if (skipEl)     await api('/api/save', {field:'bucket_skip',     id:bucketId, value:skipEl.checked,     month:ACTIVE_MID});
-    // Update name tag display
+    const state = await api('/api/save-bucket', payload);
+    if (!state.ok) throw new Error(state.error || 'Failed');
+
+    if (catId !== origCatId) {
+      // Category change restructures the panel — do a partial refresh
+      setBtn(btn, 'ok');
+      await _refreshPanels(['buckets']);
+      return;
+    }
+
+    // Update name + type badge instantly without a round-trip
     const nameEl = document.querySelector(`[data-name="${bucketId}"]`);
     if (nameEl) {
       nameEl.textContent = name;
       if (btype !== 'expense') nameEl.insertAdjacentHTML('beforeend', `<span class="btype-tag">${btype}</span>`);
     }
-    // Update progress bar
-    const fill = editor.closest('.row').querySelector('.row-prog-fill');
-    if (fill) {
-      const spent = parseFloat(fill.dataset.spent || 0);
-      const denom = alloc > 0 ? alloc : budget;
-      fill.style.width = (denom > 0 ? Math.min(100, Math.round(spent / denom * 100)) : 0) + '%';
-      fill.dataset.budget = budget;
+    // Update editor data-btype so conditional fields stay correct
+    editor.dataset.btype = btype;
+    // Update stat-pill
+    const pill = editor.querySelector('.stat-pill');
+    if (pill) {
+      const avail = state.bucket_avails?.[bucketId] ?? 0;
+      const spent = state.bucket_spent?.[bucketId]  ?? 0;
+      pill.innerHTML = `${fmtMoney(budget)} &nbsp;&middot;&nbsp; ${fmtMoney(spent)} &nbsp;&middot;&nbsp; <span style="color:var(--accent)">${fmtMoney(avail)}</span>`;
     }
     refreshKpis(state);
     setBtn(btn, 'ok');
@@ -2347,24 +2400,25 @@ async function ldgSaveTx(btn, txId) {
   if (errEl) errEl.classList.remove('show');
   setBtn(btn, 'loading');
   try {
-    let state;
-    for (const el of editor.querySelectorAll('[data-field]')) {
-      state = await api('/api/edit-transaction', {id:txId, field:el.dataset.field, value:el.value, active_mid:ACTIVE_MID});
-      if (!state.ok) throw new Error(state.error || el.dataset.field);
-    }
+    // Collect all fields at once — one round-trip instead of one per field
+    const fields = {};
+    editor.querySelectorAll('[data-field]').forEach(el => { fields[el.dataset.field] = el.value; });
+    const state = await api('/api/edit-transaction-bulk', {id: txId, fields, active_mid: ACTIVE_MID});
+    if (!state.ok) throw new Error(state.error || 'Save failed');
     refreshKpis(state);
-    setBtn(btn, 'ok');
-    // update the visible row
-    const tx      = document.getElementById('ldgtx-' + txId);
-    const descEl  = tx?.querySelector('.ldg-tx-desc');
-    const newDesc = editor.querySelector('[data-field="desc"]')?.value;
-    if (descEl && newDesc) descEl.textContent = newDesc || '(no description)';
-    const amtEl   = tx?.querySelector('.ldg-tx-amt');
-    const rawAmt  = parseFloat(editor.querySelector('[data-field="amount"]')?.value || '0');
-    if (amtEl && rawAmt) {
-      const cls = amtEl.className.match(/\b(in|out|xfr)\b/)?.[1] || 'out';
-      amtEl.textContent = cls === 'in' ? '+' + fmtMoney(rawAmt) : cls === 'xfr' ? fmtMoney(rawAmt) : '−' + fmtMoney(rawAmt);
+    // Update visible row in-place
+    const tx = document.getElementById('ldgtx-' + txId);
+    if (tx) {
+      const newDesc = fields.desc;
+      if (newDesc) { const el = tx.querySelector('.ldg-tx-desc'); if (el) el.textContent = newDesc; }
+      const rawAmt = parseFloat(fields.amount || 0);
+      if (rawAmt) {
+        const amtEl = tx.querySelector('.ldg-tx-amt');
+        const cls   = amtEl?.className.match(/\b(in|out|xfr)\b/)?.[1] || 'out';
+        if (amtEl) amtEl.textContent = cls === 'in' ? '+' + fmtMoney(rawAmt) : cls === 'xfr' ? fmtMoney(rawAmt) : '−' + fmtMoney(rawAmt);
+      }
     }
+    setBtn(btn, 'ok');
     setTimeout(() => ldgClose(txId), 600);
   } catch(e) {
     setBtn(btn, 'err');
@@ -2426,6 +2480,11 @@ function closeSheet() {
   document.getElementById('sheet').classList.remove('on');
 }
 
+function closeWelcome() {
+  document.getElementById('backdrop-welcome')?.remove();
+  document.getElementById('sheet-welcome')?.remove();
+}
+
 function sheetTypeChange(type) {
   document.getElementById('s-row-bucket').style.display = type === 'out' ? '' : 'none';
   document.getElementById('s-row-income').style.display = type === 'in'  ? '' : 'none';
@@ -2470,9 +2529,11 @@ async function submitSheet() {
     closeSheet();
     if (type === 'in') {
       openPaydaySheet(amount);
-    } else if (document.getElementById('panel-ledger').classList.contains('active')) {
-      window.location.reload();
     }
+    // Refresh the ledger and buckets panels in-place (no full page reload)
+    const toRefresh = ['buckets'];
+    if (document.getElementById('panel-ledger').classList.contains('active')) toRefresh.push('ledger');
+    _refreshPanels(toRefresh);
   } catch(e) {
     setBtn(btn, 'ok');
     errEl.textContent = e.message;

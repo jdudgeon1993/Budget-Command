@@ -582,6 +582,39 @@ def login():
     return render_template("login.html", error=error)
 
 
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    error = None
+    if request.method == "POST":
+        email    = request.form.get("email", "").strip()
+        password = request.form.get("password", "").strip()
+        confirm  = request.form.get("confirm", "").strip()
+        if not email or not password:
+            error = "Email and password are required."
+        elif password != confirm:
+            error = "Passwords do not match."
+        elif len(password) < 6:
+            error = "Password must be at least 6 characters."
+        else:
+            try:
+                sb   = _db()
+                resp = sb.auth.sign_up({"email": email, "password": password})
+                if resp.user:
+                    session["access_token"] = resp.session.access_token
+                    session["user_id"]      = resp.user.id
+                    session["user_email"]   = resp.user.email
+                    return redirect(url_for("dashboard") + "?welcome=1")
+                else:
+                    error = "Could not create account. Please try again."
+            except Exception as ex:
+                msg = str(ex)
+                if "already" in msg.lower() or "registered" in msg.lower():
+                    error = "An account with that email already exists."
+                else:
+                    error = "Signup failed. Please try again."
+    return render_template("signup.html", error=error)
+
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -936,6 +969,116 @@ def api_add_bucket():
         "is_new_cat": is_new_cat,
         **_live_state(data, active_mid),
     })
+
+
+@app.route("/api/save-bucket", methods=["POST"])
+def api_save_bucket_all():
+    """Save all editable bucket fields in one round-trip (name, type, cat, alloc, budget, etc.)."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body      = request.get_json(silent=True) or {}
+    bucket_id = (body.get("bucket_id") or "").strip()
+    mid       = (body.get("month") or "").strip() or current_month_id()
+    uid, tok  = _uid(), _tok()
+
+    data   = _load(uid, tok)
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+    if not bucket:
+        return jsonify({"ok": False, "error": "Bucket not found"}), 404
+
+    # Apply all top-level bucket fields in memory, then write once
+    changed = False
+    if "name" in body:
+        v = str(body["name"] or "").strip()
+        if v: bucket["name"] = v; changed = True
+    if "type" in body:
+        btype = str(body["type"] or "expense")
+        bucket["type"] = btype
+        if btype == "vault":     bucket["rollover"] = False
+        elif btype == "savings": bucket["rollover"] = True
+        changed = True
+    if "cat_id" in body:
+        bucket["catId"] = str(body["cat_id"] or ""); changed = True
+    if "notes" in body:
+        bucket["notes"] = str(body["notes"] or "").strip() or None; changed = True
+    if "due_day" in body:
+        v = str(body["due_day"] or "").strip()
+        bucket["dueDay"] = int(v) if v.isdigit() else (v if v == "eom" else None); changed = True
+    if "target_amount" in body:
+        v = body["target_amount"]
+        bucket["targetAmount"] = float(v) if v not in (None, "", 0, "0") else None; changed = True
+    if "pay_freq" in body:
+        bucket["payFreq"] = str(body["pay_freq"]) if body["pay_freq"] else None; changed = True
+    if "due_amount" in body:
+        v = body["due_amount"]
+        bucket["dueAmount"] = float(v) if v not in (None, "", 0) else None; changed = True
+    if "rollover" in body:
+        bucket["rollover"] = bool(body["rollover"]); changed = True
+
+    if changed:
+        _save_bucket(uid, tok, bucket)          # ONE database write for all bucket fields
+
+    # Month-specific fields each get their own table write
+    _ensure_month(uid, tok, mid)
+    month = _find_or_create_month(data, mid)
+
+    if "alloc" in body:
+        amount = float(body.get("alloc") or 0)
+        month.setdefault("allocations", {})[bucket_id] = amount
+        _upsert_alloc(uid, tok, mid, bucket_id, amount)
+    if "budget" in body:
+        amount = float(body.get("budget") or 0)
+        month.setdefault("budgets", {})[bucket_id] = amount
+        _upsert_budget(uid, tok, mid, bucket_id, amount)
+    if "skip" in body:
+        skipped = bool(body["skip"])
+        month.setdefault("skippedBuckets", {})[bucket_id] = skipped
+        _set_skipped(uid, tok, mid, bucket_id, skipped)
+
+    return jsonify({"ok": True, **_live_state(data, mid)})
+
+
+@app.route("/api/edit-transaction-bulk", methods=["POST"])
+def api_edit_transaction_bulk():
+    """Edit all fields of a transaction in one round-trip."""
+    if not logged_in():
+        return jsonify({"ok": False, "error": "Not logged in"}), 401
+    body     = request.get_json(silent=True) or {}
+    tx_id    = (body.get("id") or "").strip()
+    fields   = body.get("fields") or {}
+    uid, tok = _uid(), _tok()
+
+    data = _load(uid, tok)
+    tx   = next((t for t in data.get("txs", []) if t["id"] == tx_id), None)
+    if not tx:
+        return jsonify({"ok": False, "error": "Transaction not found"}), 404
+
+    for field, value in fields.items():
+        if field == "desc":
+            tx["desc"] = str(value or "").strip()
+        elif field == "amount":
+            tx["amount"] = float(value or 0)
+        elif field == "date":
+            new_date = str(value or "").strip()
+            try:
+                new_mid = _date_to_month_id(new_date)
+            except (ValueError, TypeError):
+                return jsonify({"ok": False, "error": "Invalid date format"}), 400
+            tx["date"] = new_date; tx["monthId"] = new_mid
+            _ensure_month(uid, tok, new_mid); _find_or_create_month(data, new_mid)
+        elif field == "bucket_id":
+            tx["bucketId"] = str(value or "") or None
+        elif field == "account_id":
+            tx["accountId"] = str(value or "")
+        elif field == "to_account_id":
+            tx["toAccountId"] = str(value) if value else None
+        elif field == "income_type":
+            if tx.get("type") == "in":
+                tx["incomeType"] = str(value or "paycheck")
+
+    _save_tx(uid, tok, tx)
+    active_mid = (body.get("active_mid") or "").strip() or tx.get("monthId") or current_month_id()
+    return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
 # ── API: archive / delete category ───────────────────────────────────────────
@@ -1703,6 +1846,7 @@ def _dashboard_inner():
         paychecks=paychecks, allocation_rules=allocation_rules,
         internal_rules=internal_rules, external_rules=external_rules,
         bucket_map_display=bucket_map_display,
+        welcome=bool(request.args.get("welcome")),
     )
 
 

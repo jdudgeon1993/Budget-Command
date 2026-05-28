@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Cura — Sign In{% endblock %}
+{% block title %}Cura — Create Account{% endblock %}
 
 {% block extra_style %}
 .login-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  min-height: 100dvh;
   padding: 24px;
 }
 .login-card {
   width: 100%;
-  max-width: 360px;
-  background: var(--surface);
-  border: 3px solid var(--border);
-  border-radius: var(--rl);
-  padding: 32px 28px;
+  max-width: 380px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  padding: 36px 28px;
 }
 .login-logo {
   font-family: var(--display);
-  font-size: 32px;
+  font-size: 34px;
   letter-spacing: .1em;
   color: var(--accent);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .login-sub {
   font-family: var(--mono);
@@ -44,33 +44,34 @@
 }
 .field input {
   width: 100%;
-  background: var(--bg);
-  border: 2px solid var(--border);
+  background: var(--bg3);
+  border: 1px solid var(--border2);
   border-radius: var(--r);
   color: var(--text);
   font-family: var(--mono);
   font-size: 14px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   outline: none;
   transition: border-color .12s;
+  box-sizing: border-box;
 }
-.field input:focus { border-color: var(--accent2); }
+.field input:focus { border-color: var(--accent); }
 .login-btn {
   width: 100%;
   background: var(--accent);
   border: none;
   border-radius: var(--r);
-  color: var(--bg);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  padding: 10px;
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 11px;
   cursor: pointer;
   margin-top: 8px;
-  transition: background .12s;
+  transition: opacity .12s;
 }
-.login-btn:hover { background: var(--accent2); }
+.login-btn:hover { opacity: .88; }
 .login-error {
   background: var(--rbg);
   border: 1px solid var(--red);
@@ -78,8 +79,26 @@
   color: var(--red);
   font-family: var(--mono);
   font-size: 11px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   margin-bottom: 16px;
+}
+.login-switch {
+  margin-top: 20px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+}
+.login-switch a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.login-switch a:hover { text-decoration: underline; }
+.pw-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 4px;
 }
 {% endblock %}
 
@@ -87,23 +106,28 @@
 <div class="login-wrap">
   <div class="login-card">
     <div class="login-logo">Cura</div>
-    <div class="login-sub">Budget Command — Rebuild</div>
+    <div class="login-sub">Create your account</div>
     {% if error %}
     <div class="login-error">{{ error }}</div>
     {% endif %}
-    <form method="POST" action="/login">
+    <form method="POST" action="/signup">
       <div class="field">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" autocomplete="email" autofocus required>
       </div>
       <div class="field">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required>
+        <input type="password" id="password" name="password" autocomplete="new-password" required>
+        <div class="pw-hint">Minimum 6 characters</div>
       </div>
-      <button class="login-btn" type="submit">Sign in</button>
+      <div class="field">
+        <label for="confirm">Confirm Password</label>
+        <input type="password" id="confirm" name="confirm" autocomplete="new-password" required>
+      </div>
+      <button class="login-btn" type="submit">Create Account</button>
     </form>
-    <div style="margin-top:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);">
-      Don't have an account? <a href="/signup" style="color:var(--accent);text-decoration:none;">Sign up</a>
+    <div class="login-switch">
+      Already have an account? <a href="/login">Sign in</a>
     </div>
   </div>
 </div>
