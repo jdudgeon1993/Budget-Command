@@ -1725,6 +1725,11 @@
   .app-header  { margin-left: var(--sidebar-w); }
   .month-bar   { margin-left: var(--sidebar-w); }
   .main-content { margin-left: var(--sidebar-w); }
+
+  /* Sidebar already shows logo — hide it from header to avoid duplication */
+  .h-logo { display: none; }
+  /* Slim the header slightly on desktop */
+  .header-table { height: 42px; }
 }
 
 /* Sidebar internals */
@@ -1848,6 +1853,14 @@
 }
 .sb-settings:hover { color: var(--text2); }
 .sb-settings svg { width: 14px; height: 14px; }
+
+/* ── Mobile-only fixes ──────────────────────────────────────────── */
+@media (max-width: 899px) {
+  /* Hide columns marked for desktop-only on small screens */
+  .col-m-hide { display: none; }
+  /* Pad content above bottom nav (58px tall + 2px breathing room) */
+  .main-content { padding-bottom: 72px !important; }
+}
 
 /* ── Updated mobile bottom nav ─────────────────────────────────── */
 @media (max-width: 899px) {
@@ -3969,7 +3982,7 @@
 <!-- Onboarding modal -->
 <div id="onboard-backdrop" class="onboard-backdrop">
   <div class="onboard-modal">
-    <h2>Welcome to Budget Command</h2>
+    <h2>Welcome to Cura</h2>
     <ul class="onboard-steps">
       <li>
         <div class="onboard-step-num">1</div>
