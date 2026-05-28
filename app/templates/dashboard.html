@@ -427,6 +427,9 @@ select.field-input { cursor: pointer; }
 .fc-clear-badge { display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); background:rgba(34,197,94,.12); border:1px solid var(--green); border-radius:var(--r); padding:1px 6px; margin-top:3px; }
 .fc-period-body { display:none; border-top:1px solid var(--border); }
 .fc-period-body.open { display:block; }
+.fc-period-chevron { font-size:10px; color:var(--text3); transition:transform .2s; flex-shrink:0; align-self:center; }
+.fc-period-body.open ~ .fc-period-header .fc-period-chevron { transform:rotate(180deg); }
+.fc-period-header:hover { background:var(--bg3); }
 .fc-start-row { display:flex; justify-content:space-between; padding:6px 12px; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:.06em; text-transform:uppercase; }
 .fc-start-row span:last-child { color:var(--accent); }
 .fc-income-block { padding:6px 12px 2px; border-bottom:1px solid var(--border2); }
@@ -521,31 +524,95 @@ select.field-input { cursor: pointer; }
 .tl-day-header:first-child { padding-top: 4px; }
 .tl-empty { padding: 32px 0; text-align: center; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
 
-/* ── Reports ── */
-.rpt-cat-row {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 12px 14px;
-}
-.rpt-cat-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-.rpt-cat-name { font-size: 14px; font-weight: 600; }
-.rpt-cat-vals { font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; }
-.rpt-cat-of   { color: var(--text3); font-weight: 400; }
-.rpt-bar-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
-.rpt-bar-fill  { height: 100%; border-radius: 3px; transition: width .5s; }
+/* ── Reports / History ── */
+.rpt-kpi-strip { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+.rpt-kpi-card { flex:1; min-width:80px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:10px 12px; }
+.rpt-kpi-label { font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:4px; }
+.rpt-kpi-val { font-family:var(--mono); font-size:18px; font-weight:700; line-height:1; }
+.rpt-kpi-sub { font-family:var(--mono); font-size:9px; color:var(--text3); margin-top:4px; }
 
-.rpt-nw-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-@media (min-width: 600px) { .rpt-nw-grid { grid-template-columns: repeat(4, 1fr); } }
-.rpt-nw-card  { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; }
-.rpt-nw-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
-.rpt-nw-val   { font-family: var(--mono); font-size: 18px; font-weight: 700; line-height: 1; }
+.rpt-section { margin-bottom:18px; }
+.rpt-section-hdr { font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
 
-.rpt-ytd-wrap { display: flex; gap: 4px; height: 80px; align-items: flex-end; overflow-x: auto; padding-bottom: 20px; }
-.rpt-month-col { flex: 1; min-width: 24px; display: flex; flex-direction: column; align-items: center; position: relative; }
-.rpt-month-bars { width: 100%; display: flex; gap: 1px; align-items: flex-end; height: 60px; }
-.rpt-month-bar  { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0; }
-.rpt-month-lbl  { font-family: var(--mono); font-size: 7px; color: var(--text3); text-align: center; white-space: nowrap; position: absolute; bottom: 0; }
+.rpt-cat-row { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:10px 12px; margin-bottom:6px; }
+.rpt-cat-row:last-child { margin-bottom:0; }
+.rpt-cat-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.rpt-cat-name { font-size:13px; font-weight:600; }
+.rpt-cat-vals { font-family:var(--mono); font-size:12px; font-weight:700; white-space:nowrap; }
+.rpt-cat-of   { color:var(--text3); font-weight:400; font-size:11px; }
+.rpt-cat-badges { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px; }
+.rpt-cat-badge { font-family:var(--mono); font-size:9px; padding:1px 6px; border-radius:10px; background:var(--bg3); color:var(--text3); border:1px solid var(--border2); }
+.rpt-bar-track { height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+.rpt-bar-fill  { height:100%; border-radius:3px; transition:width .5s; }
+.rpt-cat-status { font-family:var(--mono); font-size:9px; margin-top:5px; }
+.rpt-cat-status.over { color:var(--red); }
+.rpt-cat-status.close { color:var(--amber); }
+.rpt-cat-status.good { color:var(--green); }
 
-.rpt-loading { padding: 48px 0; text-align: center; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
+.rpt-nw-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+@media (min-width:600px) { .rpt-nw-grid { grid-template-columns:repeat(4,1fr); } }
+.rpt-nw-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; position:relative; overflow:hidden; }
+.rpt-nw-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; }
+.rpt-nw-card.cash::before   { background:var(--green); }
+.rpt-nw-card.save::before   { background:var(--accent); }
+.rpt-nw-card.debt::before   { background:var(--red); }
+.rpt-nw-card.net::before    { background:var(--amber); }
+.rpt-nw-label { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); margin-bottom:5px; }
+.rpt-nw-val   { font-family:var(--mono); font-size:20px; font-weight:700; line-height:1; }
+.rpt-nw-delta { font-family:var(--mono); font-size:9px; color:var(--text3); margin-top:4px; }
+
+.rpt-ytd-section { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:12px; margin-bottom:18px; }
+.rpt-ytd-title { font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
+.rpt-ytd-chart { display:flex; gap:3px; height:90px; align-items:flex-end; overflow-x:auto; padding-bottom:18px; }
+.rpt-month-col { flex:1; min-width:26px; display:flex; flex-direction:column; align-items:center; position:relative; cursor:pointer; }
+.rpt-month-col:hover .rpt-month-bar { opacity:.8; }
+.rpt-month-bars { width:100%; display:flex; gap:2px; align-items:flex-end; height:72px; }
+.rpt-month-bar  { flex:1; min-height:2px; border-radius:2px 2px 0 0; transition:height .4s; }
+.rpt-month-lbl  { font-family:var(--mono); font-size:7px; color:var(--text3); text-align:center; white-space:nowrap; position:absolute; bottom:0; }
+.rpt-ytd-legend { display:flex; gap:12px; margin-top:4px; }
+.rpt-ytd-legend-item { display:flex; align-items:center; gap:4px; font-family:var(--mono); font-size:9px; color:var(--text3); }
+.rpt-ytd-legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+
+.rpt-savings-rate { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; margin-bottom:18px; }
+.rpt-sr-label { font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--text3); margin-bottom:8px; }
+.rpt-sr-track { height:10px; background:var(--bg3); border-radius:5px; overflow:hidden; position:relative; }
+.rpt-sr-fill  { height:100%; border-radius:5px; transition:width .5s; }
+.rpt-sr-target { position:absolute; top:0; bottom:0; width:2px; background:var(--text3); opacity:.5; }
+.rpt-sr-nums { display:flex; justify-content:space-between; margin-top:5px; font-family:var(--mono); font-size:10px; }
+
+.rpt-loading { padding:48px 0; text-align:center; font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); }
+
+/* ── Ledger Transaction List ── */
+.ldg-wrap { display:flex; flex-direction:column; }
+.ldg-day-hdr { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:10px 4px 4px; border-bottom:1px solid var(--border2); display:flex; align-items:center; justify-content:space-between; }
+.ldg-day-net { font-family:var(--mono); font-size:10px; }
+.ldg-tx { display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--border2); cursor:pointer; transition:background .1s; }
+.ldg-tx:hover { background:var(--bg2); }
+.ldg-tx.editing { background:var(--bg2); }
+.ldg-tx-type { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.ldg-tx-type.in  { background:var(--green); }
+.ldg-tx-type.out { background:var(--red); }
+.ldg-tx-type.xfr { background:var(--amber); }
+.ldg-tx-body { flex:1; min-width:0; }
+.ldg-tx-desc { font-size:13px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ldg-tx-meta { font-family:var(--mono); font-size:10px; color:var(--text3); margin-top:2px; display:flex; gap:6px; flex-wrap:wrap; }
+.ldg-tx-bucket { background:var(--bg3); border:1px solid var(--border2); border-radius:10px; padding:0 6px; color:var(--accent); }
+.ldg-tx-acct { color:var(--text3); }
+.ldg-tx-amt { font-family:var(--mono); font-size:13px; font-weight:700; white-space:nowrap; flex-shrink:0; }
+.ldg-tx-amt.in  { color:var(--green); }
+.ldg-tx-amt.out { color:var(--red); }
+.ldg-tx-amt.xfr { color:var(--text2); }
+.ldg-editor { display:none; background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 12px; }
+.ldg-editor.open { display:block; }
+.ldg-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+.ldg-editor-grid .span2 { grid-column:span 2; }
+.ldg-field-label { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); margin-bottom:3px; }
+.ldg-field-input { width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r); color:var(--text); font-family:var(--mono); font-size:12px; padding:5px 8px; box-sizing:border-box; }
+.ldg-field-input:focus { outline:none; border-color:var(--accent); }
+.ldg-editor-actions { display:flex; gap:6px; align-items:center; }
+.ldg-err { font-family:var(--mono); font-size:10px; color:var(--red); margin-bottom:6px; display:none; }
+.ldg-err.show { display:block; }
+.ldg-empty { text-align:center; padding:40px 0; font-family:var(--mono); font-size:11px; color:var(--text3); letter-spacing:.08em; }
 
 /* ── Empty state ── */
 .empty-state {
@@ -841,7 +908,7 @@ select.field-input { cursor: pointer; }
     <!-- ── LEDGER PANEL ── -->
     <div id="panel-ledger" class="panel">
 
-      <!-- Ledger KPI strip (mobile only — sidebar handles desktop) -->
+      <!-- KPI strip (mobile only) -->
       <div class="panel-kpis">
         <div class="panel-kpi">
           <div class="panel-kpi-label">Income</div>
@@ -852,85 +919,99 @@ select.field-input { cursor: pointer; }
           <div class="panel-kpi-val" id="ldg-spent" style="color:var(--red)">{{ ledger_spent|money }}</div>
         </div>
         <div class="panel-kpi">
-          <div class="panel-kpi-label">Ready</div>
+          <div class="panel-kpi-label">Net</div>
           <div class="panel-kpi-val" id="ldg-rts" style="color:var(--accent)">{{ rts|money }}</div>
         </div>
       </div>
 
       {% if ledger_groups %}
+      <div class="ldg-wrap">
         {% for group in ledger_groups %}
-          <div class="section-label">{{ group.label }}</div>
-          {% for row in group.rows %}
-            {%- if row.type == 'in' -%}{%- set tv = '+' + (row.amount|money) -%}{%- set tc = 'var(--green)' -%}
-            {%- elif row.type == 'xfr' -%}{%- set tv = row.amount|money -%}{%- set tc = 'var(--text2)' -%}
-            {%- else -%}{%- set tv = '-' + (row.amount|money) -%}{%- set tc = 'var(--red)' -%}{%- endif -%}
-          <div class="row" onclick="toggleRow(this)">
-            <div class="row-top">
-              <div class="row-date">{{ row.date[5:] if row.date else '—' }}</div>
-              <div style="flex:1">
-                <div class="row-name">{{ row.desc or '(no description)' }}</div>
-                <div class="row-sub">{{ row.bucket }}{% if row.bucket and row.account %} &middot; {% endif %}{{ row.account }}</div>
+        {%- set day_in  = namespace(v=0) %}
+        {%- set day_out = namespace(v=0) %}
+        {%- for row in group.rows %}
+          {%- if row.type == 'in' %}{%- set day_in.v  = day_in.v  + row.amount %}
+          {%- elif row.type == 'out' %}{%- set day_out.v = day_out.v + row.amount %}{%- endif %}
+        {%- endfor %}
+        {%- set day_net = day_in.v - day_out.v %}
+        <div class="ldg-day-hdr">
+          <span>{{ group.label }}</span>
+          <span class="ldg-day-net" style="color:{% if day_net > 0 %}var(--green){% elif day_net < 0 %}var(--red){% else %}var(--text3){% endif %}">
+            {%- if day_net > 0 %}+{{ day_net|money }}{%- elif day_net < 0 %}{{ day_net|money }}{%- endif %}
+          </span>
+        </div>
+        {% for row in group.rows %}
+          {%- if row.type == 'in' -%}{%- set tc = 'in' -%}{%- set tv = '+' + (row.amount|money) -%}
+          {%- elif row.type == 'xfr' -%}{%- set tc = 'xfr' -%}{%- set tv = row.amount|money -%}
+          {%- else -%}{%- set tc = 'out' -%}{%- set tv = '−' + (row.amount|money) -%}{%- endif -%}
+          <div class="ldg-tx" id="ldgtx-{{ row.id }}" onclick="ldgToggle('{{ row.id }}')">
+            <div class="ldg-tx-type {{ tc }}"></div>
+            <div class="ldg-tx-body">
+              <div class="ldg-tx-desc">{{ row.desc or '(no description)' }}</div>
+              <div class="ldg-tx-meta">
+                {%- if row.bucket %}<span class="ldg-tx-bucket">{{ row.bucket }}</span>{% endif %}
+                {%- if row.account %}<span class="ldg-tx-acct">{{ row.account }}</span>{% endif %}
               </div>
-              <div class="row-val" style="color:{{ tc }}">{{ tv }}</div>
-              <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-            <div class="row-editor" onclick="event.stopPropagation()">
-              <div class="editor-grid cols2">
-                <div class="field-group">
-                  <label class="field-label">Date</label>
-                  <input class="field-input" type="date" data-field="date" value="{{ row.date }}">
-                </div>
-                <div class="field-group">
-                  <label class="field-label">Amount</label>
-                  <input class="field-input" type="number" data-field="amount" value="{{ row.amount }}" step="0.01" min="0">
-                </div>
-                <div class="field-group span2">
-                  <label class="field-label">Payee / Description</label>
-                  <input class="field-input" type="text" data-field="desc" value="{{ row.desc }}">
-                </div>
-                {% if row.type == 'out' %}
-                <div class="field-group">
-                  <label class="field-label">Bucket</label>
-                  <select class="field-input" data-field="bucket_id">
-                    <option value="">— unassigned —</option>
-                    {% for b in expense_buckets %}
-                    <option value="{{ b.id }}"{% if b.id == row.bucket_id %} selected{% endif %}>{{ b.name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                {% elif row.type == 'in' %}
-                <div class="field-group">
-                  <label class="field-label">Income Type</label>
-                  <select class="field-input" data-field="income_type">
-                    <option value="paycheck"{% if row.income_type == 'paycheck' %} selected{% endif %}>Paycheck</option>
-                    <option value="other"{% if row.income_type == 'other' %} selected{% endif %}>Other</option>
-                  </select>
-                </div>
-                {% endif %}
-                <div class="field-group">
-                  <label class="field-label">Account</label>
-                  <select class="field-input" data-field="account_id">
-                    {% for a in cash_accounts %}
-                    <option value="{{ a.id }}"{% if a.id == row.account_id %} selected{% endif %}>{{ a.name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
+            <div class="ldg-tx-amt {{ tc }}">{{ tv }}</div>
+          </div>
+          <div class="ldg-editor" id="ldged-{{ row.id }}" onclick="event.stopPropagation()">
+            <div class="ldg-editor-grid">
+              <div>
+                <div class="ldg-field-label">Date</div>
+                <input class="ldg-field-input" type="date" data-field="date" value="{{ row.date }}">
               </div>
-              <div class="row-error" id="txerr-{{ row.id }}"></div>
-              <div class="editor-actions">
-                <button class="btn btn-primary btn-sm" onclick="saveTx(this,'{{ row.id }}')">Save</button>
-                <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
-                <div class="editor-spacer"></div>
-                <button class="btn btn-danger btn-sm" onclick="deleteTx(this,'{{ row.id }}')">Delete</button>
+              <div>
+                <div class="ldg-field-label">Amount</div>
+                <input class="ldg-field-input" type="number" data-field="amount" value="{{ row.amount }}" step="0.01" min="0">
               </div>
+              <div class="span2">
+                <div class="ldg-field-label">Payee / Description</div>
+                <input class="ldg-field-input" type="text" data-field="desc" value="{{ row.desc }}">
+              </div>
+              {% if row.type == 'out' %}
+              <div>
+                <div class="ldg-field-label">Bucket</div>
+                <select class="ldg-field-input" data-field="bucket_id">
+                  <option value="">— unassigned —</option>
+                  {% for b in expense_buckets %}
+                  <option value="{{ b.id }}"{% if b.id == row.bucket_id %} selected{% endif %}>{{ b.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              {% elif row.type == 'in' %}
+              <div>
+                <div class="ldg-field-label">Income Type</div>
+                <select class="ldg-field-input" data-field="income_type">
+                  <option value="paycheck"{% if row.income_type == 'paycheck' %} selected{% endif %}>Paycheck</option>
+                  <option value="other"{% if row.income_type == 'other' %} selected{% endif %}>Other</option>
+                </select>
+              </div>
+              {% endif %}
+              <div>
+                <div class="ldg-field-label">Account</div>
+                <select class="ldg-field-input" data-field="account_id">
+                  {% for a in cash_accounts %}
+                  <option value="{{ a.id }}"{% if a.id == row.account_id %} selected{% endif %}>{{ a.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="ldg-err" id="ldgerr-{{ row.id }}"></div>
+            <div class="ldg-editor-actions">
+              <button class="btn btn-primary btn-sm" onclick="ldgSaveTx(this,'{{ row.id }}')">Save</button>
+              <button class="btn btn-ghost btn-sm" onclick="ldgClose('{{ row.id }}')">Cancel</button>
+              <div style="flex:1"></div>
+              <button class="btn btn-danger btn-sm" onclick="ldgDeleteTx(this,'{{ row.id }}')">Delete</button>
             </div>
           </div>
-          {% endfor %}
         {% endfor %}
+        {% endfor %}
+      </div>
       {% else %}
-        <div class="empty-state">
-          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-          <p>No transactions this month</p>
+        <div class="ldg-empty">
+          <div style="font-size:28px;margin-bottom:8px;opacity:.3">📋</div>
+          <div>No transactions this month</div>
         </div>
       {% endif %}
 
@@ -1950,6 +2031,62 @@ async function deleteTx(btn, txId) {
   } else { setBtn(btn, 'err'); }
 }
 
+// ── Ledger (new design) transaction helpers ───────────────────────
+function ldgToggle(txId) {
+  const tx  = document.getElementById('ldgtx-' + txId);
+  const ed  = document.getElementById('ldged-' + txId);
+  if (!tx || !ed) return;
+  const open = ed.classList.contains('open');
+  // close all other open editors first
+  document.querySelectorAll('.ldg-editor.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.ldg-tx.editing').forEach(el => el.classList.remove('editing'));
+  if (!open) { ed.classList.add('open'); tx.classList.add('editing'); }
+}
+function ldgClose(txId) {
+  document.getElementById('ldgtx-' + txId)?.classList.remove('editing');
+  document.getElementById('ldged-' + txId)?.classList.remove('open');
+}
+async function ldgSaveTx(btn, txId) {
+  const editor = document.getElementById('ldged-' + txId);
+  const errEl  = document.getElementById('ldgerr-' + txId);
+  if (errEl) errEl.classList.remove('show');
+  setBtn(btn, 'loading');
+  try {
+    let state;
+    for (const el of editor.querySelectorAll('[data-field]')) {
+      state = await api('/api/edit-transaction', {id:txId, field:el.dataset.field, value:el.value, active_mid:ACTIVE_MID});
+      if (!state.ok) throw new Error(state.error || el.dataset.field);
+    }
+    refreshKpis(state);
+    setBtn(btn, 'ok');
+    // update the visible row
+    const tx      = document.getElementById('ldgtx-' + txId);
+    const descEl  = tx?.querySelector('.ldg-tx-desc');
+    const newDesc = editor.querySelector('[data-field="desc"]')?.value;
+    if (descEl && newDesc) descEl.textContent = newDesc || '(no description)';
+    const amtEl   = tx?.querySelector('.ldg-tx-amt');
+    const rawAmt  = parseFloat(editor.querySelector('[data-field="amount"]')?.value || '0');
+    if (amtEl && rawAmt) {
+      const cls = amtEl.className.match(/\b(in|out|xfr)\b/)?.[1] || 'out';
+      amtEl.textContent = cls === 'in' ? '+' + fmtMoney(rawAmt) : cls === 'xfr' ? fmtMoney(rawAmt) : '−' + fmtMoney(rawAmt);
+    }
+    setTimeout(() => ldgClose(txId), 600);
+  } catch(e) {
+    setBtn(btn, 'err');
+    if (errEl) { errEl.textContent = e.message || 'Save failed.'; errEl.classList.add('show'); }
+  }
+}
+async function ldgDeleteTx(btn, txId) {
+  if (!confirm('Delete this transaction?')) return;
+  setBtn(btn, 'loading');
+  const state = await api('/api/delete-transaction', {id:txId, active_mid:ACTIVE_MID});
+  if (state.ok) {
+    document.getElementById('ldgtx-' + txId)?.remove();
+    document.getElementById('ldged-' + txId)?.remove();
+    refreshKpis(state);
+  } else { setBtn(btn, 'err'); }
+}
+
 // ── Account save ─────────────────────────────────────────────────
 async function saveAccount(btn, accountId) {
   const editor = btn.closest('.row-editor');
@@ -2162,71 +2299,134 @@ async function loadReports() {
 }
 
 function renderReports(data) {
-  const s   = data.summary    || {};
-  const ytd = data.ytd        || {};
-  const nw  = data.net_worth  || {};
+  const s    = data.summary   || {};
+  const ytd  = data.ytd       || {};
+  const nw   = data.net_worth || {};
   const cats = (data.category_breakdown || []).filter(c => c.spent > 0 || c.allocated > 0);
 
-  const maxYtd = Math.max(...(ytd.months || []).map(m => Math.max(m.income, m.spending)), 1);
+  const saved   = (s.income||0) - (s.spent||0);
+  const srPct   = (s.income||0) > 0 ? Math.round(saved / s.income * 100) : 0;
+  const ytdRate = ytd.savings_rate || 0;
 
-  const kpiHtml = `
-    <div class="panel-kpis" style="display:flex">
-      <div class="panel-kpi">
-        <div class="panel-kpi-label">Income</div>
-        <div class="panel-kpi-val" style="color:var(--green)">${fmtMoney(s.income||0)}</div>
-      </div>
-      <div class="panel-kpi">
-        <div class="panel-kpi-label">Spent</div>
-        <div class="panel-kpi-val" style="color:var(--red)">${fmtMoney(s.spent||0)}</div>
-      </div>
-      <div class="panel-kpi">
-        <div class="panel-kpi-label">Saved</div>
-        <div class="panel-kpi-val" style="color:var(--accent)">${fmtMoney((s.income||0)-(s.spent||0))}</div>
-      </div>
-      <div class="panel-kpi">
-        <div class="panel-kpi-label">YTD Rate</div>
-        <div class="panel-kpi-val" style="color:var(--green)">${ytd.savings_rate||0}%</div>
-      </div>
-    </div>`;
-
-  const catHtml = cats.length ? cats.map(c => {
-    const pct = c.allocated > 0 ? Math.min(100, Math.round(c.spent / c.allocated * 100)) : 0;
-    const bc  = c.over ? 'var(--red)' : pct > 85 ? 'var(--amber)' : 'var(--accent)';
-    return `<div class="rpt-cat-row">
-      <div class="rpt-cat-top">
-        <span class="rpt-cat-name">${c.name}</span>
-        <span class="rpt-cat-vals">${fmtMoney(c.spent)} <span class="rpt-cat-of">/ ${fmtMoney(c.allocated)}</span></span>
-      </div>
-      <div class="rpt-bar-track"><div class="rpt-bar-fill" style="width:${pct}%;background:${bc}"></div></div>
-    </div>`;
-  }).join('') : '<div class="empty-state" style="padding:24px 0"><p>No spending this month</p></div>';
-
-  const nwColor = (nw.net||0) >= 0 ? 'var(--green)' : 'var(--red)';
-  const nwHtml = `<div class="rpt-nw-grid">
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Cash</div><div class="rpt-nw-val" style="color:var(--green)">${fmtMoney(nw.budget_total||0)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Savings</div><div class="rpt-nw-val" style="color:var(--accent)">${fmtMoney(nw.savings_total||0)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Debt</div><div class="rpt-nw-val" style="color:var(--red)">${fmtMoney(nw.debt_total||0)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Net Worth</div><div class="rpt-nw-val" style="color:${nwColor}">${fmtMoney(nw.net||0)}</div></div>
+  /* ── KPI cards ── */
+  const kpiHtml = `<div class="rpt-kpi-strip">
+    <div class="rpt-kpi-card">
+      <div class="rpt-kpi-label">Income</div>
+      <div class="rpt-kpi-val" style="color:var(--green)">${fmtMoney(s.income||0)}</div>
+    </div>
+    <div class="rpt-kpi-card">
+      <div class="rpt-kpi-label">Spent</div>
+      <div class="rpt-kpi-val" style="color:var(--red)">${fmtMoney(s.spent||0)}</div>
+    </div>
+    <div class="rpt-kpi-card">
+      <div class="rpt-kpi-label">Saved</div>
+      <div class="rpt-kpi-val" style="color:${saved>=0?'var(--accent)':'var(--red)'}">${saved>=0?'+':''}${fmtMoney(saved)}</div>
+      <div class="rpt-kpi-sub">${srPct}% savings rate</div>
+    </div>
+    <div class="rpt-kpi-card">
+      <div class="rpt-kpi-label">YTD Rate</div>
+      <div class="rpt-kpi-val" style="color:${ytdRate>=20?'var(--green)':ytdRate>=10?'var(--amber)':'var(--red)'}">${ytdRate}%</div>
+      <div class="rpt-kpi-sub">target: 20%</div>
+    </div>
   </div>`;
 
-  const ytdHtml = (ytd.months||[]).map(m => {
-    const iH = Math.round(m.income  / maxYtd * 100);
-    const sH = Math.round(m.spending / maxYtd * 100);
-    return `<div class="rpt-month-col">
+  /* ── Savings rate bar ── */
+  const srFill   = Math.min(srPct, 100);
+  const srColor  = srPct >= 20 ? 'var(--green)' : srPct >= 10 ? 'var(--amber)' : 'var(--red)';
+  const srLabel  = srPct >= 20 ? 'On track' : srPct >= 10 ? 'Getting there' : 'Below target';
+  const savingsRateHtml = `<div class="rpt-savings-rate">
+    <div class="rpt-sr-label">Savings Rate — this month</div>
+    <div class="rpt-sr-track">
+      <div class="rpt-sr-fill" style="width:${srFill}%;background:${srColor}"></div>
+      <div class="rpt-sr-target" style="left:20%"></div>
+    </div>
+    <div class="rpt-sr-nums">
+      <span style="color:${srColor}">${srLabel}</span>
+      <span style="color:var(--text3)">${srPct}% of income saved</span>
+    </div>
+  </div>`;
+
+  /* ── Category rows ── */
+  const catHtml = cats.length ? cats.map(c => {
+    const pct    = c.allocated > 0 ? Math.min(110, Math.round(c.spent / c.allocated * 100)) : 0;
+    const over   = c.over || pct > 100;
+    const bc     = over ? 'var(--red)' : pct > 85 ? 'var(--amber)' : 'var(--accent)';
+    const status = over
+      ? `<div class="rpt-cat-status over">Over by ${fmtMoney(c.spent - c.allocated)}</div>`
+      : pct > 85
+      ? `<div class="rpt-cat-status close">${100 - pct}% remaining</div>`
+      : `<div class="rpt-cat-status good">${100 - pct}% remaining</div>`;
+    const buckets = (c.buckets || []).map(b =>
+      `<span class="rpt-cat-badge">${_escHTML(b.name)}: ${fmtMoney(b.spent)}</span>`
+    ).join('');
+    return `<div class="rpt-cat-row">
+      <div class="rpt-cat-top">
+        <span class="rpt-cat-name">${_escHTML(c.name)}</span>
+        <span class="rpt-cat-vals">${fmtMoney(c.spent)} <span class="rpt-cat-of">/ ${fmtMoney(c.allocated)}</span></span>
+      </div>
+      ${buckets ? `<div class="rpt-cat-badges">${buckets}</div>` : ''}
+      <div class="rpt-bar-track"><div class="rpt-bar-fill" style="width:${Math.min(pct,100)}%;background:${bc}"></div></div>
+      ${status}
+    </div>`;
+  }).join('') : '<div class="ldg-empty">No spending data this month</div>';
+
+  /* ── Net Worth ── */
+  const nwSign  = (nw.net||0) >= 0 ? '+' : '';
+  const nwColor = (nw.net||0) >= 0 ? 'var(--green)' : 'var(--red)';
+  const nwHtml  = `<div class="rpt-nw-grid">
+    <div class="rpt-nw-card cash">
+      <div class="rpt-nw-label">Cash</div>
+      <div class="rpt-nw-val" style="color:var(--green)">${fmtMoney(nw.budget_total||0)}</div>
+    </div>
+    <div class="rpt-nw-card save">
+      <div class="rpt-nw-label">Savings</div>
+      <div class="rpt-nw-val" style="color:var(--accent)">${fmtMoney(nw.savings_total||0)}</div>
+    </div>
+    <div class="rpt-nw-card debt">
+      <div class="rpt-nw-label">Debt</div>
+      <div class="rpt-nw-val" style="color:var(--red)">${fmtMoney(nw.debt_total||0)}</div>
+    </div>
+    <div class="rpt-nw-card net">
+      <div class="rpt-nw-label">Net Worth</div>
+      <div class="rpt-nw-val" style="color:${nwColor}">${nwSign}${fmtMoney(nw.net||0)}</div>
+    </div>
+  </div>`;
+
+  /* ── YTD bar chart ── */
+  const maxYtd = Math.max(...(ytd.months || []).map(m => Math.max(m.income||0, m.spending||0)), 1);
+  const months      = ytd.months || [];
+  const currentMoLabel = _midLabel(ACTIVE_MID).split(' ')[0]; // e.g. "May"
+  const ytdBars = months.map(m => {
+    const iH   = Math.max(2, Math.round((m.income||0)   / maxYtd * 100));
+    const sH   = Math.max(2, Math.round((m.spending||0)  / maxYtd * 100));
+    const isMo = m.label === currentMoLabel;
+    return `<div class="rpt-month-col" title="${m.label}: +${fmtMoney(m.income||0)} / −${fmtMoney(m.spending||0)}">
       <div class="rpt-month-bars">
-        <div class="rpt-month-bar" style="height:${iH}%;background:var(--green)" title="${fmtMoney(m.income)}"></div>
-        <div class="rpt-month-bar" style="height:${sH}%;background:var(--red);opacity:.75" title="${fmtMoney(m.spending)}"></div>
+        <div class="rpt-month-bar" style="height:${iH}%;background:var(--green);opacity:${isMo?1:.65}"></div>
+        <div class="rpt-month-bar" style="height:${sH}%;background:var(--red);opacity:${isMo?.8:.45}"></div>
       </div>
       <div class="rpt-month-lbl">${m.label}</div>
     </div>`;
   }).join('');
 
+  const ytdHtml = `<div class="rpt-ytd-section">
+    <div class="rpt-ytd-title">Year to Date — Income vs Spending</div>
+    <div class="rpt-ytd-chart">${ytdBars}</div>
+    <div class="rpt-ytd-legend">
+      <div class="rpt-ytd-legend-item"><div class="rpt-ytd-legend-dot" style="background:var(--green)"></div>Income</div>
+      <div class="rpt-ytd-legend-item"><div class="rpt-ytd-legend-dot" style="background:var(--red)"></div>Spending</div>
+      ${ytd.income ? `<span style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-left:auto">YTD: +${fmtMoney(ytd.income)} / −${fmtMoney(ytd.spending||0)}</span>` : ''}
+    </div>
+  </div>`;
+
   document.getElementById('ptab-history').innerHTML =
     kpiHtml +
+    savingsRateHtml +
     '<div class="section-label">Spending by Category</div>' + catHtml +
-    '<div class="section-label">Net Worth</div>' + nwHtml +
-    '<div class="section-label">Year to Date</div>' +
-    `<div class="rpt-ytd-wrap">${ytdHtml}</div>`;
+    '<div style="margin-bottom:18px"></div>' +
+    '<div class="section-label">Net Worth</div>' +
+    '<div style="margin-bottom:8px">' + nwHtml + '</div>' +
+    '<div style="margin-top:18px">' + ytdHtml + '</div>';
 }
 
 // ── Paycheck save & delete ────────────────────────────────────────
@@ -3313,6 +3513,7 @@ function renderForecast(data) {
           <span class="fc-period-net ${netCls}">${netSign}${fmtMoney(net)}</span>
           <span class="fc-period-bal">Bal: ${fmtMoney(p.end_balance)}</span>
         </div>
+        ${hasBody ? '<span class="fc-period-chevron">▾</span>' : ''}
       </div>`;
 
     if (hasBody) {
