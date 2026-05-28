@@ -245,6 +245,32 @@ select.field-input { cursor: pointer; }
 }
 .add-row-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── Reports ── */
+.rpt-cat-row {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 14px;
+}
+.rpt-cat-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.rpt-cat-name { font-size: 14px; font-weight: 600; }
+.rpt-cat-vals { font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.rpt-cat-of   { color: var(--text3); font-weight: 400; }
+.rpt-bar-track { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.rpt-bar-fill  { height: 100%; border-radius: 3px; transition: width .5s; }
+
+.rpt-nw-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 600px) { .rpt-nw-grid { grid-template-columns: repeat(4, 1fr); } }
+.rpt-nw-card  { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; }
+.rpt-nw-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+.rpt-nw-val   { font-family: var(--mono); font-size: 18px; font-weight: 700; line-height: 1; }
+
+.rpt-ytd-wrap { display: flex; gap: 4px; height: 80px; align-items: flex-end; overflow-x: auto; padding-bottom: 20px; }
+.rpt-month-col { flex: 1; min-width: 24px; display: flex; flex-direction: column; align-items: center; position: relative; }
+.rpt-month-bars { width: 100%; display: flex; gap: 1px; align-items: flex-end; height: 60px; }
+.rpt-month-bar  { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0; }
+.rpt-month-lbl  { font-family: var(--mono); font-size: 7px; color: var(--text3); text-align: center; white-space: nowrap; position: absolute; bottom: 0; }
+
+.rpt-loading { padding: 48px 0; text-align: center; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
+
 /* ── Empty state ── */
 .empty-state {
   flex: 1; display: flex; align-items: center; justify-content: center;
@@ -261,7 +287,7 @@ select.field-input { cursor: pointer; }
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
 }
 .backdrop.on { display: block; }
-#sheet, #sheet-bucket, #sheet-account {
+#sheet, #sheet-bucket, #sheet-account, #sheet-paycheck {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--bg2); border-top: 1px solid var(--border2);
   border-radius: 16px 16px 0 0; z-index: 101;
@@ -269,7 +295,7 @@ select.field-input { cursor: pointer; }
   transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
   max-height: 92dvh; overflow-y: auto;
 }
-#sheet.on, #sheet-bucket.on, #sheet-account.on { transform: translateY(0); }
+#sheet.on, #sheet-bucket.on, #sheet-account.on, #sheet-paycheck.on { transform: translateY(0); }
 .sheet-handle {
   width: 36px; height: 4px; background: var(--border2);
   border-radius: 2px; margin: 12px auto 0;
@@ -323,7 +349,7 @@ select.field-input { cursor: pointer; }
   #app-header    { left: var(--sidebar-w); }
   .hdr-logo      { display: none; }
   .sb-logo-month { display: none; }
-  #sheet, #sheet-bucket, #sheet-account {
+  #sheet, #sheet-bucket, #sheet-account, #sheet-paycheck {
     left: 50%; right: auto; bottom: auto; top: 50%;
     width: min(480px, calc(100vw - var(--sidebar-w) - 48px));
     border-radius: var(--r); border: 1px solid var(--border2);
@@ -331,7 +357,7 @@ select.field-input { cursor: pointer; }
     transition: transform .2s ease, opacity .2s ease;
     max-height: 85vh; box-shadow: 0 24px 64px rgba(0,0,0,.65);
   }
-  #sheet.on, #sheet-bucket.on, #sheet-account.on {
+  #sheet.on, #sheet-bucket.on, #sheet-account.on, #sheet-paycheck.on {
     transform: translate(-50%, -50%) scale(1); opacity: 1;
   }
   .sheet-handle { display: none; }
@@ -701,25 +727,24 @@ select.field-input { cursor: pointer; }
 
     <!-- ── REPORTS PANEL ── -->
     <div id="panel-reports" class="panel">
-      <div class="empty-state">
-        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <p>Reports coming soon</p>
-      </div>
+      <div class="rpt-loading" id="rpt-loader">Loading…</div>
     </div>
 
 
     <!-- ── SETUP PANEL ── -->
     <div id="panel-setup" class="panel">
 
-      {% if paychecks %}
       <div class="section-label">Paychecks &amp; Income</div>
+
+      {%- set freq_map = {7: 'Weekly', 14: 'Biweekly', 15: 'Semi-monthly', 30: 'Monthly'} -%}
+      {% if paychecks %}
       {% for p in paychecks %}
       <div class="row" onclick="toggleRow(this)">
         <div class="row-top">
           <div class="row-bar" style="background:var(--green)"></div>
           <div style="flex:1">
-            <div class="row-name">{{ p.name or 'Paycheck' }}</div>
-            <div class="row-sub">{{ p.frequency or 'monthly' }}</div>
+            <div class="row-name">{{ p.label or 'Paycheck' }}</div>
+            <div class="row-sub">{{ freq_map.get(p.freq, p.freq ~ 'd') }}</div>
           </div>
           <div class="row-val" style="color:var(--green)">{{ p.amount|money }}</div>
           <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
@@ -727,16 +752,33 @@ select.field-input { cursor: pointer; }
         <div class="row-editor" onclick="event.stopPropagation()">
           <div class="editor-grid cols2">
             <div class="field-group">
-              <label class="field-label">Name</label>
-              <input class="field-input" type="text" value="{{ p.name or '' }}">
+              <label class="field-label">Label</label>
+              <input class="field-input" type="text" data-field="label" value="{{ p.label or '' }}">
             </div>
             <div class="field-group">
               <label class="field-label">Amount</label>
-              <input class="field-input" type="number" value="{{ p.amount }}" step="0.01">
+              <input class="field-input" type="number" data-field="amount" value="{{ p.amount }}" step="0.01" min="0">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Frequency</label>
+              <select class="field-input" data-field="freq">
+                <option value="7"{% if p.freq == 7 %} selected{% endif %}>Weekly</option>
+                <option value="14"{% if p.freq == 14 %} selected{% endif %}>Biweekly</option>
+                <option value="15"{% if p.freq == 15 %} selected{% endif %}>Semi-monthly</option>
+                <option value="30"{% if p.freq == 30 %} selected{% endif %}>Monthly</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Anchor Date</label>
+              <input class="field-input" type="date" data-field="anchorDate" value="{{ p.anchorDate or '' }}">
             </div>
           </div>
+          <div class="row-error" id="pcerr-{{ p.id }}"></div>
           <div class="editor-actions">
-            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Close</button>
+            <button class="btn btn-primary btn-sm" onclick="savePaycheck(this,'{{ p.id }}')">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm" onclick="deletePaycheck(this,'{{ p.id }}')">Delete</button>
           </div>
         </div>
       </div>
@@ -746,6 +788,11 @@ select.field-input { cursor: pointer; }
         <p>No paychecks configured</p>
       </div>
       {% endif %}
+
+      <button class="add-row-btn" onclick="openPaycheckSheet()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Paycheck
+      </button>
 
     </div><!-- /panel-setup -->
 
@@ -860,6 +907,48 @@ select.field-input { cursor: pointer; }
     <div class="sheet-actions">
       <button class="btn btn-primary" id="sa-submit" onclick="submitAccountSheet()">Add Account</button>
       <button class="btn btn-ghost" onclick="closeAccountSheet()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ADD PAYCHECK SHEET ═══════════════ -->
+<div id="backdrop-paycheck" class="backdrop" onclick="closePaycheckSheet()"></div>
+<div id="sheet-paycheck">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">Add Paycheck</div>
+  <div class="sheet-body">
+    <div class="sheet-row cols2">
+      <div class="field-group">
+        <label class="field-label">Label</label>
+        <input class="field-input" id="sp-label" type="text" placeholder="e.g. Main Job">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Amount</label>
+        <div class="amount-wrap">
+          <span class="amount-prefix">$</span>
+          <input class="field-input" id="sp-amount" type="number" placeholder="0.00" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+    <div class="sheet-row cols2">
+      <div class="field-group">
+        <label class="field-label">Frequency</label>
+        <select class="field-input" id="sp-freq">
+          <option value="14">Biweekly</option>
+          <option value="7">Weekly</option>
+          <option value="15">Semi-monthly</option>
+          <option value="30">Monthly</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Anchor Date</label>
+        <input class="field-input" id="sp-anchor" type="date">
+      </div>
+    </div>
+    <div class="sheet-error" id="sp-error"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-primary" id="sp-submit" onclick="submitPaycheckSheet()">Add Paycheck</button>
+      <button class="btn btn-ghost" onclick="closePaycheckSheet()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1035,6 +1124,7 @@ function showPanel(name, el, ctx) {
   }
   if (el) el.classList.add('active');
   document.querySelectorAll('.row.open').forEach(r => r.classList.remove('open'));
+  if (name === 'reports') loadReports();
 }
 
 // ── Expandable rows ──────────────────────────────────────────────
@@ -1222,6 +1312,162 @@ async function submitSheet() {
   }
 }
 
+// ── Reports ──────────────────────────────────────────────────────
+let reportsLoaded = false;
+async function loadReports() {
+  if (reportsLoaded) return;
+  try {
+    const data = await fetch(`/api/reports?month=${ACTIVE_MID}`).then(r => r.json());
+    if (!data.ok) throw new Error('load failed');
+    renderReports(data);
+    reportsLoaded = true;
+  } catch(e) {
+    document.getElementById('panel-reports').innerHTML =
+      '<div class="empty-state"><p>Could not load reports</p></div>';
+  }
+}
+
+function renderReports(data) {
+  const s   = data.summary    || {};
+  const ytd = data.ytd        || {};
+  const nw  = data.net_worth  || {};
+  const cats = (data.category_breakdown || []).filter(c => c.spent > 0 || c.allocated > 0);
+
+  const maxYtd = Math.max(...(ytd.months || []).map(m => Math.max(m.income, m.spending)), 1);
+
+  const kpiHtml = `
+    <div class="panel-kpis" style="display:flex">
+      <div class="panel-kpi">
+        <div class="panel-kpi-label">Income</div>
+        <div class="panel-kpi-val" style="color:var(--green)">${fmtMoney(s.income||0)}</div>
+      </div>
+      <div class="panel-kpi">
+        <div class="panel-kpi-label">Spent</div>
+        <div class="panel-kpi-val" style="color:var(--red)">${fmtMoney(s.spent||0)}</div>
+      </div>
+      <div class="panel-kpi">
+        <div class="panel-kpi-label">Saved</div>
+        <div class="panel-kpi-val" style="color:var(--accent)">${fmtMoney((s.income||0)-(s.spent||0))}</div>
+      </div>
+      <div class="panel-kpi">
+        <div class="panel-kpi-label">YTD Rate</div>
+        <div class="panel-kpi-val" style="color:var(--green)">${ytd.savings_rate||0}%</div>
+      </div>
+    </div>`;
+
+  const catHtml = cats.length ? cats.map(c => {
+    const pct = c.allocated > 0 ? Math.min(100, Math.round(c.spent / c.allocated * 100)) : 0;
+    const bc  = c.over ? 'var(--red)' : pct > 85 ? 'var(--amber)' : 'var(--accent)';
+    return `<div class="rpt-cat-row">
+      <div class="rpt-cat-top">
+        <span class="rpt-cat-name">${c.name}</span>
+        <span class="rpt-cat-vals">${fmtMoney(c.spent)} <span class="rpt-cat-of">/ ${fmtMoney(c.allocated)}</span></span>
+      </div>
+      <div class="rpt-bar-track"><div class="rpt-bar-fill" style="width:${pct}%;background:${bc}"></div></div>
+    </div>`;
+  }).join('') : '<div class="empty-state" style="padding:24px 0"><p>No spending this month</p></div>';
+
+  const nwColor = (nw.net||0) >= 0 ? 'var(--green)' : 'var(--red)';
+  const nwHtml = `<div class="rpt-nw-grid">
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Cash</div><div class="rpt-nw-val" style="color:var(--green)">${fmtMoney(nw.budget_total||0)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Savings</div><div class="rpt-nw-val" style="color:var(--accent)">${fmtMoney(nw.savings_total||0)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Debt</div><div class="rpt-nw-val" style="color:var(--red)">${fmtMoney(nw.debt_total||0)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Net Worth</div><div class="rpt-nw-val" style="color:${nwColor}">${fmtMoney(nw.net||0)}</div></div>
+  </div>`;
+
+  const ytdHtml = (ytd.months||[]).map(m => {
+    const iH = Math.round(m.income  / maxYtd * 100);
+    const sH = Math.round(m.spending / maxYtd * 100);
+    return `<div class="rpt-month-col">
+      <div class="rpt-month-bars">
+        <div class="rpt-month-bar" style="height:${iH}%;background:var(--green)" title="${fmtMoney(m.income)}"></div>
+        <div class="rpt-month-bar" style="height:${sH}%;background:var(--red);opacity:.75" title="${fmtMoney(m.spending)}"></div>
+      </div>
+      <div class="rpt-month-lbl">${m.label}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('panel-reports').innerHTML =
+    kpiHtml +
+    '<div class="section-label">Spending by Category</div>' + catHtml +
+    '<div class="section-label">Net Worth</div>' + nwHtml +
+    '<div class="section-label">Year to Date</div>' +
+    `<div class="rpt-ytd-wrap">${ytdHtml}</div>`;
+}
+
+// ── Paycheck save & delete ────────────────────────────────────────
+async function savePaycheck(btn, pcId) {
+  const editor = btn.closest('.row-editor');
+  const errEl  = document.getElementById('pcerr-' + pcId);
+  if (errEl) errEl.classList.remove('show');
+  const label  = editor.querySelector('[data-field="label"]').value.trim();
+  if (!label) {
+    if (errEl) { errEl.textContent = 'Label is required.'; errEl.classList.add('show'); }
+    return;
+  }
+  setBtn(btn, 'loading');
+  const payload = { id: pcId };
+  editor.querySelectorAll('[data-field]').forEach(el => { payload[el.dataset.field] = el.value; });
+  try {
+    const r = await api('/api/update-paycheck', payload);
+    if (!r.ok) throw new Error(r.error || 'Save failed');
+    setBtn(btn, 'ok');
+    const nameEl = btn.closest('.row').querySelector('.row-name');
+    if (nameEl) nameEl.textContent = label;
+    closeRow(btn);
+  } catch(e) {
+    setBtn(btn, 'err');
+    if (errEl) { errEl.textContent = e.message; errEl.classList.add('show'); }
+  }
+}
+
+async function deletePaycheck(btn, pcId) {
+  if (!confirm('Delete this paycheck?')) return;
+  setBtn(btn, 'loading');
+  const r = await api('/api/delete-paycheck', { id: pcId });
+  if (r.ok) {
+    btn.closest('.row').remove();
+  } else { setBtn(btn, 'err'); }
+}
+
+// ── Add Paycheck sheet ────────────────────────────────────────────
+function openPaycheckSheet() {
+  document.getElementById('sp-label').value  = '';
+  document.getElementById('sp-amount').value = '';
+  document.getElementById('sp-freq').value   = '14';
+  document.getElementById('sp-anchor').value = '';
+  document.getElementById('sp-error').classList.remove('show');
+  document.getElementById('backdrop-paycheck').classList.add('on');
+  document.getElementById('sheet-paycheck').classList.add('on');
+  setTimeout(() => document.getElementById('sp-label').focus(), 320);
+}
+function closePaycheckSheet() {
+  document.getElementById('backdrop-paycheck').classList.remove('on');
+  document.getElementById('sheet-paycheck').classList.remove('on');
+}
+async function submitPaycheckSheet() {
+  const label  = document.getElementById('sp-label').value.trim();
+  const amount = parseFloat(document.getElementById('sp-amount').value);
+  const freq   = parseInt(document.getElementById('sp-freq').value);
+  const anchor = document.getElementById('sp-anchor').value;
+  const errEl  = document.getElementById('sp-error');
+  const btn    = document.getElementById('sp-submit');
+  errEl.classList.remove('show');
+  if (!label)          { errEl.textContent = 'Label is required.';        errEl.classList.add('show'); return; }
+  if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; errEl.classList.add('show'); return; }
+  setBtn(btn, 'loading');
+  try {
+    const r = await api('/api/add-paycheck', { label, amount, freq, anchor_date: anchor });
+    if (!r.ok) throw new Error(r.error || 'Failed');
+    closePaycheckSheet();
+    window.location.reload();
+  } catch(e) {
+    setBtn(btn, 'ok');
+    errEl.textContent = e.message;
+    errEl.classList.add('show');
+  }
+}
+
 // ── Add Bucket sheet ─────────────────────────────────────────────
 function openBucketSheet() {
   document.getElementById('sb-name').value = '';
@@ -1304,7 +1550,7 @@ async function submitAccountSheet() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeSheet(); closeBucketSheet(); closeAccountSheet(); }
+  if (e.key === 'Escape') { closeSheet(); closeBucketSheet(); closeAccountSheet(); closePaycheckSheet(); }
 });
 </script>
 
