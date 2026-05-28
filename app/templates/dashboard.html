@@ -1854,12 +1854,129 @@
 .sb-settings:hover { color: var(--text2); }
 .sb-settings svg { width: 14px; height: 14px; }
 
+/* ════════════════════════════════════════════════════
+   PHASE 5: Color fixes + mobile bucket card overhaul
+   ════════════════════════════════════════════════════ */
+
+/* Logo: use accent color now that --text2 is neutral gray */
+.h-logo { color: var(--accent) !important; }
+
+/* Buttons: white text on purple looks cleaner than dark text */
+.sb-add       { color: #fff !important; }
+.cura-nav-add { color: #fff !important; }
+.strip-btn    { color: #fff !important; }
+
+/* Sidebar income KPI: green for money-in */
+.sb-kpi-val[style*="--accent"] { color: var(--green) !important; }
+
+/* ── Mobile KPI strip ── */
+.mobile-kpi-strip {
+  display: none; /* desktop: sidebar has these */
+}
+
 /* ── Mobile-only fixes ──────────────────────────────────────────── */
 @media (max-width: 899px) {
   /* Hide columns marked for desktop-only on small screens */
   .col-m-hide { display: none; }
-  /* Pad content above bottom nav (58px tall + 2px breathing room) */
+  /* Pad content above bottom nav (58px tall + padding) */
   .main-content { padding-bottom: 72px !important; }
+
+  /* ── Mobile KPI strip ── */
+  .mobile-kpi-strip {
+    display: flex; gap: 8px; padding: 10px 12px 4px;
+  }
+  .mobile-kpi {
+    flex: 1; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: var(--r);
+    padding: 10px 10px 8px;
+  }
+  .mobile-kpi-label {
+    font-family: var(--mono); font-size: 8px;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text3); margin-bottom: 3px;
+  }
+  .mobile-kpi-val {
+    font-family: var(--mono); font-size: 16px;
+    font-weight: 700; line-height: 1;
+  }
+
+  /* ══════════════════════════════════════════════
+     Mobile bucket table → clean prototype cards
+     ══════════════════════════════════════════════ */
+  #panel-buckets .bucket-card-tbl       { display: block; }
+  #panel-buckets .bucket-card-tbl thead { display: none; }
+  #panel-buckets .bucket-card-tbl tfoot { display: none; }
+  #panel-buckets .bucket-card-tbl tbody { display: block; }
+
+  /* Category section labels */
+  #panel-buckets .bucket-card-tbl .tbl-section-head { display: none !important; }
+  #panel-buckets .bucket-card-tbl .tbl-cat-head {
+    display: block !important;
+    background: transparent !important; border: none !important;
+    font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text3); font-family: var(--mono);
+    padding: 16px 2px 5px !important;
+  }
+  /* Category/grand totals: hide on mobile */
+  #panel-buckets .bucket-card-tbl .tbl-cat-total  { display: none !important; }
+  #panel-buckets .bucket-card-tbl .tbl-grand-total { display: none !important; }
+
+  /* ── Bucket data rows: the card ── */
+  #panel-buckets .bucket-card-tbl tr[id^="row-"] {
+    display: block;
+    position: relative;
+    background: var(--bg2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r) !important;
+    padding: 13px 14px 20px !important;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  /* Status accent: left edge of card */
+  #panel-buckets .bucket-card-tbl tr.bucket-paid   { border-left: 3px solid var(--green)  !important; }
+  #panel-buckets .bucket-card-tbl tr.bucket-funded { border-left: 3px solid var(--accent) !important; }
+  #panel-buckets .bucket-card-tbl tr.bucket-ok     { border-left: 3px solid var(--amber)  !important; }
+  #panel-buckets .bucket-card-tbl tr.bucket-over   { border-left: 3px solid var(--red)    !important; }
+
+  /* Hide all cells in data rows */
+  #panel-buckets .bucket-card-tbl tr[id^="row-"] td {
+    display: none !important;
+    background: transparent !important;
+    border: none !important; padding: 0 !important;
+  }
+  /* Reveal: bucket name — leave right gutter for the amount */
+  #panel-buckets .bucket-card-tbl tr[id^="row-"] .col-name {
+    display: block !important;
+    font-size: 15px; font-weight: 600; color: var(--text);
+    padding-right: 100px !important; min-height: 20px;
+  }
+  /* Reveal: available amount — pinned top-right */
+  #panel-buckets .bucket-card-tbl tr[id^="row-"] [data-avail-id] {
+    display: block !important;
+    position: absolute !important;
+    top: 13px; right: 14px;
+    font-family: var(--mono); font-size: 15px; font-weight: 700;
+    text-align: right; padding: 0 !important; white-space: nowrap;
+  }
+  /* Progress bar: full-width stripe at card bottom */
+  #panel-buckets .bucket-card-tbl tr[id^="row-"] .bpbar {
+    max-width: none !important;
+    position: absolute !important;
+    bottom: 0; left: 0; right: 0;
+    border-radius: 0 0 calc(var(--r) - 1px) calc(var(--r) - 1px) !important;
+    margin: 0 !important; height: 4px !important;
+  }
+
+  /* Settings expand row: stays functional */
+  #panel-buckets .bucket-card-tbl .bucket-settings-row {
+    display: block; margin-bottom: 6px;
+  }
+  #panel-buckets .bucket-card-tbl .bucket-settings-row td {
+    display: block !important; position: static !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: var(--r) !important;
+    padding: 12px !important; background: var(--bg3) !important;
+  }
 }
 
 /* ── Updated mobile bottom nav ─────────────────────────────────── */
@@ -2211,7 +2328,7 @@
     </div>
     <div class="sb-kpi">
       <div class="sb-kpi-label">Income</div>
-      <div class="sb-kpi-val" style="color:var(--accent)">{{ income|money if income is defined else '—' }}</div>
+      <div class="sb-kpi-val" style="color:var(--green)">{{ income|money if income is defined else '—' }}</div>
     </div>
     <div class="sb-kpi">
       <div class="sb-kpi-label">Allocated</div>
@@ -2378,6 +2495,23 @@
 
   <!-- Buckets panel -->
   <div id="panel-buckets" class="panel active">
+
+    <!-- KPI strip (mobile only — sidebar has these on desktop) -->
+    <div class="mobile-kpi-strip">
+      <div class="mobile-kpi">
+        <div class="mobile-kpi-label">Income</div>
+        <div class="mobile-kpi-val" style="color:var(--green)">{{ income|money if income is defined else '—' }}</div>
+      </div>
+      <div class="mobile-kpi">
+        <div class="mobile-kpi-label">Spent</div>
+        <div class="mobile-kpi-val" style="color:var(--amber)">{{ spent|money if spent is defined else '—' }}</div>
+      </div>
+      <div class="mobile-kpi">
+        <div class="mobile-kpi-label">Ready</div>
+        <div class="mobile-kpi-val" id="mob-kpi-rts" style="color:var(--accent)">{{ rts|money }}</div>
+      </div>
+    </div>
+
     <div class="panel-container">
       <form class="strip-form" id="add-bucket-form" onsubmit="submitAddBucket(event)">
         <div class="strip-row">
@@ -4259,12 +4393,14 @@ function formatDateLabel(dateStr) {
 function refreshValues(state) {
   if (!state) return;
 
-  // RTS header + sidebar
+  // RTS header + sidebar + mobile KPI
   if (state.rts !== undefined) {
     const el = document.querySelector('.h-rts');
     if (el) el.textContent = fmtMoney(state.rts);
     const sbRts = document.getElementById('sb-rts');
     if (sbRts) sbRts.textContent = fmtMoney(state.rts);
+    const mobRts = document.getElementById('mob-kpi-rts');
+    if (mobRts) mobRts.textContent = fmtMoney(state.rts);
   }
 
   // Bucket alloc cells
