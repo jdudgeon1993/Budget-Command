@@ -109,10 +109,45 @@ select.field-input { cursor: pointer; }
 .btn-danger  { background: var(--rbg); color: var(--red); border: 1px solid rgba(239,68,68,.4); }
 .btn-sm { padding: 7px 14px; font-size: 13px; }
 
+/* ── App Header (universal) ── */
+#app-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px;
+  z-index: 15;
+}
+.hdr-logo {
+  font-family: var(--display);
+  font-size: 22px; letter-spacing: .08em;
+  color: var(--accent);
+  line-height: 1;
+}
+.hdr-spacer { flex: 1; }
+.month-nav {
+  display: flex; align-items: center; gap: 2px;
+}
+.month-btn {
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text2); padding: 6px 8px; border-radius: 4px;
+  line-height: 1; font-size: 16px;
+  transition: color .12s, background .12s;
+}
+.month-btn:hover { background: var(--bg3); color: var(--text); }
+.month-label {
+  font-family: var(--mono); font-size: 13px;
+  color: var(--text); letter-spacing: .04em;
+  padding: 0 4px; min-width: 88px; text-align: center;
+}
+
 /* ── App Shell ── */
 #app {
   display: flex;
   min-height: 100dvh;
+  padding-top: 48px; /* header height */
 }
 
 /* ═══════════════════════════════════════════
@@ -429,10 +464,15 @@ select.field-input { cursor: pointer; }
   #bottom-nav    { display: block; }
   .mobile-kpis   { display: flex; }
   .panel         { padding: 0 12px 16px; }
-  .d-only        { display: none !important; } /* desktop-only meta text */
+  .d-only        { display: none !important; }
 }
 
 @media (min-width: 900px) {
+  /* Header: hide logo on desktop (sidebar has it), offset for sidebar */
+  #app-header    { left: var(--sidebar-w); }
+  .hdr-logo      { display: none; }
+  /* Sidebar: no need for sub-month since header shows it */
+  .sb-logo-month { display: none; }
   /* Sheet becomes centered modal on desktop */
   #sheet {
     left: 50%;
@@ -454,6 +494,16 @@ select.field-input { cursor: pointer; }
   </style>
 </head>
 <body>
+<header id="app-header">
+  <div class="hdr-logo">Cura</div>
+  <div class="hdr-spacer"></div>
+  <div class="month-nav">
+    <button class="month-btn" onclick="changeMonth(-1)">&#8249;</button>
+    <div class="month-label" id="month-label">May 2026</div>
+    <button class="month-btn" onclick="changeMonth(1)">&#8250;</button>
+  </div>
+</header>
+
 <div id="app">
 
   <!-- ═══════════════════════════════════
@@ -1119,6 +1169,22 @@ function closeSheet() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+// ── Month navigation ─────────────────────────────────────────────
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+let _month = 4, _year = 2026; // 0-indexed month
+
+function changeMonth(dir) {
+  _month += dir;
+  if (_month > 11) { _month = 0;  _year++; }
+  if (_month < 0)  { _month = 11; _year--; }
+  const label = MONTHS[_month] + ' ' + _year;
+  document.getElementById('month-label').textContent = label;
+  // Also update sidebar sub-label
+  const sub = document.querySelector('.sb-logo-month');
+  if (sub) sub.textContent = label;
+}
 </script>
 
 </body>
