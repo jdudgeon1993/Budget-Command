@@ -245,7 +245,44 @@ select.field-input { cursor: pointer; }
 }
 .add-row-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-/* ── Panel sub-tabs (used in Planned) ── */
+/* ── Close-month banner ── */
+.close-month-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; background: rgba(99,102,241,.1); border-bottom: 1px solid rgba(99,102,241,.28);
+  padding: 9px 20px; flex-shrink: 0;
+}
+.close-month-msg { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--text2); }
+@media (max-width: 899px) { .close-month-bar { padding: 9px 12px; } }
+
+/* ── Bucket type-conditional editor fields ── */
+.bfield-expense, .bfield-target { display: none; }
+.row-editor[data-btype="expense"] .bfield-expense { display: contents; }
+.row-editor[data-btype="savings"] .bfield-target,
+.row-editor[data-btype="sinking"] .bfield-target,
+.row-editor[data-btype="goal"]    .bfield-target,
+.row-editor[data-btype="vault"]   .bfield-target { display: contents; }
+
+/* ── Allocation rule row ── */
+.rule-status { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+
+/* ── Toggle switch ── */
+.toggle-wrap { display: flex; align-items: center; gap: 10px; }
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-track {
+  position: absolute; inset: 0; background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 11px; cursor: pointer; transition: background .2s;
+}
+.toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+.toggle-track::after {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  left: 2px; top: 2px; border-radius: 50%; background: #fff;
+  transition: transform .2s;
+}
+.toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+.toggle-label { font-size: 13px; font-weight: 600; color: var(--text2); }
+
+
 .panel-tabs {
   display: flex; gap: 2px; padding: 0 0 2px;
   border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -334,7 +371,7 @@ select.field-input { cursor: pointer; }
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
 }
 .backdrop.on { display: block; }
-#sheet, #sheet-bucket, #sheet-account, #sheet-paycheck {
+#sheet, #sheet-bucket, #sheet-account, #sheet-paycheck, #sheet-rule {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--bg2); border-top: 1px solid var(--border2);
   border-radius: 16px 16px 0 0; z-index: 101;
@@ -342,7 +379,7 @@ select.field-input { cursor: pointer; }
   transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
   max-height: 92dvh; overflow-y: auto;
 }
-#sheet.on, #sheet-bucket.on, #sheet-account.on, #sheet-paycheck.on { transform: translateY(0); }
+#sheet.on, #sheet-bucket.on, #sheet-account.on, #sheet-paycheck.on, #sheet-rule.on { transform: translateY(0); }
 .sheet-handle {
   width: 36px; height: 4px; background: var(--border2);
   border-radius: 2px; margin: 12px auto 0;
@@ -396,7 +433,7 @@ select.field-input { cursor: pointer; }
   #app-header    { left: var(--sidebar-w); }
   .hdr-logo      { display: none; }
   .sb-logo-month { display: none; }
-  #sheet, #sheet-bucket, #sheet-account, #sheet-paycheck {
+  #sheet, #sheet-bucket, #sheet-account, #sheet-paycheck, #sheet-rule {
     left: 50%; right: auto; bottom: auto; top: 50%;
     width: min(480px, calc(100vw - var(--sidebar-w) - 48px));
     border-radius: var(--r); border: 1px solid var(--border2);
@@ -404,7 +441,7 @@ select.field-input { cursor: pointer; }
     transition: transform .2s ease, opacity .2s ease;
     max-height: 85vh; box-shadow: 0 24px 64px rgba(0,0,0,.65);
   }
-  #sheet.on, #sheet-bucket.on, #sheet-account.on, #sheet-paycheck.on {
+  #sheet.on, #sheet-bucket.on, #sheet-account.on, #sheet-paycheck.on, #sheet-rule.on {
     transform: translate(-50%, -50%) scale(1); opacity: 1;
   }
   .sheet-handle { display: none; }
@@ -483,6 +520,17 @@ select.field-input { cursor: pointer; }
   <!-- ═══════════════ MAIN ═══════════════ -->
   <main class="main">
 
+    {% if close_btn and close_btn.show %}
+    <div class="close-month-bar">
+      <span class="close-month-msg">
+        {% if close_btn.grace_days %}{{ close_btn.grace_days }} day{{ 's' if close_btn.grace_days != 1 }} left to close {{ month_display }}{% else %}Ready to close {{ month_display }}?{% endif %}
+      </span>
+      <button class="btn btn-primary btn-sm" onclick="closeMonth()">
+        {{ 'Close Month' if close_btn.type == 'wizard' else 'Lock Month' }}
+      </button>
+    </div>
+    {% endif %}
+
     <!-- ── BUCKETS PANEL ── -->
     <div id="panel-buckets" class="panel active">
 
@@ -520,12 +568,22 @@ select.field-input { cursor: pointer; }
               <div class="row-val" data-avail="{{ b.id }}">{{ b.avail|money }}</div>
               <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-            <div class="row-prog"><div class="row-prog-fill" style="width:{{ pct }}%;background:{{ pc }}"></div></div>
-            <div class="row-editor" onclick="event.stopPropagation()">
+            <div class="row-prog"><div class="row-prog-fill" style="width:{{ pct }}%;background:{{ pc }}" data-spent="{{ b.spent }}" data-budget="{{ b.budget }}"></div></div>
+            <div class="row-editor" onclick="event.stopPropagation()" data-btype="{{ b.type or 'expense' }}">
               <div class="editor-grid cols2">
                 <div class="field-group">
                   <label class="field-label">Bucket Name</label>
                   <input class="field-input" type="text" data-field="name" value="{{ b.name }}">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Type</label>
+                  <select class="field-input" data-field="type" onchange="bucketTypeChange(this)">
+                    <option value="expense"{% if b.type == 'expense' or not b.type %} selected{% endif %}>Expense</option>
+                    <option value="savings"{% if b.type == 'savings' %} selected{% endif %}>Savings</option>
+                    <option value="sinking"{% if b.type == 'sinking' %} selected{% endif %}>Sinking Fund</option>
+                    <option value="goal"{% if b.type == 'goal' %} selected{% endif %}>Goal</option>
+                    <option value="vault"{% if b.type == 'vault' %} selected{% endif %}>Vault</option>
+                  </select>
                 </div>
                 <div class="field-group">
                   <label class="field-label">This Month</label>
@@ -542,6 +600,20 @@ select.field-input { cursor: pointer; }
                     <option value="{{ cat.id }}"{% if cat.id == b.cat_id %} selected{% endif %}>{{ cat.name }}</option>
                     {% endfor %}
                   </select>
+                </div>
+                <!-- expense-only: due day -->
+                <div class="field-group bfield-expense">
+                  <label class="field-label">Due Day</label>
+                  <input class="field-input" type="number" data-field="due_day" value="{{ b.due_day or '' }}" min="1" max="31" placeholder="e.g. 15">
+                </div>
+                <!-- savings/sinking/goal/vault: target amount -->
+                <div class="field-group bfield-target">
+                  <label class="field-label">Target Amount</label>
+                  <input class="field-input" type="number" data-field="target_amount" value="{{ b.target_amount or '' }}" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div class="field-group span2">
+                  <label class="field-label">Notes</label>
+                  <input class="field-input" type="text" data-field="notes" value="{{ b.notes or '' }}" placeholder="Optional notes">
                 </div>
                 <div class="field-group span2">
                   <label class="field-label">Budget &middot; Spent &middot; Available</label>
@@ -878,6 +950,85 @@ select.field-input { cursor: pointer; }
         Add Paycheck
       </button>
 
+      <!-- ── Allocation Rules ── -->
+      <div class="section-label">Internal Rules <span style="font-size:9px;color:var(--text3);letter-spacing:.06em;text-transform:none">(auto-allocate to buckets on payday)</span></div>
+
+      {%- if internal_rules -%}
+      {%- for r in internal_rules -%}
+      <div class="row" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-bar" style="background:{% if r.active %}var(--accent){% else %}var(--border2){% endif %}"></div>
+          <div style="flex:1">
+            <div class="row-name">{{ r.name }}</div>
+            <div class="row-sub">→ {{ bucket_map_display.get(r.bucketId, '?') }} &nbsp;&middot;&nbsp; {{ r.value }}{% if r.type == 'percent' %}%{% else %} fixed{% endif %}</div>
+          </div>
+          <div class="rule-status" style="color:{% if r.active %}var(--accent){% else %}var(--text3){% endif %}">{{ 'ON' if r.active else 'OFF' }}</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="toggle-wrap" style="padding:4px 0 8px">
+            <label class="toggle">
+              <input type="checkbox" {% if r.active %}checked{% endif %} onchange="toggleRule('{{ r.id }}',this)">
+              <div class="toggle-track"></div>
+            </label>
+            <span class="toggle-label">Rule active</span>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Close</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm" onclick="deleteRule(this,'{{ r.id }}')">Delete</button>
+          </div>
+        </div>
+      </div>
+      {%- endfor -%}
+      {%- else -%}
+      <div class="empty-state" style="padding:20px 0"><p>No internal rules</p></div>
+      {%- endif -%}
+
+      <button class="add-row-btn" onclick="openRuleSheet('internal')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Internal Rule
+      </button>
+
+      <div class="section-label">External Rules <span style="font-size:9px;color:var(--text3);letter-spacing:.06em;text-transform:none">(fixed expenses outside your buckets)</span></div>
+
+      {%- if external_rules -%}
+      {%- for r in external_rules -%}
+      <div class="row" onclick="toggleRow(this)">
+        <div class="row-top">
+          <div class="row-bar" style="background:{% if r.active %}var(--amber){% else %}var(--border2){% endif %}"></div>
+          <div style="flex:1">
+            <div class="row-name">{{ r.name }}</div>
+            <div class="row-sub">{{ r.value }}{% if r.type == 'percent' %}%{% else %} fixed{% endif %}</div>
+          </div>
+          <div class="rule-status" style="color:{% if r.active %}var(--amber){% else %}var(--text3){% endif %}">{{ 'ON' if r.active else 'OFF' }}</div>
+          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="row-editor" onclick="event.stopPropagation()">
+          <div class="toggle-wrap" style="padding:4px 0 8px">
+            <label class="toggle">
+              <input type="checkbox" {% if r.active %}checked{% endif %} onchange="toggleRule('{{ r.id }}',this)">
+              <div class="toggle-track"></div>
+            </label>
+            <span class="toggle-label">Rule active</span>
+          </div>
+          <div class="editor-actions">
+            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Close</button>
+            <div class="editor-spacer"></div>
+            <button class="btn btn-danger btn-sm" onclick="deleteRule(this,'{{ r.id }}')">Delete</button>
+          </div>
+        </div>
+      </div>
+      {%- endfor -%}
+      {%- else -%}
+      <div class="empty-state" style="padding:20px 0"><p>No external rules</p></div>
+      {%- endif -%}
+
+      <button class="add-row-btn" onclick="openRuleSheet('external')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add External Rule
+      </button>
+
     </div><!-- /panel-setup -->
 
   </main><!-- /main -->
@@ -1033,6 +1184,51 @@ select.field-input { cursor: pointer; }
     <div class="sheet-actions">
       <button class="btn btn-primary" id="sp-submit" onclick="submitPaycheckSheet()">Add Paycheck</button>
       <button class="btn btn-ghost" onclick="closePaycheckSheet()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ADD RULE SHEET ═══════════════ -->
+<div id="backdrop-rule" class="backdrop" onclick="closeRuleSheet()"></div>
+<div id="sheet-rule">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head" id="sr-head">Add Rule</div>
+  <div class="sheet-body">
+    <input type="hidden" id="sr-ruletype" value="internal">
+    <div class="sheet-row">
+      <div class="field-group">
+        <label class="field-label">Rule Name</label>
+        <input class="field-input" id="sr-name" type="text" placeholder="e.g. Groceries allocation">
+      </div>
+    </div>
+    <div class="sheet-row cols2">
+      <div class="field-group">
+        <label class="field-label">Value Type</label>
+        <select class="field-input" id="sr-vtype" onchange="ruleVtypeChange(this.value)">
+          <option value="fixed">Fixed $</option>
+          <option value="percent">Percent %</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" id="sr-val-label">Amount ($)</label>
+        <input class="field-input" id="sr-value" type="number" placeholder="0.00" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="sheet-row" id="sr-row-bucket">
+      <div class="field-group">
+        <label class="field-label">Target Bucket</label>
+        <select class="field-input" id="sr-bucket">
+          <option value="">— select —</option>
+          {% for b in expense_buckets %}
+          <option value="{{ b.id }}">{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="sheet-error" id="sr-error"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-primary" id="sr-submit" onclick="submitRuleSheet()">Add Rule</button>
+      <button class="btn btn-ghost" onclick="closeRuleSheet()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1247,19 +1443,41 @@ async function saveBucket(btn, bucketId, origCatId) {
     return;
   }
   setBtn(btn, 'loading');
+  const btype   = editor.querySelector('[data-field="type"]').value;
+  const notes   = (editor.querySelector('[data-field="notes"]')?.value || '').trim();
+  const dueDay  = editor.querySelector('[data-field="due_day"]')?.value;
+  const tgtAmt  = editor.querySelector('[data-field="target_amount"]')?.value;
   try {
     await api('/api/save', {field:'bucket_name',   id:bucketId, value:name,   month:ACTIVE_MID});
+    await api('/api/save', {field:'bucket_type',   id:bucketId, value:btype,  month:ACTIVE_MID});
     await api('/api/save', {field:'bucket_alloc',  id:bucketId, value:alloc,  month:ACTIVE_MID});
     const state = await api('/api/save', {field:'bucket_target', id:bucketId, value:budget, month:ACTIVE_MID});
-    if (catId !== origCatId) {
-      await api('/api/save', {field:'bucket_cat', id:bucketId, value:catId, month:ACTIVE_MID});
-    }
+    if (catId !== origCatId) await api('/api/save', {field:'bucket_cat',  id:bucketId, value:catId, month:ACTIVE_MID});
+    if (notes !== undefined) await api('/api/save', {field:'bucket_notes', id:bucketId, value:notes, month:ACTIVE_MID});
+    if (dueDay !== undefined && btype === 'expense') await api('/api/save', {field:'bucket_due_day', id:bucketId, value:dueDay, month:ACTIVE_MID});
+    if (tgtAmt !== undefined && btype !== 'expense') await api('/api/save', {field:'bucket_target_amount', id:bucketId, value:tgtAmt, month:ACTIVE_MID});
+    // Update name tag display
     const nameEl = document.querySelector(`[data-name="${bucketId}"]`);
-    if (nameEl) nameEl.textContent = name;
+    if (nameEl) {
+      nameEl.textContent = name;
+      if (btype !== 'expense') nameEl.insertAdjacentHTML('beforeend', `<span class="btype-tag">${btype}</span>`);
+    }
+    // Update progress bar
+    const fill = editor.closest('.row').querySelector('.row-prog-fill');
+    if (fill) {
+      const spent = parseFloat(fill.dataset.spent || 0);
+      const denom = alloc > 0 ? alloc : budget;
+      fill.style.width = (denom > 0 ? Math.min(100, Math.round(spent / denom * 100)) : 0) + '%';
+      fill.dataset.budget = budget;
+    }
     refreshKpis(state);
     setBtn(btn, 'ok');
     closeRow(btn);
   } catch(e) { setBtn(btn, 'err'); }
+}
+
+function bucketTypeChange(select) {
+  select.closest('.row-editor').dataset.btype = select.value;
 }
 
 async function archiveBucket(btn, bucketId) {
@@ -1735,8 +1953,84 @@ async function submitAccountSheet() {
   }
 }
 
+// ── Allocation rules ─────────────────────────────────────────────
+async function toggleRule(ruleId, checkbox) {
+  const row = checkbox.closest('.row');
+  const r = await api('/api/toggle-rule', { id: ruleId });
+  if (r.ok) {
+    const bar = row.querySelector('.row-bar');
+    const status = row.querySelector('.rule-status');
+    const isInternal = bar?.style.background?.includes('accent');
+    const onColor = isInternal !== false ? 'var(--accent)' : 'var(--amber)';
+    const color = r.active ? onColor : 'var(--border2)';
+    if (bar) bar.style.background = color;
+    if (status) { status.textContent = r.active ? 'ON' : 'OFF'; status.style.color = r.active ? onColor : 'var(--text3)'; }
+  } else {
+    checkbox.checked = !checkbox.checked;
+  }
+}
+
+async function deleteRule(btn, ruleId) {
+  if (!confirm('Delete this rule?')) return;
+  setBtn(btn, 'loading');
+  const r = await api('/api/delete-rule', { id: ruleId });
+  if (r.ok) btn.closest('.row').remove();
+  else setBtn(btn, 'err');
+}
+
+function openRuleSheet(ruleType) {
+  document.getElementById('sr-ruletype').value = ruleType;
+  document.getElementById('sr-head').textContent = ruleType === 'internal' ? 'Add Internal Rule' : 'Add External Rule';
+  document.getElementById('sr-row-bucket').style.display = ruleType === 'internal' ? '' : 'none';
+  document.getElementById('sr-name').value  = '';
+  document.getElementById('sr-value').value = '';
+  document.getElementById('sr-vtype').value = 'fixed';
+  document.getElementById('sr-error').classList.remove('show');
+  document.getElementById('backdrop-rule').classList.add('on');
+  document.getElementById('sheet-rule').classList.add('on');
+  setTimeout(() => document.getElementById('sr-name').focus(), 320);
+}
+function closeRuleSheet() {
+  document.getElementById('backdrop-rule').classList.remove('on');
+  document.getElementById('sheet-rule').classList.remove('on');
+}
+function ruleVtypeChange(val) {
+  document.getElementById('sr-val-label').textContent = val === 'percent' ? 'Percent (%)' : 'Amount ($)';
+}
+async function submitRuleSheet() {
+  const name     = document.getElementById('sr-name').value.trim();
+  const ruleType = document.getElementById('sr-ruletype').value;
+  const vtype    = document.getElementById('sr-vtype').value;
+  const value    = parseFloat(document.getElementById('sr-value').value) || 0;
+  const bucketId = document.getElementById('sr-bucket')?.value || '';
+  const errEl    = document.getElementById('sr-error');
+  const btn      = document.getElementById('sr-submit');
+  errEl.classList.remove('show');
+  if (!name)  { errEl.textContent = 'Name is required.';        errEl.classList.add('show'); return; }
+  if (!value) { errEl.textContent = 'Enter a valid value.';     errEl.classList.add('show'); return; }
+  if (ruleType === 'internal' && !bucketId) { errEl.textContent = 'Select a bucket.'; errEl.classList.add('show'); return; }
+  setBtn(btn, 'loading');
+  try {
+    const r = await api('/api/add-rule', { name, rule_type: ruleType, value_type: vtype, value, bucket_id: bucketId });
+    if (!r.ok) throw new Error(r.error || 'Failed');
+    closeRuleSheet();
+    window.location.reload();
+  } catch(e) {
+    setBtn(btn, 'ok');
+    errEl.textContent = e.message;
+    errEl.classList.add('show');
+  }
+}
+
+// ── Month close ───────────────────────────────────────────────────
+async function closeMonth() {
+  if (!confirm('Close and lock ' + document.querySelector('.month-label')?.textContent?.trim() + '? This records the final state of the month.')) return;
+  const r = await api('/api/lock-month', { active_mid: ACTIVE_MID });
+  if (r.ok) window.location.reload();
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeSheet(); closeBucketSheet(); closeAccountSheet(); closePaycheckSheet(); }
+  if (e.key === 'Escape') { closeSheet(); closeBucketSheet(); closeAccountSheet(); closePaycheckSheet(); closeRuleSheet(); }
 });
 </script>
 
