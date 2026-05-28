@@ -1678,13 +1678,304 @@
   /* Nav: hide Buckets + Ledger tabs on desktop, keep others */
   .nav-tab.nav-desktop-hidden { display: none; }
 
-  /* Desktop nav bar: reflow as centered flex strip */
-  .bottom-nav { background: var(--bg3); border-top: 1px solid var(--border); }
-  .nav-table { display: flex; justify-content: center; align-items: stretch; height: 46px; width: 100%; }
-  .nav-table tr { display: flex; }
-  .nav-tab { width: 160px; display: flex; align-items: center; justify-content: center; }
-  .nav-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+  /* Desktop: hide old nav bar entirely — sidebar takes over */
+  .bottom-nav { display: none; }
+
+  /* Reports/Coach panels: NOT fixed overlays on desktop — regular content */
+  #panel-more.active,
+  #panel-coach.active {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    z-index: auto !important;
+  }
+  /* Hide the ← Back buttons — sidebar handles navigation */
+  .desktop-panel-close { display: none !important; }
+  /* Hide buckets+ledger split when a reports/coach panel is active */
+  .main-content.panel-reports-active #panel-buckets { display: none !important; }
+  .main-content.panel-reports-active #panel-ledger  { display: none !important; }
+  .main-content.panel-reports-active #panel-more.active { display: block; }
+  .main-content.panel-coach-active   #panel-buckets { display: none !important; }
+  .main-content.panel-coach-active   #panel-ledger  { display: none !important; }
+  .main-content.panel-coach-active   #panel-coach.active { display: block; }
 }
+
+/* ── Cura sidebar ──────────────────────────────────────────────── */
+:root { --sidebar-w: 228px; }
+
+#cura-sidebar {
+  display: none; /* mobile: hidden */
+}
+
+@media (min-width: 900px) {
+  /* Sidebar */
+  #cura-sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    z-index: 150;
+    overflow-y: auto;
+  }
+
+  /* Shift everything right of the sidebar */
+  .app-header  { margin-left: var(--sidebar-w); }
+  .month-bar   { margin-left: var(--sidebar-w); }
+  .main-content { margin-left: var(--sidebar-w); }
+}
+
+/* Sidebar internals */
+.sb-logo {
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sb-logo-name {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: .14em;
+  color: var(--accent);
+  line-height: 1;
+}
+.sb-logo-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+.sb-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sb-kpi {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 7px 9px;
+}
+.sb-kpi-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 2px;
+}
+.sb-kpi-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.sb-nav {
+  flex: 1;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--r);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text3);
+  transition: background .12s, color .12s;
+  user-select: none;
+  border: 1px solid transparent;
+}
+.sb-item:hover { background: var(--bg3); color: var(--text2); }
+.sb-item.active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: var(--accent);
+}
+.sb-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+.sb-divider { height: 1px; background: var(--border); margin: 5px 8px; }
+
+.sb-add {
+  margin: 4px 10px 8px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity .15s;
+  border: none;
+  font-weight: 700;
+}
+.sb-add:hover  { opacity: .85; }
+.sb-add:active { opacity: .7; }
+
+.sb-settings {
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  transition: color .15s;
+}
+.sb-settings:hover { color: var(--text2); }
+.sb-settings svg { width: 14px; height: 14px; }
+
+/* ── Updated mobile bottom nav ─────────────────────────────────── */
+@media (max-width: 899px) {
+  .bottom-nav {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 6px 0 0;
+    height: 58px;
+  }
+  .nav-table { display: none; } /* hide old table nav */
+
+  /* New icon tabs */
+  .cura-nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 100%;
+    cursor: pointer;
+    color: var(--text3);
+    transition: color .15s;
+    position: relative;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cura-nav-tab:active { opacity: .6; }
+  .cura-nav-tab.active { color: var(--accent); }
+  .cura-nav-tab-dot {
+    position: absolute;
+    top: 7px;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .cura-nav-tab.active .cura-nav-tab-dot { opacity: 1; }
+  .cura-nav-tab svg { width: 20px; height: 20px; }
+  .cura-nav-tab-label {
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  /* + action button */
+  .cura-nav-add {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    margin: 0 8px 0 4px;
+    flex-shrink: 0;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    transition: transform .15s, opacity .15s;
+    user-select: none;
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .cura-nav-add:active { transform: scale(.91); }
+  /* old nav-tab hidden on mobile (replaced by cura-nav-tab) */
+  .nav-tab { display: none; }
+}
+
+/* ── Settings overlay ──────────────────────────────────────────── */
+#settings-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(7,17,32,.75);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+}
+#settings-overlay.show { display: flex; }
+@media (max-width: 899px) {
+  #settings-overlay.show { display: block; background: var(--bg); }
+  #settings-panel { width: 100% !important; max-height: 100vh !important; border-radius: 0 !important; border: none !important; }
+}
+#settings-panel {
+  width: 520px;
+  max-height: 88vh;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow-y: auto;
+}
+.settings-overlay-head {
+  position: sticky; top: 0;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 14px 18px; z-index: 1;
+}
+.settings-overlay-title {
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text2); flex: 1;
+}
+.settings-overlay-close {
+  font-family: var(--mono); font-size: 16px;
+  color: var(--text3); cursor: pointer; line-height: 1;
+  transition: color .15s;
+}
+.settings-overlay-close:hover { color: var(--red); }
+.settings-overlay-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 18px;
+}
+.settings-overlay-tab {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text3); padding: 10px 14px;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.settings-overlay-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.settings-overlay-body { padding: 16px 18px 28px; }
+.settings-overlay-pane { display: none; }
+.settings-overlay-pane.active { display: block; }
 .wi-scen-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .wi-scen-row input { flex: 1; min-width: 100px; }
 /* desktop-only elements: hidden on mobile, shown on desktop */
@@ -1701,7 +1992,78 @@
 {% endblock %}
 
 {% block content %}
-<!-- Header -->
+
+<!-- ── Cura Sidebar (desktop only) ──────────────────────────────── -->
+<aside id="cura-sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-name">Cura</div>
+    <div class="sb-logo-sub">{{ month_display }}</div>
+  </div>
+
+  <div class="sb-kpi-grid">
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Ready</div>
+      <div class="sb-kpi-val" id="sb-rts" style="color:var(--green)">{{ rts|money }}</div>
+    </div>
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Income</div>
+      <div class="sb-kpi-val" style="color:var(--accent)">{{ income|money if income is defined else '—' }}</div>
+    </div>
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Allocated</div>
+      <div class="sb-kpi-val" style="color:var(--text2)">{{ allocated|money if allocated is defined else '—' }}</div>
+    </div>
+    <div class="sb-kpi">
+      <div class="sb-kpi-label">Spent</div>
+      <div class="sb-kpi-val" style="color:var(--amber)">{{ spent|money if spent is defined else '—' }}</div>
+    </div>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-item active" id="sb-budget" onclick="showPanel('buckets', null)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      Buckets &amp; Ledger
+    </div>
+    <div class="sb-item" id="sb-more" onclick="showPanel('more', null)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      Reports
+    </div>
+    <div class="sb-item" id="sb-coach" onclick="showPanel('coach', null)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Coach AI
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="sb-item" id="sb-plan" onclick="showPanel('more', null); setTimeout(()=>showMoreMode('plan', document.querySelector('.more-mode-tab[onclick*=\'plan\']')),50)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Forecast
+    </div>
+  </nav>
+
+  <button class="sb-add" onclick="openFab()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Transaction
+  </button>
+
+  <div class="sb-settings" onclick="openSettings()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+    </svg>
+    Setup &amp; Accounts
+  </div>
+</aside>
+
+<!-- ── Header ──────────────────────────────────────────────────── -->
 <header class="app-header">
   <table class="header-table">
     <tr>
@@ -1722,11 +2084,14 @@
             {% endif %}
           </div>
           {% if over_count > 0 %}
-          <div id="over-badge" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;" onclick="showPanel('buckets',document.querySelector('.nav-tab'))">{{ over_count }} overspent</div>
+          <div id="over-badge" style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;" onclick="showCuraPanel('buckets')">{{ over_count }} overspent</div>
           {% else %}
           <div id="over-badge" style="display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--rbg);color:var(--red);border:1px solid var(--red);border-radius:2px;padding:2px 7px;cursor:pointer;"></div>
           {% endif %}
           <div class="h-user">{{ user_email }}</div>
+          <div onclick="openSettings()" title="Setup & Accounts" style="cursor:pointer;color:var(--text3);display:flex;align-items:center;transition:color .15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </div>
           <a class="h-logout" href="/logout">Out</a>
         </div>
       </td>
@@ -3435,15 +3800,107 @@
 
 <!-- Bottom nav -->
 <nav class="bottom-nav">
-  <table class="nav-table">
-    <tr>
-      <th class="nav-tab active nav-desktop-hidden" onclick="showPanel('buckets', this)">Buckets</th>
-      <th class="nav-tab nav-desktop-hidden" onclick="showPanel('ledger', this)">Ledger</th>
-      <th class="nav-tab" onclick="showPanel('more', this)">More</th>
-      <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
-    </tr>
-  </table>
+  <!-- Legacy table nav (hidden on mobile via CSS, was hidden on desktop already) -->
+  <table class="nav-table" style="display:none"><tr>
+    <th class="nav-tab active nav-desktop-hidden" onclick="showPanel('buckets', this)">Buckets</th>
+    <th class="nav-tab nav-desktop-hidden" onclick="showPanel('ledger', this)">Ledger</th>
+    <th class="nav-tab" onclick="showPanel('more', this)">More</th>
+    <th class="nav-tab" onclick="showPanel('coach', this)">Coach AI</th>
+  </tr></table>
+
+  <!-- New icon nav (mobile only) -->
+  <div class="cura-nav-tab active" id="cntab-buckets" onclick="showCuraPanel('buckets')">
+    <div class="cura-nav-tab-dot"></div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+    </svg>
+    <div class="cura-nav-tab-label">Buckets</div>
+  </div>
+
+  <div class="cura-nav-tab" id="cntab-ledger" onclick="showCuraPanel('ledger')">
+    <div class="cura-nav-tab-dot"></div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+      <circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/>
+      <circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>
+      <circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>
+    </svg>
+    <div class="cura-nav-tab-label">Ledger</div>
+  </div>
+
+  <div class="cura-nav-tab" id="cntab-more" onclick="showCuraPanel('more')">
+    <div class="cura-nav-tab-dot"></div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+    <div class="cura-nav-tab-label">Reports</div>
+  </div>
+
+  <div class="cura-nav-add" onclick="openFab()" title="Add transaction">+</div>
 </nav>
+
+<!-- ── Settings Overlay (Accounts + Setup) ──────────────────────── -->
+<div id="settings-overlay" onclick="maybeCloseSettings(event)">
+  <div id="settings-panel">
+    <div class="settings-overlay-head">
+      <span class="settings-overlay-title">Setup &amp; Accounts</span>
+      <span class="settings-overlay-close" onclick="closeSettings()">✕</span>
+    </div>
+    <div class="settings-overlay-tabs">
+      <div class="settings-overlay-tab active" onclick="showSettingsOverlayTab('accounts',this)">Accounts</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('paychecks',this)">Paychecks</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('rules',this)">Rules</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('categories',this);loadCategories()">Categories</div>
+      <div class="settings-overlay-tab" onclick="showSettingsOverlayTab('payees',this);loadPayees()">Payees</div>
+    </div>
+    <div class="settings-overlay-body">
+      <!-- Accounts pane — mirrors More > Accounts -->
+      <div class="settings-overlay-pane active" id="sop-accounts">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.06em;margin-bottom:10px;">
+          Manage your cash, savings, and debt accounts. Changes reflect immediately.
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+          <button class="acct-tab active" onclick="showSettingsAcctSection('cash',this)">Cash &amp; Savings</button>
+          <button class="acct-tab" onclick="showSettingsAcctSection('debt',this)">Debt</button>
+          {% if vault_buckets_display %}
+          <button class="acct-tab" onclick="showSettingsAcctSection('vault',this)">Internal Savings</button>
+          {% endif %}
+        </div>
+        <!-- Actual account content lives in panel-more; we link to it -->
+        <div id="sop-acct-link" style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:12px 0">
+          <a href="#" onclick="closeSettings();showPanel('more',null);showMoreMode('accounts',document.querySelector('.more-mode-tab[onclick*=\'accounts\']'));return false" style="color:var(--accent);text-decoration:none;letter-spacing:.06em">
+            → Open full Accounts panel
+          </a>
+          <div style="margin-top:6px;font-size:10px">
+            Cash total: <strong style="color:var(--green)">{{ total_cash_val|money }}</strong>
+          </div>
+        </div>
+      </div>
+      <!-- Paychecks pane — links into More > Setup -->
+      <div class="settings-overlay-pane" id="sop-paychecks">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:.06em">
+          <a href="#" onclick="closeSettings();showPanel('more',null);showMoreMode('settings',document.querySelector('.more-mode-tab[onclick*=\'settings\']'));showSettingsTab('paychecks',document.querySelector('#more-mode-settings .acct-tab'));return false" style="color:var(--accent);text-decoration:none">
+            → Open Paychecks in full panel
+          </a>
+        </div>
+      </div>
+      <div class="settings-overlay-pane" id="sop-rules">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px;letter-spacing:.06em">
+          <a href="#" onclick="closeSettings();showPanel('more',null);showMoreMode('settings',document.querySelector('.more-mode-tab[onclick*=\'settings\']'));showSettingsTab('rules',document.querySelector('#more-mode-settings .acct-tab:nth-child(2)'));return false" style="color:var(--accent);text-decoration:none">
+            → Open Allocation Rules in full panel
+          </a>
+        </div>
+      </div>
+      <div class="settings-overlay-pane" id="sop-categories">
+        <div id="sop-cats-inner" style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+      </div>
+      <div class="settings-overlay-pane" id="sop-payees">
+        <div id="sop-payees-inner" style="font-family:var(--mono);font-size:11px;color:var(--text3);">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="toast-container"></div>
 <datalist id="payee-suggestions"></datalist>
@@ -3535,6 +3992,29 @@ function showToast(msg, type = 'success', duration = 3500) {
 }
 
 /* ── 401 session-expired helper ── */
+
+// ── Settings overlay ─────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('settings-overlay').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('show');
+}
+function maybeCloseSettings(e) {
+  if (e.target === document.getElementById('settings-overlay')) closeSettings();
+}
+function showSettingsOverlayTab(name, btn) {
+  document.querySelectorAll('.settings-overlay-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.settings-overlay-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('sop-' + name)?.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+function showSettingsAcctSection(section, btn) {
+  // Delegate to the existing account section handler in panel-more
+  document.querySelectorAll('#more-mode-accounts .acct-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
 function _show401Toast() {
   const c = document.getElementById('toast-container');
   if (!c) return;
@@ -3575,10 +4055,12 @@ function formatDateLabel(dateStr) {
 function refreshValues(state) {
   if (!state) return;
 
-  // RTS header
+  // RTS header + sidebar
   if (state.rts !== undefined) {
     const el = document.querySelector('.h-rts');
     if (el) el.textContent = fmtMoney(state.rts);
+    const sbRts = document.getElementById('sb-rts');
+    if (sbRts) sbRts.textContent = fmtMoney(state.rts);
   }
 
   // Bucket alloc cells
@@ -3947,37 +4429,62 @@ function injectTxRow(tx, activeMid) {
 /* ── Panel nav ── */
 const _isDesktop = () => window.innerWidth >= 900;
 
+// ── Panel navigation ─────────────────────────────────────────────
+
 function showPanel(name, tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('panel-' + name);
+  if (el) el.classList.add('active');
+
+  // Legacy nav-tab (still used in some places)
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('panel-' + name).classList.add('active');
-  tab.classList.add('active');
+  if (tab) tab.classList.add('active');
+
+  // Sidebar active state
+  _updateSidebarActive(name);
+
+  // Main-content class for desktop CSS panel switching
+  const mc = document.querySelector('.main-content');
+  if (mc) {
+    mc.classList.remove('panel-reports-active', 'panel-coach-active');
+    if (name === 'more')  mc.classList.add('panel-reports-active');
+    if (name === 'coach') mc.classList.add('panel-coach-active');
+  }
+
   localStorage.setItem('bc_active_panel', name);
 }
 
-// On desktop, close full-screen overlay and return to Buckets+Ledger view
+// Mobile new nav — wraps showPanel without needing a tab element
+function showCuraPanel(name) {
+  showPanel(name, null);
+  // Update mobile icon tabs
+  document.querySelectorAll('.cura-nav-tab').forEach(t => t.classList.remove('active'));
+  const nt = document.getElementById('cntab-' + name);
+  if (nt) nt.classList.add('active');
+}
+
+function _updateSidebarActive(name) {
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  const map = { buckets: 'sb-budget', ledger: 'sb-budget', more: 'sb-more', coach: 'sb-coach' };
+  const sid = map[name];
+  if (sid) document.getElementById(sid)?.classList.add('active');
+}
+
+// Desktop: no longer needed as overlay — kept for compatibility
 function closeDesktopPanel(name) {
-  const panel = document.getElementById('panel-' + name);
-  if (panel) panel.classList.remove('active');
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  localStorage.setItem('bc_active_panel', 'buckets');
+  showPanel('buckets', null);
 }
 
 // Restore active panel on page load
 (function() {
   const saved = localStorage.getItem('bc_active_panel');
-  // On desktop, only restore overlay panels (more/coach); buckets+ledger are always shown
-  const desktopOverlayPanels = ['more', 'coach'];
   if (saved && saved !== 'buckets') {
-    if (_isDesktop() && !desktopOverlayPanels.includes(saved)) return;
-    const panel = document.getElementById('panel-' + saved);
-    const tab = document.querySelector(`.nav-tab[onclick*="'${saved}'"]`);
-    if (panel && tab) {
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-      panel.classList.add('active');
-      tab.classList.add('active');
-    }
+    showPanel(saved, null);
+    // Sync mobile icon tabs
+    document.querySelectorAll('.cura-nav-tab').forEach(t => t.classList.remove('active'));
+    const mobileMap = { more: 'cntab-more', coach: 'cntab-more', ledger: 'cntab-ledger' };
+    const mnt = document.getElementById(mobileMap[saved] || 'cntab-buckets');
+    if (mnt) mnt.classList.add('active');
   }
 })();
 
@@ -7471,7 +7978,7 @@ async function copyLastMonthAllocs() {
 function closeOnboarding() {
   const el = document.getElementById('onboard-backdrop');
   if (el) el.remove();
-  showPanel('more', document.querySelector('.nav-tab[onclick*="more"]'));
+  showPanel('more', null);
   showMoreMode('settings', document.querySelector('.more-mode-tab[onclick*="settings"]'));
   showSettingsTab('paychecks', document.querySelector('.acct-tab[onclick*="paychecks"]'));
 }
