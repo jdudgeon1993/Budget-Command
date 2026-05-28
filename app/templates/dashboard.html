@@ -321,42 +321,173 @@ select.field-input { cursor: pointer; }
 .acct-tx-desc { flex: 1; font-size: 13px; }
 .acct-tx-amt  { font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; }
 
+/* ── What-If — small action button ── */
+.sf-btn { font-family:var(--mono); font-size:10px; padding:4px 10px; border-radius:var(--r); border:1px solid var(--border2); background:none; color:var(--text3); cursor:pointer; transition:color .12s,border-color .12s; }
+.sf-btn:hover { border-color:var(--accent); color:var(--accent); }
+
 /* ── What-If bucket rows ── */
-.wi-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 4px; }
-.wi-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; background: var(--bg2);
-  border: 1px solid var(--border); border-radius: var(--r);
-  transition: opacity .15s;
-}
-.wi-row.off { opacity: .45; }
-.wi-row-name   { font-size: 14px; font-weight: 600; }
-.wi-row-sub    { font-size: 11px; color: var(--text3); margin-top: 1px; }
-.wi-row-budget { font-family: var(--mono); font-size: 13px; color: var(--text2); white-space: nowrap; flex-shrink: 0; margin-right: 6px; }
+.wi-cat-hdr { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:8px 4px 4px; border-bottom:1px solid var(--border); cursor:pointer; display:flex; align-items:center; gap:6px; user-select:none; }
+.wi-cat-arrow { display:inline-block; transition:transform .15s; font-size:9px; }
+.wi-cat-arrow.open { transform:rotate(90deg); }
+.wi-bkt-row { display:flex; align-items:center; gap:6px; padding:5px 4px; border-bottom:1px solid var(--border); }
+.wi-bkt-row.off .wi-bkt-label { opacity:.4; text-decoration:line-through; }
+.wi-bkt-row.off .wi-s-inp { opacity:.35; pointer-events:none; }
+.wi-bkt-label { flex:1; font-size:13px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wi-diff { font-family:var(--mono); font-size:10px; padding:1px 5px; border-radius:3px; flex-shrink:0; }
+.wi-diff.pos { background:color-mix(in srgb,var(--amber) 14%,transparent); color:var(--amber); }
+.wi-diff.neg { background:color-mix(in srgb,var(--amber) 10%,transparent); color:var(--amber); }
+.wi-s-inp { width:80px; flex-shrink:0; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--r); padding:4px 7px; font-family:var(--mono); font-size:12px; color:var(--text); text-align:right; outline:none; }
+.wi-s-inp:focus { border-color:var(--accent); }
+.wi-s-inp.changed { border-color:var(--amber); color:var(--amber); }
+.wi-due-inp { width:38px; flex-shrink:0; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--r); padding:4px 5px; font-family:var(--mono); font-size:11px; color:var(--text3); text-align:center; outline:none; }
+.wi-due-inp:focus { border-color:var(--accent); color:var(--text); }
+.wi-due-inp.changed { border-color:#4a9eff; color:#4a9eff; }
+.wi-bkt-row.off .wi-due-inp { opacity:.35; }
+.wi-fc-dot { font-size:7px; line-height:1; flex-shrink:0; margin-right:-2px; }
+.wi-fc-dot.exists { color:var(--green); }
+.wi-fc-dot.override { color:#4a9eff; }
+.wi-state-bar { display:flex; gap:2px; align-items:center; flex-shrink:0; }
+.wi-state-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.wi-state-dot.on  { background:var(--green); }
+.wi-state-dot.off { background:var(--red); }
+.wi-sched-sub { display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:4px 4px 6px 36px; border-bottom:1px solid var(--border); }
+.wi-sched-chip { display:inline-flex; align-items:center; gap:3px; font-family:var(--mono); font-size:9px; padding:2px 6px; border-radius:3px; background:color-mix(in srgb,var(--accent) 12%,transparent); color:var(--accent); }
+.wi-sched-chip.off { background:color-mix(in srgb,var(--red) 12%,transparent); color:var(--red); }
+.wi-sched-chip-x { cursor:pointer; opacity:.6; font-size:10px; line-height:1; }
+.wi-sched-chip-x:hover { opacity:1; }
+.wi-sched-sel { font-family:var(--mono); font-size:11px; padding:3px 6px; border:1px solid var(--border2); border-radius:3px; background:var(--bg2); color:var(--text); }
+.wi-sched-add-btn { font-family:var(--mono); font-size:9px; padding:2px 7px; border-radius:3px; border:1px solid var(--border2); background:none; color:var(--text3); cursor:pointer; }
+.wi-sched-add-btn:hover { border-color:var(--accent); color:var(--accent); }
+.wi-sched-add-btn.off:hover { border-color:var(--red); color:var(--red); }
+.wi-sched-add-btn.on:hover { border-color:var(--green); color:var(--green); }
+.wi-sched-add-btn.has-events { border-color:var(--amber); color:var(--amber); }
+.wi-sched-from { font-family:var(--mono); font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; }
+.wi-sched-hint { flex-basis:100%; font-family:var(--mono); font-size:9px; color:var(--text3); line-height:1.4; margin-top:2px; }
+/* 6-month chart */
+.wi-6mo-panel { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:12px; }
+.wi-6mo-title { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
+.wi-6mo-bars { display:flex; align-items:flex-end; gap:4px; height:80px; margin-bottom:4px; }
+.wi-6mo-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; cursor:pointer; }
+.wi-6mo-bar { width:100%; border-radius:3px 3px 0 0; background:var(--accent); opacity:.55; transition:height .2s,opacity .15s; min-height:3px; }
+.wi-6mo-bar.now { opacity:.8; }
+.wi-6mo-bar.neg { background:var(--red); }
+.wi-6mo-bar.sel { opacity:1; box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 50%,transparent); }
+.wi-6mo-bar.neg.sel { box-shadow:0 0 0 2px color-mix(in srgb,var(--red) 50%,transparent); }
+.wi-6mo-labels { display:flex; gap:4px; margin-top:4px; }
+.wi-6mo-lbl { flex:1; text-align:center; font-family:var(--mono); font-size:9px; color:var(--text3); cursor:pointer; }
+.wi-6mo-lbl.now { color:var(--accent); }
+.wi-6mo-lbl.sel { color:var(--text); font-weight:700; }
+.wi-6mo-detail { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px; padding:7px 10px; background:var(--bg3); border-radius:var(--r); font-family:var(--mono); font-size:11px; color:var(--text3); }
+.wi-6mo-detail .wi-6mo-detail-mo { font-weight:700; color:var(--text); letter-spacing:.06em; }
+.wi-6mo-vals { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.wi-6mo-val { flex:1; min-width:80px; background:var(--bg3); border-radius:var(--r); padding:5px 8px; text-align:center; }
+.wi-6mo-val-label { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); }
+.wi-6mo-val-num { font-family:var(--mono); font-size:12px; font-weight:700; }
+/* Scenario rows */
+.wi-sc-row { display:flex; align-items:center; gap:6px; padding:7px 4px; border-bottom:1px solid var(--border); }
+.wi-sc-row.active { background:color-mix(in srgb,var(--accent) 8%,transparent); border-radius:var(--r); }
+.wi-sc-name { flex:1; font-size:13px; color:var(--text); cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wi-sc-name:hover { color:var(--accent); }
+.wi-sc-name.active { color:var(--accent); }
+.wi-sc-btn { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:3px; border:1px solid var(--border2); background:none; color:var(--text3); cursor:pointer; white-space:nowrap; }
+.wi-sc-btn:hover { border-color:var(--accent); color:var(--accent); }
+.wi-sc-btn.del:hover { border-color:var(--red); color:var(--red); }
+/* Rules panel */
+.wi-rules-panel { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+.wi-rules-section-hdr { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:5px 10px 4px; border-bottom:1px solid var(--border); }
+.wi-rules-section-hdr.external { color:var(--amber); }
+.wi-rule-row { display:flex; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:11px; }
+.wi-rule-row:last-child { border-bottom:none; }
+.wi-rule-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text2); }
+.wi-rule-bkt  { color:var(--text3); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:90px; }
+.wi-rule-inp  { width:52px; text-align:right; font-family:var(--mono); font-size:11px; padding:3px 6px; border:1px solid var(--border2); border-radius:3px; background:var(--bg3); color:var(--text); flex-shrink:0; outline:none; }
+.wi-rule-inp.changed { border-color:var(--amber); color:var(--amber); }
+.wi-rule-unit { color:var(--text3); font-size:10px; flex-shrink:0; }
+.wi-rule-amt  { font-size:11px; font-weight:700; white-space:nowrap; flex-shrink:0; color:var(--text); }
+.wi-rule-totals { display:flex; gap:10px; padding:6px 10px; background:var(--bg3); font-family:var(--mono); font-size:10px; color:var(--text3); flex-wrap:wrap; border-top:1px solid var(--border); }
 
-/* ── Forecast period cards ── */
-.fc-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 4px; }
-.fc-period {
-  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
-  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
-}
-.fc-period.fc-shortfall { border-color: rgba(239,68,68,.45); }
-.fc-period-head  { display: flex; justify-content: space-between; align-items: flex-start; }
-.fc-period-label { font-size: 14px; font-weight: 600; }
-.fc-period-range { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
-.fc-period-bal   { font-family: var(--mono); font-size: 16px; font-weight: 700; white-space: nowrap; }
-.fc-income-line  { font-family: var(--mono); font-size: 12px; color: var(--green); }
-.fc-bills        { display: flex; flex-wrap: wrap; gap: 5px; }
-.fc-bill         { font-family: var(--mono); font-size: 11px; border-radius: 4px; padding: 3px 8px; white-space: nowrap; }
-.fc-bill-ok      { background: rgba(34,197,94,.12);  color: var(--green); }
-.fc-bill-warn    { background: rgba(239,68,68,.12);  color: var(--red); }
-.fc-bill-off     { background: rgba(245,158,11,.12); color: var(--amber); }
-
-/* ── What-If/Forecast bar chart ── */
-.fc-bars-wrap  { display: flex; gap: 3px; height: 64px; align-items: flex-end; padding: 4px 0 18px; }
-.fc-bar-col    { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; min-width: 20px; }
-.fc-bar-fill   { width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; }
-.fc-bar-lbl    { font-family: var(--mono); font-size: 8px; color: var(--text3); text-align: center; position: absolute; bottom: 0; white-space: nowrap; }
+/* ── Forecast range buttons ── */
+.fc-range-btn { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); color:var(--text3); font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; padding:3px 10px; cursor:pointer; transition:background .12s,color .12s; }
+.fc-range-btn:hover { color:var(--text2); background:var(--border2); }
+.fc-range-btn.active { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+/* Forecast period cards */
+.fc-period { border:1px solid var(--border); border-radius:var(--r); margin-bottom:10px; overflow:hidden; }
+.fc-period.shortfall { border-color:var(--red); }
+.fc-period-header { display:flex; align-items:flex-start; justify-content:space-between; padding:10px 12px; background:var(--bg2); cursor:pointer; gap:8px; }
+.fc-period.shortfall .fc-period-header { background:rgba(239,68,68,.08); }
+.fc-period-left { flex:1; min-width:0; }
+.fc-period-type { font-family:var(--mono); font-size:13px; color:var(--text); font-weight:bold; letter-spacing:.02em; }
+.fc-period-dates { font-family:var(--mono); font-size:10px; color:var(--text3); display:block; margin-top:2px; }
+.fc-period-right { text-align:right; flex-shrink:0; }
+.fc-period-net { font-family:var(--mono); font-size:13px; font-weight:bold; }
+.fc-period-net.pos { color:var(--green); }
+.fc-period-net.neg { color:var(--red); }
+.fc-period-bal { font-family:var(--mono); font-size:10px; color:var(--text3); display:block; margin-top:2px; }
+.fc-shortfall-badge { display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--red); background:rgba(239,68,68,.15); border:1px solid var(--red); border-radius:var(--r); padding:1px 6px; margin-top:3px; }
+.fc-clear-badge { display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--green); background:rgba(34,197,94,.12); border:1px solid var(--green); border-radius:var(--r); padding:1px 6px; margin-top:3px; }
+.fc-period-body { display:none; border-top:1px solid var(--border); }
+.fc-period-body.open { display:block; }
+.fc-start-row { display:flex; justify-content:space-between; padding:6px 12px; border-bottom:1px solid var(--border); font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:.06em; text-transform:uppercase; }
+.fc-start-row span:last-child { color:var(--accent); }
+.fc-income-block { padding:6px 12px 2px; border-bottom:1px solid var(--border2); }
+.fc-income-row,.fc-transfer-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-family:var(--mono); font-size:12px; }
+.fc-income-label { flex:1; color:var(--text2); }
+.fc-income-amt { color:var(--green); white-space:nowrap; }
+.fc-transfer-amt { color:var(--amber); white-space:nowrap; }
+.fc-day-group { border-bottom:1px solid var(--border2); }
+.fc-day-label { font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:5px 12px 2px; background:var(--bg3); }
+.fc-bill-row { display:flex; justify-content:space-between; align-items:center; padding:3px 12px; font-family:var(--mono); font-size:12px; }
+.fc-bill-label { flex:1; color:var(--text2); }
+.fc-bill-amt { color:var(--red); white-space:nowrap; }
+.fc-bill-row.funded   .fc-bill-amt { color:var(--green); }
+.fc-bill-row.unfunded .fc-bill-amt { color:var(--red); }
+.fc-bill-row.scenario-off .fc-bill-label { color:var(--amber); opacity:.85; }
+.fc-bill-row.scenario-off .fc-bill-amt   { color:var(--amber); opacity:.85; }
+.fc-run-bal { display:flex; justify-content:space-between; padding:3px 12px 5px; font-family:var(--mono); font-size:10px; color:var(--text3); }
+.fc-run-bal span:last-child { color:var(--text2); }
+.fc-end-row { display:flex; justify-content:space-between; padding:7px 12px; border-top:1px solid var(--border); font-family:var(--mono); font-size:12px; background:var(--bg2); }
+.fc-end-label { color:var(--text3); letter-spacing:.06em; text-transform:uppercase; }
+.fc-end-amt { color:var(--accent); font-weight:bold; }
+.fc-end-amt.negative { color:var(--red); }
+.fc-summary-bar { display:flex; gap:16px; padding:10px 12px; background:var(--bg3); border:1px solid var(--border2); border-radius:var(--r); margin-bottom:14px; flex-wrap:wrap; }
+.fc-summary-item { font-family:var(--mono); font-size:12px; }
+.fc-summary-label { font-size:9px; color:var(--text3); letter-spacing:.08em; text-transform:uppercase; }
+.fc-empty { font-family:var(--mono); font-size:12px; color:var(--text3); padding:20px 0; }
+.fc-acct-chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.fc-acct-chip { font-family:var(--mono); font-size:10px; padding:3px 8px; border:1px solid var(--border); border-radius:var(--r); cursor:pointer; background:var(--bg2); color:var(--text3); transition:background .12s,color .12s,border-color .12s; }
+.fc-acct-chip.on { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+.fc-acct-chip.custom { border-style:dashed; }
+.fc-sc-chip { font-family:var(--mono); font-size:10px; padding:3px 10px; border:1px solid var(--border2); border-radius:var(--r); cursor:pointer; background:var(--bg2); color:var(--text); transition:background .12s,color .12s,border-color .12s; }
+.fc-sc-chip.active { background:color-mix(in srgb,var(--amber) 15%,transparent); color:var(--amber); border-color:var(--amber); }
+.fc-custom-bal { display:none; }
+.fc-custom-bal.open { display:flex; align-items:center; gap:6px; margin-bottom:8px; font-family:var(--mono); font-size:12px; color:var(--text2); }
+.fc-custom-bal input { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); color:var(--text); font-family:var(--mono); font-size:12px; padding:3px 8px; width:120px; }
+.fc-paid-toggle { display:flex; align-items:center; gap:6px; padding:4px 12px; border-bottom:1px solid var(--border2); font-family:var(--mono); font-size:10px; color:var(--text3); background:var(--bg3); }
+.fc-section-head { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; padding:4px 12px 2px; border-top:1px solid var(--border2); margin-top:2px; }
+.fc-section-head.funded     { color:var(--green);  background:rgba(34,197,94,.06); }
+.fc-section-head.unfunded   { color:var(--red);    background:rgba(239,68,68,.06); }
+.fc-section-head.scenario-off { color:var(--amber); background:color-mix(in srgb,var(--amber) 8%,transparent); }
+.fc-alloc-block { padding:4px 12px 4px; border-bottom:1px solid var(--border2); }
+.fc-alloc-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; font-family:var(--mono); font-size:10px; color:var(--text3); }
+.fc-alloc-label { flex:1; }
+.fc-alloc-amt { color:var(--accent); white-space:nowrap; }
+.fc-balance-after-transfers { display:flex; justify-content:space-between; padding:4px 12px; font-family:var(--mono); font-size:10px; border-bottom:1px solid var(--border2); color:var(--text3); background:var(--bg3); }
+.fc-balance-after-transfers span:last-child { color:var(--text2); }
+.fc-cumulative { font-size:9px; color:var(--text3); margin-left:6px; }
+.fc-s2s-row { display:flex; align-items:center; gap:6px; padding:8px 12px; margin-top:4px; font-size:13px; border-top:1px solid var(--border); color:var(--text2); }
+.fc-planned-form { border:1px solid var(--border); border-radius:var(--r); margin-bottom:12px; overflow:hidden; }
+.fc-planned-head { display:flex; justify-content:space-between; align-items:center; padding:7px 12px; background:var(--bg2); cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--text3); }
+.fc-planned-body { display:none; padding:10px 12px; border-top:1px solid var(--border); }
+.fc-planned-body.open { display:block; }
+.fc-planned-inputs { display:flex; gap:6px; flex-wrap:wrap; align-items:flex-end; margin-bottom:8px; }
+.fc-planned-inputs input,.fc-planned-inputs select { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); color:var(--text); font-family:var(--mono); font-size:11px; padding:4px 8px; }
+.fc-planned-inputs input { width:110px; }
+.fc-planned-inputs input[type=date] { width:130px; }
+.fc-planned-add { background:var(--accent); color:var(--bg); border:none; border-radius:var(--r); font-family:var(--mono); font-size:11px; padding:4px 12px; cursor:pointer; }
+.fc-planned-list { margin-top:4px; }
+.fc-planned-item { display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid var(--border2); font-family:var(--mono); font-size:10px; color:var(--text2); }
+.fc-planned-item:last-child { border-bottom:none; }
+.fc-planned-item button { background:none; border:none; color:var(--red); cursor:pointer; font-size:12px; padding:0 4px; }
 
 /* ── Mobile header extra controls ── */
 .hdr-gear {
@@ -1006,55 +1137,132 @@ select.field-input { cursor: pointer; }
 
       <!-- What-If tab: scenario bucket builder -->
       <div id="ptab-whatif" class="ptab-content">
-        <div class="wi-controls">
-          <div class="field-group">
-            <label class="field-label">Income Override ($/mo)</label>
-            <input class="field-input" id="wi-income" type="number" placeholder="Leave blank for actual" step="0.01" min="0">
+
+        <!-- Header: month label + buttons -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);">What If</div>
+            <div id="wi-month-label" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px;"></div>
           </div>
-          <div class="field-group">
-            <label class="field-label">Scenario Length</label>
-            <select class="field-input" id="wi-months">
-              <option value="3">3 months</option>
-              <option value="6" selected>6 months</option>
-              <option value="12">12 months</option>
-            </select>
+          <div style="display:flex;gap:6px;">
+            <button class="sf-btn" onclick="wiShowSaveForm()">Save</button>
+            <button class="sf-btn" onclick="wiReset()">Reset</button>
           </div>
         </div>
-        <div>
-          <button class="btn btn-primary btn-sm" id="wi-run-btn" onclick="runWhatIf()">Run Scenario</button>
+
+        <!-- Inline save form -->
+        <div id="wi-save-form" style="display:none;margin-bottom:8px;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input id="wi-sc-name-input" type="text" placeholder="Scenario name…"
+              style="flex:1;font-family:var(--mono);font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg2);color:var(--text);outline:none;"
+              onkeydown="if(event.key==='Enter')wiConfirmSave();else if(event.key==='Escape')wiHideSaveForm();">
+            <button class="sf-btn" onclick="wiConfirmSave()">Confirm</button>
+            <button class="sf-btn" onclick="wiHideSaveForm()">Cancel</button>
+          </div>
         </div>
-        <div class="section-label">Buckets — Toggle Off to Exclude from Scenario</div>
-        <div id="wi-bucket-list"><div class="tl-empty">Loading…</div></div>
-        <div id="wi-result"></div>
+
+        <!-- Saved scenarios list -->
+        <div id="wi-scenarios-list" style="margin-bottom:12px;"></div>
+
+        <!-- Summary: Income / Allocated / Surplus -->
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px;">
+          <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:80px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Income</div>
+              <div id="wi-income" style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green);">—</div>
+            </div>
+            <div style="flex:1;min-width:80px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Allocated</div>
+              <div id="wi-alloc" style="font-family:var(--mono);font-size:18px;font-weight:700;">—</div>
+            </div>
+            <div style="flex:1;min-width:80px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;">Surplus</div>
+              <div id="wi-surplus" style="font-family:var(--mono);font-size:18px;font-weight:700;">—</div>
+            </div>
+          </div>
+          <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
+            <div id="wi-fill" style="height:100%;border-radius:3px;background:var(--green);width:0%;transition:width .3s;"></div>
+          </div>
+          <div id="wi-pct" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:5px;"></div>
+        </div>
+
+        <!-- 6-Month chart -->
+        <div class="wi-6mo-panel" style="margin-bottom:12px;">
+          <div class="wi-6mo-title">6-Month Projection <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">· tap a bar</span></div>
+          <div class="wi-6mo-bars" id="wi-6mo-bars"></div>
+          <div class="wi-6mo-labels" id="wi-6mo-labels"></div>
+          <div class="wi-6mo-detail" id="wi-6mo-detail"></div>
+          <div class="wi-6mo-vals" id="wi-6mo-vals"></div>
+        </div>
+
+        <!-- Rules panel -->
+        <div id="wi-rules-content" style="margin-bottom:12px;"></div>
+
+        <!-- Bucket list header -->
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">
+          Buckets — Target Amounts
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;"> · edit any value or +50 / -20 / *1.1 / =0</span>
+        </div>
+        <div id="wi-buckets-content"></div>
+
       </div>
 
-      <!-- Forecast tab: real cash flow by account + length -->
+      <!-- Forecast tab: real cash flow -->
       <div id="ptab-forecast" class="ptab-content">
-        <div class="fc-controls">
-          <div class="field-group">
-            <label class="field-label">Account</label>
-            <select class="field-input" id="fc-account">
-              <option value="">All Checking Accounts</option>
-              {% for a in cash_accounts %}
-              <option value="{{ a.id }}" data-bal="{{ a.balance }}">{{ a.name }}</option>
-              {% endfor %}
-            </select>
+
+        <!-- Range buttons -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;">Range</span>
+          <button class="fc-range-btn" onclick="setForecastRange(2,this)">2 Mo</button>
+          <button class="fc-range-btn active" onclick="setForecastRange(3,this)">3 Mo</button>
+          <button class="fc-range-btn" onclick="setForecastRange(6,this)">6 Mo</button>
+          <button class="fc-range-btn" onclick="setForecastRange(12,this)">12 Mo</button>
+          <button class="fc-range-btn" onclick="setForecastRange(0,this)">Year</button>
+        </div>
+
+        <!-- Account chips -->
+        <div id="fc-acct-chips" class="fc-acct-chips"></div>
+        <div id="fc-custom-bal" class="fc-custom-bal">
+          <span>Custom balance:</span>
+          <input type="text" inputmode="decimal" id="fc-custom-bal-input" placeholder="$0.00" onblur="applyCustomBalance()" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:12px;padding:3px 8px;width:120px;">
+          <button class="fc-range-btn" onclick="applyCustomBalance()">Apply</button>
+        </div>
+
+        <!-- Scenario chips -->
+        <div id="fc-scenario-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+
+        <!-- Active scenario banner -->
+        <div id="fc-scenario-row" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:7px 10px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid var(--amber);border-radius:var(--r);">
+          <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--amber);">◉ SCENARIO</span>
+          <span id="fc-scenario-name" style="font-family:var(--mono);font-size:11px;color:var(--text);"></span>
+          <button onclick="fcClearScenario()" style="margin-left:auto;border:1px solid var(--border2);background:none;color:var(--text3);font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:var(--r);cursor:pointer;">Clear</button>
+        </div>
+
+        <!-- Planned expenses -->
+        <div class="fc-planned-form">
+          <div class="fc-planned-head" onclick="togglePlannedForm()">
+            + Planned Expenses <span id="fc-planned-count" style="color:var(--accent);margin-left:6px;"></span>
           </div>
-          <div class="field-group">
-            <label class="field-label">Forecast Length</label>
-            <select class="field-input" id="fc-months">
-              <option value="2">2 months</option>
-              <option value="3" selected>3 months</option>
-              <option value="6">6 months</option>
-              <option value="12">12 months</option>
-              <option value="0">End of year</option>
-            </select>
+          <div class="fc-planned-body" id="fc-planned-body">
+            <div class="fc-planned-inputs">
+              <input type="text" id="pe-name" placeholder="Expense name">
+              <input type="date" id="pe-date">
+              <input type="text" inputmode="decimal" id="pe-amount" placeholder="Amount">
+              <select id="pe-freq">
+                <option value="once">One-time</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              <button class="fc-planned-add" onclick="addPlannedExpense()">Add</button>
+            </div>
+            <div class="fc-planned-list" id="fc-planned-list"></div>
           </div>
         </div>
-        <div>
-          <button class="btn btn-primary btn-sm" id="fc-run-btn" onclick="loadForecast()">Run Forecast</button>
-        </div>
-        <div id="forecast-output"></div>
+
+        <!-- Loading + content -->
+        <div id="forecast-loading" style="display:none;padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;">LOADING FORECAST...</div>
+        <div id="forecast-content"></div>
+
       </div>
 
     </div>
@@ -1513,6 +1721,8 @@ const DUE_BUCKETS    = [{% for group in category_groups %}{% for b in group.buck
 const MONTHLY_BUDGET = {{ grand.budget|round(2) }};
 const CURRENT_CASH   = {{ total_cash_val|round(2) }};
 const ALL_BUCKETS    = [{% for group in category_groups %}{% for b in group.buckets %}{id:{{ b.id|tojson }},name:{{ b.name|tojson }},budget:{{ b.budget }},type:{{ (b.type or 'expense')|tojson }},due_day:{{ b.due_day if b.due_day else 'null' }},cat:{{ group.name|tojson }}},{% endfor %}{% endfor %}];
+const _wiGroups    = {{ category_groups | tojson | safe }};
+const _wiRulesData = {{ allocation_rules | tojson | safe }};
 
 // ── Utilities ────────────────────────────────────────────────────
 async function api(endpoint, body) {
@@ -1843,8 +2053,8 @@ function showPanelTab(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'history')  loadReports();
   if (name === 'timeline') loadTimeline();
-  if (name === 'whatif')   initWhatIf();
-  if (name === 'forecast') {} // user clicks Run Forecast
+  if (name === 'whatif')   _initWi();
+  if (name === 'forecast') initForecast();
 }
 
 // ── Timeline ─────────────────────────────────────────────────────
@@ -2242,171 +2452,979 @@ async function submitRuleSheet() {
 }
 
 // ── What-If scenario builder ──────────────────────────────────────
-const wiOff = new Set();
+// ════════════════════════════════════════════════════════════════════
+// WHAT IF — scenario bucket builder
+// ════════════════════════════════════════════════════════════════════
 
-function initWhatIf() {
-  const list = document.getElementById('wi-bucket-list');
-  if (!list || list.dataset.init) return;
-  list.dataset.init = '1';
-  if (!ALL_BUCKETS.length) {
-    list.innerHTML = '<div class="empty-state" style="padding:20px 0"><p>No buckets</p></div>';
+let _wiOverrides        = {};  // {bid: number}
+let _wiSchedule         = {};  // {bid: [{mid, state}]}
+let _wiSchedOpen        = null;
+let _wiRuleOverrides    = {};  // {ruleId: number}
+let _wiDueDateOverrides = {};  // {bid: number}
+let _wiActiveScId       = null;
+let _wiSavedScenarios   = [];
+let _wi6moSel           = 0;
+
+// Forecast state
+let _forecastData    = null;
+let _forecastMonths  = 3;
+let _awaitingPaycheck = false;
+let _acctChips       = {};
+let _useCustomBal    = false;
+let _fcActiveSc      = null;
+let _forecastExtras  = [];
+
+/* ── Month ID helpers (YYYY-MM) ──────────────────────────────────── */
+function _midVal(mid) {
+  if (!mid || typeof mid !== 'string') return 0;
+  const [y, m] = mid.split('-').map(Number);
+  return y * 12 + (m - 1);
+}
+
+function _midLabel(mid) {
+  if (!mid || typeof mid !== 'string') return '?';
+  const MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return MNAMES[parseInt(mid.split('-')[1], 10) - 1] || '?';
+}
+
+function wiMonthsForward(fromMid, count) {
+  const MNAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let [yr, mo] = fromMid.split('-').map(Number);
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push({ id: `${yr}-${String(mo).padStart(2,'0')}`, label: MNAMES[mo - 1] });
+    if (++mo > 12) { mo = 1; yr++; }
+  }
+  return result;
+}
+
+/* ── Projected income from paycheck schedules ────────────────────── */
+function wiProjectedIncome(mid) {
+  if (!PAYCHECKS_DATA || !PAYCHECKS_DATA.length) return 0;
+  const [yr, mo] = mid.split('-').map(Number);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  let total = 0;
+  for (const p of PAYCHECKS_DATA) {
+    const anchorStr = p.anchorDate || p.anchor_date || '';
+    if (!anchorStr || !p.amount) continue;
+    const freq = p.freq || 14;
+    if (freq === 15) { total += p.amount * 2; continue; }
+    const anchor     = new Date(anchorStr + 'T12:00:00');
+    const monthStart = new Date(yr, mo - 1, 1, 0, 0, 0, 0);
+    const monthEnd   = new Date(yr, mo - 1, daysInMonth, 23, 59, 59, 999);
+    let d = new Date(anchor);
+    while (d > monthStart) d.setDate(d.getDate() - freq);
+    while (d < monthStart) d.setDate(d.getDate() + freq);
+    let count = 0;
+    while (d <= monthEnd) { count++; d.setDate(d.getDate() + freq); }
+    total += count * p.amount;
+  }
+  return total;
+}
+
+/* ── One-shot state from sorted schedule events ─────────────────── */
+function _stateFromSorted(sortedEvents, mid) {
+  let state = 'on';
+  const mv = _midVal(mid);
+  for (const ev of sortedEvents) {
+    if (_midVal(ev.mid) <= mv) state = ev.state;
+    else break;
+  }
+  return state;
+}
+
+const _escHTML = s => (s == null ? '' : String(s))
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+/* ── Migrate legacy schedule format → [{mid,state}] ─────────────── */
+function _migrateSchedule(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  const result = {};
+  for (const [bid, val] of Object.entries(raw)) {
+    if (bid === '__streams') continue;
+    if (Array.isArray(val)) {
+      const arr = val
+        .map(e => ({ mid: e.mid || e.from_mid, state: e.state === 'off' ? 'off' : 'on' }))
+        .filter(e => e.mid);
+      if (arr.length) result[bid] = arr;
+    } else if (val && typeof val === 'object') {
+      const arr = Object.entries(val)
+        .filter(([, v]) => v === false)
+        .map(([mid]) => ({ mid, state: 'off' }))
+        .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
+      if (arr.length) result[bid] = arr;
+    }
+  }
+  return result;
+}
+
+/* ── Math expression eval: +50 / -20 / *1.1 / /2 / =150 ─────────── */
+function evalMoneyExpr(str, cur, ref) {
+  if (str === '' || str == null) return cur;
+  const s = str.trim();
+  if (s.startsWith('=')) return Math.max(0, parseFloat(s.slice(1)) || 0);
+  if (s.startsWith('+')) return Math.max(0, cur + (parseFloat(s.slice(1)) || 0));
+  if (s.startsWith('-')) return Math.max(0, cur - (parseFloat(s.slice(1)) || 0));
+  if (s.startsWith('*')) return Math.max(0, cur * (parseFloat(s.slice(1)) || 1));
+  if (s.startsWith('/')) { const d = parseFloat(s.slice(1)); return d ? Math.max(0, cur / d) : cur; }
+  const n = parseFloat(s);
+  return isNaN(n) ? cur : Math.max(0, n);
+}
+
+/* ── Bucket name lookup ──────────────────────────────────────────── */
+function _wiBucketName(bid) {
+  if (!bid) return '';
+  for (const g of (_wiGroups || []))
+    for (const b of (g.buckets || []))
+      if (b.id === bid) return b.name;
+  return '';
+}
+
+/* ── Rule projections for a month ───────────────────────────────── */
+function wiCalcRulesForMonth(mid) {
+  const income = wiProjectedIncome(mid);
+  const internal = [], external = [];
+  for (const rule of (_wiRulesData || [])) {
+    if (!rule.active) continue;
+    const val    = _wiRuleOverrides[rule.id] ?? rule.value;
+    const amount = rule.type === 'pct'
+      ? Math.round(income * val / 100 * 100) / 100
+      : val;
+    const item = { id: rule.id, name: rule.name, ruleType: rule.ruleType,
+                   type: rule.type, base: rule.value, val, amount,
+                   bucketId: rule.bucketId };
+    if (rule.ruleType === 'external') external.push(item);
+    else internal.push(item);
+  }
+  return {
+    internal, external,
+    totalInternal: internal.reduce((s, r) => s + r.amount, 0),
+    totalExternal: external.reduce((s, r) => s + r.amount, 0),
+  };
+}
+
+/* ── Effective bucket state at a given month ─────────────────────── */
+function wiBucketStateAt(bid, mid) {
+  const sorted = (_wiSchedule[bid] || []).slice()
+    .sort((a, b) => _midVal(a.mid) - _midVal(b.mid));
+  return _stateFromSorted(sorted, mid);
+}
+
+/* ── Total allocation for a month ───────────────────────────────── */
+function wiCalcAllocForMonth(mid) {
+  let total = 0;
+  for (const g of (_wiGroups || []))
+    for (const b of (g.buckets || []))
+      if (wiBucketStateAt(b.id, mid) === 'on')
+        total += (_wiOverrides[b.id] ?? b.budget ?? 0);
+  const rules = wiCalcRulesForMonth(mid);
+  total += rules.totalInternal + rules.totalExternal;
+  return total;
+}
+function wiCalcAlloc() { return wiCalcAllocForMonth(ACTIVE_MID); }
+
+/* ── Init when tab opens ─────────────────────────────────────────── */
+function _initWi() {
+  const MNAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const [yr, mo] = ACTIVE_MID.split('-').map(Number);
+  const lbl = document.getElementById('wi-month-label');
+  if (lbl) lbl.textContent = MNAMES[mo - 1] + ' ' + yr;
+  _wi6moSel = 0;
+  _renderWi();
+  wiLoadScenarios();
+}
+
+/* ── Full render ─────────────────────────────────────────────────── */
+function _renderWi() {
+  try { _renderWiBuckets(); } catch (e) { console.error('WhatIf buckets:', e); }
+  try { _renderWiRules();   } catch (e) { console.error('WhatIf rules:', e); }
+  try { _renderWiSummary(); } catch (e) { console.error('WhatIf summary:', e); }
+  try { _renderWi6Month();  } catch (e) { console.error('WhatIf 6mo:', e); }
+}
+
+/* ── 6-Month chart ───────────────────────────────────────────────── */
+function _renderWi6Month() {
+  const barsEl = document.getElementById('wi-6mo-bars');
+  const lblsEl = document.getElementById('wi-6mo-labels');
+  const valsEl = document.getElementById('wi-6mo-vals');
+  const detEl  = document.getElementById('wi-6mo-detail');
+  if (!barsEl || !lblsEl || !valsEl) return;
+
+  const rows = wiMonthsForward(ACTIVE_MID, 6).map((m, i) => {
+    const inc   = wiProjectedIncome(m.id);
+    const alloc = wiCalcAllocForMonth(m.id);
+    return { label: m.label, inc, alloc, surplus: inc - alloc, isNow: i === 0 };
+  });
+  if (_wi6moSel < 0 || _wi6moSel >= rows.length) _wi6moSel = 0;
+
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.surplus)), 1);
+
+  barsEl.innerHTML = rows.map((r, i) => {
+    const pct = Math.max(4, Math.round(Math.abs(r.surplus) / maxAbs * 90));
+    const cls = `${r.isNow ? ' now' : ''}${r.surplus < 0 ? ' neg' : ''}${i === _wi6moSel ? ' sel' : ''}`;
+    return `<div class="wi-6mo-bar-wrap" onclick="wiSelect6mo(${i})">
+      <div class="wi-6mo-bar${cls}" style="height:${pct}%"></div>
+    </div>`;
+  }).join('');
+
+  lblsEl.innerHTML = rows.map((r, i) =>
+    `<div class="wi-6mo-lbl${r.isNow ? ' now' : ''}${i === _wi6moSel ? ' sel' : ''}" onclick="wiSelect6mo(${i})">${r.label}</div>`
+  ).join('');
+
+  if (detEl) {
+    const r = rows[_wi6moSel];
+    detEl.innerHTML =
+      `<span class="wi-6mo-detail-mo">${r.label}${r.isNow ? ' (now)' : ''}</span>` +
+      `<span>Income <b style="color:var(--green)">${fmtMoney(r.inc)}</b></span>` +
+      `<span>Alloc <b>${fmtMoney(r.alloc)}</b></span>` +
+      `<span>Surplus <b style="color:${r.surplus>=0?'var(--green)':'var(--red)'}">${r.surplus>=0?'+':''}${fmtMoney(r.surplus)}</b></span>`;
+  }
+
+  const cumSur   = rows.reduce((s, r) => s + r.surplus, 0);
+  const avgInc   = rows.reduce((s, r) => s + r.inc,   0) / rows.length;
+  const avgAlloc = rows.reduce((s, r) => s + r.alloc, 0) / rows.length;
+  valsEl.innerHTML = `
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">6mo Surplus</div>
+      <div class="wi-6mo-val-num" style="color:${cumSur>=0?'var(--green)':'var(--red)'}">${cumSur>=0?'+':''}${fmtMoney(cumSur)}</div></div>
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Income</div>
+      <div class="wi-6mo-val-num">${fmtMoney(avgInc)}</div></div>
+    <div class="wi-6mo-val"><div class="wi-6mo-val-label">Avg Alloc</div>
+      <div class="wi-6mo-val-num">${fmtMoney(avgAlloc)}</div></div>
+  `;
+}
+function wiSelect6mo(i) { _wi6moSel = i; _renderWi6Month(); }
+
+/* ── Rules panel ─────────────────────────────────────────────────── */
+function _renderWiRules() {
+  const el = document.getElementById('wi-rules-content');
+  if (!el) return;
+  const active = (_wiRulesData || []).filter(r => r.active);
+  if (!active.length) { el.innerHTML = ''; return; }
+
+  const { internal, external, totalInternal, totalExternal } = wiCalcRulesForMonth(ACTIVE_MID);
+  let html = `<div class="wi-rules-panel">`;
+
+  const ruleRow = (r, isExt) => {
+    const changed  = _wiRuleOverrides[r.id] !== undefined;
+    const unitLbl  = r.type === 'pct' ? '%' : '$';
+    const dispVal  = r.type === 'pct' ? r.val.toFixed(1) : r.val.toFixed(2);
+    const bktName  = isExt ? '' : _wiBucketName(r.bucketId);
+    return `<div class="wi-rule-row">
+      <span class="wi-rule-name" title="${_escHTML(r.name)}">${_escHTML(r.name)}</span>
+      <input class="wi-rule-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
+        data-rid="${r.id}" data-base="${r.base}" data-type="${r.type}"
+        value="${dispVal}"
+        onchange="wiRuleChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <span class="wi-rule-unit">${unitLbl}</span>
+      ${bktName ? `<span class="wi-rule-bkt" title="${_escHTML(bktName)}">→ ${_escHTML(bktName)}</span>` : ''}
+      <span class="wi-rule-amt">${fmtMoney(r.amount)}</span>
+    </div>`;
+  };
+
+  if (internal.length) {
+    html += `<div class="wi-rules-section-hdr">Internal — Auto-Allocations</div>`;
+    html += internal.map(r => ruleRow(r, false)).join('');
+  }
+  if (external.length) {
+    html += `<div class="wi-rules-section-hdr external">External — Transfers</div>`;
+    html += external.map(r => ruleRow(r, true)).join('');
+  }
+  const totalRules = totalInternal + totalExternal;
+  if (totalRules)
+    html += `<div class="wi-rule-totals"><span>+${fmtMoney(totalRules)} total auto-allocated</span></div>`;
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function wiRuleChange(inp) {
+  const rid  = inp.dataset.rid;
+  const base = parseFloat(inp.dataset.base) || 0;
+  const parsed = parseFloat(inp.value);
+  if (isNaN(parsed)) {
+    inp.value = inp.dataset.type === 'pct' ? base.toFixed(1) : base.toFixed(2);
+    delete _wiRuleOverrides[rid];
+    inp.classList.remove('changed');
+  } else {
+    const val = Math.max(0, parsed);
+    inp.value = inp.dataset.type === 'pct' ? val.toFixed(1) : val.toFixed(2);
+    if (Math.abs(val - base) < 0.005) {
+      delete _wiRuleOverrides[rid]; inp.classList.remove('changed');
+    } else {
+      _wiRuleOverrides[rid] = val; inp.classList.add('changed');
+    }
+  }
+  _renderWiRules(); _renderWiSummary(); _renderWi6Month();
+}
+
+/* ── Summary bar ─────────────────────────────────────────────────── */
+function _renderWiSummary() {
+  const income  = wiProjectedIncome(ACTIVE_MID);
+  const alloc   = wiCalcAlloc();
+  const surplus = income - alloc;
+  const over    = alloc > income;
+  const pct     = income > 0 ? Math.min(110, Math.round(alloc / income * 100)) : 0;
+
+  const incEl  = document.getElementById('wi-income');
+  const alcEl  = document.getElementById('wi-alloc');
+  const surEl  = document.getElementById('wi-surplus');
+  const fillEl = document.getElementById('wi-fill');
+  const pctEl  = document.getElementById('wi-pct');
+
+  if (incEl)  incEl.textContent = fmtMoney(income);
+  if (alcEl)  { alcEl.textContent = fmtMoney(alloc); alcEl.style.color = over ? 'var(--red)' : 'var(--text)'; }
+  if (surEl)  { surEl.textContent = (surplus >= 0 ? '+' : '') + fmtMoney(surplus); surEl.style.color = surplus >= 0 ? 'var(--green)' : 'var(--red)'; }
+  if (fillEl) { fillEl.style.width = Math.min(pct,100) + '%'; fillEl.style.background = over ? 'var(--red)' : pct > 88 ? 'var(--amber)' : 'var(--green)'; }
+  if (pctEl)  { pctEl.textContent = `${pct}% of income allocated${over ? ' — OVER BUDGET' : ''}`; pctEl.style.color = over ? 'var(--red)' : 'var(--text3)'; }
+}
+
+/* ── Bucket list ─────────────────────────────────────────────────── */
+function _renderWiBuckets() {
+  const el = document.getElementById('wi-buckets-content');
+  if (!el) return;
+  let html = '';
+  try {
+    (_wiGroups || []).forEach(g => {
+      html += `<div class="wi-cat-hdr" onclick="wiToggleCat(this)">
+        <span class="wi-cat-arrow open">▶</span>${_escHTML(g.name)}
+      </div><div class="wi-cat-body">`;
+      (g.buckets || []).forEach(b => {
+        const base    = b.budget ?? 0;
+        const val     = _wiOverrides[b.id] ?? base;
+        const changed = _wiOverrides[b.id] !== undefined;
+        const diff    = val - base;
+        const diffSpan = changed
+          ? `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`
+          : '';
+        const schedEvents = (_wiSchedule[b.id] || []).slice()
+          .sort((a, x) => _midVal(a.mid) - _midVal(x.mid));
+        const isOff = _stateFromSorted(schedEvents, ACTIVE_MID) === 'off';
+        const chips = schedEvents.map(ev =>
+          `<span class="wi-sched-chip${ev.state==='off'?' off':''}">${ev.state==='off'?'OFF':'ON'} from ${_midLabel(ev.mid)} <span class="wi-sched-chip-x" onclick="wiRemoveSched('${b.id}','${ev.mid}')">×</span></span>`
+        ).join('');
+        const formOpen  = _wiSchedOpen === b.id;
+        const months6   = wiMonthsForward(ACTIVE_MID, 6);
+        const monthOpts = months6.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
+        const stateDots = schedEvents.length
+          ? months6.map(m => {
+              const st = _stateFromSorted(schedEvents, m.id);
+              return `<span class="wi-state-dot ${st}" title="${m.label}: ${st.toUpperCase()}"></span>`;
+            }).join('')
+          : '';
+        const dueDayBase = b.due_day !== undefined && b.due_day !== null && b.due_day !== '' ? b.due_day : '';
+        const dueDayChg  = _wiDueDateOverrides[b.id] !== undefined;
+        const dueDayVal  = dueDayChg ? _wiDueDateOverrides[b.id] : dueDayBase;
+        const inForecast = dueDayBase !== '' || b.pay_freq;
+        const fcDot      = dueDayChg
+          ? `<span class="wi-fc-dot override" title="Due day overridden">●</span>`
+          : inForecast
+          ? `<span class="wi-fc-dot exists" title="In Forecast (due day: ${_escHTML(String(dueDayBase))})">●</span>`
+          : '';
+        const dueTip = dueDayChg
+          ? `Overrides due day (base: ${dueDayBase || 'none'}). Clear to restore.`
+          : dueDayBase !== ''
+          ? `Due day: ${dueDayBase}. Edit to override for this scenario.`
+          : 'Enter a due day (1–31 or eom) to include in Forecast.';
+        html += `<div class="wi-bkt-row${isOff ? ' off' : ''}" data-bid="${b.id}">
+          ${fcDot}<span class="wi-bkt-label" title="${_escHTML(b.name)}">${_escHTML(b.name)}</span>
+          ${diffSpan}
+          ${stateDots ? `<span class="wi-state-bar">${stateDots}</span>` : ''}
+          <input class="wi-s-inp${changed ? ' changed' : ''}" type="text" inputmode="decimal"
+            data-bid="${b.id}" data-base="${base}" value="${val.toFixed(2)}"
+            title="Target: ${fmtMoney(base)}"
+            onchange="wiBktChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+          <input class="wi-due-inp${dueDayChg ? ' changed' : ''}" type="text" inputmode="numeric"
+            data-bid="${b.id}" data-base-due="${_escHTML(String(dueDayBase))}"
+            value="${_escHTML(String(dueDayVal))}" placeholder="day"
+            title="${dueTip}"
+            onchange="wiDueDayChange(this)" onkeydown="if(event.key==='Enter')this.blur()">
+          <button class="wi-sched-add-btn${schedEvents.length ? ' has-events' : ''}" onclick="wiShowSchedForm('${b.id}')" title="Schedule on/off">+</button>
+        </div>`;
+        if (chips || formOpen) {
+          html += `<div class="wi-sched-sub">${chips}`;
+          if (formOpen) {
+            html += `<span class="wi-sched-from">From</span>
+              <select id="wi-sched-mo-${b.id}" class="wi-sched-sel">${monthOpts}</select>
+              <button class="wi-sched-add-btn off" onclick="wiAddSched('${b.id}','off')">turn OFF</button>
+              <button class="wi-sched-add-btn on" onclick="wiAddSched('${b.id}','on')">turn ON</button>
+              <button class="wi-sched-add-btn" onclick="wiCloseSchedForm()">✕</button>
+              <div class="wi-sched-hint">Change applies from the selected month onward. Stack OFF + a later ON to model "off until then."</div>`;
+          }
+          html += `</div>`;
+        }
+      });
+      html += `</div>`;
+    });
+  } catch(e) {
+    html += `<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:8px 4px;">Error: ${e.message}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ── Bucket amount change ────────────────────────────────────────── */
+function wiBktChange(inp) {
+  const bid  = inp.dataset.bid;
+  const base = parseFloat(inp.dataset.base) || 0;
+  const cur  = _wiOverrides[bid] ?? base;
+  const val  = evalMoneyExpr(inp.value, cur, base);
+  inp.value  = val.toFixed(2);
+  if (Math.abs(val - base) < 0.005) {
+    delete _wiOverrides[bid];
+    inp.classList.remove('changed');
+    inp.closest('.wi-bkt-row')?.querySelector('.wi-diff')?.remove();
+  } else {
+    _wiOverrides[bid] = val;
+    inp.classList.add('changed');
+    const row   = inp.closest('.wi-bkt-row');
+    const diff  = val - base;
+    const dHtml = `<span class="wi-diff ${diff >= 0 ? 'pos' : 'neg'}">${diff >= 0 ? '+' : ''}${fmtMoney(diff)}</span>`;
+    const existing = row?.querySelector('.wi-diff');
+    if (existing) existing.outerHTML = dHtml;
+    else row?.querySelector('.wi-bkt-label')?.insertAdjacentHTML('afterend', dHtml);
+  }
+  _renderWiSummary(); _renderWi6Month();
+}
+
+/* ── Per-bucket due day override ─────────────────────────────────── */
+function wiDueDayChange(inp) {
+  const bid     = inp.dataset.bid;
+  const baseDue = inp.dataset.baseDue;
+  const raw     = inp.value.trim().toLowerCase();
+  if (!raw || raw === String(baseDue)) {
+    delete _wiDueDateOverrides[bid]; inp.value = String(baseDue); inp.classList.remove('changed');
+  } else if (raw === 'eom' || (parseInt(raw, 10) >= 1 && parseInt(raw, 10) <= 31)) {
+    const val = raw === 'eom' ? 'eom' : parseInt(raw, 10);
+    _wiDueDateOverrides[bid] = val; inp.value = String(val); inp.classList.add('changed');
+  } else {
+    inp.style.borderColor = 'var(--red)'; inp.style.color = 'var(--red)';
+    setTimeout(() => { inp.style.borderColor = ''; inp.style.color = ''; }, 800);
+    inp.value = String(_wiDueDateOverrides[bid] !== undefined ? _wiDueDateOverrides[bid] : baseDue);
+  }
+}
+
+/* ── Schedule form ───────────────────────────────────────────────── */
+function wiShowSchedForm(bid) { _wiSchedOpen = _wiSchedOpen === bid ? null : bid; _renderWiBuckets(); }
+function wiCloseSchedForm()  { _wiSchedOpen = null; _renderWiBuckets(); }
+
+function wiAddSched(bid, state) {
+  const sel = document.getElementById(`wi-sched-mo-${bid}`);
+  if (!sel) return;
+  const mid = sel.value;
+  if (!mid || !bid) return;
+  if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
+  const idx = _wiSchedule[bid].findIndex(e => e.mid === mid);
+  if (idx >= 0) _wiSchedule[bid][idx].state = state;
+  else _wiSchedule[bid].push({ mid, state });
+  _wiSchedOpen = null;
+  _renderWiBuckets(); _renderWiSummary(); _renderWi6Month();
+}
+
+function wiRemoveSched(bid, mid) {
+  if (!_wiSchedule[bid]) return;
+  _wiSchedule[bid] = _wiSchedule[bid].filter(e => e.mid !== mid);
+  if (!_wiSchedule[bid].length) delete _wiSchedule[bid];
+  _renderWiBuckets(); _renderWiSummary(); _renderWi6Month();
+}
+
+/* ── Toggle category ─────────────────────────────────────────────── */
+function wiToggleCat(hdr) {
+  const body = hdr.nextElementSibling;
+  if (!body) return;
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  hdr.querySelector('.wi-cat-arrow')?.classList.toggle('open', hidden);
+}
+
+/* ── Reset ───────────────────────────────────────────────────────── */
+function wiReset() {
+  _wiOverrides = {}; _wiSchedule = {}; _wiSchedOpen = null;
+  _wiRuleOverrides = {}; _wiDueDateOverrides = {}; _wiActiveScId = null;
+  _renderWi(); _renderWiScenarios();
+}
+
+/* ── Scenarios ───────────────────────────────────────────────────── */
+async function wiLoadScenarios() {
+  try {
+    const res  = await fetch('/api/scenarios');
+    const data = await res.json();
+    _wiSavedScenarios = data.ok ? (data.scenarios || []) : [];
+  } catch { _wiSavedScenarios = []; }
+  _renderWiScenarios();
+  _renderFcScenarioChips();
+}
+
+function _renderWiScenarios() {
+  const el = document.getElementById('wi-scenarios-list');
+  if (!el) return;
+  if (!_wiSavedScenarios.length) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 4px;">No saved scenarios.</div>';
     return;
   }
-  let lastCat = null, html = '';
-  for (const b of ALL_BUCKETS) {
-    if (b.cat !== lastCat) {
-      lastCat = b.cat;
-      html += `<div class="section-label" style="padding-top:10px">${b.cat}</div>`;
-    }
-    const dueStr = b.due_day ? ` · due ${b.due_day}` : '';
-    html += `<div class="wi-row" id="wi-row-${b.id}">
-      <div style="flex:1">
-        <div class="wi-row-name">${b.name}</div>
-        <div class="wi-row-sub">${b.type}${dueStr}</div>
-      </div>
-      <div class="wi-row-budget">${fmtMoney(b.budget)}</div>
-      <label class="toggle">
-        <input type="checkbox" checked onchange="toggleWiBucket('${b.id}',this)">
-        <div class="toggle-track"></div>
-      </label>
+  el.innerHTML = _wiSavedScenarios.map(s => {
+    const isActive = _wiActiveScId === s.id;
+    return `<div class="wi-sc-row${isActive ? ' active' : ''}">
+      <span class="wi-sc-name${isActive ? ' active' : ''}" onclick="wiApplyScenario('${s.id}')" title="${isActive ? 'Active — click to deselect' : 'Load scenario'}">${_escHTML(s.name)}</span>
+      <button class="wi-sc-btn" onclick="wiUpdateScenario('${s.id}')">Save</button>
+      <button class="wi-sc-btn" onclick="wiDuplicateScenario('${s.id}')">Dup</button>
+      <button class="wi-sc-btn del" onclick="wiDeleteScenario('${s.id}')">Del</button>
     </div>`;
+  }).join('');
+}
+
+function wiApplyScenario(id) {
+  if (_wiActiveScId === id) { wiReset(); return; }
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  _wiOverrides        = Object.assign({}, s.allocations || {});
+  _wiSchedule         = _migrateSchedule(s.schedule || {});
+  _wiRuleOverrides    = Object.assign({}, s.ruleOverrides || {});
+  _wiDueDateOverrides = Object.assign({}, s.dueDateOverrides || {});
+  _wiActiveScId       = id;
+  for (const bid of (s.offBuckets || [])) {
+    if (!_wiSchedule[bid]) _wiSchedule[bid] = [];
+    if (!_wiSchedule[bid].some(e => e.mid === ACTIVE_MID))
+      _wiSchedule[bid].push({ mid: ACTIVE_MID, state: 'off' });
   }
-  list.innerHTML = html;
+  _wiSchedOpen = null;
+  _renderWi(); _renderWiScenarios();
 }
 
-function toggleWiBucket(bid, cb) {
-  const row = document.getElementById('wi-row-' + bid);
-  if (cb.checked) { wiOff.delete(bid); if (row) row.classList.remove('off'); }
-  else            { wiOff.add(bid);    if (row) row.classList.add('off'); }
+async function wiUpdateScenario(id) {
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  try {
+    const res = await fetch('/api/scenarios', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ id, name: s.name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides, dueDateOverrides: _wiDueDateOverrides })
+    });
+    const data = await res.json();
+    if (data.ok) await wiLoadScenarios();
+  } catch {}
 }
 
-async function runWhatIf() {
-  const btn     = document.getElementById('wi-run-btn');
-  const months  = document.getElementById('wi-months')?.value || '6';
-  const incVal  = document.getElementById('wi-income')?.value;
-  const body    = {};
+function wiShowSaveForm() {
+  const form = document.getElementById('wi-save-form');
+  if (!form) return;
+  form.style.display = '';
+  const inp = document.getElementById('wi-sc-name-input');
+  if (inp) { inp.value = ''; inp.focus(); }
+}
+function wiHideSaveForm() { const f = document.getElementById('wi-save-form'); if (f) f.style.display = 'none'; }
 
-  if (incVal) body.income_override = parseFloat(incVal);
+async function wiConfirmSave() {
+  const inp  = document.getElementById('wi-sc-name-input');
+  const name = (inp?.value || '').trim();
+  if (!name) { inp?.focus(); return; }
+  wiHideSaveForm();
+  try {
+    const res  = await fetch('/api/scenarios', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, allocations: _wiOverrides, schedule: _wiSchedule, ruleOverrides: _wiRuleOverrides, dueDateOverrides: _wiDueDateOverrides })
+    });
+    const data = await res.json();
+    if (data.ok) await wiLoadScenarios();
+  } catch {}
+}
 
-  if (wiOff.size) {
-    const offMonths = {};
-    const [y, m] = ACTIVE_MID.split('-').map(Number);
-    for (const bid of wiOff) {
-      const offs = [];
-      for (let i = 0; i < parseInt(months); i++) {
-        const nm = m + i;
-        const ny = y + Math.floor((nm - 1) / 12);
-        const mm = ((nm - 1) % 12) + 1;
-        offs.push(`${ny}-${String(mm).padStart(2,'0')}`);
-      }
-      offMonths[bid] = offs;
+async function wiDeleteScenario(id) {
+  try { await fetch(`/api/scenarios/${id}`, { method: 'DELETE' }); await wiLoadScenarios(); } catch {}
+}
+
+async function wiDuplicateScenario(id) {
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  try {
+    const res = await fetch('/api/scenarios', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name: `Copy of ${s.name}`, allocations: s.allocations || {}, schedule: s.schedule || {}, ruleOverrides: s.ruleOverrides || {}, dueDateOverrides: s.dueDateOverrides || {} })
+    });
+    const data = await res.json();
+    if (data.ok) await wiLoadScenarios();
+  } catch {}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// FORECAST — real cash-flow projection
+// ════════════════════════════════════════════════════════════════════
+
+function setForecastRange(months, btn) {
+  _forecastMonths = months;
+  _forecastData   = null;
+  document.querySelectorAll('.fc-range-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadForecast();
+}
+
+async function initForecast() {
+  if (!_wiSavedScenarios.length) await wiLoadScenarios();
+  _renderFcScenarioChips();
+  if (!_forecastData) loadForecast();
+}
+
+function _renderFcScenarioChips() {
+  const chipsEl = document.getElementById('fc-scenario-chips');
+  const banner  = document.getElementById('fc-scenario-row');
+  const nameEl  = document.getElementById('fc-scenario-name');
+  if (chipsEl) {
+    chipsEl.innerHTML = _wiSavedScenarios.length
+      ? _wiSavedScenarios.map(s => {
+          const isActive = _fcActiveSc?.id === s.id;
+          return `<span class="fc-sc-chip${isActive ? ' active' : ''}" onclick="fcApplyScenario('${s.id}')">${_escHTML(s.name)}</span>`;
+        }).join('')
+      : '';
+  }
+  if (banner) banner.style.display = _fcActiveSc ? 'flex' : 'none';
+  if (nameEl && _fcActiveSc) nameEl.textContent = _fcActiveSc.name;
+}
+
+function fcApplyScenario(id) {
+  const s = _wiSavedScenarios.find(x => x.id === id);
+  if (!s) return;
+  _fcActiveSc = _fcActiveSc?.id === id ? null : s;
+  _renderFcScenarioChips();
+  loadForecast();
+}
+
+function fcClearScenario() { _fcActiveSc = null; _renderFcScenarioChips(); loadForecast(); }
+
+function _buildForecastUrl() {
+  let url = '/api/forecast?months=' + _forecastMonths;
+  if (_awaitingPaycheck) url += '&skip_today_income=1';
+  else                   url += '&skip_today_income=0';
+  if (_useCustomBal) {
+    const raw = document.getElementById('fc-custom-bal-input')?.value || '';
+    const v   = parseFloat(raw.replace(/[$,]/g,''));
+    if (!isNaN(v)) url += '&balance=' + v.toFixed(2);
+  } else {
+    const sel = Object.values(_acctChips).filter(c => c.on);
+    if (sel.length > 0 && _forecastData) {
+      const bal = sel.reduce((s, c) => s + c.balance, 0);
+      url += '&balance=' + bal.toFixed(2);
     }
-    body.bucket_off_months = offMonths;
   }
-
-  setBtn(btn, 'loading');
-  try {
-    const r = await fetch(`/api/forecast?months=${months}`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body),
-    }).then(r => r.json());
-    if (!r.ok) throw new Error(r.error || 'Failed');
-    setBtn(btn, 'ok');
-    renderForecastPeriods(r, 'wi-result');
-  } catch(e) {
-    setBtn(btn, 'err');
-  }
+  return url;
 }
 
-// ── Cash flow forecast ────────────────────────────────────────────
 async function loadForecast() {
-  const btn    = document.getElementById('fc-run-btn');
-  const months = document.getElementById('fc-months')?.value || '3';
-  const acctSel = document.getElementById('fc-account');
-  const bal    = acctSel?.options[acctSel?.selectedIndex]?.dataset?.bal;
-
-  let url = `/api/forecast?months=${months}`;
-  if (bal !== undefined && bal !== '') url += `&balance=${encodeURIComponent(bal)}`;
-
-  setBtn(btn, 'loading');
+  const el      = document.getElementById('forecast-content');
+  const loading = document.getElementById('forecast-loading');
+  if (loading) loading.style.display = '';
+  if (el) el.innerHTML = '';
+  _renderFcScenarioChips();
   try {
-    const r = await fetch(url).then(r => r.json());
-    if (!r.ok) throw new Error(r.error || 'Failed');
-    setBtn(btn, 'ok');
-    renderForecastPeriods(r, 'forecast-output');
+    const url = _buildForecastUrl();
+    const fetchOpts = {};
+    if (_fcActiveSc) {
+      fetchOpts.method  = 'POST';
+      fetchOpts.headers = {'Content-Type': 'application/json'};
+      const migratedSched = _migrateSchedule(_fcActiveSc.schedule || {});
+      for (const bid of (_fcActiveSc.offBuckets || [])) {
+        if (!migratedSched[bid]) migratedSched[bid] = [];
+        if (!migratedSched[bid].some(e => e.mid === ACTIVE_MID))
+          migratedSched[bid].push({ mid: ACTIVE_MID, state: 'off' });
+      }
+      const bucketSchedule = [];
+      for (const [bid, events] of Object.entries(migratedSched))
+        (events || []).forEach(evt => bucketSchedule.push({ bucket_id: bid, from_mid: evt.mid, state: evt.state }));
+      const body = {
+        bucket_overrides:  _fcActiveSc.allocations      || {},
+        bucket_schedule:   bucketSchedule,
+        rule_overrides:    _fcActiveSc.ruleOverrides     || {},
+        due_day_overrides: _fcActiveSc.dueDateOverrides  || {},
+      };
+      if (_fcActiveSc.incomeOverride != null) body.income_override = _fcActiveSc.incomeOverride;
+      fetchOpts.body = JSON.stringify(body);
+    }
+    const r    = await fetch(url, fetchOpts);
+    const data = await r.json();
+    if (!data.ok) {
+      if (el) el.innerHTML = '<div class="fc-empty">Unable to load forecast. Check that paychecks are set up in Setup.</div>';
+      return;
+    }
+    _forecastData = data;
+    _buildAcctChips(data.account_balances || []);
+    renderForecast(data);
   } catch(e) {
-    setBtn(btn, 'err');
+    if (el) el.innerHTML = '<div class="fc-empty">Error loading forecast: ' + e.message + '</div>';
+  } finally {
+    if (loading) loading.style.display = 'none';
   }
 }
 
-// ── Shared period renderer (used by both What-If and Forecast) ────
-function renderForecastPeriods(data, outId) {
-  const out = document.getElementById(outId);
-  if (!out) return;
+function _buildAcctChips(accts) {
+  const container = document.getElementById('fc-acct-chips');
+  if (!container) return;
+  if (Object.keys(_acctChips).length === 0)
+    accts.forEach(a => { _acctChips[a.id] = {balance: a.balance, on: true, name: a.name}; });
+  let html = accts.map(a => {
+    const c = _acctChips[a.id] || {on: true};
+    return `<span class="fc-acct-chip ${c.on ? 'on' : ''}" onclick="toggleAcctChip('${a.id}')">${a.name}: ${fmtMoney(a.balance)}</span>`;
+  }).join('');
+  html += `<span class="fc-acct-chip custom ${_useCustomBal ? 'on' : ''}" onclick="toggleCustomBal()">Custom</span>`;
+  container.innerHTML = html;
+}
+
+function toggleAcctChip(id) {
+  if (_acctChips[id]) { _acctChips[id].on = !_acctChips[id].on; _useCustomBal = false; }
+  loadForecast();
+}
+
+function toggleCustomBal() {
+  _useCustomBal = !_useCustomBal;
+  const cb = document.getElementById('fc-custom-bal');
+  if (cb) cb.classList.toggle('open', _useCustomBal);
+  if (_useCustomBal) {
+    Object.values(_acctChips).forEach(c => c.on = false);
+    document.getElementById('fc-custom-bal-input')?.focus();
+  } else {
+    Object.values(_acctChips).forEach(c => c.on = true);
+    loadForecast();
+  }
+  _buildAcctChips(_forecastData?.account_balances || []);
+}
+
+function applyCustomBalance() { if (_useCustomBal) loadForecast(); }
+
+function toggleAwaitingPaycheck(checked) { _awaitingPaycheck = checked; loadForecast(); }
+
+/* ── Planned expenses ────────────────────────────────────────────── */
+function togglePlannedForm() { document.getElementById('fc-planned-body')?.classList.toggle('open'); }
+
+function addPlannedExpense() {
+  const name   = document.getElementById('pe-name')?.value.trim();
+  const dateV  = document.getElementById('pe-date')?.value;
+  const raw    = document.getElementById('pe-amount')?.value || '';
+  const amount = parseFloat(raw.replace(/[$,]/g,'')) || 0;
+  const freq   = document.getElementById('pe-freq')?.value || 'once';
+  if (!name || !dateV || !amount) return;
+  _forecastExtras.push({id: Date.now(), name, date: dateV, amount, freq});
+  document.getElementById('pe-name').value   = '';
+  document.getElementById('pe-amount').value = '';
+  _renderPlannedList();
+  if (_forecastData) renderForecast(_forecastData);
+}
+
+function removePlannedExpense(id) {
+  _forecastExtras = _forecastExtras.filter(e => e.id !== id);
+  _renderPlannedList();
+  if (_forecastData) renderForecast(_forecastData);
+}
+
+function _renderPlannedList() {
+  const el  = document.getElementById('fc-planned-list');
+  const cnt = document.getElementById('fc-planned-count');
+  if (!el) return;
+  if (!_forecastExtras.length) { el.innerHTML = ''; if (cnt) cnt.textContent = ''; return; }
+  if (cnt) cnt.textContent = `(${_forecastExtras.length})`;
+  el.innerHTML = _forecastExtras.map(e =>
+    `<div class="fc-planned-item">
+      <span>${_escHTML(e.name)} — ${fmtMoney(e.amount)} — ${e.date}${e.freq !== 'once' ? ' ('+e.freq+')' : ''}</span>
+      <button onclick="removePlannedExpense(${e.id})">✕</button>
+    </div>`
+  ).join('');
+}
+
+function _expandPlannedExpenses(startStr, endStr) {
+  const start  = new Date(startStr + 'T00:00:00');
+  const end    = new Date(endStr   + 'T00:00:00');
+  const result = [];
+  _forecastExtras.forEach(e => {
+    let d = new Date(e.date + 'T00:00:00');
+    while (d <= end) {
+      if (d >= start) result.push({name: e.name, amount: e.amount, date: e.date});
+      if (e.freq === 'weekly')       d = new Date(d.getTime() + 7*86400000);
+      else if (e.freq === 'monthly') { d.setMonth(d.getMonth() + 1); }
+      else break;
+    }
+  });
+  return result;
+}
+
+/* ── Forecast renderer ───────────────────────────────────────────── */
+function renderForecast(data) {
+  const el = document.getElementById('forecast-content');
+  if (!el) return;
 
   const periods = data.periods || [];
-  if (!periods.length) { out.innerHTML = '<div class="tl-empty">No forecast data — add paychecks in Setup</div>'; return; }
+  const hasAnyContent = periods.some(p =>
+    (p.period_income||0) > 0 || (p.funded_days?.length||0) > 0 ||
+    (p.unfunded_days?.length||0) > 0 || (p.off_days?.length||0) > 0
+  );
+  if (!hasAnyContent) {
+    el.innerHTML = '<div class="fc-empty">No paychecks or bills found. Add paychecks in Setup to get started.</div>';
+    return;
+  }
 
-  const nc = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+  const totalIncome   = periods.reduce((s,p) => s + (p.period_income||0), 0);
+  const totalMoves    = periods.reduce((s,p) => s + (p.period_transfers||0), 0);
+  const totalCleared  = periods.reduce((s,p) => s + (p.period_cleared||0), 0);
+  const totalUnfunded = periods.reduce((s,p) => s + (p.period_unfunded||0), 0);
+  const totalOff      = periods.reduce((s,p) => s + (p.period_off||0), 0);
+  const sfCount       = periods.filter(p => p.shortfall).length;
+  const s2s           = data.safe_to_spend ?? periods[periods.length-1]?.end_balance ?? 0;
+  const isScenario    = data.scenario_active;
 
-  // Summary strip
-  const totalOff = periods.reduce((s, p) => s + (p.period_off || 0), 0);
-  const endBal   = periods[periods.length - 1]?.end_balance || 0;
-  let html = `<div class="rpt-nw-grid" style="margin-top:8px">
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Start</div><div class="rpt-nw-val">${fmtMoney(data.start_balance)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">End</div><div class="rpt-nw-val" style="color:${nc(endBal)}">${fmtMoney(endBal)}</div></div>
-    <div class="rpt-nw-card"><div class="rpt-nw-label">Safe to Spend</div><div class="rpt-nw-val" style="color:var(--accent)">${fmtMoney(data.safe_to_spend)}</div></div>
-    ${totalOff ? `<div class="rpt-nw-card"><div class="rpt-nw-label">Freed (Off)</div><div class="rpt-nw-val" style="color:var(--amber)">${fmtMoney(totalOff)}</div></div>` : ''}
+  let html = `<div class="fc-summary-bar">
+    ${isScenario ? `<div class="fc-summary-item" style="border-left:2px solid var(--amber);padding-left:8px;"><div class="fc-summary-label" style="color:var(--amber);">Scenario</div><div style="color:var(--amber);font-size:10px;letter-spacing:.06em;">ACTIVE</div></div>` : ''}
+    <div class="fc-summary-item"><div class="fc-summary-label">Start</div><div style="color:var(--accent)">${fmtMoney(data.start_balance)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Income</div><div style="color:var(--green)">+${fmtMoney(totalIncome)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Routes Out</div><div style="color:var(--amber)">−${fmtMoney(totalMoves)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Pre-Funded</div><div style="color:var(--text2)">−${fmtMoney(totalCleared)}</div></div>
+    <div class="fc-summary-item"><div class="fc-summary-label">Needs Funding</div><div style="color:${totalUnfunded>0?'var(--red)':'var(--text2)'}">−${fmtMoney(totalUnfunded)}</div></div>
+    ${totalOff > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label" style="color:var(--amber);">Freed Up</div><div style="color:var(--amber)">+${fmtMoney(totalOff)}</div></div>` : ''}
+    <div class="fc-summary-item"><div class="fc-summary-label">Safe to Spend</div><div style="color:${s2s>=0?'var(--green)':'var(--red)'};font-weight:bold">${fmtMoney(s2s)}</div></div>
+    ${sfCount > 0 ? `<div class="fc-summary-item"><div class="fc-summary-label">Shortfalls</div><div style="color:var(--red)">${sfCount}</div></div>` : ''}
   </div>`;
 
-  // Balance bar chart (end balance per period, normalized)
-  const maxBal = Math.max(...periods.map(p => Math.abs(p.end_balance)), 1);
-  html += '<div class="fc-bars-wrap">';
-  for (const p of periods) {
-    const h   = Math.max(4, Math.round(Math.abs(p.end_balance) / maxBal * 50));
-    const col = p.end_balance >= 0 ? 'var(--green)' : 'var(--red)';
-    const lbl = p.label.slice(0, 8);
-    html += `<div class="fc-bar-col">
-      <div class="fc-bar-fill" style="height:${h}px;background:${col}" title="${fmtMoney(p.end_balance)}"></div>
-      <div class="fc-bar-lbl">${lbl}</div>
-    </div>`;
-  }
-  html += '</div>';
+  periods.forEach((p, i) => {
+    const net       = p.period_net || 0;
+    const netCls    = net >= 0 ? 'pos' : 'neg';
+    const netSign   = net >= 0 ? '+' : '';
+    const allClear  = (p.period_unfunded||0) === 0 && (p.period_cleared||0) > 0 && (p.period_income||0) > 0;
+    const sfClass   = p.shortfall ? ' shortfall' : '';
+    const typeClass = p.type === 'gap' ? ' gap' : '';
+    const plannedItems = _expandPlannedExpenses(p.start || '', p.end || '');
 
-  // Period cards
-  html += '<div class="section-label" style="padding-top:4px">Paycheck Periods</div>';
-  for (const p of periods) {
-    const hasUnfunded = p.unfunded_days?.length > 0;
+    const hasIncome   = (p.income_events?.length||0) + (p.transfer_events?.length||0) + (p.alloc_events?.length||0) > 0;
+    const hasFunded   = (p.funded_days?.length||0) > 0;
+    const hasUnfunded = (p.unfunded_days?.length||0) > 0 || plannedItems.length > 0;
+    const hasOff      = (p.off_days?.length||0) > 0;
+    const hasBody     = hasIncome || hasFunded || hasUnfunded || hasOff;
 
-    let fundedPills = (p.funded_days || [])
-      .flatMap(d => d.events.map(ev => `<span class="fc-bill fc-bill-ok">✓ ${ev.name} ${fmtMoney(ev.amount)}</span>`))
-      .join('');
-    let unfundedPills = (p.unfunded_days || [])
-      .flatMap(d => d.events.map(ev => `<span class="fc-bill fc-bill-warn">⚠ ${ev.name} ${fmtMoney(ev.amount)}</span>`))
-      .join('');
-    let offPills = (p.off_days || [])
-      .flatMap(d => d.events.map(ev => `<span class="fc-bill fc-bill-off">↷ ${ev.name} ${fmtMoney(ev.amount)}</span>`))
-      .join('');
-
-    const incomeLines = (p.income_events || [])
-      .map(e => `<span style="color:var(--green)">+${fmtMoney(e.amount)} ${e.label}</span>`)
-      .join('<span style="color:var(--text3)"> · </span>');
-
-    html += `<div class="fc-period${hasUnfunded ? ' fc-shortfall' : ''}">
-      <div class="fc-period-head">
-        <div>
-          <div class="fc-period-label">${p.label}</div>
-          <div class="fc-period-range">${p.date_range}</div>
+    html += `<div class="fc-period${sfClass}${typeClass}">
+      <div class="fc-period-header" onclick="toggleFcPeriod(${i})">
+        <div class="fc-period-left">
+          <span class="fc-period-type">${p.label}</span>
+          <span class="fc-period-dates">${p.date_range}</span>
+          ${p.shortfall ? '<span class="fc-shortfall-badge">⚠ SHORTFALL</span>' : ''}
+          ${allClear ? '<span class="fc-clear-badge">✓ Pre-Funded</span>' : ''}
         </div>
-        <div class="fc-period-bal" style="color:${nc(p.end_balance)}">${fmtMoney(p.end_balance)}</div>
-      </div>
-      ${incomeLines ? `<div class="fc-income-line">${incomeLines}</div>` : ''}
-      ${(fundedPills || unfundedPills || offPills) ? `<div class="fc-bills">${fundedPills}${unfundedPills}${offPills}</div>` : ''}
-    </div>`;
-  }
+        <div class="fc-period-right">
+          <span class="fc-period-net ${netCls}">${netSign}${fmtMoney(net)}</span>
+          <span class="fc-period-bal">Bal: ${fmtMoney(p.end_balance)}</span>
+        </div>
+      </div>`;
 
-  out.innerHTML = html;
+    if (hasBody) {
+      html += `<div class="fc-period-body" id="fc-period-body-${i}">`;
+
+      if (p.can_toggle_paid) {
+        html += `<div class="fc-paid-toggle">
+          <input type="checkbox" id="fc-been-paid-${i}" ${_awaitingPaycheck ? 'checked' : ''} onchange="toggleAwaitingPaycheck(this.checked)">
+          <label for="fc-been-paid-${i}">Awaiting paycheck — hide income until received</label>
+        </div>`;
+      }
+
+      html += `<div class="fc-start-row"><span>START</span><span>${fmtMoney(p.start_balance)}</span></div>`;
+
+      if (p.income_events?.length) {
+        html += `<div class="fc-income-block">`;
+        p.income_events.forEach(ev => {
+          html += `<div class="fc-income-row"><span class="fc-income-label">💰 ${_escHTML(ev.label)}</span><span class="fc-income-amt">+${fmtMoney(ev.amount)}</span></div>`;
+        });
+        html += `</div>`;
+      }
+
+      if (p.transfer_events?.length) {
+        html += `<div class="fc-income-block">`;
+        p.transfer_events.forEach(xfr => {
+          const cum = xfr.cumulative ? `<span class="fc-cumulative">[${fmtMoney(xfr.cumulative)} total]</span>` : '';
+          html += `<div class="fc-transfer-row"><span class="fc-income-label">→ ${_escHTML(xfr.name)}${cum}</span><span class="fc-transfer-amt">−${fmtMoney(xfr.amount)}</span></div>`;
+        });
+        html += `</div>`;
+      }
+
+      if (p.alloc_events?.length) {
+        html += `<div class="fc-alloc-block">`;
+        p.alloc_events.forEach(ev => {
+          const cum    = ev.cumulative ? `<span class="fc-cumulative">[${fmtMoney(ev.cumulative)} total]</span>` : '';
+          const prefix = ev.is_vault ? '→ ' : '≈ ';
+          const amtStr = ev.is_vault
+            ? `<span class="fc-alloc-amt">−${fmtMoney(ev.amount)}</span>`
+            : `<span class="fc-alloc-amt" style="color:var(--text3)">${fmtMoney(ev.amount)}</span>`;
+          html += `<div class="fc-alloc-row"><span class="fc-alloc-label">${prefix}${_escHTML(ev.bucket)}${cum}</span>${amtStr}</div>`;
+        });
+        html += `</div>`;
+      }
+
+      if (hasIncome && (hasFunded || hasUnfunded)) {
+        html += `<div class="fc-balance-after-transfers"><span>BAL AFTER TRANSFERS</span><span>${fmtMoney(p.balance_after_transfers)}</span></div>`;
+      }
+
+      if (hasFunded) {
+        html += `<div class="fc-section-head funded">✓ Pre-Funded Clearings <span style="opacity:.7;font-size:.85em">−${fmtMoney(p.period_cleared||0)}</span></div>`;
+        p.funded_days.forEach(day => {
+          html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
+          day.events.forEach(ev => {
+            html += `<div class="fc-bill-row funded"><span class="fc-bill-label">${ev.overdue ? '⏰ OVERDUE' : '✓'} ${_escHTML(ev.name)}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+          });
+          html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div></div>`;
+        });
+      }
+
+      const unfundedDays = [...(p.unfunded_days || [])];
+      if (plannedItems.length) {
+        const planMap = {};
+        plannedItems.forEach(pe => {
+          if (!planMap[pe.date]) planMap[pe.date] = {date: pe.date, label: pe.date, events: []};
+          planMap[pe.date].events.push({...pe, planned: true});
+        });
+        Object.values(planMap).sort((a,b) => a.date.localeCompare(b.date))
+          .forEach(pd => unfundedDays.push(pd));
+        unfundedDays.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      }
+
+      if (unfundedDays.length) {
+        html += `<div class="fc-section-head unfunded">⚠ Needs Funding <span style="opacity:.7;font-size:.85em">−${fmtMoney(p.period_unfunded||0)}</span></div>`;
+        unfundedDays.forEach(day => {
+          html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
+          day.events.forEach(ev => {
+            const icon = ev.planned ? '📌' : ev.overdue ? '⏰' : '⚠';
+            html += `<div class="fc-bill-row unfunded"><span class="fc-bill-label">${icon}${ev.overdue ? ' OVERDUE' : ''} ${_escHTML(ev.name)}</span><span class="fc-bill-amt">−${fmtMoney(ev.amount)}</span></div>`;
+          });
+          if (day.run_balance !== null && day.run_balance !== undefined)
+            html += `<div class="fc-run-bal"><span>RUN BAL</span><span>${fmtMoney(day.run_balance)}</span></div>`;
+          html += `</div>`;
+        });
+      }
+
+      if (hasOff && p.off_days?.length) {
+        html += `<div class="fc-section-head scenario-off">◎ Scenario Paused <span style="opacity:.7;font-size:.85em">+${fmtMoney(p.period_off||0)} freed</span></div>`;
+        p.off_days.forEach(day => {
+          html += `<div class="fc-day-group"><div class="fc-day-label">${day.label}</div>`;
+          day.events.forEach(ev => {
+            html += `<div class="fc-bill-row scenario-off"><span class="fc-bill-label">◎ ${_escHTML(ev.name)}</span><span class="fc-bill-amt" style="color:var(--amber);">+${fmtMoney(ev.amount)}</span></div>`;
+          });
+          html += `</div>`;
+        });
+      }
+
+      const endAmtCls = p.end_balance < 0 ? ' negative' : '';
+      html += `<div class="fc-end-row"><span class="fc-end-label">END</span><span class="fc-end-amt${endAmtCls}">${fmtMoney(p.end_balance)}</span></div>`;
+
+      if (p.safe_to_spend !== undefined) {
+        const s2sv = p.safe_to_spend;
+        const dot  = s2sv >= 500 ? '🟢' : s2sv > 0 ? '🟡' : '🔴';
+        html += `<div class="fc-s2s-row">${dot} Safe to Spend from here: <span style="color:${s2sv>=0?'var(--green)':'var(--red)'};font-weight:600">${fmtMoney(s2sv)}</span></div>`;
+      }
+
+      html += `</div>`;
+    }
+    html += `</div>`;
+  });
+
+  el.innerHTML = html;
+
+  periods.forEach((p, i) => {
+    if (p.shortfall || i === 0) {
+      const body = document.getElementById('fc-period-body-' + i);
+      if (body) body.classList.add('open');
+    }
+  });
+}
+
+function toggleFcPeriod(i) {
+  document.getElementById('fc-period-body-' + i)?.classList.toggle('open');
 }
 
 // ── Month close ───────────────────────────────────────────────────
