@@ -1981,6 +1981,152 @@
 /* desktop-only elements: hidden on mobile, shown on desktop */
 .desktop-only { display: none; }
 @media (min-width: 900px) { .desktop-only { display: flex; } }
+
+/* ══════════════════════════════════════════════════
+   PHASE 3: Card-style rows — Buckets + Ledger
+   ══════════════════════════════════════════════════ */
+
+/* ── Bucket table ── */
+.bucket-card-tbl {
+  border-collapse: separate;
+  border-spacing: 0 3px;
+}
+.bucket-card-tbl thead th {
+  position: static !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--border);
+}
+.bucket-card-tbl .tbl-section-head { background: transparent; border: none; }
+.bucket-card-tbl .tbl-cat-head     { background: transparent !important; border: none !important; padding: 14px 4px 3px; }
+
+/* Bucket data rows: card */
+.bucket-card-tbl tr[id^="row-"] td {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 6px;
+  transition: border-color .12s;
+}
+.bucket-card-tbl tr[id^="row-"] td:first-child {
+  border-left: 1px solid var(--border);
+  border-radius: var(--r) 0 0 var(--r);
+}
+.bucket-card-tbl tr[id^="row-"] td:last-child {
+  border-right: 1px solid var(--border);
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.bucket-card-tbl tr[id^="row-"]:hover td { border-color: var(--border2); }
+
+/* Status accent border (now actually visible!) */
+.bucket-card-tbl tr.bucket-paid   td:first-child { border-left: 3px solid var(--green); }
+.bucket-card-tbl tr.bucket-funded td:first-child { border-left: 3px solid var(--accent); }
+.bucket-card-tbl tr.bucket-ok    td:first-child { border-left: 3px solid var(--amber); }
+.bucket-card-tbl tr.bucket-over  td:first-child { border-left: 3px solid var(--red); }
+
+/* Inline settings expand rows */
+.bucket-card-tbl .bucket-settings-row td {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--r) !important;
+  padding: 0 !important;
+}
+
+/* Category total rows */
+.bucket-card-tbl .tbl-cat-total th {
+  background: transparent;
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+  font-size: clamp(9px,1.4vw,11px);
+  color: var(--text3);
+  padding: 3px 6px 6px;
+}
+.bucket-card-tbl .tbl-grand-total th {
+  background: transparent;
+  border-top: 1px solid var(--border2);
+  border-bottom: none;
+  padding: 8px 6px;
+}
+
+/* Bucket progress bar */
+.bpbar {
+  height: 3px;
+  background: var(--bg3);
+  border-radius: 2px;
+  margin-top: 5px;
+  overflow: hidden;
+  max-width: 120px;
+}
+.bpbar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .4s;
+}
+
+/* ── Ledger table ── */
+.ledger-card-tbl {
+  border-collapse: separate;
+  border-spacing: 0 3px;
+}
+.ledger-card-tbl thead th {
+  position: static !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--border);
+}
+.ledger-card-tbl .tbl-section-head { background: transparent; border: none; }
+
+/* Date group rows: plain label, no card */
+.ledger-card-tbl tr[data-date] td {
+  background: transparent !important;
+  border: none !important;
+  padding: 12px 4px 3px;
+  font-size: clamp(9px,1.3vw,10px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+
+/* Transaction rows: card */
+.ledger-card-tbl tr[id^="ltx-"] td {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 6px;
+  transition: border-color .12s;
+}
+.ledger-card-tbl tr[id^="ltx-"] td:first-child {
+  border-left: 1px solid var(--border);
+  border-radius: var(--r) 0 0 var(--r);
+}
+.ledger-card-tbl tr[id^="ltx-"] td:last-child {
+  border-right: 1px solid var(--border);
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.ledger-card-tbl tr[id^="ltx-"]:hover td { border-color: var(--border2); }
+
+/* Tx type accent borders */
+.ledger-card-tbl tr.tx-in    td:first-child { border-left: 3px solid var(--green); }
+.ledger-card-tbl tr.tx-out   td:first-child { border-left: 3px solid var(--red); }
+.ledger-card-tbl tr.tx-xfr   td:first-child { border-left: 3px solid var(--accent); }
+.ledger-card-tbl tr.tx-sched td:first-child { border-left: 3px solid var(--amber); }
+
+/* Tx expand rows */
+.ledger-card-tbl .bucket-settings-row td {
+  background: var(--bg3) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: var(--r) !important;
+  padding: 0 !important;
+}
+
+/* Ledger footer totals */
+.ledger-card-tbl tfoot tr th {
+  background: transparent;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  padding: 8px 6px;
+}
 {% endblock %}
 
 {% block extra_head %}
@@ -2205,7 +2351,7 @@
         </div>
       </form>
 
-      <table class="data-table">
+      <table class="data-table bucket-card-tbl">
         <thead>
           <tr>
             <td colspan="7" class="tbl-section-head" style="display:flex;align-items:center;justify-content:space-between;">
@@ -2604,7 +2750,7 @@
       </div>
 
       <!-- Ledger table -->
-      <table class="data-table" id="ledger-table">
+      <table class="data-table ledger-card-tbl" id="ledger-table">
         <thead>
           <tr>
             <td colspan="6" class="tbl-section-head">Ledger — {{ month_display }}</td>
@@ -8573,5 +8719,27 @@ function _cwLoadProgress() {
   try { return JSON.parse(localStorage.getItem(_cwProgressKey())); } catch { return null; }
 }
 function _cwClearProgress() { localStorage.removeItem(_cwProgressKey()); }
+
+// ── Phase 3: bucket row progress bars ──
+function initBucketProgressBars() {
+  document.querySelectorAll('#panel-buckets tr[id^="row-"]').forEach(tr => {
+    const id = tr.id.replace('row-', '');
+    const spentTd = document.getElementById('spent-' + id);
+    const nameTd  = tr.querySelector('.col-name');
+    if (!spentTd || !nameTd) return;
+    if (nameTd.querySelector('.bpbar, .progress-wrap')) return; // vault/savings already have one
+    const spent  = parseFloat(spentTd.dataset.rawSpent  || '0');
+    const budget = parseFloat(spentTd.dataset.rawBudget || '0');
+    if (budget <= 0) return;
+    const pct   = Math.min(100, Math.max(0, (spent / budget) * 100));
+    const color = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--amber)' : 'var(--accent)';
+    const bar   = document.createElement('div');
+    bar.className = 'bpbar';
+    bar.innerHTML = `<div class="bpbar-fill" style="width:${pct.toFixed(1)}%;background:${color}"></div>`;
+    nameTd.appendChild(bar);
+  });
+}
+// Run on page load
+initBucketProgressBars();
 </script>
 {% endblock %}
