@@ -406,6 +406,76 @@ select.field-input { cursor: pointer; }
 .wi-rule-amt  { font-size:11px; font-weight:700; white-space:nowrap; flex-shrink:0; color:var(--text); }
 .wi-rule-totals { display:flex; gap:10px; padding:6px 10px; background:var(--bg3); font-family:var(--mono); font-size:10px; color:var(--text3); flex-wrap:wrap; border-top:1px solid var(--border); }
 
+/* ── Scheduled transaction styling ── */
+.ldg-tx.scheduled { opacity: 0.7; }
+.ldg-tx.scheduled .ldg-tx-amt { color: var(--amber) !important; }
+.ldg-tx.scheduled .ldg-tx-desc::after { content: " · scheduled"; font-size: 9px; color: var(--amber); font-family: var(--mono); }
+
+/* ── Sinking/Goal progress sub-line ── */
+.bkt-progress-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.bkt-progress-bar-wrap { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 3px; }
+.bkt-progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+/* ── Vault bucket display ── */
+.vault-total-display { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; font-family: var(--mono); font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.vault-total-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+.vault-actions { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.vault-inline-form { background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: none; flex-direction: column; gap: 8px; }
+.vault-inline-form.open { display: flex; }
+.vault-inline-form-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.vault-inline-form-row .field-group { flex: 1; min-width: 100px; }
+.vault-inline-label { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 3px; }
+.vault-inline-input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 5px 8px; box-sizing: border-box; }
+.vault-inline-input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Payday sheet ── */
+#sheet-payday {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg2); border-top: 1px solid var(--border2);
+  border-radius: 16px 16px 0 0; z-index: 101;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+  max-height: 92dvh; overflow-y: auto;
+}
+#sheet-payday.on { transform: translateY(0); }
+@media (min-width: 900px) {
+  #sheet-payday {
+    left: 50%; right: auto; bottom: auto; top: 50%;
+    width: min(520px, calc(100vw - var(--sidebar-w) - 48px));
+    border-radius: var(--r); border: 1px solid var(--border2);
+    transform: translate(-50%, -46%) scale(.97); opacity: 0;
+    max-height: 85vh; box-shadow: 0 24px 64px rgba(0,0,0,.65);
+  }
+  #sheet-payday.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.payday-rule-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border2); }
+.payday-rule-row:last-child { border-bottom: none; }
+.payday-rule-check { width: 16px; height: 16px; flex-shrink: 0; }
+.payday-rule-name { flex: 1; font-size: 13px; color: var(--text); }
+.payday-rule-bkt  { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.payday-rule-amt  { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+.payday-rule-inp  { width: 80px; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--r); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 4px 7px; text-align: right; flex-shrink: 0; outline: none; }
+.payday-rule-inp:focus { border-color: var(--accent); }
+.payday-ext-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border2); font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+/* ── Coach AI tab ── */
+#coach-msgs { flex: 1; overflow-y: auto; padding: 8px 0; display: flex; flex-direction: column; gap: 8px; min-height: 200px; max-height: 420px; }
+.coach-msg { font-family: var(--mono); font-size: 12px; line-height: 1.5; padding: 8px 12px; border-radius: 8px; max-width: 85%; }
+.coach-msg.user { background: var(--accent); color: #fff; align-self: flex-end; text-align: right; }
+.coach-msg.coach { background: var(--bg3); color: var(--text2); align-self: flex-start; }
+.coach-msg.loading { color: var(--text3); background: var(--bg3); align-self: flex-start; font-style: italic; }
+#coach-input-row { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+#coach-input { flex: 1; background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 8px 11px; outline: none; }
+#coach-input:focus { border-color: var(--accent); }
+#coach-send-btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; font-family: var(--mono); font-size: 12px; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
+#coach-send-btn:disabled { opacity: .5; cursor: default; }
+
+/* ── Debt payment inline form ── */
+.debt-pay-form { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 10px; margin-top: 8px; display: none; flex-direction: column; gap: 8px; }
+.debt-pay-form.open { display: flex; }
+.debt-pay-form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.debt-pay-form-row .field-group { flex: 1; min-width: 110px; }
+
 /* ── Forecast range buttons ── */
 .fc-range-btn { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); color:var(--text3); font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; padding:3px 10px; cursor:pointer; transition:background .12s,color .12s; }
 .fc-range-btn:hover { color:var(--text2); background:var(--border2); }
@@ -745,6 +815,10 @@ select.field-input { cursor: pointer; }
         <span class="sb-kpi-label">Ready to Spend</span>
         <span class="sb-kpi-val" id="sb-rts" style="color:var(--accent)">{{ rts|money }}</span>
       </div>
+      <div class="sb-kpi" id="sb-aom-wrap">
+        <span class="sb-kpi-label">Age of Money</span>
+        <span class="sb-kpi-val" id="sb-aom" style="color:var(--text2)">{{ aom if aom else '—' }}{% if aom %} days{% endif %}</span>
+      </div>
     </div>
     <nav class="sb-nav">
       <button class="sb-item active" onclick="showPanel('buckets',this)">
@@ -822,7 +896,15 @@ select.field-input { cursor: pointer; }
               <div class="row-bar"></div>
               <div style="flex:1">
                 <div class="row-name" data-name="{{ b.id }}">{{ b.name }}{% if b.type and b.type != 'expense' %}<span class="btype-tag">{{ b.type }}</span>{% endif %}</div>
-                <div class="row-sub d-only">{{ b.budget|money }} budget &middot; {{ b.spent|money }} spent</div>
+                {% if b.type in ('sinking', 'goal') and b.target_amount %}
+                  {%- set prog_pct = ([100, [0, (b.avail / b.target_amount * 100)|round|int]|max]|min) if b.target_amount > 0 else 0 -%}
+                  <div class="bkt-progress-sub d-only">{{ b.avail|money }} saved of {{ b.target_amount|money }}{% if b.target_date %} &middot; by {{ b.target_date }}{% endif %}</div>
+                  <div class="bkt-progress-bar-wrap d-only"><div class="bkt-progress-bar-fill" style="width:{{ prog_pct }}%"></div></div>
+                {% elif b.type == 'vault' %}
+                  <div class="row-sub d-only">Vault total: <strong style="color:var(--accent)">{{ b.vault_total|money if b.vault_total else '$0.00' }}</strong></div>
+                {% else %}
+                  <div class="row-sub d-only">{{ b.budget|money }} budget &middot; {{ b.spent|money }} spent</div>
+                {% endif %}
               </div>
               <div class="row-val" data-avail="{{ b.id }}">{{ b.avail|money }}</div>
               <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
@@ -874,6 +956,84 @@ select.field-input { cursor: pointer; }
                   <label class="field-label">Notes</label>
                   <input class="field-input" type="text" data-field="notes" value="{{ b.notes or '' }}" placeholder="Optional notes">
                 </div>
+                <!-- expense-only: pay frequency + due amount -->
+                <div class="field-group bfield-expense">
+                  <label class="field-label">Pay Frequency</label>
+                  <select class="field-input" data-field="pay_freq">
+                    <option value="">— none —</option>
+                    <option value="monthly"{% if b.pay_freq == 'monthly' %} selected{% endif %}>Monthly</option>
+                    <option value="biweekly"{% if b.pay_freq == 'biweekly' %} selected{% endif %}>Biweekly</option>
+                    <option value="weekly"{% if b.pay_freq == 'weekly' %} selected{% endif %}>Weekly</option>
+                  </select>
+                </div>
+                <div class="field-group bfield-expense">
+                  <label class="field-label">Due Amount</label>
+                  <input class="field-input" type="number" data-field="due_amount" value="{{ b.due_amount or '' }}" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <!-- rollover + skip toggles -->
+                {% if b.type in ('expense', 'sinking', 'goal') or not b.type %}
+                <div class="field-group span2">
+                  <div class="toggle-wrap" style="padding:4px 0">
+                    <label class="toggle">
+                      <input type="checkbox" data-field="rollover" {% if b.rollover %}checked{% endif %}>
+                      <div class="toggle-track"></div>
+                    </label>
+                    <span class="toggle-label">Rollover unused balance</span>
+                  </div>
+                </div>
+                {% endif %}
+                <div class="field-group span2">
+                  <div class="toggle-wrap" style="padding:4px 0">
+                    <label class="toggle">
+                      <input type="checkbox" data-field="skip" {% if b.skipped %}checked{% endif %}>
+                      <div class="toggle-track"></div>
+                    </label>
+                    <span class="toggle-label">Skip this month</span>
+                  </div>
+                </div>
+                {% if b.type == 'vault' %}
+                <!-- Vault-specific actions -->
+                <div class="span2">
+                  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;">Vault Balance</div>
+                  <div class="vault-total-display">Accumulated: <span class="vault-total-val">{{ b.vault_total|money if b.vault_total else '$0.00' }}</span></div>
+                  <div class="vault-actions">
+                    <button class="btn btn-ghost btn-sm" onclick="openVaultTransfer(this,'{{ b.id }}')">Transfer Out</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openVaultWithdraw(this,'{{ b.id }}')">Withdraw</button>
+                  </div>
+                  <div class="vault-inline-form" id="vault-transfer-form-{{ b.id }}">
+                    <div class="vault-inline-form-row">
+                      <div class="field-group">
+                        <label class="vault-inline-label">Destination Bucket</label>
+                        <select class="vault-inline-input" id="vault-dest-{{ b.id }}">
+                          {% for tb in transfer_buckets %}
+                          <option value="{{ tb.id }}">{{ tb.name }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="field-group">
+                        <label class="vault-inline-label">Amount</label>
+                        <input class="vault-inline-input" type="number" id="vault-xfr-amt-{{ b.id }}" step="0.01" min="0" placeholder="0.00">
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                      <button class="btn btn-primary btn-sm" onclick="submitVaultTransfer(this,'{{ b.id }}')">Transfer</button>
+                      <button class="btn btn-ghost btn-sm" onclick="closeVaultForm('{{ b.id }}')">Cancel</button>
+                    </div>
+                  </div>
+                  <div class="vault-inline-form" id="vault-withdraw-form-{{ b.id }}">
+                    <div class="vault-inline-form-row">
+                      <div class="field-group">
+                        <label class="vault-inline-label">Withdraw Amount</label>
+                        <input class="vault-inline-input" type="number" id="vault-wd-amt-{{ b.id }}" step="0.01" min="0" placeholder="0.00">
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                      <button class="btn btn-primary btn-sm" onclick="submitVaultWithdraw(this,'{{ b.id }}')">Withdraw</button>
+                      <button class="btn btn-ghost btn-sm" onclick="closeVaultForm('{{ b.id }}')">Cancel</button>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
                 <div class="field-group span2">
                   <label class="field-label">Budget &middot; Spent &middot; Available</label>
                   <div class="stat-pill">{{ b.budget|money }} &nbsp;&middot;&nbsp; {{ b.spent|money }} &nbsp;&middot;&nbsp; <span style="color:{{ pc }}">{{ b.avail|money }}</span></div>
@@ -944,7 +1104,7 @@ select.field-input { cursor: pointer; }
           {%- if row.type == 'in' -%}{%- set tc = 'in' -%}{%- set tv = '+' + (row.amount|money) -%}
           {%- elif row.type == 'xfr' -%}{%- set tc = 'xfr' -%}{%- set tv = row.amount|money -%}
           {%- else -%}{%- set tc = 'out' -%}{%- set tv = '−' + (row.amount|money) -%}{%- endif -%}
-          <div class="ldg-tx" id="ldgtx-{{ row.id }}" onclick="ldgToggle('{{ row.id }}')">
+          <div class="ldg-tx{% if row.scheduled %} scheduled{% endif %}" id="ldgtx-{{ row.id }}" onclick="ldgToggle('{{ row.id }}')">
             <div class="ldg-tx-type {{ tc }}"></div>
             <div class="ldg-tx-body">
               <div class="ldg-tx-desc">{{ row.desc or '(no description)' }}</div>
@@ -1154,6 +1314,35 @@ select.field-input { cursor: pointer; }
             <div class="editor-actions">
               <button class="btn btn-primary btn-sm" onclick="saveAccount(this,'{{ a.id }}')">Save</button>
               <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+              <div class="editor-spacer"></div>
+              <button class="btn btn-ghost btn-sm" onclick="openDebtPayForm(this,'{{ a.id }}')">Record Payment</button>
+            </div>
+            <!-- Debt payment inline form -->
+            <div class="debt-pay-form" id="debt-pay-form-{{ a.id }}">
+              <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:2px;">Record Debt Payment</div>
+              <div class="debt-pay-form-row">
+                <div class="field-group">
+                  <label class="field-label">Amount</label>
+                  <input class="field-input" type="number" id="dpay-amt-{{ a.id }}" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div class="field-group">
+                  <label class="field-label">From Account</label>
+                  <select class="field-input" id="dpay-from-{{ a.id }}">
+                    {% for ca in cash_accounts %}
+                    <option value="{{ ca.id }}">{{ ca.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Date</label>
+                  <input class="field-input" type="date" id="dpay-date-{{ a.id }}">
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-primary btn-sm" onclick="recordDebtPayment('{{ a.id }}',this)">Record</button>
+                <button class="btn btn-ghost btn-sm" onclick="closeDebtPayForm('{{ a.id }}')">Cancel</button>
+              </div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--red);display:none;" id="dpay-err-{{ a.id }}"></div>
             </div>
           </div>
           <!-- Activity tab -->
@@ -1204,6 +1393,7 @@ select.field-input { cursor: pointer; }
         <button class="ptab" id="ptab-btn-history"   onclick="showPanelTab('history',this)">History</button>
         <button class="ptab" id="ptab-btn-whatif"    onclick="showPanelTab('whatif',this)">What&#8209;If</button>
         <button class="ptab" id="ptab-btn-forecast"  onclick="showPanelTab('forecast',this)">Forecast</button>
+        <button class="ptab" id="ptab-btn-coach"     onclick="showPanelTab('coach',this)">Coach</button>
       </div>
 
       <!-- Timeline tab -->
@@ -1344,6 +1534,20 @@ select.field-input { cursor: pointer; }
         <div id="forecast-loading" style="display:none;padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.1em;">LOADING FORECAST...</div>
         <div id="forecast-content"></div>
 
+      </div>
+
+      <!-- Coach AI tab -->
+      <div id="ptab-coach" class="ptab-content">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">AI Budget Coach</div>
+        <div id="coach-msgs"></div>
+        <div id="coach-input-row">
+          <input id="coach-input" type="text" placeholder="Ask anything about your budget…"
+            onkeydown="if(event.key==='Enter')sendCoachMsg()">
+          <button id="coach-send-btn" onclick="sendCoachMsg()">Send</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:8px;line-height:1.5;">
+          Powered by AI. Responses are suggestions only — verify before acting.
+        </div>
       </div>
 
     </div>
@@ -1490,6 +1694,13 @@ select.field-input { cursor: pointer; }
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add External Rule
       </button>
+
+      <!-- ── Month Tools ── -->
+      <div class="section-label">Month Tools</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:4px 0;">
+        <button class="btn btn-ghost btn-sm" onclick="copyLastMonthAllocs(this)">Copy Last Month's Allocations</button>
+        <span id="copy-alloc-msg" style="font-family:var(--mono);font-size:11px;color:var(--green);display:none;"></span>
+      </div>
 
     </div><!-- /panel-setup -->
 
@@ -1794,6 +2005,34 @@ select.field-input { cursor: pointer; }
   </div>
 </div>
 
+<!-- ═══════════════ PAYDAY SUGGESTIONS SHEET ═══════════════ -->
+<div id="backdrop-payday" class="backdrop" onclick="closePaydaySheet()"></div>
+<div id="sheet-payday">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">Payday Actions</div>
+  <div class="sheet-body">
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text3);margin-bottom:4px;">Income received: <strong id="payday-amount" style="color:var(--green)"></strong></div>
+
+    <div id="payday-internal-section" style="display:none;">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin:10px 0 6px;">Allocate to Buckets</div>
+      <div id="payday-internal-list"></div>
+    </div>
+
+    <div id="payday-external-section" style="display:none;">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);margin:10px 0 6px;">External Transfers</div>
+      <div id="payday-external-list"></div>
+    </div>
+
+    <div id="payday-empty" style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:16px 0;display:none;">No allocation rules set up. Configure rules in Setup.</div>
+    <div id="payday-error" style="font-family:var(--mono);font-size:11px;color:var(--red);display:none;margin-top:8px;"></div>
+
+    <div class="sheet-actions" style="margin-top:14px;">
+      <button class="btn btn-primary" id="payday-apply-btn" onclick="submitPaydaySheet()">Apply Allocations</button>
+      <button class="btn btn-ghost" onclick="closePaydaySheet()">Skip</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 const ACTIVE_MID     = '{{ active_mid }}';
@@ -1965,6 +2204,14 @@ async function saveBucket(btn, bucketId, origCatId) {
     if (notes !== undefined) await api('/api/save', {field:'bucket_notes', id:bucketId, value:notes, month:ACTIVE_MID});
     if (dueDay !== undefined && btype === 'expense') await api('/api/save', {field:'bucket_due_day', id:bucketId, value:dueDay, month:ACTIVE_MID});
     if (tgtAmt !== undefined && btype !== 'expense') await api('/api/save', {field:'bucket_target_amount', id:bucketId, value:tgtAmt, month:ACTIVE_MID});
+    const payFreqEl   = editor.querySelector('[data-field="pay_freq"]');
+    const dueAmtEl    = editor.querySelector('[data-field="due_amount"]');
+    const rolloverEl  = editor.querySelector('[data-field="rollover"]');
+    const skipEl      = editor.querySelector('[data-field="skip"]');
+    if (payFreqEl   && btype === 'expense') await api('/api/save', {field:'bucket_pay_freq',  id:bucketId, value:payFreqEl.value, month:ACTIVE_MID});
+    if (dueAmtEl    && btype === 'expense') await api('/api/save', {field:'bucket_due_amount', id:bucketId, value:dueAmtEl.value,  month:ACTIVE_MID});
+    if (rolloverEl) await api('/api/save', {field:'bucket_rollover', id:bucketId, value:rolloverEl.checked, month:ACTIVE_MID});
+    if (skipEl)     await api('/api/save', {field:'bucket_skip',     id:bucketId, value:skipEl.checked,     month:ACTIVE_MID});
     // Update name tag display
     const nameEl = document.querySelector(`[data-name="${bucketId}"]`);
     if (nameEl) {
@@ -2173,7 +2420,9 @@ async function submitSheet() {
     if (!state.ok) throw new Error(state.error || 'Failed');
     refreshKpis(state);
     closeSheet();
-    if (document.getElementById('panel-ledger').classList.contains('active')) {
+    if (type === 'in') {
+      openPaydaySheet(amount);
+    } else if (document.getElementById('panel-ledger').classList.contains('active')) {
       window.location.reload();
     }
   } catch(e) {
@@ -2193,6 +2442,7 @@ function showPanelTab(name, btn) {
   if (name === 'timeline') loadTimeline();
   if (name === 'whatif')   _initWi();
   if (name === 'forecast') initForecast();
+  if (name === 'coach')    setTimeout(() => document.getElementById('coach-input')?.focus(), 150);
 }
 
 // ── Timeline ─────────────────────────────────────────────────────
@@ -2419,7 +2669,15 @@ function renderReports(data) {
     </div>
   </div>`;
 
+  const exportBtn = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <a href="/api/export-csv?month=${ACTIVE_MID}" class="btn btn-ghost btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export CSV
+    </a>
+  </div>`;
+
   document.getElementById('ptab-history').innerHTML =
+    exportBtn +
     kpiHtml +
     savingsRateHtml +
     '<div class="section-label">Spending by Category</div>' + catHtml +
@@ -3645,8 +3903,251 @@ async function closeMonth() {
   if (r.ok) window.location.reload();
 }
 
+// ── Vault bucket actions ──────────────────────────────────────────
+function openVaultTransfer(btn, bucketId) {
+  closeVaultForm(bucketId);
+  const form = document.getElementById('vault-transfer-form-' + bucketId);
+  if (form) form.classList.add('open');
+}
+function openVaultWithdraw(btn, bucketId) {
+  closeVaultForm(bucketId);
+  const form = document.getElementById('vault-withdraw-form-' + bucketId);
+  if (form) form.classList.add('open');
+}
+function closeVaultForm(bucketId) {
+  const tf = document.getElementById('vault-transfer-form-' + bucketId);
+  const wf = document.getElementById('vault-withdraw-form-' + bucketId);
+  if (tf) tf.classList.remove('open');
+  if (wf) wf.classList.remove('open');
+}
+async function submitVaultTransfer(btn, bucketId) {
+  const destId = document.getElementById('vault-dest-' + bucketId)?.value;
+  const amount = parseFloat(document.getElementById('vault-xfr-amt-' + bucketId)?.value) || 0;
+  if (!amount || amount <= 0) return;
+  setBtn(btn, 'loading');
+  try {
+    const r = await api('/api/vault-transfer', {vault_id: bucketId, dest_id: destId, month: ACTIVE_MID, amount});
+    if (!r.ok) throw new Error(r.error || 'Transfer failed');
+    closeVaultForm(bucketId);
+    refreshKpis(r);
+    setBtn(btn, 'ok');
+  } catch(e) {
+    setBtn(btn, 'err');
+    alert(e.message);
+  }
+}
+async function submitVaultWithdraw(btn, bucketId) {
+  const amount = parseFloat(document.getElementById('vault-wd-amt-' + bucketId)?.value) || 0;
+  if (!amount || amount <= 0) return;
+  setBtn(btn, 'loading');
+  try {
+    const r = await api('/api/vault-withdraw', {id: bucketId, month: ACTIVE_MID, amount});
+    if (!r.ok) throw new Error(r.error || 'Withdraw failed');
+    closeVaultForm(bucketId);
+    refreshKpis(r);
+    setBtn(btn, 'ok');
+  } catch(e) {
+    setBtn(btn, 'err');
+    alert(e.message);
+  }
+}
+
+// ── Debt payment ──────────────────────────────────────────────────
+function openDebtPayForm(btn, debtId) {
+  const form = document.getElementById('debt-pay-form-' + debtId);
+  if (!form) return;
+  const dateEl = document.getElementById('dpay-date-' + debtId);
+  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+  const errEl = document.getElementById('dpay-err-' + debtId);
+  if (errEl) errEl.style.display = 'none';
+  form.classList.toggle('open');
+}
+function closeDebtPayForm(debtId) {
+  const form = document.getElementById('debt-pay-form-' + debtId);
+  if (form) form.classList.remove('open');
+}
+async function recordDebtPayment(debtId, btn) {
+  const amount   = parseFloat(document.getElementById('dpay-amt-' + debtId)?.value) || 0;
+  const fromAcct = document.getElementById('dpay-from-' + debtId)?.value;
+  const date     = document.getElementById('dpay-date-' + debtId)?.value;
+  const errEl    = document.getElementById('dpay-err-' + debtId);
+  if (errEl) errEl.style.display = 'none';
+  if (!amount || amount <= 0) {
+    if (errEl) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = ''; }
+    return;
+  }
+  setBtn(btn, 'loading');
+  try {
+    const r = await api('/api/debt-payment', {debt_id: debtId, from_account_id: fromAcct, amount, date, active_mid: ACTIVE_MID});
+    if (!r.ok) throw new Error(r.error || 'Payment failed');
+    refreshKpis(r);
+    closeDebtPayForm(debtId);
+    const balEl = document.querySelector(`[data-acct-bal="${debtId}"]`);
+    if (balEl && r.account_balances && r.account_balances[debtId] !== undefined) {
+      balEl.textContent = fmtMoney(r.account_balances[debtId]);
+    }
+    setBtn(btn, 'ok');
+  } catch(e) {
+    setBtn(btn, 'err');
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
+  }
+}
+
+// ── Copy Last Month's Allocations ─────────────────────────────────
+async function copyLastMonthAllocs(btn) {
+  if (!confirm('Copy last month\'s allocations into this month?')) return;
+  setBtn(btn, 'loading');
+  try {
+    const r = await api('/api/copy-month-allocs', {target_mid: ACTIVE_MID});
+    if (!r.ok) throw new Error(r.error || 'Failed');
+    const msg = document.getElementById('copy-alloc-msg');
+    if (msg) {
+      msg.textContent = `Copied ${r.copied || 0} allocation${r.copied !== 1 ? 's' : ''}.`;
+      msg.style.display = '';
+      setTimeout(() => { msg.style.display = 'none'; }, 3000);
+    }
+    setBtn(btn, 'ok');
+    if (r.copied > 0) setTimeout(() => window.location.reload(), 1200);
+  } catch(e) {
+    setBtn(btn, 'err');
+  }
+}
+
+// ── Payday Suggestions sheet ──────────────────────────────────────
+let _paydayAmount = 0;
+
+async function openPaydaySheet(amount) {
+  _paydayAmount = amount;
+  const amtEl = document.getElementById('payday-amount');
+  if (amtEl) amtEl.textContent = fmtMoney(amount);
+  const errEl = document.getElementById('payday-error');
+  if (errEl) errEl.style.display = 'none';
+  document.getElementById('backdrop-payday').classList.add('on');
+  document.getElementById('sheet-payday').classList.add('on');
+  try {
+    const r = await fetch('/api/payday-suggestions', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({amount})
+    }).then(res => res.json());
+    if (!r.ok) throw new Error(r.error || 'Could not load suggestions');
+    const intList   = document.getElementById('payday-internal-list');
+    const extList   = document.getElementById('payday-external-list');
+    const intSec    = document.getElementById('payday-internal-section');
+    const extSec    = document.getElementById('payday-external-section');
+    const emptyEl   = document.getElementById('payday-empty');
+    const internal  = r.internal || [];
+    const external  = r.external || [];
+    if (internal.length) {
+      intList.innerHTML = internal.map(rule => `
+        <div class="payday-rule-row">
+          <input type="checkbox" class="payday-rule-check" id="pday-chk-${rule.rule_id}" checked>
+          <label class="payday-rule-name" for="pday-chk-${rule.rule_id}">${_escHTML(rule.name)}</label>
+          <span class="payday-rule-bkt">${_escHTML(rule.bucket || '')}</span>
+          <input class="payday-rule-inp" type="number" id="pday-amt-${rule.rule_id}" value="${(rule.amount||0).toFixed(2)}" step="0.01" min="0">
+        </div>`).join('');
+      intSec.style.display = '';
+    } else {
+      intSec.style.display = 'none';
+    }
+    if (external.length) {
+      extList.innerHTML = external.map(rule => `
+        <div class="payday-ext-row">
+          <span>${_escHTML(rule.name)}</span>
+          <span class="payday-rule-amt">${fmtMoney(rule.amount||0)}</span>
+        </div>`).join('');
+      extSec.style.display = '';
+    } else {
+      extSec.style.display = 'none';
+    }
+    if (!internal.length && !external.length) {
+      emptyEl.style.display = '';
+    } else {
+      emptyEl.style.display = 'none';
+    }
+  } catch(e) {
+    const errEl2 = document.getElementById('payday-error');
+    if (errEl2) { errEl2.textContent = e.message; errEl2.style.display = ''; }
+  }
+}
+
+function closePaydaySheet() {
+  document.getElementById('backdrop-payday').classList.remove('on');
+  document.getElementById('sheet-payday').classList.remove('on');
+}
+
+async function submitPaydaySheet() {
+  const btn      = document.getElementById('payday-apply-btn');
+  const errEl    = document.getElementById('payday-error');
+  if (errEl) errEl.style.display = 'none';
+  const allocs   = {};
+  document.querySelectorAll('.payday-rule-check').forEach(chk => {
+    if (!chk.checked) return;
+    const ruleId = chk.id.replace('pday-chk-', '');
+    const amtInp = document.getElementById('pday-amt-' + ruleId);
+    if (!amtInp) return;
+    const amt = parseFloat(amtInp.value) || 0;
+    if (amt > 0) allocs[ruleId] = amt;
+  });
+  if (!Object.keys(allocs).length) { closePaydaySheet(); return; }
+  setBtn(btn, 'loading');
+  try {
+    const r = await api('/api/apply-payday', {month: ACTIVE_MID, allocations: allocs});
+    if (!r.ok) throw new Error(r.error || 'Apply failed');
+    refreshKpis(r);
+    closePaydaySheet();
+  } catch(e) {
+    setBtn(btn, 'ok');
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
+  }
+}
+
+// ── Coach AI ──────────────────────────────────────────────────────
+let _coachHistory = [];
+
+async function sendCoachMsg() {
+  const input   = document.getElementById('coach-input');
+  const sendBtn = document.getElementById('coach-send-btn');
+  const message = (input?.value || '').trim();
+  if (!message) return;
+  input.value = '';
+  sendBtn.disabled = true;
+  _coachHistory.push({role: 'user', content: message});
+  renderCoachMsgs();
+  // add loading indicator
+  const msgsEl = document.getElementById('coach-msgs');
+  const loadId = 'coach-loading-' + Date.now();
+  if (msgsEl) msgsEl.insertAdjacentHTML('beforeend', `<div class="coach-msg loading" id="${loadId}">thinking…</div>`);
+  msgsEl?.scrollTo({top: msgsEl.scrollHeight, behavior: 'smooth'});
+  try {
+    const r = await fetch('/api/coach', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message, history: _coachHistory.slice(0, -1)})
+    }).then(res => res.json());
+    document.getElementById(loadId)?.remove();
+    if (r.error) throw new Error(r.error);
+    _coachHistory.push({role: 'assistant', content: r.reply});
+    renderCoachMsgs();
+  } catch(e) {
+    document.getElementById(loadId)?.remove();
+    _coachHistory.push({role: 'assistant', content: 'Sorry, I encountered an error. Please try again.'});
+    renderCoachMsgs();
+  } finally {
+    sendBtn.disabled = false;
+    input?.focus();
+  }
+}
+
+function renderCoachMsgs() {
+  const el = document.getElementById('coach-msgs');
+  if (!el) return;
+  el.innerHTML = _coachHistory.map(msg =>
+    `<div class="coach-msg ${msg.role === 'user' ? 'user' : 'coach'}">${_escHTML(msg.content).replace(/\n/g,'<br>')}</div>`
+  ).join('');
+  el.scrollTo({top: el.scrollHeight, behavior: 'smooth'});
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeSheet(); closeBucketSheet(); closeAccountSheet(); closePaycheckSheet(); closeRuleSheet(); }
+  if (e.key === 'Escape') { closeSheet(); closeBucketSheet(); closeAccountSheet(); closePaycheckSheet(); closeRuleSheet(); closePaydaySheet(); }
 });
 </script>
 
