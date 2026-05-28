@@ -92,18 +92,21 @@ select.field-input { cursor: pointer; }
   padding: 1px 5px; margin-left: 7px; vertical-align: middle;
   position: relative; top: -1px;
 }
-/* Ledger KPI strip */
-.ledger-kpis {
-  display: flex; gap: 8px; padding: 0 0 8px;
-}
-.ledger-kpi {
+/* ── Shared KPI Strip (buckets mobile + ledger mobile) ── */
+.panel-kpis { display: none; gap: 8px; padding: 12px 12px 4px; }
+.panel-kpi {
   flex: 1; background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 10px 14px;
-  display: flex; justify-content: space-between; align-items: baseline;
+  border-radius: var(--r); padding: 10px 10px 8px;
 }
-.ledger-kpi-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
-.ledger-kpi-val   { font-family: var(--mono); font-size: 15px; font-weight: 700; }
-.sb-logo { padding: 18px 18px 14px; border-bottom: 1px solid var(--border); }
+.panel-kpi-label {
+  font-family: var(--mono); font-size: 8px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3); margin-bottom: 3px;
+}
+.panel-kpi-val { font-family: var(--mono); font-size: 16px; font-weight: 700; line-height: 1; }
+.sb-logo {
+  height: 48px; display: flex; align-items: center;
+  padding: 0 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
 .sb-logo-name {
   font-family: var(--display); font-size: 26px; letter-spacing: .08em;
   color: var(--accent); line-height: 1;
@@ -154,7 +157,7 @@ select.field-input { cursor: pointer; }
 .sb-setup-btn svg { width: 14px; height: 14px; }
 
 /* ── Main Content ── */
-.main { flex: 1; margin-left: var(--sidebar-w); display: flex; flex-direction: column; }
+.main { flex: 1; margin-left: var(--sidebar-w); display: flex; flex-direction: column; overflow-x: hidden; min-width: 0; }
 .panel { display: none; flex: 1; flex-direction: column; gap: 6px; padding: 20px 20px 28px; }
 .panel.active { display: flex; }
 
@@ -199,7 +202,7 @@ select.field-input { cursor: pointer; }
 .row.open .row-editor { display: flex; }
 
 .editor-grid { display: grid; gap: 10px; }
-.editor-grid.cols2 { grid-template-columns: 1fr 1fr; }
+.editor-grid.cols2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .span2 { grid-column: 1 / -1; }
 
 .editor-actions { display: flex; gap: 8px; align-items: center; padding-top: 2px; }
@@ -231,17 +234,16 @@ select.field-input { cursor: pointer; }
 .row-error { font-family: var(--mono); font-size: 11px; color: var(--red); padding: 0 14px 10px; display: none; }
 .row-error.show { display: block; }
 
-/* ── Mobile KPI Strip ── */
-.mobile-kpis { display: none; gap: 8px; padding: 12px 12px 4px; }
-.mob-kpi {
-  flex: 1; background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 10px 10px 8px;
+/* ── Add-row button (bucket / account panels) ── */
+.add-row-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: transparent; border: 1px dashed var(--border2);
+  border-radius: var(--r); color: var(--text3);
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 12px 14px; cursor: pointer; width: 100%;
+  transition: border-color .12s, color .12s;
 }
-.mob-kpi-label {
-  font-family: var(--mono); font-size: 8px; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--text3); margin-bottom: 3px;
-}
-.mob-kpi-val { font-family: var(--mono); font-size: 16px; font-weight: 700; line-height: 1; }
+.add-row-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── Empty state ── */
 .empty-state {
@@ -259,7 +261,7 @@ select.field-input { cursor: pointer; }
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
 }
 .backdrop.on { display: block; }
-#sheet {
+#sheet, #sheet-bucket, #sheet-account {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--bg2); border-top: 1px solid var(--border2);
   border-radius: 16px 16px 0 0; z-index: 101;
@@ -267,7 +269,7 @@ select.field-input { cursor: pointer; }
   transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
   max-height: 92dvh; overflow-y: auto;
 }
-#sheet.on { transform: translateY(0); }
+#sheet.on, #sheet-bucket.on, #sheet-account.on { transform: translateY(0); }
 .sheet-handle {
   width: 36px; height: 4px; background: var(--border2);
   border-radius: 2px; margin: 12px auto 0;
@@ -313,7 +315,7 @@ select.field-input { cursor: pointer; }
   #sidebar     { display: none; }
   .main        { margin-left: 0; padding-bottom: var(--nav-h); }
   #bottom-nav  { display: block; }
-  .mobile-kpis { display: flex; }
+  .panel-kpis  { display: flex; }
   .panel       { padding: 0 12px 16px; }
   .d-only      { display: none !important; }
 }
@@ -321,7 +323,7 @@ select.field-input { cursor: pointer; }
   #app-header    { left: var(--sidebar-w); }
   .hdr-logo      { display: none; }
   .sb-logo-month { display: none; }
-  #sheet {
+  #sheet, #sheet-bucket, #sheet-account {
     left: 50%; right: auto; bottom: auto; top: 50%;
     width: min(480px, calc(100vw - var(--sidebar-w) - 48px));
     border-radius: var(--r); border: 1px solid var(--border2);
@@ -329,7 +331,9 @@ select.field-input { cursor: pointer; }
     transition: transform .2s ease, opacity .2s ease;
     max-height: 85vh; box-shadow: 0 24px 64px rgba(0,0,0,.65);
   }
-  #sheet.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  #sheet.on, #sheet-bucket.on, #sheet-account.on {
+    transform: translate(-50%, -50%) scale(1); opacity: 1;
+  }
   .sheet-handle { display: none; }
 }
 
@@ -406,18 +410,18 @@ select.field-input { cursor: pointer; }
     <!-- ── BUCKETS PANEL ── -->
     <div id="panel-buckets" class="panel active">
 
-      <div class="mobile-kpis">
-        <div class="mob-kpi">
-          <div class="mob-kpi-label">Income</div>
-          <div class="mob-kpi-val" id="mob-income" style="color:var(--green)">{{ ledger_income|money }}</div>
+      <div class="panel-kpis">
+        <div class="panel-kpi">
+          <div class="panel-kpi-label">Income</div>
+          <div class="panel-kpi-val" id="mob-income" style="color:var(--green)">{{ ledger_income|money }}</div>
         </div>
-        <div class="mob-kpi">
-          <div class="mob-kpi-label">Spent</div>
-          <div class="mob-kpi-val" id="mob-spent" style="color:var(--amber)">{{ ledger_spent|money }}</div>
+        <div class="panel-kpi">
+          <div class="panel-kpi-label">Spent</div>
+          <div class="panel-kpi-val" id="mob-spent" style="color:var(--amber)">{{ ledger_spent|money }}</div>
         </div>
-        <div class="mob-kpi">
-          <div class="mob-kpi-label">Ready</div>
-          <div class="mob-kpi-val" id="mob-rts" style="color:var(--accent)">{{ rts|money }}</div>
+        <div class="panel-kpi">
+          <div class="panel-kpi-label">Ready</div>
+          <div class="panel-kpi-val" id="mob-rts" style="color:var(--accent)">{{ rts|money }}</div>
         </div>
       </div>
 
@@ -482,25 +486,30 @@ select.field-input { cursor: pointer; }
         </div>
       {% endif %}
 
+      <button class="add-row-btn" onclick="openBucketSheet()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Bucket
+      </button>
+
     </div><!-- /panel-buckets -->
 
 
     <!-- ── LEDGER PANEL ── -->
     <div id="panel-ledger" class="panel">
 
-      <!-- Ledger KPI strip -->
-      <div class="ledger-kpis">
-        <div class="ledger-kpi">
-          <span class="ledger-kpi-label">Income</span>
-          <span class="ledger-kpi-val" id="ldg-income" style="color:var(--green)">{{ ledger_income|money }}</span>
+      <!-- Ledger KPI strip (mobile only — sidebar handles desktop) -->
+      <div class="panel-kpis">
+        <div class="panel-kpi">
+          <div class="panel-kpi-label">Income</div>
+          <div class="panel-kpi-val" id="ldg-income" style="color:var(--green)">{{ ledger_income|money }}</div>
         </div>
-        <div class="ledger-kpi">
-          <span class="ledger-kpi-label">Spent</span>
-          <span class="ledger-kpi-val" id="ldg-spent" style="color:var(--red)">{{ ledger_spent|money }}</span>
+        <div class="panel-kpi">
+          <div class="panel-kpi-label">Spent</div>
+          <div class="panel-kpi-val" id="ldg-spent" style="color:var(--red)">{{ ledger_spent|money }}</div>
         </div>
-        <div class="ledger-kpi">
-          <span class="ledger-kpi-label">Ready</span>
-          <span class="ledger-kpi-val" id="ldg-rts" style="color:var(--accent)">{{ rts|money }}</span>
+        <div class="panel-kpi">
+          <div class="panel-kpi-label">Ready</div>
+          <div class="panel-kpi-val" id="ldg-rts" style="color:var(--accent)">{{ rts|money }}</div>
         </div>
       </div>
 
@@ -682,6 +691,11 @@ select.field-input { cursor: pointer; }
       </div>
       {% endif %}
 
+      <button class="add-row-btn" onclick="openAccountSheet()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Account
+      </button>
+
     </div><!-- /panel-accounts -->
 
 
@@ -764,6 +778,91 @@ select.field-input { cursor: pointer; }
 
 </div><!-- /app -->
 
+
+<!-- ═══════════════ ADD BUCKET SHEET ═══════════════ -->
+<div id="backdrop-bucket" class="backdrop" onclick="closeBucketSheet()"></div>
+<div id="sheet-bucket">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">Add Bucket</div>
+  <div class="sheet-body">
+    <div class="sheet-row">
+      <div class="field-group">
+        <label class="field-label">Bucket Name</label>
+        <input class="field-input" id="sb-name" type="text" placeholder="e.g. Groceries">
+      </div>
+    </div>
+    <div class="sheet-row cols2">
+      <div class="field-group">
+        <label class="field-label">Category</label>
+        <select class="field-input" id="sb-cat" onchange="bucketCatChange(this.value)">
+          {% for cat in all_cats %}
+          <option value="{{ cat.id }}">{{ cat.name }}</option>
+          {% endfor %}
+          <option value="__new__">+ New Category…</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Type</label>
+        <select class="field-input" id="sb-type">
+          <option value="expense">Expense</option>
+          <option value="savings">Savings</option>
+          <option value="sinking">Sinking Fund</option>
+          <option value="goal">Goal</option>
+          <option value="vault">Vault</option>
+        </select>
+      </div>
+    </div>
+    <div class="sheet-row" id="sb-row-newcat" style="display:none">
+      <div class="field-group">
+        <label class="field-label">New Category Name</label>
+        <input class="field-input" id="sb-newcat" type="text" placeholder="Category name">
+      </div>
+    </div>
+    <div class="sheet-error" id="sb-error"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-primary" id="sb-submit" onclick="submitBucketSheet()">Add Bucket</button>
+      <button class="btn btn-ghost" onclick="closeBucketSheet()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ADD ACCOUNT SHEET ═══════════════ -->
+<div id="backdrop-account" class="backdrop" onclick="closeAccountSheet()"></div>
+<div id="sheet-account">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">Add Account</div>
+  <div class="sheet-body">
+    <div class="sheet-row">
+      <div class="field-group">
+        <label class="field-label">Account Name</label>
+        <input class="field-input" id="sa-name" type="text" placeholder="e.g. Chase Checking">
+      </div>
+    </div>
+    <div class="sheet-row cols2">
+      <div class="field-group">
+        <label class="field-label">Type</label>
+        <select class="field-input" id="sa-type">
+          <option value="budget">Checking</option>
+          <option value="savings">Savings</option>
+          <option value="investment">Investment</option>
+          <option value="debt">Debt / Credit</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Opening Balance</label>
+        <div class="amount-wrap">
+          <span class="amount-prefix">$</span>
+          <input class="field-input" id="sa-opening" type="number" placeholder="0.00" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+    <div class="sheet-error" id="sa-error"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-primary" id="sa-submit" onclick="submitAccountSheet()">Add Account</button>
+      <button class="btn btn-ghost" onclick="closeAccountSheet()">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════ ADD TRANSACTION SHEET ═══════════════ -->
 <div id="backdrop" class="backdrop" onclick="closeSheet()"></div>
@@ -1123,7 +1222,90 @@ async function submitSheet() {
   }
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+// ── Add Bucket sheet ─────────────────────────────────────────────
+function openBucketSheet() {
+  document.getElementById('sb-name').value = '';
+  document.getElementById('sb-type').value = 'expense';
+  document.getElementById('sb-error').classList.remove('show');
+  document.getElementById('sb-row-newcat').style.display = 'none';
+  const catSel = document.getElementById('sb-cat');
+  if (catSel.options.length) catSel.selectedIndex = 0;
+  document.getElementById('backdrop-bucket').classList.add('on');
+  document.getElementById('sheet-bucket').classList.add('on');
+  setTimeout(() => document.getElementById('sb-name').focus(), 320);
+}
+function closeBucketSheet() {
+  document.getElementById('backdrop-bucket').classList.remove('on');
+  document.getElementById('sheet-bucket').classList.remove('on');
+}
+function bucketCatChange(val) {
+  document.getElementById('sb-row-newcat').style.display = val === '__new__' ? '' : 'none';
+}
+async function submitBucketSheet() {
+  const name   = document.getElementById('sb-name').value.trim();
+  const catId  = document.getElementById('sb-cat').value;
+  const type   = document.getElementById('sb-type').value;
+  const errEl  = document.getElementById('sb-error');
+  const btn    = document.getElementById('sb-submit');
+  errEl.classList.remove('show');
+  if (!name) { errEl.textContent = 'Bucket name is required.'; errEl.classList.add('show'); return; }
+  const payload = { bucket_name: name, cat_id: catId, bucket_type: type, active_mid: ACTIVE_MID };
+  if (catId === '__new__') {
+    const newCat = document.getElementById('sb-newcat').value.trim();
+    if (!newCat) { errEl.textContent = 'New category name is required.'; errEl.classList.add('show'); return; }
+    payload.new_cat_name = newCat;
+  }
+  setBtn(btn, 'loading');
+  try {
+    const state = await api('/api/add-bucket', payload);
+    if (!state.ok) throw new Error(state.error || 'Failed');
+    closeBucketSheet();
+    window.location.reload();
+  } catch(e) {
+    setBtn(btn, 'ok');
+    errEl.textContent = e.message;
+    errEl.classList.add('show');
+  }
+}
+
+// ── Add Account sheet ─────────────────────────────────────────────
+function openAccountSheet() {
+  document.getElementById('sa-name').value = '';
+  document.getElementById('sa-type').value = 'budget';
+  document.getElementById('sa-opening').value = '';
+  document.getElementById('sa-error').classList.remove('show');
+  document.getElementById('backdrop-account').classList.add('on');
+  document.getElementById('sheet-account').classList.add('on');
+  setTimeout(() => document.getElementById('sa-name').focus(), 320);
+}
+function closeAccountSheet() {
+  document.getElementById('backdrop-account').classList.remove('on');
+  document.getElementById('sheet-account').classList.remove('on');
+}
+async function submitAccountSheet() {
+  const name    = document.getElementById('sa-name').value.trim();
+  const type    = document.getElementById('sa-type').value;
+  const opening = parseFloat(document.getElementById('sa-opening').value) || 0;
+  const errEl   = document.getElementById('sa-error');
+  const btn     = document.getElementById('sa-submit');
+  errEl.classList.remove('show');
+  if (!name) { errEl.textContent = 'Account name is required.'; errEl.classList.add('show'); return; }
+  setBtn(btn, 'loading');
+  try {
+    const state = await api('/api/add-account', { name, type, opening_balance: opening, active_mid: ACTIVE_MID });
+    if (!state.ok) throw new Error(state.error || 'Failed');
+    closeAccountSheet();
+    window.location.reload();
+  } catch(e) {
+    setBtn(btn, 'ok');
+    errEl.textContent = e.message;
+    errEl.classList.add('show');
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeSheet(); closeBucketSheet(); closeAccountSheet(); }
+});
 </script>
 
 {% endblock %}
