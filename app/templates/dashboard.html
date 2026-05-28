@@ -297,6 +297,41 @@ select.field-input { cursor: pointer; }
 .ptab-content { display: none; flex-direction: column; gap: 6px; padding-top: 8px; flex: 1; overflow-x: hidden; }
 .ptab-content.active { display: flex; }
 
+/* ── Account activity tabs ── */
+.acct-tabs {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--border);
+  margin: -4px -14px 12px; padding: 0 14px;
+}
+.acct-tab {
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text3); padding: 6px 12px; border-radius: 4px 4px 0 0;
+  transition: color .12s, background .12s;
+}
+.acct-tab:hover  { color: var(--text); }
+.acct-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+.acct-tab-content { display: none; flex-direction: column; gap: 10px; }
+.acct-tab-content.active { display: flex; }
+.acct-tx {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+}
+.acct-tx:last-child { border-bottom: none; }
+.acct-tx-date { font-family: var(--mono); font-size: 11px; color: var(--text3); width: 36px; flex-shrink: 0; }
+.acct-tx-desc { flex: 1; font-size: 13px; }
+.acct-tx-amt  { font-family: var(--mono); font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+/* ── Forecast ── */
+.fc-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 4px; }
+.fc-month-row {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 12px 14px;
+}
+.fc-month-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.fc-month-name { font-size: 14px; font-weight: 600; }
+.fc-month-net  { font-family: var(--mono); font-size: 14px; font-weight: 700; }
+.fc-month-detail { font-family: var(--mono); font-size: 11px; color: var(--text3); display: flex; gap: 8px; }
+
 /* ── Mobile header extra controls ── */
 .hdr-gear {
   background: transparent; border: none; cursor: pointer;
@@ -558,7 +593,7 @@ select.field-input { cursor: pointer; }
             {%- elif b.status == 'OK' -%}{%- set sc = 's-amber' -%}{%- set pc = 'var(--amber)' -%}
             {%- else -%}{%- set sc = 's-accent' -%}{%- set pc = 'var(--accent)' -%}{%- endif -%}
             {%- set pct = ([100, [0, (b.spent / b.budget * 100)|round|int]|max]|min) if b.budget > 0 else 0 -%}
-          <div class="row {{ sc }}" onclick="toggleRow(this)">
+          <div class="row {{ sc }}" data-bucket="{{ b.id }}" onclick="toggleRow(this)">
             <div class="row-top">
               <div class="row-bar"></div>
               <div style="flex:1">
@@ -768,7 +803,7 @@ select.field-input { cursor: pointer; }
       {% if cash_accounts %}
       <div class="section-label">Cash &amp; Savings</div>
       {% for a in cash_accounts %}
-      <div class="row" onclick="toggleRow(this)">
+      <div class="row" data-acct-id="{{ a.id }}" onclick="toggleRow(this)">
         <div class="row-top">
           <div class="row-bar" style="background:{{ a.color or 'var(--accent)' }}"></div>
           <div style="flex:1">
@@ -779,28 +814,56 @@ select.field-input { cursor: pointer; }
           <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="row-editor" onclick="event.stopPropagation()">
-          <div class="editor-grid cols2">
-            <div class="field-group">
-              <label class="field-label">Account Name</label>
-              <input class="field-input" type="text" data-field="name" value="{{ a.name }}">
+          <div class="acct-tabs">
+            <button class="acct-tab active" onclick="showAcctTab(this,'details')">Details</button>
+            <button class="acct-tab" onclick="showAcctTab(this,'activity')">Activity</button>
+          </div>
+          <!-- Details tab -->
+          <div class="acct-tab-content active">
+            <div class="editor-grid cols2">
+              <div class="field-group">
+                <label class="field-label">Account Name</label>
+                <input class="field-input" type="text" data-field="name" value="{{ a.name }}">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Type</label>
+                <select class="field-input" data-field="type">
+                  <option value="budget"{% if a.type == 'budget' %} selected{% endif %}>Checking</option>
+                  <option value="savings"{% if a.type == 'savings' %} selected{% endif %}>Savings</option>
+                  <option value="investment"{% if a.type == 'investment' %} selected{% endif %}>Investment</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Balance</label>
+                <div class="stat-pill" style="color:{% if a.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ a.balance|money }}</div>
+              </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">Type</label>
-              <select class="field-input" data-field="type">
-                <option value="budget"{% if a.type == 'budget' %} selected{% endif %}>Checking</option>
-                <option value="savings"{% if a.type == 'savings' %} selected{% endif %}>Savings</option>
-                <option value="investment"{% if a.type == 'investment' %} selected{% endif %}>Investment</option>
-              </select>
-            </div>
-            <div class="field-group">
-              <label class="field-label">Balance</label>
-              <div class="stat-pill" style="color:{% if a.balance >= 0 %}var(--green){% else %}var(--red){% endif %}">{{ a.balance|money }}</div>
+            <div class="row-error" id="aerr-{{ a.id }}"></div>
+            <div class="editor-actions">
+              <button class="btn btn-primary btn-sm" onclick="saveAccount(this,'{{ a.id }}')">Save</button>
+              <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
             </div>
           </div>
-          <div class="row-error" id="aerr-{{ a.id }}"></div>
-          <div class="editor-actions">
-            <button class="btn btn-primary btn-sm" onclick="saveAccount(this,'{{ a.id }}')">Save</button>
-            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+          <!-- Activity tab -->
+          <div class="acct-tab-content">
+            {%- set ledger = account_ledgers.get(a.id, []) -%}
+            {%- if ledger -%}
+              {%- for group in ledger -%}
+                <div class="tl-day-header">{{ group.label }}</div>
+                {%- for tx in group.rows -%}
+                  {%- if tx.incoming -%}{%- set tc = 'var(--green)' -%}{%- set tv = '+' + (tx.amount|money) -%}
+                  {%- elif tx.type == 'xfr' -%}{%- set tc = 'var(--text2)' -%}{%- set tv = tx.amount|money -%}
+                  {%- else -%}{%- set tc = 'var(--red)' -%}{%- set tv = '-' + (tx.amount|money) -%}{%- endif -%}
+                  <div class="acct-tx">
+                    <div class="acct-tx-date">{{ tx.date[5:] if tx.date else '—' }}</div>
+                    <div class="acct-tx-desc">{{ tx.desc or '(no description)' }}</div>
+                    <div class="acct-tx-amt" style="color:{{ tc }}">{{ tv }}</div>
+                  </div>
+                {%- endfor -%}
+              {%- endfor -%}
+            {%- else -%}
+              <div class="empty-state" style="padding:20px 0"><p>No transactions this month</p></div>
+            {%- endif -%}
           </div>
         </div>
       </div>
@@ -810,7 +873,7 @@ select.field-input { cursor: pointer; }
       {% if debt_accounts_display %}
       <div class="section-label">Debts</div>
       {% for a in debt_accounts_display %}
-      <div class="row s-red" onclick="toggleRow(this)">
+      <div class="row s-red" data-acct-id="{{ a.id }}" onclick="toggleRow(this)">
         <div class="row-top">
           <div class="row-bar"></div>
           <div style="flex:1">
@@ -821,32 +884,60 @@ select.field-input { cursor: pointer; }
           <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="row-editor" onclick="event.stopPropagation()">
-          <div class="editor-grid cols2">
-            <div class="field-group">
-              <label class="field-label">Account Name</label>
-              <input class="field-input" type="text" data-field="name" value="{{ a.name }}">
+          <div class="acct-tabs">
+            <button class="acct-tab active" onclick="showAcctTab(this,'details')">Details</button>
+            <button class="acct-tab" onclick="showAcctTab(this,'activity')">Activity</button>
+          </div>
+          <!-- Details tab -->
+          <div class="acct-tab-content active">
+            <div class="editor-grid cols2">
+              <div class="field-group">
+                <label class="field-label">Account Name</label>
+                <input class="field-input" type="text" data-field="name" value="{{ a.name }}">
+              </div>
+              <div class="field-group">
+                <label class="field-label">APR %</label>
+                <input class="field-input" type="number" data-field="debt_apr" value="{{ a.debt_apr or '' }}" step="0.01">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Min Payment</label>
+                <input class="field-input" type="number" data-field="debt_min_payment" value="{{ a.debt_min_payment or '' }}" step="0.01">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Credit Limit</label>
+                <input class="field-input" type="number" data-field="credit_limit" value="{{ a.credit_limit or '' }}" step="1">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Balance</label>
+                <div class="stat-pill" style="color:var(--red)">{{ a.balance|money }}</div>
+              </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">APR %</label>
-              <input class="field-input" type="number" data-field="debt_apr" value="{{ a.debt_apr or '' }}" step="0.01">
-            </div>
-            <div class="field-group">
-              <label class="field-label">Min Payment</label>
-              <input class="field-input" type="number" data-field="debt_min_payment" value="{{ a.debt_min_payment or '' }}" step="0.01">
-            </div>
-            <div class="field-group">
-              <label class="field-label">Credit Limit</label>
-              <input class="field-input" type="number" data-field="credit_limit" value="{{ a.credit_limit or '' }}" step="1">
-            </div>
-            <div class="field-group">
-              <label class="field-label">Balance</label>
-              <div class="stat-pill" style="color:var(--red)">{{ a.balance|money }}</div>
+            <div class="row-error" id="aerr-{{ a.id }}"></div>
+            <div class="editor-actions">
+              <button class="btn btn-primary btn-sm" onclick="saveAccount(this,'{{ a.id }}')">Save</button>
+              <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
             </div>
           </div>
-          <div class="row-error" id="aerr-{{ a.id }}"></div>
-          <div class="editor-actions">
-            <button class="btn btn-primary btn-sm" onclick="saveAccount(this,'{{ a.id }}')">Save</button>
-            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+          <!-- Activity tab -->
+          <div class="acct-tab-content">
+            {%- set ledger = account_ledgers.get(a.id, []) -%}
+            {%- if ledger -%}
+              {%- for group in ledger -%}
+                <div class="tl-day-header">{{ group.label }}</div>
+                {%- for tx in group.rows -%}
+                  {%- if tx.incoming -%}{%- set tc = 'var(--green)' -%}{%- set tv = '+' + (tx.amount|money) -%}
+                  {%- elif tx.type == 'xfr' -%}{%- set tc = 'var(--text2)' -%}{%- set tv = tx.amount|money -%}
+                  {%- else -%}{%- set tc = 'var(--red)' -%}{%- set tv = '-' + (tx.amount|money) -%}{%- endif -%}
+                  <div class="acct-tx">
+                    <div class="acct-tx-date">{{ tx.date[5:] if tx.date else '—' }}</div>
+                    <div class="acct-tx-desc">{{ tx.desc or '(no description)' }}</div>
+                    <div class="acct-tx-amt" style="color:{{ tc }}">{{ tv }}</div>
+                  </div>
+                {%- endfor -%}
+              {%- endfor -%}
+            {%- else -%}
+              <div class="empty-state" style="padding:20px 0"><p>No transactions this month</p></div>
+            {%- endif -%}
           </div>
         </div>
       </div>
@@ -882,7 +973,17 @@ select.field-input { cursor: pointer; }
         <div class="rpt-loading" id="rpt-loader">Loading…</div>
       </div>
       <div id="ptab-forecast" class="ptab-content">
-        <div class="tl-empty">Forecast coming soon</div>
+        <div class="fc-controls">
+          <div class="field-group">
+            <label class="field-label">Income Change (%)</label>
+            <input class="field-input" id="fc-income-adj" type="number" value="0" step="1" placeholder="0" oninput="renderForecast()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Expense Change (%)</label>
+            <input class="field-input" id="fc-expense-adj" type="number" value="0" step="1" placeholder="0" oninput="renderForecast()">
+          </div>
+        </div>
+        <div id="forecast-output"></div>
       </div>
     </div>
 
@@ -1337,6 +1438,13 @@ select.field-input { cursor: pointer; }
 const ACTIVE_MID     = '{{ active_mid }}';
 const PAYCHECKS_DATA = {{ paychecks | tojson | safe }};
 const DUE_BUCKETS    = [{% for group in category_groups %}{% for b in group.buckets %}{% if b.due_day %}{n:{{ b.name | tojson }},d:{{ b.due_day }},a:{{ b.due_amount or b.budget }},s:{{ b.status | tojson }}},{% endif %}{% endfor %}{% endfor %}];
+const MONTHLY_BUDGET = {{ grand.budget|round(2) }};
+const CURRENT_CASH   = {{ total_cash_val|round(2) }};
+// Monthly income estimate from paycheck frequencies
+const MONTHLY_INCOME = (() => {
+  const mults = {7:52, 14:26, 15:24, 30:12};
+  return PAYCHECKS_DATA.reduce((s, p) => s + (p.amount || 0) * (mults[p.freq] || 12) / 12, 0);
+})();
 
 // ── Utilities ────────────────────────────────────────────────────
 async function api(endpoint, body) {
@@ -1392,6 +1500,37 @@ function refreshKpis(state) {
       if (el) el.textContent = fmtMoney(bal);
     });
   }
+  if (state.bucket_spent) {
+    Object.entries(state.bucket_spent).forEach(([bid, spent]) => {
+      const row = document.querySelector(`.row[data-bucket="${bid}"]`);
+      if (!row) return;
+      const fill = row.querySelector('.row-prog-fill');
+      if (fill) {
+        const budget = parseFloat(fill.dataset.budget) || 0;
+        fill.dataset.spent = spent;
+        if (budget > 0) fill.style.width = Math.min(100, Math.round(spent / budget * 100)) + '%';
+      }
+      const sub = row.querySelector('.row-sub');
+      if (sub) {
+        const budget = parseFloat(row.querySelector('.row-prog-fill')?.dataset.budget) || 0;
+        sub.textContent = `${fmtMoney(budget)} budget · ${fmtMoney(spent)} spent`;
+      }
+    });
+  }
+  if (state.bucket_statuses) {
+    Object.entries(state.bucket_statuses).forEach(([bid, status]) => {
+      const row = document.querySelector(`.row[data-bucket="${bid}"]`);
+      if (!row) return;
+      row.classList.remove('s-green','s-accent','s-amber','s-red');
+      let color;
+      if      (status === 'PAID') { row.classList.add('s-green');  color = 'var(--green)'; }
+      else if (status === 'OVER') { row.classList.add('s-red');    color = 'var(--red)'; }
+      else if (status === 'OK')   { row.classList.add('s-amber');  color = 'var(--amber)'; }
+      else                        { row.classList.add('s-accent'); color = 'var(--accent)'; }
+      const fill = row.querySelector('.row-prog-fill');
+      if (fill) fill.style.background = color;
+    });
+  }
 }
 
 // ── Panel switching ──────────────────────────────────────────────
@@ -1419,6 +1558,16 @@ function toggleRow(el) {
   }
 }
 function closeRow(btn) { btn.closest('.row').classList.remove('open'); }
+
+function showAcctTab(btn, name) {
+  const editor = btn.closest('.row-editor');
+  editor.querySelectorAll('.acct-tab').forEach(t => t.classList.remove('active'));
+  editor.querySelectorAll('.acct-tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  const tabs = editor.querySelectorAll('.acct-tab-content');
+  const idx  = name === 'activity' ? 1 : 0;
+  if (tabs[idx]) tabs[idx].classList.add('active');
+}
 
 // ── Month navigation ─────────────────────────────────────────────
 function changeMonth(dir) {
@@ -1626,6 +1775,7 @@ function showPanelTab(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'history')  loadReports();
   if (name === 'timeline') loadTimeline();
+  if (name === 'forecast') renderForecast();
 }
 
 // ── Timeline ─────────────────────────────────────────────────────
@@ -2020,6 +2170,56 @@ async function submitRuleSheet() {
     errEl.textContent = e.message;
     errEl.classList.add('show');
   }
+}
+
+// ── Forecast / What-If ───────────────────────────────────────────
+function renderForecast() {
+  const incAdj  = parseFloat(document.getElementById('fc-income-adj')?.value)  || 0;
+  const expAdj  = parseFloat(document.getElementById('fc-expense-adj')?.value) || 0;
+  const projInc = MONTHLY_INCOME * (1 + incAdj  / 100);
+  const projExp = MONTHLY_BUDGET * (1 + expAdj  / 100);
+  const net     = projInc - projExp;
+
+  const MNAMES  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [baseY, baseM] = ACTIVE_MID.split('-').map(Number);
+  let balance = CURRENT_CASH;
+  const months = [];
+  for (let i = 1; i <= 6; i++) {
+    const rawM = baseM - 1 + i;
+    const y = baseY + Math.floor(rawM / 12);
+    const m = rawM % 12;
+    balance += net;
+    months.push({ label: MNAMES[m] + ' ' + y, net, balance });
+  }
+
+  const nc = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+
+  let html = `<div class="rpt-nw-grid">
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Monthly Income</div><div class="rpt-nw-val" style="color:var(--green)">${fmtMoney(projInc)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Monthly Budget</div><div class="rpt-nw-val" style="color:var(--amber)">${fmtMoney(projExp)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Monthly Net</div><div class="rpt-nw-val" style="color:${nc(net)}">${fmtMoney(net)}</div></div>
+    <div class="rpt-nw-card"><div class="rpt-nw-label">Cash Now</div><div class="rpt-nw-val">${fmtMoney(CURRENT_CASH)}</div></div>
+  </div>
+  <div class="section-label" style="padding-top:12px">6-Month Projection</div>`;
+
+  for (const mo of months) {
+    html += `<div class="fc-month-row">
+      <div class="fc-month-top">
+        <span class="fc-month-name">${mo.label}</span>
+        <span class="fc-month-net" style="color:${nc(mo.net)}">${mo.net >= 0 ? '+' : ''}${fmtMoney(mo.net)}</span>
+      </div>
+      <div class="fc-month-detail">
+        <span style="color:var(--green)">+${fmtMoney(projInc)} in</span>
+        <span>·</span>
+        <span style="color:var(--red)">-${fmtMoney(projExp)} out</span>
+        <span>·</span>
+        <span>Balance ${fmtMoney(mo.balance)}</span>
+      </div>
+    </div>`;
+  }
+
+  const out = document.getElementById('forecast-output');
+  if (out) out.innerHTML = html;
 }
 
 // ── Month close ───────────────────────────────────────────────────
