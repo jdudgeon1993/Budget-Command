@@ -1714,18 +1714,18 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
     </div><!-- /panel-accounts -->
 
 
-    <!-- ── REPORTS / PLANNED PANEL ── -->
+    <!-- ── INSIGHTS PANEL ── -->
     <div id="panel-reports" class="panel">
       <div class="panel-tabs">
-        <button class="ptab active" id="ptab-btn-timeline" onclick="showPanelTab('timeline',this)">Timeline</button>
-        <button class="ptab" id="ptab-btn-history"   onclick="showPanelTab('history',this)">History</button>
+        <button class="ptab active" id="ptab-btn-forecast"  onclick="showPanelTab('forecast',this)">Forecast</button>
+        <button class="ptab" id="ptab-btn-timeline" onclick="showPanelTab('timeline',this)">Timeline</button>
         <button class="ptab" id="ptab-btn-whatif"    onclick="showPanelTab('whatif',this)">What&#8209;If</button>
-        <button class="ptab" id="ptab-btn-forecast"  onclick="showPanelTab('forecast',this)">Forecast</button>
+        <button class="ptab" id="ptab-btn-history"   onclick="showPanelTab('history',this)">History</button>
         <button class="ptab" id="ptab-btn-coach"     onclick="showPanelTab('coach',this)">Coach</button>
       </div>
 
       <!-- Timeline tab -->
-      <div id="ptab-timeline" class="ptab-content active">
+      <div id="ptab-timeline" class="ptab-content">
         <div class="tl-empty" id="tl-empty">Loading…</div>
       </div>
 
@@ -1807,7 +1807,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
       </div>
 
       <!-- Forecast tab: real cash flow -->
-      <div id="ptab-forecast" class="ptab-content">
+      <div id="ptab-forecast" class="ptab-content active">
 
         <!-- Range buttons -->
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
@@ -2573,7 +2573,7 @@ function showPanel(name, el, ctx) {
   }
   if (el) el.classList.add('active');
   document.querySelectorAll('.row.open').forEach(r => r.classList.remove('open'));
-  if (name === 'reports') loadTimeline();
+  if (name === 'reports') initForecast();
   if (name === 'setup')   loadCategoryManager();
 }
 
