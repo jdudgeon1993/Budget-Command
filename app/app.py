@@ -85,32 +85,38 @@ def _auth_expired_handler(e):
     return _handle_auth_expired()
 
 
+_AUTH_ERR_KEYWORDS = ("jwt", "expired", "invalid token", "401", "unauthorized", "not authenticated", "jwsError")
+
+
+def _is_auth_error(e: Exception) -> bool:
+    return any(k in str(e).lower() for k in _AUTH_ERR_KEYWORDS)
+
+
 def _load(uid: str, token: str) -> dict:
     """Assemble the full data dict from relational tables.
     Returns the same structure the rest of the app (formulas, routes) expects."""
     db = _db(token)
 
     try:
-        accounts_raw = db.table("bcc_accounts").select("*").eq("user_id", uid).execute().data or []
+        accounts_raw   = db.table("bcc_accounts").select("*").eq("user_id", uid).execute().data or []
+        cats_raw       = db.table("bcc_categories").select("*").eq("user_id", uid).execute().data or []
+        buckets_raw    = db.table("bcc_buckets").select("*").eq("user_id", uid).execute().data or []
+        txs_raw        = db.table("bcc_transactions").select("*").eq("user_id", uid).execute().data or []
+        months_raw     = db.table("bcc_months").select("*").eq("user_id", uid).execute().data or []
+        allocs_raw     = db.table("bcc_month_allocations").select("*").eq("user_id", uid).execute().data or []
+        budgets_raw    = db.table("bcc_month_budgets").select("*").eq("user_id", uid).execute().data or []
+        rollrel_raw    = db.table("bcc_month_rollover_released").select("*").eq("user_id", uid).execute().data or []
+        skipped_raw    = db.table("bcc_month_skipped").select("*").eq("user_id", uid).execute().data or []
+        vaultwd_raw    = db.table("bcc_month_vault_withdrawals").select("*").eq("user_id", uid).execute().data or []
+        paychecks_raw  = db.table("bcc_paychecks").select("*").eq("user_id", uid).execute().data or []
+        rules_raw      = db.table("bcc_allocation_rules").select("*").eq("user_id", uid).execute().data or []
+        vtransfers_raw = db.table("bcc_vault_transfers").select("*").eq("user_id", uid).execute().data or []
+    except _AuthExpired:
+        raise
     except Exception as e:
-        err = str(e).lower()
-        if any(k in err for k in ("jwt", "expired", "invalid token", "401", "unauthorized", "not authenticated")):
+        if _is_auth_error(e):
             raise _AuthExpired() from e
         raise
-
-    accounts_raw   = accounts_raw
-    cats_raw       = db.table("bcc_categories").select("*").eq("user_id", uid).execute().data or []
-    buckets_raw    = db.table("bcc_buckets").select("*").eq("user_id", uid).execute().data or []
-    txs_raw        = db.table("bcc_transactions").select("*").eq("user_id", uid).execute().data or []
-    months_raw     = db.table("bcc_months").select("*").eq("user_id", uid).execute().data or []
-    allocs_raw     = db.table("bcc_month_allocations").select("*").eq("user_id", uid).execute().data or []
-    budgets_raw    = db.table("bcc_month_budgets").select("*").eq("user_id", uid).execute().data or []
-    rollrel_raw    = db.table("bcc_month_rollover_released").select("*").eq("user_id", uid).execute().data or []
-    skipped_raw    = db.table("bcc_month_skipped").select("*").eq("user_id", uid).execute().data or []
-    vaultwd_raw    = db.table("bcc_month_vault_withdrawals").select("*").eq("user_id", uid).execute().data or []
-    paychecks_raw  = db.table("bcc_paychecks").select("*").eq("user_id", uid).execute().data or []
-    rules_raw      = db.table("bcc_allocation_rules").select("*").eq("user_id", uid).execute().data or []
-    vtransfers_raw = db.table("bcc_vault_transfers").select("*").eq("user_id", uid).execute().data or []
 
     # Accounts (snake_case → camelCase for formulas)
     accounts = [{
@@ -1645,8 +1651,16 @@ def dashboard():
         resp.headers['Pragma']        = 'no-cache'
         resp.headers['Expires']       = '0'
         return resp
+    except _AuthExpired:
+        session.clear()
+        return redirect(url_for("login", reason="session_expired"))
     except Exception as e:
-        app.logger.error("dashboard error: %s\n%s", e, traceback.format_exc())
+        # Log the full traceback — visible in Railway logs
+        app.logger.error("DASHBOARD 500 — %s: %s\n%s", type(e).__name__, e, traceback.format_exc())
+        # If it looks auth-related, redirect rather than 500
+        if _is_auth_error(e):
+            session.clear()
+            return redirect(url_for("login", reason="session_expired"))
         raise
 
 
