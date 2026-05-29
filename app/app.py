@@ -65,12 +65,40 @@ def logged_in() -> bool:
 
 # ── Data loader: relational tables → canonical dict ───────────────────────────
 
+class _AuthExpired(Exception):
+    """Raised when the Supabase JWT is rejected."""
+
+
+def _is_api_request() -> bool:
+    return request.path.startswith("/api/")
+
+
+def _handle_auth_expired():
+    session.clear()
+    if _is_api_request():
+        return jsonify({"ok": False, "error": "session_expired"}), 401
+    return redirect(url_for("login", reason="session_expired"))
+
+
+@app.errorhandler(_AuthExpired)
+def _auth_expired_handler(e):
+    return _handle_auth_expired()
+
+
 def _load(uid: str, token: str) -> dict:
     """Assemble the full data dict from relational tables.
     Returns the same structure the rest of the app (formulas, routes) expects."""
     db = _db(token)
 
-    accounts_raw   = db.table("bcc_accounts").select("*").eq("user_id", uid).execute().data or []
+    try:
+        accounts_raw = db.table("bcc_accounts").select("*").eq("user_id", uid).execute().data or []
+    except Exception as e:
+        err = str(e).lower()
+        if any(k in err for k in ("jwt", "expired", "invalid token", "401", "unauthorized", "not authenticated")):
+            raise _AuthExpired() from e
+        raise
+
+    accounts_raw   = accounts_raw
     cats_raw       = db.table("bcc_categories").select("*").eq("user_id", uid).execute().data or []
     buckets_raw    = db.table("bcc_buckets").select("*").eq("user_id", uid).execute().data or []
     txs_raw        = db.table("bcc_transactions").select("*").eq("user_id", uid).execute().data or []
@@ -582,6 +610,8 @@ def login():
             return redirect(url_for("dashboard"))
         except Exception:
             error = "Invalid email or password."
+    if not error and request.args.get("reason") == "session_expired":
+        error = "Your session expired. Please sign in again."
     return render_template("login.html", error=error)
 
 

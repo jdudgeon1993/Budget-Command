@@ -2465,6 +2465,10 @@ async function api(endpoint, body) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),
   });
+  if (r.status === 401) {
+    window.location.href = '/login?reason=session_expired';
+    throw new Error('session_expired');
+  }
   return r.json();
 }
 
