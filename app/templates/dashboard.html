@@ -4215,7 +4215,7 @@ async function openPaydaySheet(amount) {
     if (internal.length) {
       intList.innerHTML = internal.map(rule => `
         <div class="payday-rule-row">
-          <input type="checkbox" class="payday-rule-check" id="pday-chk-${rule.rule_id}" checked>
+          <input type="checkbox" class="payday-rule-check" id="pday-chk-${rule.rule_id}" data-bucket="${rule.bucket_id||''}" checked>
           <label class="payday-rule-name" for="pday-chk-${rule.rule_id}">${_escHTML(rule.name)}</label>
           <span class="payday-rule-bkt">${_escHTML(rule.bucket || '')}</span>
           <input class="payday-rule-inp" type="number" id="pday-amt-${rule.rule_id}" value="${(rule.amount||0).toFixed(2)}" step="0.01" min="0">
@@ -4251,19 +4251,20 @@ function closePaydaySheet() {
 }
 
 async function submitPaydaySheet() {
-  const btn      = document.getElementById('payday-apply-btn');
-  const errEl    = document.getElementById('payday-error');
+  const btn   = document.getElementById('payday-apply-btn');
+  const errEl = document.getElementById('payday-error');
   if (errEl) errEl.style.display = 'none';
-  const allocs   = {};
+  const allocs = [];
   document.querySelectorAll('.payday-rule-check').forEach(chk => {
     if (!chk.checked) return;
-    const ruleId = chk.id.replace('pday-chk-', '');
-    const amtInp = document.getElementById('pday-amt-' + ruleId);
-    if (!amtInp) return;
+    const ruleId   = chk.id.replace('pday-chk-', '');
+    const bucketId = chk.dataset.bucket || '';
+    const amtInp   = document.getElementById('pday-amt-' + ruleId);
+    if (!amtInp || !bucketId) return;
     const amt = parseFloat(amtInp.value) || 0;
-    if (amt > 0) allocs[ruleId] = amt;
+    if (amt > 0) allocs.push({bucket_id: bucketId, amount: amt});
   });
-  if (!Object.keys(allocs).length) { closePaydaySheet(); return; }
+  if (!allocs.length) { closePaydaySheet(); return; }
   setBtn(btn, 'loading');
   try {
     const r = await api('/api/apply-payday', {month: ACTIVE_MID, allocations: allocs});

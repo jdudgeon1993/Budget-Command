@@ -2144,14 +2144,14 @@ def api_payday_suggestions():
     internal, external = [], []
     for rule in rules:
         computed = round(amount * rule["value"] / 100, 2) if rule["type"] == "pct" else float(rule["value"])
-        item = {"id": rule["id"], "name": rule["name"], "type": rule["type"],
-                "value": rule["value"], "computed": computed}
+        item = {"rule_id": rule["id"], "name": rule["name"], "type": rule["type"],
+                "value": rule["value"], "amount": computed}
         if rule.get("ruleType") == "external":
             external.append(item)
         else:
             bid = rule.get("bucketId", "")
-            item["bucket_id"]   = bid
-            item["bucket_name"] = bmap.get(bid, "")
+            item["bucket_id"] = bid
+            item["bucket"]    = bmap.get(bid, "")
             internal.append(item)
 
     return jsonify({"ok": True, "internal": internal, "external": external})
