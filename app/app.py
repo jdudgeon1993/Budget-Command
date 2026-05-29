@@ -807,6 +807,15 @@ def api_save():
     data   = _load(uid, tok)
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
 
+    # Protect closed months for month-specific writes
+    _month_write_fields = {"bucket_alloc", "bucket_target", "bucket_skip"}
+    if field in _month_write_fields and mid:
+        month = next((m for m in data.get("months", []) if m["id"] == mid), None)
+        if month and month.get("closed"):
+            return jsonify({"ok": False, "error": "This month is closed."}), 403
+        if _month_sort_key(mid) > _month_sort_key(_prefund_limit_mid()):
+            return jsonify({"ok": False, "error": "Cannot allocate more than 2 months ahead."}), 400
+
     if field == "cat_name":
         cat = next((c for c in data.get("cats", []) if c["id"] == bid), None)
         if cat:
@@ -985,6 +994,12 @@ def api_save_bucket_all():
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
     if not bucket:
         return jsonify({"ok": False, "error": "Bucket not found"}), 404
+
+    month = next((m for m in data.get("months", []) if m["id"] == mid), None)
+    if month and month.get("closed"):
+        return jsonify({"ok": False, "error": "This month is closed."}), 403
+    if _month_sort_key(mid) > _month_sort_key(_prefund_limit_mid()):
+        return jsonify({"ok": False, "error": "Cannot allocate more than 2 months ahead."}), 400
 
     # Apply all top-level bucket fields in memory, then write once
     changed = False
@@ -1575,6 +1590,16 @@ def _close_btn_info(active_mid: str, S: dict) -> dict:
     return {"show": False, "type": None, "grace_days": None}
 
 
+def _prefund_limit_mid() -> str:
+    """Returns month ID of current month + 2 (furthest allowed prefunding)."""
+    today = date.today()
+    m0 = today.month - 1 + 2  # 0-indexed current + 2
+    yr = today.year
+    while m0 > 11:
+        m0 -= 12; yr += 1
+    return f"m_{yr}_{m0}"
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @app.route("/dashboard")
@@ -1847,6 +1872,7 @@ def _dashboard_inner():
         internal_rules=internal_rules, external_rules=external_rules,
         bucket_map_display=bucket_map_display,
         welcome=bool(request.args.get("welcome")),
+        prefund_limit_mid=_prefund_limit_mid(),
     )
 
 
