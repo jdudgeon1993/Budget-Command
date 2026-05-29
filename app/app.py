@@ -378,10 +378,12 @@ def bucket_status(alloc: float, budget: float, spent: float, avail: float) -> st
         return "OVER"
     if alloc > 0 and spent >= alloc:
         return "PAID"
+    if budget > 0 and alloc > budget * 1.05:   # >5% over target = overfunded
+        return "OVERFUNDED"
     if budget > 0 and alloc >= budget:
         return "FUNDED"
     if alloc > 0:
-        return "OK"
+        return "FUNDING"
     return ""
 
 

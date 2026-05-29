@@ -216,13 +216,28 @@ select.field-input { cursor: pointer; }
 
 /* Status color variants */
 .s-green  .row-bar { background: var(--green); }
-.s-accent .row-bar { background: var(--accent); }
 .s-amber  .row-bar { background: var(--amber); }
 .s-red    .row-bar { background: var(--red); }
+.s-violet .row-bar { background: var(--violet); }
+.s-accent .row-bar { background: var(--border2); }  /* EMPTY — neutral */
 .s-green  .row-val { color: var(--green); }
-.s-accent .row-val { color: var(--accent); }
 .s-amber  .row-val { color: var(--amber); }
 .s-red    .row-val { color: var(--red); }
+.s-violet .row-val { color: var(--violet); }
+.s-accent .row-val { color: var(--text3); }          /* EMPTY — muted */
+
+/* ── Status badge (bucket row header) ── */
+.sbadge {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .07em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 10px;
+  flex-shrink: 0; white-space: nowrap; border: 1px solid transparent;
+}
+.sbadge-paid       { background: color-mix(in srgb,var(--green)  14%,transparent); color: var(--green);  border-color: rgba(52,211,153,.2); }
+.sbadge-funded     { background: color-mix(in srgb,var(--green)   9%,transparent); color: var(--green);  border-color: rgba(52,211,153,.15); }
+.sbadge-overfunded { background: color-mix(in srgb,var(--violet) 14%,transparent); color: var(--violet); border-color: rgba(167,139,250,.2); }
+.sbadge-funding    { background: color-mix(in srgb,var(--amber)  12%,transparent); color: var(--amber);  border-color: rgba(251,191,36,.2); }
+.sbadge-over       { background: color-mix(in srgb,var(--red)    14%,transparent); color: var(--red);    border-color: rgba(248,113,113,.2); }
+.sbadge-empty      { display: none; }
 
 /* Ledger date */
 .row-date {
@@ -1031,10 +1046,12 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
         {% for group in category_groups %}
           <div class="section-label">{{ group.name }}</div>
           {% for b in group.buckets %}
-            {%- if b.status == 'PAID' -%}{%- set sc = 's-green' -%}{%- set pc = 'var(--green)' -%}
-            {%- elif b.status == 'OVER' -%}{%- set sc = 's-red' -%}{%- set pc = 'var(--red)' -%}
-            {%- elif b.status == 'OK' -%}{%- set sc = 's-amber' -%}{%- set pc = 'var(--amber)' -%}
-            {%- else -%}{%- set sc = 's-accent' -%}{%- set pc = 'var(--accent)' -%}{%- endif -%}
+            {%- if b.status == 'PAID'       -%}{%- set sc = 's-green'  -%}{%- set pc = 'var(--green)'  -%}{%- set pill = 'paid'       -%}
+            {%- elif b.status == 'OVER'       -%}{%- set sc = 's-red'    -%}{%- set pc = 'var(--red)'    -%}{%- set pill = 'over'       -%}
+            {%- elif b.status == 'OVERFUNDED' -%}{%- set sc = 's-violet' -%}{%- set pc = 'var(--violet)' -%}{%- set pill = 'overfunded' -%}
+            {%- elif b.status == 'FUNDED'     -%}{%- set sc = 's-green'  -%}{%- set pc = 'var(--green)'  -%}{%- set pill = 'funded'     -%}
+            {%- elif b.status == 'FUNDING'    -%}{%- set sc = 's-amber'  -%}{%- set pc = 'var(--amber)'  -%}{%- set pill = 'funding'    -%}
+            {%- else                          -%}{%- set sc = 's-accent' -%}{%- set pc = 'var(--border2)'-%}{%- set pill = 'empty'      -%}{%- endif -%}
             {%- set pct = ([100, [0, (b.spent / b.budget * 100)|round|int]|max]|min) if b.budget > 0 else 0 -%}
           <div class="row {{ sc }}" data-bucket="{{ b.id }}" onclick="toggleRow(this)">
             <div class="row-top">
@@ -1051,6 +1068,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
                   <div class="row-sub d-only">{{ b.budget|money }} budget &middot; {{ b.spent|money }} spent</div>
                 {% endif %}
               </div>
+              <span class="sbadge sbadge-{{ pill }}" data-pill="{{ b.id }}">{{ b.status }}</span>
               <div class="row-val" data-avail="{{ b.id }}">{{ b.avail|money }}</div>
               <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
@@ -2319,14 +2337,21 @@ function refreshKpis(state) {
     Object.entries(state.bucket_statuses).forEach(([bid, status]) => {
       const row = document.querySelector(`.row[data-bucket="${bid}"]`);
       if (!row) return;
-      row.classList.remove('s-green','s-accent','s-amber','s-red');
-      let color;
-      if      (status === 'PAID') { row.classList.add('s-green');  color = 'var(--green)'; }
-      else if (status === 'OVER') { row.classList.add('s-red');    color = 'var(--red)'; }
-      else if (status === 'OK')   { row.classList.add('s-amber');  color = 'var(--amber)'; }
-      else                        { row.classList.add('s-accent'); color = 'var(--accent)'; }
+      row.classList.remove('s-green','s-accent','s-amber','s-red','s-violet');
+      let color, pill, pillLabel;
+      if      (status === 'PAID')       { row.classList.add('s-green');  color = 'var(--green)';  pill = 'paid';       pillLabel = 'PAID'; }
+      else if (status === 'OVER')       { row.classList.add('s-red');    color = 'var(--red)';    pill = 'over';       pillLabel = 'OVER'; }
+      else if (status === 'OVERFUNDED') { row.classList.add('s-violet'); color = 'var(--violet)'; pill = 'overfunded'; pillLabel = 'OVERFUNDED'; }
+      else if (status === 'FUNDED')     { row.classList.add('s-green');  color = 'var(--green)';  pill = 'funded';     pillLabel = 'FUNDED'; }
+      else if (status === 'FUNDING')    { row.classList.add('s-amber');  color = 'var(--amber)';  pill = 'funding';    pillLabel = 'FUNDING'; }
+      else                              { row.classList.add('s-accent'); color = 'var(--border2)';pill = 'empty';      pillLabel = ''; }
       const fill = row.querySelector('.row-prog-fill');
       if (fill) fill.style.background = color;
+      const badge = row.querySelector('[data-pill]');
+      if (badge) {
+        badge.className = `sbadge sbadge-${pill}`;
+        badge.textContent = pillLabel;
+      }
     });
   }
 }
@@ -4482,7 +4507,7 @@ document.addEventListener('keydown', e => {
 let _cwStep = 1;
 let _cwData = null;
 const CW_STEPS = 6;
-const CW_LABELS = ['Income','Overspent','Reconcile','Debts','Report','Close'];
+const CW_LABELS = ['Income','Overruns','Reconcile','Debts','Report','Close'];
 
 async function openCWizard() {
   _cwStep = 1;
@@ -4603,20 +4628,25 @@ async function cwAddIncome() {
 function cwStep2() {
   const overspent = _cwData.step2.overspent || [];
   if (!overspent.length) return `
-    <div class="cw-step-title">Overspent Buckets</div>
-    <div class="cw-success">✅ All buckets stayed within budget this month!</div>`;
-  const rows = overspent.map(b => `
+    <div class="cw-step-title">Budget Overruns</div>
+    <div class="cw-success">✅ Clean sweep — every bucket stayed within its allocation this month!</div>`;
+  const rows = overspent.map(b => {
+    const streakLine = b.streak >= 2
+      ? `<div class="cw-row-sub" style="color:var(--amber)">⚠️ ${b.streak} months running over — raise the default so this stops repeating</div>`
+      : '';
+    return `
     <div class="cw-row" id="cw-bkt-${b.id}">
       <div style="flex:1;min-width:0">
         <div class="cw-row-label">${_escHTML(b.name)}</div>
-        <div class="cw-row-sub">Over by ${fmtMoney(b.over_by)}${b.streak>=2?' · '+b.streak+' months in a row':''}</div>
-        ${b.streak>=2?`<div class="cw-row-sub" style="color:var(--amber)">Consider raising budget to ${fmtMoney(b.suggested)}</div>`:''}
+        <div class="cw-row-sub" style="color:var(--red)">Spent <strong>${fmtMoney(b.over_by)}</strong> more than allocated</div>
+        ${streakLine}
       </div>
-      <button class="cw-btn-sm" onclick="cwRaiseBudget('${b.id}','${_escHTML(b.name)}',${b.suggested})">Raise to ${fmtMoney(b.suggested)}</button>
-    </div>`).join('');
+      <button class="cw-btn-sm" onclick="cwRaiseBudget('${b.id}','${_escHTML(b.name)}',${b.suggested})">Raise default → ${fmtMoney(b.suggested)}</button>
+    </div>`;
+  }).join('');
   return `
-    <div class="cw-step-title">Overspent Buckets</div>
-    <div class="cw-step-desc">These buckets went over their allocation. Raise default budgets for next month.</div>
+    <div class="cw-step-title">Budget Overruns</div>
+    <div class="cw-step-desc">These buckets had <strong>actual spending exceed their allocation</strong> this month. You can raise the default budget now so next month starts right.</div>
     ${rows}`;
 }
 
