@@ -262,6 +262,17 @@ select.field-input { cursor: pointer; }
 .sbadge-over       { background: color-mix(in srgb,var(--red)    14%,transparent); color: var(--red);    border-color: rgba(248,113,113,.2); }
 .sbadge-empty      { display: none; }
 
+/* ── Fill shortcut button ── */
+.fill-btn {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .06em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 10px;
+  border: 1px dashed var(--border2); color: var(--text3); background: transparent;
+  cursor: pointer; flex-shrink: 0; white-space: nowrap;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.fill-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(129,140,248,.07); }
+body.month-closed .fill-btn { display: none; }
+
 /* ── Phase 1: Top progress bar ── */
 #page-progress {
   position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 9999;
@@ -1195,6 +1206,11 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
               <span id="alloc-label-pct">{{ alloc_pct }}%</span>
             </div>
           </div>
+          {% if rts > 0.005 and month_status != 'closed' %}
+          <div style="margin-top:8px;text-align:right;">
+            <button class="fill-btn" id="distribute-rts-btn" onclick="distributeRts(this)">&#9654; Distribute RTS</button>
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -1210,7 +1226,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
             {%- else                          -%}{%- set sc = 's-accent' -%}{%- set pc = 'var(--border2)'-%}{%- set pill = 'empty'      -%}{%- endif -%}
             {%- set pct = ([100, [0, (b.spent / b.budget * 100)|round|int]|max]|min) if b.budget > 0 else 0 -%}
             {%- set prog_h = ([2, [7, ((b.budget or 0) / max_bucket_budget * 7)|round|int]|min]|max) -%}
-          <div class="row {{ sc }}" data-bucket="{{ b.id }}" onclick="toggleRow(this)">
+          <div class="row {{ sc }}" data-bucket="{{ b.id }}" data-budget="{{ b.budget }}" data-alloc="{{ b.alloc }}" onclick="toggleRow(this)">
             <div class="row-top">
               <div class="row-bar"></div>
               <div style="flex:1">
@@ -1225,6 +1241,9 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
                   <div class="row-sub d-only">{{ b.budget|money }} budget &middot; {{ b.spent|money }} spent</div>
                 {% endif %}
               </div>
+              {% if b.budget > 0 and b.alloc < b.budget and b.type != 'vault' %}
+              <button class="fill-btn" onclick="fillBucket(event,'{{ b.id }}',{{ b.budget }})">Fill</button>
+              {% endif %}
               <span class="sbadge sbadge-{{ pill }}" data-pill="{{ b.id }}">{{ b.status }}</span>
               <div class="row-val" data-avail="{{ b.id }}">{{ b.avail|money }}</div>
               <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
@@ -2497,6 +2516,9 @@ function refreshKpis(state) {
         : rts < 0.01 ? 'Every dollar has a job'
         : `${fmtMoney(rts)} waiting to be assigned`;
     }
+    // Show/hide distribute button based on RTS
+    const distBtn = document.getElementById('distribute-rts-btn');
+    if (distBtn) distBtn.style.display = rts > 0.005 ? '' : 'none';
   }
   if (state.total_alloc !== undefined && state.ledger_totals) {
     const ta  = state.total_alloc;
@@ -2767,6 +2789,23 @@ async function saveBucket(btn, bucketId, origCatId) {
     }
     // Update editor data-btype so conditional fields stay correct
     editor.dataset.btype = btype;
+    // Sync row data attributes + fill button visibility
+    const row = editor.closest('.row');
+    if (row) {
+      row.dataset.alloc  = alloc;
+      row.dataset.budget = budget;
+      const fb = row.querySelector('.fill-btn');
+      if (budget > 0 && alloc < budget && btype !== 'vault') {
+        if (!fb) {
+          const badge = row.querySelector('.sbadge');
+          if (badge) badge.insertAdjacentHTML('beforebegin', `<button class="fill-btn" onclick="fillBucket(event,'${bucketId}',${budget})">Fill</button>`);
+        } else {
+          fb.onclick = (e) => fillBucket(e, bucketId, budget);
+        }
+      } else if (fb) {
+        fb.remove();
+      }
+    }
     // Update stat-pill
     const pill = editor.querySelector('.stat-pill');
     if (pill) {
@@ -2782,6 +2821,82 @@ async function saveBucket(btn, bucketId, origCatId) {
 
 function bucketTypeChange(select) {
   select.closest('.row-editor').dataset.btype = select.value;
+}
+
+// ── Fill shortcut: set alloc = budget for one bucket ────────────
+async function fillBucket(e, bucketId, budget) {
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  btn.textContent = '…';
+  btn.disabled = true;
+  try {
+    const state = await api('/api/save', {field:'bucket_alloc', id:bucketId, value:budget, month:ACTIVE_MID});
+    if (!state.ok) throw new Error(state.error || 'Failed');
+    const row = document.querySelector(`.row[data-bucket="${bucketId}"]`);
+    if (row) {
+      row.dataset.alloc = budget;
+      btn.remove();
+    }
+    refreshKpis(state);
+  } catch(e) {
+    btn.textContent = 'Fill';
+    btn.disabled = false;
+  }
+}
+
+// ── Distribute RTS proportionally to underfunded buckets ─────────
+async function distributeRts(btn) {
+  const rows = [...document.querySelectorAll('.row[data-bucket]')];
+  const underfunded = rows.filter(r => {
+    const budget = parseFloat(r.dataset.budget) || 0;
+    const alloc  = parseFloat(r.dataset.alloc)  || 0;
+    return budget > 0 && alloc < budget;
+  });
+  if (!underfunded.length) return;
+
+  // Current RTS from displayed value
+  const rtsEl = document.getElementById('rts-hero-val');
+  let rts = rtsEl ? parseMoney(rtsEl.textContent) : 0;
+  if (rts <= 0.005) return;
+
+  btn.textContent = '…';
+  btn.disabled = true;
+
+  // Allocate proportionally: each bucket gets (gap / totalGap) * rts, capped at its gap
+  const gaps = underfunded.map(r => (parseFloat(r.dataset.budget) || 0) - (parseFloat(r.dataset.alloc) || 0));
+  const totalGap = gaps.reduce((a, b) => a + b, 0);
+  const share = Math.min(1, rts / totalGap);
+
+  try {
+    let lastState;
+    for (let i = 0; i < underfunded.length; i++) {
+      const row   = underfunded[i];
+      const bid   = row.dataset.bucket;
+      const alloc = parseFloat(row.dataset.alloc) || 0;
+      const add   = gaps[i] * share;
+      const newAlloc = Math.round((alloc + add) * 100) / 100;
+      lastState = await api('/api/save', {field:'bucket_alloc', id:bid, value:newAlloc, month:ACTIVE_MID});
+      if (lastState.ok) {
+        row.dataset.alloc = newAlloc;
+        const budget = parseFloat(row.dataset.budget) || 0;
+        if (newAlloc >= budget) {
+          const fb = row.querySelector('.fill-btn');
+          if (fb) fb.remove();
+        }
+      }
+    }
+    if (lastState) refreshKpis(lastState);
+    // refreshKpis handles button visibility based on remaining RTS
+    btn.disabled = false;
+    btn.textContent = '▶ Distribute RTS';
+  } catch(e) {
+    btn.textContent = '▶ Distribute RTS';
+    btn.disabled = false;
+  }
+}
+
+function parseMoney(s) {
+  return parseFloat((s || '').replace(/[^0-9.\-]/g, '')) || 0;
 }
 
 async function archiveBucket(btn, bucketId) {
