@@ -2589,7 +2589,10 @@ async function ldgSaveTx(btn, txId) {
       }
     }
     setBtn(btn, 'ok');
-    setTimeout(() => ldgClose(txId), 600);
+    setTimeout(() => {
+      ldgClose(txId);
+      _refreshPanels(['buckets', 'ledger']);
+    }, 400);
   } catch(e) {
     setBtn(btn, 'err');
     if (errEl) { errEl.textContent = e.message || 'Save failed.'; errEl.classList.add('show'); }
@@ -2600,10 +2603,15 @@ async function ldgDeleteTx(btn, txId) {
   setBtn(btn, 'loading');
   const state = await api('/api/delete-transaction', {id:txId, active_mid:ACTIVE_MID});
   if (state.ok) {
+    // Optimistic DOM removal for instant feedback, then re-render from server
     document.getElementById('ldgtx-' + txId)?.remove();
     document.getElementById('ldged-' + txId)?.remove();
     refreshKpis(state);
-  } else { setBtn(btn, 'err'); }
+    _refreshPanels(['buckets', 'ledger']);
+  } else {
+    setBtn(btn, 'err');
+    alert(state.error || 'Delete failed');
+  }
 }
 
 // ── Account save ─────────────────────────────────────────────────
@@ -2696,14 +2704,12 @@ async function submitSheet() {
     const state = await api('/api/add-transaction', payload);
     if (!state.ok) throw new Error(state.error || 'Failed');
     refreshKpis(state);
+    setBtn(btn, 'ok');
     closeSheet();
     if (type === 'in') {
       openPaydaySheet(amount);
     }
-    // Refresh the ledger and buckets panels in-place (no full page reload)
-    const toRefresh = ['buckets'];
-    if (document.getElementById('panel-ledger').classList.contains('active')) toRefresh.push('ledger');
-    _refreshPanels(toRefresh);
+    _refreshPanels(['buckets', 'ledger']);
   } catch(e) {
     setBtn(btn, 'ok');
     errEl.textContent = e.message;

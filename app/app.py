@@ -1991,9 +1991,11 @@ def api_delete_transaction():
     uid, tok   = _uid(), _tok()
 
     data = _load(uid, tok)
-    if not _delete_tx(uid, tok, tx_id):
+    tx_exists = any(t["id"] == tx_id for t in data.get("txs", []))
+    if not tx_exists:
         return jsonify({"ok": False, "error": "Transaction not found"}), 404
     data["txs"] = [t for t in data.get("txs", []) if t["id"] != tx_id]
+    _delete_tx(uid, tok, tx_id)   # fire-and-forget; PostgREST returns no data by default
     return jsonify({"ok": True, **_live_state(data, active_mid)})
 
 
