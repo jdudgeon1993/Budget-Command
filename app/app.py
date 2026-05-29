@@ -541,6 +541,7 @@ def _live_state(data: dict, active_mid: str) -> dict:
 
     return {
         "rts":              _rts_now(data),
+        "total_alloc":      total_allocated(active_month, active_buckets),
         "bucket_avails":    bucket_avails,
         "bucket_allocs":    bucket_allocs,
         "bucket_rollover":  bucket_rollover,
@@ -1850,6 +1851,8 @@ def _dashboard_inner():
         ]
 
     aom = _age_of_money(S)
+    total_alloc = total_allocated(active_month, active_buckets)
+    max_bucket_budget = max((b.get("budget") or 0 for b in active_buckets if not b.get("archived")), default=1)
 
     return render_template(
         "dashboard.html",
@@ -1875,6 +1878,8 @@ def _dashboard_inner():
         bucket_map_display=bucket_map_display,
         welcome=bool(request.args.get("welcome")),
         prefund_limit_mid=_prefund_limit_mid(),
+        total_alloc=total_alloc,
+        max_bucket_budget=max(max_bucket_budget, 1),
     )
 
 

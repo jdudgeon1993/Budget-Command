@@ -177,6 +177,29 @@ select.field-input { cursor: pointer; }
 .section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border2), transparent); }
 .section-label:first-child { padding-top: 4px; }
 
+/* ── Setup section cards ── */
+.setup-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 12px; overflow: hidden;
+}
+.setup-card-head {
+  padding: 12px 16px 0;
+  display: flex; align-items: baseline; gap: 8px;
+}
+.setup-card-title {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text2); font-weight: 700;
+}
+.setup-card-desc {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+}
+.setup-card-body { padding: 6px 0 0; }
+.setup-card .row { margin: 0; border-radius: 0; border-top: 1px solid var(--border); }
+.setup-card .row:first-of-type { border-top: none; }
+.setup-card .add-row-btn { border: none; border-top: 1px dashed var(--border2); border-radius: 0; }
+.setup-card .empty-state { padding: 16px; }
+.setup-card .empty-state p { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
 /* ═══════════════════════════════════════════
    EXPANDABLE ROW — shared by all panels
    ═══════════════════════════════════════════ */
@@ -238,6 +261,71 @@ select.field-input { cursor: pointer; }
 .sbadge-funding    { background: color-mix(in srgb,var(--amber)  12%,transparent); color: var(--amber);  border-color: rgba(251,191,36,.2); }
 .sbadge-over       { background: color-mix(in srgb,var(--red)    14%,transparent); color: var(--red);    border-color: rgba(248,113,113,.2); }
 .sbadge-empty      { display: none; }
+
+/* ── Phase 1: Top progress bar ── */
+#page-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 9999;
+  background: linear-gradient(90deg, var(--accent), var(--violet));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .25s ease, opacity .35s ease;
+  opacity: 0; pointer-events: none;
+}
+#page-progress.active { opacity: 1; transform: scaleX(.65); }
+#page-progress.done   { opacity: 0; transform: scaleX(1);
+  transition: transform .15s ease, opacity .4s ease .1s; }
+
+/* ── Phase 2: RTS hero block ── */
+.rts-hero {
+  padding: 12px 12px 0;
+}
+.rts-hero-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px 20px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.rts-neg .rts-hero-card { border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.04); }
+.rts-ok  .rts-hero-card { border-color: rgba(52,211,153,.25); background: rgba(52,211,153,.03); }
+.rts-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.rts-hero-left {}
+.rts-hero-kicker {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text3); margin-bottom: 4px;
+}
+.rts-hero-amount {
+  font-family: var(--mono); font-size: 40px; font-weight: 700;
+  letter-spacing: -.03em; line-height: 1; color: var(--accent);
+  transition: color .2s;
+}
+.rts-neg .rts-hero-amount { color: var(--red); }
+.rts-ok  .rts-hero-amount { color: var(--green); }
+.rts-hero-sub {
+  font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 5px;
+}
+.rts-neg .rts-hero-sub { color: rgba(248,113,113,.7); }
+.rts-ok  .rts-hero-sub { color: rgba(52,211,153,.7); }
+.rts-hero-kpis { display: flex; gap: 16px; flex-wrap: wrap; }
+.rts-hero-kpi { display: flex; flex-direction: column; gap: 2px; }
+.rts-hero-kpi-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
+.rts-hero-kpi-val { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text2); }
+
+/* ── Phase 2: Allocation progress ── */
+.alloc-prog-wrap { display: flex; flex-direction: column; gap: 4px; }
+.alloc-prog-bar {
+  height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden;
+}
+.alloc-prog-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--violet));
+  transition: width .4s ease;
+}
+.alloc-prog-fill.over { background: var(--red); }
+.alloc-prog-label {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  display: flex; justify-content: space-between;
+}
+
+/* ── Phase 2: Bucket row visual weight ── */
+.row-prog { transition: height .2s; }
 
 /* Ledger date */
 .row-date {
@@ -675,7 +763,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
 }
 .hdr-gear:hover { background: var(--bg3); color: var(--text); }
 .hdr-gear svg   { display: block; }
-@media (max-width: 899px) { .hdr-gear { display: block; } }
+@media (max-width: 899px) { .hdr-gear { display: none; } }
 
 /* ── Timeline ── */
 .tl-event {
@@ -758,6 +846,34 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
 .rpt-loading { padding:48px 0; text-align:center; font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); }
 
 /* ── Ledger Transaction List ── */
+/* ── Ledger search ── */
+.ldg-search-wrap {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px 6px; position: relative;
+}
+.ldg-search-icon { color: var(--text3); flex-shrink: 0; }
+.ldg-search-input {
+  flex: 1; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-family: var(--mono);
+  font-size: 12px; padding: 7px 28px 7px 10px; outline: none;
+  transition: border-color .15s;
+}
+.ldg-search-input:focus { border-color: var(--accent); }
+.ldg-search-clear {
+  position: absolute; right: 20px; background: none; border: none;
+  color: var(--text3); cursor: pointer; font-size: 11px; padding: 4px;
+  display: none;
+}
+.ldg-search-clear.show { display: block; }
+.ldg-tx.hidden { display: none; }
+.ldg-day-hdr.hidden { display: none; }
+.ldg-no-results {
+  text-align: center; padding: 32px 0;
+  font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: .08em;
+  display: none;
+}
+.ldg-no-results.show { display: block; }
+
 .ldg-wrap { display:flex; flex-direction:column; }
 .ldg-day-hdr { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); padding:10px 4px 4px; border-bottom:1px solid var(--border2); display:flex; align-items:center; justify-content:space-between; }
 .ldg-day-net { font-family:var(--mono); font-size:10px; }
@@ -929,6 +1045,8 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
   </button>
 </header>
 
+<div id="page-progress"></div>
+
 <div id="app">
 
   <!-- ═══════════════ SIDEBAR ═══════════════ -->
@@ -970,7 +1088,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
       </button>
       <button class="sb-item" onclick="showPanel('reports',this)">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Planned
+        Insights
       </button>
     </nav>
     <div class="sb-footer">
@@ -986,9 +1104,17 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
   </aside>
 
   <!-- ═══════════════ MAIN ═══════════════ -->
-  <main class="main">
+  <main class="main" id="main-wrap"
+    data-mid="{{ active_mid }}"
+    data-month-status="{{ month_status }}"
+    data-month-display="{{ month_display }}"
+    data-close-btn-type="{{ close_btn.type if close_btn and close_btn.show else '' }}"
+    data-close-btn-grace="{{ close_btn.grace_days if close_btn and close_btn.show else '' }}"
+    data-prefund-limit="{{ prefund_limit_mid }}"
+  >
 
-    <!-- ── Month state banner ── -->
+    <!-- ── Month state banners (swappable block) ── -->
+    <div id="month-banner-wrap">
     {% if month_status == 'closed' %}
     <div class="month-banner closed">
       <span>🔒 {{ month_display }} is closed — read only</span>
@@ -1001,9 +1127,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
       <span>← Viewing {{ month_display }} — a past month</span>
       <div class="month-banner-actions">
         {% if close_btn and close_btn.show %}
-        <button class="btn btn-primary btn-sm" onclick="closeMonth()">
-          {{ 'Close Month' if close_btn.type == 'wizard' else 'Close Month' }}
-        </button>
+        <button class="btn btn-primary btn-sm" onclick="closeMonth()">Close Month</button>
         {% endif %}
       </div>
     </div>
@@ -1021,24 +1145,56 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
       <button class="btn btn-primary btn-sm" onclick="closeMonth()">Close Month</button>
     </div>
     {% endif %}
+    </div><!-- /month-banner-wrap -->
 
     <!-- ── BUCKETS PANEL ── -->
     <div id="panel-buckets" class="panel active">
 
       <div class="panel-readonly-msg">🔒 This month is closed. Navigate to the current month to make changes.</div>
 
-      <div class="panel-kpis">
-        <div class="panel-kpi">
-          <div class="panel-kpi-label">Income</div>
-          <div class="panel-kpi-val" id="mob-income" style="color:var(--green)">{{ ledger_income|money }}</div>
-        </div>
-        <div class="panel-kpi">
-          <div class="panel-kpi-label">Spent</div>
-          <div class="panel-kpi-val" id="mob-spent" style="color:var(--amber)">{{ ledger_spent|money }}</div>
-        </div>
-        <div class="panel-kpi">
-          <div class="panel-kpi-label">Ready</div>
-          <div class="panel-kpi-val" id="mob-rts" style="color:var(--accent)">{{ rts|money }}</div>
+      <!-- ── RTS Hero ── -->
+      {%- set rts_cls = 'rts-neg' if rts < 0 else ('rts-ok' if rts == 0 else '') -%}
+      {%- set alloc_pct = ([100, [0, (total_alloc / ledger_income * 100)|round|int]|max]|min) if ledger_income > 0 else 0 -%}
+      <div class="rts-hero {{ rts_cls }}" id="rts-hero-wrap">
+        <div class="rts-hero-card">
+          <div class="rts-hero-top">
+            <div class="rts-hero-left">
+              <div class="rts-hero-kicker">Ready to Spend</div>
+              <div class="rts-hero-amount" id="rts-hero-val">{{ rts|money }}</div>
+              <div class="rts-hero-sub" id="rts-hero-sub">
+                {%- if rts < -0.005 -%}Over-allocated — cut spending or move funds
+                {%- elif rts < 0.01 -%}Every dollar has a job
+                {%- else -%}{{ rts|money }} waiting to be assigned
+                {%- endif -%}
+              </div>
+            </div>
+            <div class="rts-hero-kpis">
+              <div class="rts-hero-kpi">
+                <div class="rts-hero-kpi-lbl">Income</div>
+                <div class="rts-hero-kpi-val" id="mob-income" style="color:var(--green)">{{ ledger_income|money }}</div>
+              </div>
+              <div class="rts-hero-kpi">
+                <div class="rts-hero-kpi-lbl">Spent</div>
+                <div class="rts-hero-kpi-val" id="mob-spent" style="color:var(--amber)">{{ ledger_spent|money }}</div>
+              </div>
+              <div class="rts-hero-kpi">
+                <div class="rts-hero-kpi-lbl">RTS</div>
+                <div class="rts-hero-kpi-val" id="mob-rts" style="color:var(--accent)">{{ rts|money }}</div>
+              </div>
+            </div>
+          </div>
+          <!-- Allocation progress -->
+          <div class="alloc-prog-wrap">
+            <div class="alloc-prog-bar">
+              <div class="alloc-prog-fill {{ 'over' if total_alloc > ledger_income else '' }}"
+                   id="alloc-fill"
+                   style="width:{{ alloc_pct }}%"></div>
+            </div>
+            <div class="alloc-prog-label">
+              <span id="alloc-label-left">{{ total_alloc|money }} of {{ ledger_income|money }} allocated</span>
+              <span id="alloc-label-pct">{{ alloc_pct }}%</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1053,6 +1209,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
             {%- elif b.status == 'FUNDING'    -%}{%- set sc = 's-amber'  -%}{%- set pc = 'var(--amber)'  -%}{%- set pill = 'funding'    -%}
             {%- else                          -%}{%- set sc = 's-accent' -%}{%- set pc = 'var(--border2)'-%}{%- set pill = 'empty'      -%}{%- endif -%}
             {%- set pct = ([100, [0, (b.spent / b.budget * 100)|round|int]|max]|min) if b.budget > 0 else 0 -%}
+            {%- set prog_h = ([2, [7, ((b.budget or 0) / max_bucket_budget * 7)|round|int]|min]|max) -%}
           <div class="row {{ sc }}" data-bucket="{{ b.id }}" onclick="toggleRow(this)">
             <div class="row-top">
               <div class="row-bar"></div>
@@ -1072,7 +1229,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
               <div class="row-val" data-avail="{{ b.id }}">{{ b.avail|money }}</div>
               <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-            <div class="row-prog"><div class="row-prog-fill" style="width:{{ pct }}%;background:{{ pc }}" data-spent="{{ b.spent }}" data-budget="{{ b.budget }}"></div></div>
+            <div class="row-prog" style="height:{{ prog_h }}px"><div class="row-prog-fill" style="width:{{ pct }}%;background:{{ pc }}" data-spent="{{ b.spent }}" data-budget="{{ b.budget }}"></div></div>
             <div class="row-editor" onclick="event.stopPropagation()" data-btype="{{ b.type or 'expense' }}">
               <div class="editor-grid cols2">
                 <div class="field-group">
@@ -1247,8 +1404,15 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
         </div>
       </div>
 
+      <!-- Search bar -->
+      <div class="ldg-search-wrap">
+        <svg class="ldg-search-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="ldg-search" class="ldg-search-input" type="text" placeholder="Search transactions…" oninput="ldgFilter(this.value)">
+        <button class="ldg-search-clear" id="ldg-search-clear" onclick="ldgFilterClear()" title="Clear">✕</button>
+      </div>
+
       {% if ledger_groups %}
-      <div class="ldg-wrap">
+      <div class="ldg-wrap" id="ldg-wrap">
         {% for group in ledger_groups %}
         {%- set day_in  = namespace(v=0) %}
         {%- set day_out = namespace(v=0) %}
@@ -1257,10 +1421,10 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
           {%- elif row.type == 'out' %}{%- set day_out.v = day_out.v + row.amount %}{%- endif %}
         {%- endfor %}
         {%- set day_net = day_in.v - day_out.v %}
-        <div class="ldg-day-hdr">
+        <div class="ldg-day-hdr" data-day-hdr>
           <span>{{ group.label }}</span>
-          <span class="ldg-day-net" style="color:{% if day_net > 0 %}var(--green){% elif day_net < 0 %}var(--amber){% else %}var(--text3){% endif %}">
-            {%- if day_net > 0 %}+{{ day_net|money }}{%- elif day_net < 0 %}{{ day_net|money }}{%- endif %}
+          <span class="ldg-day-net" style="color:{% if day_net > 0 %}var(--green){% else %}var(--text3){% endif %}">
+            {%- if day_net > 0 %}+{{ day_net|money }}{%- elif day_net < -0.005 %}−{{ (day_net * -1)|money }}{%- endif %}
           </span>
         </div>
         {% for row in group.rows %}
@@ -1331,6 +1495,7 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
         {% endfor %}
         {% endfor %}
       </div>
+      <div class="ldg-no-results" id="ldg-no-results">No matching transactions</div>
       {% else %}
         <div class="ldg-empty">
           <div style="font-size:28px;margin-bottom:8px;opacity:.3">📋</div>
@@ -1719,160 +1884,168 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
     <!-- ── SETUP PANEL ── -->
     <div id="panel-setup" class="panel">
 
-      <div class="section-label">Paychecks &amp; Income</div>
-
       {%- set freq_map = {7: 'Weekly', 14: 'Biweekly', 15: 'Semi-monthly', 30: 'Monthly'} -%}
-      {% if paychecks %}
-      {% for p in paychecks %}
-      <div class="row" onclick="toggleRow(this)">
-        <div class="row-top">
-          <div class="row-bar" style="background:var(--green)"></div>
-          <div style="flex:1">
-            <div class="row-name">{{ p.label or 'Paycheck' }}</div>
-            <div class="row-sub">{{ freq_map.get(p.freq, p.freq ~ 'd') }}</div>
-          </div>
-          <div class="row-val" style="color:var(--green)">{{ p.amount|money }}</div>
-          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+
+      <!-- Income Sources -->
+      <div class="setup-card">
+        <div class="setup-card-head">
+          <span class="setup-card-title">Income Sources</span>
+          <span class="setup-card-desc">Your paychecks and recurring income</span>
         </div>
-        <div class="row-editor" onclick="event.stopPropagation()">
-          <div class="editor-grid cols2">
-            <div class="field-group">
-              <label class="field-label">Label</label>
-              <input class="field-input" type="text" data-field="label" value="{{ p.label or '' }}">
+        <div class="setup-card-body">
+          {% if paychecks %}{% for p in paychecks %}
+          <div class="row" onclick="toggleRow(this)">
+            <div class="row-top">
+              <div class="row-bar" style="background:var(--green)"></div>
+              <div style="flex:1">
+                <div class="row-name">{{ p.label or 'Paycheck' }}</div>
+                <div class="row-sub">{{ freq_map.get(p.freq, p.freq ~ 'd') }}</div>
+              </div>
+              <div class="row-val" style="color:var(--green)">{{ p.amount|money }}</div>
+              <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-            <div class="field-group">
-              <label class="field-label">Amount</label>
-              <input class="field-input" type="number" data-field="amount" value="{{ p.amount }}" step="0.01" min="0">
+            <div class="row-editor" onclick="event.stopPropagation()">
+              <div class="editor-grid cols2">
+                <div class="field-group"><label class="field-label">Label</label>
+                  <input class="field-input" type="text" data-field="label" value="{{ p.label or '' }}"></div>
+                <div class="field-group"><label class="field-label">Amount</label>
+                  <input class="field-input" type="number" data-field="amount" value="{{ p.amount }}" step="0.01" min="0"></div>
+                <div class="field-group"><label class="field-label">Frequency</label>
+                  <select class="field-input" data-field="freq">
+                    <option value="7"{% if p.freq == 7 %} selected{% endif %}>Weekly</option>
+                    <option value="14"{% if p.freq == 14 %} selected{% endif %}>Biweekly</option>
+                    <option value="15"{% if p.freq == 15 %} selected{% endif %}>Semi-monthly</option>
+                    <option value="30"{% if p.freq == 30 %} selected{% endif %}>Monthly</option>
+                  </select></div>
+                <div class="field-group"><label class="field-label">Anchor Date</label>
+                  <input class="field-input" type="date" data-field="anchorDate" value="{{ p.anchorDate or '' }}"></div>
+              </div>
+              <div class="row-error" id="pcerr-{{ p.id }}"></div>
+              <div class="editor-actions">
+                <button class="btn btn-primary btn-sm" onclick="savePaycheck(this,'{{ p.id }}')">Save</button>
+                <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
+                <div class="editor-spacer"></div>
+                <button class="btn btn-danger btn-sm" onclick="deletePaycheck(this,'{{ p.id }}')">Delete</button>
+              </div>
             </div>
-            <div class="field-group">
-              <label class="field-label">Frequency</label>
-              <select class="field-input" data-field="freq">
-                <option value="7"{% if p.freq == 7 %} selected{% endif %}>Weekly</option>
-                <option value="14"{% if p.freq == 14 %} selected{% endif %}>Biweekly</option>
-                <option value="15"{% if p.freq == 15 %} selected{% endif %}>Semi-monthly</option>
-                <option value="30"{% if p.freq == 30 %} selected{% endif %}>Monthly</option>
-              </select>
+          </div>
+          {% endfor %}{% else %}
+          <div class="empty-state"><p>No income sources yet</p></div>
+          {% endif %}
+          <button class="add-row-btn" onclick="openPaycheckSheet()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Income Source
+          </button>
+        </div>
+      </div>
+
+      <!-- Auto-Allocations -->
+      <div class="setup-card">
+        <div class="setup-card-head">
+          <span class="setup-card-title">Auto-Allocations</span>
+          <span class="setup-card-desc">Automatically fill buckets when you record income</span>
+        </div>
+        <div class="setup-card-body">
+          {%- if internal_rules -%}{%- for r in internal_rules -%}
+          <div class="row" onclick="toggleRow(this)">
+            <div class="row-top">
+              <div class="row-bar" style="background:{% if r.active %}var(--accent){% else %}var(--border2){% endif %}"></div>
+              <div style="flex:1">
+                <div class="row-name">{{ r.name }}</div>
+                <div class="row-sub">→ {{ bucket_map_display.get(r.bucketId, '?') }} &nbsp;&middot;&nbsp; {{ r.value }}{% if r.type == 'percent' %}% of income{% else %} fixed{% endif %}</div>
+              </div>
+              <div class="rule-status" style="color:{% if r.active %}var(--accent){% else %}var(--text3){% endif %}">{{ 'ON' if r.active else 'OFF' }}</div>
+              <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-            <div class="field-group">
-              <label class="field-label">Anchor Date</label>
-              <input class="field-input" type="date" data-field="anchorDate" value="{{ p.anchorDate or '' }}">
+            <div class="row-editor" onclick="event.stopPropagation()">
+              <div class="toggle-wrap" style="padding:4px 0 8px">
+                <label class="toggle"><input type="checkbox" {% if r.active %}checked{% endif %} onchange="toggleRule('{{ r.id }}',this)"><div class="toggle-track"></div></label>
+                <span class="toggle-label">Active on payday</span>
+              </div>
+              <div class="editor-actions">
+                <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Close</button>
+                <div class="editor-spacer"></div>
+                <button class="btn btn-danger btn-sm" onclick="deleteRule(this,'{{ r.id }}')">Delete</button>
+              </div>
             </div>
           </div>
-          <div class="row-error" id="pcerr-{{ p.id }}"></div>
-          <div class="editor-actions">
-            <button class="btn btn-primary btn-sm" onclick="savePaycheck(this,'{{ p.id }}')">Save</button>
-            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Cancel</button>
-            <div class="editor-spacer"></div>
-            <button class="btn btn-danger btn-sm" onclick="deletePaycheck(this,'{{ p.id }}')">Delete</button>
-          </div>
+          {%- endfor -%}{%- else -%}
+          <div class="empty-state"><p>No auto-allocations set up</p></div>
+          {%- endif -%}
+          <button class="add-row-btn" onclick="openRuleSheet('internal')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Auto-Allocation
+          </button>
         </div>
       </div>
-      {% endfor %}
-      {% else %}
-      <div class="empty-state" style="padding:32px 0">
-        <p>No paychecks configured</p>
-      </div>
-      {% endif %}
 
-      <button class="add-row-btn" onclick="openPaycheckSheet()">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Paycheck
-      </button>
-
-      <!-- ── Allocation Rules ── -->
-      <div class="section-label">Internal Rules <span style="font-size:9px;color:var(--text3);letter-spacing:.06em;text-transform:none">(auto-allocate to buckets on payday)</span></div>
-
-      {%- if internal_rules -%}
-      {%- for r in internal_rules -%}
-      <div class="row" onclick="toggleRow(this)">
-        <div class="row-top">
-          <div class="row-bar" style="background:{% if r.active %}var(--accent){% else %}var(--border2){% endif %}"></div>
-          <div style="flex:1">
-            <div class="row-name">{{ r.name }}</div>
-            <div class="row-sub">→ {{ bucket_map_display.get(r.bucketId, '?') }} &nbsp;&middot;&nbsp; {{ r.value }}{% if r.type == 'percent' %}%{% else %} fixed{% endif %}</div>
-          </div>
-          <div class="rule-status" style="color:{% if r.active %}var(--accent){% else %}var(--text3){% endif %}">{{ 'ON' if r.active else 'OFF' }}</div>
-          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      <!-- Fixed Expenses -->
+      <div class="setup-card">
+        <div class="setup-card-head">
+          <span class="setup-card-title">Fixed Expenses</span>
+          <span class="setup-card-desc">Bills taken out before you budget (taxes, benefits, etc.)</span>
         </div>
-        <div class="row-editor" onclick="event.stopPropagation()">
-          <div class="toggle-wrap" style="padding:4px 0 8px">
-            <label class="toggle">
-              <input type="checkbox" {% if r.active %}checked{% endif %} onchange="toggleRule('{{ r.id }}',this)">
-              <div class="toggle-track"></div>
-            </label>
-            <span class="toggle-label">Rule active</span>
+        <div class="setup-card-body">
+          {%- if external_rules -%}{%- for r in external_rules -%}
+          <div class="row" onclick="toggleRow(this)">
+            <div class="row-top">
+              <div class="row-bar" style="background:{% if r.active %}var(--amber){% else %}var(--border2){% endif %}"></div>
+              <div style="flex:1">
+                <div class="row-name">{{ r.name }}</div>
+                <div class="row-sub">{{ r.value }}{% if r.type == 'percent' %}% of income{% else %} fixed per period{% endif %}</div>
+              </div>
+              <div class="rule-status" style="color:{% if r.active %}var(--amber){% else %}var(--text3){% endif %}">{{ 'ON' if r.active else 'OFF' }}</div>
+              <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="row-editor" onclick="event.stopPropagation()">
+              <div class="toggle-wrap" style="padding:4px 0 8px">
+                <label class="toggle"><input type="checkbox" {% if r.active %}checked{% endif %} onchange="toggleRule('{{ r.id }}',this)"><div class="toggle-track"></div></label>
+                <span class="toggle-label">Active</span>
+              </div>
+              <div class="editor-actions">
+                <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Close</button>
+                <div class="editor-spacer"></div>
+                <button class="btn btn-danger btn-sm" onclick="deleteRule(this,'{{ r.id }}')">Delete</button>
+              </div>
+            </div>
           </div>
-          <div class="editor-actions">
-            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Close</button>
-            <div class="editor-spacer"></div>
-            <button class="btn btn-danger btn-sm" onclick="deleteRule(this,'{{ r.id }}')">Delete</button>
-          </div>
+          {%- endfor -%}{%- else -%}
+          <div class="empty-state"><p>No fixed expenses</p></div>
+          {%- endif -%}
+          <button class="add-row-btn" onclick="openRuleSheet('external')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Fixed Expense
+          </button>
         </div>
       </div>
-      {%- endfor -%}
-      {%- else -%}
-      <div class="empty-state" style="padding:20px 0"><p>No internal rules</p></div>
-      {%- endif -%}
 
-      <button class="add-row-btn" onclick="openRuleSheet('internal')">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Internal Rule
-      </button>
-
-      <div class="section-label">External Rules <span style="font-size:9px;color:var(--text3);letter-spacing:.06em;text-transform:none">(fixed expenses outside your buckets)</span></div>
-
-      {%- if external_rules -%}
-      {%- for r in external_rules -%}
-      <div class="row" onclick="toggleRow(this)">
-        <div class="row-top">
-          <div class="row-bar" style="background:{% if r.active %}var(--amber){% else %}var(--border2){% endif %}"></div>
-          <div style="flex:1">
-            <div class="row-name">{{ r.name }}</div>
-            <div class="row-sub">{{ r.value }}{% if r.type == 'percent' %}%{% else %} fixed{% endif %}</div>
-          </div>
-          <div class="rule-status" style="color:{% if r.active %}var(--amber){% else %}var(--text3){% endif %}">{{ 'ON' if r.active else 'OFF' }}</div>
-          <svg class="row-caret" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      <!-- Categories -->
+      <div class="setup-card">
+        <div class="setup-card-head">
+          <span class="setup-card-title">Categories</span>
+          <span class="setup-card-desc">Group your buckets into sections</span>
         </div>
-        <div class="row-editor" onclick="event.stopPropagation()">
-          <div class="toggle-wrap" style="padding:4px 0 8px">
-            <label class="toggle">
-              <input type="checkbox" {% if r.active %}checked{% endif %} onchange="toggleRule('{{ r.id }}',this)">
-              <div class="toggle-track"></div>
-            </label>
-            <span class="toggle-label">Rule active</span>
+        <div class="setup-card-body" style="padding:10px 14px 14px">
+          <div class="cat-mgr-wrap" id="cat-manager-list">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:4px 0;">Loading…</div>
           </div>
-          <div class="editor-actions">
-            <button class="btn btn-ghost btn-sm" onclick="closeRow(this)">Close</button>
-            <div class="editor-spacer"></div>
-            <button class="btn btn-danger btn-sm" onclick="deleteRule(this,'{{ r.id }}')">Delete</button>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+            <input class="field-input" id="new-cat-name" type="text" placeholder="New category name…" style="flex:1;font-size:14px;">
+            <button class="btn btn-ghost btn-sm" onclick="addCategoryUI()">Add</button>
           </div>
+          <div id="cat-mgr-err" style="font-family:var(--mono);font-size:11px;color:var(--red);display:none;margin-top:6px;"></div>
         </div>
       </div>
-      {%- endfor -%}
-      {%- else -%}
-      <div class="empty-state" style="padding:20px 0"><p>No external rules</p></div>
-      {%- endif -%}
 
-      <button class="add-row-btn" onclick="openRuleSheet('external')">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add External Rule
-      </button>
-
-      <!-- ── Month Tools ── -->
-      <div class="section-label">Categories</div>
-      <div class="cat-mgr-wrap" id="cat-manager-list">
-        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:8px 4px;">Loading…</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
-        <input class="field-input" id="new-cat-name" type="text" placeholder="New category name…" style="flex:1;font-size:14px;">
-        <button class="btn btn-ghost btn-sm" onclick="addCategoryUI()">Add</button>
-      </div>
-      <div id="cat-mgr-err" style="font-family:var(--mono);font-size:11px;color:var(--red);display:none;margin-bottom:8px;"></div>
-
-      <div class="section-label">Month Tools</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:4px 0;">
-        <button class="btn btn-ghost btn-sm" onclick="copyLastMonthAllocs(this)">Copy Last Month's Allocations</button>
-        <span id="copy-alloc-msg" style="font-family:var(--mono);font-size:11px;color:var(--green);display:none;"></span>
+      <!-- Month Tools -->
+      <div class="setup-card">
+        <div class="setup-card-head">
+          <span class="setup-card-title">Month Tools</span>
+        </div>
+        <div class="setup-card-body" style="padding:12px 14px 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-ghost btn-sm" onclick="copyLastMonthAllocs(this)">Copy Last Month's Allocations</button>
+          <span id="copy-alloc-msg" style="font-family:var(--mono);font-size:11px;color:var(--green);display:none;"></span>
+        </div>
       </div>
 
     </div><!-- /panel-setup -->
@@ -1899,7 +2072,11 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
       </button>
       <button class="nav-tab" id="ntab-reports" onclick="showPanel('reports',this,'mob')">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span class="nav-tab-lbl">Planned</span>
+        <span class="nav-tab-lbl">Insights</span>
+      </button>
+      <button class="nav-tab" id="ntab-setup" onclick="showPanel('setup',this,'mob')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="nav-tab-lbl">Setup</span>
       </button>
     </div>
   </nav>
@@ -2248,11 +2425,11 @@ body.month-closed .ldg-editor-actions .btn-primary { opacity: .35; pointer-event
 </div>
 
 <script>
-const ACTIVE_MID        = '{{ active_mid }}';
-const MONTH_STATUS      = '{{ month_status }}';
-const PREFUND_LIMIT_MID = '{{ prefund_limit_mid }}';
-const CLOSE_BTN_TYPE    = '{{ close_btn.type if close_btn else "" }}';
-const MONTH_DISPLAY     = '{{ month_display }}';
+let ACTIVE_MID        = '{{ active_mid }}';
+let MONTH_STATUS      = '{{ month_status }}';
+let PREFUND_LIMIT_MID = '{{ prefund_limit_mid }}';
+let CLOSE_BTN_TYPE    = '{{ close_btn.type if close_btn else "" }}';
+let MONTH_DISPLAY     = '{{ month_display }}';
 if (MONTH_STATUS === 'closed') document.body.classList.add('month-closed');
 const PAYCHECKS_DATA = {{ paychecks | tojson | safe }};
 const DUE_BUCKETS    = [{% for group in category_groups %}{% for b in group.buckets %}{% if b.due_day %}{n:{{ b.name | tojson }},d:{{ b.due_day }},a:{{ b.due_amount or b.budget }},s:{{ b.status | tojson }}},{% endif %}{% endfor %}{% endfor %}];
@@ -2302,7 +2479,35 @@ function refreshKpis(state) {
     ['sb-spent', 'mob-spent', 'ldg-spent' ].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(sp);  });
   }
   if (state.rts !== undefined) {
-    ['sb-rts','mob-rts','ldg-rts'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(state.rts); });
+    const rts = state.rts;
+    ['sb-rts','mob-rts','ldg-rts'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(rts); });
+    // Update RTS hero
+    const heroVal = document.getElementById('rts-hero-val');
+    const heroSub = document.getElementById('rts-hero-sub');
+    const heroWrap = document.getElementById('rts-hero-wrap');
+    if (heroVal) heroVal.textContent = fmtMoney(rts);
+    if (heroWrap) {
+      heroWrap.classList.remove('rts-neg','rts-ok');
+      if (rts < -0.005) heroWrap.classList.add('rts-neg');
+      else if (rts < 0.01) heroWrap.classList.add('rts-ok');
+    }
+    if (heroSub) {
+      heroSub.textContent = rts < -0.005
+        ? 'Over-allocated — cut spending or move funds'
+        : rts < 0.01 ? 'Every dollar has a job'
+        : `${fmtMoney(rts)} waiting to be assigned`;
+    }
+  }
+  if (state.total_alloc !== undefined && state.ledger_totals) {
+    const ta  = state.total_alloc;
+    const inc = state.ledger_totals.income;
+    const pct = inc > 0 ? Math.min(100, Math.round(ta / inc * 100)) : 0;
+    const fill = document.getElementById('alloc-fill');
+    const lblL = document.getElementById('alloc-label-left');
+    const lblP = document.getElementById('alloc-label-pct');
+    if (fill) { fill.style.width = pct + '%'; fill.classList.toggle('over', ta > inc); }
+    if (lblL) lblL.textContent = `${fmtMoney(ta)} of ${fmtMoney(inc)} allocated`;
+    if (lblP) lblP.textContent = `${pct}%`;
   }
   if (state.bucket_avails) {
     Object.entries(state.bucket_avails).forEach(([bid, val]) => {
@@ -2401,6 +2606,22 @@ function showAcctTab(btn, name) {
 }
 
 // ── Month navigation ─────────────────────────────────────────────
+// ── Progress bar ─────────────────────────────────────────────────
+function _progressStart() {
+  const b = document.getElementById('page-progress');
+  if (!b) return;
+  b.className = '';
+  requestAnimationFrame(() => requestAnimationFrame(() => b.classList.add('active')));
+}
+function _progressDone() {
+  const b = document.getElementById('page-progress');
+  if (!b) return;
+  b.classList.remove('active');
+  b.classList.add('done');
+  setTimeout(() => { b.className = ''; }, 600);
+}
+
+// ── Month navigation (soft, no hard reload) ───────────────────────
 function changeMonth(dir) {
   const p  = ACTIVE_MID.split('_');
   let yr   = parseInt(p[1], 10);
@@ -2408,18 +2629,73 @@ function changeMonth(dir) {
   if (mo > 11) { mo = 0;  yr++; }
   if (mo <  0) { mo = 11; yr--; }
   const newMid = `m_${yr}_${mo}`;
-  // Block navigation beyond prefund limit
   const limitKey = PREFUND_LIMIT_MID.split('_').slice(1).map(Number);
   const newKey   = [yr, mo];
   if (newKey[0] > limitKey[0] || (newKey[0] === limitKey[0] && newKey[1] > limitKey[1])) {
-    return; // silently block
+    const lbl = document.querySelector('.month-label');
+    if (lbl) { lbl.style.color='var(--red)'; setTimeout(()=>lbl.style.color='',500); }
+    return;
   }
-  window.location.href = `/dashboard?month=${newMid}`;
+  _navigateToMonth(newMid, true);
 }
 
-// ── Bucket save & archive ────────────────────────────────────────
+async function _navigateToMonth(mid, pushState) {
+  _progressStart();
+  try {
+    const resp = await fetch(`/dashboard?month=${mid}`);
+    if (!resp.ok) throw new Error('nav failed');
+    const text = await resp.text();
+    const doc  = new DOMParser().parseFromString(text, 'text/html');
+
+    // Swap all panels
+    ['buckets','ledger','accounts','reports','setup'].forEach(name => {
+      const src = doc.getElementById('panel-' + name);
+      const dst = document.getElementById('panel-' + name);
+      if (src && dst) {
+        const wasActive = dst.classList.contains('active');
+        dst.innerHTML = src.innerHTML;
+        if (wasActive) dst.classList.add('active');
+      }
+    });
+
+    // Swap banner block
+    const srcBanner = doc.getElementById('month-banner-wrap');
+    const dstBanner = document.getElementById('month-banner-wrap');
+    if (srcBanner && dstBanner) dstBanner.innerHTML = srcBanner.innerHTML;
+
+    // Update JS globals from new page meta
+    const newMain = doc.getElementById('main-wrap');
+    if (newMain) {
+      ACTIVE_MID        = newMain.dataset.mid;
+      MONTH_STATUS      = newMain.dataset.monthStatus;
+      MONTH_DISPLAY     = newMain.dataset.monthDisplay;
+      CLOSE_BTN_TYPE    = newMain.dataset.closeBtnType;
+      PREFUND_LIMIT_MID = newMain.dataset.prefundLimit;
+    }
+
+    // Update month labels everywhere
+    document.querySelectorAll('.month-label, .sb-logo-month').forEach(el => el.textContent = MONTH_DISPLAY);
+
+    // Month closed body class
+    document.body.classList.toggle('month-closed', MONTH_STATUS === 'closed');
+
+    if (pushState) history.pushState({mid}, '', `/dashboard?month=${mid}`);
+    _progressDone();
+  } catch(e) {
+    _progressDone();
+    window.location.href = `/dashboard?month=${mid}`;
+  }
+}
+
+// Browser back/forward support
+window.addEventListener('popstate', () => {
+  const mid = new URLSearchParams(location.search).get('month') || ACTIVE_MID;
+  _navigateToMonth(mid, false);
+});
+
 // ── Panel partial-refresh ─────────────────────────────────────────
 async function _refreshPanels(names) {
+  _progressStart();
   try {
     const resp = await fetch(`/dashboard?month=${ACTIVE_MID}`);
     if (!resp.ok) throw new Error('fetch failed');
@@ -2434,7 +2710,8 @@ async function _refreshPanels(names) {
         if (wasActive) dst.classList.add('active');
       }
     });
-  } catch(e) { window.location.reload(); }
+    _progressDone();
+  } catch(e) { _progressDone(); window.location.reload(); }
 }
 
 async function saveBucket(btn, bucketId, origCatId) {
@@ -2550,6 +2827,41 @@ async function deleteTx(btn, txId) {
 }
 
 // ── Ledger (new design) transaction helpers ───────────────────────
+// ── Ledger search / filter ────────────────────────────────────────
+function ldgFilter(q) {
+  const term = q.trim().toLowerCase();
+  const clearBtn = document.getElementById('ldg-search-clear');
+  if (clearBtn) clearBtn.classList.toggle('show', term.length > 0);
+  const wrap = document.getElementById('ldg-wrap');
+  if (!wrap) return;
+  let anyVisible = false;
+  // Show/hide individual transactions
+  wrap.querySelectorAll('.ldg-tx').forEach(tx => {
+    const ed = tx.nextElementSibling?.classList.contains('ldg-editor') ? tx.nextElementSibling : null;
+    const text = (tx.textContent || '').toLowerCase();
+    const match = !term || text.includes(term);
+    tx.classList.toggle('hidden', !match);
+    if (ed) ed.classList.toggle('hidden', !match);
+    if (match) anyVisible = true;
+  });
+  // Hide day headers where all children are hidden
+  wrap.querySelectorAll('[data-day-hdr]').forEach(hdr => {
+    let sibling = hdr.nextElementSibling;
+    let hasVisible = false;
+    while (sibling && !sibling.hasAttribute('data-day-hdr')) {
+      if (sibling.classList.contains('ldg-tx') && !sibling.classList.contains('hidden')) hasVisible = true;
+      sibling = sibling.nextElementSibling;
+    }
+    hdr.classList.toggle('hidden', !hasVisible);
+  });
+  const noResults = document.getElementById('ldg-no-results');
+  if (noResults) noResults.classList.toggle('show', term.length > 0 && !anyVisible);
+}
+function ldgFilterClear() {
+  const inp = document.getElementById('ldg-search');
+  if (inp) { inp.value = ''; ldgFilter(''); inp.focus(); }
+}
+
 function ldgToggle(txId) {
   const tx  = document.getElementById('ldgtx-' + txId);
   const ed  = document.getElementById('ldged-' + txId);
