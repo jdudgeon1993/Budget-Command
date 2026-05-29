@@ -46,7 +46,7 @@ select.field-input { cursor: pointer; }
 .btn:active { opacity: .7; }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-ghost   { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
-.btn-danger  { background: var(--rbg); color: var(--red); border: 1px solid rgba(239,68,68,.35); }
+.btn-danger  { background: var(--rbg); color: var(--red); border: 1px solid rgba(248,113,113,.25); }
 .btn-sm { padding: 7px 14px; font-size: 13px; }
 
 /* ── Universal App Header ── */
@@ -57,7 +57,9 @@ select.field-input { cursor: pointer; }
 }
 .hdr-logo {
   font-family: var(--display); font-size: 22px; letter-spacing: .08em;
-  color: var(--accent); line-height: 1;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1;
 }
 .hdr-spacer { flex: 1; }
 .month-nav { display: flex; align-items: center; gap: 2px; }
@@ -109,7 +111,9 @@ select.field-input { cursor: pointer; }
 }
 .sb-logo-name {
   font-family: var(--display); font-size: 26px; letter-spacing: .08em;
-  color: var(--accent); line-height: 1;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1;
 }
 .sb-logo-month {
   font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
@@ -122,6 +126,7 @@ select.field-input { cursor: pointer; }
 .sb-kpi { display: flex; justify-content: space-between; align-items: baseline; }
 .sb-kpi-label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
 .sb-kpi-val   { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+#sb-rts { text-shadow: 0 0 16px rgba(129,140,248,.4); }
 .sb-nav {
   flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 2px;
 }
@@ -132,7 +137,7 @@ select.field-input { cursor: pointer; }
   width: 100%; text-align: left; transition: background .1s, color .1s;
 }
 .sb-item:hover  { background: var(--bg3); color: var(--text); }
-.sb-item.active { background: var(--bg3); color: var(--accent); }
+.sb-item.active { background: color-mix(in srgb,var(--accent) 10%,transparent); color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .sb-item svg    { width: 17px; height: 17px; flex-shrink: 0; }
 .sb-footer {
   padding: 12px 10px; border-top: 1px solid var(--border);
@@ -140,10 +145,11 @@ select.field-input { cursor: pointer; }
 }
 .sb-add-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--violet)); color: #fff; border: none; border-radius: 8px;
   cursor: pointer; width: 100%; padding: 11px;
   font-family: var(--sans); font-size: 14px; font-weight: 700;
   letter-spacing: .04em; transition: opacity .12s;
+  box-shadow: 0 2px 16px rgba(129,140,248,.3);
 }
 .sb-add-btn:active { opacity: .8; }
 .sb-setup-btn {
@@ -168,7 +174,7 @@ select.field-input { cursor: pointer; }
   padding: 18px 2px 6px;
   display: flex; align-items: center; gap: 10px;
 }
-.section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border2), transparent); }
 .section-label:first-child { padding-top: 4px; }
 
 /* ═══════════════════════════════════════════
@@ -293,7 +299,7 @@ select.field-input { cursor: pointer; }
   color: var(--text3); padding: 8px 14px; border-radius: 4px; transition: color .12s, background .12s;
 }
 .ptab:hover  { background: var(--bg3); color: var(--text); }
-.ptab.active { color: var(--accent); background: var(--bg3); }
+.ptab.active { color: var(--accent); background: var(--bg3); box-shadow: inset 0 -2px 0 var(--accent); }
 .ptab-content { display: none; flex-direction: column; gap: 6px; padding-top: 8px; flex: 1; overflow-x: hidden; }
 .ptab-content.active { display: flex; }
 
@@ -414,7 +420,7 @@ select.field-input { cursor: pointer; }
 /* ── Sinking/Goal progress sub-line ── */
 .bkt-progress-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .bkt-progress-bar-wrap { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 3px; }
-.bkt-progress-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+.bkt-progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--violet)); border-radius: 2px; }
 
 /* ── Vault bucket display ── */
 .vault-total-display { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; font-family: var(--mono); font-size: 13px; color: var(--text2); margin-bottom: 6px; }
@@ -511,7 +517,7 @@ select.field-input { cursor: pointer; }
 .fc-day-label { font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:5px 12px 2px; background:var(--bg3); }
 .fc-bill-row { display:flex; justify-content:space-between; align-items:center; padding:3px 12px; font-family:var(--mono); font-size:12px; }
 .fc-bill-label { flex:1; color:var(--text2); }
-.fc-bill-amt { color:var(--red); white-space:nowrap; }
+.fc-bill-amt { color:var(--text2); white-space:nowrap; }
 .fc-bill-row.funded   .fc-bill-amt { color:var(--green); }
 .fc-bill-row.unfunded .fc-bill-amt { color:var(--red); }
 .fc-bill-row.scenario-off .fc-bill-label { color:var(--amber); opacity:.85; }
@@ -625,7 +631,7 @@ select.field-input { cursor: pointer; }
 .rpt-nw-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; }
 .rpt-nw-card.cash::before   { background:var(--green); }
 .rpt-nw-card.save::before   { background:var(--accent); }
-.rpt-nw-card.debt::before   { background:var(--red); }
+.rpt-nw-card.debt::before   { background:var(--violet); }
 .rpt-nw-card.net::before    { background:var(--amber); }
 .rpt-nw-label { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text3); margin-bottom:5px; }
 .rpt-nw-val   { font-family:var(--mono); font-size:20px; font-weight:700; line-height:1; }
@@ -670,7 +676,7 @@ select.field-input { cursor: pointer; }
 .ldg-tx-acct { color:var(--text3); }
 .ldg-tx-amt { font-family:var(--mono); font-size:13px; font-weight:700; white-space:nowrap; flex-shrink:0; }
 .ldg-tx-amt.in  { color:var(--green); }
-.ldg-tx-amt.out { color:var(--red); }
+.ldg-tx-amt.out { color:var(--text); }
 .ldg-tx-amt.xfr { color:var(--text2); }
 .ldg-editor { display:none; background:var(--bg2); border-bottom:1px solid var(--border); padding:10px 12px; }
 .ldg-editor.open { display:block; }
@@ -678,7 +684,7 @@ select.field-input { cursor: pointer; }
 .ldg-editor-grid .span2 { grid-column:span 2; }
 .ldg-field-label { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); margin-bottom:3px; }
 .ldg-field-input { width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r); color:var(--text); font-family:var(--mono); font-size:12px; padding:5px 8px; box-sizing:border-box; }
-.ldg-field-input:focus { outline:none; border-color:var(--accent); }
+.ldg-field-input:focus { outline:none; border-color:var(--accent); box-shadow: 0 0 0 3px rgba(129,140,248,.1); }
 .ldg-editor-actions { display:flex; gap:6px; align-items:center; }
 .ldg-err { font-family:var(--mono); font-size:10px; color:var(--red); margin-bottom:6px; display:none; }
 .ldg-err.show { display:block; }
@@ -772,12 +778,12 @@ select.field-input { cursor: pointer; }
 .nav-tab-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 .nav-plus {
   width: 50px; height: 50px; border-radius: 50%;
-  background: var(--accent); border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), var(--violet)); border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; flex-shrink: 0; box-shadow: 0 4px 16px rgba(99,102,241,.45);
+  color: #fff; flex-shrink: 0; box-shadow: 0 4px 24px rgba(129,140,248,.5), 0 0 0 1px rgba(129,140,248,.2);
   transition: transform .15s, box-shadow .15s;
 }
-.nav-plus:active { transform: scale(.91); box-shadow: 0 2px 8px rgba(99,102,241,.3); }
+.nav-plus:active { transform: scale(.91); box-shadow: 0 2px 10px rgba(129,140,248,.3); }
 
 /* ── Responsive ── */
 @media (max-width: 899px) {
@@ -1106,7 +1112,7 @@ select.field-input { cursor: pointer; }
         </div>
         <div class="panel-kpi">
           <div class="panel-kpi-label">Spent</div>
-          <div class="panel-kpi-val" id="ldg-spent" style="color:var(--red)">{{ ledger_spent|money }}</div>
+          <div class="panel-kpi-val" id="ldg-spent" style="color:var(--amber)">{{ ledger_spent|money }}</div>
         </div>
         <div class="panel-kpi">
           <div class="panel-kpi-label">Net</div>
@@ -1126,7 +1132,7 @@ select.field-input { cursor: pointer; }
         {%- set day_net = day_in.v - day_out.v %}
         <div class="ldg-day-hdr">
           <span>{{ group.label }}</span>
-          <span class="ldg-day-net" style="color:{% if day_net > 0 %}var(--green){% elif day_net < 0 %}var(--red){% else %}var(--text3){% endif %}">
+          <span class="ldg-day-net" style="color:{% if day_net > 0 %}var(--green){% elif day_net < 0 %}var(--amber){% else %}var(--text3){% endif %}">
             {%- if day_net > 0 %}+{{ day_net|money }}{%- elif day_net < 0 %}{{ day_net|money }}{%- endif %}
           </span>
         </div>
