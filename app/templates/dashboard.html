@@ -3036,8 +3036,9 @@ async function submitPaycheckSheet() {
   try {
     const r = await api('/api/add-paycheck', { label, amount, freq, anchor_date: anchor });
     if (!r.ok) throw new Error(r.error || 'Failed');
+    setBtn(btn, 'ok');
     closePaycheckSheet();
-    window.location.reload();
+    _refreshPanels(['setup']);
   } catch(e) {
     setBtn(btn, 'ok');
     errEl.textContent = e.message;
@@ -3082,8 +3083,9 @@ async function submitBucketSheet() {
   try {
     const state = await api('/api/add-bucket', payload);
     if (!state.ok) throw new Error(state.error || 'Failed');
+    setBtn(btn, 'ok');
     closeBucketSheet();
-    window.location.reload();
+    _refreshPanels(['buckets', 'setup']);
   } catch(e) {
     setBtn(btn, 'ok');
     errEl.textContent = e.message;
@@ -3117,8 +3119,9 @@ async function submitAccountSheet() {
   try {
     const state = await api('/api/add-account', { name, type, opening_balance: opening, active_mid: ACTIVE_MID });
     if (!state.ok) throw new Error(state.error || 'Failed');
+    setBtn(btn, 'ok');
     closeAccountSheet();
-    window.location.reload();
+    _refreshPanels(['accounts', 'setup']);
   } catch(e) {
     setBtn(btn, 'ok');
     errEl.textContent = e.message;
@@ -3186,8 +3189,9 @@ async function submitRuleSheet() {
   try {
     const r = await api('/api/add-rule', { name, rule_type: ruleType, value_type: vtype, value, bucket_id: bucketId });
     if (!r.ok) throw new Error(r.error || 'Failed');
+    setBtn(btn, 'ok');
     closeRuleSheet();
-    window.location.reload();
+    _refreshPanels(['setup']);
   } catch(e) {
     setBtn(btn, 'ok');
     errEl.textContent = e.message;
@@ -4229,6 +4233,7 @@ async function submitVaultTransfer(btn, bucketId) {
     closeVaultForm(bucketId);
     refreshKpis(r);
     setBtn(btn, 'ok');
+    _refreshPanels(['buckets']);
   } catch(e) {
     setBtn(btn, 'err');
     alert(e.message);
@@ -4244,6 +4249,7 @@ async function submitVaultWithdraw(btn, bucketId) {
     closeVaultForm(bucketId);
     refreshKpis(r);
     setBtn(btn, 'ok');
+    _refreshPanels(['buckets']);
   } catch(e) {
     setBtn(btn, 'err');
     alert(e.message);
@@ -4285,6 +4291,7 @@ async function recordDebtPayment(debtId, btn) {
       balEl.textContent = fmtMoney(r.account_balances[debtId]);
     }
     setBtn(btn, 'ok');
+    _refreshPanels(['accounts', 'ledger']);
   } catch(e) {
     setBtn(btn, 'err');
     if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
@@ -4305,7 +4312,7 @@ async function copyLastMonthAllocs(btn) {
       setTimeout(() => { msg.style.display = 'none'; }, 3000);
     }
     setBtn(btn, 'ok');
-    if (r.copied > 0) setTimeout(() => window.location.reload(), 1200);
+    if (r.copied > 0) setTimeout(() => _refreshPanels(['buckets']), 800);
   } catch(e) {
     setBtn(btn, 'err');
   }
@@ -4453,7 +4460,9 @@ async function submitPaydaySheet() {
     const r = await api('/api/apply-payday', {month: ACTIVE_MID, allocations: allocs});
     if (!r.ok) throw new Error(r.error || 'Apply failed');
     refreshKpis(r);
+    setBtn(btn, 'ok');
     closePaydaySheet();
+    _refreshPanels(['buckets']);
   } catch(e) {
     setBtn(btn, 'ok');
     if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
