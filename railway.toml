@@ -1,5 +1,9 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "reflex_app/Dockerfile"
+dockerContext = "."
 
 [deploy]
-healthcheckPath = "/health"
+healthcheckPath = "/ping"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
