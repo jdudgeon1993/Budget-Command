@@ -8,5 +8,4 @@ config = rx.Config(
     # In production, the frontend calls back to the same host (nginx proxies it)
     api_url=os.environ.get("RAILWAY_PUBLIC_DOMAIN", "http://localhost:8080"),
     deploy_url=os.environ.get("RAILWAY_PUBLIC_DOMAIN", "http://localhost:8080"),
-    loglevel="info",
 )
