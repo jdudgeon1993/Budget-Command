@@ -69,7 +69,7 @@ def _rts_hero() -> rx.Component:
                            "background": BG3, "overflow": "hidden", "width": "100%"},
                 ),
                 rx.hstack(
-                    rx.text(AppState.alloc_fmt + " of " + AppState.income_fmt + " allocated",
+                    rx.text(AppState.alloc_fmt, " of ", AppState.income_fmt, " allocated",
                             style={"font_size": "10px", "color": TEXT3}),
                     rx.spacer(),
                     rx.text(f"{AppState.alloc_pct}%",
@@ -123,7 +123,7 @@ def _bucket_row(row: dict) -> rx.Component:
                 rx.vstack(
                     rx.text(row["name"],
                             style={"font_size": "13px", "color": TEXT, "font_weight": "600"}),
-                    rx.text(row["budget_fmt"] + " budget · " + row["spent_fmt"] + " spent",
+                    rx.text(row["budget_fmt"], " budget · ", row["spent_fmt"], " spent",
                             style={"font_size": "10px", "color": TEXT3}),
                     gap="1px", align_items="flex-start", flex="1",
                 ),
@@ -153,8 +153,8 @@ def _bucket_row(row: dict) -> rx.Component:
                             "text_transform": "uppercase", "padding": "2px 7px",
                             "border_radius": "10px", "white_space": "nowrap",
                             "color": row["avail_color"],
-                            "background": row["avail_color"] + "1f",
-                            "border": "1px solid " + row["avail_color"] + "33",
+                            "background": row["avail_bg"],
+                            "border": row["avail_border"],
                         },
                     ),
                     rx.box(),

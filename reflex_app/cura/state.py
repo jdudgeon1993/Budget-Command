@@ -535,6 +535,8 @@ class AppState(rx.State):
                     "spent_fmt":   _fmt(spent),
                     "pct_str":     f"{pct}%",
                     "avail_color": _avail_color(pill),
+                    "avail_bg":    _avail_color(pill) + "1f",
+                    "avail_border": "1px solid " + _avail_color(pill) + "33",
                     "bar_color":   _bar_color(pill),
                     "prog_h":      f"{prog_h}px",
                     "show_fill":   bool(budget > 0 and alloc < budget and btype != "vault"),
