@@ -256,15 +256,17 @@ class AppState(rx.State):
     panel_error:   str  = ""
 
     # ── Add-transaction sheet ─────────────────────────────────────────────────
-    sheet_open:     bool = False
-    sheet_type:     str  = "out"      # "out" | "in" | "xfr"
-    sheet_amount:   str  = ""
-    sheet_desc:     str  = ""
-    sheet_date:     str  = ""
-    sheet_account:  str  = ""
-    sheet_bucket:   str  = ""
-    sheet_error:    str  = ""
-    sheet_saving:   bool = False
+    sheet_open:        bool = False
+    sheet_type:        str  = "out"      # "out" | "in" | "xfr"
+    sheet_amount:      str  = ""
+    sheet_desc:        str  = ""
+    sheet_date:        str  = ""
+    sheet_account:     str  = ""
+    sheet_to_account:  str  = ""         # xfr destination
+    sheet_bucket:      str  = ""
+    sheet_income_type: str  = "paycheck" # "paycheck" | "other"
+    sheet_error:       str  = ""
+    sheet_saving:      bool = False
 
     # ── Ledger search ─────────────────────────────────────────────────────────
     ledger_query: str = ""
@@ -333,16 +335,19 @@ class AppState(rx.State):
     rule_sheet_error:    str  = ""
 
     # ── Edit transaction ──────────────────────────────────────────
-    edit_tx_open:    bool = False
-    edit_tx_id:      str  = ""
-    edit_tx_type:    str  = "out"
-    edit_tx_desc:    str  = ""
-    edit_tx_amount:  str  = ""
-    edit_tx_date:    str  = ""
-    edit_tx_account: str  = ""
-    edit_tx_bucket:  str  = ""
-    edit_tx_saving:  bool = False
-    edit_tx_error:   str  = ""
+    edit_tx_open:         bool = False
+    edit_tx_id:           str  = ""
+    edit_tx_type:         str  = "out"
+    edit_tx_desc:         str  = ""
+    edit_tx_amount:       str  = ""
+    edit_tx_date:         str  = ""
+    edit_tx_account:      str  = ""
+    edit_tx_to_account:   str  = ""
+    edit_tx_bucket:       str  = ""
+    edit_tx_income_type:  str  = "paycheck"
+    edit_tx_reconciled:   bool = False
+    edit_tx_saving:       bool = False
+    edit_tx_error:        str  = ""
 
     # ── Payday modal ──────────────────────────────────────────────────
     payday_open:       bool = False
@@ -586,14 +591,16 @@ class AppState(rx.State):
     # ─────────────────────────────────────────────────────────────────────────
 
     def open_sheet(self):
-        self.sheet_open   = True
-        self.sheet_type   = "out"
-        self.sheet_amount = ""
-        self.sheet_desc   = ""
-        self.sheet_date   = date.today().isoformat()
-        self.sheet_account = self.account_options[0]["id"] if self.account_options else ""
-        self.sheet_bucket  = self.expense_buckets[0]["id"] if self.expense_buckets else ""
-        self.sheet_error  = ""
+        self.sheet_open        = True
+        self.sheet_type        = "out"
+        self.sheet_amount      = ""
+        self.sheet_desc        = ""
+        self.sheet_date        = date.today().isoformat()
+        self.sheet_account     = self.account_options[0]["id"] if self.account_options else ""
+        self.sheet_to_account  = self.account_options[1]["id"] if len(self.account_options) > 1 else ""
+        self.sheet_bucket      = self.expense_buckets[0]["id"] if self.expense_buckets else ""
+        self.sheet_income_type = "paycheck"
+        self.sheet_error       = ""
 
     def close_sheet(self):
         self.sheet_open  = False
@@ -640,14 +647,15 @@ class AppState(rx.State):
             mid = _date_to_mid(self.sheet_date)
             DB.ensure_month(self.user_id, self.access_token, mid)
             tx = {
-                "accountId": self.sheet_account,
-                "monthId": mid,
-                "type": self.sheet_type,
-                "amount": amount,
-                "date": self.sheet_date,
-                "desc": self.sheet_desc,
-                "bucketId": self.sheet_bucket if self.sheet_type == "out" else "",
-                "incomeType": "paycheck" if self.sheet_type == "in" else None,
+                "accountId":    self.sheet_account,
+                "monthId":      mid,
+                "type":         self.sheet_type,
+                "amount":       amount,
+                "date":         self.sheet_date,
+                "desc":         self.sheet_desc,
+                "bucketId":     self.sheet_bucket if self.sheet_type == "out" else "",
+                "toAccountId":  self.sheet_to_account if self.sheet_type == "xfr" else "",
+                "incomeType":   self.sheet_income_type if self.sheet_type == "in" else None,
             }
             tx_id = DB.insert_transaction(self.user_id, self.access_token, tx)
             data = DB.load_all(self.user_id, self.access_token)
@@ -1194,17 +1202,20 @@ class AppState(rx.State):
         tx = next((t for t in (self._raw.get("txs") or []) if t["id"] == tx_id), None)
         if not tx:
             return
-        def _s(v): return str(int(v)) if v == int(v) else f"{v:.2f}"
-        self.edit_tx_id      = tx_id
-        self.edit_tx_type    = tx.get("type", "out")
-        self.edit_tx_desc    = tx.get("desc", "")
-        self.edit_tx_amount  = _s(float(tx.get("amount") or 0))
-        self.edit_tx_date    = tx.get("date", "")
-        self.edit_tx_account = tx.get("accountId", "")
-        self.edit_tx_bucket  = tx.get("bucketId", "")
-        self.edit_tx_error   = ""
-        self.edit_tx_saving  = False
-        self.edit_tx_open    = True
+        v = float(tx.get("amount") or 0)
+        self.edit_tx_id           = tx_id
+        self.edit_tx_type         = tx.get("type", "out")
+        self.edit_tx_desc         = tx.get("desc") or ""
+        self.edit_tx_amount       = str(int(v)) if v == int(v) else f"{v:.2f}"
+        self.edit_tx_date         = tx.get("date", "")
+        self.edit_tx_account      = tx.get("accountId", "")
+        self.edit_tx_to_account   = tx.get("toAccountId", "")
+        self.edit_tx_bucket       = tx.get("bucketId", "")
+        self.edit_tx_income_type  = tx.get("incomeType", "paycheck") or "paycheck"
+        self.edit_tx_reconciled   = bool(tx.get("reconciled"))
+        self.edit_tx_error        = ""
+        self.edit_tx_saving       = False
+        self.edit_tx_open         = True
 
     def set_edit_tx_open(self, v: bool):
         self.edit_tx_open = v
@@ -1242,11 +1253,14 @@ class AppState(rx.State):
         yield
         try:
             DB.update_transaction(self.user_id, self.access_token, self.edit_tx_id, {
-                "desc":       self.edit_tx_desc.strip(),
-                "amount":     amount,
-                "date":       self.edit_tx_date,
-                "account_id": self.edit_tx_account,
-                "bucket_id":  self.edit_tx_bucket or None,
+                "desc":               self.edit_tx_desc.strip(),
+                "amount":             amount,
+                "date":               self.edit_tx_date,
+                "account_id":         self.edit_tx_account,
+                "bucket_id":          self.edit_tx_bucket or None,
+                "to_account_id":      self.edit_tx_to_account or None,
+                "income_type":        self.edit_tx_income_type if self.edit_tx_type == "in" else None,
+                "reconciled":         self.edit_tx_reconciled,
             })
             data = DB.load_all(self.user_id, self.access_token)
             self._raw           = data
@@ -1558,66 +1572,105 @@ class AppState(rx.State):
             reverse=True,
         )
 
+        # Uniform defaults for all row types
+        _TX_DEFAULTS = {
+            "id": "", "desc": "", "type": "", "amount": 0.0,
+            "amount_fmt": "", "amt_color": "", "account": "", "to_account": "",
+            "bucket": "", "income_type": "", "scheduled": False, "reconciled": False,
+            "left_border": "none", "type_chip": "", "chip_color": "#8282a2",
+            "chip_bg": "#8282a218", "chip_border": "1px solid #8282a233",
+            "reconciled_str": "", "inc_fmt": "", "spent_fmt": "",
+        }
+        _HDR_DEFAULTS = {"label": "", "date": "", "net_fmt": "", "net_color": ""}
+
         ledger_flat: list[dict] = []
+
+        # Month totals summary row (income and spending for the month)
+        month_net = inc_total - sp_total
+        ledger_flat.append({
+            "row_type":  "month_totals",
+            **_TX_DEFAULTS,
+            **_HDR_DEFAULTS,
+            "net_fmt":    _fmt(month_net),
+            "net_color":  "#34d399" if month_net >= 0 else "#f87171",
+            "inc_fmt":    f"+{_fmt(inc_total)}",
+            "spent_fmt":  f"−{_fmt(sp_total)}",
+        })
+
         for date_str, group in groupby(ledger_txs, key=lambda t: t.get("date", "")):
             ledger_flat.append({
-                "row_type":    "date_header",
-                "label":       _date_label(date_str),
-                "date":        date_str,
-                # tx defaults
-                "id": "", "desc": "", "type": "", "amount": 0.0,
-                "amount_fmt": "", "amt_color": "", "account": "", "bucket": "",
-                "scheduled": False, "reconciled": False,
-                "left_border": "none", "type_chip": "", "chip_color": "",
-                "chip_bg": "", "chip_border": "",
+                "row_type": "date_header",
+                "label":    _date_label(date_str),
+                "date":     date_str,
+                **_TX_DEFAULTS,
+                **_HDR_DEFAULTS,
             })
             for t in group:
                 ttype = t.get("type", "out")
                 amt   = float(t.get("amount") or 0)
                 sched = is_scheduled(t)
+                recon = bool(t.get("reconciled"))
+
                 amt_color = (
                     "#34d399" if ttype == "in" else
                     "#fbbf24" if sched else
                     "#f87171" if ttype == "out" else
-                    "#8282a2"
+                    "#8282a2"   # xfr — neutral, money staying in system
                 )
-                amt_prefix = "+" if ttype == "in" else "−"
+                amt_prefix = (
+                    "+" if ttype == "in" else
+                    ""  if ttype == "xfr" else
+                    "−"
+                )
                 left_border = (
-                    f"3px solid #34d399" if ttype == "in" else
-                    f"3px solid #fbbf24" if sched else
+                    "3px solid #34d399" if ttype == "in" and not sched else
+                    "3px solid #fbbf24" if sched else
                     "none"
                 )
                 type_chip = (
-                    "Income"   if ttype == "in" else
+                    "Income"    if ttype == "in" and not sched else
                     "Scheduled" if sched else
-                    "Transfer" if ttype == "xfr" else
+                    "Transfer"  if ttype == "xfr" else
                     ""
                 )
                 chip_color = (
-                    "#34d399" if ttype == "in" else
+                    "#34d399" if ttype == "in" and not sched else
                     "#fbbf24" if sched else
                     "#8282a2"
                 )
-                chip_bg     = chip_color + "18"
-                chip_border = "1px solid " + chip_color + "33"
+
+                from_name = acct_map.get(t.get("accountId", ""), "")
+                to_name   = acct_map.get(t.get("toAccountId", ""), "")
+                # Sub-label: for transfers show "From → To", else bucket or account
+                if ttype == "xfr" and to_name:
+                    sub_label = f"{from_name} → {to_name}"
+                elif bucket_map.get(t.get("bucketId", "")):
+                    sub_label = bucket_map[t["bucketId"]]
+                else:
+                    sub_label = from_name
+
                 ledger_flat.append({
-                    "row_type":    "tx",
-                    "id":          t["id"],
-                    "date":        t.get("date", ""),
-                    "desc":        t.get("desc") or "",
-                    "type":        ttype,
-                    "amount":      amt,
-                    "amount_fmt":  f"{amt_prefix}{_fmt(amt)}",
-                    "amt_color":   amt_color,
-                    "account":     acct_map.get(t.get("accountId", ""), ""),
-                    "bucket":      bucket_map.get(t.get("bucketId", ""), ""),
-                    "scheduled":   sched,
-                    "reconciled":  bool(t.get("reconciled")),
-                    "left_border":  left_border,
-                    "type_chip":    type_chip,
-                    "chip_color":   chip_color,
-                    "chip_bg":      chip_bg,
-                    "chip_border":  chip_border,
+                    "row_type":       "tx",
+                    "id":             t["id"],
+                    "date":           t.get("date", ""),
+                    "desc":           t.get("desc") or "",
+                    "type":           ttype,
+                    "amount":         amt,
+                    "amount_fmt":     f"{amt_prefix}{_fmt(amt)}",
+                    "amt_color":      amt_color,
+                    "account":        sub_label,
+                    "to_account":     to_name,
+                    "bucket":         bucket_map.get(t.get("bucketId", ""), ""),
+                    "income_type":    t.get("incomeType", "") or "",
+                    "scheduled":      sched,
+                    "reconciled":     recon,
+                    "reconciled_str": "✓" if recon else "",
+                    "left_border":    left_border,
+                    "type_chip":      type_chip,
+                    "chip_color":     chip_color,
+                    "chip_bg":        chip_color + "18",
+                    "chip_border":    "1px solid " + chip_color + "33",
+                    **_HDR_DEFAULTS,
                 })
 
         self.ledger_rows = ledger_flat
