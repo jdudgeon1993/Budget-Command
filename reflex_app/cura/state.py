@@ -269,6 +269,10 @@ class AppState(rx.State):
     sheet_error:       str  = ""
     sheet_saving:      bool = False
 
+    # ── Bucket transaction expand ─────────────────────────────────────────────
+    expanded_bucket_id:  str        = ""
+    expanded_bucket_txs: list[dict] = []
+
     # ── Ledger search ─────────────────────────────────────────────────────────
     ledger_query: str = ""
 
@@ -794,6 +798,31 @@ class AppState(rx.State):
             "rolloverReleased": {}, "skippedBuckets": {}, "vaultWithdrawals": {},
         })
         self._raw["months"] = months
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Bucket inline transaction expand
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def toggle_bucket_expand(self, bid: str):
+        if self.expanded_bucket_id == bid:
+            self.expanded_bucket_id = ""
+            self.expanded_bucket_txs = []
+            return
+        self.expanded_bucket_id = bid
+        raw_txs = (self._raw or {}).get("txs", [])
+        txs = [
+            t for t in raw_txs
+            if t.get("bucketId") == bid and t.get("monthId") == self.active_mid
+        ]
+        txs.sort(key=lambda t: t.get("date", ""), reverse=True)
+        self.expanded_bucket_txs = [
+            {
+                "desc":       t.get("desc") or "—",
+                "amount_fmt": f"−{_fmt(float(t.get('amount') or 0))}",
+                "date_label": _date_label(t.get("date", "")),
+            }
+            for t in txs
+        ]
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Bucket settings dialog

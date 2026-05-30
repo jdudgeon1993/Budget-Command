@@ -666,6 +666,19 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.box(),
                 ),
                 rx.spacer(),
+                # Expand chevron
+                rx.box(
+                    rx.cond(
+                        AppState.expanded_bucket_id == row["id"],
+                        "▾", "▸",
+                    ),
+                    on_click=AppState.toggle_bucket_expand(row["id"]),
+                    style={
+                        "font_size": "11px", "color": TEXT3, "cursor": "pointer",
+                        "padding": "2px 6px", "border_radius": "5px",
+                        "_hover": {"color": TEXT2, "background": BG3},
+                    },
+                ),
                 rx.cond(
                     row["show_fill"],
                     rx.box(
@@ -693,6 +706,46 @@ def _bucket_row(row: dict) -> rx.Component:
                 ),
                 align_items="center", width="100%", gap="4px",
                 style={"margin_top": "7px"},
+            ),
+
+            # Expanded transaction list
+            rx.cond(
+                AppState.expanded_bucket_id == row["id"],
+                rx.box(
+                    rx.cond(
+                        AppState.expanded_bucket_txs.length() == 0,
+                        rx.text("No transactions this month", style={
+                            "font_size": "10px", "color": TEXT3,
+                            "font_family": MONO, "padding": "6px 0",
+                        }),
+                        rx.foreach(
+                            AppState.expanded_bucket_txs.to(list[dict[str, Any]]),
+                            lambda tx: rx.hstack(
+                                rx.text(tx["date_label"], style={
+                                    "font_size": "9px", "color": TEXT3,
+                                    "font_family": MONO, "width": "80px", "flex_shrink": "0",
+                                }),
+                                rx.text(tx["desc"], style={
+                                    "font_size": "11px", "color": TEXT2,
+                                    "flex": "1", "min_width": "0",
+                                    "overflow": "hidden", "text_overflow": "ellipsis",
+                                    "white_space": "nowrap",
+                                }),
+                                rx.text(tx["amount_fmt"], style={
+                                    "font_size": "11px", "font_family": MONO,
+                                    "color": RED, "white_space": "nowrap", "flex_shrink": "0",
+                                }),
+                                align_items="center", width="100%", gap="8px",
+                                style={"padding": "3px 0"},
+                            ),
+                        ),
+                    ),
+                    style={
+                        "border_top": f"1px solid {BORDER}",
+                        "margin_top": "8px", "padding_top": "8px",
+                    },
+                ),
+                rx.box(),
             ),
 
             style={
