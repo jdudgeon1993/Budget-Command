@@ -650,28 +650,6 @@ def _bucket_row(row: dict) -> rx.Component:
                 align_items="flex-start", width="100%", gap="10px",
             ),
 
-            # Funding bar: alloc / budget (ZBB primary metric)
-            rx.cond(
-                row["budget"].to(float) > 0,
-                rx.box(
-                    rx.box(
-                        class_name="prog-fill",
-                        style={
-                            "height": "100%", "border_radius": "2px",
-                            "background": rx.cond(
-                                row["is_funded"] == "1", GREEN, ACCENT),
-                            "width": row["funding_pct_str"],
-                        },
-                    ),
-                    style={
-                        "height": "3px", "background": BG3,
-                        "border_radius": "2px", "overflow": "hidden",
-                        "width": "100%", "margin_top": "8px",
-                    },
-                ),
-                rx.box(),
-            ),
-
             # Bottom: spent meta + Fill + ⋯
             rx.hstack(
                 rx.cond(
@@ -718,11 +696,23 @@ def _bucket_row(row: dict) -> rx.Component:
             ),
 
             style={
-                "background": BG2, "border": f"1px solid {BORDER}",
-                "border_radius": "8px", "padding": "10px 12px",
+                "background": BG2,
+                "border": f"1px solid {BORDER}",
+                "border_left": rx.cond(
+                    row["is_funded"] == "1", f"3px solid {GREEN}",
+                    rx.cond(row["gap_fmt"] != "", f"3px solid {AMBER}", f"1px solid {BORDER}"),
+                ),
+                "border_radius": "8px",
+                "padding": rx.cond(
+                    row["is_funded"] == "1", "10px 12px 10px 10px",
+                    rx.cond(row["gap_fmt"] != "", "10px 12px 10px 10px", "10px 12px"),
+                ),
                 "margin_bottom": "5px",
                 "opacity": rx.cond(row["is_skipped"] == "1", "0.4", "1"),
-                "_hover": {"border_color": BORDER2},
+                "_hover": {"border_left_color": rx.cond(
+                    row["is_funded"] == "1", GREEN,
+                    rx.cond(row["gap_fmt"] != "", AMBER, BORDER2),
+                )},
             },
         ),
     )
