@@ -652,7 +652,7 @@ def _bucket_row(row: dict) -> rx.Component:
 
             # Funding bar: alloc / budget (ZBB primary metric)
             rx.cond(
-                row["budget"] > 0,
+                row["budget"].to(float) > 0,
                 rx.box(
                     rx.box(
                         class_name="prog-fill",
