@@ -9,6 +9,7 @@ import reflex as rx
 from typing import Any
 from datetime import date, timedelta
 from itertools import groupby
+import calendar
 
 from .formulas import (
     current_month_id, parse_month_id, month_id as _month_id,
@@ -61,6 +62,47 @@ def _bar_color(pill: str) -> str:
         "paid": "#34d399", "funded": "#34d399",
         "overfunded": "#a78bfa", "over": "#f87171",
     }.get(pill, "#818cf8")
+
+
+# ── ZBB helpers ───────────────────────────────────────────────────────────────
+
+def _due_info(due_day: str, mid: str) -> tuple[str, str]:
+    """Return (label, urgency) for a bucket's due day within month mid."""
+    if not due_day:
+        return "", ""
+    try:
+        year, m0 = parse_month_id(mid)
+        month = m0 + 1
+        today = date.today()
+        raw = str(due_day).strip().lower()
+        if raw in ("eom", "end", "last"):
+            day = calendar.monthrange(year, month)[1]
+        else:
+            day = min(int(raw), calendar.monthrange(year, month)[1])
+        due_date = date(year, month, day)
+        days_away = (due_date - today).days
+        if days_away < 0:
+            return f"Due {abs(days_away)}d ago", "overdue"
+        if days_away == 0:
+            return "Due today", "urgent"
+        if days_away <= 7:
+            return f"Due in {days_away}d", "soon"
+        return f"Due {due_date.strftime('%-d %b')}", ""
+    except (ValueError, TypeError):
+        return str(due_day), ""
+
+
+def _months_left(target_date_str: str) -> int:
+    """Return months remaining until target YYYY-MM string."""
+    if not target_date_str:
+        return 0
+    try:
+        parts = target_date_str.split("-")
+        ty, tm = int(parts[0]), int(parts[1])
+        today = date.today()
+        return max(0, (ty - today.year) * 12 + (tm - today.month))
+    except (ValueError, IndexError):
+        return 0
 
 
 # ── Date label ────────────────────────────────────────────────────────────────
@@ -250,10 +292,13 @@ class AppState(rx.State):
     bsf_error:      str  = ""
 
     # ── Add bucket strip ──────────────────────────────────────────────────────
-    add_bkt_name:   str  = ""
-    add_bkt_cat_id: str  = ""
-    add_bkt_type:   str  = "expense"
-    add_bkt_saving: bool = False
+    add_bkt_name:          str  = ""
+    add_bkt_cat_id:        str  = ""
+    add_bkt_type:          str  = "expense"
+    add_bkt_saving:        bool = False
+    add_bkt_creating_cat:  bool = False
+    add_bkt_new_cat_name:  str  = ""
+    add_bkt_new_cat_color: str  = "#818cf8"
 
     # ── Bucket settings — extended type-aware fields ──────────────────
     bsf_target_amount: str   = ""
@@ -892,29 +937,120 @@ class AppState(rx.State):
             yield rx.toast.error("Release failed")
 
     # ─────────────────────────────────────────────────────────────────────────
-    #  Add bucket
+    #  Add bucket (with optional inline category creation)
     # ─────────────────────────────────────────────────────────────────────────
 
+    def toggle_create_cat(self):
+        self.add_bkt_creating_cat = not self.add_bkt_creating_cat
+        if self.add_bkt_creating_cat:
+            self.add_bkt_cat_id = "new"
+        else:
+            self.add_bkt_cat_id = ""
+            self.add_bkt_new_cat_name = ""
+
+    def select_add_bkt_cat(self, v: str):
+        if v == "new":
+            self.add_bkt_creating_cat = True
+            self.add_bkt_cat_id = "new"
+        else:
+            self.add_bkt_cat_id = v
+            self.add_bkt_creating_cat = False
+            self.add_bkt_new_cat_name = ""
+
     async def add_bucket_submit(self):
-        if not self.add_bkt_name.strip() or not self.add_bkt_cat_id:
+        if not self.add_bkt_name.strip():
             return
+        cat_id = self.add_bkt_cat_id
         self.add_bkt_saving = True
         yield
         try:
+            # Create the category first if user entered a new one
+            if cat_id == "new" or self.add_bkt_creating_cat:
+                if not self.add_bkt_new_cat_name.strip():
+                    self.add_bkt_saving = False
+                    return
+                cat_id = DB.insert_category(
+                    self.user_id, self.access_token,
+                    self.add_bkt_new_cat_name.strip(),
+                    self.add_bkt_new_cat_color,
+                )
+            if not cat_id:
+                self.add_bkt_saving = False
+                return
             DB.insert_bucket(
                 self.user_id, self.access_token,
-                self.add_bkt_name.strip(), self.add_bkt_cat_id, self.add_bkt_type,
+                self.add_bkt_name.strip(), cat_id, self.add_bkt_type,
             )
             data = DB.load_all(self.user_id, self.access_token)
-            self._raw           = data
+            self._raw                  = data
             self._process(data, self.active_mid)
-            self.add_bkt_name   = ""
-            self.add_bkt_cat_id = ""
-            self.add_bkt_saving = False
+            self.add_bkt_name          = ""
+            self.add_bkt_cat_id        = ""
+            self.add_bkt_type          = "expense"
+            self.add_bkt_new_cat_name  = ""
+            self.add_bkt_new_cat_color = "#818cf8"
+            self.add_bkt_creating_cat  = False
+            self.add_bkt_saving        = False
             yield rx.toast.success("Bucket added")
-        except Exception as e:
+        except Exception:
             self.add_bkt_saving = False
-            yield rx.toast.error(f"Could not add bucket")
+            yield rx.toast.error("Could not add bucket")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Distribute RTS
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def distribute_rts(self):
+        """Spread RTS proportionally across underfunded buckets."""
+        rts = self.rts
+        if rts <= 0.005:
+            return
+        months = self._raw.get("months") or []
+        mid    = self.active_mid
+        active_month = next((m for m in months if m.get("id") == mid), {})
+        active_buckets = [b for b in (self._raw.get("buckets") or []) if not b.get("archived")]
+
+        underfunded = []
+        for b in active_buckets:
+            bid   = b["id"]
+            btype = b.get("type", "expense")
+            if btype == "vault":
+                continue
+            alloc  = b_alloc(active_month, bid)
+            budget = b_budget(active_month, bid)
+            if budget > 0 and alloc < budget:
+                underfunded.append((bid, budget, alloc, budget - alloc))
+
+        if not underfunded:
+            yield rx.toast.info("All buckets are funded!")
+            return
+
+        total_gap = sum(g for _, _, _, g in underfunded)
+        allocs = active_month.setdefault("allocations", {})
+        new_allocs: dict[str, float] = {}
+        for bid, budget, alloc, gap in underfunded:
+            if rts >= total_gap:
+                new_allocs[bid] = budget
+            else:
+                new_allocs[bid] = round(alloc + rts * (gap / total_gap), 2)
+            allocs[bid] = new_allocs[bid]
+
+        if active_month not in months:
+            months.append(active_month)
+            self._raw["months"] = months
+
+        self._process(self._raw, mid)
+        yield
+        try:
+            DB.ensure_month(self.user_id, self.access_token, mid)
+            for bid, new_val in new_allocs.items():
+                DB.upsert_alloc(self.user_id, self.access_token, mid, bid, new_val)
+            yield rx.toast.success("Distributed!")
+        except Exception:
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, mid)
+            yield rx.toast.error("Could not distribute")
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Paychecks
@@ -1188,11 +1324,12 @@ class AppState(rx.State):
         ]
 
         # ── Bucket rows (flat list with category headers) ──────────────────
-        max_budget = max((b.get("defaultBudget") or 0 for b in active_buckets), default=1) or 1
+        skipped_map = active_month.get("skippedBuckets", {})
         rows: list[dict] = []
 
         for cat in cats_sorted:
-            cid = cat["id"]
+            cid       = cat["id"]
+            cat_color = cat.get("color", "#818cf8")
             cat_buckets = sorted(
                 [b for b in active_buckets if b.get("catId") == cid],
                 key=lambda b: b.get("order", 0),
@@ -1200,17 +1337,44 @@ class AppState(rx.State):
             if not cat_buckets:
                 continue
 
-            rows.append({"row_type": "header", "name": cat.get("name", ""), "id": cid})
+            # Category subtotals
+            cat_alloc_sum  = sum(b_alloc(active_month, b["id"]) for b in cat_buckets)
+            cat_budget_sum = sum(
+                b_budget(active_month, b["id"])
+                for b in cat_buckets if b.get("type") != "vault"
+            )
+            cat_pct      = min(100, round(cat_alloc_sum / cat_budget_sum * 100)) if cat_budget_sum > 0 else 100
+            is_cat_funded = cat_pct >= 100
+
+            rows.append({
+                "row_type": "header", "name": cat.get("name", ""), "id": cid,
+                "color": cat_color,
+                "cat_alloc_fmt": _fmt(cat_alloc_sum),
+                "budget_h_fmt":  _fmt(cat_budget_sum),
+                "cat_pct_str":   f"{cat_pct}%",
+                "is_cat_funded": "1" if is_cat_funded else "",
+                # bucket-field defaults (keep flat-list uniform)
+                "type": "", "alloc": 0.0, "budget": 0.0, "spent": 0.0, "avail": 0.0,
+                "status": "", "pill": "", "avail_fmt": "", "alloc_fmt": "", "budget_fmt": "",
+                "spent_fmt": "", "pct_str": "0%", "avail_color": "", "avail_bg": "",
+                "avail_border": "", "bar_color": "", "prog_h": "0px", "show_fill": False,
+                "funding_pct_str": "0%", "gap": 0.0, "gap_fmt": "", "is_funded": "",
+                "roll_fmt": "", "show_roll": "", "target_fmt": "",
+                "sinking_pct_str": "0%", "months_left_str": "",
+                "show_goal": "", "vault_fmt": "", "show_vault": "",
+                "due_label": "", "due_urgency": "", "is_skipped": "",
+            })
 
             for b in cat_buckets:
-                bid    = b["id"]
-                btype  = b.get("type", "expense")
+                bid   = b["id"]
+                btype = b.get("type", "expense")
                 alloc  = b_alloc(active_month, bid)
                 budget = b_budget(active_month, bid)
 
                 if btype == "vault":
-                    spent = vault_total = vault_accumulated(bid, all_months)
-                    avail = vault_total
+                    vault_total = vault_accumulated(bid, all_months)
+                    spent       = vault_total
+                    avail       = vault_total
                 else:
                     vault_total = 0.0
                     spent = b_spent(mid, bid, txs)
@@ -1218,31 +1382,84 @@ class AppState(rx.State):
 
                 status = _bucket_status(alloc, budget, spent, avail)
                 pill   = _pill(status)
-                pct    = min(100, round(spent / budget * 100)) if budget > 0 else 0
-                prog_h = max(2, min(7, round((budget or 0) / max_budget * 7)))
+
+                # ZBB funding metrics
+                gap         = max(0.0, round(budget - alloc, 2))
+                funding_pct = min(100, round(alloc / budget * 100)) if budget > 0 else (100 if btype == "vault" else 0)
+                is_funded   = funding_pct >= 100
+
+                # Rollover chip
+                roll_bal  = rollover_bal(b, active_month, all_months, txs) if b.get("rollover") else 0.0
+                show_roll = bool(b.get("rollover") and abs(roll_bal) > 0.005)
+                roll_fmt  = (f"+{_fmt(roll_bal)}" if roll_bal >= 0 else _fmt(roll_bal)) if show_roll else ""
+
+                # Sinking / goal progress toward target
+                target_amount = float(b.get("targetAmount") or 0)
+                if btype in ("sinking", "goal") and target_amount > 0:
+                    saved       = max(0.0, avail)
+                    sinking_pct = min(100, round(saved / target_amount * 100))
+                    target_fmt  = f"{_fmt(saved)} / {_fmt(target_amount)}"
+                    show_goal   = True
+                else:
+                    sinking_pct = 0
+                    target_fmt  = ""
+                    show_goal   = False
+
+                ml = _months_left(b.get("targetDate") or "")
+                months_left_str = f"{ml}mo left" if ml > 0 else ""
+
+                # Vault display
+                show_vault = btype == "vault"
+                vault_fmt  = _fmt(vault_total) if show_vault else ""
+
+                # Due date badge
+                due_label, due_urgency = _due_info(b.get("dueDay") or "", mid)
+
+                # Skip flag
+                is_skipped = bool(skipped_map.get(bid))
 
                 rows.append({
-                    "row_type":    "bucket",
-                    "id":          bid,
-                    "name":        b.get("name", ""),
-                    "type":        btype,
-                    "alloc":       alloc,
-                    "budget":      budget,
-                    "spent":       spent,
-                    "avail":       avail,
-                    "status":      status,
-                    "pill":        pill,
-                    "avail_fmt":   _fmt(avail),
-                    "alloc_fmt":   _fmt(alloc),
-                    "budget_fmt":  _fmt(budget),
-                    "spent_fmt":   _fmt(spent),
-                    "pct_str":     f"{pct}%",
-                    "avail_color": _avail_color(pill),
-                    "avail_bg":    _avail_color(pill) + "1f",
+                    "row_type":  "bucket",
+                    "id":        bid,
+                    "name":      b.get("name", ""),
+                    "type":      btype,
+                    "color":     cat_color,
+                    "alloc":     alloc,
+                    "budget":    budget,
+                    "spent":     spent,
+                    "avail":     avail,
+                    "status":    status,
+                    "pill":      pill,
+                    "avail_fmt":    _fmt(avail),
+                    "alloc_fmt":    _fmt(alloc),
+                    "budget_fmt":   _fmt(budget) if budget > 0 else "",
+                    "spent_fmt":    _fmt(spent),
+                    "pct_str":      f"{min(100, round(spent/budget*100)) if budget > 0 else 0}%",
+                    "avail_color":  _avail_color(pill),
+                    "avail_bg":     _avail_color(pill) + "1f",
                     "avail_border": "1px solid " + _avail_color(pill) + "33",
-                    "bar_color":   _bar_color(pill),
-                    "prog_h":      f"{prog_h}px",
-                    "show_fill":   bool(budget > 0 and alloc < budget and btype != "vault"),
+                    "bar_color":    _bar_color(pill),
+                    "prog_h":       "3px",
+                    "show_fill":    bool(budget > 0 and alloc < budget and btype != "vault"),
+                    # ZBB fields
+                    "funding_pct_str": f"{funding_pct}%",
+                    "gap":            gap,
+                    "gap_fmt":        f"-{_fmt(gap)}" if gap > 0.005 else "",
+                    "is_funded":      "1" if is_funded else "",
+                    "roll_fmt":       roll_fmt,
+                    "show_roll":      "1" if show_roll else "",
+                    "target_fmt":     target_fmt,
+                    "sinking_pct_str": f"{sinking_pct}%",
+                    "months_left_str": months_left_str,
+                    "show_goal":      "1" if show_goal else "",
+                    "vault_fmt":      vault_fmt,
+                    "show_vault":     "1" if show_vault else "",
+                    "due_label":      due_label,
+                    "due_urgency":    due_urgency,
+                    "is_skipped":     "1" if is_skipped else "",
+                    # header-field defaults
+                    "cat_alloc_fmt": "", "budget_h_fmt": "",
+                    "cat_pct_str": "0%", "is_cat_funded": "",
                 })
 
         self.bucket_rows = rows
