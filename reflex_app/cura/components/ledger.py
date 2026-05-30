@@ -271,7 +271,7 @@ def ledger_panel() -> rx.Component:
         ),
 
         # Transaction list
-        rx.foreach(AppState.filtered_ledger, _tx_row),
+        rx.foreach(AppState.filtered_ledger.to(list[dict]), _tx_row),
 
         # Empty state
         rx.cond(

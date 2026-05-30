@@ -107,12 +107,12 @@ def _accounts_stub() -> rx.Component:
         rx.text("Accounts", style={"font_size": "16px", "font_weight": "700",
                                     "color": TEXT, "margin_bottom": "12px"}),
         rx.foreach(
-            AppState.accounts_rows,
+            AppState.accounts_rows.to(list[dict]),
             lambda a: rx.hstack(
                 rx.box(style={"width": "10px", "height": "10px", "border_radius": "50%",
                                "background": a["color"], "flex_shrink": "0"}),
                 rx.text(a["name"], style={"flex": "1", "color": TEXT}),
-                rx.text(a["type"].upper(),
+                rx.text(a["type_upper"],
                         style={"font_size": "9px", "color": TEXT3, "letter_spacing": "0.08em"}),
                 rx.text(a["balance_fmt"],
                         style={"font_family": MONO, "color": a["bal_color"], "font_weight": "700"}),

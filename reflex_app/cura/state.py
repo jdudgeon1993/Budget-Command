@@ -604,6 +604,7 @@ class AppState(rx.State):
             acc_rows.append({
                 "id": a["id"], "name": a.get("name", ""),
                 "type": atype,
+                "type_upper": atype.upper(),
                 "balance": bal,
                 "balance_fmt": _fmt(bal),
                 "color": a.get("color", "#818cf8"),

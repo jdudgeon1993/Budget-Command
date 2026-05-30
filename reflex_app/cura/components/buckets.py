@@ -194,7 +194,7 @@ def _bucket_row(row: dict) -> rx.Component:
 def buckets_panel() -> rx.Component:
     return rx.box(
         _rts_hero(),
-        rx.foreach(AppState.bucket_rows, _bucket_row),
+        rx.foreach(AppState.bucket_rows.to(list[dict]), _bucket_row),
         rx.box(
             "+ Add Bucket",
             style={
