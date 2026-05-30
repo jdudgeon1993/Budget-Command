@@ -332,6 +332,18 @@ class AppState(rx.State):
     rule_sheet_saving:   bool = False
     rule_sheet_error:    str  = ""
 
+    # ── Edit transaction ──────────────────────────────────────────
+    edit_tx_open:    bool = False
+    edit_tx_id:      str  = ""
+    edit_tx_type:    str  = "out"
+    edit_tx_desc:    str  = ""
+    edit_tx_amount:  str  = ""
+    edit_tx_date:    str  = ""
+    edit_tx_account: str  = ""
+    edit_tx_bucket:  str  = ""
+    edit_tx_saving:  bool = False
+    edit_tx_error:   str  = ""
+
     # ── Payday modal ──────────────────────────────────────────────────
     payday_open:       bool = False
     payday_amount_fmt: str  = ""
@@ -1173,6 +1185,63 @@ class AppState(rx.State):
             yield rx.toast.success("Rule deleted")
         except Exception:
             yield rx.toast.error("Could not delete rule")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Edit transaction
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def open_edit_tx(self, tx_id: str):
+        tx = next((t for t in (self._raw.get("txs") or []) if t["id"] == tx_id), None)
+        if not tx:
+            return
+        def _s(v): return str(int(v)) if v == int(v) else f"{v:.2f}"
+        self.edit_tx_id      = tx_id
+        self.edit_tx_type    = tx.get("type", "out")
+        self.edit_tx_desc    = tx.get("desc", "")
+        self.edit_tx_amount  = _s(float(tx.get("amount") or 0))
+        self.edit_tx_date    = tx.get("date", "")
+        self.edit_tx_account = tx.get("accountId", "")
+        self.edit_tx_bucket  = tx.get("bucketId", "")
+        self.edit_tx_error   = ""
+        self.edit_tx_saving  = False
+        self.edit_tx_open    = True
+
+    def set_edit_tx_open(self, v: bool):
+        self.edit_tx_open = v
+        if not v:
+            self.edit_tx_error = ""
+
+    async def save_edit_tx(self):
+        if not self.edit_tx_id:
+            return
+        try:
+            amount = round(float(self.edit_tx_amount or "0"), 2)
+        except ValueError:
+            self.edit_tx_error = "Invalid amount"
+            return
+        if amount <= 0:
+            self.edit_tx_error = "Amount must be positive"
+            return
+        self.edit_tx_saving = True
+        self.edit_tx_error  = ""
+        yield
+        try:
+            DB.update_transaction(self.user_id, self.access_token, self.edit_tx_id, {
+                "desc":       self.edit_tx_desc.strip(),
+                "amount":     amount,
+                "date":       self.edit_tx_date,
+                "account_id": self.edit_tx_account,
+                "bucket_id":  self.edit_tx_bucket or None,
+            })
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw           = data
+            self._process(data, self.active_mid)
+            self.edit_tx_open   = False
+            self.edit_tx_saving = False
+            yield rx.toast.success("Transaction updated")
+        except Exception as e:
+            self.edit_tx_saving = False
+            self.edit_tx_error  = str(e)
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Payday modal

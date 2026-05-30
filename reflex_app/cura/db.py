@@ -152,6 +152,10 @@ def delete_transaction(uid: str, token: str, tx_id: str) -> None:
     client(token).table("bcc_transactions").delete().eq("id", tx_id).eq("user_id", uid).execute()
 
 
+def update_transaction(uid: str, token: str, tx_id: str, fields: dict) -> None:
+    client(token).table("bcc_transactions").update(fields).eq("id", tx_id).eq("user_id", uid).execute()
+
+
 def upsert_alloc(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
     client(token).table("bcc_month_allocations").upsert({
         "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
