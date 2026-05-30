@@ -1485,6 +1485,7 @@ class AppState(rx.State):
                 "amount_fmt": "", "amt_color": "", "account": "", "bucket": "",
                 "scheduled": False, "reconciled": False,
                 "left_border": "none", "type_chip": "", "chip_color": "",
+                "chip_bg": "", "chip_border": "",
             })
             for t in group:
                 ttype = t.get("type", "out")
@@ -1513,6 +1514,8 @@ class AppState(rx.State):
                     "#fbbf24" if sched else
                     "#8282a2"
                 )
+                chip_bg     = chip_color + "18"
+                chip_border = "1px solid " + chip_color + "33"
                 ledger_flat.append({
                     "row_type":    "tx",
                     "id":          t["id"],
@@ -1526,9 +1529,11 @@ class AppState(rx.State):
                     "bucket":      bucket_map.get(t.get("bucketId", ""), ""),
                     "scheduled":   sched,
                     "reconciled":  bool(t.get("reconciled")),
-                    "left_border": left_border,
-                    "type_chip":   type_chip,
-                    "chip_color":  chip_color,
+                    "left_border":  left_border,
+                    "type_chip":    type_chip,
+                    "chip_color":   chip_color,
+                    "chip_bg":      chip_bg,
+                    "chip_border":  chip_border,
                 })
 
         self.ledger_rows = ledger_flat
