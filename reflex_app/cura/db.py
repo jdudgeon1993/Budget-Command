@@ -158,7 +158,7 @@ def upsert_alloc(uid: str, token: str, mid: str, bid: str, amount: float) -> Non
 
 def ensure_month(uid: str, token: str, mid: str) -> None:
     client(token).table("bcc_months").upsert(
-        {"id": mid, "user_id": uid}, on_conflict="id,user_id"
+        {"id": mid, "user_id": uid}, on_conflict="id"
     ).execute()
 
 
@@ -178,7 +178,7 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         if k in col_map:
             payload[col_map[k]] = v
     client(token).table("bcc_buckets").upsert(
-        payload, on_conflict="id,user_id"
+        payload, on_conflict="id"
     ).execute()
 
 
