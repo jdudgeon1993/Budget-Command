@@ -162,6 +162,52 @@ def ensure_month(uid: str, token: str, mid: str) -> None:
     ).execute()
 
 
+def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
+    """Patch one or more columns on a bucket row."""
+    col_map = {
+        "name": "name", "type": "type", "cat_id": "cat_id",
+        "rollover": "rollover", "archived": "archived",
+        "default_budget": "default_budget",
+        "due_day": "due_day", "due_amount": "due_amount",
+        "pay_freq": "pay_freq",
+        "target_amount": "target_amount", "target_date": "target_date",
+        "notes": "notes",
+    }
+    payload: dict = {"id": bid, "user_id": uid}
+    for k, v in fields.items():
+        if k in col_map:
+            payload[col_map[k]] = v
+    client(token).table("bcc_buckets").upsert(
+        payload, on_conflict="id,user_id"
+    ).execute()
+
+
+def insert_bucket(uid: str, token: str, name: str, cat_id: str, btype: str = "expense") -> str:
+    bid = f"b_{uuid.uuid4().hex[:10]}"
+    client(token).table("bcc_buckets").insert({
+        "id": bid, "user_id": uid, "name": name,
+        "cat_id": cat_id, "type": btype,
+        "rollover": False, "archived": False,
+        "default_budget": 0, "sort_order": 999,
+    }).execute()
+    return bid
+
+
+def upsert_budget(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
+    client(token).table("bcc_month_budgets").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+
+
+def insert_category(uid: str, token: str, name: str, color: str) -> str:
+    cid = f"c_{uuid.uuid4().hex[:10]}"
+    client(token).table("bcc_categories").insert({
+        "id": cid, "user_id": uid, "name": name,
+        "color": color, "sort_order": 999,
+    }).execute()
+    return cid
+
+
 def is_auth_error(e: Exception) -> bool:
     keywords = ("jwt", "expired", "invalid token", "401", "unauthorized", "not authenticated")
     return any(k in str(e).lower() for k in keywords)

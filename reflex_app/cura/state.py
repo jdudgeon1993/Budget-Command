@@ -227,6 +227,34 @@ class AppState(rx.State):
     # ── Ledger search ─────────────────────────────────────────────────────────
     ledger_query: str = ""
 
+    # ── Category select options ───────────────────────────────────────────────
+    cat_options: list[dict[str, Any]] = []
+
+    # ── Inline bucket allocation editing ─────────────────────────────────────
+    editing_bid:    str  = ""
+    edit_alloc_val: str  = ""
+
+    # ── Bucket settings dialog ────────────────────────────────────────────────
+    bsettings_open: bool = False
+    bsettings_bid:  str  = ""
+    bsf_name:       str  = ""
+    bsf_type:       str  = "expense"
+    bsf_cat_id:     str  = ""
+    bsf_budget:     str  = ""
+    bsf_rollover:   bool = False
+    bsf_due_day:    str  = ""
+    bsf_due_amount: str  = ""
+    bsf_pay_freq:   str  = ""
+    bsf_notes:      str  = ""
+    bsf_saving:     bool = False
+    bsf_error:      str  = ""
+
+    # ── Add bucket strip ──────────────────────────────────────────────────────
+    add_bkt_name:   str  = ""
+    add_bkt_cat_id: str  = ""
+    add_bkt_type:   str  = "expense"
+    add_bkt_saving: bool = False
+
     # ── Forecast ──────────────────────────────────────────────────────────────
     forecast_range:    int              = 3
     forecast_account:  str              = ""
@@ -556,14 +584,187 @@ class AppState(rx.State):
     # ─────────────────────────────────────────────────────────────────────────
 
     async def fill_bucket(self, bucket_id: str, budget: float):
+        self._set_raw_alloc(bucket_id, budget)
+        self._process(self._raw, self.active_mid)
+        yield
         try:
             DB.ensure_month(self.user_id, self.access_token, self.active_mid)
             DB.upsert_alloc(self.user_id, self.access_token, self.active_mid, bucket_id, budget)
-            data = DB.load_all(self.user_id, self.access_token)
-            self._raw = data
-            self._process(data, self.active_mid)
+            yield rx.toast.success("Bucket filled", duration=1500)
         except Exception as e:
-            self.panel_error = str(e)
+            if DB.is_auth_error(e):
+                yield rx.redirect("/login")
+            else:
+                data = DB.load_all(self.user_id, self.access_token)
+                self._raw = data
+                self._process(data, self.active_mid)
+                yield rx.toast.error("Could not fill bucket")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Inline allocation editing
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def start_edit_alloc(self, bid: str, alloc_fmt: str):
+        v = alloc_fmt.replace(",", "").replace("$", "")
+        try:
+            f = float(v)
+            v = str(int(f)) if f == int(f) else f"{f:.2f}"
+        except ValueError:
+            v = "0"
+        self.editing_bid    = bid
+        self.edit_alloc_val = v
+
+    def cancel_alloc_edit(self):
+        self.editing_bid    = ""
+        self.edit_alloc_val = ""
+
+    async def save_alloc_edit(self):
+        bid = self.editing_bid
+        val = self.edit_alloc_val
+        if not bid:
+            return
+        self.editing_bid    = ""
+        self.edit_alloc_val = ""
+        try:
+            amount = round(float(val or "0"), 2)
+        except ValueError:
+            return
+        self._set_raw_alloc(bid, amount)
+        self._process(self._raw, self.active_mid)
+        yield
+        try:
+            DB.ensure_month(self.user_id, self.access_token, self.active_mid)
+            DB.upsert_alloc(self.user_id, self.access_token, self.active_mid, bid, amount)
+            yield rx.toast.success("Saved", duration=1200)
+        except Exception as e:
+            if DB.is_auth_error(e):
+                yield rx.redirect("/login")
+            else:
+                data = DB.load_all(self.user_id, self.access_token)
+                self._raw = data
+                self._process(data, self.active_mid)
+                yield rx.toast.error("Could not save allocation")
+
+    def handle_alloc_key(self, key: str):
+        if key == "Escape":
+            self.editing_bid    = ""
+            self.edit_alloc_val = ""
+        elif key == "Enter":
+            yield AppState.save_alloc_edit()
+
+    def _set_raw_alloc(self, bid: str, amount: float):
+        months = self._raw.get("months", [])
+        mid    = self.active_mid
+        for m in months:
+            if m.get("id") == mid:
+                m.setdefault("allocations", {})[bid] = amount
+                return
+        months.append({
+            "id": mid, "closed": False,
+            "allocations": {bid: amount}, "budgets": {},
+            "rolloverReleased": {}, "skippedBuckets": {}, "vaultWithdrawals": {},
+        })
+        self._raw["months"] = months
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Bucket settings dialog
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def open_bucket_settings(self, bid: str):
+        bucket = next((b for b in (self._raw.get("buckets") or []) if b["id"] == bid), None)
+        if not bucket:
+            return
+        self.bsettings_bid  = bid
+        self.bsf_name       = bucket.get("name", "")
+        self.bsf_type       = bucket.get("type", "expense")
+        self.bsf_cat_id     = bucket.get("catId", "")
+        budget_val          = bucket.get("defaultBudget") or 0
+        self.bsf_budget     = str(int(budget_val)) if budget_val == int(budget_val) else str(budget_val)
+        self.bsf_rollover   = bool(bucket.get("rollover"))
+        self.bsf_due_day    = str(bucket.get("dueDay") or "")
+        due_amt             = bucket.get("dueAmount") or 0
+        self.bsf_due_amount = str(int(due_amt)) if due_amt == int(due_amt) else str(due_amt)
+        self.bsf_pay_freq   = bucket.get("payFreq") or ""
+        self.bsf_notes      = bucket.get("notes") or ""
+        self.bsf_error      = ""
+        self.bsf_saving     = False
+        self.bsettings_open = True
+
+    def set_bsettings_open(self, v: bool):
+        self.bsettings_open = v
+        if not v:
+            self.bsf_error = ""
+
+    async def save_bucket_settings(self):
+        if not self.bsf_name.strip():
+            self.bsf_error = "Name is required"
+            return
+        try:
+            budget_val     = round(float(self.bsf_budget or "0"), 2)
+            due_amount_val = round(float(self.bsf_due_amount or "0"), 2)
+        except ValueError:
+            self.bsf_error = "Invalid number"
+            return
+        self.bsf_saving = True
+        self.bsf_error  = ""
+        yield
+        try:
+            DB.upsert_bucket(self.user_id, self.access_token, self.bsettings_bid, {
+                "name":           self.bsf_name.strip(),
+                "type":           self.bsf_type,
+                "cat_id":         self.bsf_cat_id,
+                "rollover":       self.bsf_rollover,
+                "default_budget": budget_val,
+                "due_day":        self.bsf_due_day.strip() or None,
+                "due_amount":     due_amount_val,
+                "pay_freq":       self.bsf_pay_freq or None,
+                "notes":          self.bsf_notes.strip(),
+            })
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw           = data
+            self._process(data, self.active_mid)
+            self.bsettings_open = False
+            self.bsf_saving     = False
+            yield rx.toast.success("Bucket saved")
+        except Exception as e:
+            self.bsf_saving = False
+            self.bsf_error  = str(e)
+
+    async def archive_bucket_confirm(self, bid: str):
+        try:
+            DB.upsert_bucket(self.user_id, self.access_token, bid, {"archived": True})
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw           = data
+            self._process(data, self.active_mid)
+            self.bsettings_open = False
+            yield rx.toast.success("Bucket archived")
+        except Exception as e:
+            self.bsf_error = str(e)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Add bucket
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def add_bucket_submit(self):
+        if not self.add_bkt_name.strip() or not self.add_bkt_cat_id:
+            return
+        self.add_bkt_saving = True
+        yield
+        try:
+            DB.insert_bucket(
+                self.user_id, self.access_token,
+                self.add_bkt_name.strip(), self.add_bkt_cat_id, self.add_bkt_type,
+            )
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw           = data
+            self._process(data, self.active_mid)
+            self.add_bkt_name   = ""
+            self.add_bkt_cat_id = ""
+            self.add_bkt_saving = False
+            yield rx.toast.success("Bucket added")
+        except Exception as e:
+            self.add_bkt_saving = False
+            yield rx.toast.error(f"Could not add bucket")
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Ledger search
@@ -635,6 +836,12 @@ class AppState(rx.State):
                 sp_total += amt
         self.income_total = inc_total
         self.spent_total  = sp_total
+
+        # ── Category select options ────────────────────────────────────────
+        self.cat_options = [
+            {"id": c["id"], "name": c.get("name", ""), "color": c.get("color", "#818cf8")}
+            for c in cats_sorted
+        ]
 
         # ── Bucket rows (flat list with category headers) ──────────────────
         max_budget = max((b.get("defaultBudget") or 0 for b in active_buckets), default=1) or 1

@@ -16,14 +16,30 @@ from ..components.forecast  import forecast_panel
 def mobile_header() -> rx.Component:
     return rx.hstack(
         rx.text("CURA", style={"font_size": "13px", "font_weight": "700",
-                                "letter_spacing": "0.16em", "color": ACCENT, "flex": "1"}),
+                                "letter_spacing": "0.16em", "color": ACCENT}),
+        rx.spacer(),
+        # RTS — the most important number
+        rx.vstack(
+            rx.text(AppState.rts_fmt, style={
+                "font_size": "15px", "font_weight": "700", "font_family": MONO,
+                "color": AppState.rts_color, "line_height": "1",
+            }),
+            rx.text("ready to spend", style={
+                "font_size": "7px", "color": TEXT3, "letter_spacing": "0.08em",
+                "text_transform": "uppercase", "font_family": MONO,
+            }),
+            align_items="center", gap="1px",
+        ),
+        rx.spacer(),
+        # Month nav
         rx.hstack(
             rx.box("←", on_click=AppState.go_prev_month,
                    style={"cursor": "pointer", "color": TEXT3, "padding": "4px 6px"}),
             rx.text(AppState.month_display,
-                    style={"font_size": "11px", "color": TEXT2, "letter_spacing": "0.06em",
+                    style={"font_size": "10px", "color": TEXT2, "letter_spacing": "0.06em",
                            "background": BG3, "border": f"1px solid {BORDER}",
-                           "border_radius": "8px", "padding": "4px 10px"}),
+                           "border_radius": "8px", "padding": "3px 8px",
+                           "white_space": "nowrap"}),
             rx.box("→", on_click=AppState.go_next_month,
                    style={"cursor": "pointer", "color": TEXT3, "padding": "4px 6px"}),
             align_items="center", gap="2px",
@@ -33,7 +49,7 @@ def mobile_header() -> rx.Component:
         style={
             "position": "fixed", "top": "0", "left": "0", "right": "0",
             "height": HDR_H, "background": BG2, "border_bottom": f"1px solid {BORDER}",
-            "padding": "0 14px", "gap": "10px", "z_index": "90",
+            "padding": "0 12px", "gap": "6px", "z_index": "90",
         },
     )
 
@@ -216,6 +232,9 @@ def dashboard_page() -> rx.Component:
 
             class_name="main-content",
         ),
+
+        # Toast notifications
+        rx.toast.provider(),
 
         on_mount=AppState.on_dashboard_load,
         style={"background": BG, "color": TEXT, "font_family": SANS, "min_height": "100vh"},
