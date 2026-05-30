@@ -1477,9 +1477,14 @@ class AppState(rx.State):
         ledger_flat: list[dict] = []
         for date_str, group in groupby(ledger_txs, key=lambda t: t.get("date", "")):
             ledger_flat.append({
-                "row_type": "date_header",
-                "label": _date_label(date_str),
-                "date": date_str,
+                "row_type":    "date_header",
+                "label":       _date_label(date_str),
+                "date":        date_str,
+                # tx defaults
+                "id": "", "desc": "", "type": "", "amount": 0.0,
+                "amount_fmt": "", "amt_color": "", "account": "", "bucket": "",
+                "scheduled": False, "reconciled": False,
+                "left_border": "none", "type_chip": "", "chip_color": "",
             })
             for t in group:
                 ttype = t.get("type", "out")
@@ -1492,6 +1497,22 @@ class AppState(rx.State):
                     "#8282a2"
                 )
                 amt_prefix = "+" if ttype == "in" else "−"
+                left_border = (
+                    f"3px solid #34d399" if ttype == "in" else
+                    f"3px solid #fbbf24" if sched else
+                    "none"
+                )
+                type_chip = (
+                    "Income"   if ttype == "in" else
+                    "Scheduled" if sched else
+                    "Transfer" if ttype == "xfr" else
+                    ""
+                )
+                chip_color = (
+                    "#34d399" if ttype == "in" else
+                    "#fbbf24" if sched else
+                    "#8282a2"
+                )
                 ledger_flat.append({
                     "row_type":    "tx",
                     "id":          t["id"],
@@ -1505,11 +1526,9 @@ class AppState(rx.State):
                     "bucket":      bucket_map.get(t.get("bucketId", ""), ""),
                     "scheduled":   sched,
                     "reconciled":  bool(t.get("reconciled")),
-                    "dot_color":   (
-                        "#34d399" if ttype == "in" else
-                        "#818cf8" if ttype == "out" else
-                        "#8282a2"
-                    ),
+                    "left_border": left_border,
+                    "type_chip":   type_chip,
+                    "chip_color":  chip_color,
                 })
 
         self.ledger_rows = ledger_flat
