@@ -251,8 +251,7 @@ def edit_tx_dialog() -> rx.Component:
                         type="number", input_mode="decimal",
                         style={
                             **_input_style(),
-                            "font_size": "22px", "text_align": "center",
-                            "font_weight": "700", "padding": "10px 14px",
+                            "text_align": "center",
                             "color": rx.cond(
                                 AppState.edit_tx_type == "in", GREEN,
                                 rx.cond(AppState.edit_tx_type == "out", RED, TEXT2),
@@ -492,14 +491,13 @@ def add_tx_sheet() -> rx.Component:
 
                     # Amount
                     rx.input(
-                        placeholder="$0.00",
+                        placeholder="0.00",
                         value=AppState.sheet_amount,
                         on_change=AppState.set_sheet_amount,
                         type="text", input_mode="decimal",
                         style={
                             **_input_style(),
-                            "font_size": "28px", "text_align": "center",
-                            "letter_spacing": "0.02em", "padding": "12px 14px",
+                            "text_align": "center",
                             "border_color": rx.cond(
                                 AppState.sheet_type == "in", GREEN,
                                 rx.cond(AppState.sheet_type == "out", f"{RED}88", BORDER),

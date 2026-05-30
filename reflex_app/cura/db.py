@@ -163,9 +163,10 @@ def upsert_alloc(uid: str, token: str, mid: str, bid: str, amount: float) -> Non
 
 
 def ensure_month(uid: str, token: str, mid: str) -> None:
-    client(token).table("bcc_months").upsert(
-        {"id": mid, "user_id": uid}, on_conflict="id"
-    ).execute()
+    c = client(token)
+    existing = c.table("bcc_months").select("id").eq("id", mid).eq("user_id", uid).execute()
+    if not existing.data:
+        c.table("bcc_months").insert({"id": mid, "user_id": uid}).execute()
 
 
 def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
