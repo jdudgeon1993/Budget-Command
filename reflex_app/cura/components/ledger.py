@@ -83,26 +83,28 @@ def _tx_row(row: dict) -> rx.Component:
         row["row_type"] == "month_totals",
         _month_totals_row(row),
 
-        rx.cond(
-            row["row_type"] == "date_header",
-
-            # ── Date section header ──────────────────────────────────────────
-            rx.hstack(
-                rx.text(row["label"], style={
-                    "font_size": "10px", "letter_spacing": "0.1em",
-                    "text_transform": "uppercase", "color": TEXT2,
-                    "font_family": MONO, "white_space": "nowrap", "flex_shrink": "0",
-                    "font_weight": "600",
-                }),
-                rx.box(style={
-                    "flex": "1", "height": "1px",
-                    "background": BORDER2, "margin_left": "8px",
-                }),
-                align_items="center",
-                style={"padding": "16px 0 6px", "width": "100%"},
+        # ── Transaction card (with optional date header above) ───────────────
+        rx.vstack(
+            # Date label — shown when this is the first tx of a new date
+            rx.cond(
+                row["date_label"] != "",
+                rx.hstack(
+                    rx.text(row["date_label"], style={
+                        "font_size": "10px", "letter_spacing": "0.1em",
+                        "text_transform": "uppercase", "color": TEXT2,
+                        "font_family": MONO, "white_space": "nowrap", "flex_shrink": "0",
+                        "font_weight": "600",
+                    }),
+                    rx.box(style={
+                        "flex": "1", "height": "1px",
+                        "background": BORDER2, "margin_left": "8px",
+                    }),
+                    align_items="center",
+                    style={"padding": "16px 0 6px", "width": "100%"},
+                ),
+                rx.box(),
             ),
 
-            # ── Transaction card ─────────────────────────────────────────────
             rx.box(
                 rx.hstack(
                     # Left: description + sub-label + chips
@@ -188,6 +190,7 @@ def _tx_row(row: dict) -> rx.Component:
                     "_hover": {"border_color": BORDER2},
                 },
             ),
+            gap="0", width="100%",
         ),
     )
 

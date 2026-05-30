@@ -5,10 +5,10 @@ Compare to Flask: no Jinja2 context_dict, no JS refreshKpis(), no _live_state() 
 State vars update → React rerenders automatically via WebSocket.
 """
 
+import asyncio
 import reflex as rx
 from typing import Any
 from datetime import date, timedelta
-from itertools import groupby
 import calendar
 
 from .formulas import (
@@ -254,6 +254,7 @@ class AppState(rx.State):
     active_panel:  str  = "buckets"
     is_loading:    bool = False
     panel_error:   str  = ""
+    _polling:      bool = False  # background poll running
 
     # ── Add-transaction sheet ─────────────────────────────────────────────────
     sheet_open:        bool = False
@@ -437,23 +438,23 @@ class AppState(rx.State):
         if not self.ledger_query:
             return self.ledger_rows
         q = self.ledger_query.lower()
-        out = []
+        # Keep month_totals row; filter tx rows by query
+        matches: list[dict] = []
         for row in self.ledger_rows:
-            if row["row_type"] in ("date_header", "month_totals"):
-                out.append(row)
-            elif q in row.get("desc", "").lower() or q in row.get("bucket", "").lower():
-                out.append(row)
-        # Remove orphan date headers
-        cleaned = []
-        for i, row in enumerate(out):
-            if row["row_type"] == "date_header":
-                has_tx = any(r["row_type"] == "tx" for r in out[i+1:i+20]
-                             if r["row_type"] != "date_header")
-                if has_tx:
-                    cleaned.append(row)
-            else:
-                cleaned.append(row)
-        return cleaned
+            if row["row_type"] == "month_totals":
+                matches.append(row)
+            elif row["row_type"] == "tx":
+                if q in row.get("desc", "").lower() or q in row.get("bucket", "").lower():
+                    matches.append(dict(row))
+        # Re-stamp date_label on first tx of each date group
+        prev = ""
+        for row in matches:
+            if row["row_type"] != "tx":
+                continue
+            d = row.get("date", "")
+            row["date_label"] = _date_label(d) if d != prev else ""
+            prev = d
+        return matches
 
     @rx.var
     def forecast_shortfall_label(self) -> str:
@@ -561,6 +562,26 @@ class AppState(rx.State):
             self.panel_error = str(e)
         finally:
             self.is_loading = False
+        # Start background poll (only one per session)
+        if not self._polling:
+            self._polling = True
+            yield AppState.poll_data
+
+    @rx.event(background=True)
+    async def poll_data(self):
+        """Refresh data from DB every 30 seconds silently."""
+        while True:
+            await asyncio.sleep(30)
+            async with self:
+                if not self.is_logged_in:
+                    self._polling = False
+                    return
+                try:
+                    data = DB.load_all(self.user_id, self.access_token)
+                    self._raw = data
+                    self._process(data, self.active_mid)
+                except Exception:
+                    pass
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Month navigation
@@ -1580,6 +1601,7 @@ class AppState(rx.State):
             "left_border": "none", "type_chip": "", "chip_color": "#8282a2",
             "chip_bg": "#8282a218", "chip_border": "1px solid #8282a233",
             "reconciled_str": "", "inc_fmt": "", "spent_fmt": "",
+            "date_label": "",
         }
         _HDR_DEFAULTS = {"label": "", "date": "", "net_fmt": "", "net_color": ""}
 
@@ -1597,19 +1619,17 @@ class AppState(rx.State):
             "spent_fmt":  f"−{_fmt(sp_total)}",
         })
 
-        for date_str, group in groupby(ledger_txs, key=lambda t: t.get("date", "")):
-            ledger_flat.append({
-                "row_type": "date_header",
-                "label":    _date_label(date_str),
-                "date":     date_str,
-                **_TX_DEFAULTS,
-                **_HDR_DEFAULTS,
-            })
-            for t in group:
-                ttype = t.get("type", "out")
-                amt   = float(t.get("amount") or 0)
-                sched = is_scheduled(t)
-                recon = bool(t.get("reconciled"))
+        prev_date_str = None
+        for t in ledger_txs:
+            ttype = t.get("type", "out")
+            amt   = float(t.get("amount") or 0)
+            sched = is_scheduled(t)
+            recon = bool(t.get("reconciled"))
+            date_str = t.get("date", "")
+            # Embed date label into first tx of each new date
+            this_date_label = _date_label(date_str) if date_str != prev_date_str else ""
+            prev_date_str = date_str
+            if True:
 
                 amt_color = (
                     "#34d399" if ttype == "in" else
@@ -1652,7 +1672,8 @@ class AppState(rx.State):
                 ledger_flat.append({
                     "row_type":       "tx",
                     "id":             t["id"],
-                    "date":           t.get("date", ""),
+                    "date":           date_str,
+                    "date_label":     this_date_label,
                     "desc":           t.get("desc") or "",
                     "type":           ttype,
                     "amount":         amt,
