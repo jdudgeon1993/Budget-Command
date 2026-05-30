@@ -1542,6 +1542,7 @@ class AppState(rx.State):
                 "avail_border": "", "bar_color": "", "prog_h": "0px", "show_fill": False,
                 "funding_pct_str": "0%", "gap": 0.0, "gap_fmt": "", "is_funded": "",
                 "is_over": "", "over_fmt": "",
+                "status_label": "", "action_hint": "", "left_avail_fmt": "",
                 "roll_fmt": "", "show_roll": "", "target_fmt": "",
                 "sinking_pct_str": "0%", "months_left_str": "",
                 "show_goal": "", "vault_fmt": "", "show_vault": "",
@@ -1631,6 +1632,19 @@ class AppState(rx.State):
                     "is_funded":      "1" if is_funded else "",
                     "is_over":        "1" if avail < -0.005 else "",
                     "over_fmt":       f"OVER −{_fmt(abs(avail))}" if avail < -0.005 else "",
+                    "status_label": (
+                        "Overspent"   if avail < -0.005 else
+                        "Paid"        if budget > 0 and is_funded and spent >= alloc - 0.005 else
+                        "Funded"      if is_funded else
+                        "Underfunded" if budget > 0 else
+                        ""
+                    ),
+                    "action_hint": (
+                        f"Allocate {_fmt(abs(avail))} to cover overspend" if avail < -0.005 else
+                        f"Allocate {_fmt(gap)} to fully fund"             if gap > 0.005 else
+                        ""
+                    ),
+                    "left_avail_fmt": _fmt(max(0.0, avail)),
                     "roll_fmt":       roll_fmt,
                     "show_roll":      "1" if show_roll else "",
                     "target_fmt":     target_fmt,
