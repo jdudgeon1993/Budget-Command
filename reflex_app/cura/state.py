@@ -142,6 +142,21 @@ class AppState(rx.State):
     # ── Ledger search ─────────────────────────────────────────────────────────
     ledger_query: str = ""
 
+    # ── Forecast ──────────────────────────────────────────────────────────────
+    forecast_range:       int        = 3
+    forecast_account:     str        = ""
+    forecast_periods:     list[dict] = []
+    forecast_accounts:    list[dict] = []
+    forecast_loading:     bool       = False
+    fc_expanded:          list[str]  = []
+    # Flat summary KPIs (avoids dict var access issues)
+    fc_start_bal:         str        = "—"
+    fc_total_income:      str        = "—"
+    fc_total_unfunded:    str        = "—"
+    fc_safe_to_spend:     str        = "—"
+    fc_sts_color:         str        = "#818cf8"
+    fc_shortfall_count:   int        = 0
+
     # ── Internal raw data (not sent to client — prefixed with _) ─────────────
     # Note: in Reflex 0.9 all state vars go to client; use _ prefix by convention
     _raw: dict = {}   # full data dict from DB.load_all()
@@ -228,6 +243,71 @@ class AppState(rx.State):
             else:
                 cleaned.append(row)
         return cleaned
+
+    @rx.var
+    def forecast_shortfall_label(self) -> str:
+        n = self.fc_shortfall_count
+        return f"⚠ {n} period{'s' if n != 1 else ''} with negative balance"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Forecast events
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _run_forecast(self):
+        from .forecast_calc import compute_forecast
+        if not self._raw:
+            return
+        result = compute_forecast(self._raw, self.forecast_range, self.forecast_account)
+        self.fc_start_bal       = result["start_balance"]
+        self.fc_total_income    = result["total_income"]
+        self.fc_total_unfunded  = result["total_unfunded"]
+        self.fc_safe_to_spend   = result["safe_to_spend"]
+        self.fc_sts_color       = result["sts_color"]
+        self.fc_shortfall_count = result["shortfall_count"]
+        self.forecast_periods   = result["periods"]
+        expanded = [p["id"] for p in result["periods"] if p["shortfall"]]
+        if result["periods"] and result["periods"][0]["id"] not in expanded:
+            expanded.insert(0, result["periods"][0]["id"])
+        self.fc_expanded = expanded
+
+    def set_forecast_range(self, n: int):
+        self.forecast_range = n
+        self._run_forecast()
+
+    def set_forecast_account(self, aid: str):
+        self.forecast_account = aid
+        self._run_forecast()
+
+    def toggle_fc_period(self, pid: str):
+        if pid in self.fc_expanded:
+            self.fc_expanded = [x for x in self.fc_expanded if x != pid]
+        else:
+            self.fc_expanded = self.fc_expanded + [pid]
+
+    def _refresh_forecast_accounts(self):
+        """Rebuild the account chip list from raw data."""
+        raw = self._raw
+        if not raw:
+            return
+        accounts = raw.get("accounts", [])
+        txs      = raw.get("txs", [])
+
+        def _bal(a):
+            bal = float(a.get("openingBalance") or 0)
+            for t in txs:
+                if t.get("accountId") == a["id"]:
+                    bal += float(t.get("amount") or 0) if t.get("type") == "in" else -float(t.get("amount") or 0)
+                if t.get("toAccountId") == a["id"] and t.get("type") == "xfr":
+                    bal += float(t.get("amount") or 0)
+            return bal
+
+        self.forecast_accounts = [
+            {"id": a["id"], "name": a["name"],
+             "color": a.get("color", "#818cf8"),
+             "balance_fmt": _fmt(_bal(a))}
+            for a in accounts
+            if a.get("type") == "budget" and not a.get("archived")
+        ]
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Auth events
@@ -624,3 +704,7 @@ class AppState(rx.State):
             {"id": a["id"], "name": a.get("name", "")}
             for a in accounts if not a.get("archived")
         ]
+
+        # ── Forecast ───────────────────────────────────────────────────────
+        self._refresh_forecast_accounts()
+        self._run_forecast()

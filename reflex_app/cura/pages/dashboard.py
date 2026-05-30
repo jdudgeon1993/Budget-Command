@@ -4,9 +4,10 @@ import reflex as rx
 from ..state import AppState
 from ..theme import (BG, BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3,
                      GREEN, AMBER, ACCENT, RED, MONO, SANS, SIDEBAR_W, NAV_H, HDR_H, GLOBAL_CSS)
-from ..components.sidebar  import sidebar
-from ..components.buckets  import buckets_panel
-from ..components.ledger   import ledger_panel
+from ..components.sidebar   import sidebar
+from ..components.buckets   import buckets_panel
+from ..components.ledger    import ledger_panel
+from ..components.forecast  import forecast_panel
 
 
 # ── Mobile header ─────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ def mobile_nav() -> rx.Component:
         _mob_tab("Accounts", "accounts",
             '<rect x="2" y="5" width="20" height="14" rx="2"/>'
             '<line x1="2" y1="10" x2="22" y2="10"/>'),
-        _mob_tab("Insights", "insights",
+        _mob_tab("Forecast", "insights",
             '<line x1="18" y1="20" x2="18" y2="10"/>'
             '<line x1="12" y1="20" x2="12" y2="4"/>'
             '<line x1="6" y1="20" x2="6" y2="14"/>'),
@@ -145,7 +146,7 @@ def panel_content() -> rx.Component:
             ("buckets",  buckets_panel()),
             ("ledger",   ledger_panel()),
             ("accounts", _accounts_stub()),
-            ("insights", _stub_panel("Insights")),
+            ("insights", forecast_panel()),
             ("setup",    _stub_panel("Setup")),
             buckets_panel(),
         ),
