@@ -1,6 +1,7 @@
 """Buckets panel — the core zero-based budgeting view."""
 
 import reflex as rx
+from typing import Any
 from ..state import AppState
 from ..theme import BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3, GREEN, AMBER, ACCENT, RED, VIOLET, MONO, SANS
 
@@ -194,7 +195,7 @@ def _bucket_row(row: dict) -> rx.Component:
 def buckets_panel() -> rx.Component:
     return rx.box(
         _rts_hero(),
-        rx.foreach(AppState.bucket_rows.to(list[dict]), _bucket_row),
+        rx.foreach(AppState.bucket_rows.to(list[dict[str, Any]]), _bucket_row),
         rx.box(
             "+ Add Bucket",
             style={

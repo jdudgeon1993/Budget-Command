@@ -1,6 +1,7 @@
 """Dashboard page — the main app shell with sidebar + panel switcher."""
 
 import reflex as rx
+from typing import Any
 from ..state import AppState
 from ..theme import (BG, BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3,
                      GREEN, AMBER, ACCENT, RED, MONO, SANS, SIDEBAR_W, NAV_H, HDR_H, GLOBAL_CSS)
@@ -108,7 +109,7 @@ def _accounts_stub() -> rx.Component:
         rx.text("Accounts", style={"font_size": "16px", "font_weight": "700",
                                     "color": TEXT, "margin_bottom": "12px"}),
         rx.foreach(
-            AppState.accounts_rows.to(list[dict]),
+            AppState.accounts_rows.to(list[dict[str, Any]]),
             lambda a: rx.hstack(
                 rx.box(style={"width": "10px", "height": "10px", "border_radius": "50%",
                                "background": a["color"], "flex_shrink": "0"}),

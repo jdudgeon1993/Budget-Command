@@ -104,9 +104,9 @@ class AppState(rx.State):
 
     # ── Processed display data ────────────────────────────────────────────────
     # Flat list: {"row_type": "header"|"bucket", ...}
-    bucket_rows: list[dict] = []
+    bucket_rows: list[dict[str, Any]] = []
     # Flat list: {"row_type": "date_header"|"tx", ...}
-    ledger_rows: list[dict] = []
+    ledger_rows: list[dict[str, Any]] = []
 
     # ── KPIs ─────────────────────────────────────────────────────────────────
     rts:          float = 0.0
@@ -115,13 +115,13 @@ class AppState(rx.State):
     total_alloc_val: float = 0.0
 
     # ── Accounts ─────────────────────────────────────────────────────────────
-    accounts_rows: list[dict] = []   # for accounts panel
+    accounts_rows: list[dict[str, Any]] = []   # for accounts panel
     total_cash:    float = 0.0
     total_debt:    float = 0.0
 
     # ── Form selects ──────────────────────────────────────────────────────────
-    expense_buckets: list[dict] = []   # [{id, name}]
-    account_options: list[dict] = []   # [{id, name}]
+    expense_buckets: list[dict[str, Any]] = []   # [{id, name}]
+    account_options: list[dict[str, Any]] = []   # [{id, name}]
 
     # ── UI state ─────────────────────────────────────────────────────────────
     active_panel:  str  = "buckets"
@@ -145,8 +145,8 @@ class AppState(rx.State):
     # ── Forecast ──────────────────────────────────────────────────────────────
     forecast_range:       int        = 3
     forecast_account:     str        = ""
-    forecast_periods:     list[dict] = []
-    forecast_accounts:    list[dict] = []
+    forecast_periods:     list[dict[str, Any]] = []
+    forecast_accounts:    list[dict[str, Any]] = []
     forecast_loading:     bool       = False
     fc_expanded:          list[str]  = []
     # Flat summary KPIs (avoids dict var access issues)
@@ -222,7 +222,7 @@ class AppState(rx.State):
         return self.month_status_str == "closed"
 
     @rx.var
-    def filtered_ledger(self) -> list[dict]:
+    def filtered_ledger(self) -> list[dict[str, Any]]:
         if not self.ledger_query:
             return self.ledger_rows
         q = self.ledger_query.lower()

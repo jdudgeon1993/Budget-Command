@@ -1,6 +1,7 @@
 """Forecast panel — paycheck-by-paycheck cash flow projection."""
 
 import reflex as rx
+from typing import Any
 from ..state import AppState
 from ..theme import BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3, GREEN, AMBER, ACCENT, RED, MONO, SANS
 
@@ -221,7 +222,7 @@ def _period_card(p: dict) -> rx.Component:
                 p["has_income"],
                 rx.vstack(
                     rx.foreach(
-                        p["income_lines"].to(list[dict]),
+                        p["income_lines"].to(list[dict[str, Any]]),
                         _income_line,
                     ),
                     width="100%", gap="4px",
@@ -236,7 +237,7 @@ def _period_card(p: dict) -> rx.Component:
                 p["has_transfers"],
                 rx.vstack(
                     rx.foreach(
-                        p["transfer_lines"].to(list[dict]),
+                        p["transfer_lines"].to(list[dict[str, Any]]),
                         _transfer_line,
                     ),
                     width="100%", gap="4px",
@@ -255,7 +256,7 @@ def _period_card(p: dict) -> rx.Component:
                                    "text_transform": "uppercase", "font_family": MONO,
                                    "margin_bottom": "4px"}),
                     rx.foreach(
-                        p["funded_lines"].to(list[dict]),
+                        p["funded_lines"].to(list[dict[str, Any]]),
                         _funded_line,
                     ),
                     width="100%", gap="3px",
@@ -274,7 +275,7 @@ def _period_card(p: dict) -> rx.Component:
                                    "text_transform": "uppercase", "font_family": MONO,
                                    "margin_bottom": "4px"}),
                     rx.foreach(
-                        p["unfunded_lines"].to(list[dict]),
+                        p["unfunded_lines"].to(list[dict[str, Any]]),
                         _unfunded_line,
                     ),
                     width="100%", gap="3px",
@@ -360,7 +361,7 @@ def forecast_panel() -> rx.Component:
                         ),
                     ),
                     rx.foreach(
-                        AppState.forecast_accounts.to(list[dict]),
+                        AppState.forecast_accounts.to(list[dict[str, Any]]),
                         _acct_chip,
                     ),
                     gap="6px", flex_wrap="wrap",
@@ -418,7 +419,7 @@ def forecast_panel() -> rx.Component:
         rx.cond(
             ~AppState.forecast_loading,
             rx.foreach(
-                AppState.forecast_periods.to(list[dict]),
+                AppState.forecast_periods.to(list[dict[str, Any]]),
                 _period_card,
             ),
             rx.box(),

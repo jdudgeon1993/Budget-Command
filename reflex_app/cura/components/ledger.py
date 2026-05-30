@@ -1,6 +1,7 @@
 """Ledger panel — transaction list with search and add sheet."""
 
 import reflex as rx
+from typing import Any
 from ..state import AppState
 from ..theme import BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3, GREEN, AMBER, ACCENT, RED, MONO, SANS
 
@@ -169,7 +170,7 @@ def add_tx_sheet() -> rx.Component:
                         ),
                         _field("Account",
                             rx.el.select(
-                                AppState.account_options.to(list[dict]).foreach(
+                                AppState.account_options.to(list[dict[str, Any]]).foreach(
                                     lambda a: rx.el.option(a["name"], value=a["id"])
                                 ),
                                 value=AppState.sheet_account,
@@ -185,7 +186,7 @@ def add_tx_sheet() -> rx.Component:
                         AppState.sheet_type == "out",
                         _field("Bucket",
                             rx.el.select(
-                                AppState.expense_buckets.to(list[dict]).foreach(
+                                AppState.expense_buckets.to(list[dict[str, Any]]).foreach(
                                     lambda b: rx.el.option(b["name"], value=b["id"])
                                 ),
                                 value=AppState.sheet_bucket,
@@ -271,7 +272,7 @@ def ledger_panel() -> rx.Component:
         ),
 
         # Transaction list
-        rx.foreach(AppState.filtered_ledger.to(list[dict]), _tx_row),
+        rx.foreach(AppState.filtered_ledger.to(list[dict[str, Any]]), _tx_row),
 
         # Empty state
         rx.cond(
