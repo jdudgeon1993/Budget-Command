@@ -255,6 +255,44 @@ class AppState(rx.State):
     add_bkt_type:   str  = "expense"
     add_bkt_saving: bool = False
 
+    # ── Bucket settings — extended type-aware fields ──────────────────
+    bsf_target_amount: str   = ""
+    bsf_target_date:   str   = ""    # "YYYY-MM" for month picker
+    bsf_contrib_freq:  str   = ""    # monthly | weekly | biweekly
+    bsf_recurring:     bool  = False
+    bsf_skip:          bool  = False
+    bsf_vault_total:   float = 0.0
+    bsf_vault_total_fmt: str = "$0.00"
+    bsf_transfer_bid:  str   = ""
+    bsf_transfer_amt:  str   = ""
+    bsf_release_amt:   str   = ""
+
+    # ── Setup panel — paychecks ───────────────────────────────────────
+    paycheck_rows:  list[dict[str, Any]] = []
+    setup_pc_label:  str  = ""
+    setup_pc_amount: str  = ""
+    setup_pc_freq:   str  = "14"    # 7 | 14 | 15
+    setup_pc_anchor: str  = ""
+    setup_pc_saving: bool = False
+    setup_pc_error:  str  = ""
+
+    # ── Setup panel — allocation rules ────────────────────────────────
+    alloc_rule_rows:     list[dict[str, Any]] = []
+    rule_sheet_open:     bool = False
+    rule_sheet_itype:    str  = "internal"    # internal | external
+    rule_sheet_name:     str  = ""
+    rule_sheet_val_type: str  = "fixed"       # fixed | pct
+    rule_sheet_value:    str  = ""
+    rule_sheet_bid:      str  = ""
+    rule_sheet_saving:   bool = False
+    rule_sheet_error:    str  = ""
+
+    # ── Payday modal ──────────────────────────────────────────────────
+    payday_open:       bool = False
+    payday_amount_fmt: str  = ""
+    payday_rows:       list[dict[str, Any]] = []
+    payday_saving:     bool = False
+
     # ── Forecast ──────────────────────────────────────────────────────────────
     forecast_range:    int              = 3
     forecast_account:  str              = ""
@@ -555,12 +593,17 @@ class AppState(rx.State):
                 "incomeType": "paycheck" if self.sheet_type == "in" else None,
             }
             tx_id = DB.insert_transaction(self.user_id, self.access_token, tx)
-            # Reload data
             data = DB.load_all(self.user_id, self.access_token)
             self._raw = data
             self._process(data, self.active_mid)
-            self.sheet_open   = False
-            self.sheet_error  = ""
+            self.sheet_open  = False
+            self.sheet_error = ""
+            # Trigger payday modal for income transactions
+            if self.sheet_type == "in":
+                self._compute_payday_rows(amount)
+                if self.payday_rows:
+                    self.payday_amount_fmt = _fmt(amount)
+                    self.payday_open = True
         except Exception as e:
             self.sheet_error = f"Failed: {e}"
         finally:
@@ -674,21 +717,43 @@ class AppState(rx.State):
         bucket = next((b for b in (self._raw.get("buckets") or []) if b["id"] == bid), None)
         if not bucket:
             return
-        self.bsettings_bid  = bid
-        self.bsf_name       = bucket.get("name", "")
-        self.bsf_type       = bucket.get("type", "expense")
-        self.bsf_cat_id     = bucket.get("catId", "")
-        budget_val          = bucket.get("defaultBudget") or 0
-        self.bsf_budget     = str(int(budget_val)) if budget_val == int(budget_val) else str(budget_val)
-        self.bsf_rollover   = bool(bucket.get("rollover"))
-        self.bsf_due_day    = str(bucket.get("dueDay") or "")
-        due_amt             = bucket.get("dueAmount") or 0
-        self.bsf_due_amount = str(int(due_amt)) if due_amt == int(due_amt) else str(due_amt)
-        self.bsf_pay_freq   = bucket.get("payFreq") or ""
-        self.bsf_notes      = bucket.get("notes") or ""
-        self.bsf_error      = ""
-        self.bsf_saving     = False
-        self.bsettings_open = True
+        all_months = self._raw.get("months") or []
+
+        def _fnum(v):
+            v = float(v or 0)
+            return str(int(v)) if v == int(v) else f"{v:.2f}"
+
+        self.bsettings_bid     = bid
+        self.bsf_name          = bucket.get("name", "")
+        self.bsf_type          = bucket.get("type", "expense")
+        self.bsf_cat_id        = bucket.get("catId", "")
+        self.bsf_budget        = _fnum(bucket.get("defaultBudget"))
+        self.bsf_rollover      = bool(bucket.get("rollover"))
+        self.bsf_due_day       = str(bucket.get("dueDay") or "")
+        self.bsf_due_amount    = _fnum(bucket.get("dueAmount"))
+        self.bsf_pay_freq      = bucket.get("payFreq") or ""
+        self.bsf_notes         = bucket.get("notes") or ""
+        self.bsf_target_amount = _fnum(bucket.get("targetAmount"))
+        self.bsf_target_date   = bucket.get("targetDate") or ""
+        self.bsf_contrib_freq  = bucket.get("contribFreq") or ""
+        self.bsf_recurring     = bool(bucket.get("recurring"))
+        # Skip for active month
+        active_month = next((m for m in all_months if m.get("id") == self.active_mid), {})
+        self.bsf_skip = bool(active_month.get("skippedBuckets", {}).get(bid))
+        # Vault info
+        if bucket.get("type") == "vault":
+            vt = vault_accumulated(bid, all_months)
+            self.bsf_vault_total     = vt
+            self.bsf_vault_total_fmt = _fmt(vt)
+        else:
+            self.bsf_vault_total     = 0.0
+            self.bsf_vault_total_fmt = "$0.00"
+        self.bsf_transfer_bid = ""
+        self.bsf_transfer_amt = ""
+        self.bsf_release_amt  = ""
+        self.bsf_error        = ""
+        self.bsf_saving       = False
+        self.bsettings_open   = True
 
     def set_bsettings_open(self, v: bool):
         self.bsettings_open = v
@@ -700,8 +765,9 @@ class AppState(rx.State):
             self.bsf_error = "Name is required"
             return
         try:
-            budget_val     = round(float(self.bsf_budget or "0"), 2)
-            due_amount_val = round(float(self.bsf_due_amount or "0"), 2)
+            budget_val        = round(float(self.bsf_budget or "0"), 2)
+            due_amount_val    = round(float(self.bsf_due_amount or "0"), 2)
+            target_amount_val = round(float(self.bsf_target_amount or "0"), 2)
         except ValueError:
             self.bsf_error = "Invalid number"
             return
@@ -719,6 +785,10 @@ class AppState(rx.State):
                 "due_amount":     due_amount_val,
                 "pay_freq":       self.bsf_pay_freq or None,
                 "notes":          self.bsf_notes.strip(),
+                "target_amount":  target_amount_val,
+                "target_date":    self.bsf_target_date.strip() or None,
+                "contrib_freq":   self.bsf_contrib_freq or None,
+                "recurring":      self.bsf_recurring,
             })
             data = DB.load_all(self.user_id, self.access_token)
             self._raw           = data
@@ -740,6 +810,86 @@ class AppState(rx.State):
             yield rx.toast.success("Bucket archived")
         except Exception as e:
             self.bsf_error = str(e)
+
+    async def vault_transfer(self):
+        """Move allocation from vault to a destination bucket (net RTS = 0)."""
+        bid  = self.bsettings_bid
+        dest = self.bsf_transfer_bid
+        try:
+            amt = round(float(self.bsf_transfer_amt or "0"), 2)
+        except ValueError:
+            self.bsf_error = "Invalid amount"
+            return
+        if amt <= 0 or not dest:
+            self.bsf_error = "Amount and destination required"
+            return
+        months = self._raw.get("months") or []
+        mid = self.active_mid
+        active_month = next((m for m in months if m.get("id") == mid), None)
+        if not active_month:
+            active_month = {"id": mid, "closed": False, "allocations": {}, "budgets": {},
+                            "rolloverReleased": {}, "skippedBuckets": {}, "vaultWithdrawals": {}}
+            months.append(active_month)
+            self._raw["months"] = months
+        allocs     = active_month.setdefault("allocations", {})
+        new_vault  = max(0.0, float(allocs.get(bid) or 0) - amt)
+        new_dest   = round(float(allocs.get(dest) or 0) + amt, 2)
+        allocs[bid]  = new_vault
+        allocs[dest] = new_dest
+        self._process(self._raw, mid)
+        self.bsf_transfer_amt = ""
+        self.bsettings_open   = False
+        yield
+        try:
+            DB.ensure_month(self.user_id, self.access_token, mid)
+            DB.upsert_alloc(self.user_id, self.access_token, mid, bid, new_vault)
+            DB.upsert_alloc(self.user_id, self.access_token, mid, dest, new_dest)
+            yield rx.toast.success("Vault transferred")
+        except Exception as e:
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, mid)
+            yield rx.toast.error("Transfer failed")
+
+    async def vault_release_pool(self):
+        """Release vault savings back to RTS pool."""
+        bid = self.bsettings_bid
+        try:
+            release = round(float(self.bsf_release_amt or "0"), 2)
+        except ValueError:
+            self.bsf_error = "Invalid amount"
+            return
+        if release <= 0:
+            self.bsf_error = "Amount must be positive"
+            return
+        months = self._raw.get("months") or []
+        mid = self.active_mid
+        active_month = next((m for m in months if m.get("id") == mid), {})
+        allocs       = active_month.get("allocations", {})
+        cur_alloc    = float(allocs.get(bid) or 0)
+        from_alloc   = min(cur_alloc, release)
+        from_prior   = max(0.0, release - from_alloc)
+        new_alloc    = round(cur_alloc - from_alloc, 2)
+        allocs[bid]  = new_alloc
+        self._process(self._raw, mid)
+        self.bsf_release_amt = ""
+        self.bsettings_open  = False
+        yield
+        try:
+            DB.ensure_month(self.user_id, self.access_token, mid)
+            DB.upsert_alloc(self.user_id, self.access_token, mid, bid, new_alloc)
+            if from_prior > 0:
+                existing_wd = float(active_month.get("vaultWithdrawals", {}).get(bid) or 0)
+                DB.upsert_vault_withdrawal(
+                    self.user_id, self.access_token, mid, bid,
+                    round(existing_wd + from_prior, 2)
+                )
+            yield rx.toast.success("Released to pool")
+        except Exception as e:
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, mid)
+            yield rx.toast.error("Release failed")
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Add bucket
@@ -765,6 +915,200 @@ class AppState(rx.State):
         except Exception as e:
             self.add_bkt_saving = False
             yield rx.toast.error(f"Could not add bucket")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Paychecks
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def add_paycheck_submit(self):
+        if not self.setup_pc_label.strip():
+            self.setup_pc_error = "Label required"
+            return
+        try:
+            amt  = round(float(self.setup_pc_amount or "0"), 2)
+            freq = int(self.setup_pc_freq or "14")
+        except ValueError:
+            self.setup_pc_error = "Invalid number"
+            return
+        if amt <= 0:
+            self.setup_pc_error = "Amount must be positive"
+            return
+        self.setup_pc_saving = True
+        self.setup_pc_error  = ""
+        yield
+        try:
+            DB.insert_paycheck(
+                self.user_id, self.access_token,
+                self.setup_pc_label.strip(), amt, freq,
+                self.setup_pc_anchor.strip(),
+            )
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw            = data
+            self._process(data, self.active_mid)
+            self.setup_pc_label  = ""
+            self.setup_pc_amount = ""
+            self.setup_pc_anchor = ""
+            self.setup_pc_saving = False
+            yield rx.toast.success("Paycheck added")
+        except Exception as e:
+            self.setup_pc_saving = False
+            self.setup_pc_error  = str(e)
+
+    async def delete_paycheck_item(self, pc_id: str):
+        try:
+            DB.delete_paycheck(self.user_id, self.access_token, pc_id)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+            yield rx.toast.success("Deleted")
+        except Exception:
+            yield rx.toast.error("Could not delete paycheck")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Allocation rules
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def open_rule_sheet(self, rule_type: str):
+        self.rule_sheet_itype    = rule_type
+        self.rule_sheet_name     = ""
+        self.rule_sheet_val_type = "fixed"
+        self.rule_sheet_value    = ""
+        self.rule_sheet_bid      = ""
+        self.rule_sheet_error    = ""
+        self.rule_sheet_saving   = False
+        self.rule_sheet_open     = True
+
+    def close_rule_sheet(self):
+        self.rule_sheet_open  = False
+        self.rule_sheet_error = ""
+
+    async def add_alloc_rule_submit(self):
+        if not self.rule_sheet_name.strip():
+            self.rule_sheet_error = "Name required"
+            return
+        try:
+            value = round(float(self.rule_sheet_value or "0"), 4)
+        except ValueError:
+            self.rule_sheet_error = "Invalid value"
+            return
+        if value <= 0:
+            self.rule_sheet_error = "Value must be positive"
+            return
+        if self.rule_sheet_itype == "internal" and not self.rule_sheet_bid:
+            self.rule_sheet_error = "Select a bucket"
+            return
+        self.rule_sheet_saving = True
+        self.rule_sheet_error  = ""
+        yield
+        try:
+            DB.insert_alloc_rule(
+                self.user_id, self.access_token,
+                self.rule_sheet_name.strip(),
+                self.rule_sheet_itype,
+                self.rule_sheet_val_type,
+                value,
+                self.rule_sheet_bid,
+            )
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw              = data
+            self._process(data, self.active_mid)
+            self.rule_sheet_open   = False
+            self.rule_sheet_saving = False
+            yield rx.toast.success("Rule added")
+        except Exception as e:
+            self.rule_sheet_saving = False
+            self.rule_sheet_error  = str(e)
+
+    async def toggle_alloc_rule_item(self, rule_id: str):
+        try:
+            DB.toggle_alloc_rule(self.user_id, self.access_token, rule_id)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+        except Exception:
+            yield rx.toast.error("Could not toggle rule")
+
+    async def delete_alloc_rule_item(self, rule_id: str):
+        try:
+            DB.delete_alloc_rule(self.user_id, self.access_token, rule_id)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+            yield rx.toast.success("Rule deleted")
+        except Exception:
+            yield rx.toast.error("Could not delete rule")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Payday modal
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _compute_payday_rows(self, income_amount: float):
+        rules      = self._raw.get("allocationRules") or []
+        buckets    = self._raw.get("buckets") or []
+        bucket_map = {b["id"]: b.get("name", "") for b in buckets}
+        rows = []
+        for r in rules:
+            if not r.get("active", True):
+                continue
+            rule_type = r.get("rule_type", "internal")
+            val_type  = r.get("value_type", "fixed")
+            value     = float(r.get("value") or 0)
+            if val_type == "pct":
+                amt     = round(income_amount * value / 100, 2)
+                val_str = f"{value}%"
+            else:
+                amt     = round(value, 2)
+                val_str = _fmt(value)
+            bid = r.get("bucket_id") or ""
+            rows.append({
+                "id":          r["id"],
+                "name":        r.get("name", ""),
+                "rule_type":   rule_type,
+                "bucket_id":   bid,
+                "bucket_name": bucket_map.get(bid, ""),
+                "value_str":   val_str,
+                "amount":      amt,
+                "amount_fmt":  _fmt(amt),
+                "included":    "1",
+            })
+        self.payday_rows = rows
+
+    def toggle_payday_row(self, rule_id: str):
+        self.payday_rows = [
+            {**row, "included": "" if row["included"] else "1"}
+            if row["id"] == rule_id else row
+            for row in self.payday_rows
+        ]
+
+    def close_payday(self):
+        self.payday_open = False
+
+    async def apply_payday(self):
+        mid = self.active_mid
+        self.payday_saving = True
+        yield
+        try:
+            DB.ensure_month(self.user_id, self.access_token, mid)
+            all_months   = self._raw.get("months") or []
+            active_month = next((m for m in all_months if m.get("id") == mid), {})
+            cur_allocs   = active_month.get("allocations", {})
+            for row in self.payday_rows:
+                if row["included"] and row["rule_type"] == "internal" and row["bucket_id"]:
+                    bid      = row["bucket_id"]
+                    existing = float(cur_allocs.get(bid) or 0)
+                    DB.upsert_alloc(
+                        self.user_id, self.access_token, mid, bid,
+                        round(existing + row["amount"], 2),
+                    )
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw      = data
+            self._process(data, mid)
+            self.payday_open   = False
+            self.payday_saving = False
+            yield rx.toast.success("Allocations applied!")
+        except Exception as e:
+            self.payday_saving = False
+            yield rx.toast.error("Could not apply allocations")
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Ledger search
@@ -982,6 +1326,36 @@ class AppState(rx.State):
         self.account_options = [
             {"id": a["id"], "name": a.get("name", "")}
             for a in accounts if not a.get("archived")
+        ]
+
+        # ── Paycheck rows ──────────────────────────────────────────────────
+        FREQ_LABELS = {"7": "Weekly", "14": "Biweekly", "15": "Semi-monthly"}
+        self.paycheck_rows = [
+            {
+                "id":         p.get("id", ""),
+                "label":      p.get("label", ""),
+                "amount_fmt": _fmt(float(p.get("amount") or 0)),
+                "freq_label": FREQ_LABELS.get(str(p.get("freq", 14)), f"Every {p.get('freq', 14)}d"),
+                "anchor":     p.get("anchor_date") or "",
+            }
+            for p in (data.get("paychecks") or [])
+        ]
+
+        # ── Allocation rule rows ───────────────────────────────────────────
+        self.alloc_rule_rows = [
+            {
+                "id":          r.get("id", ""),
+                "name":        r.get("name", ""),
+                "rule_type":   r.get("rule_type", "internal"),
+                "value_type":  r.get("value_type", "fixed"),
+                "value_str":   (f"{r.get('value', 0)}%"
+                                if r.get("value_type") == "pct"
+                                else _fmt(float(r.get("value") or 0))),
+                "bucket_id":   r.get("bucket_id") or "",
+                "bucket_name": bucket_map.get(r.get("bucket_id") or "", ""),
+                "active_str":  "1" if r.get("active", True) else "",
+            }
+            for r in (data.get("allocationRules") or [])
         ]
 
         # ── Forecast ───────────────────────────────────────────────────────

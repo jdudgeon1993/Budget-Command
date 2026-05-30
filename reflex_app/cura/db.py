@@ -78,6 +78,8 @@ def load_all(uid: str, token: str) -> dict:
         "dueAmount": float(b.get("due_amount") or 0),
         "targetAmount": float(b.get("target_amount") or 0),
         "targetDate": b.get("target_date") or "",
+        "contribFreq": b.get("contrib_freq") or "",
+        "recurring": bool(b.get("recurring")),
         "notes": b.get("notes") or "",
         "order": b.get("sort_order", 0),
     } for b in sorted(buckets_raw, key=lambda x: x.get("sort_order", 0))]
@@ -171,6 +173,8 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         "due_day": "due_day", "due_amount": "due_amount",
         "pay_freq": "pay_freq",
         "target_amount": "target_amount", "target_date": "target_date",
+        "contrib_freq": "contrib_freq",
+        "recurring": "recurring",
         "notes": "notes",
     }
     payload: dict = {"id": bid, "user_id": uid}
@@ -206,6 +210,53 @@ def insert_category(uid: str, token: str, name: str, color: str) -> str:
         "color": color, "sort_order": 999,
     }).execute()
     return cid
+
+
+def upsert_vault_withdrawal(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
+    client(token).table("bcc_month_vault_withdrawals").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+
+
+def insert_paycheck(uid: str, token: str, label: str, amount: float, freq: int, anchor_date: str) -> str:
+    pc_id = f"pc_{uuid.uuid4().hex[:10]}"
+    existing = client(token).table("bcc_paychecks").select("sort_order").eq("user_id", uid).order("sort_order", desc=True).limit(1).execute().data or []
+    sort_order = (existing[0]["sort_order"] + 1) if existing else 1
+    client(token).table("bcc_paychecks").insert({
+        "id": pc_id, "user_id": uid, "label": label, "amount": amount,
+        "freq": freq, "anchor_date": anchor_date or None, "sort_order": sort_order,
+    }).execute()
+    return pc_id
+
+
+def delete_paycheck(uid: str, token: str, pc_id: str) -> None:
+    client(token).table("bcc_paychecks").delete().eq("id", pc_id).eq("user_id", uid).execute()
+
+
+def insert_alloc_rule(uid: str, token: str, name: str, rule_type: str, value_type: str, value: float, bucket_id: str) -> str:
+    rule_id = f"rule_{uuid.uuid4().hex[:10]}"
+    existing = client(token).table("bcc_allocation_rules").select("sort_order").eq("user_id", uid).order("sort_order", desc=True).limit(1).execute().data or []
+    sort_order = (existing[0]["sort_order"] + 1) if existing else 1
+    client(token).table("bcc_allocation_rules").insert({
+        "id": rule_id, "user_id": uid, "name": name,
+        "rule_type": rule_type, "value_type": value_type,
+        "value": value, "bucket_id": bucket_id or None,
+        "active": True, "sort_order": sort_order,
+    }).execute()
+    return rule_id
+
+
+def toggle_alloc_rule(uid: str, token: str, rule_id: str) -> bool:
+    res = client(token).table("bcc_allocation_rules").select("active").eq("id", rule_id).eq("user_id", uid).execute()
+    if not res.data:
+        raise ValueError("Rule not found")
+    new_active = not res.data[0]["active"]
+    client(token).table("bcc_allocation_rules").update({"active": new_active}).eq("id", rule_id).eq("user_id", uid).execute()
+    return new_active
+
+
+def delete_alloc_rule(uid: str, token: str, rule_id: str) -> None:
+    client(token).table("bcc_allocation_rules").delete().eq("id", rule_id).eq("user_id", uid).execute()
 
 
 def is_auth_error(e: Exception) -> bool:

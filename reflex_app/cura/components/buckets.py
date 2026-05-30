@@ -123,6 +123,208 @@ def _rts_hero() -> rx.Component:
 
 # ── Bucket settings dialog ────────────────────────────────────────────────────
 
+def _toggle_row(label: str, sub: str, checked, on_change) -> rx.Component:
+    return rx.hstack(
+        rx.vstack(
+            rx.text(label, style={"font_size": "12px", "color": TEXT}),
+            rx.text(sub, style={"font_size": "10px", "color": TEXT3}),
+            gap="1px", align_items="flex-start",
+        ),
+        rx.spacer(),
+        rx.switch(checked=checked, on_change=on_change, color_scheme="indigo"),
+        align_items="center", width="100%",
+    )
+
+
+def _expense_fields() -> rx.Component:
+    """Fields specific to expense-type buckets."""
+    return rx.fragment(
+        _field("Monthly Budget Target ($)",
+            rx.input(value=AppState.bsf_budget, on_change=AppState.set_bsf_budget,
+                     type="number", input_mode="decimal", placeholder="0",
+                     style=_input_style())
+        ),
+        rx.hstack(
+            _field("Due Day",
+                rx.input(value=AppState.bsf_due_day, on_change=AppState.set_bsf_due_day,
+                         placeholder="e.g. 15 or eom", style=_input_style())
+            ),
+            _field("Due Amount ($)",
+                rx.input(value=AppState.bsf_due_amount, on_change=AppState.set_bsf_due_amount,
+                         type="number", input_mode="decimal", placeholder="exact $ due",
+                         style=_input_style())
+            ),
+            gap="10px", width="100%",
+        ),
+        _field("Pay Frequency",
+            rx.el.select(
+                rx.el.option("— None —", value=""),
+                rx.el.option("Monthly", value="monthly"),
+                rx.el.option("Weekly", value="weekly"),
+                rx.el.option("Biweekly", value="biweekly"),
+                rx.el.option("Triweekly", value="triweekly"),
+                value=AppState.bsf_pay_freq, on_change=AppState.set_bsf_pay_freq,
+                style=_select_style(),
+            )
+        ),
+        _toggle_row("Recurring bill", "Auto-show in forecast",
+                    AppState.bsf_recurring, AppState.set_bsf_recurring),
+        _toggle_row("Roll over unspent balance", "Surplus carries to next month",
+                    AppState.bsf_rollover, AppState.set_bsf_rollover),
+    )
+
+
+def _sinking_goal_fields() -> rx.Component:
+    """Fields specific to sinking fund / goal buckets."""
+    return rx.fragment(
+        _field("Monthly Contribution ($)",
+            rx.input(value=AppState.bsf_budget, on_change=AppState.set_bsf_budget,
+                     type="number", input_mode="decimal", placeholder="0",
+                     style=_input_style())
+        ),
+        rx.hstack(
+            _field("Target Amount ($)",
+                rx.input(value=AppState.bsf_target_amount,
+                         on_change=AppState.set_bsf_target_amount,
+                         type="number", input_mode="decimal", placeholder="e.g. 5000",
+                         style=_input_style())
+            ),
+            _field("Target Date (YYYY-MM)",
+                rx.input(value=AppState.bsf_target_date,
+                         on_change=AppState.set_bsf_target_date,
+                         type="month", placeholder="YYYY-MM",
+                         style=_input_style())
+            ),
+            gap="10px", width="100%",
+        ),
+        _field("Contribution Frequency",
+            rx.el.select(
+                rx.el.option("— None —", value=""),
+                rx.el.option("Monthly", value="monthly"),
+                rx.el.option("Biweekly", value="biweekly"),
+                rx.el.option("Weekly", value="weekly"),
+                value=AppState.bsf_contrib_freq, on_change=AppState.set_bsf_contrib_freq,
+                style=_select_style(),
+            )
+        ),
+        _toggle_row("Roll over balance", "Accumulates month to month (recommended)",
+                    AppState.bsf_rollover, AppState.set_bsf_rollover),
+    )
+
+
+def _vault_fields() -> rx.Component:
+    """Fields specific to vault-type buckets."""
+    return rx.fragment(
+        # Accumulated balance display
+        rx.box(
+            rx.hstack(
+                rx.vstack(
+                    rx.text("VAULT BALANCE", style={
+                        "font_size": "8px", "letter_spacing": "0.14em",
+                        "color": TEXT3, "font_family": MONO,
+                    }),
+                    rx.text(AppState.bsf_vault_total_fmt, style={
+                        "font_size": "22px", "font_weight": "700",
+                        "font_family": MONO, "color": VIOLET,
+                    }),
+                    gap="2px", align_items="flex-start",
+                ),
+                rx.text("Total saved across all months",
+                        style={"font_size": "10px", "color": TEXT3}),
+                justify="between", width="100%", align_items="center",
+            ),
+            style={
+                "background": f"{VIOLET}0d", "border": f"1px solid {VIOLET}33",
+                "border_radius": "8px", "padding": "12px 14px",
+            },
+        ),
+
+        rx.divider(style={"border_color": BORDER}),
+
+        # Transfer to bucket
+        rx.vstack(
+            rx.text("Transfer to Bucket", style={
+                "font_size": "10px", "color": TEXT3, "letter_spacing": "0.1em",
+                "text_transform": "uppercase", "font_family": MONO,
+            }),
+            rx.text("Move allocation to another bucket (net RTS = 0)",
+                    style={"font_size": "10px", "color": TEXT3}),
+            rx.hstack(
+                rx.el.select(
+                    rx.el.option("— Select bucket —", value=""),
+                    AppState.expense_buckets.to(list[dict[str, Any]]).foreach(
+                        lambda b: rx.el.option(b["name"], value=b["id"])
+                    ),
+                    value=AppState.bsf_transfer_bid,
+                    on_change=AppState.set_bsf_transfer_bid,
+                    style={**_select_style(), "flex": "2"},
+                ),
+                rx.input(
+                    value=AppState.bsf_transfer_amt,
+                    on_change=AppState.set_bsf_transfer_amt,
+                    type="number", input_mode="decimal", placeholder="$",
+                    style={**_input_style(), "flex": "1"},
+                ),
+                rx.box(
+                    "Transfer",
+                    on_click=AppState.vault_transfer,
+                    style={
+                        "padding": "8px 12px", "border_radius": "8px",
+                        "background": ACCENT, "color": "#fff",
+                        "font_size": "11px", "cursor": "pointer",
+                        "font_family": MONO, "white_space": "nowrap",
+                        "flex_shrink": "0", "_hover": {"opacity": "0.85"},
+                    },
+                ),
+                gap="8px", width="100%", align_items="center",
+            ),
+            gap="6px", align_items="stretch", width="100%",
+        ),
+
+        rx.divider(style={"border_color": BORDER}),
+
+        # Release to pool
+        rx.vstack(
+            rx.text("Release to Pool", style={
+                "font_size": "10px", "color": TEXT3, "letter_spacing": "0.1em",
+                "text_transform": "uppercase", "font_family": MONO,
+            }),
+            rx.text("Return savings to RTS (frees up cash)",
+                    style={"font_size": "10px", "color": TEXT3}),
+            rx.hstack(
+                rx.input(
+                    value=AppState.bsf_release_amt,
+                    on_change=AppState.set_bsf_release_amt,
+                    type="number", input_mode="decimal",
+                    placeholder="$ amount to release",
+                    style={**_input_style(), "flex": "1"},
+                ),
+                rx.box(
+                    "Release",
+                    on_click=AppState.vault_release_pool,
+                    style={
+                        "padding": "8px 12px", "border_radius": "8px",
+                        "border": f"1px solid {RED}44", "color": RED,
+                        "font_size": "11px", "cursor": "pointer",
+                        "font_family": MONO, "white_space": "nowrap",
+                        "flex_shrink": "0",
+                        "_hover": {"background": f"{RED}11"},
+                    },
+                ),
+                gap="8px", width="100%", align_items="center",
+            ),
+            gap="6px", align_items="stretch", width="100%",
+        ),
+
+        # Monthly contribution field (how much to allocate each month)
+        _field("Monthly Contribution ($)",
+            rx.input(value=AppState.bsf_budget, on_change=AppState.set_bsf_budget,
+                     type="number", input_mode="decimal", placeholder="0",
+                     style=_input_style())
+        ),
+    )
+
+
 def bucket_settings_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
@@ -144,23 +346,20 @@ def bucket_settings_dialog() -> rx.Component:
                 ),
                 rx.divider(style={"border_color": BORDER}),
 
+                # Always: name + type + category
                 _field("Bucket Name",
-                    rx.input(
-                        value=AppState.bsf_name,
-                        on_change=AppState.set_bsf_name,
-                        style=_input_style(),
-                    )
+                    rx.input(value=AppState.bsf_name, on_change=AppState.set_bsf_name,
+                             style=_input_style())
                 ),
 
                 rx.hstack(
                     _field("Type",
                         rx.el.select(
                             rx.el.option("Expense", value="expense"),
-                            rx.el.option("Vault (savings)", value="vault"),
                             rx.el.option("Sinking Fund", value="sinking"),
                             rx.el.option("Goal", value="goal"),
-                            value=AppState.bsf_type,
-                            on_change=AppState.set_bsf_type,
+                            rx.el.option("Vault (internal savings)", value="vault"),
+                            value=AppState.bsf_type, on_change=AppState.set_bsf_type,
                             style=_select_style(),
                         )
                     ),
@@ -169,76 +368,39 @@ def bucket_settings_dialog() -> rx.Component:
                             AppState.cat_options.to(list[dict[str, Any]]).foreach(
                                 lambda c: rx.el.option(c["name"], value=c["id"])
                             ),
-                            value=AppState.bsf_cat_id,
-                            on_change=AppState.set_bsf_cat_id,
+                            value=AppState.bsf_cat_id, on_change=AppState.set_bsf_cat_id,
                             style=_select_style(),
                         )
                     ),
                     gap="10px", width="100%",
                 ),
 
-                _field("Monthly Budget Target ($)",
-                    rx.input(
-                        value=AppState.bsf_budget,
-                        on_change=AppState.set_bsf_budget,
-                        type="number", input_mode="decimal",
-                        placeholder="0",
-                        style=_input_style(),
-                    )
+                # Type-aware field groups
+                rx.match(
+                    AppState.bsf_type,
+                    ("expense",  _expense_fields()),
+                    ("sinking",  _sinking_goal_fields()),
+                    ("goal",     _sinking_goal_fields()),
+                    ("vault",    _vault_fields()),
+                    _expense_fields(),   # fallback
                 ),
 
-                rx.hstack(
-                    _field("Due Day",
-                        rx.input(
-                            value=AppState.bsf_due_day,
-                            on_change=AppState.set_bsf_due_day,
-                            placeholder="e.g. 15 or eom",
-                            style=_input_style(),
-                        )
-                    ),
-                    _field("Pay Frequency",
-                        rx.el.select(
-                            rx.el.option("— None —", value=""),
-                            rx.el.option("Monthly", value="monthly"),
-                            rx.el.option("Weekly", value="weekly"),
-                            rx.el.option("Biweekly", value="biweekly"),
-                            rx.el.option("Triweekly", value="triweekly"),
-                            value=AppState.bsf_pay_freq,
-                            on_change=AppState.set_bsf_pay_freq,
-                            style=_select_style(),
-                        )
-                    ),
-                    gap="10px", width="100%",
-                ),
-
+                # Notes — always shown
                 _field("Notes",
                     rx.text_area(
-                        value=AppState.bsf_notes,
-                        on_change=AppState.set_bsf_notes,
-                        placeholder="Optional notes…",
-                        rows="2",
-                        style={
-                            **_input_style(),
-                            "resize": "none", "font_family": SANS,
-                        },
+                        value=AppState.bsf_notes, on_change=AppState.set_bsf_notes,
+                        placeholder="Optional notes…", rows="2",
+                        style={**_input_style(), "resize": "none", "font_family": SANS},
                     )
                 ),
 
-                rx.hstack(
-                    rx.vstack(
-                        rx.text("Roll over unspent balance",
-                                style={"font_size": "12px", "color": TEXT}),
-                        rx.text("Surplus carries to next month",
-                                style={"font_size": "10px", "color": TEXT3}),
-                        gap="1px", align_items="flex-start",
-                    ),
-                    rx.spacer(),
-                    rx.switch(
-                        checked=AppState.bsf_rollover,
-                        on_change=AppState.set_bsf_rollover,
-                        color_scheme="indigo",
-                    ),
-                    align_items="center", width="100%",
+                # Skip this month — shown for non-vault
+                rx.cond(
+                    AppState.bsf_type != "vault",
+                    _toggle_row("Skip this month",
+                                "Exclude from budget calculations for this month",
+                                AppState.bsf_skip, AppState.set_bsf_skip),
+                    rx.box(),
                 ),
 
                 rx.cond(
@@ -272,8 +434,7 @@ def bucket_settings_dialog() -> rx.Component:
                             "color": "#fff", "font_size": "11px",
                             "text_align": "center", "cursor": "pointer",
                             "font_family": MONO, "letter_spacing": "0.08em",
-                            "text_transform": "uppercase",
-                            "_hover": {"opacity": "0.9"},
+                            "text_transform": "uppercase", "_hover": {"opacity": "0.9"},
                         },
                     ),
                     gap="8px", width="100%",

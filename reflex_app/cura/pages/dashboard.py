@@ -9,6 +9,8 @@ from ..components.sidebar   import sidebar
 from ..components.buckets   import buckets_panel
 from ..components.ledger    import ledger_panel
 from ..components.forecast  import forecast_panel
+from ..components.setup     import setup_panel
+from ..components.payday    import payday_modal
 
 
 # ── Mobile header ─────────────────────────────────────────────────────────────
@@ -95,6 +97,9 @@ def mobile_nav() -> rx.Component:
             '<line x1="18" y1="20" x2="18" y2="10"/>'
             '<line x1="12" y1="20" x2="12" y2="4"/>'
             '<line x1="6" y1="20" x2="6" y2="14"/>'),
+        _mob_tab("Setup", "setup",
+            '<circle cx="12" cy="12" r="3"/>'
+            '<path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/>'),
         # FAB
         rx.box(
             "+",
@@ -164,7 +169,7 @@ def panel_content() -> rx.Component:
             ("ledger",   ledger_panel()),
             ("accounts", _accounts_stub()),
             ("insights", forecast_panel()),
-            ("setup",    _stub_panel("Setup")),
+            ("setup",    setup_panel()),
             buckets_panel(),
         ),
         style={"width": "100%"},
@@ -233,8 +238,9 @@ def dashboard_page() -> rx.Component:
             class_name="main-content",
         ),
 
-        # Toast notifications
+        # Toast notifications + payday modal
         rx.toast.provider(),
+        payday_modal(),
 
         on_mount=AppState.on_dashboard_load,
         style={"background": BG, "color": TEXT, "font_family": SANS, "min_height": "100vh"},
