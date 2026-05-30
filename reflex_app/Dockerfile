@@ -30,7 +30,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl unzip nginx --no-install-recommends \
+RUN apt-get update && apt-get install -y curl unzip --no-install-recommends \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*

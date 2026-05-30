@@ -1,11 +1,11 @@
 import reflex as rx
 import os
 
+_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+_api_url = f"https://{_domain}" if _domain else "http://localhost:8080"
+
 config = rx.Config(
     app_name="cura",
-    frontend_port=3000,
-    backend_port=8000,
-    # In production, the frontend calls back to the same host (nginx proxies it)
-    api_url=os.environ.get("RAILWAY_PUBLIC_DOMAIN", "http://localhost:8080"),
-    deploy_url=os.environ.get("RAILWAY_PUBLIC_DOMAIN", "http://localhost:8080"),
+    api_url=_api_url,
+    deploy_url=_api_url,
 )
