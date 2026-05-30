@@ -256,6 +256,10 @@ class AppState(rx.State):
     panel_error:   str  = ""
     _polling:      bool = False  # background poll running
 
+    # Inline budget editing
+    editing_budget_bid: str = ""
+    edit_budget_val:    str = ""
+
     # ── Add-transaction sheet ─────────────────────────────────────────────────
     sheet_open:        bool = False
     sheet_type:        str  = "out"      # "out" | "in" | "xfr"
@@ -736,6 +740,36 @@ class AppState(rx.State):
     # ─────────────────────────────────────────────────────────────────────────
     #  Inline allocation editing
     # ─────────────────────────────────────────────────────────────────────────
+
+    def start_edit_budget(self, bid: str, budget_fmt: str):
+        v = budget_fmt.replace(",", "").replace("$", "")
+        self.editing_budget_bid = bid
+        self.edit_budget_val    = v
+
+    def save_budget_edit(self):
+        bid = self.editing_budget_bid
+        if not bid:
+            return
+        try:
+            amount = round(float(self.edit_budget_val or "0"), 2)
+        except ValueError:
+            amount = 0.0
+        self.editing_budget_bid = ""
+        self.edit_budget_val    = ""
+        DB.upsert_budget(self.user_id, self.access_token, self.active_mid, bid, amount)
+        data = DB.load_all(self.user_id, self.access_token)
+        self._raw = data
+        self._process(data, self.active_mid)
+
+    def cancel_budget_edit(self):
+        self.editing_budget_bid = ""
+        self.edit_budget_val    = ""
+
+    def handle_budget_key(self, key: str):
+        if key == "Enter":
+            self.save_budget_edit()
+        elif key == "Escape":
+            self.cancel_budget_edit()
 
     def start_edit_alloc(self, bid: str, alloc_fmt: str):
         v = alloc_fmt.replace(",", "").replace("$", "")
@@ -1507,6 +1541,7 @@ class AppState(rx.State):
                 "spent_fmt": "", "pct_str": "0%", "avail_color": "", "avail_bg": "",
                 "avail_border": "", "bar_color": "", "prog_h": "0px", "show_fill": False,
                 "funding_pct_str": "0%", "gap": 0.0, "gap_fmt": "", "is_funded": "",
+                "is_over": "", "over_fmt": "",
                 "roll_fmt": "", "show_roll": "", "target_fmt": "",
                 "sinking_pct_str": "0%", "months_left_str": "",
                 "show_goal": "", "vault_fmt": "", "show_vault": "",
@@ -1517,7 +1552,7 @@ class AppState(rx.State):
                 bid   = b["id"]
                 btype = b.get("type", "expense")
                 alloc  = b_alloc(active_month, bid)
-                budget = b_budget(active_month, bid)
+                budget = b_budget(active_month, bid) or float(b.get("defaultBudget") or 0)
 
                 if btype == "vault":
                     vault_total = vault_accumulated(bid, all_months)
@@ -1594,6 +1629,8 @@ class AppState(rx.State):
                     "gap":            gap,
                     "gap_fmt":        f"-{_fmt(gap)}" if gap > 0.005 else "",
                     "is_funded":      "1" if is_funded else "",
+                    "is_over":        "1" if avail < -0.005 else "",
+                    "over_fmt":       f"OVER −{_fmt(abs(avail))}" if avail < -0.005 else "",
                     "roll_fmt":       roll_fmt,
                     "show_roll":      "1" if show_roll else "",
                     "target_fmt":     target_fmt,

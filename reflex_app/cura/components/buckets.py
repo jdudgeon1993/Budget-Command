@@ -519,6 +519,56 @@ def _alloc_cell(row: dict) -> rx.Component:
     )
 
 
+
+def _budget_cell(row: dict) -> rx.Component:
+    """Inline editable budget target for the current month."""
+    is_editing = AppState.editing_budget_bid == row["id"]
+    return rx.cond(
+        is_editing,
+        rx.hstack(
+            rx.input(
+                value=AppState.edit_budget_val,
+                on_change=AppState.set_edit_budget_val,
+                on_blur=AppState.save_budget_edit,
+                on_key_down=AppState.handle_budget_key,
+                auto_focus=True,
+                type="number",
+                input_mode="decimal",
+                style={
+                    "width": "80px", "background": BG3,
+                    "border": f"1px solid {ACCENT}",
+                    "border_radius": "6px", "color": TEXT,
+                    "font_family": MONO, "font_size": "12px",
+                    "padding": "3px 8px", "outline": "none",
+                    "text_align": "right",
+                    "_focus": {"border_color": ACCENT},
+                },
+            ),
+            rx.box("✓", on_click=AppState.save_budget_edit, style={
+                "font_size": "13px", "color": GREEN, "cursor": "pointer",
+                "padding": "2px 3px", "line_height": "1",
+                "_hover": {"opacity": "0.7"},
+            }),
+            rx.box("✗", on_click=AppState.cancel_budget_edit, style={
+                "font_size": "13px", "color": TEXT3, "cursor": "pointer",
+                "padding": "2px 3px", "line_height": "1",
+                "_hover": {"color": RED},
+            }),
+            align_items="center", gap="3px",
+        ),
+        rx.text(
+            rx.cond(row["budget_fmt"] != "", row["budget_fmt"], "—"),
+            on_click=AppState.start_edit_budget(row["id"], row["budget_fmt"]),
+            style={
+                "font_size": "13px", "font_family": MONO,
+                "font_weight": "600", "color": TEXT2,
+                "cursor": "text", "line_height": "1.2",
+                "_hover": {"opacity": "0.75"},
+            },
+        ),
+    )
+
+
 # ── Bucket row (header + bucket in one flat foreach) ─────────────────────────
 
 def _bucket_row(row: dict) -> rx.Component:
