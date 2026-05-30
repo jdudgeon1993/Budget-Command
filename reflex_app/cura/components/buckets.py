@@ -13,7 +13,7 @@ def _input_style() -> dict:
     return {
         "background": BG3, "border": f"1px solid {BORDER}",
         "border_radius": "8px", "color": TEXT, "font_family": MONO,
-        "font_size": "12px", "padding": "8px 12px", "outline": "none", "width": "100%",
+        "font_size": "13px", "padding": "8px 12px", "outline": "none", "width": "100%",
         "_focus": {"border_color": ACCENT, "outline": "none"},
     }
 
@@ -22,14 +22,14 @@ def _select_style() -> dict:
     return {
         "background": BG3, "border": f"1px solid {BORDER}",
         "border_radius": "8px", "color": TEXT,
-        "font_size": "12px", "padding": "8px 10px", "width": "100%",
+        "font_size": "13px", "padding": "8px 10px", "width": "100%",
     }
 
 
 def _field(label: str, child: rx.Component) -> rx.Component:
     return rx.vstack(
         rx.text(label, style={
-            "font_size": "9px", "color": TEXT3, "letter_spacing": "0.1em",
+            "font_size": "10px", "color": TEXT3, "letter_spacing": "0.1em",
             "text_transform": "uppercase", "font_family": MONO,
         }),
         child,
@@ -49,7 +49,7 @@ def _rts_hero() -> rx.Component:
             # Label row + Distribute CTA
             rx.hstack(
                 rx.text("READY TO ASSIGN", style={
-                    "font_size": "8px", "letter_spacing": "0.18em",
+                    "font_size": "9px", "letter_spacing": "0.18em",
                     "color": TEXT3, "font_family": MONO,
                 }),
                 rx.spacer(),
@@ -59,9 +59,9 @@ def _rts_hero() -> rx.Component:
                         "Distribute",
                         on_click=AppState.distribute_rts,
                         style={
-                            "padding": "5px 14px", "border_radius": "20px",
+                            "padding": "6px 16px", "border_radius": "20px",
                             "background": ACCENT, "color": "#fff",
-                            "font_size": "10px", "font_family": MONO,
+                            "font_size": "12px", "font_family": MONO,
                             "letter_spacing": "0.08em", "cursor": "pointer",
                             "font_weight": "600",
                             "_hover": {"opacity": "0.85"},
@@ -75,14 +75,14 @@ def _rts_hero() -> rx.Component:
 
             # Big amount
             rx.text(AppState.rts_fmt, style={
-                "font_size": "38px", "font_weight": "800",
+                "font_size": "40px", "font_weight": "800",
                 "font_family": MONO, "color": AppState.rts_color,
                 "line_height": "1", "letter_spacing": "-0.02em",
             }),
 
             # Subtitle / urgency message
             rx.text(AppState.rts_sub, style={
-                "font_size": "11px", "color": TEXT3, "line_height": "1.4",
+                "font_size": "13px", "color": TEXT3, "line_height": "1.4",
             }),
 
             # Thin allocation progress bar
@@ -96,7 +96,7 @@ def _rts_hero() -> rx.Component:
                         "width": f"{AppState.alloc_pct}%",
                     },
                 ),
-                style={"height": "4px", "border_radius": "3px", "background": BG3,
+                style={"height": "5px", "border_radius": "3px", "background": BG3,
                        "overflow": "hidden", "width": "100%"},
             ),
 
@@ -104,49 +104,231 @@ def _rts_hero() -> rx.Component:
             rx.hstack(
                 rx.hstack(
                     rx.box(style={
-                        "width": "6px", "height": "6px", "border_radius": "50%",
+                        "width": "7px", "height": "7px", "border_radius": "50%",
                         "background": GREEN, "flex_shrink": "0",
                     }),
-                    rx.text("Income", style={"font_size": "9px", "color": TEXT3}),
+                    rx.text("Income", style={"font_size": "12px", "color": TEXT3}),
                     rx.text(AppState.income_fmt, style={
-                        "font_size": "10px", "color": GREEN,
+                        "font_size": "13px", "color": GREEN,
                         "font_family": MONO, "font_weight": "600",
                     }),
-                    align_items="center", gap="4px",
+                    align_items="center", gap="5px",
                 ),
                 rx.hstack(
                     rx.box(style={
-                        "width": "6px", "height": "6px", "border_radius": "50%",
+                        "width": "7px", "height": "7px", "border_radius": "50%",
                         "background": ACCENT, "flex_shrink": "0",
                     }),
-                    rx.text("Alloc'd", style={"font_size": "9px", "color": TEXT3}),
+                    rx.text("Alloc'd", style={"font_size": "12px", "color": TEXT3}),
                     rx.text(AppState.alloc_fmt, style={
-                        "font_size": "10px", "color": ACCENT,
+                        "font_size": "13px", "color": ACCENT,
                         "font_family": MONO, "font_weight": "600",
                     }),
-                    align_items="center", gap="4px",
+                    align_items="center", gap="5px",
                 ),
                 rx.hstack(
                     rx.box(style={
-                        "width": "6px", "height": "6px", "border_radius": "50%",
+                        "width": "7px", "height": "7px", "border_radius": "50%",
                         "background": AMBER, "flex_shrink": "0",
                     }),
-                    rx.text("Spent", style={"font_size": "9px", "color": TEXT3}),
+                    rx.text("Spent", style={"font_size": "12px", "color": TEXT3}),
                     rx.text(AppState.spent_fmt, style={
-                        "font_size": "10px", "color": AMBER,
+                        "font_size": "13px", "color": AMBER,
                         "font_family": MONO, "font_weight": "600",
                     }),
-                    align_items="center", gap="4px",
+                    align_items="center", gap="5px",
                 ),
                 gap="16px", width="100%", flex_wrap="wrap",
             ),
 
-            gap="10px", width="100%",
+            gap="12px", width="100%",
         ),
         style={
             "background": BG2, "border": border,
-            "border_radius": "12px", "padding": "16px 18px", "margin_bottom": "14px",
+            "border_radius": "12px", "padding": "18px 20px", "margin_bottom": "14px",
         },
+    )
+
+
+# ── Needs-attention row (scoreboard right panel) ──────────────────────────────
+
+def _attention_row(row: dict) -> rx.Component:
+    return rx.hstack(
+        rx.text(row["name"], style={
+            "font_size": "14px", "color": TEXT, "flex": "1",
+            "min_width": "0", "overflow": "hidden",
+            "text_overflow": "ellipsis", "white_space": "nowrap",
+            "font_weight": "600",
+        }),
+        rx.text(row["label"], style={
+            "font_size": "13px", "font_family": MONO, "white_space": "nowrap",
+            "flex_shrink": "0",
+            "color": rx.cond(row["is_over"] == "1", RED, AMBER),
+        }),
+        rx.cond(
+            row["is_over"] != "1",
+            rx.box(
+                "Fill",
+                on_click=AppState.fill_bucket(row["id"], row["budget"]),
+                style={
+                    "font_family": MONO, "font_size": "12px",
+                    "padding": "4px 12px", "border_radius": "6px",
+                    "border": f"1px solid {ACCENT}55", "color": ACCENT,
+                    "cursor": "pointer", "flex_shrink": "0",
+                    "_hover": {"background": f"{ACCENT}11"},
+                },
+            ),
+            rx.box(),
+        ),
+        align_items="center", gap="10px", width="100%",
+        style={
+            "padding": "9px 12px", "border_radius": "8px",
+            "background": rx.cond(
+                row["is_over"] == "1", f"{RED}0d", f"{AMBER}0a",
+            ),
+            "border": rx.cond(
+                row["is_over"] == "1",
+                f"1px solid {RED}33", f"1px solid {AMBER}22",
+            ),
+            "margin_bottom": "6px",
+        },
+    )
+
+
+# ── Category progress bar (scoreboard right panel) ───────────────────────────
+
+def _cat_bar(row: dict) -> rx.Component:
+    return rx.vstack(
+        rx.hstack(
+            rx.hstack(
+                rx.box(style={
+                    "width": "9px", "height": "9px", "border_radius": "50%",
+                    "background": row["color"], "flex_shrink": "0",
+                }),
+                rx.text(row["name"], style={
+                    "font_size": "13px", "color": TEXT, "font_weight": "600",
+                }),
+                gap="7px", align_items="center",
+            ),
+            rx.spacer(),
+            rx.hstack(
+                rx.cond(
+                    row["budget_fmt"] != "",
+                    rx.text(row["alloc_fmt"], " / ", row["budget_fmt"], style={
+                        "font_size": "12px", "font_family": MONO, "color": TEXT3,
+                    }),
+                    rx.text(row["alloc_fmt"], style={
+                        "font_size": "12px", "font_family": MONO, "color": TEXT3,
+                    }),
+                ),
+                rx.text(row["pct_str"], style={
+                    "font_size": "12px", "font_family": MONO, "font_weight": "700",
+                    "color": rx.cond(row["is_funded"] == "1", GREEN, AMBER),
+                }),
+                gap="8px", align_items="center",
+            ),
+            align_items="center", width="100%",
+        ),
+        rx.box(
+            rx.box(
+                style={
+                    "height": "100%", "border_radius": "3px",
+                    "background": rx.cond(row["is_funded"] == "1", GREEN, ACCENT),
+                    "width": row["pct_str"],
+                    "transition": "width 0.35s ease",
+                },
+            ),
+            style={
+                "height": "5px", "border_radius": "3px",
+                "background": BG3, "overflow": "hidden", "width": "100%",
+            },
+        ),
+        gap="6px", width="100%",
+        style={"margin_bottom": "12px"},
+    )
+
+
+# ── Month scoreboard (right column) ──────────────────────────────────────────
+
+def _scoreboard() -> rx.Component:
+    return rx.vstack(
+        _rts_hero(),
+
+        # Needs Attention card
+        rx.box(
+            rx.hstack(
+                rx.text("NEEDS ATTENTION", style={
+                    "font_size": "9px", "letter_spacing": "0.14em",
+                    "text_transform": "uppercase", "color": TEXT3,
+                    "font_family": MONO, "font_weight": "600",
+                }),
+                rx.cond(
+                    AppState.attention_rows.length() > 0,
+                    rx.box(
+                        AppState.attention_rows.length(),
+                        style={
+                            "background": f"{RED}22", "color": RED,
+                            "border_radius": "10px", "padding": "1px 9px",
+                            "font_size": "12px", "font_family": MONO, "font_weight": "700",
+                        },
+                    ),
+                    rx.box(
+                        "✓",
+                        style={
+                            "background": f"{GREEN}22", "color": GREEN,
+                            "border_radius": "10px", "padding": "1px 9px",
+                            "font_size": "12px",
+                        },
+                    ),
+                ),
+                align_items="center", gap="8px",
+                style={"margin_bottom": "12px"},
+            ),
+            rx.cond(
+                AppState.attention_rows.length() > 0,
+                rx.foreach(
+                    AppState.attention_rows.to(list[dict[str, Any]]),
+                    _attention_row,
+                ),
+                rx.hstack(
+                    rx.text("All buckets funded for this month", style={
+                        "font_size": "14px", "color": TEXT2,
+                    }),
+                    align_items="center",
+                    style={"padding": "4px 0 8px"},
+                ),
+            ),
+            style={
+                "background": BG2, "border": f"1px solid {BORDER}",
+                "border_radius": "12px", "padding": "16px 18px",
+                "margin_bottom": "14px", "width": "100%",
+            },
+        ),
+
+        # Category rollup card
+        rx.cond(
+            AppState.cat_rollup_rows.length() > 0,
+            rx.box(
+                rx.text("CATEGORIES", style={
+                    "font_size": "9px", "letter_spacing": "0.14em",
+                    "text_transform": "uppercase", "color": TEXT3,
+                    "font_family": MONO, "font_weight": "600",
+                    "display": "block", "margin_bottom": "14px",
+                }),
+                rx.foreach(
+                    AppState.cat_rollup_rows.to(list[dict[str, Any]]),
+                    _cat_bar,
+                ),
+                style={
+                    "background": BG2, "border": f"1px solid {BORDER}",
+                    "border_radius": "12px", "padding": "16px 18px",
+                    "width": "100%",
+                },
+            ),
+            rx.box(),
+        ),
+
+        gap="0", width="100%", align_items="stretch",
     )
 
 
@@ -155,8 +337,8 @@ def _rts_hero() -> rx.Component:
 def _toggle_row(label: str, sub: str, checked, on_change) -> rx.Component:
     return rx.hstack(
         rx.vstack(
-            rx.text(label, style={"font_size": "12px", "color": TEXT}),
-            rx.text(sub, style={"font_size": "10px", "color": TEXT3}),
+            rx.text(label, style={"font_size": "13px", "color": TEXT}),
+            rx.text(sub, style={"font_size": "11px", "color": TEXT3}),
             gap="1px", align_items="flex-start",
         ),
         rx.spacer(),
@@ -245,17 +427,17 @@ def _vault_fields() -> rx.Component:
             rx.hstack(
                 rx.vstack(
                     rx.text("VAULT BALANCE", style={
-                        "font_size": "8px", "letter_spacing": "0.14em",
+                        "font_size": "9px", "letter_spacing": "0.14em",
                         "color": TEXT3, "font_family": MONO,
                     }),
                     rx.text(AppState.bsf_vault_total_fmt, style={
-                        "font_size": "22px", "font_weight": "700",
+                        "font_size": "24px", "font_weight": "700",
                         "font_family": MONO, "color": VIOLET,
                     }),
                     gap="2px", align_items="flex-start",
                 ),
                 rx.text("Total saved across all months",
-                        style={"font_size": "10px", "color": TEXT3}),
+                        style={"font_size": "11px", "color": TEXT3}),
                 justify="between", width="100%", align_items="center",
             ),
             style={
@@ -266,11 +448,11 @@ def _vault_fields() -> rx.Component:
         rx.divider(style={"border_color": BORDER}),
         rx.vstack(
             rx.text("Transfer to Bucket", style={
-                "font_size": "10px", "color": TEXT3, "letter_spacing": "0.1em",
+                "font_size": "11px", "color": TEXT3, "letter_spacing": "0.1em",
                 "text_transform": "uppercase", "font_family": MONO,
             }),
             rx.text("Move allocation to another bucket (net RTS = 0)",
-                    style={"font_size": "10px", "color": TEXT3}),
+                    style={"font_size": "11px", "color": TEXT3}),
             rx.hstack(
                 rx.el.select(
                     rx.el.option("— Select bucket —", value=""),
@@ -293,7 +475,7 @@ def _vault_fields() -> rx.Component:
                     style={
                         "padding": "8px 12px", "border_radius": "8px",
                         "background": ACCENT, "color": "#fff",
-                        "font_size": "11px", "cursor": "pointer",
+                        "font_size": "12px", "cursor": "pointer",
                         "font_family": MONO, "white_space": "nowrap",
                         "flex_shrink": "0", "_hover": {"opacity": "0.85"},
                     },
@@ -305,11 +487,11 @@ def _vault_fields() -> rx.Component:
         rx.divider(style={"border_color": BORDER}),
         rx.vstack(
             rx.text("Release to Pool", style={
-                "font_size": "10px", "color": TEXT3, "letter_spacing": "0.1em",
+                "font_size": "11px", "color": TEXT3, "letter_spacing": "0.1em",
                 "text_transform": "uppercase", "font_family": MONO,
             }),
             rx.text("Return savings to RTS (frees up cash)",
-                    style={"font_size": "10px", "color": TEXT3}),
+                    style={"font_size": "11px", "color": TEXT3}),
             rx.hstack(
                 rx.input(
                     value=AppState.bsf_release_amt,
@@ -324,7 +506,7 @@ def _vault_fields() -> rx.Component:
                     style={
                         "padding": "8px 12px", "border_radius": "8px",
                         "border": f"1px solid {RED}44", "color": RED,
-                        "font_size": "11px", "cursor": "pointer",
+                        "font_size": "12px", "cursor": "pointer",
                         "font_family": MONO, "white_space": "nowrap",
                         "flex_shrink": "0",
                         "_hover": {"background": f"{RED}11"},
@@ -348,7 +530,7 @@ def bucket_settings_dialog() -> rx.Component:
             rx.vstack(
                 rx.hstack(
                     rx.text("Bucket Settings", style={
-                        "font_size": "11px", "letter_spacing": "0.14em",
+                        "font_size": "12px", "letter_spacing": "0.14em",
                         "text_transform": "uppercase", "color": TEXT2,
                         "flex": "1", "font_family": MONO,
                     }),
@@ -412,7 +594,7 @@ def bucket_settings_dialog() -> rx.Component:
                 rx.cond(
                     AppState.bsf_error != "",
                     rx.text(AppState.bsf_error,
-                            style={"color": RED, "font_size": "11px", "font_family": MONO}),
+                            style={"color": RED, "font_size": "12px", "font_family": MONO}),
                     rx.box(),
                 ),
                 rx.divider(style={"border_color": BORDER}),
@@ -421,9 +603,9 @@ def bucket_settings_dialog() -> rx.Component:
                         "Archive",
                         on_click=AppState.archive_bucket_confirm(AppState.bsettings_bid),
                         style={
-                            "flex": "1", "padding": "9px", "border_radius": "8px",
+                            "flex": "1", "padding": "10px", "border_radius": "8px",
                             "border": f"1px solid {RED}44", "color": RED,
-                            "font_size": "11px", "text_align": "center",
+                            "font_size": "12px", "text_align": "center",
                             "cursor": "pointer", "font_family": MONO,
                             "letter_spacing": "0.06em",
                             "_hover": {"background": f"{RED}11"},
@@ -433,9 +615,9 @@ def bucket_settings_dialog() -> rx.Component:
                         rx.cond(AppState.bsf_saving, "Saving…", "Save"),
                         on_click=AppState.save_bucket_settings,
                         style={
-                            "flex": "2", "padding": "9px", "border_radius": "8px",
+                            "flex": "2", "padding": "10px", "border_radius": "8px",
                             "background": rx.cond(AppState.bsf_saving, BORDER, ACCENT),
-                            "color": "#fff", "font_size": "11px",
+                            "color": "#fff", "font_size": "12px",
                             "text_align": "center", "cursor": "pointer",
                             "font_family": MONO, "letter_spacing": "0.08em",
                             "text_transform": "uppercase", "_hover": {"opacity": "0.9"},
@@ -443,11 +625,11 @@ def bucket_settings_dialog() -> rx.Component:
                     ),
                     gap="8px", width="100%",
                 ),
-                gap="12px", width="100%",
+                gap="14px", width="100%",
             ),
             style={
                 "background": BG2, "border": f"1px solid {BORDER}",
-                "border_radius": "14px", "padding": "22px",
+                "border_radius": "14px", "padding": "24px",
                 "max_width": "480px", "width": "95vw",
                 "max_height": "90vh", "overflow_y": "auto",
             },
@@ -473,51 +655,39 @@ def _alloc_cell(row: dict) -> rx.Component:
                 type="number",
                 input_mode="decimal",
                 style={
-                    "width": "80px", "background": BG3,
+                    "width": "88px", "background": BG3,
                     "border": f"1px solid {ACCENT}",
                     "border_radius": "6px", "color": TEXT,
-                    "font_family": MONO, "font_size": "12px",
+                    "font_family": MONO, "font_size": "13px",
                     "padding": "3px 8px", "outline": "none",
                     "text_align": "right",
                     "_focus": {"border_color": ACCENT},
                 },
             ),
             rx.box("✓", on_click=AppState.save_alloc_edit, style={
-                "font_size": "13px", "color": GREEN, "cursor": "pointer",
+                "font_size": "14px", "color": GREEN, "cursor": "pointer",
                 "padding": "2px 3px", "line_height": "1",
                 "_hover": {"opacity": "0.7"},
             }),
             rx.box("✗", on_click=AppState.cancel_alloc_edit, style={
-                "font_size": "13px", "color": TEXT3, "cursor": "pointer",
+                "font_size": "14px", "color": TEXT3, "cursor": "pointer",
                 "padding": "2px 3px", "line_height": "1",
                 "_hover": {"color": RED},
             }),
             align_items="center", gap="3px",
         ),
-        # Display: alloc_fmt / budget_fmt — click to edit
-        rx.hstack(
-            rx.text(
-                row["alloc_fmt"],
-                on_click=AppState.start_edit_alloc(row["id"], row["alloc_fmt"]),
-                style={
-                    "font_size": "13px", "font_family": MONO,
-                    "font_weight": "700", "color": ACCENT,
-                    "cursor": "text", "line_height": "1.2",
-                    "_hover": {"opacity": "0.75"},
-                },
-            ),
-            rx.cond(
-                row["budget_fmt"] != "",
-                rx.text(" / ", row["budget_fmt"], style={
-                    "font_size": "11px", "color": TEXT3,
-                    "font_family": MONO, "white_space": "nowrap",
-                }),
-                rx.box(),
-            ),
-            align_items="baseline", gap="1px",
+        # Display: alloc_fmt — click to edit allocation
+        rx.text(
+            row["alloc_fmt"],
+            on_click=AppState.start_edit_alloc(row["id"], row["alloc_fmt"]),
+            style={
+                "font_size": "15px", "font_family": MONO,
+                "font_weight": "700", "color": ACCENT,
+                "cursor": "text", "line_height": "1.2",
+                "_hover": {"opacity": "0.75"},
+            },
         ),
     )
-
 
 
 def _budget_cell(row: dict) -> rx.Component:
@@ -535,32 +705,33 @@ def _budget_cell(row: dict) -> rx.Component:
                 type="number",
                 input_mode="decimal",
                 style={
-                    "width": "80px", "background": BG3,
+                    "width": "88px", "background": BG3,
                     "border": f"1px solid {ACCENT}",
                     "border_radius": "6px", "color": TEXT,
-                    "font_family": MONO, "font_size": "12px",
+                    "font_family": MONO, "font_size": "13px",
                     "padding": "3px 8px", "outline": "none",
                     "text_align": "right",
                     "_focus": {"border_color": ACCENT},
                 },
             ),
             rx.box("✓", on_click=AppState.save_budget_edit, style={
-                "font_size": "13px", "color": GREEN, "cursor": "pointer",
+                "font_size": "14px", "color": GREEN, "cursor": "pointer",
                 "padding": "2px 3px", "line_height": "1",
                 "_hover": {"opacity": "0.7"},
             }),
             rx.box("✗", on_click=AppState.cancel_budget_edit, style={
-                "font_size": "13px", "color": TEXT3, "cursor": "pointer",
+                "font_size": "14px", "color": TEXT3, "cursor": "pointer",
                 "padding": "2px 3px", "line_height": "1",
                 "_hover": {"color": RED},
             }),
             align_items="center", gap="3px",
         ),
+        # Display: budget_fmt or "—" — click to edit monthly budget
         rx.text(
             rx.cond(row["budget_fmt"] != "", row["budget_fmt"], "—"),
             on_click=AppState.start_edit_budget(row["id"], row["budget_fmt"]),
             style={
-                "font_size": "13px", "font_family": MONO,
+                "font_size": "14px", "font_family": MONO,
                 "font_weight": "600", "color": TEXT2,
                 "cursor": "text", "line_height": "1.2",
                 "_hover": {"opacity": "0.75"},
@@ -580,10 +751,10 @@ def _bucket_row(row: dict) -> rx.Component:
             rx.box(style={
                 "width": "3px", "align_self": "stretch",
                 "border_radius": "2px", "background": row["color"],
-                "flex_shrink": "0", "min_height": "14px",
+                "flex_shrink": "0", "min_height": "16px",
             }),
             rx.text(row["name"], style={
-                "font_size": "9px", "letter_spacing": "0.14em",
+                "font_size": "11px", "letter_spacing": "0.12em",
                 "text_transform": "uppercase", "color": TEXT2,
                 "font_family": MONO, "font_weight": "600", "flex": "1",
             }),
@@ -591,67 +762,73 @@ def _bucket_row(row: dict) -> rx.Component:
                 row["budget_h_fmt"] != "",
                 rx.hstack(
                     rx.text(row["cat_alloc_fmt"], style={
-                        "font_size": "9px", "font_family": MONO,
+                        "font_size": "11px", "font_family": MONO,
                         "color": rx.cond(row["is_cat_funded"] == "1", GREEN, AMBER),
-                        "font_weight": "600",
+                        "font_weight": "700",
                     }),
                     rx.text(" / ", row["budget_h_fmt"], style={
-                        "font_size": "9px", "font_family": MONO, "color": TEXT3,
+                        "font_size": "11px", "font_family": MONO, "color": TEXT3,
                     }),
                     align_items="baseline", gap="0px",
                 ),
                 rx.box(),
             ),
             align_items="center",
-            style={"padding": "10px 2px 3px", "gap": "8px", "width": "100%"},
+            style={"padding": "14px 2px 5px", "gap": "8px", "width": "100%"},
         ),
 
-        # ── Bucket row ───────────────────────────────────────────────────────
+        # ── Bucket card ──────────────────────────────────────────────────────
         rx.box(
 
-            # ── Main row: name · numbers · status · actions ──────────────────
+            # ── Main row: name · alloc / budget · spent · left · status · actions ──
             rx.hstack(
                 # Name
                 rx.text(row["name"], style={
-                    "font_size": "12px", "font_weight": "600",
+                    "font_size": "15px", "font_weight": "600",
                     "color": rx.cond(row["is_skipped"] == "1", TEXT3, TEXT),
                     "min_width": "0", "overflow": "hidden",
                     "text_overflow": "ellipsis", "white_space": "nowrap",
-                    "flex_shrink": "0", "max_width": "180px",
+                    "flex_shrink": "0", "max_width": "220px",
                 }),
 
-                # Numbers: alloc/budget · spent · left
+                # Numbers: alloc / budget · spent · left
                 rx.hstack(
                     _alloc_cell(row),
-                    rx.cond(
-                        row["budget_fmt"] != "",
-                        rx.text("/", row["budget_fmt"], style={
-                            "font_size": "11px", "font_family": MONO, "color": TEXT3,
-                        }),
-                        rx.box(),
-                    ),
-                    rx.text("·", style={"color": TEXT3, "font_size": "9px"}),
+                    rx.text("/", style={
+                        "font_size": "13px", "color": TEXT3,
+                        "font_family": MONO, "flex_shrink": "0",
+                    }),
+                    _budget_cell(row),
+                    rx.text("·", style={
+                        "color": TEXT3, "font_size": "12px",
+                        "padding": "0 3px", "flex_shrink": "0",
+                    }),
                     rx.text(
                         rx.cond(row["spent_fmt"] != "", row["spent_fmt"], "—"),
                         style={
-                            "font_size": "11px", "font_family": MONO,
+                            "font_size": "14px", "font_family": MONO,
                             "color": rx.cond(row["is_over"] == "1", RED, TEXT2),
+                            "flex_shrink": "0",
                         },
                     ),
                     rx.text("spent", style={
-                        "font_size": "8px", "color": TEXT3, "font_family": MONO,
-                        "letter_spacing": "0.06em",
+                        "font_size": "11px", "color": TEXT3,
+                        "font_family": MONO, "flex_shrink": "0",
                     }),
-                    rx.text("·", style={"color": TEXT3, "font_size": "9px"}),
+                    rx.text("·", style={
+                        "color": TEXT3, "font_size": "12px",
+                        "padding": "0 3px", "flex_shrink": "0",
+                    }),
                     rx.text(row["left_avail_fmt"], style={
-                        "font_size": "11px", "font_family": MONO,
+                        "font_size": "14px", "font_family": MONO,
                         "color": rx.cond(row["is_funded"] == "1", GREEN, TEXT2),
+                        "flex_shrink": "0",
                     }),
                     rx.text("left", style={
-                        "font_size": "8px", "color": TEXT3, "font_family": MONO,
-                        "letter_spacing": "0.06em",
+                        "font_size": "11px", "color": TEXT3,
+                        "font_family": MONO, "flex_shrink": "0",
                     }),
-                    align_items="baseline", gap="4px", flex="1", flex_wrap="wrap",
+                    align_items="baseline", gap="5px", flex="1", flex_wrap="wrap",
                 ),
 
                 # Status + actions
@@ -659,8 +836,9 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.cond(
                         row["status_label"] != "",
                         rx.text(row["status_label"], style={
-                            "font_size": "9px", "font_family": MONO,
+                            "font_size": "11px", "font_family": MONO,
                             "letter_spacing": "0.06em", "white_space": "nowrap",
+                            "font_weight": "600",
                             "color": rx.cond(
                                 row["is_over"] == "1", RED,
                                 rx.cond(row["is_funded"] == "1", GREEN, AMBER)
@@ -673,10 +851,11 @@ def _bucket_row(row: dict) -> rx.Component:
                         rx.box("Fill",
                             on_click=AppState.fill_bucket(row["id"], row["budget"]),
                             style={
-                                "font_family": MONO, "font_size": "9px",
-                                "padding": "1px 7px", "border_radius": "6px",
+                                "font_family": MONO, "font_size": "11px",
+                                "padding": "3px 9px", "border_radius": "6px",
                                 "border": f"1px solid {ACCENT}55", "color": ACCENT,
-                                "cursor": "pointer", "_hover": {"background": f"{ACCENT}11"},
+                                "cursor": "pointer",
+                                "_hover": {"background": f"{ACCENT}11"},
                             },
                         ),
                         rx.box(),
@@ -685,23 +864,23 @@ def _bucket_row(row: dict) -> rx.Component:
                         rx.cond(AppState.expanded_bucket_id == row["id"], "▾", "▸"),
                         on_click=AppState.toggle_bucket_expand(row["id"]),
                         style={
-                            "font_size": "10px", "color": TEXT3, "cursor": "pointer",
-                            "padding": "1px 4px", "border_radius": "4px",
+                            "font_size": "12px", "color": TEXT3, "cursor": "pointer",
+                            "padding": "2px 5px", "border_radius": "4px",
                             "_hover": {"color": TEXT2, "background": BG3},
                         },
                     ),
                     rx.box("⋯",
                         on_click=AppState.open_bucket_settings(row["id"]),
                         style={
-                            "font_size": "14px", "color": TEXT3, "cursor": "pointer",
-                            "padding": "0px 4px", "border_radius": "4px", "line_height": "1.4",
+                            "font_size": "17px", "color": TEXT3, "cursor": "pointer",
+                            "padding": "0px 5px", "border_radius": "4px", "line_height": "1.4",
                             "_hover": {"color": TEXT, "background": BG3},
                         },
                     ),
                     align_items="center", gap="6px", flex_shrink="0",
                 ),
 
-                align_items="center", width="100%", gap="10px",
+                align_items="center", width="100%", gap="12px",
             ),
 
             # ── Meta row: badges + action hint (only when non-empty) ─────────
@@ -713,8 +892,8 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.cond(
                         row["due_label"] != "",
                         rx.text(row["due_label"], style={
-                            "font_size": "9px", "font_family": MONO,
-                            "padding": "0px 5px", "border_radius": "6px",
+                            "font_size": "11px", "font_family": MONO,
+                            "padding": "1px 7px", "border_radius": "6px",
                             "color": rx.cond(
                                 row["due_urgency"] == "overdue", RED,
                                 rx.cond(row["due_urgency"] == "urgent", AMBER, TEXT3)
@@ -734,8 +913,8 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.cond(
                         row["show_roll"] == "1",
                         rx.text(row["roll_fmt"], style={
-                            "font_size": "9px", "font_family": MONO, "color": ACCENT,
-                            "padding": "0px 5px", "border_radius": "6px",
+                            "font_size": "11px", "font_family": MONO, "color": ACCENT,
+                            "padding": "1px 7px", "border_radius": "6px",
                             "background": f"{ACCENT}18", "border": f"1px solid {ACCENT}33",
                         }),
                         rx.box(),
@@ -743,14 +922,14 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.cond(
                         row["show_goal"] == "1",
                         rx.text(row["target_fmt"], style={
-                            "font_size": "9px", "color": TEXT3, "font_family": MONO,
+                            "font_size": "11px", "color": TEXT3, "font_family": MONO,
                         }),
                         rx.box(),
                     ),
                     rx.cond(
                         row["show_vault"] == "1",
                         rx.text(row["vault_fmt"], style={
-                            "font_size": "9px", "color": VIOLET,
+                            "font_size": "11px", "color": VIOLET,
                             "font_family": MONO, "font_weight": "600",
                         }),
                         rx.box(),
@@ -758,13 +937,13 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.cond(
                         row["action_hint"] != "",
                         rx.text(row["action_hint"], style={
-                            "font_size": "9px", "font_family": MONO,
+                            "font_size": "11px", "font_family": MONO,
                             "color": rx.cond(row["is_over"] == "1", RED, AMBER),
                         }),
                         rx.box(),
                     ),
                     gap="6px", align_items="center", flex_wrap="wrap",
-                    style={"margin_top": "4px"},
+                    style={"margin_top": "5px"},
                 ),
                 rx.box(),
             ),
@@ -776,32 +955,32 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.cond(
                         AppState.expanded_bucket_txs.length() == 0,
                         rx.text("No transactions this month", style={
-                            "font_size": "10px", "color": TEXT3, "font_family": MONO,
+                            "font_size": "12px", "color": TEXT3, "font_family": MONO,
                         }),
                         rx.foreach(
                             AppState.expanded_bucket_txs.to(list[dict[str, Any]]),
                             lambda tx: rx.hstack(
                                 rx.text(tx["date_label"], style={
-                                    "font_size": "9px", "color": TEXT3,
-                                    "font_family": MONO, "width": "72px", "flex_shrink": "0",
+                                    "font_size": "11px", "color": TEXT3,
+                                    "font_family": MONO, "width": "78px", "flex_shrink": "0",
                                 }),
                                 rx.text(tx["desc"], style={
-                                    "font_size": "11px", "color": TEXT2, "flex": "1",
+                                    "font_size": "13px", "color": TEXT2, "flex": "1",
                                     "min_width": "0", "overflow": "hidden",
                                     "text_overflow": "ellipsis", "white_space": "nowrap",
                                 }),
                                 rx.text(tx["amount_fmt"], style={
-                                    "font_size": "11px", "font_family": MONO,
+                                    "font_size": "13px", "font_family": MONO,
                                     "color": RED, "white_space": "nowrap", "flex_shrink": "0",
                                 }),
-                                align_items="center", width="100%", gap="8px",
-                                style={"padding": "2px 0"},
+                                align_items="center", width="100%", gap="10px",
+                                style={"padding": "3px 0"},
                             ),
                         ),
                     ),
                     style={
                         "border_top": f"1px solid {BORDER}",
-                        "margin_top": "6px", "padding_top": "6px",
+                        "margin_top": "8px", "padding_top": "8px",
                     },
                 ),
                 rx.box(),
@@ -816,9 +995,9 @@ def _bucket_row(row: dict) -> rx.Component:
                     rx.cond(row["gap_fmt"] != "",    f"3px solid {AMBER}",
                                                      f"1px solid {BORDER}"))
                 ),
-                "border_radius": "7px",
-                "padding": "8px 10px 8px 10px",
-                "margin_bottom": "3px",
+                "border_radius": "8px",
+                "padding": "11px 14px",
+                "margin_bottom": "5px",
                 "opacity": rx.cond(row["is_skipped"] == "1", "0.4", "1"),
                 "_hover": {"border_color": BORDER2},
             },
@@ -837,7 +1016,7 @@ def _color_swatch(hex_color: str) -> rx.Component:
     is_selected = AppState.add_bkt_new_cat_color == hex_color
     return rx.box(
         style={
-            "width": "20px", "height": "20px", "border_radius": "50%",
+            "width": "22px", "height": "22px", "border_radius": "50%",
             "background": hex_color, "cursor": "pointer", "flex_shrink": "0",
             "border": rx.cond(is_selected, f"2px solid #fff", "2px solid transparent"),
             "box_shadow": rx.cond(is_selected, f"0 0 0 2px {hex_color}", "none"),
@@ -852,7 +1031,7 @@ def _color_swatch(hex_color: str) -> rx.Component:
 _INPUT = {
     "background": BG3, "border": f"1px solid {BORDER}",
     "border_radius": "8px", "color": TEXT, "font_family": MONO,
-    "font_size": "12px", "padding": "8px 10px", "outline": "none",
+    "font_size": "13px", "padding": "8px 10px", "outline": "none",
     "_focus": {"border_color": ACCENT},
     "_placeholder": {"color": TEXT3},
 }
@@ -864,7 +1043,7 @@ def _add_bucket_strip() -> rx.Component:
             AppState.add_bkt_creating_cat,
             rx.hstack(
                 rx.box(style={
-                    "width": "12px", "height": "12px", "border_radius": "50%",
+                    "width": "14px", "height": "14px", "border_radius": "50%",
                     "background": AppState.add_bkt_new_cat_color,
                     "flex_shrink": "0", "margin_top": "1px",
                 }),
@@ -874,7 +1053,6 @@ def _add_bucket_strip() -> rx.Component:
                     on_change=AppState.set_add_bkt_new_cat_name,
                     style={**_INPUT, "flex": "1", "min_width": "0"},
                 ),
-                # Color swatches
                 rx.hstack(
                     *[_color_swatch(c) for c in _CAT_COLORS],
                     gap="4px", align_items="center", flex_wrap="wrap",
@@ -890,13 +1068,11 @@ def _add_bucket_strip() -> rx.Component:
 
         # ── Main strip row: [Category ▾] [Name] [Type ▾] [+ Add] ─────────
         rx.hstack(
-            # Category select
             rx.cond(
                 AppState.add_bkt_creating_cat,
-                # When creating new cat: show placeholder chip
                 rx.box(
                     rx.text("New category", style={
-                        "font_size": "11px", "color": AppState.add_bkt_new_cat_color,
+                        "font_size": "12px", "color": AppState.add_bkt_new_cat_color,
                         "font_family": MONO, "white_space": "nowrap",
                     }),
                     on_click=AppState.toggle_create_cat,
@@ -917,13 +1093,12 @@ def _add_bucket_strip() -> rx.Component:
                     value=AppState.add_bkt_cat_id,
                     on_change=AppState.select_add_bkt_cat,
                     style={
-                        **_INPUT, "flex": "0 0 auto", "min_width": "110px",
-                        "max_width": "140px",
+                        **_INPUT, "flex": "0 0 auto", "min_width": "120px",
+                        "max_width": "150px",
                     },
                 ),
             ),
 
-            # Bucket name
             rx.input(
                 placeholder="Bucket name…",
                 value=AppState.add_bkt_name,
@@ -931,7 +1106,6 @@ def _add_bucket_strip() -> rx.Component:
                 style={**_INPUT, "flex": "1", "min_width": "0"},
             ),
 
-            # Type select
             rx.el.select(
                 rx.el.option("Expense", value="expense"),
                 rx.el.option("Sinking Fund", value="sinking"),
@@ -939,17 +1113,16 @@ def _add_bucket_strip() -> rx.Component:
                 rx.el.option("Vault", value="vault"),
                 value=AppState.add_bkt_type,
                 on_change=AppState.set_add_bkt_type,
-                style={**_INPUT, "flex": "0 0 auto", "min_width": "90px", "max_width": "110px"},
+                style={**_INPUT, "flex": "0 0 auto", "min_width": "100px", "max_width": "120px"},
             ),
 
-            # Add button
             rx.box(
                 rx.cond(AppState.add_bkt_saving, "…", "+ Add"),
                 on_click=AppState.add_bucket_submit,
                 style={
-                    "padding": "8px 14px", "border_radius": "8px",
+                    "padding": "9px 16px", "border_radius": "8px",
                     "background": rx.cond(AppState.add_bkt_saving, BORDER, ACCENT),
-                    "color": "#fff", "font_size": "11px", "cursor": "pointer",
+                    "color": "#fff", "font_size": "13px", "cursor": "pointer",
                     "font_family": MONO, "letter_spacing": "0.06em",
                     "white_space": "nowrap", "flex_shrink": "0",
                     "_hover": {"opacity": "0.9"},
@@ -962,19 +1135,40 @@ def _add_bucket_strip() -> rx.Component:
         gap="6px", width="100%",
         style={
             "border": f"1px dashed {BORDER2}",
-            "border_radius": "8px", "padding": "10px 12px",
-            "margin_top": "6px",
+            "border_radius": "8px", "padding": "10px 14px",
+            "margin_top": "8px",
         },
     )
 
 
-# ── Main panel ────────────────────────────────────────────────────────────────
+# ── Main panel (2-column: left=buckets, right=scoreboard) ────────────────────
 
 def buckets_panel() -> rx.Component:
     return rx.box(
-        _rts_hero(),
-        rx.foreach(AppState.bucket_rows.to(list[dict[str, Any]]), _bucket_row),
-        _add_bucket_strip(),
+        rx.box(
+            # ── Left column: bucket list ──────────────────────────────────
+            rx.vstack(
+                rx.foreach(AppState.bucket_rows.to(list[dict[str, Any]]), _bucket_row),
+                _add_bucket_strip(),
+                gap="0", align_items="stretch", width="100%",
+            ),
+            # ── Right column: scoreboard ──────────────────────────────────
+            rx.box(
+                _scoreboard(),
+                style={
+                    "position": "sticky",
+                    "top": "72px",
+                },
+            ),
+            class_name="split-grid",
+            style={
+                "display": "grid",
+                "grid_template_columns": "1fr 340px",
+                "gap": "24px",
+                "align_items": "start",
+                "width": "100%",
+            },
+        ),
         bucket_settings_dialog(),
         style={"padding": "0"},
     )

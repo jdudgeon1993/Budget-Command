@@ -283,6 +283,10 @@ class AppState(rx.State):
     # ── Category select options ───────────────────────────────────────────────
     cat_options: list[dict[str, Any]] = []
 
+    # ── Scoreboard: needs-attention + category rollup ─────────────────────────
+    attention_rows:  list[dict[str, Any]] = []
+    cat_rollup_rows: list[dict[str, Any]] = []
+
     # ── Inline bucket allocation editing ─────────────────────────────────────
     editing_bid:    str  = ""
     edit_alloc_val: str  = ""
@@ -1662,6 +1666,61 @@ class AppState(rx.State):
                 })
 
         self.bucket_rows = rows
+
+        # ── Scoreboard: needs-attention buckets ───────────────────────────────
+        attention: list[dict] = []
+        for b in active_buckets:
+            bid   = b["id"]
+            btype = b.get("type", "expense")
+            if btype == "vault" or bool(skipped_map.get(bid)):
+                continue
+            alloc  = b_alloc(active_month, bid)
+            budget = b_budget(active_month, bid) or float(b.get("defaultBudget") or 0)
+            avail  = bucket_available(b, active_month, all_months, txs)
+            if avail < -0.005:
+                attention.append({
+                    "id": bid, "name": b.get("name", ""),
+                    "label": f"−{_fmt(abs(avail))} over",
+                    "budget": budget,
+                    "is_over": "1",
+                })
+            elif budget > 0 and alloc < budget - 0.005:
+                gap = budget - alloc
+                attention.append({
+                    "id": bid, "name": b.get("name", ""),
+                    "label": f"−{_fmt(gap)} gap",
+                    "budget": budget,
+                    "is_over": "",
+                })
+        attention.sort(key=lambda x: (x["is_over"] != "1", -float(x["budget"])))
+        self.attention_rows = attention
+
+        # ── Scoreboard: category rollup ───────────────────────────────────────
+        cat_rollups: list[dict] = []
+        for cat in cats_sorted:
+            cid       = cat["id"]
+            cat_color = cat.get("color", "#818cf8")
+            cb = sorted(
+                [b for b in active_buckets if b.get("catId") == cid],
+                key=lambda b: b.get("order", 0),
+            )
+            if not cb:
+                continue
+            cb_alloc_sum  = sum(b_alloc(active_month, b["id"]) for b in cb)
+            cb_budget_sum = sum(
+                (b_budget(active_month, b["id"]) or float(b.get("defaultBudget") or 0))
+                for b in cb if b.get("type") != "vault"
+            )
+            cb_pct    = min(100, round(cb_alloc_sum / cb_budget_sum * 100)) if cb_budget_sum > 0 else 100
+            cat_rollups.append({
+                "name":       cat.get("name", ""),
+                "color":      cat_color,
+                "alloc_fmt":  _fmt(cb_alloc_sum),
+                "budget_fmt": _fmt(cb_budget_sum) if cb_budget_sum > 0 else "",
+                "pct_str":    f"{cb_pct}%",
+                "is_funded":  "1" if cb_pct >= 100 else "",
+            })
+        self.cat_rollup_rows = cat_rollups
 
         # ── Ledger rows (flat list with date headers) ──────────────────────
         acct_map   = {a["id"]: a.get("name", "") for a in accounts}

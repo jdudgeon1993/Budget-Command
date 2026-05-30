@@ -231,6 +231,10 @@ def dashboard_page() -> rx.Component:
                     style={
                         "padding": "20px 24px",
                         "padding_top": f"calc(20px + {HDR_H})",  # desktop: below sticky header
+                        "max_width": "1400px",
+                        "margin_left": "auto",
+                        "margin_right": "auto",
+                        "width": "100%",
                     },
                 ),
             ),
