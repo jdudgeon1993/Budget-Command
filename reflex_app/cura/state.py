@@ -287,6 +287,13 @@ class AppState(rx.State):
     attention_rows:  list[dict[str, Any]] = []
     cat_rollup_rows: list[dict[str, Any]] = []
 
+    # ── Ledger scoreboard ─────────────────────────────────────────────────────
+    last_month_income:   float             = 0.0
+    last_month_spent:    float             = 0.0
+    mom_verdict:         str               = ""
+    mom_better:          bool              = False
+    ledger_bucket_spend: list[dict[str, Any]] = []
+
     # ── Inline bucket allocation editing ─────────────────────────────────────
     editing_bid:    str  = ""
     edit_alloc_val: str  = ""
@@ -392,6 +399,22 @@ class AppState(rx.State):
     @rx.var
     def is_logged_in(self) -> bool:
         return bool(self.access_token and self.user_id)
+
+    @rx.var
+    def total_cash_fmt(self) -> str:
+        return _fmt(self.total_cash)
+
+    @rx.var
+    def total_debt_fmt(self) -> str:
+        return _fmt(self.total_debt)
+
+    @rx.var
+    def last_month_income_fmt(self) -> str:
+        return _fmt(self.last_month_income)
+
+    @rx.var
+    def last_month_spent_fmt(self) -> str:
+        return _fmt(self.last_month_spent)
 
     @rx.var
     def rts_fmt(self) -> str:
@@ -1721,6 +1744,58 @@ class AppState(rx.State):
                 "is_funded":  "1" if cb_pct >= 100 else "",
             })
         self.cat_rollup_rows = cat_rollups
+
+        # ── Ledger scoreboard: last-month comparison ──────────────────────────
+        prev_mid_str = _month_id(year - 1, 11) if m0 == 0 else _month_id(year, m0 - 1)
+        last_inc = 0.0
+        last_sp  = 0.0
+        for t in txs:
+            if t.get("monthId") != prev_mid_str:
+                continue
+            amt = float(t.get("amount") or 0)
+            if t.get("type") == "in" and t.get("accountId") in budget_ids:
+                last_inc += amt
+            elif t.get("type") == "out":
+                last_sp += amt
+        self.last_month_income = last_inc
+        self.last_month_spent  = last_sp
+        delta = sp_total - last_sp
+        if abs(delta) < 0.005:
+            self.mom_verdict = "Same spending as last month"
+            self.mom_better  = True
+        elif delta < 0:
+            self.mom_verdict = f"↓ {_fmt(abs(delta))} less spent"
+            self.mom_better  = True
+        else:
+            self.mom_verdict = f"↑ {_fmt(delta)} more spent"
+            self.mom_better  = False
+
+        # ── Ledger scoreboard: bucket spending breakdown ───────────────────────
+        bucket_spend_map: dict[str, float] = {}
+        for t in txs:
+            if t.get("monthId") == mid and t.get("type") == "out":
+                bid = t.get("bucketId") or ""
+                if bid:
+                    bucket_spend_map[bid] = bucket_spend_map.get(bid, 0.0) + float(t.get("amount") or 0)
+        spend_rows_raw = []
+        for bid, sa in bucket_spend_map.items():
+            if sa <= 0:
+                continue
+            bname = next((b.get("name", "") for b in active_buckets if b["id"] == bid), "")
+            if not bname:
+                continue
+            budget_val = b_budget(active_month, bid) or float(
+                next((b for b in active_buckets if b["id"] == bid), {}).get("defaultBudget") or 0
+            )
+            pct = min(100, round(sa / budget_val * 100)) if budget_val > 0 else 0
+            spend_rows_raw.append((sa, {
+                "name":      bname,
+                "spent_fmt": _fmt(sa),
+                "pct_str":   f"{pct}%",
+                "is_over":   "1" if budget_val > 0 and sa > budget_val else "",
+            }))
+        spend_rows_raw.sort(key=lambda x: -x[0])
+        self.ledger_bucket_spend = [r for _, r in spend_rows_raw[:8]]
 
         # ── Ledger rows (flat list with date headers) ──────────────────────
         acct_map   = {a["id"]: a.get("name", "") for a in accounts}
