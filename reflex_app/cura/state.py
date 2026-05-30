@@ -439,7 +439,7 @@ class AppState(rx.State):
         q = self.ledger_query.lower()
         out = []
         for row in self.ledger_rows:
-            if row["row_type"] == "date_header":
+            if row["row_type"] in ("date_header", "month_totals"):
                 out.append(row)
             elif q in row.get("desc", "").lower() or q in row.get("bucket", "").lower():
                 out.append(row)
@@ -1253,7 +1253,7 @@ class AppState(rx.State):
         yield
         try:
             DB.update_transaction(self.user_id, self.access_token, self.edit_tx_id, {
-                "desc":               self.edit_tx_desc.strip(),
+                "description":        self.edit_tx_desc.strip(),
                 "amount":             amount,
                 "date":               self.edit_tx_date,
                 "account_id":         self.edit_tx_account,

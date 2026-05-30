@@ -89,16 +89,17 @@ def _tx_row(row: dict) -> rx.Component:
             # ── Date section header ──────────────────────────────────────────
             rx.hstack(
                 rx.text(row["label"], style={
-                    "font_size": "9px", "letter_spacing": "0.12em",
-                    "text_transform": "uppercase", "color": TEXT3,
+                    "font_size": "10px", "letter_spacing": "0.1em",
+                    "text_transform": "uppercase", "color": TEXT2,
                     "font_family": MONO, "white_space": "nowrap", "flex_shrink": "0",
+                    "font_weight": "600",
                 }),
                 rx.box(style={
                     "flex": "1", "height": "1px",
-                    "background": BORDER, "margin_left": "8px",
+                    "background": BORDER2, "margin_left": "8px",
                 }),
                 align_items="center",
-                style={"padding": "14px 0 6px", "width": "100%"},
+                style={"padding": "16px 0 6px", "width": "100%"},
             ),
 
             # ── Transaction card ─────────────────────────────────────────────
