@@ -630,7 +630,7 @@ def _bucket_row(row: dict) -> rx.Component:
                         }),
                         rx.cond(
                             row["gap_fmt"] != "",
-                            rx.text(row["gap_fmt"] + " gap", style={
+                            rx.text(row["gap_fmt"], " gap", style={
                                 "font_size": "9px", "font_family": MONO,
                                 "color": AMBER, "font_weight": "600",
                                 "white_space": "nowrap",
