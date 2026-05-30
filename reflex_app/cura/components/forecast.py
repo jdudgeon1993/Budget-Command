@@ -61,30 +61,30 @@ def _kpi(label: str, value: str, color: str = TEXT) -> rx.Component:
 
 # ── Bill line renderer ────────────────────────────────────────────────────────
 
-def _funded_line(line: str) -> rx.Component:
-    """Renders a DATE:, BILL:, or BAL: encoded line in green."""
+def _funded_line(line: dict) -> rx.Component:
+    """Renders a date header, bill row, or balance row (green) from a structured dict."""
     return rx.cond(
-        line.startswith("DATE:"),
+        line["row_type"] == "date",
         rx.text(
-            line[5:],
+            line["text"],
             style={"font_size": "9px", "color": TEXT3, "letter_spacing": "0.08em",
                    "text_transform": "uppercase", "font_family": MONO,
                    "padding": "6px 0 2px"},
         ),
         rx.cond(
-            line.startswith("BAL:"),
+            line["row_type"] == "bal",
             rx.hstack(
                 rx.text("Balance", style={"font_size": "10px", "color": TEXT3, "flex": "1"}),
-                rx.text(line[4:], style={"font_size": "11px", "font_family": MONO, "color": TEXT2}),
+                rx.text(line["text"], style={"font_size": "11px", "font_family": MONO, "color": TEXT2}),
                 width="100%", justify="between",
                 style={"padding": "2px 0 4px", "border_top": f"1px solid {BORDER}",
                        "margin_top": "3px"},
             ),
             rx.hstack(
                 rx.text("✓", style={"color": GREEN, "font_size": "12px", "flex_shrink": "0"}),
-                rx.text(line[5:].split("|")[0],
+                rx.text(line["text"],
                         style={"font_size": "12px", "color": TEXT, "flex": "1"}),
-                rx.text(line[5:].split("|")[1] if "|" in line else "",
+                rx.text(line["amount_fmt"],
                         style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
                 width="100%", justify="between", align_items="center",
             ),
@@ -92,31 +92,31 @@ def _funded_line(line: str) -> rx.Component:
     )
 
 
-def _unfunded_line(line: str) -> rx.Component:
-    """Renders a DATE:, BILL:, or BAL: encoded line in red."""
+def _unfunded_line(line: dict) -> rx.Component:
+    """Renders a date header, bill row, or balance row (red) from a structured dict."""
     return rx.cond(
-        line.startswith("DATE:"),
+        line["row_type"] == "date",
         rx.text(
-            line[5:],
+            line["text"],
             style={"font_size": "9px", "color": TEXT3, "letter_spacing": "0.08em",
                    "text_transform": "uppercase", "font_family": MONO,
                    "padding": "6px 0 2px"},
         ),
         rx.cond(
-            line.startswith("BAL:"),
+            line["row_type"] == "bal",
             rx.hstack(
                 rx.text("Balance", style={"font_size": "10px", "color": TEXT3, "flex": "1"}),
-                rx.text(line[4:], style={"font_size": "11px", "font_family": MONO,
-                                          "color": rx.cond(line[4:].startswith("-"), RED, TEXT2)}),
+                rx.text(line["text"], style={"font_size": "11px", "font_family": MONO,
+                                              "color": rx.cond(line["text"].startswith("-"), RED, TEXT2)}),
                 width="100%", justify="between",
                 style={"padding": "2px 0 4px", "border_top": f"1px solid {BORDER}",
                        "margin_top": "3px"},
             ),
             rx.hstack(
                 rx.text("⚠", style={"color": AMBER, "font_size": "12px", "flex_shrink": "0"}),
-                rx.text(line[5:].split("|")[0],
+                rx.text(line["text"],
                         style={"font_size": "12px", "color": TEXT, "flex": "1"}),
-                rx.text(line[5:].split("|")[1] if "|" in line else "",
+                rx.text(line["amount_fmt"],
                         style={"font_size": "12px", "font_family": MONO, "color": RED}),
                 width="100%", justify="between", align_items="center",
             ),
@@ -124,26 +124,20 @@ def _unfunded_line(line: str) -> rx.Component:
     )
 
 
-def _income_line(line: str) -> rx.Component:
-    parts = line.split("|")
-    label = parts[0] if parts else line
-    amount = parts[1] if len(parts) > 1 else ""
+def _income_line(line: dict) -> rx.Component:
     return rx.hstack(
         rx.text("💰", style={"font_size": "12px", "flex_shrink": "0"}),
-        rx.text(label, style={"font_size": "12px", "color": TEXT, "flex": "1"}),
-        rx.text(amount, style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
+        rx.text(line["label"], style={"font_size": "12px", "color": TEXT, "flex": "1"}),
+        rx.text(line["amount_fmt"], style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
         width="100%", justify="between", align_items="center",
     )
 
 
-def _transfer_line(line: str) -> rx.Component:
-    parts = line.split("|")
-    label = parts[0] if parts else line
-    amount = parts[1] if len(parts) > 1 else ""
+def _transfer_line(line: dict) -> rx.Component:
     return rx.hstack(
         rx.text("→", style={"font_size": "12px", "color": TEXT3, "flex_shrink": "0"}),
-        rx.text(label, style={"font_size": "12px", "color": TEXT2, "flex": "1"}),
-        rx.text(amount, style={"font_size": "12px", "font_family": MONO, "color": AMBER}),
+        rx.text(line["label"], style={"font_size": "12px", "color": TEXT2, "flex": "1"}),
+        rx.text(line["amount_fmt"], style={"font_size": "12px", "font_family": MONO, "color": AMBER}),
         width="100%", justify="between", align_items="center",
     )
 
@@ -227,7 +221,7 @@ def _period_card(p: dict) -> rx.Component:
                 p["has_income"],
                 rx.vstack(
                     rx.foreach(
-                        p["income_lines"].to(list[str]),
+                        p["income_lines"].to(list[dict]),
                         _income_line,
                     ),
                     width="100%", gap="4px",
@@ -242,7 +236,7 @@ def _period_card(p: dict) -> rx.Component:
                 p["has_transfers"],
                 rx.vstack(
                     rx.foreach(
-                        p["transfer_lines"].to(list[str]),
+                        p["transfer_lines"].to(list[dict]),
                         _transfer_line,
                     ),
                     width="100%", gap="4px",
@@ -261,7 +255,7 @@ def _period_card(p: dict) -> rx.Component:
                                    "text_transform": "uppercase", "font_family": MONO,
                                    "margin_bottom": "4px"}),
                     rx.foreach(
-                        p["funded_lines"].to(list[str]),
+                        p["funded_lines"].to(list[dict]),
                         _funded_line,
                     ),
                     width="100%", gap="3px",
@@ -280,7 +274,7 @@ def _period_card(p: dict) -> rx.Component:
                                    "text_transform": "uppercase", "font_family": MONO,
                                    "margin_bottom": "4px"}),
                     rx.foreach(
-                        p["unfunded_lines"].to(list[str]),
+                        p["unfunded_lines"].to(list[dict]),
                         _unfunded_line,
                     ),
                     width="100%", gap="3px",

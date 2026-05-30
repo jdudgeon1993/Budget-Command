@@ -312,23 +312,25 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "") -> dic
                 _add_bill(b, bd)
 
         # Process funded (green) — deduct from balance
-        funded_lines: list[str] = []
+        funded_lines: list[dict] = []
         for d in sorted(funded_by_day):
-            funded_lines.append(f"DATE:{_date_label(d)}")
+            funded_lines.append({"row_type": "date", "text": _date_label(d), "amount_fmt": ""})
             for bill in funded_by_day[d]:
                 running_balance -= bill["amount"]
-                funded_lines.append(f"BILL:{bill['name']}|{_fmt(bill['amount'])}")
-            funded_lines.append(f"BAL:{_fmt(running_balance)}")
+                funded_lines.append({"row_type": "bill", "text": bill["name"],
+                                     "amount_fmt": _fmt(bill["amount"])})
+            funded_lines.append({"row_type": "bal", "text": _fmt(running_balance), "amount_fmt": ""})
 
         # Process unfunded (red) — deduct from balance
-        unfunded_lines: list[str] = []
+        unfunded_lines: list[dict] = []
         for d in sorted(unfunded_by_day):
-            unfunded_lines.append(f"DATE:{_date_label(d)}")
+            unfunded_lines.append({"row_type": "date", "text": _date_label(d), "amount_fmt": ""})
             for bill in unfunded_by_day[d]:
                 running_balance -= bill["amount"]
                 grand_unfunded  += bill["amount"]
-                unfunded_lines.append(f"BILL:{bill['name']}|{_fmt(bill['amount'])}")
-            unfunded_lines.append(f"BAL:{_fmt(running_balance)}")
+                unfunded_lines.append({"row_type": "bill", "text": bill["name"],
+                                       "amount_fmt": _fmt(bill["amount"])})
+            unfunded_lines.append({"row_type": "bal", "text": _fmt(running_balance), "amount_fmt": ""})
 
         period_income    = sum(e["amount"] for e in income_events)
         period_unfunded  = sum(b["amount"] for d in unfunded_by_day.values() for b in d)
@@ -340,8 +342,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "") -> dic
             labels = list({e["label"] for e in income_events}) or ["Paycheck"]
             label  = " + ".join(sorted(labels))
 
-        income_lines   = [f"{e['label']}|{_fmt(e['amount'])}" for e in income_events]
-        transfer_lines = [f"{e['name']}|{_fmt(e['amount'])}" for e in transfer_events]
+        income_lines   = [{"label": e["label"], "amount_fmt": _fmt(e["amount"])} for e in income_events]
+        transfer_lines = [{"label": e["name"],  "amount_fmt": _fmt(e["amount"])} for e in transfer_events]
 
         period_results.append({
             "id":              str(ps),
