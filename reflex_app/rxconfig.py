@@ -8,4 +8,5 @@ config = rx.Config(
     app_name="cura",
     api_url=_api_url,
     deploy_url=_api_url,
+    state_auto_setters=True,
 )
