@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from formulas import (
     current_month_id, parse_month_id, month_id,
     b_alloc, b_budget, b_spent, rollover_bal, bucket_available, ready_to_spend,
-    vault_accumulated, is_scheduled, acct_balance,
+    vault_accumulated, is_scheduled, acct_balance, total_allocated,
 )
 
 MONTH_NAMES = ["January","February","March","April","May","June",
