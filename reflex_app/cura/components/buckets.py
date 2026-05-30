@@ -167,7 +167,7 @@ def _toggle_row(label: str, sub: str, checked, on_change) -> rx.Component:
 
 def _expense_fields() -> rx.Component:
     return rx.fragment(
-        _field("Monthly Budget Target ($)",
+        _field("Default Budget (applies to future months) ($)",
             rx.input(value=AppState.bsf_budget, on_change=AppState.set_bsf_budget,
                      type="number", input_mode="decimal", placeholder="0",
                      style=_input_style())
@@ -608,113 +608,145 @@ def _bucket_row(row: dict) -> rx.Component:
 
         # ── Bucket row ───────────────────────────────────────────────────────
         rx.box(
+            # Name row + status badge
             rx.hstack(
-                # Left: name + type badges
-                rx.vstack(
-                    rx.text(row["name"], style={
-                        "font_size": "13px", "font_weight": "600", "line_height": "1.2",
-                        "color": rx.cond(row["is_skipped"] == "1", TEXT3, TEXT),
+                rx.text(row["name"], style={
+                    "font_size": "13px", "font_weight": "600", "line_height": "1.2",
+                    "color": rx.cond(row["is_skipped"] == "1", TEXT3, TEXT),
+                    "flex": "1", "min_width": "0",
+                }),
+                # Status badge: OVER > GAP > FUNDED > nothing
+                rx.cond(
+                    row["is_over"] == "1",
+                    rx.text(row["over_fmt"], style={
+                        "font_size": "9px", "font_family": MONO, "font_weight": "600",
+                        "color": RED, "letter_spacing": "0.04em", "white_space": "nowrap",
                     }),
-                    # Badge row — due date, rollover, goal progress, vault
-                    rx.hstack(
-                        rx.cond(
-                            row["due_label"] != "",
-                            rx.text(row["due_label"], style={
-                                "font_size": "9px", "font_family": MONO,
-                                "padding": "1px 6px", "border_radius": "8px",
-                                "color": rx.cond(
-                                    row["due_urgency"] == "overdue", RED,
-                                    rx.cond(row["due_urgency"] == "urgent", AMBER,
-                                    rx.cond(row["due_urgency"] == "soon", AMBER, TEXT3))
-                                ),
-                                "background": rx.cond(
-                                    row["due_urgency"] == "overdue", f"{RED}18",
-                                    rx.cond(row["due_urgency"] == "urgent", f"{AMBER}18",
-                                    rx.cond(row["due_urgency"] == "soon", f"{AMBER}0d", f"{BORDER}88"))
-                                ),
-                                "border": rx.cond(
-                                    row["due_urgency"] == "overdue", f"1px solid {RED}44",
-                                    rx.cond(row["due_urgency"] == "urgent", f"1px solid {AMBER}55",
-                                    rx.cond(row["due_urgency"] == "soon", f"1px solid {AMBER}33",
-                                    f"1px solid {BORDER}"))
-                                ),
-                            }),
-                            rx.box(),
-                        ),
-                        rx.cond(
-                            row["show_roll"] == "1",
-                            rx.text(row["roll_fmt"], style={
-                                "font_size": "9px", "font_family": MONO,
-                                "color": ACCENT, "padding": "1px 6px",
-                                "border_radius": "8px",
-                                "background": f"{ACCENT}18",
-                                "border": f"1px solid {ACCENT}33",
-                            }),
-                            rx.box(),
-                        ),
-                        rx.cond(
-                            row["show_goal"] == "1",
-                            rx.text(row["target_fmt"], style={
-                                "font_size": "9px", "color": TEXT3, "font_family": MONO,
-                            }),
-                            rx.box(),
-                        ),
-                        rx.cond(
-                            row["show_vault"] == "1",
-                            rx.text(row["vault_fmt"], style={
-                                "font_size": "9px", "color": VIOLET,
-                                "font_family": MONO, "font_weight": "600",
-                            }),
-                            rx.box(),
-                        ),
-                        gap="5px", align_items="center", flex_wrap="wrap",
-                    ),
-                    gap="4px", align_items="flex-start", flex="1", min_width="0",
-                ),
-
-                # Right: funding gap / funded badge + alloc/budget editor
-                rx.vstack(
-                    # Funding status
                     rx.cond(
                         row["is_funded"] == "1",
                         rx.text("✓ FUNDED", style={
-                            "font_size": "8px", "font_family": MONO,
+                            "font_size": "9px", "font_family": MONO,
                             "color": GREEN, "letter_spacing": "0.06em",
-                            "text_align": "right",
                         }),
                         rx.cond(
                             row["gap_fmt"] != "",
-                            rx.text(row["gap_fmt"], style={
-                                "font_size": "11px", "font_family": MONO,
+                            rx.text(row["gap_fmt"] + " gap", style={
+                                "font_size": "9px", "font_family": MONO,
                                 "color": AMBER, "font_weight": "600",
-                                "white_space": "nowrap", "text_align": "right",
+                                "white_space": "nowrap",
                             }),
-                            rx.box(style={"height": "14px"}),
+                            rx.box(),
                         ),
                     ),
-                    # Alloc / budget editor
-                    _alloc_cell(row),
-                    align_items="flex-end", gap="3px", flex_shrink="0",
                 ),
-
-                align_items="flex-start", width="100%", gap="10px",
+                align_items="flex-start", width="100%", gap="8px",
             ),
 
-            # Bottom: spent meta + Fill + ⋯
+            # KPI strip: BUDGET · ALLOC · SPENT
             rx.hstack(
-                rx.cond(
-                    row["spent_fmt"] != "",
-                    rx.text(row["spent_fmt"], " spent",
-                            style={"font_size": "9px", "color": TEXT3,
-                                   "font_family": MONO, "line_height": "1"}),
-                    rx.box(),
+                # BUDGET column
+                rx.vstack(
+                    rx.text("BUDGET", style={
+                        "font_size": "8px", "letter_spacing": "0.12em",
+                        "color": TEXT3, "font_family": MONO,
+                    }),
+                    _budget_cell(row),
+                    gap="2px", align_items="flex-start",
                 ),
-                rx.cond(
-                    row["months_left_str"] != "",
-                    rx.text(" · ", row["months_left_str"],
-                            style={"font_size": "9px", "color": TEXT3, "font_family": MONO}),
-                    rx.box(),
+                rx.box(style={"width": "1px", "background": BORDER, "align_self": "stretch"}),
+                # ALLOC column
+                rx.vstack(
+                    rx.text("ALLOC", style={
+                        "font_size": "8px", "letter_spacing": "0.12em",
+                        "color": TEXT3, "font_family": MONO,
+                    }),
+                    _alloc_cell(row),
+                    gap="2px", align_items="flex-start",
                 ),
+                rx.box(style={"width": "1px", "background": BORDER, "align_self": "stretch"}),
+                # SPENT column
+                rx.vstack(
+                    rx.text("SPENT", style={
+                        "font_size": "8px", "letter_spacing": "0.12em",
+                        "color": TEXT3, "font_family": MONO,
+                    }),
+                    rx.text(
+                        rx.cond(row["spent_fmt"] != "", row["spent_fmt"], "—"),
+                        style={
+                            "font_size": "13px", "font_family": MONO, "font_weight": "600",
+                            "color": rx.cond(row["is_over"] == "1", RED, TEXT2),
+                            "line_height": "1.2",
+                        },
+                    ),
+                    gap="2px", align_items="flex-start",
+                ),
+                rx.spacer(),
+                gap="12px", align_items="stretch", width="100%",
+                style={"margin_top": "10px"},
+            ),
+
+            # Badge row (due date, rollover, goal, vault) — only shown if any
+            rx.cond(
+                (row["due_label"] != "") | (row["show_roll"] == "1") | (row["show_goal"] == "1") | (row["show_vault"] == "1"),
+                rx.hstack(
+                    rx.cond(
+                        row["due_label"] != "",
+                        rx.text(row["due_label"], style={
+                            "font_size": "9px", "font_family": MONO,
+                            "padding": "1px 6px", "border_radius": "8px",
+                            "color": rx.cond(
+                                row["due_urgency"] == "overdue", RED,
+                                rx.cond(row["due_urgency"] == "urgent", AMBER,
+                                rx.cond(row["due_urgency"] == "soon", AMBER, TEXT3))
+                            ),
+                            "background": rx.cond(
+                                row["due_urgency"] == "overdue", f"{RED}18",
+                                rx.cond(row["due_urgency"] == "urgent", f"{AMBER}18",
+                                rx.cond(row["due_urgency"] == "soon", f"{AMBER}0d", f"{BORDER}88"))
+                            ),
+                            "border": rx.cond(
+                                row["due_urgency"] == "overdue", f"1px solid {RED}44",
+                                rx.cond(row["due_urgency"] == "urgent", f"1px solid {AMBER}55",
+                                rx.cond(row["due_urgency"] == "soon", f"1px solid {AMBER}33",
+                                f"1px solid {BORDER}"))
+                            ),
+                        }),
+                        rx.box(),
+                    ),
+                    rx.cond(
+                        row["show_roll"] == "1",
+                        rx.text(row["roll_fmt"], style={
+                            "font_size": "9px", "font_family": MONO,
+                            "color": ACCENT, "padding": "1px 6px",
+                            "border_radius": "8px",
+                            "background": f"{ACCENT}18",
+                            "border": f"1px solid {ACCENT}33",
+                        }),
+                        rx.box(),
+                    ),
+                    rx.cond(
+                        row["show_goal"] == "1",
+                        rx.text(row["target_fmt"], style={
+                            "font_size": "9px", "color": TEXT3, "font_family": MONO,
+                        }),
+                        rx.box(),
+                    ),
+                    rx.cond(
+                        row["show_vault"] == "1",
+                        rx.text(row["vault_fmt"], style={
+                            "font_size": "9px", "color": VIOLET,
+                            "font_family": MONO, "font_weight": "600",
+                        }),
+                        rx.box(),
+                    ),
+                    gap="5px", align_items="center", flex_wrap="wrap",
+                    style={"margin_top": "6px"},
+                ),
+                rx.box(),
+            ),
+
+            # Bottom row: expand + Fill + ⋯
+            rx.hstack(
                 rx.spacer(),
                 # Expand chevron
                 rx.box(
@@ -773,7 +805,7 @@ def _bucket_row(row: dict) -> rx.Component:
                             lambda tx: rx.hstack(
                                 rx.text(tx["date_label"], style={
                                     "font_size": "9px", "color": TEXT3,
-                                    "font_family": MONO, "width": "80px", "flex_shrink": "0",
+                                    "font_family": MONO, "width": "72px", "flex_shrink": "0",
                                 }),
                                 rx.text(tx["desc"], style={
                                     "font_size": "11px", "color": TEXT2,
@@ -802,20 +834,19 @@ def _bucket_row(row: dict) -> rx.Component:
                 "background": BG2,
                 "border": f"1px solid {BORDER}",
                 "border_left": rx.cond(
-                    row["is_funded"] == "1", f"3px solid {GREEN}",
-                    rx.cond(row["gap_fmt"] != "", f"3px solid {AMBER}", f"1px solid {BORDER}"),
+                    row["is_over"] == "1", f"3px solid {RED}",
+                    rx.cond(row["is_funded"] == "1", f"3px solid {GREEN}",
+                    rx.cond(row["gap_fmt"] != "", f"3px solid {AMBER}", f"1px solid {BORDER}"))
                 ),
                 "border_radius": "8px",
                 "padding": rx.cond(
-                    row["is_funded"] == "1", "10px 12px 10px 10px",
-                    rx.cond(row["gap_fmt"] != "", "10px 12px 10px 10px", "10px 12px"),
+                    (row["is_over"] == "1") | (row["is_funded"] == "1") | (row["gap_fmt"] != ""),
+                    "10px 12px 10px 10px",
+                    "10px 12px",
                 ),
                 "margin_bottom": "5px",
                 "opacity": rx.cond(row["is_skipped"] == "1", "0.4", "1"),
-                "_hover": {"border_left_color": rx.cond(
-                    row["is_funded"] == "1", GREEN,
-                    rx.cond(row["gap_fmt"] != "", AMBER, BORDER2),
-                )},
+                "_hover": {"border_color": BORDER2},
             },
         ),
     )
