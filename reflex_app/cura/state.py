@@ -1857,9 +1857,10 @@ class AppState(rx.State):
                     "−"
                 )
                 left_border = (
-                    "3px solid #34d399" if ttype == "in" and not sched else
-                    "3px solid #fbbf24" if sched else
-                    "none"
+                    "3px solid #34d399"   if ttype == "in" and not sched else
+                    "3px solid #fbbf24"   if sched else
+                    "3px solid #8282a244" if ttype == "xfr" else
+                    "3px solid #f8717155"   # expense — subtle red
                 )
                 type_chip = (
                     "Income"    if ttype == "in" and not sched else
