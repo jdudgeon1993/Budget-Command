@@ -7,26 +7,33 @@ from ..theme import (BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3,
                      GREEN, AMBER, ACCENT, RED, MONO, SANS)
 
 
-# ── Shared helpers ────────────────────────────────────────────────────────────
+# ── Shared form helpers (mirrors buckets.py) ──────────────────────────────────
 
 def _input_style() -> dict:
     return {
-        "width": "100%", "background": BG3, "border": f"1px solid {BORDER}",
+        "background": BG3, "border": f"1px solid {BORDER}",
         "border_radius": "8px", "color": TEXT, "font_family": MONO,
-        "font_size": "13px", "padding": "10px 14px", "outline": "none",
-        "_focus": {"border_color": ACCENT},
+        "font_size": "12px", "padding": "8px 12px", "outline": "none", "width": "100%",
+        "_focus": {"border_color": ACCENT, "outline": "none"},
+    }
+
+
+def _select_style() -> dict:
+    return {
+        "background": BG3, "border": f"1px solid {BORDER}",
+        "border_radius": "8px", "color": TEXT,
+        "font_size": "12px", "padding": "8px 10px", "width": "100%",
     }
 
 
 def _field(label: str, child: rx.Component) -> rx.Component:
     return rx.vstack(
         rx.text(label, style={
-            "font_size": "9px", "color": TEXT3,
-            "letter_spacing": "0.1em", "text_transform": "uppercase",
-            "font_family": MONO,
+            "font_size": "9px", "color": TEXT3, "letter_spacing": "0.1em",
+            "text_transform": "uppercase", "font_family": MONO,
         }),
         child,
-        gap="4px", align_items="stretch",
+        gap="4px", align_items="stretch", width="100%",
     )
 
 
@@ -51,72 +58,63 @@ def _tx_row(row: dict) -> rx.Component:
             style={"padding": "14px 0 6px", "width": "100%"},
         ),
 
-        # ── Transaction row ──────────────────────────────────────────────────
-        rx.hstack(
-            # Clickable body — description + meta
-            rx.vstack(
-                rx.text(
-                    rx.cond(row["desc"] != "", row["desc"], "—"),
-                    on_click=AppState.open_edit_tx(row["id"]),
-                    style={
-                        "font_size": "13px",
-                        "color": rx.cond(row["desc"] != "", TEXT, TEXT3),
-                        "font_weight": "500", "line_height": "1.2",
-                        "white_space": "nowrap", "overflow": "hidden",
-                        "text_overflow": "ellipsis", "cursor": "pointer",
-                        "_hover": {"color": ACCENT},
-                    },
-                ),
-                rx.hstack(
+        # ── Transaction row (mirrors bucket card layout) ─────────────────────
+        rx.box(
+            rx.hstack(
+                # Left: description + meta
+                rx.vstack(
                     rx.text(
-                        rx.cond(row["bucket"] != "", row["bucket"], row["account"]),
+                        rx.cond(row["desc"] != "", row["desc"], "—"),
                         style={
-                            "font_size": "10px", "color": TEXT3, "font_family": MONO,
+                            "font_size": "13px", "font_weight": "600",
+                            "line_height": "1.2",
+                            "color": rx.cond(row["desc"] != "", TEXT, TEXT3),
                         },
                     ),
-                    rx.cond(
-                        row["type_chip"] != "",
-                        rx.text(row["type_chip"], style={
-                            "font_size": "8px", "font_family": MONO,
-                            "letter_spacing": "0.08em",
-                            "padding": "1px 5px", "border_radius": "6px",
-                            "color": row["chip_color"],
-                            "background": row["chip_bg"],
-                            "border": row["chip_border"],
-                            "white_space": "nowrap", "flex_shrink": "0",
-                        }),
-                        rx.box(),
+                    rx.hstack(
+                        rx.text(
+                            rx.cond(row["bucket"] != "", row["bucket"], row["account"]),
+                            style={"font_size": "10px", "color": TEXT3, "font_family": MONO},
+                        ),
+                        rx.cond(
+                            row["type_chip"] != "",
+                            rx.text(row["type_chip"], style={
+                                "font_size": "8px", "font_family": MONO,
+                                "letter_spacing": "0.08em",
+                                "padding": "1px 5px", "border_radius": "6px",
+                                "color": row["chip_color"],
+                                "background": row["chip_bg"],
+                                "border": row["chip_border"],
+                                "white_space": "nowrap", "flex_shrink": "0",
+                            }),
+                            rx.box(),
+                        ),
+                        gap="6px", align_items="center",
                     ),
-                    align_items="center", gap="6px",
+                    gap="3px", align_items="flex-start", flex="1", min_width="0",
                 ),
-                gap="3px", align_items="flex-start", flex="1", min_width="0",
-                on_click=AppState.open_edit_tx(row["id"]),
-                style={"cursor": "pointer"},
-            ),
 
-            # Amount + delete
-            rx.hstack(
-                rx.text(row["amount_fmt"], style={
-                    "font_size": "14px", "font_family": MONO, "font_weight": "700",
-                    "color": row["amt_color"], "white_space": "nowrap",
-                }),
-                rx.box(
-                    "×",
-                    on_click=AppState.delete_tx(row["id"]),
-                    style={
-                        "width": "22px", "height": "22px", "border_radius": "4px",
-                        "display": "flex", "align_items": "center",
-                        "justify_content": "center",
-                        "color": TEXT3, "cursor": "pointer",
-                        "font_size": "16px", "flex_shrink": "0",
-                        "opacity": "0",
-                        "_hover": {"color": RED, "background": f"{RED}18", "opacity": "1 !important"},
-                    },
+                # Right: amount + ⋯ (same as bucket row)
+                rx.hstack(
+                    rx.text(row["amount_fmt"], style={
+                        "font_size": "14px", "font_family": MONO, "font_weight": "700",
+                        "color": row["amt_color"], "white_space": "nowrap",
+                    }),
+                    rx.box(
+                        "⋯",
+                        on_click=AppState.open_edit_tx(row["id"]),
+                        style={
+                            "font_size": "18px", "color": TEXT3, "cursor": "pointer",
+                            "padding": "0px 6px", "border_radius": "6px",
+                            "line_height": "1.2",
+                            "_hover": {"color": TEXT, "background": BG3},
+                        },
+                    ),
+                    align_items="center", gap="6px", flex_shrink="0",
                 ),
-                align_items="center", gap="4px", flex_shrink="0",
-            ),
 
-            align_items="center", width="100%", gap="10px",
+                align_items="center", width="100%", gap="10px",
+            ),
             style={
                 "background": BG2,
                 "border": f"1px solid {BORDER}",
@@ -124,71 +122,69 @@ def _tx_row(row: dict) -> rx.Component:
                 "border_radius": "8px",
                 "padding": rx.cond(
                     row["left_border"] != "none",
-                    "9px 12px 9px 10px",
-                    "9px 12px",
+                    "10px 12px 10px 10px",
+                    "10px 12px",
                 ),
-                "margin_bottom": "4px",
+                "margin_bottom": "5px",
                 "_hover": {"border_color": BORDER2},
             },
         ),
     )
 
 
-# ── Edit transaction dialog ───────────────────────────────────────────────────
+# ── Edit transaction dialog (mirrors bucket_settings_dialog) ──────────────────
 
-def _edit_type_btn(label: str, value: str, color: str) -> rx.Component:
+def _type_pill(label: str, value: str, color: str) -> rx.Component:
     is_active = AppState.edit_tx_type == value
-    return rx.box(
-        label,
-        style=rx.cond(
-            is_active,
-            {
-                "flex": "1", "padding": "7px", "border_radius": "8px",
-                "text_align": "center", "font_size": "11px",
-                "font_family": MONO, "letter_spacing": "0.06em",
-                "border": f"1px solid {color}", "color": color,
-                "background": color + "1a",
-            },
-            {
-                "flex": "1", "padding": "7px", "border_radius": "8px",
-                "text_align": "center", "font_size": "11px",
-                "font_family": MONO, "letter_spacing": "0.06em",
-                "border": f"1px solid {BORDER}", "color": TEXT3, "background": BG3,
-            },
-        ),
-    )
+    return rx.text(label, style=rx.cond(
+        is_active,
+        {
+            "font_size": "9px", "font_family": MONO, "letter_spacing": "0.08em",
+            "padding": "3px 10px", "border_radius": "20px",
+            "color": color, "background": color + "1a",
+            "border": f"1px solid {color}55",
+        },
+        {
+            "font_size": "9px", "font_family": MONO, "letter_spacing": "0.08em",
+            "padding": "3px 10px", "border_radius": "20px",
+            "color": TEXT3, "background": "transparent",
+            "border": f"1px solid {BORDER}",
+        },
+    ))
 
 
 def edit_tx_dialog() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.vstack(
-                # Header
+                # Header — identical structure to bucket_settings_dialog
                 rx.hstack(
-                    rx.text("Edit Transaction", style={
-                        "font_size": "11px", "letter_spacing": "0.14em",
-                        "text_transform": "uppercase", "color": TEXT2,
-                        "flex": "1", "font_family": MONO,
-                    }),
+                    rx.vstack(
+                        rx.text("TRANSACTION", style={
+                            "font_size": "10px", "letter_spacing": "0.18em",
+                            "color": TEXT3, "font_family": MONO,
+                        }),
+                        rx.hstack(
+                            _type_pill("Expense",  "out", RED),
+                            _type_pill("Income",   "in",  GREEN),
+                            _type_pill("Transfer", "xfr", TEXT2),
+                            gap="6px", align_items="center",
+                        ),
+                        gap="4px", align_items="flex-start",
+                    ),
+                    rx.spacer(),
                     rx.dialog.close(
                         rx.box("×", style={
                             "font_size": "22px", "color": TEXT3, "cursor": "pointer",
                             "line_height": "1", "_hover": {"color": TEXT},
                         }),
                     ),
-                    align_items="center", width="100%",
+                    align_items="flex-start", width="100%",
                 ),
+
                 rx.divider(style={"border_color": BORDER}),
 
-                # Type indicator (read-only display, not editable to keep it simple)
-                rx.hstack(
-                    _edit_type_btn("Expense",  "out", RED),
-                    _edit_type_btn("Income",   "in",  GREEN),
-                    _edit_type_btn("Transfer", "xfr", TEXT2),
-                    gap="6px",
-                ),
-
-                # Amount
+                # Amount — large, centered like bucket alloc display
                 _field("Amount ($)",
                     rx.input(
                         value=AppState.edit_tx_amount,
@@ -196,8 +192,12 @@ def edit_tx_dialog() -> rx.Component:
                         type="number", input_mode="decimal",
                         style={
                             **_input_style(),
-                            "font_size": "20px", "text_align": "center",
-                            "font_weight": "700",
+                            "font_size": "22px", "text_align": "center",
+                            "font_weight": "700", "padding": "10px 14px",
+                            "color": rx.cond(
+                                AppState.edit_tx_type == "in", GREEN,
+                                rx.cond(AppState.edit_tx_type == "out", RED, TEXT2),
+                            ),
                         },
                     )
                 ),
@@ -212,7 +212,7 @@ def edit_tx_dialog() -> rx.Component:
                     )
                 ),
 
-                # Date + Account
+                # Date + Account (two-column like bucket type/category)
                 rx.hstack(
                     _field("Date",
                         rx.input(
@@ -229,13 +229,13 @@ def edit_tx_dialog() -> rx.Component:
                             ),
                             value=AppState.edit_tx_account,
                             on_change=AppState.set_edit_tx_account,
-                            style=_input_style(),
+                            style=_select_style(),
                         )
                     ),
-                    gap="8px",
+                    gap="10px", width="100%",
                 ),
 
-                # Bucket (expense only)
+                # Bucket — expense only
                 rx.cond(
                     AppState.edit_tx_type == "out",
                     _field("Bucket",
@@ -246,7 +246,7 @@ def edit_tx_dialog() -> rx.Component:
                             ),
                             value=AppState.edit_tx_bucket,
                             on_change=AppState.set_edit_tx_bucket,
-                            style=_input_style(),
+                            style=_select_style(),
                         )
                     ),
                     rx.box(),
@@ -263,29 +263,29 @@ def edit_tx_dialog() -> rx.Component:
 
                 rx.divider(style={"border_color": BORDER}),
 
-                # Actions
+                # Footer — Delete (red/left) | Save (accent/right) like bucket Archive/Save
                 rx.hstack(
-                    rx.dialog.close(
-                        rx.box(
-                            "Cancel",
-                            style={
-                                "flex": "1", "padding": "10px", "border_radius": "8px",
-                                "border": f"1px solid {BORDER}", "color": TEXT3,
-                                "font_size": "11px", "text_align": "center",
-                                "cursor": "pointer", "font_family": MONO,
-                                "_hover": {"color": TEXT2, "border_color": BORDER2},
-                            },
-                        )
+                    rx.box(
+                        "Delete",
+                        on_click=AppState.delete_from_edit_tx,
+                        style={
+                            "flex": "1", "padding": "9px", "border_radius": "8px",
+                            "border": f"1px solid {RED}44", "color": RED,
+                            "font_size": "11px", "text_align": "center",
+                            "cursor": "pointer", "font_family": MONO,
+                            "letter_spacing": "0.06em",
+                            "_hover": {"background": f"{RED}11"},
+                        },
                     ),
                     rx.box(
-                        rx.cond(AppState.edit_tx_saving, "Saving…", "Save Changes"),
+                        rx.cond(AppState.edit_tx_saving, "Saving…", "Save"),
                         on_click=AppState.save_edit_tx,
                         style={
-                            "flex": "2", "padding": "10px", "border_radius": "8px",
+                            "flex": "2", "padding": "9px", "border_radius": "8px",
                             "background": rx.cond(AppState.edit_tx_saving, BORDER, ACCENT),
                             "color": "#fff", "font_size": "11px",
                             "text_align": "center", "cursor": "pointer",
-                            "font_family": MONO, "letter_spacing": "0.06em",
+                            "font_family": MONO, "letter_spacing": "0.08em",
                             "text_transform": "uppercase", "font_weight": "700",
                             "_hover": {"opacity": "0.9"},
                         },
@@ -318,16 +318,14 @@ def _add_type_btn(label: str, value: str, color: str) -> rx.Component:
             {
                 "flex": "1", "padding": "8px", "border_radius": "8px",
                 "cursor": "pointer", "text_align": "center",
-                "font_size": "11px", "letter_spacing": "0.06em",
-                "font_family": MONO,
+                "font_size": "11px", "letter_spacing": "0.06em", "font_family": MONO,
                 "border": f"1px solid {color}", "color": color,
                 "background": color + "1a",
             },
             {
                 "flex": "1", "padding": "8px", "border_radius": "8px",
                 "cursor": "pointer", "text_align": "center",
-                "font_size": "11px", "letter_spacing": "0.06em",
-                "font_family": MONO,
+                "font_size": "11px", "letter_spacing": "0.06em", "font_family": MONO,
                 "border": f"1px solid {BORDER}", "color": TEXT3, "background": BG3,
                 "_hover": {"color": TEXT2, "border_color": BORDER2},
             },
@@ -339,13 +337,13 @@ def add_tx_sheet() -> rx.Component:
     return rx.cond(
         AppState.sheet_open,
         rx.box(
-            # ── Invisible close layer — sits behind the card ──────────────
+            # Invisible close layer — behind the card
             rx.box(
                 on_click=AppState.close_sheet,
                 style={"position": "absolute", "inset": "0", "cursor": "pointer"},
             ),
 
-            # ── Sheet card — on top of close layer ────────────────────────
+            # Sheet card — z-index above close layer
             rx.box(
                 rx.vstack(
                     # Drag handle
@@ -354,12 +352,11 @@ def add_tx_sheet() -> rx.Component:
                         "background": BORDER2, "margin": "0 auto 12px",
                     }),
 
-                    # Title
+                    # Header
                     rx.hstack(
-                        rx.text("Add Transaction", style={
+                        rx.text("ADD TRANSACTION", style={
                             "font_size": "11px", "letter_spacing": "0.14em",
-                            "text_transform": "uppercase", "color": TEXT2,
-                            "flex": "1", "font_family": MONO,
+                            "color": TEXT2, "flex": "1", "font_family": MONO,
                         }),
                         rx.box("×", on_click=AppState.close_sheet, style={
                             "font_size": "20px", "color": TEXT3, "cursor": "pointer",
@@ -395,7 +392,7 @@ def add_tx_sheet() -> rx.Component:
 
                     # Description
                     rx.input(
-                        placeholder="Description (what was this for?)",
+                        placeholder="Description",
                         value=AppState.sheet_desc,
                         on_change=AppState.set_sheet_desc,
                         style=_input_style(),
@@ -418,10 +415,10 @@ def add_tx_sheet() -> rx.Component:
                                 ),
                                 value=AppState.sheet_account,
                                 on_change=AppState.set_sheet_account,
-                                style=_input_style(),
+                                style=_select_style(),
                             ),
                         ),
-                        gap="8px",
+                        gap="10px",
                     ),
 
                     # Bucket (expense only)
@@ -434,7 +431,7 @@ def add_tx_sheet() -> rx.Component:
                                 ),
                                 value=AppState.sheet_bucket,
                                 on_change=AppState.set_sheet_bucket,
-                                style=_input_style(),
+                                style=_select_style(),
                             ),
                         ),
                         rx.box(),
@@ -454,7 +451,7 @@ def add_tx_sheet() -> rx.Component:
                         rx.cond(AppState.sheet_saving, "Saving…", "Add Transaction"),
                         on_click=AppState.submit_transaction,
                         style={
-                            "width": "100%", "padding": "13px",
+                            "width": "100%", "padding": "12px",
                             "background": rx.cond(
                                 AppState.sheet_saving, BORDER,
                                 rx.cond(AppState.sheet_type == "in", GREEN,
@@ -499,7 +496,7 @@ def add_tx_sheet() -> rx.Component:
 
 def ledger_panel() -> rx.Component:
     return rx.box(
-        # Search bar
+        # Search
         rx.hstack(
             rx.html(
                 '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" '

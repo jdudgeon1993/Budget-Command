@@ -1211,6 +1211,21 @@ class AppState(rx.State):
         if not v:
             self.edit_tx_error = ""
 
+    async def delete_from_edit_tx(self):
+        tx_id = self.edit_tx_id
+        if not tx_id:
+            return
+        self.edit_tx_open = False
+        yield
+        try:
+            DB.delete_transaction(self.user_id, self.access_token, tx_id)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+            yield rx.toast.success("Transaction deleted")
+        except Exception:
+            yield rx.toast.error("Could not delete transaction")
+
     async def save_edit_tx(self):
         if not self.edit_tx_id:
             return
@@ -1589,7 +1604,7 @@ class AppState(rx.State):
                     "row_type":    "tx",
                     "id":          t["id"],
                     "date":        t.get("date", ""),
-                    "desc":        t.get("desc", "") or "(no description)",
+                    "desc":        t.get("desc") or "",
                     "type":        ttype,
                     "amount":      amt,
                     "amount_fmt":  f"{amt_prefix}{_fmt(amt)}",
