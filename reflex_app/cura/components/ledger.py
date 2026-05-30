@@ -168,9 +168,9 @@ def add_tx_sheet() -> rx.Component:
                             ),
                         ),
                         _field("Account",
-                            rx.select(
+                            rx.el.select(
                                 AppState.account_options.to(list[dict]).foreach(
-                                    lambda a: rx.option(a["name"], value=a["id"])
+                                    lambda a: rx.el.option(a["name"], value=a["id"])
                                 ),
                                 value=AppState.sheet_account,
                                 on_change=AppState.set_sheet_account,
@@ -184,9 +184,9 @@ def add_tx_sheet() -> rx.Component:
                     rx.cond(
                         AppState.sheet_type == "out",
                         _field("Bucket",
-                            rx.select(
+                            rx.el.select(
                                 AppState.expense_buckets.to(list[dict]).foreach(
-                                    lambda b: rx.option(b["name"], value=b["id"])
+                                    lambda b: rx.el.option(b["name"], value=b["id"])
                                 ),
                                 value=AppState.sheet_bucket,
                                 on_change=AppState.set_sheet_bucket,
