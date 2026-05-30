@@ -9,4 +9,5 @@ config = rx.Config(
     api_url=_api_url,
     deploy_url=_api_url,
     state_auto_setters=True,
+    show_built_with_reflex=False,
 )
