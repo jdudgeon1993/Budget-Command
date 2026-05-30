@@ -1,8 +1,7 @@
 """Forecast panel — paycheck-by-paycheck cash flow projection."""
 
 import reflex as rx
-from typing import Any
-from ..state import AppState
+from ..state import AppState, ForecastLine, ForecastBillLine, ForecastPeriod, ForecastAccount
 from ..theme import BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3, GREEN, AMBER, ACCENT, RED, MONO, SANS
 
 
@@ -26,19 +25,19 @@ def _range_btn(label: str, n: int) -> rx.Component:
     )
 
 
-def _acct_chip(a: dict) -> rx.Component:
-    active = AppState.forecast_account == a["id"]
+def _acct_chip(a: ForecastAccount) -> rx.Component:
+    active = AppState.forecast_account == a.id
     return rx.box(
         rx.hstack(
             rx.box(style={"width": "8px", "height": "8px", "border_radius": "50%",
-                          "background": a["color"], "flex_shrink": "0"}),
-            rx.text(a["name"], style={"font_size": "11px"}),
-            rx.text(a["balance_fmt"],
+                          "background": a.color, "flex_shrink": "0"}),
+            rx.text(a.name, style={"font_size": "11px"}),
+            rx.text(a.balance_fmt,
                     style={"font_size": "10px", "font_family": MONO,
                            "color": rx.cond(active, ACCENT, TEXT3)}),
             gap="6px", align_items="center",
         ),
-        on_click=AppState.set_forecast_account(a["id"]),
+        on_click=AppState.set_forecast_account(a.id),
         style=rx.cond(
             active,
             {"padding": "4px 10px", "border_radius": "20px", "cursor": "pointer",
@@ -60,32 +59,30 @@ def _kpi(label: str, value: str, color: str = TEXT) -> rx.Component:
     )
 
 
-# ── Bill line renderer ────────────────────────────────────────────────────────
+# ── Bill line renderers ───────────────────────────────────────────────────────
 
-def _funded_line(line: dict) -> rx.Component:
-    """Renders a date header, bill row, or balance row (green) from a structured dict."""
+def _funded_line(line: ForecastBillLine) -> rx.Component:
     return rx.cond(
-        line["row_type"] == "date",
+        line.row_type == "date",
         rx.text(
-            line["text"],
+            line.text,
             style={"font_size": "9px", "color": TEXT3, "letter_spacing": "0.08em",
                    "text_transform": "uppercase", "font_family": MONO,
                    "padding": "6px 0 2px"},
         ),
         rx.cond(
-            line["row_type"] == "bal",
+            line.row_type == "bal",
             rx.hstack(
                 rx.text("Balance", style={"font_size": "10px", "color": TEXT3, "flex": "1"}),
-                rx.text(line["text"], style={"font_size": "11px", "font_family": MONO, "color": TEXT2}),
+                rx.text(line.text, style={"font_size": "11px", "font_family": MONO, "color": TEXT2}),
                 width="100%", justify="between",
                 style={"padding": "2px 0 4px", "border_top": f"1px solid {BORDER}",
                        "margin_top": "3px"},
             ),
             rx.hstack(
                 rx.text("✓", style={"color": GREEN, "font_size": "12px", "flex_shrink": "0"}),
-                rx.text(line["text"],
-                        style={"font_size": "12px", "color": TEXT, "flex": "1"}),
-                rx.text(line["amount_fmt"],
+                rx.text(line.text, style={"font_size": "12px", "color": TEXT, "flex": "1"}),
+                rx.text(line.amount_fmt,
                         style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
                 width="100%", justify="between", align_items="center",
             ),
@@ -93,31 +90,30 @@ def _funded_line(line: dict) -> rx.Component:
     )
 
 
-def _unfunded_line(line: dict) -> rx.Component:
-    """Renders a date header, bill row, or balance row (red) from a structured dict."""
+def _unfunded_line(line: ForecastBillLine) -> rx.Component:
     return rx.cond(
-        line["row_type"] == "date",
+        line.row_type == "date",
         rx.text(
-            line["text"],
+            line.text,
             style={"font_size": "9px", "color": TEXT3, "letter_spacing": "0.08em",
                    "text_transform": "uppercase", "font_family": MONO,
                    "padding": "6px 0 2px"},
         ),
         rx.cond(
-            line["row_type"] == "bal",
+            line.row_type == "bal",
             rx.hstack(
                 rx.text("Balance", style={"font_size": "10px", "color": TEXT3, "flex": "1"}),
-                rx.text(line["text"], style={"font_size": "11px", "font_family": MONO,
-                                              "color": rx.cond(line["text"].startswith("-"), RED, TEXT2)}),
+                rx.text(line.text,
+                        style={"font_size": "11px", "font_family": MONO,
+                               "color": rx.cond(line.text.startswith("-"), RED, TEXT2)}),
                 width="100%", justify="between",
                 style={"padding": "2px 0 4px", "border_top": f"1px solid {BORDER}",
                        "margin_top": "3px"},
             ),
             rx.hstack(
                 rx.text("⚠", style={"color": AMBER, "font_size": "12px", "flex_shrink": "0"}),
-                rx.text(line["text"],
-                        style={"font_size": "12px", "color": TEXT, "flex": "1"}),
-                rx.text(line["amount_fmt"],
+                rx.text(line.text, style={"font_size": "12px", "color": TEXT, "flex": "1"}),
+                rx.text(line.amount_fmt,
                         style={"font_size": "12px", "font_family": MONO, "color": RED}),
                 width="100%", justify="between", align_items="center",
             ),
@@ -125,52 +121,54 @@ def _unfunded_line(line: dict) -> rx.Component:
     )
 
 
-def _income_line(line: dict) -> rx.Component:
+def _income_line(line: ForecastLine) -> rx.Component:
     return rx.hstack(
         rx.text("💰", style={"font_size": "12px", "flex_shrink": "0"}),
-        rx.text(line["label"], style={"font_size": "12px", "color": TEXT, "flex": "1"}),
-        rx.text(line["amount_fmt"], style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
+        rx.text(line.label, style={"font_size": "12px", "color": TEXT, "flex": "1"}),
+        rx.text(line.amount_fmt,
+                style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
         width="100%", justify="between", align_items="center",
     )
 
 
-def _transfer_line(line: dict) -> rx.Component:
+def _transfer_line(line: ForecastLine) -> rx.Component:
     return rx.hstack(
         rx.text("→", style={"font_size": "12px", "color": TEXT3, "flex_shrink": "0"}),
-        rx.text(line["label"], style={"font_size": "12px", "color": TEXT2, "flex": "1"}),
-        rx.text(line["amount_fmt"], style={"font_size": "12px", "font_family": MONO, "color": AMBER}),
+        rx.text(line.label, style={"font_size": "12px", "color": TEXT2, "flex": "1"}),
+        rx.text(line.amount_fmt,
+                style={"font_size": "12px", "font_family": MONO, "color": AMBER}),
         width="100%", justify="between", align_items="center",
     )
 
 
 # ── Period card ───────────────────────────────────────────────────────────────
 
-def _period_card(p: dict) -> rx.Component:
-    is_expanded = AppState.fc_expanded.contains(p["id"])  # type: ignore[attr-defined]
+def _period_card(p: ForecastPeriod) -> rx.Component:
+    is_expanded = AppState.fc_expanded.contains(p.id)  # type: ignore[attr-defined]
     shortfall_border = rx.cond(
-        p["shortfall"],
+        p.shortfall,
         f"2px solid {RED}",
-        rx.cond(p["type"] == "gap", f"1px solid {BORDER}", f"1px solid {BORDER2}"),
+        rx.cond(p.type == "gap", f"1px solid {BORDER}", f"1px solid {BORDER2}"),
     )
 
     header = rx.hstack(
         # Type badge
         rx.box(
-            rx.cond(p["type"] == "gap", "GAP", "PAY"),
+            rx.cond(p.type == "gap", "GAP", "PAY"),
             style={
                 "font_size": "8px", "font_family": MONO, "letter_spacing": "0.1em",
                 "padding": "2px 6px", "border_radius": "4px",
-                "background": rx.cond(p["type"] == "gap", BG3, f"{ACCENT}22"),
-                "color": rx.cond(p["type"] == "gap", TEXT3, ACCENT),
-                "border": rx.cond(p["type"] == "gap", f"1px solid {BORDER}", f"1px solid {ACCENT}44"),
+                "background": rx.cond(p.type == "gap", BG3, f"{ACCENT}22"),
+                "color": rx.cond(p.type == "gap", TEXT3, ACCENT),
+                "border": rx.cond(p.type == "gap", f"1px solid {BORDER}", f"1px solid {ACCENT}44"),
                 "flex_shrink": "0",
             },
         ),
         # Label + date range
         rx.vstack(
-            rx.text(p["label"],
+            rx.text(p.label,
                     style={"font_size": "13px", "font_weight": "600", "color": TEXT}),
-            rx.text(p["date_range"],
+            rx.text(p.date_range,
                     style={"font_size": "10px", "color": TEXT3}),
             gap="1px", align_items="flex-start", flex="1",
         ),
@@ -178,17 +176,17 @@ def _period_card(p: dict) -> rx.Component:
         # Net change
         rx.vstack(
             rx.hstack(
-                rx.text(p["net_sign"],
+                rx.text(p.net_sign,
                         style={"font_size": "12px", "font_family": MONO,
-                               "color": rx.cond(p["net_negative"], RED, GREEN)}),
-                rx.text(p["net_fmt"],
+                               "color": rx.cond(p.net_negative, RED, GREEN)}),
+                rx.text(p.net_fmt,
                         style={"font_size": "12px", "font_family": MONO,
-                               "color": rx.cond(p["net_negative"], RED, GREEN)}),
+                               "color": rx.cond(p.net_negative, RED, GREEN)}),
                 gap="0px",
             ),
-            rx.text(p["end_bal_fmt"],
+            rx.text(p.end_bal_fmt,
                     style={"font_size": "14px", "font_weight": "700", "font_family": MONO,
-                           "color": rx.cond(p["end_bal_negative"], RED, TEXT)}),
+                           "color": rx.cond(p.end_bal_negative, RED, TEXT)}),
             gap="0px", align_items="flex-end",
         ),
         # Expand chevron
@@ -197,7 +195,7 @@ def _period_card(p: dict) -> rx.Component:
             style={"font_size": "10px", "color": TEXT3, "padding": "0 4px", "flex_shrink": "0"},
         ),
         align_items="center", width="100%",
-        on_click=AppState.toggle_fc_period(p["id"]),
+        on_click=AppState.toggle_fc_period(p.id),
         style={"cursor": "pointer"},
     )
 
@@ -212,19 +210,16 @@ def _period_card(p: dict) -> rx.Component:
                 rx.text("START", style={"font_size": "9px", "color": TEXT3,
                                         "font_family": MONO, "letter_spacing": "0.1em"}),
                 rx.spacer(),
-                rx.text(p["start_bal_fmt"],
+                rx.text(p.start_bal_fmt,
                         style={"font_size": "12px", "font_family": MONO, "color": TEXT2}),
                 width="100%",
             ),
 
             # Income section
             rx.cond(
-                p["has_income"],
+                p.has_income,
                 rx.vstack(
-                    rx.foreach(
-                        p["income_lines"].to(list[dict[str, Any]]),
-                        _income_line,
-                    ),
+                    rx.foreach(p.income_lines, _income_line),
                     width="100%", gap="4px",
                     style={"background": f"{GREEN}0a", "border_radius": "6px",
                            "padding": "8px", "margin_top": "4px"},
@@ -234,12 +229,9 @@ def _period_card(p: dict) -> rx.Component:
 
             # Transfers section
             rx.cond(
-                p["has_transfers"],
+                p.has_transfers,
                 rx.vstack(
-                    rx.foreach(
-                        p["transfer_lines"].to(list[dict[str, Any]]),
-                        _transfer_line,
-                    ),
+                    rx.foreach(p.transfer_lines, _transfer_line),
                     width="100%", gap="4px",
                     style={"background": f"{AMBER}0a", "border_radius": "6px",
                            "padding": "8px", "margin_top": "4px"},
@@ -249,16 +241,13 @@ def _period_card(p: dict) -> rx.Component:
 
             # Funded bills (green)
             rx.cond(
-                p["has_funded"],
+                p.has_funded,
                 rx.vstack(
                     rx.text("✓ Pre-Funded",
                             style={"font_size": "9px", "color": GREEN, "letter_spacing": "0.08em",
                                    "text_transform": "uppercase", "font_family": MONO,
                                    "margin_bottom": "4px"}),
-                    rx.foreach(
-                        p["funded_lines"].to(list[dict[str, Any]]),
-                        _funded_line,
-                    ),
+                    rx.foreach(p.funded_lines, _funded_line),
                     width="100%", gap="3px",
                     style={"background": f"{GREEN}08", "border": f"1px solid {GREEN}22",
                            "border_radius": "6px", "padding": "8px", "margin_top": "4px"},
@@ -268,16 +257,13 @@ def _period_card(p: dict) -> rx.Component:
 
             # Unfunded bills (red)
             rx.cond(
-                p["has_unfunded"],
+                p.has_unfunded,
                 rx.vstack(
                     rx.text("⚠ Needs Funding",
                             style={"font_size": "9px", "color": AMBER, "letter_spacing": "0.08em",
                                    "text_transform": "uppercase", "font_family": MONO,
                                    "margin_bottom": "4px"}),
-                    rx.foreach(
-                        p["unfunded_lines"].to(list[dict[str, Any]]),
-                        _unfunded_line,
-                    ),
+                    rx.foreach(p.unfunded_lines, _unfunded_line),
                     width="100%", gap="3px",
                     style={"background": f"{RED}08", "border": f"1px solid {RED}22",
                            "border_radius": "6px", "padding": "8px", "margin_top": "4px"},
@@ -290,9 +276,9 @@ def _period_card(p: dict) -> rx.Component:
                 rx.text("END", style={"font_size": "9px", "color": TEXT3,
                                       "font_family": MONO, "letter_spacing": "0.1em"}),
                 rx.spacer(),
-                rx.text(p["end_bal_fmt"],
+                rx.text(p.end_bal_fmt,
                         style={"font_size": "14px", "font_weight": "700", "font_family": MONO,
-                               "color": rx.cond(p["end_bal_negative"], RED, TEXT)}),
+                               "color": rx.cond(p.end_bal_negative, RED, TEXT)}),
                 width="100%",
                 style={"border_top": f"1px solid {BORDER}", "padding_top": "8px",
                        "margin_top": "4px"},
@@ -303,9 +289,9 @@ def _period_card(p: dict) -> rx.Component:
                 rx.text("Safe to spend from here",
                         style={"font_size": "10px", "color": TEXT3}),
                 rx.spacer(),
-                rx.text(p["safe_to_spend_fmt"],
+                rx.text(p.safe_to_spend_fmt,
                         style={"font_size": "12px", "font_family": MONO,
-                               "color": p["sts_color"], "font_weight": "600"}),
+                               "color": p.sts_color, "font_weight": "600"}),
                 width="100%",
             ),
 
@@ -318,7 +304,7 @@ def _period_card(p: dict) -> rx.Component:
         header,
         body,
         style={
-            "background": rx.cond(p["type"] == "gap", BG3, BG2),
+            "background": rx.cond(p.type == "gap", BG3, BG2),
             "border": shortfall_border,
             "border_radius": "10px",
             "padding": "12px 14px",
@@ -360,10 +346,7 @@ def forecast_panel() -> rx.Component:
                              "_hover": {"border_color": BORDER2}},
                         ),
                     ),
-                    rx.foreach(
-                        AppState.forecast_accounts.to(list[dict[str, Any]]),
-                        _acct_chip,
-                    ),
+                    rx.foreach(AppState.forecast_accounts, _acct_chip),
                     gap="6px", flex_wrap="wrap",
                 ),
                 rx.box(),
@@ -418,10 +401,7 @@ def forecast_panel() -> rx.Component:
         # Period cards
         rx.cond(
             ~AppState.forecast_loading,
-            rx.foreach(
-                AppState.forecast_periods.to(list[dict[str, Any]]),
-                _period_card,
-            ),
+            rx.foreach(AppState.forecast_periods, _period_card),
             rx.box(),
         ),
 
