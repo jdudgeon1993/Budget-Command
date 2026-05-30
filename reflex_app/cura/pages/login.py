@@ -56,9 +56,10 @@ def login_page() -> rx.Component:
                 rx.vstack(
                     _input("email",    "Email",    "email",    "you@example.com"),
                     _input("password", "Password", "password", "••••••••"),
-                    rx.box(
+                    rx.el.button(
                         rx.cond(AppState.is_loading, "Signing in…", "Sign In"),
                         type="submit",
+                        disabled=AppState.is_loading,
                         style={
                             "width": "100%", "padding": "12px",
                             "background": rx.cond(AppState.is_loading, BORDER, ACCENT),
@@ -69,7 +70,6 @@ def login_page() -> rx.Component:
                             "box_shadow": f"0 4px 14px {ACCENT}4d",
                             "_hover": {"opacity": "0.9"},
                         },
-                        as_="button",
                     ),
                     gap="14px",
                 ),
