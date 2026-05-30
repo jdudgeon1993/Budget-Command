@@ -84,52 +84,88 @@ def _date_to_mid(date_str: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Forecast data models  (rx.Base gives Reflex fully-typed Var access)
+#  Forecast helpers — flatten period dicts into a single display-row list
 # ─────────────────────────────────────────────────────────────────────────────
 
-class ForecastLine(rx.Base):
-    label:      str = ""
-    amount_fmt: str = ""
+def _flatten_periods(periods: list[dict]) -> list[dict]:
+    """Convert compute_forecast() period list → flat list[dict[str,str]] rows.
 
-
-class ForecastBillLine(rx.Base):
-    row_type:   str = ""
-    text:       str = ""
-    amount_fmt: str = ""
-
-
-class ForecastPeriod(rx.Base):
-    id:                  str  = ""
-    type:                str  = ""
-    label:               str  = ""
-    date_range:          str  = ""
-    income_lines:        list[ForecastLine]     = []
-    transfer_lines:      list[ForecastLine]     = []
-    funded_lines:        list[ForecastBillLine] = []
-    unfunded_lines:      list[ForecastBillLine] = []
-    has_income:          bool = False
-    has_transfers:       bool = False
-    has_funded:          bool = False
-    has_unfunded:        bool = False
-    start_bal_fmt:       str  = ""
-    bal_after_xfr_fmt:   str  = ""
-    income_total_fmt:    str  = ""
-    unfunded_total_fmt:  str  = ""
-    net_fmt:             str  = ""
-    net_sign:            str  = ""
-    net_negative:        bool = False
-    end_bal_fmt:         str  = ""
-    end_bal_negative:    bool = False
-    shortfall:           bool = False
-    safe_to_spend_fmt:   str  = ""
-    sts_color:           str  = ""
-
-
-class ForecastAccount(rx.Base):
-    id:          str = ""
-    name:        str = ""
-    color:       str = ""
-    balance_fmt: str = ""
+    Row types (rt field):
+      ph  – period header
+      inc – income line
+      xfr – transfer line
+      sbh – section header (funded / unfunded)
+      fdt – funded date label
+      fbl – funded bill
+      fba – funded running balance
+      udt – unfunded date label
+      ubl – unfunded bill
+      uba – unfunded running balance
+      pf  – period footer (end bal + safe-to-spend)
+    All dict values are str so Reflex can type the list as list[dict[str,str]].
+    Boolean flags are encoded as "1" (true) or "" (false).
+    """
+    rows: list[dict] = []
+    for p in periods:
+        rows.append({
+            "rt": "ph",
+            "lbl": p["label"],
+            "sub": p["date_range"],
+            "amt": p["net_fmt"],
+            "c1":  "#34d399" if not p["net_negative"] else "#f87171",
+            "c2":  p["sts_color"],
+            "neg": "1" if p["net_negative"] else "",
+            "shf": "1" if p["shortfall"] else "",
+            "pid": p["id"],
+            "pt":  p["type"],
+            "ebf": p["end_bal_fmt"],
+            "ebn": "1" if p["end_bal_negative"] else "",
+            "sgn": p["net_sign"],
+        })
+        if p.get("has_income"):
+            for ln in p["income_lines"]:
+                rows.append({"rt": "inc", "lbl": ln["label"], "amt": ln["amount_fmt"],
+                             "c1": "", "c2": "", "neg": "", "shf": "", "pid": p["id"],
+                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+        if p.get("has_transfers"):
+            for ln in p["transfer_lines"]:
+                rows.append({"rt": "xfr", "lbl": ln["label"], "amt": ln["amount_fmt"],
+                             "c1": "", "c2": "", "neg": "", "shf": "", "pid": p["id"],
+                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+        if p.get("has_funded"):
+            rows.append({"rt": "sbh", "lbl": "Pre-Funded", "amt": "",
+                         "c1": "#34d399", "c2": "", "neg": "", "shf": "", "pid": p["id"],
+                         "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+            for ln in p["funded_lines"]:
+                rt = {"date": "fdt", "bill": "fbl", "bal": "fba"}.get(ln["row_type"], "fbl")
+                rows.append({"rt": rt, "lbl": ln["text"], "amt": ln["amount_fmt"],
+                             "c1": "", "c2": "", "neg": "", "shf": "", "pid": p["id"],
+                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+        if p.get("has_unfunded"):
+            rows.append({"rt": "sbh", "lbl": "Needs Funding", "amt": "",
+                         "c1": "#f87171", "c2": "", "neg": "", "shf": "", "pid": p["id"],
+                         "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+            for ln in p["unfunded_lines"]:
+                rt = {"date": "udt", "bill": "ubl", "bal": "uba"}.get(ln["row_type"], "ubl")
+                neg = "1" if ln["text"].startswith("-") else ""
+                rows.append({"rt": rt, "lbl": ln["text"], "amt": ln["amount_fmt"],
+                             "c1": "", "c2": "", "neg": neg, "shf": "", "pid": p["id"],
+                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+        rows.append({
+            "rt": "pf",
+            "lbl": p["start_bal_fmt"],
+            "amt": p["safe_to_spend_fmt"],
+            "c1":  p["sts_color"],
+            "c2":  "",
+            "neg": "1" if p["end_bal_negative"] else "",
+            "shf": "1" if p["shortfall"] else "",
+            "pid": p["id"],
+            "pt":  "",
+            "ebf": p["end_bal_fmt"],
+            "ebn": "1" if p["end_bal_negative"] else "",
+            "sgn": "",
+        })
+    return rows
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -192,19 +228,17 @@ class AppState(rx.State):
     ledger_query: str = ""
 
     # ── Forecast ──────────────────────────────────────────────────────────────
-    forecast_range:       int        = 3
-    forecast_account:     str        = ""
-    forecast_periods:  list[ForecastPeriod]  = []
-    forecast_accounts: list[ForecastAccount] = []
-    forecast_loading:     bool       = False
-    fc_expanded:          list[str]  = []
-    # Flat summary KPIs (avoids dict var access issues)
-    fc_start_bal:         str        = "—"
-    fc_total_income:      str        = "—"
-    fc_total_unfunded:    str        = "—"
-    fc_safe_to_spend:     str        = "—"
-    fc_sts_color:         str        = "#818cf8"
-    fc_shortfall_count:   int        = 0
+    forecast_range:    int              = 3
+    forecast_account:  str              = ""
+    forecast_rows:     list[dict]       = []   # flat display rows (all-str values)
+    forecast_accounts: list[dict]       = []   # [{id,name,color,balance_fmt}]
+    forecast_loading:  bool             = False
+    fc_start_bal:      str              = "—"
+    fc_total_income:   str              = "—"
+    fc_total_unfunded: str              = "—"
+    fc_safe_to_spend:  str              = "—"
+    fc_sts_color:      str              = "#818cf8"
+    fc_shortfall_count: int             = 0
 
     # ── Internal raw data (not sent to client — prefixed with _) ─────────────
     # Note: in Reflex 0.9 all state vars go to client; use _ prefix by convention
@@ -313,41 +347,7 @@ class AppState(rx.State):
         self.fc_safe_to_spend   = result["safe_to_spend"]
         self.fc_sts_color       = result["sts_color"]
         self.fc_shortfall_count = result["shortfall_count"]
-        self.forecast_periods = [
-            ForecastPeriod(
-                id=p["id"], type=p["type"], label=p["label"],
-                date_range=p["date_range"],
-                income_lines=[
-                    ForecastLine(label=x["label"], amount_fmt=x["amount_fmt"])
-                    for x in p["income_lines"]
-                ],
-                transfer_lines=[
-                    ForecastLine(label=x["label"], amount_fmt=x["amount_fmt"])
-                    for x in p["transfer_lines"]
-                ],
-                funded_lines=[
-                    ForecastBillLine(row_type=x["row_type"], text=x["text"], amount_fmt=x["amount_fmt"])
-                    for x in p["funded_lines"]
-                ],
-                unfunded_lines=[
-                    ForecastBillLine(row_type=x["row_type"], text=x["text"], amount_fmt=x["amount_fmt"])
-                    for x in p["unfunded_lines"]
-                ],
-                has_income=p["has_income"], has_transfers=p["has_transfers"],
-                has_funded=p["has_funded"], has_unfunded=p["has_unfunded"],
-                start_bal_fmt=p["start_bal_fmt"], bal_after_xfr_fmt=p["bal_after_xfr_fmt"],
-                income_total_fmt=p["income_total_fmt"], unfunded_total_fmt=p["unfunded_total_fmt"],
-                net_fmt=p["net_fmt"], net_sign=p["net_sign"], net_negative=p["net_negative"],
-                end_bal_fmt=p["end_bal_fmt"], end_bal_negative=p["end_bal_negative"],
-                shortfall=p["shortfall"], safe_to_spend_fmt=p["safe_to_spend_fmt"],
-                sts_color=p["sts_color"],
-            )
-            for p in result["periods"]
-        ]
-        expanded = [p["id"] for p in result["periods"] if p["shortfall"]]
-        if result["periods"] and result["periods"][0]["id"] not in expanded:
-            expanded.insert(0, result["periods"][0]["id"])
-        self.fc_expanded = expanded
+        self.forecast_rows      = _flatten_periods(result["periods"])
 
     def set_forecast_range(self, n: int):
         self.forecast_range = n
@@ -357,14 +357,7 @@ class AppState(rx.State):
         self.forecast_account = aid
         self._run_forecast()
 
-    def toggle_fc_period(self, pid: str):
-        if pid in self.fc_expanded:
-            self.fc_expanded = [x for x in self.fc_expanded if x != pid]
-        else:
-            self.fc_expanded = self.fc_expanded + [pid]
-
     def _refresh_forecast_accounts(self):
-        """Rebuild the account chip list from raw data."""
         raw = self._raw
         if not raw:
             return
@@ -381,11 +374,9 @@ class AppState(rx.State):
             return bal
 
         self.forecast_accounts = [
-            ForecastAccount(
-                id=a["id"], name=a["name"],
-                color=a.get("color", "#818cf8"),
-                balance_fmt=_fmt(_bal(a)),
-            )
+            {"id": a["id"], "name": a["name"],
+             "color": a.get("color", "#818cf8"),
+             "balance_fmt": _fmt(_bal(a))}
             for a in accounts
             if a.get("type") == "budget" and not a.get("archived")
         ]
