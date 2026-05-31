@@ -129,53 +129,30 @@ def _date_to_mid(date_str: str) -> str:
 #  Forecast helpers — flatten period dicts into a single display-row list
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _flatten_timeline(result: dict) -> list[dict]:
-    """Flatten compute_timeline() result → flat list[dict[str,str]] rows.
-
-    Row types (rt field):
-      wk  – week header (lbl, wi=income_fmt, wb=bills_fmt)
-      dh  – day header (wd=weekday, dn=day_num, td=today, pa=past)
-      pc  – paycheck event (lbl, amt)
-      bl  – bill event (lbl, amt, pd=paid "1"/"")
-    All dict values are str.
+def _flatten_timeline(rows: list[dict]) -> list[dict]:
     """
-    rows: list[dict] = []
-    blank = {"rt": "", "lbl": "", "wi": "", "wb": "", "wd": "", "dn": "", "td": "", "pa": "", "amt": "", "pd": ""}
-
-    def _row(**kw) -> dict:
-        r = dict(blank)
-        r.update({k: str(v) for k, v in kw.items()})
-        return r
-
-    for week in result.get("weeks", []):
-        rows.append(_row(rt="wk", lbl=week["label"],
-                         wi=week.get("week_income_fmt", ""),
-                         wb=week.get("week_bills_fmt", "")))
-        prev_d = ""
-        for day in week.get("days", []):
-            pcs = day.get("income", [])
-            bls = day.get("bills", [])
-            if not (pcs or bls):
-                continue
-            if day["date_str"] != prev_d:
-                rows.append(_row(rt="dh", wd=day["weekday"], dn=day["day"],
-                                 td=day["today"], pa=day["past"]))
-                prev_d = day["date_str"]
-            for pc in pcs:
-                rows.append(_row(rt="pc", lbl=pc["label"], amt=pc["amount_fmt"]))
-            for bl in bls:
-                rows.append(_row(rt="bl", lbl=bl["name"], amt=bl["amount_fmt"], pd=bl["paid"]))
-
-    return rows
+    Pass-through for compute_simple_timeline() which already returns flat rows.
+    Ensures all required keys exist with string values.
+    """
+    blank = {"rt": "", "lbl": "", "amt": "", "td": "", "pa": "", "pd": ""}
+    out = []
+    for r in rows:
+        row = dict(blank)
+        row.update({k: str(v) for k, v in r.items()})
+        out.append(row)
+    return out
 
 
-def _flatten_periods(periods: list[dict]) -> list[dict]:
+def _flatten_periods(periods: list[dict], open_pids: set = None) -> list[dict]:
     """Convert compute_forecast() period list → flat list[dict[str,str]] rows.
 
     Row types (rt field):
-      ph  – period header
+      ph  – period header (always visible; click to collapse)
+      sb  – start balance row
       inc – income line
-      xfr – transfer line
+      xfr – transfer line (includes cum=cumulative total)
+      ae  – alloc event (sub2="vault" amber deduct / sub2="info" grey informational)
+      bat – balance after transfers divider
       sbh – section header (funded / unfunded)
       fdt – funded date label
       fbl – funded bill
@@ -184,69 +161,107 @@ def _flatten_periods(periods: list[dict]) -> list[dict]:
       ubl – unfunded bill
       uba – unfunded running balance
       pf  – period footer (end bal + safe-to-spend)
-    All dict values are str so Reflex can type the list as list[dict[str,str]].
-    Boolean flags are encoded as "1" (true) or "" (false).
+
+    open_pids: set of period IDs whose body rows are visible; None = all open.
+    All dict values are str. Boolean flags encoded as "1" (true) or "" (false).
     """
     rows: list[dict] = []
+
+    _BLANK = {
+        "rt": "", "lbl": "", "sub": "", "sub2": "", "amt": "", "cum": "",
+        "c1": "", "c2": "", "neg": "", "shf": "", "pid": "", "pt": "",
+        "ebf": "", "ebn": "", "sgn": "", "open": "", "hidden": "",
+        "pfc": "", "tbc": "",
+    }
+
+    def _r(pid: str, is_open: bool, **kw) -> dict:
+        row = dict(_BLANK)
+        row["pid"]    = pid
+        row["hidden"] = "" if is_open else "1"
+        row.update({k: str(v) for k, v in kw.items()})
+        return row
+
     for p in periods:
-        rows.append({
-            "rt": "ph",
-            "lbl": p["label"],
-            "sub": p["date_range"],
-            "amt": p["net_fmt"],
-            "c1":  "#34d399" if not p["net_negative"] else "#f87171",
-            "c2":  p["sts_color"],
-            "neg": "1" if p["net_negative"] else "",
-            "shf": "1" if p["shortfall"] else "",
-            "pid": p["id"],
-            "pt":  p["type"],
-            "ebf": p["end_bal_fmt"],
-            "ebn": "1" if p["end_bal_negative"] else "",
-            "sgn": p["net_sign"],
+        pid     = p["id"]
+        is_open = (open_pids is None) or (pid in open_pids)
+
+        # ── Period header (always visible) ────────────────────────────────────
+        pre_funded_pct = 0
+        if p.get("total_count", 0) > 0:
+            pre_funded_pct = round(p.get("funded_count", 0) / p["total_count"] * 100)
+
+        header = dict(_BLANK)
+        header.update({
+            "rt":   "ph",
+            "lbl":  p["label"],
+            "sub":  p["date_range"],
+            "amt":  p["net_fmt"],
+            "c1":   "#34d399" if not p["net_negative"] else "#f87171",
+            "c2":   p["sts_color"],
+            "neg":  "1" if p["net_negative"] else "",
+            "shf":  "1" if p["shortfall"] else "",
+            "pid":  pid,
+            "pt":   p["type"],
+            "ebf":  p["end_bal_fmt"],
+            "ebn":  "1" if p["end_bal_negative"] else "",
+            "sgn":  p["net_sign"],
+            "open": "1" if is_open else "",
+            "hidden": "",  # headers never hidden
+            "pfc":  str(p.get("funded_count", 0)),
+            "tbc":  str(p.get("total_count", 0)),
         })
-        if p.get("has_income"):
-            for ln in p["income_lines"]:
-                rows.append({"rt": "inc", "lbl": ln["label"], "amt": ln["amount_fmt"],
-                             "c1": "", "c2": "", "neg": "", "shf": "", "pid": p["id"],
-                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
-        if p.get("has_transfers"):
-            for ln in p["transfer_lines"]:
-                rows.append({"rt": "xfr", "lbl": ln["label"], "amt": ln["amount_fmt"],
-                             "c1": "", "c2": "", "neg": "", "shf": "", "pid": p["id"],
-                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+        rows.append(header)
+
+        # ── Start balance ─────────────────────────────────────────────────────
+        rows.append(_r(pid, is_open, rt="sb", lbl=p["start_bal_fmt"]))
+
+        # ── Income lines ──────────────────────────────────────────────────────
+        for ln in p.get("income_lines", []):
+            rows.append(_r(pid, is_open, rt="inc", lbl=ln["label"], amt=ln["amount_fmt"]))
+
+        # ── Transfer lines (with cumulative totals) ───────────────────────────
+        for ln in p.get("transfer_lines", []):
+            rows.append(_r(pid, is_open, rt="xfr", lbl=ln["label"],
+                           amt=ln["amount_fmt"], cum=ln.get("cum_fmt", "")))
+
+        # ── Alloc events (vault deducts + informational allocs) ───────────────
+        for ae in p.get("alloc_events", []):
+            rows.append(_r(pid, is_open, rt="ae", lbl=ae["name"],
+                           amt=_fmt(ae["amount"]), sub2=ae["ae_type"]))
+
+        # ── Balance after transfers ───────────────────────────────────────────
+        if p.get("has_income") or p.get("has_transfers") or p.get("has_alloc_events"):
+            rows.append(_r(pid, is_open, rt="bat", lbl=p["bal_after_xfr_fmt"]))
+
+        # ── Funded section ────────────────────────────────────────────────────
         if p.get("has_funded"):
-            rows.append({"rt": "sbh", "lbl": "Pre-Funded", "amt": "",
-                         "c1": "#34d399", "c2": "", "neg": "", "shf": "", "pid": p["id"],
-                         "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+            rows.append(_r(pid, is_open, rt="sbh", lbl="Pre-Funded",
+                           c1="#34d399"))
             for ln in p["funded_lines"]:
                 rt = {"date": "fdt", "bill": "fbl", "bal": "fba"}.get(ln["row_type"], "fbl")
-                rows.append({"rt": rt, "lbl": ln["text"], "amt": ln["amount_fmt"],
-                             "c1": "", "c2": "", "neg": "", "shf": "", "pid": p["id"],
-                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+                rows.append(_r(pid, is_open, rt=rt, lbl=ln["text"], amt=ln["amount_fmt"]))
+
+        # ── Unfunded section ──────────────────────────────────────────────────
         if p.get("has_unfunded"):
-            rows.append({"rt": "sbh", "lbl": "Needs Funding", "amt": "",
-                         "c1": "#f87171", "c2": "", "neg": "", "shf": "", "pid": p["id"],
-                         "pt": "", "ebf": "", "ebn": "", "sgn": ""})
+            rows.append(_r(pid, is_open, rt="sbh", lbl="Needs Funding",
+                           c1="#f87171"))
             for ln in p["unfunded_lines"]:
-                rt = {"date": "udt", "bill": "ubl", "bal": "uba"}.get(ln["row_type"], "ubl")
+                rt  = {"date": "udt", "bill": "ubl", "bal": "uba"}.get(ln["row_type"], "ubl")
                 neg = "1" if ln["text"].startswith("-") else ""
-                rows.append({"rt": rt, "lbl": ln["text"], "amt": ln["amount_fmt"],
-                             "c1": "", "c2": "", "neg": neg, "shf": "", "pid": p["id"],
-                             "pt": "", "ebf": "", "ebn": "", "sgn": ""})
-        rows.append({
-            "rt": "pf",
-            "lbl": p["start_bal_fmt"],
-            "amt": p["safe_to_spend_fmt"],
-            "c1":  p["sts_color"],
-            "c2":  "",
-            "neg": "1" if p["end_bal_negative"] else "",
-            "shf": "1" if p["shortfall"] else "",
-            "pid": p["id"],
-            "pt":  "",
-            "ebf": p["end_bal_fmt"],
-            "ebn": "1" if p["end_bal_negative"] else "",
-            "sgn": "",
-        })
+                rows.append(_r(pid, is_open, rt=rt, lbl=ln["text"],
+                               amt=ln["amount_fmt"], neg=neg))
+
+        # ── Period footer ─────────────────────────────────────────────────────
+        rows.append(_r(pid, is_open,
+                       rt="pf",
+                       lbl=p["start_bal_fmt"],
+                       amt=p["safe_to_spend_fmt"],
+                       c1=p["sts_color"],
+                       neg="1" if p["end_bal_negative"] else "",
+                       shf="1" if p["shortfall"] else "",
+                       ebf=p["end_bal_fmt"],
+                       ebn="1" if p["end_bal_negative"] else ""))
+
     return rows
 
 
@@ -427,29 +442,33 @@ class AppState(rx.State):
     fc_safe_to_spend:  str              = "—"
     fc_sts_color:      str              = "#818cf8"
     fc_shortfall_count: int             = 0
+    fc_open_pids:       list[str]       = []   # open (expanded) period IDs
 
     # ── Insights sub-tab ──────────────────────────────────────────────────────
     insights_tab: str = "forecast"   # "forecast" | "timeline" | "whatif"
 
     # ── Timeline ──────────────────────────────────────────────────────────────
-    tl_rows:         list[dict] = []
-    tl_income_fmt:   str        = "—"
-    tl_bills_fmt:    str        = "—"
-    tl_paid_fmt:     str        = "—"
-    tl_remaining_fmt: str       = "—"
-    tl_burn_fmt:     str        = "—"
-    tl_hitters:      list[dict] = []  # [{name, amount_fmt, pct, paid}]
+    tl_rows:         list[dict] = []   # flat 60-day event feed
 
     # ── What-If ───────────────────────────────────────────────────────────────
-    wi_income_str:      str        = ""    # user input: monthly income override
-    wi_rows:            list[dict] = []
-    wi_start_bal:       str        = "—"
-    wi_total_income:    str        = "—"
-    wi_total_unfunded:  str        = "—"
-    wi_safe_to_spend:   str        = "—"
-    wi_sts_color:       str        = "#818cf8"
-    wi_shortfall_count: int        = 0
-    wi_active:          bool       = False
+    wi_income_str:       str        = ""    # monthly income override input
+    wi_bucket_overrides: dict       = {}    # bid -> expr string ("+50", "200", etc.)
+    wi_rule_overrides:   dict       = {}    # rule_id -> value string
+    wi_off_buckets:      list[str]  = []    # bucket IDs turned off in what-if
+    wi_rows:             list[dict] = []    # flat forecast rows for what-if result
+    wi_start_bal:        str        = "—"
+    wi_total_income:     str        = "—"
+    wi_total_unfunded:   str        = "—"
+    wi_safe_to_spend:    str        = "—"
+    wi_sts_color:        str        = "#818cf8"
+    wi_shortfall_count:  int        = 0
+    wi_active:           bool       = False
+    wi_bucket_rows:      list[dict] = []    # category-grouped bucket editor rows
+    wi_rules_rows:       list[dict] = []    # rules editor rows
+    wi_chart_svg:        str        = ""    # pre-computed 6-month SVG bar chart
+    wi_scenarios:        list[dict] = []    # [{id, name}] loaded from DB
+    wi_active_scenario_id: str      = ""
+    wi_scenario_name:    str        = ""
 
     # ── Internal raw data (not sent to client — prefixed with _) ─────────────
     # Note: in Reflex 0.9 all state vars go to client; use _ prefix by convention
@@ -563,7 +582,7 @@ class AppState(rx.State):
     #  Forecast events
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _run_forecast(self):
+    def _run_forecast(self, preserve_open: bool = False):
         from .forecast_calc import compute_forecast
         if not self._raw:
             return
@@ -574,7 +593,19 @@ class AppState(rx.State):
         self.fc_safe_to_spend   = result["safe_to_spend"]
         self.fc_sts_color       = result["sts_color"]
         self.fc_shortfall_count = result["shortfall_count"]
-        self.forecast_rows      = _flatten_periods(result["periods"])
+
+        if not preserve_open:
+            # Auto-open: first period + any shortfall periods
+            auto_pids: list[str] = []
+            periods = result["periods"]
+            if periods:
+                auto_pids.append(periods[0]["id"])
+            for p in periods:
+                if p["shortfall"] and p["id"] not in auto_pids:
+                    auto_pids.append(p["id"])
+            self.fc_open_pids = auto_pids
+
+        self.forecast_rows = _flatten_periods(result["periods"], set(self.fc_open_pids))
 
     def set_forecast_range(self, n: int):
         self.forecast_range = n
@@ -584,6 +615,15 @@ class AppState(rx.State):
         self.forecast_account = aid
         self._run_forecast()
 
+    def toggle_period_collapse(self, pid: str):
+        pids = list(self.fc_open_pids)
+        if pid in pids:
+            pids.remove(pid)
+        else:
+            pids.append(pid)
+        self.fc_open_pids = pids
+        self._run_forecast(preserve_open=True)
+
     # ── Insights sub-tab events ───────────────────────────────────────────────
 
     def set_insights_tab(self, tab: str):
@@ -591,41 +631,89 @@ class AppState(rx.State):
         if tab == "timeline":
             self._run_timeline()
         elif tab == "whatif":
+            self._build_wi_bucket_rows()
+            self._build_wi_rules_rows()
             self._run_whatif()
+            self._load_wi_scenarios()
 
     # ── Timeline events ───────────────────────────────────────────────────────
 
     def _run_timeline(self):
-        from .forecast_calc import compute_timeline
+        from .forecast_calc import compute_simple_timeline
         if not self._raw:
             return
-        result = compute_timeline(self._raw, self.active_mid)
-        self.tl_rows         = _flatten_timeline(result)
-        s = result["summary"]
-        self.tl_income_fmt   = s["total_income_fmt"]
-        self.tl_bills_fmt    = s["total_bills_fmt"]
-        self.tl_paid_fmt     = s["paid_fmt"]
-        self.tl_remaining_fmt = s["remaining_fmt"]
-        self.tl_burn_fmt     = s["daily_burn_fmt"]
-        self.tl_hitters      = result["hitters"]
+        rows      = compute_simple_timeline(self._raw, n_days=60)
+        self.tl_rows = _flatten_timeline(rows)
 
     # ── What-If events ────────────────────────────────────────────────────────
 
     def set_wi_income(self, val: str):
         self.wi_income_str = val
-        self.wi_active = bool(val.strip())
+        self._update_wi_active()
         self._run_whatif()
+        self._build_wi_chart_svg()
+
+    def set_wi_bucket_override(self, bid: str, val: str):
+        overrides = dict(self.wi_bucket_overrides)
+        if val.strip():
+            overrides[bid] = val.strip()
+        elif bid in overrides:
+            del overrides[bid]
+        self.wi_bucket_overrides = overrides
+        self._update_wi_active()
+        self._run_whatif()
+        self._build_wi_bucket_rows()
+        self._build_wi_chart_svg()
+
+    def toggle_wi_bucket_off(self, bid: str):
+        offs = list(self.wi_off_buckets)
+        if bid in offs:
+            offs.remove(bid)
+        else:
+            offs.append(bid)
+        self.wi_off_buckets = offs
+        self._update_wi_active()
+        self._run_whatif()
+        self._build_wi_bucket_rows()
+        self._build_wi_chart_svg()
+
+    def set_wi_rule_override(self, rule_id: str, val: str):
+        overrides = dict(self.wi_rule_overrides)
+        if val.strip():
+            overrides[rule_id] = val.strip()
+        elif rule_id in overrides:
+            del overrides[rule_id]
+        self.wi_rule_overrides = overrides
+        self._update_wi_active()
+        self._run_whatif()
+        self._build_wi_rules_rows()
+        self._build_wi_chart_svg()
 
     def reset_whatif(self):
-        self.wi_income_str      = ""
-        self.wi_active          = False
-        self.wi_rows            = []
-        self.wi_start_bal       = "—"
-        self.wi_total_income    = "—"
-        self.wi_total_unfunded  = "—"
-        self.wi_safe_to_spend   = "—"
-        self.wi_sts_color       = "#818cf8"
-        self.wi_shortfall_count = 0
+        self.wi_income_str       = ""
+        self.wi_bucket_overrides = {}
+        self.wi_rule_overrides   = {}
+        self.wi_off_buckets      = []
+        self.wi_active           = False
+        self.wi_active_scenario_id = ""
+        self.wi_rows             = []
+        self.wi_start_bal        = "—"
+        self.wi_total_income     = "—"
+        self.wi_total_unfunded   = "—"
+        self.wi_safe_to_spend    = "—"
+        self.wi_sts_color        = "#818cf8"
+        self.wi_shortfall_count  = 0
+        self.wi_chart_svg        = ""
+        self._build_wi_bucket_rows()
+        self._build_wi_rules_rows()
+
+    def _update_wi_active(self):
+        self.wi_active = bool(
+            self.wi_income_str.strip() or
+            self.wi_bucket_overrides or
+            self.wi_rule_overrides or
+            self.wi_off_buckets
+        )
 
     def _run_whatif(self):
         from .forecast_calc import compute_forecast
@@ -639,6 +727,9 @@ class AppState(rx.State):
         result = compute_forecast(
             self._raw, self.forecast_range, self.forecast_account,
             income_override=income_ov,
+            bucket_overrides=dict(self.wi_bucket_overrides),
+            rule_overrides=dict(self.wi_rule_overrides),
+            off_buckets=list(self.wi_off_buckets),
         )
         self.wi_start_bal       = result["start_balance"]
         self.wi_total_income    = result["total_income"]
@@ -647,6 +738,227 @@ class AppState(rx.State):
         self.wi_sts_color       = result["sts_color"]
         self.wi_shortfall_count = result["shortfall_count"]
         self.wi_rows            = _flatten_periods(result["periods"])
+
+    def _build_wi_bucket_rows(self):
+        """Build category-grouped bucket list for the What-If editor."""
+        if not self._raw:
+            return
+        from .forecast_calc import _apply_expr
+        raw       = self._raw
+        cats      = sorted(raw.get("cats", []), key=lambda c: c.get("order", 0))
+        buckets   = [b for b in raw.get("buckets", []) if not b.get("archived")]
+        overrides = dict(self.wi_bucket_overrides)
+        off_set   = set(self.wi_off_buckets)
+
+        rows: list[dict] = []
+        for cat in cats:
+            cid = cat["id"]
+            cat_bkts = sorted(
+                [b for b in buckets if b.get("catId") == cid
+                 and (b.get("dueDay") is not None or b.get("payFreq") or float(b.get("defaultBudget") or 0) > 0)],
+                key=lambda b: b.get("order", 0),
+            )
+            if not cat_bkts:
+                continue
+            rows.append({
+                "rt": "cat", "id": cid, "name": cat.get("name", ""),
+                "color": cat.get("color", "#818cf8"),
+                "is_off": "", "bid": "", "base_fmt": "", "override_val": "",
+                "eff_fmt": "", "due_info": "",
+            })
+            for b in cat_bkts:
+                bid   = b["id"]
+                base  = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+                expr  = overrides.get(bid, "")
+                eff   = _apply_expr(base, expr) if expr else base
+                is_off = "1" if bid in off_set else ""
+                due_info = ""
+                if b.get("dueDay"):
+                    due_info = f"due {b['dueDay']}"
+                elif b.get("payFreq"):
+                    due_info = b["payFreq"]
+                rows.append({
+                    "rt":           "bkt",
+                    "id":           bid,
+                    "bid":          bid,
+                    "name":         b.get("name", ""),
+                    "color":        cat.get("color", "#818cf8"),
+                    "base_fmt":     _fmt(base),
+                    "override_val": expr,
+                    "eff_fmt":      _fmt(eff),
+                    "is_off":       is_off,
+                    "due_info":     due_info,
+                })
+        self.wi_bucket_rows = rows
+
+    def _build_wi_rules_rows(self):
+        """Build rules editor rows for What-If."""
+        if not self._raw:
+            return
+        rules     = self._raw.get("allocationRules", [])
+        overrides = dict(self.wi_rule_overrides)
+        rows: list[dict] = []
+        for r in rules:
+            if not r.get("active", True):
+                continue
+            rid      = r.get("id", "")
+            base_val = float(r.get("value") or 0)
+            val_type = r.get("value_type") or r.get("type", "fixed")
+            base_str = f"{base_val}%" if val_type == "pct" else _fmt(base_val)
+            override = overrides.get(rid, "")
+            rows.append({
+                "id":           rid,
+                "name":         r.get("name", ""),
+                "rule_type":    r.get("rule_type") or r.get("ruleType", "internal"),
+                "base_str":     base_str,
+                "override_val": override,
+                "val_type":     val_type,
+            })
+        self.wi_rules_rows = rows
+
+    def _build_wi_chart_svg(self):
+        """Build a 6-month SVG bar chart for the What-If panel."""
+        from .forecast_calc import compute_6month
+        if not self._raw:
+            self.wi_chart_svg = ""
+            return
+        income_ov = 0.0
+        try:
+            income_ov = float(self.wi_income_str.replace(",", "").replace("$", ""))
+        except Exception:
+            pass
+        months = compute_6month(
+            self._raw,
+            bucket_overrides=dict(self.wi_bucket_overrides),
+            rule_overrides=dict(self.wi_rule_overrides),
+            off_buckets=list(self.wi_off_buckets),
+            income_override=income_ov,
+        )
+        if not months:
+            self.wi_chart_svg = ""
+            return
+
+        W, H = 420, 140
+        bar_area_h = 90
+        bar_w = 44
+        gap = (W - len(months) * bar_w) // (len(months) + 1)
+        max_v = max(max(m["income"], m["bills"]) for m in months) or 1.0
+
+        def _scale(v: float) -> float:
+            return max(2, round(abs(v) / max_v * bar_area_h))
+
+        parts = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
+            f'style="font-family:monospace;overflow:visible">'
+        ]
+
+        for i, m in enumerate(months):
+            x = gap + i * (bar_w + gap)
+            ih = _scale(m["income"])
+            bh = _scale(m["bills"])
+
+            # Income bar (accent blue)
+            parts.append(
+                f'<rect x="{x}" y="{bar_area_h - ih + 4}" width="{bar_w // 2 - 2}" height="{ih}" '
+                f'rx="3" fill="#818cf8" opacity="0.85"/>'
+            )
+            # Bills bar (amber if surplus else red)
+            bill_color = "#fbbf24" if m["surplus_positive"] else "#f87171"
+            parts.append(
+                f'<rect x="{x + bar_w // 2 + 2}" y="{bar_area_h - bh + 4}" '
+                f'width="{bar_w // 2 - 2}" height="{bh}" '
+                f'rx="3" fill="{bill_color}" opacity="0.85"/>'
+            )
+            # Month label
+            parts.append(
+                f'<text x="{x + bar_w // 2}" y="{bar_area_h + 18}" '
+                f'text-anchor="middle" font-size="10" fill="#818cf8">{m["label"]}</text>'
+            )
+            # Surplus/shortfall indicator
+            s_color = "#34d399" if m["surplus_positive"] else "#f87171"
+            s_sign  = "+" if m["surplus_positive"] else ""
+            s_val   = m["surplus"]
+            s_abs   = abs(s_val)
+            s_str   = f"{s_sign}${s_abs:,.0f}" if s_abs >= 100 else f"{s_sign}${s_abs:.0f}"
+            parts.append(
+                f'<text x="{x + bar_w // 2}" y="{bar_area_h + 32}" '
+                f'text-anchor="middle" font-size="8" fill="{s_color}">{s_str}</text>'
+            )
+
+        # Legend
+        parts.append(
+            f'<rect x="8" y="{H - 16}" width="10" height="8" rx="2" fill="#818cf8" opacity="0.85"/>'
+            f'<text x="22" y="{H - 9}" font-size="9" fill="#9090b0">Income</text>'
+            f'<rect x="70" y="{H - 16}" width="10" height="8" rx="2" fill="#fbbf24" opacity="0.85"/>'
+            f'<text x="84" y="{H - 9}" font-size="9" fill="#9090b0">Bills</text>'
+        )
+        parts.append("</svg>")
+        self.wi_chart_svg = "".join(parts)
+
+    def _load_wi_scenarios(self):
+        """Load scenarios from DB into wi_scenarios."""
+        if not self.user_id:
+            return
+        try:
+            rows = DB.list_scenarios(self.user_id, self.access_token)
+            self.wi_scenarios = [{"id": r["id"], "name": r["name"]} for r in rows]
+        except Exception:
+            self.wi_scenarios = []
+
+    def set_wi_scenario_name(self, val: str):
+        self.wi_scenario_name = val
+
+    async def save_wi_scenario(self):
+        name = self.wi_scenario_name.strip() or "Untitled"
+        allocs = {
+            "_overrides":      dict(self.wi_bucket_overrides),
+            "_rule_overrides": dict(self.wi_rule_overrides),
+            "_off_buckets":    list(self.wi_off_buckets),
+            "_income":         self.wi_income_str,
+        }
+        try:
+            if self.wi_active_scenario_id:
+                DB.update_scenario(self.user_id, self.access_token,
+                                   self.wi_active_scenario_id, name, allocs)
+            else:
+                sid = DB.save_scenario(self.user_id, self.access_token, name, allocs)
+                self.wi_active_scenario_id = sid
+            self._load_wi_scenarios()
+            self.wi_scenario_name = ""
+            yield rx.toast.success("Scenario saved")
+        except Exception as e:
+            yield rx.toast.error(f"Save failed: {e}")
+
+    def load_wi_scenario(self, sid: str):
+        try:
+            rows = DB.list_scenarios(self.user_id, self.access_token)
+            sc   = next((r for r in rows if r["id"] == sid), None)
+            if not sc:
+                return
+            allocs = sc.get("allocations", {})
+            self.wi_bucket_overrides   = allocs.get("_overrides", {})
+            self.wi_rule_overrides     = allocs.get("_rule_overrides", {})
+            self.wi_off_buckets        = allocs.get("_off_buckets", [])
+            self.wi_income_str         = allocs.get("_income", "")
+            self.wi_active_scenario_id = sid
+            self.wi_scenario_name      = sc["name"]
+            self._update_wi_active()
+            self._run_whatif()
+            self._build_wi_bucket_rows()
+            self._build_wi_rules_rows()
+            self._build_wi_chart_svg()
+        except Exception:
+            pass
+
+    async def delete_wi_scenario(self, sid: str):
+        try:
+            DB.delete_scenario(self.user_id, self.access_token, sid)
+            self._load_wi_scenarios()
+            if self.wi_active_scenario_id == sid:
+                self.wi_active_scenario_id = ""
+            yield rx.toast.success("Scenario deleted")
+        except Exception as e:
+            yield rx.toast.error(f"Delete failed: {e}")
 
     def _refresh_forecast_accounts(self):
         raw = self._raw
@@ -761,8 +1073,12 @@ class AppState(rx.State):
         self.active_mid = mid
         if self._raw:
             self._process(self._raw, mid)
-            if self.active_panel == "insights" and self.insights_tab == "timeline":
-                self._run_timeline()
+            if self.active_panel == "insights":
+                if self.insights_tab == "timeline":
+                    self._run_timeline()
+                elif self.insights_tab == "whatif":
+                    self._run_whatif()
+                    self._build_wi_chart_svg()
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Panel navigation

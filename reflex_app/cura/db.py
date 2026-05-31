@@ -267,3 +267,37 @@ def delete_alloc_rule(uid: str, token: str, rule_id: str) -> None:
 def is_auth_error(e: Exception) -> bool:
     keywords = ("jwt", "expired", "invalid token", "401", "unauthorized", "not authenticated")
     return any(k in str(e).lower() for k in keywords)
+
+
+# ── What-If Scenarios ─────────────────────────────────────────────────────────
+
+def list_scenarios(uid: str, token: str) -> list[dict]:
+    """List all What-If scenarios for this user."""
+    db = client(token)
+    rows = db.table("bcc_scenarios").select("*").eq("user_id", uid).order("created_at").execute().data or []
+    return [
+        {"id": r["id"], "name": r.get("name", "Unnamed"),
+         "allocations": r.get("allocations") or {}}
+        for r in rows
+    ]
+
+
+def save_scenario(uid: str, token: str, name: str, allocations: dict) -> str:
+    """Insert a new named What-If scenario. Returns the new scenario ID."""
+    db = client(token)
+    sid = str(uuid.uuid4())
+    db.table("bcc_scenarios").insert({
+        "id": sid, "user_id": uid, "name": name, "allocations": allocations,
+    }).execute()
+    return sid
+
+
+def update_scenario(uid: str, token: str, sid: str, name: str, allocations: dict) -> None:
+    db = client(token)
+    db.table("bcc_scenarios").update({"name": name, "allocations": allocations}) \
+      .eq("id", sid).eq("user_id", uid).execute()
+
+
+def delete_scenario(uid: str, token: str, sid: str) -> None:
+    db = client(token)
+    db.table("bcc_scenarios").delete().eq("id", sid).eq("user_id", uid).execute()
