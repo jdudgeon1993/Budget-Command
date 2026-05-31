@@ -221,9 +221,10 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
     pay_events: dict[date, list] = {}
     for pc in paychecks:
-        if not pc.get("anchorDate"):
+        anchor = pc.get("anchor_date") or pc.get("anchorDate")
+        if not anchor:
             continue
-        for pd in _gen_pay_dates(pc["anchorDate"], int(pc.get("freq", 14)), today, end_date):
+        for pd in _gen_pay_dates(anchor, int(pc.get("freq", 14)), today, end_date):
             if pd not in pay_events:
                 pay_events[pd] = []
             amt = float(pc.get("amount") or 0)
@@ -502,9 +503,10 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
     # Paycheck events by date
     pc_by_date: dict[date, list] = {}
     for pc in paychecks:
-        if not pc.get("anchorDate"):
+        anchor = pc.get("anchor_date") or pc.get("anchorDate")
+        if not anchor:
             continue
-        for pd in _gen_pay_dates(pc["anchorDate"], int(pc.get("freq", 14)), today, end):
+        for pd in _gen_pay_dates(anchor, int(pc.get("freq", 14)), today, end):
             pc_by_date.setdefault(pd, []).append({
                 "label":      pc.get("label", "Paycheck"),
                 "amount_fmt": _fmt(float(pc.get("amount") or 0)),
@@ -611,9 +613,10 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
         m_start = date(y0, m0, 1)
         m_end   = date(y0, m0, _cal.monthrange(y0, m0)[1])
         for pc in paychecks:
-            if not pc.get("anchorDate"):
+            anchor = pc.get("anchor_date") or pc.get("anchorDate")
+            if not anchor:
                 continue
-            for _ in _gen_pay_dates(pc["anchorDate"], int(pc.get("freq", 14)), m_start, m_end):
+            for _ in _gen_pay_dates(anchor, int(pc.get("freq", 14)), m_start, m_end):
                 nat_monthly += float(pc.get("amount") or 0)
 
     active_dated  = [b for b in buckets if not b.get("archived") and b["id"] not in off_set
@@ -634,9 +637,10 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
         # Monthly income
         month_income = 0.0
         for pc in paychecks:
-            if not pc.get("anchorDate"):
+            anchor = pc.get("anchor_date") or pc.get("anchorDate")
+            if not anchor:
                 continue
-            for _ in _gen_pay_dates(pc["anchorDate"], int(pc.get("freq", 14)), m_start, m_end):
+            for _ in _gen_pay_dates(anchor, int(pc.get("freq", 14)), m_start, m_end):
                 raw_amt = float(pc.get("amount") or 0)
                 if income_override > 0 and nat_monthly > 0:
                     raw_amt = raw_amt * (income_override / nat_monthly)
