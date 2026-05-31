@@ -46,12 +46,34 @@ def mobile_header() -> rx.Component:
                    style={"cursor": "pointer", "color": TEXT3, "padding": "4px 6px"}),
             align_items="center", gap="2px",
         ),
+        # Setup gear — moved out of bottom nav
+        rx.box(
+            rx.html(
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+                'stroke="currentColor" stroke-width="1.75">'
+                '<circle cx="12" cy="12" r="3"/>'
+                '<path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1'
+                'a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1'
+                '-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1'
+                'a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1'
+                ' 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/>'
+                '</svg>'
+            ),
+            on_click=AppState.set_panel("setup"),
+            style={
+                "color": rx.cond(AppState.active_panel == "setup", ACCENT, TEXT3),
+                "cursor": "pointer", "padding": "6px",
+                "border_radius": "8px",
+                "_hover": {"color": TEXT2},
+                "_active": {"opacity": "0.7"},
+            },
+        ),
         align_items="center",
         class_name="mobile-only",
         style={
             "position": "fixed", "top": "0", "left": "0", "right": "0",
             "height": HDR_H, "background": BG2, "border_bottom": f"1px solid {BORDER}",
-            "padding": "0 12px", "gap": "6px", "z_index": "90",
+            "padding": "0 8px 0 12px", "gap": "6px", "z_index": "90",
         },
     )
 
@@ -97,9 +119,6 @@ def mobile_nav() -> rx.Component:
             '<line x1="18" y1="20" x2="18" y2="10"/>'
             '<line x1="12" y1="20" x2="12" y2="4"/>'
             '<line x1="6" y1="20" x2="6" y2="14"/>'),
-        _mob_tab("Setup", "setup",
-            '<circle cx="12" cy="12" r="3"/>'
-            '<path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/>'),
         # FAB
         rx.box(
             "+",
