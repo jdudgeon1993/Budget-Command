@@ -124,11 +124,11 @@ def mobile_nav() -> rx.Component:
             "+",
             on_click=AppState.open_sheet,
             style={
-                "width": "50px", "height": "50px", "border_radius": "50%",
+                "width": "48px", "height": "48px", "border_radius": "50%",
                 "background": ACCENT, "color": "#fff",
                 "display": "flex", "align_items": "center", "justify_content": "center",
                 "font_size": "26px", "font_weight": "300", "cursor": "pointer",
-                "margin": "0 8px 0 4px", "flex_shrink": "0",
+                "margin": "0 10px", "flex_shrink": "0",
                 "box_shadow": f"0 4px 16px {ACCENT}80",
                 "_active": {"transform": "scale(0.93)"},
             },
@@ -136,8 +136,10 @@ def mobile_nav() -> rx.Component:
         class_name="mobile-only",
         style={
             "position": "fixed", "bottom": "0", "left": "0", "right": "0",
-            "height": NAV_H, "background": BG2, "border_top": f"1px solid {BORDER}",
-            "padding": "0 6px 0 0", "z_index": "100", "align_items": "center",
+            "width": "100%", "height": NAV_H, "background": BG2,
+            "border_top": f"1px solid {BORDER}",
+            "display": "flex", "align_items": "center",
+            "padding": "0", "z_index": "100",
         },
     )
 
