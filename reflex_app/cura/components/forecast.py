@@ -390,7 +390,7 @@ def _period_card(p: dict) -> rx.Component:
         body,
         style={
             "border": rx.cond(p["shf"] == "1",
-                              f"2px solid {RED}44", f"1px solid {BORDER2}"),
+                              f"2px solid {RED}", f"1px solid {BORDER2}"),
             "border_radius": "10px",
             "overflow": "hidden",
             "margin_bottom": "10px",
