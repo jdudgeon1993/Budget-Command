@@ -138,7 +138,8 @@ def _freq_only_dates(pay_freq: str, from_date: date, to_date: date) -> list[date
 
 # ── Main calculation ──────────────────────────────────────────────────────────
 
-def compute_forecast(data: dict, n_months: int = 3, account_id: str = "") -> dict:
+def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
+                     income_override: float = 0.0) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -211,6 +212,19 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "") -> dic
                                    "transfers": transfers, "allocs": allocs})
 
     all_pay_dates = sorted(pay_events.keys())
+
+    # ── Income override — scale all paycheck amounts ──────────────────────────
+    if income_override > 0:
+        nat_income = sum(pc["amount"] for pcs in pay_events.values() for pc in pcs)
+        if nat_income > 0:
+            scale = (income_override * n_months) / nat_income
+            for pcs in pay_events.values():
+                for pc_hit in pcs:
+                    pc_hit["amount"]   = round(pc_hit["amount"] * scale, 2)
+                    for xfr in pc_hit["transfers"]:
+                        xfr["amount"] = round(xfr["amount"] * scale, 2)
+                    for ae in pc_hit["allocs"]:
+                        ae["amount"]  = round(ae["amount"] * scale, 2)
 
     # ── Period boundaries ─────────────────────────────────────────────────────
     periods_meta: list[tuple[date, date, bool]] = []
@@ -429,4 +443,148 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "") -> dic
         "total_unfunded":   _fmt(grand_unfunded),
         "shortfall_count":  shortfall_count,
         "periods":          period_results,
+    }
+
+
+# ── Timeline (month-level week-by-week view) ──────────────────────────────────
+
+def compute_timeline(data: dict, mid_str: str) -> dict:
+    """
+    Week-by-week income + bill view for a single month.
+    Returns {weeks, summary, hitters}.
+    """
+    today = date.today()
+    try:
+        parts  = mid_str.split("_")
+        yr     = int(parts[1])
+        cal_m  = int(parts[2]) + 1          # month_index → calendar month
+    except Exception:
+        yr, cal_m = today.year, today.month
+
+    days_in_m = _cal.monthrange(yr, cal_m)[1]
+    m_start   = date(yr, cal_m, 1)
+    m_end     = date(yr, cal_m, days_in_m)
+    mid_key   = f"m_{yr}_{cal_m - 1}"
+
+    paychecks   = data.get("paychecks", [])
+    alloc_rules = data.get("allocationRules", [])
+    buckets     = data.get("buckets", [])
+    txs         = data.get("txs", [])
+
+    # Paycheck events
+    pc_by_date: dict[date, list[dict]] = {}
+    for pc in paychecks:
+        if not pc.get("anchorDate"):
+            continue
+        for pd in _gen_pay_dates(pc["anchorDate"], int(pc.get("freq", 14)), m_start, m_end):
+            amt = float(pc.get("amount") or 0)
+            pc_by_date.setdefault(pd, []).append({
+                "label": pc.get("label", "Paycheck"),
+                "amount": amt,
+                "amount_fmt": _fmt(amt),
+            })
+
+    def _bill_amt(b: dict) -> float:
+        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+
+    def _is_paid(b: dict) -> bool:
+        amt = _bill_amt(b)
+        if not amt:
+            return False
+        spent = sum(
+            float(t.get("amount") or 0) for t in txs
+            if t.get("bucketId") == b["id"] and t.get("type") == "out"
+            and t.get("monthId") == mid_key
+        )
+        return spent >= amt * 0.99
+
+    dated_bills = [b for b in buckets
+                   if not b.get("archived") and b.get("dueDay") is not None and _bill_amt(b) > 0]
+    freq_bills  = [b for b in buckets
+                   if not b.get("archived") and b.get("dueDay") is None
+                   and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
+                   and _bill_amt(b) > 0]
+
+    bill_by_date: dict[date, list[dict]] = {}
+    for b in dated_bills:
+        for bd in _bill_dates(b.get("dueDay"), b.get("payFreq"), m_start, m_end):
+            bill_by_date.setdefault(bd, []).append({
+                "name": b["name"], "amount": _bill_amt(b), "paid": _is_paid(b),
+            })
+    for b in freq_bills:
+        for bd in _freq_only_dates(b["payFreq"], m_start, m_end):
+            bill_by_date.setdefault(bd, []).append({
+                "name": b["name"], "amount": _bill_amt(b), "paid": _is_paid(b),
+            })
+
+    # Build week rows
+    weeks = []
+    d = m_start
+    while d <= m_end:
+        w_end   = min(d + timedelta(days=6), m_end)
+        w_income = 0.0
+        w_bills  = 0.0
+        days_out = []
+        dd = d
+        while dd <= w_end:
+            pcs = pc_by_date.get(dd, [])
+            bls = bill_by_date.get(dd, [])
+            w_income += sum(e["amount"] for e in pcs)
+            w_bills  += sum(b["amount"] for b in bls)
+            days_out.append({
+                "date_str": str(dd),
+                "weekday":  dd.strftime("%a"),
+                "day":      str(dd.day),
+                "today":    "1" if dd == today else "",
+                "past":     "1" if dd < today else "",
+                "income":   [{"label": e["label"], "amount_fmt": e["amount_fmt"]} for e in pcs],
+                "bills":    sorted(
+                    [{"name": b["name"], "amount_fmt": _fmt(b["amount"]),
+                      "paid": "1" if b["paid"] else ""} for b in bls],
+                    key=lambda x: x["paid"],           # unpaid ("") first
+                ),
+            })
+            dd += timedelta(days=1)
+        weeks.append({
+            "label":            f"{d.strftime('%b %-d')} – {w_end.strftime('%b %-d')}",
+            "week_income_fmt":  _fmt(w_income) if w_income else "",
+            "week_bills_fmt":   _fmt(w_bills)  if w_bills  else "",
+            "days":             days_out,
+        })
+        d = w_end + timedelta(days=1)
+
+    # Summary
+    all_bills    = [b for blist in bill_by_date.values() for b in blist]
+    total_income = round(sum(e["amount"] for elist in pc_by_date.values() for e in elist), 2)
+    total_bills  = round(sum(b["amount"] for b in all_bills), 2)
+    paid_total   = round(sum(b["amount"] for b in all_bills if b["paid"]), 2)
+    remaining    = round(total_bills - paid_total, 2)
+    daily_burn   = round(total_bills / days_in_m, 2) if days_in_m else 0.0
+
+    # Top hitters (max 7, sorted by bill size)
+    hm: dict[str, dict] = {}
+    for b in all_bills:
+        if b["name"] not in hm:
+            hm[b["name"]] = {"amount": 0.0, "all_paid": True}
+        hm[b["name"]]["amount"] += b["amount"]
+        if not b["paid"]:
+            hm[b["name"]]["all_paid"] = False
+    hitters = [
+        {"name": k,
+         "amount_fmt": _fmt(round(v["amount"], 2)),
+         "paid":  "1" if v["all_paid"] else "",
+         "pct":   (str(round(v["amount"] / total_bills * 100)) + "%") if total_bills else "0%"}
+        for k, v in sorted(hm.items(), key=lambda kv: -kv[1]["amount"])[:7]
+    ]
+
+    return {
+        "weeks": weeks,
+        "summary": {
+            "total_income_fmt": _fmt(total_income),
+            "total_bills_fmt":  _fmt(total_bills),
+            "paid_fmt":         _fmt(paid_total),
+            "remaining_fmt":    _fmt(remaining),
+            "daily_burn_fmt":   _fmt(daily_burn),
+        },
+        "hitters": hitters,
     }

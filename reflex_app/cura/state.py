@@ -129,6 +129,46 @@ def _date_to_mid(date_str: str) -> str:
 #  Forecast helpers — flatten period dicts into a single display-row list
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _flatten_timeline(result: dict) -> list[dict]:
+    """Flatten compute_timeline() result → flat list[dict[str,str]] rows.
+
+    Row types (rt field):
+      wk  – week header (lbl, wi=income_fmt, wb=bills_fmt)
+      dh  – day header (wd=weekday, dn=day_num, td=today, pa=past)
+      pc  – paycheck event (lbl, amt)
+      bl  – bill event (lbl, amt, pd=paid "1"/"")
+    All dict values are str.
+    """
+    rows: list[dict] = []
+    blank = {"rt": "", "lbl": "", "wi": "", "wb": "", "wd": "", "dn": "", "td": "", "pa": "", "amt": "", "pd": ""}
+
+    def _row(**kw) -> dict:
+        r = dict(blank)
+        r.update({k: str(v) for k, v in kw.items()})
+        return r
+
+    for week in result.get("weeks", []):
+        rows.append(_row(rt="wk", lbl=week["label"],
+                         wi=week.get("week_income_fmt", ""),
+                         wb=week.get("week_bills_fmt", "")))
+        prev_d = ""
+        for day in week.get("days", []):
+            pcs = day.get("income", [])
+            bls = day.get("bills", [])
+            if not (pcs or bls):
+                continue
+            if day["date_str"] != prev_d:
+                rows.append(_row(rt="dh", wd=day["weekday"], dn=day["day"],
+                                 td=day["today"], pa=day["past"]))
+                prev_d = day["date_str"]
+            for pc in pcs:
+                rows.append(_row(rt="pc", lbl=pc["label"], amt=pc["amount_fmt"]))
+            for bl in bls:
+                rows.append(_row(rt="bl", lbl=bl["name"], amt=bl["amount_fmt"], pd=bl["paid"]))
+
+    return rows
+
+
 def _flatten_periods(periods: list[dict]) -> list[dict]:
     """Convert compute_forecast() period list → flat list[dict[str,str]] rows.
 
@@ -388,6 +428,29 @@ class AppState(rx.State):
     fc_sts_color:      str              = "#818cf8"
     fc_shortfall_count: int             = 0
 
+    # ── Insights sub-tab ──────────────────────────────────────────────────────
+    insights_tab: str = "forecast"   # "forecast" | "timeline" | "whatif"
+
+    # ── Timeline ──────────────────────────────────────────────────────────────
+    tl_rows:         list[dict] = []
+    tl_income_fmt:   str        = "—"
+    tl_bills_fmt:    str        = "—"
+    tl_paid_fmt:     str        = "—"
+    tl_remaining_fmt: str       = "—"
+    tl_burn_fmt:     str        = "—"
+    tl_hitters:      list[dict] = []  # [{name, amount_fmt, pct, paid}]
+
+    # ── What-If ───────────────────────────────────────────────────────────────
+    wi_income_str:      str        = ""    # user input: monthly income override
+    wi_rows:            list[dict] = []
+    wi_start_bal:       str        = "—"
+    wi_total_income:    str        = "—"
+    wi_total_unfunded:  str        = "—"
+    wi_safe_to_spend:   str        = "—"
+    wi_sts_color:       str        = "#818cf8"
+    wi_shortfall_count: int        = 0
+    wi_active:          bool       = False
+
     # ── Internal raw data (not sent to client — prefixed with _) ─────────────
     # Note: in Reflex 0.9 all state vars go to client; use _ prefix by convention
     _raw: dict = {}   # full data dict from DB.load_all()
@@ -521,6 +584,70 @@ class AppState(rx.State):
         self.forecast_account = aid
         self._run_forecast()
 
+    # ── Insights sub-tab events ───────────────────────────────────────────────
+
+    def set_insights_tab(self, tab: str):
+        self.insights_tab = tab
+        if tab == "timeline":
+            self._run_timeline()
+        elif tab == "whatif":
+            self._run_whatif()
+
+    # ── Timeline events ───────────────────────────────────────────────────────
+
+    def _run_timeline(self):
+        from .forecast_calc import compute_timeline
+        if not self._raw:
+            return
+        result = compute_timeline(self._raw, self.active_mid)
+        self.tl_rows         = _flatten_timeline(result)
+        s = result["summary"]
+        self.tl_income_fmt   = s["total_income_fmt"]
+        self.tl_bills_fmt    = s["total_bills_fmt"]
+        self.tl_paid_fmt     = s["paid_fmt"]
+        self.tl_remaining_fmt = s["remaining_fmt"]
+        self.tl_burn_fmt     = s["daily_burn_fmt"]
+        self.tl_hitters      = result["hitters"]
+
+    # ── What-If events ────────────────────────────────────────────────────────
+
+    def set_wi_income(self, val: str):
+        self.wi_income_str = val
+        self.wi_active = bool(val.strip())
+        self._run_whatif()
+
+    def reset_whatif(self):
+        self.wi_income_str      = ""
+        self.wi_active          = False
+        self.wi_rows            = []
+        self.wi_start_bal       = "—"
+        self.wi_total_income    = "—"
+        self.wi_total_unfunded  = "—"
+        self.wi_safe_to_spend   = "—"
+        self.wi_sts_color       = "#818cf8"
+        self.wi_shortfall_count = 0
+
+    def _run_whatif(self):
+        from .forecast_calc import compute_forecast
+        if not self._raw:
+            return
+        income_ov = 0.0
+        try:
+            income_ov = float(self.wi_income_str.replace(",", "").replace("$", ""))
+        except Exception:
+            pass
+        result = compute_forecast(
+            self._raw, self.forecast_range, self.forecast_account,
+            income_override=income_ov,
+        )
+        self.wi_start_bal       = result["start_balance"]
+        self.wi_total_income    = result["total_income"]
+        self.wi_total_unfunded  = result["total_unfunded"]
+        self.wi_safe_to_spend   = result["safe_to_spend"]
+        self.wi_sts_color       = result["sts_color"]
+        self.wi_shortfall_count = result["shortfall_count"]
+        self.wi_rows            = _flatten_periods(result["periods"])
+
     def _refresh_forecast_accounts(self):
         raw = self._raw
         if not raw:
@@ -634,6 +761,8 @@ class AppState(rx.State):
         self.active_mid = mid
         if self._raw:
             self._process(self._raw, mid)
+            if self.active_panel == "insights" and self.insights_tab == "timeline":
+                self._run_timeline()
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Panel navigation
