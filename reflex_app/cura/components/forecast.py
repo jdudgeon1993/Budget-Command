@@ -88,115 +88,10 @@ def _acct_chip(a: dict) -> rx.Component:
     )
 
 
-def _forecast_row(r: dict) -> rx.Component:
-    body = rx.match(
+def _body_row(r: dict) -> rx.Component:
+    """Render a single body row inside a period card."""
+    return rx.match(
         r["rt"],
-
-        # ── Period header (always visible) ──────────────────────────────────
-        ("ph", rx.box(
-            rx.hstack(
-                # Left: type badge + title + date range
-                rx.hstack(
-                    rx.box(
-                        rx.cond(r["pt"] == "gap", "GAP", "PAY"),
-                        style={
-                            "font_size": "8px", "font_family": MONO, "letter_spacing": "0.1em",
-                            "padding": "2px 6px", "border_radius": "4px",
-                            "background": rx.cond(r["pt"] == "gap", BG3, f"{ACCENT}22"),
-                            "color": rx.cond(r["pt"] == "gap", TEXT3, ACCENT),
-                            "border": rx.cond(r["pt"] == "gap",
-                                              f"1px solid {BORDER}", f"1px solid {ACCENT}44"),
-                            "flex_shrink": "0",
-                        },
-                    ),
-                    rx.vstack(
-                        rx.hstack(
-                            rx.text(r["lbl"], style={"font_size": "13px", "font_weight": "600",
-                                                      "color": TEXT, "line_height": "1.2"}),
-                            # Pre-funded badge
-                            rx.cond(
-                                (r["tbc"] != "0") & (r["tbc"] != "") & (r["shf"] == ""),
-                                rx.box(
-                                    rx.cond(
-                                        r["pfc"] == r["tbc"],
-                                        "✓ All Funded",
-                                        rx.fragment(r["pfc"], "/", r["tbc"], " Funded"),
-                                    ),
-                                    style={
-                                        "font_size": "8px", "font_family": MONO,
-                                        "padding": "1px 5px", "border_radius": "4px",
-                                        "color": rx.cond(r["pfc"] == r["tbc"], GREEN, AMBER),
-                                        "border": rx.cond(r["pfc"] == r["tbc"],
-                                                          f"1px solid {GREEN}55",
-                                                          f"1px solid {AMBER}55"),
-                                        "background": rx.cond(r["pfc"] == r["tbc"],
-                                                              f"{GREEN}12", f"{AMBER}12"),
-                                        "flex_shrink": "0",
-                                    },
-                                ),
-                                rx.box(),
-                            ),
-                            # Shortfall badge
-                            rx.cond(
-                                r["shf"] == "1",
-                                rx.box(
-                                    "⚠ SHORTFALL",
-                                    style={"font_size": "8px", "font_family": MONO,
-                                           "padding": "1px 5px", "border_radius": "4px",
-                                           "color": RED, "background": f"{RED}18",
-                                           "border": f"1px solid {RED}44", "flex_shrink": "0"},
-                                ),
-                                rx.box(),
-                            ),
-                            gap="6px", align_items="center", flex_wrap="wrap",
-                        ),
-                        rx.text(r["sub"], style={"font_size": "10px", "color": TEXT3,
-                                                  "line_height": "1.2"}),
-                        gap="3px", align_items="flex_start", flex="1",
-                    ),
-                    gap="8px", align_items="flex_start", flex="1",
-                ),
-                # Right: net amount + end balance + chevron
-                rx.hstack(
-                    rx.vstack(
-                        rx.hstack(
-                            rx.text(r["sgn"],
-                                    style={"font_size": "11px", "font_family": MONO,
-                                           "color": r["c1"]}),
-                            rx.text(r["amt"],
-                                    style={"font_size": "11px", "font_family": MONO,
-                                           "color": r["c1"]}),
-                            gap="0px",
-                        ),
-                        rx.text(r["ebf"],
-                                style={"font_size": "14px", "font_weight": "700",
-                                       "font_family": MONO,
-                                       "color": rx.cond(r["ebn"] == "1", RED, TEXT)}),
-                        gap="0px", align_items="flex_end",
-                    ),
-                    # Collapse/expand chevron
-                    rx.text(
-                        rx.cond(r["open"] == "1", "▾", "▸"),
-                        style={"font_size": "14px", "color": TEXT3, "flex_shrink": "0",
-                               "padding_left": "6px"},
-                    ),
-                    align_items="center", gap="4px",
-                ),
-                align_items="flex_start", width="100%",
-            ),
-            on_click=AppState.toggle_period_collapse(r["pid"]),
-            style={
-                "background": rx.cond(r["pt"] == "gap", BG3, BG2),
-                "border": rx.cond(r["shf"] == "1", f"2px solid {RED}",
-                                  rx.cond(r["pt"] == "gap",
-                                          f"1px solid {BORDER}", f"1px solid {BORDER2}")),
-                "border_radius": rx.cond(r["open"] == "1", "10px 10px 0 0", "10px"),
-                "padding": "12px 14px 10px",
-                "margin_top": "10px",
-                "cursor": "pointer",
-                "_hover": {"opacity": "0.92"},
-            },
-        )),
 
         # ── Start balance ────────────────────────────────────────────────────
         ("sb", rx.hstack(
@@ -206,8 +101,7 @@ def _forecast_row(r: dict) -> rx.Component:
             rx.text(r["lbl"], style={"font_size": "11px", "font_family": MONO, "color": TEXT2}),
             width="100%", align_items="center",
             style={"padding": "5px 14px", "background": BG3,
-                   "border_left": f"2px solid {BORDER2}",
-                   "border_right": f"1px solid {BORDER2}"},
+                   "border_left": f"2px solid {BORDER2}"},
         )),
 
         # ── Income line ──────────────────────────────────────────────────────
@@ -217,7 +111,7 @@ def _forecast_row(r: dict) -> rx.Component:
             rx.text(r["amt"], style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
             width="100%", justify="between", align_items="center",
             style={"background": f"{GREEN}0a", "padding": "6px 14px",
-                   "border_left": f"2px solid {GREEN}55", "border_right": f"1px solid {BORDER2}"},
+                   "border_left": f"2px solid {GREEN}55"},
         )),
 
         # ── Transfer line ────────────────────────────────────────────────────
@@ -228,14 +122,15 @@ def _forecast_row(r: dict) -> rx.Component:
                 rx.text(r["amt"], style={"font_size": "12px", "font_family": MONO, "color": AMBER}),
                 rx.cond(
                     r["cum"] != "",
-                    rx.text(r["cum"], style={"font_size": "9px", "color": TEXT3, "font_family": MONO}),
+                    rx.text(r["cum"], style={"font_size": "9px", "color": TEXT3,
+                                              "font_family": MONO}),
                     rx.box(),
                 ),
                 align_items="flex_end", gap="1px",
             ),
             width="100%", justify="between", align_items="center",
             style={"background": f"{AMBER}0a", "padding": "5px 14px",
-                   "border_left": f"2px solid {AMBER}44", "border_right": f"1px solid {BORDER2}"},
+                   "border_left": f"2px solid {AMBER}44"},
         )),
 
         # ── Alloc event ──────────────────────────────────────────────────────
@@ -249,7 +144,8 @@ def _forecast_row(r: dict) -> rx.Component:
                                       "color": rx.cond(r["sub2"] == "vault", TEXT2, TEXT3)}),
             rx.cond(
                 r["sub2"] == "vault",
-                rx.text(r["amt"], style={"font_size": "12px", "font_family": MONO, "color": AMBER}),
+                rx.text(r["amt"], style={"font_size": "12px", "font_family": MONO,
+                                          "color": AMBER}),
                 rx.text(r["amt"], style={"font_size": "11px", "font_family": MONO,
                                           "color": TEXT3, "font_style": "italic"}),
             ),
@@ -260,7 +156,6 @@ def _forecast_row(r: dict) -> rx.Component:
                 "border_left": rx.cond(r["sub2"] == "vault",
                                         f"2px solid {AMBER}33",
                                         f"2px solid {BORDER}"),
-                "border_right": f"1px solid {BORDER2}",
             },
         )),
 
@@ -278,8 +173,7 @@ def _forecast_row(r: dict) -> rx.Component:
                    "background": BG3,
                    "border_top": f"1px solid {BORDER}",
                    "border_bottom": f"1px solid {BORDER}",
-                   "border_left": f"2px solid {BORDER2}",
-                   "border_right": f"1px solid {BORDER2}"},
+                   "border_left": f"2px solid {BORDER2}"},
         )),
 
         # ── Section header (funded / unfunded) ───────────────────────────────
@@ -290,8 +184,7 @@ def _forecast_row(r: dict) -> rx.Component:
             style={"padding": "6px 14px 2px",
                    "background": rx.cond(r["c1"] == "#34d399", f"{GREEN}08", f"{RED}08"),
                    "border_left": rx.cond(r["c1"] == "#34d399",
-                                          f"2px solid {GREEN}44", f"2px solid {RED}44"),
-                   "border_right": f"1px solid {BORDER2}"},
+                                          f"2px solid {GREEN}44", f"2px solid {RED}44")},
         )),
 
         # ── Funded date label ────────────────────────────────────────────────
@@ -300,8 +193,7 @@ def _forecast_row(r: dict) -> rx.Component:
                                "text_transform": "uppercase", "font_family": MONO,
                                "padding": "4px 14px 0",
                                "background": f"{GREEN}08",
-                               "border_left": f"2px solid {GREEN}33",
-                               "border_right": f"1px solid {BORDER2}"})),
+                               "border_left": f"2px solid {GREEN}33"})),
 
         # ── Funded bill ──────────────────────────────────────────────────────
         ("fbl", rx.hstack(
@@ -310,7 +202,7 @@ def _forecast_row(r: dict) -> rx.Component:
             rx.text(r["amt"], style={"font_size": "12px", "font_family": MONO, "color": GREEN}),
             width="100%", justify="between", align_items="center",
             style={"padding": "4px 14px", "background": f"{GREEN}08",
-                   "border_left": f"2px solid {GREEN}33", "border_right": f"1px solid {BORDER2}"},
+                   "border_left": f"2px solid {GREEN}33"},
         )),
 
         # ── Funded running balance ───────────────────────────────────────────
@@ -319,7 +211,7 @@ def _forecast_row(r: dict) -> rx.Component:
             rx.text(r["lbl"], style={"font_size": "11px", "font_family": MONO, "color": TEXT2}),
             width="100%", justify="between",
             style={"padding": "3px 14px 6px", "background": f"{GREEN}08",
-                   "border_left": f"2px solid {GREEN}33", "border_right": f"1px solid {BORDER2}",
+                   "border_left": f"2px solid {GREEN}33",
                    "border_top": f"1px solid {GREEN}22"},
         )),
 
@@ -329,8 +221,7 @@ def _forecast_row(r: dict) -> rx.Component:
                                "text_transform": "uppercase", "font_family": MONO,
                                "padding": "4px 14px 0",
                                "background": f"{RED}08",
-                               "border_left": f"2px solid {RED}33",
-                               "border_right": f"1px solid {BORDER2}"})),
+                               "border_left": f"2px solid {RED}33"})),
 
         # ── Unfunded bill ────────────────────────────────────────────────────
         ("ubl", rx.hstack(
@@ -339,7 +230,7 @@ def _forecast_row(r: dict) -> rx.Component:
             rx.text(r["amt"], style={"font_size": "12px", "font_family": MONO, "color": RED}),
             width="100%", justify="between", align_items="center",
             style={"padding": "4px 14px", "background": f"{RED}08",
-                   "border_left": f"2px solid {RED}55", "border_right": f"1px solid {BORDER2}"},
+                   "border_left": f"2px solid {RED}55"},
         )),
 
         # ── Unfunded running balance ─────────────────────────────────────────
@@ -349,7 +240,7 @@ def _forecast_row(r: dict) -> rx.Component:
                                       "color": rx.cond(r["neg"] == "1", RED, TEXT2)}),
             width="100%", justify="between",
             style={"padding": "3px 14px 6px", "background": f"{RED}08",
-                   "border_left": f"2px solid {RED}33", "border_right": f"1px solid {BORDER2}",
+                   "border_left": f"2px solid {RED}33",
                    "border_top": f"1px solid {RED}22"},
         )),
 
@@ -357,7 +248,8 @@ def _forecast_row(r: dict) -> rx.Component:
         ("pf", rx.vstack(
             rx.hstack(
                 rx.text("END", style={"font_size": "9px", "color": TEXT3,
-                                       "font_family": MONO, "letter_spacing": "0.1em", "flex": "1"}),
+                                       "font_family": MONO, "letter_spacing": "0.1em",
+                                       "flex": "1"}),
                 rx.text(r["ebf"], style={"font_size": "15px", "font_weight": "700",
                                           "font_family": MONO,
                                           "color": rx.cond(r["ebn"] == "1", RED, TEXT)}),
@@ -378,21 +270,131 @@ def _forecast_row(r: dict) -> rx.Component:
             ),
             width="100%", gap="4px",
             style={"background": BG2,
-                   "border": rx.cond(r["shf"] == "1",
-                                     f"2px solid {RED}", f"1px solid {BORDER2}"),
                    "border_top": f"1px solid {BORDER}",
-                   "border_radius": "0 0 10px 10px",
-                   "padding": "10px 14px 12px", "margin_bottom": "2px"},
+                   "padding": "10px 14px 12px"},
         )),
 
         rx.box(),
     )
 
-    # Wrap: hidden rows collapse to nothing
-    return rx.cond(
-        r["hidden"] == "1",
+
+def _period_card(p: dict) -> rx.Component:
+    """Render a single forecast period as a collapsible card."""
+    header = rx.box(
+        rx.hstack(
+            # Left: type badge + title + date range + badges
+            rx.hstack(
+                rx.box(
+                    rx.cond(p["pt"] == "gap", "GAP", "PAY"),
+                    style={
+                        "font_size": "8px", "font_family": MONO, "letter_spacing": "0.1em",
+                        "padding": "2px 6px", "border_radius": "4px",
+                        "background": rx.cond(p["pt"] == "gap", BG3, f"{ACCENT}22"),
+                        "color": rx.cond(p["pt"] == "gap", TEXT3, ACCENT),
+                        "border": rx.cond(p["pt"] == "gap",
+                                          f"1px solid {BORDER}", f"1px solid {ACCENT}44"),
+                        "flex_shrink": "0",
+                    },
+                ),
+                rx.vstack(
+                    rx.hstack(
+                        rx.text(p["lbl"], style={"font_size": "13px", "font_weight": "600",
+                                                  "color": TEXT, "line_height": "1.2"}),
+                        # Pre-funded badge
+                        rx.cond(
+                            (p["tbc"] != "0") & (p["tbc"] != "") & (p["shf"] == ""),
+                            rx.box(
+                                rx.cond(
+                                    p["pfc"] == p["tbc"],
+                                    "✓ All Funded",
+                                    rx.fragment(p["pfc"], "/", p["tbc"], " Funded"),
+                                ),
+                                style={
+                                    "font_size": "8px", "font_family": MONO,
+                                    "padding": "1px 5px", "border_radius": "4px",
+                                    "color": rx.cond(p["pfc"] == p["tbc"], GREEN, AMBER),
+                                    "border": rx.cond(p["pfc"] == p["tbc"],
+                                                      f"1px solid {GREEN}55",
+                                                      f"1px solid {AMBER}55"),
+                                    "background": rx.cond(p["pfc"] == p["tbc"],
+                                                          f"{GREEN}12", f"{AMBER}12"),
+                                    "flex_shrink": "0",
+                                },
+                            ),
+                            rx.box(),
+                        ),
+                        # Shortfall badge
+                        rx.cond(
+                            p["shf"] == "1",
+                            rx.box(
+                                "⚠ SHORTFALL",
+                                style={"font_size": "8px", "font_family": MONO,
+                                       "padding": "1px 5px", "border_radius": "4px",
+                                       "color": RED, "background": f"{RED}18",
+                                       "border": f"1px solid {RED}44", "flex_shrink": "0"},
+                            ),
+                            rx.box(),
+                        ),
+                        gap="6px", align_items="center", flex_wrap="wrap",
+                    ),
+                    rx.text(p["sub"], style={"font_size": "10px", "color": TEXT3,
+                                              "line_height": "1.2"}),
+                    gap="3px", align_items="flex_start", flex="1",
+                ),
+                gap="8px", align_items="flex_start", flex="1",
+            ),
+            # Right: net amount + end balance + chevron
+            rx.hstack(
+                rx.vstack(
+                    rx.hstack(
+                        rx.text(p["sgn"], style={"font_size": "11px", "font_family": MONO,
+                                                  "color": p["c1"]}),
+                        rx.text(p["amt"], style={"font_size": "11px", "font_family": MONO,
+                                                  "color": p["c1"]}),
+                        gap="0px",
+                    ),
+                    rx.text(p["ebf"], style={"font_size": "14px", "font_weight": "700",
+                                              "font_family": MONO,
+                                              "color": rx.cond(p["ebn"] == "1", RED, TEXT)}),
+                    gap="0px", align_items="flex_end",
+                ),
+                rx.text(
+                    rx.cond(p["is_open"] == "1", "▾", "▸"),
+                    style={"font_size": "14px", "color": TEXT3, "flex_shrink": "0",
+                           "padding_left": "6px"},
+                ),
+                align_items="center", gap="4px",
+            ),
+            align_items="flex_start", width="100%",
+        ),
+        on_click=AppState.toggle_period_collapse(p["pid"]),
+        style={
+            "background": rx.cond(p["pt"] == "gap", BG3, BG2),
+            "padding": "12px 14px 10px",
+            "cursor": "pointer",
+            "_hover": {"opacity": "0.92"},
+        },
+    )
+
+    body = rx.cond(
+        p["is_open"] == "1",
+        rx.box(
+            rx.foreach(p["rows"].to(list[dict[str, Any]]), _body_row),
+            style={"border_top": f"1px solid {BORDER}"},
+        ),
         rx.box(),
+    )
+
+    return rx.box(
+        header,
         body,
+        style={
+            "border": rx.cond(p["shf"] == "1",
+                              f"2px solid {RED}44", f"1px solid {BORDER2}"),
+            "border_radius": "10px",
+            "overflow": "hidden",
+            "margin_bottom": "10px",
+        },
     )
 
 
@@ -462,23 +464,23 @@ def _forecast_subpanel() -> rx.Component:
                     rx.box(),
                 ),
                 style={"background": BG2, "border": f"1px solid {BORDER}",
-                       "border_radius": "10px", "margin_bottom": "12px", "overflow": "hidden"},
+                       "border_radius": "10px", "margin_bottom": "16px", "overflow": "hidden"},
             ),
         ),
 
-        # Forecast rows
+        # Period cards
         rx.cond(
             ~AppState.forecast_loading,
-            rx.vstack(
-                rx.foreach(AppState.forecast_rows.to(list[dict[str, Any]]), _forecast_row),
-                width="100%", gap="0px",
+            rx.box(
+                rx.foreach(AppState.forecast_periods.to(list[dict[str, Any]]), _period_card),
+                width="100%",
             ),
             rx.box(),
         ),
 
         # Empty state
         rx.cond(
-            AppState.forecast_rows.length() == 0,
+            AppState.forecast_periods.length() == 0,
             rx.box(
                 rx.text("No paychecks configured",
                         style={"color": TEXT3, "font_size": "12px"}),
@@ -526,7 +528,8 @@ def _tl_row(r: dict) -> rx.Component:
                           "background": GREEN, "flex_shrink": "0", "margin_top": "2px"}),
             rx.vstack(
                 rx.text(r["lbl"], style={"font_size": "12px", "color": TEXT, "font_weight": "500"}),
-                rx.text("Paycheck", style={"font_size": "10px", "color": TEXT3, "font_family": MONO}),
+                rx.text("Paycheck", style={"font_size": "10px", "color": TEXT3,
+                                            "font_family": MONO}),
                 gap="1px", align_items="flex_start",
             ),
             rx.spacer(),
@@ -551,7 +554,8 @@ def _tl_row(r: dict) -> rx.Component:
                     "font_weight": "500",
                     "text_decoration": rx.cond(r["pd"] == "1", "line-through", "none"),
                 }),
-                rx.text("Bill due", style={"font_size": "10px", "color": TEXT3, "font_family": MONO}),
+                rx.text("Bill due", style={"font_size": "10px", "color": TEXT3,
+                                            "font_family": MONO}),
                 gap="1px", align_items="flex_start",
             ),
             rx.spacer(),
@@ -638,7 +642,7 @@ def _wi_bucket_row(r: dict) -> rx.Component:
             rx.text(r["base_fmt"], style={"font_size": "11px", "color": TEXT3,
                                            "font_family": MONO, "min_width": "60px",
                                            "text_align": "right"}),
-            # Override input (on_change passes the new value as second arg automatically)
+            # Override input
             rx.input(
                 placeholder="+50",
                 value=r["override_val"],
@@ -915,16 +919,16 @@ def _whatif_subpanel() -> rx.Component:
             ),
         ),
 
-        # ── What-if forecast rows ─────────────────────────────────────────────
+        # ── What-if forecast period cards ─────────────────────────────────────
         rx.cond(
-            AppState.wi_active & (AppState.wi_rows.length() > 0),
-            rx.vstack(
+            AppState.wi_active & (AppState.wi_periods.length() > 0),
+            rx.box(
                 rx.text("What-If Forecast",
                         style={"font_size": "9px", "color": TEXT3, "font_family": MONO,
                                "letter_spacing": "0.1em", "text_transform": "uppercase",
-                               "margin_bottom": "8px", "margin_top": "4px"}),
-                rx.foreach(AppState.wi_rows.to(list[dict[str, Any]]), _forecast_row),
-                width="100%", gap="0px",
+                               "margin_bottom": "12px", "margin_top": "4px"}),
+                rx.foreach(AppState.wi_periods.to(list[dict[str, Any]]), _period_card),
+                width="100%",
             ),
             rx.box(),
         ),

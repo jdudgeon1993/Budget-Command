@@ -143,15 +143,17 @@ def _flatten_timeline(rows: list[dict]) -> list[dict]:
     return out
 
 
-def _flatten_periods(periods: list[dict], open_pids: set = None) -> list[dict]:
-    """Convert compute_forecast() period list → flat list[dict[str,str]] rows.
+def _build_forecast_periods(periods: list[dict], open_pids: set = None) -> list[dict]:
+    """Convert compute_forecast() period list → list of per-period card dicts.
 
-    Row types (rt field):
-      ph  – period header (always visible; click to collapse)
-      sb  – start balance row
+    Each dict has header fields (pid, lbl, sub, amt, …) + is_open flag +
+    rows: list[dict] of body rows.
+
+    Body row types (rt field):
+      sb  – start balance
       inc – income line
-      xfr – transfer line (includes cum=cumulative total)
-      ae  – alloc event (sub2="vault" amber deduct / sub2="info" grey informational)
+      xfr – transfer line (cum=cumulative total)
+      ae  – alloc event (sub2="vault" amber / sub2="info" grey)
       bat – balance after transfers divider
       sbh – section header (funded / unfunded)
       fdt – funded date label
@@ -162,107 +164,93 @@ def _flatten_periods(periods: list[dict], open_pids: set = None) -> list[dict]:
       uba – unfunded running balance
       pf  – period footer (end bal + safe-to-spend)
 
-    open_pids: set of period IDs whose body rows are visible; None = all open.
-    All dict values are str. Boolean flags encoded as "1" (true) or "" (false).
+    open_pids: set of period IDs that are expanded; None = all expanded.
+    All dict values are str. Boolean flags encoded as "1" or "".
     """
-    rows: list[dict] = []
-
-    _BLANK = {
-        "rt": "", "lbl": "", "sub": "", "sub2": "", "amt": "", "cum": "",
-        "c1": "", "c2": "", "neg": "", "shf": "", "pid": "", "pt": "",
-        "ebf": "", "ebn": "", "sgn": "", "open": "", "hidden": "",
-        "pfc": "", "tbc": "",
+    _ROW_BLANK = {
+        "rt": "", "lbl": "", "sub2": "", "amt": "", "cum": "",
+        "c1": "", "neg": "", "shf": "", "ebf": "", "ebn": "",
     }
 
-    def _r(pid: str, is_open: bool, **kw) -> dict:
-        row = dict(_BLANK)
-        row["pid"]    = pid
-        row["hidden"] = "" if is_open else "1"
+    def _r(**kw) -> dict:
+        row = dict(_ROW_BLANK)
         row.update({k: str(v) for k, v in kw.items()})
         return row
+
+    result: list[dict] = []
 
     for p in periods:
         pid     = p["id"]
         is_open = (open_pids is None) or (pid in open_pids)
 
-        # ── Period header (always visible) ────────────────────────────────────
-        pre_funded_pct = 0
-        if p.get("total_count", 0) > 0:
-            pre_funded_pct = round(p.get("funded_count", 0) / p["total_count"] * 100)
+        body_rows: list[dict] = []
 
-        header = dict(_BLANK)
-        header.update({
-            "rt":   "ph",
-            "lbl":  p["label"],
-            "sub":  p["date_range"],
-            "amt":  p["net_fmt"],
-            "c1":   "#34d399" if not p["net_negative"] else "#f87171",
-            "c2":   p["sts_color"],
-            "neg":  "1" if p["net_negative"] else "",
-            "shf":  "1" if p["shortfall"] else "",
-            "pid":  pid,
-            "pt":   p["type"],
-            "ebf":  p["end_bal_fmt"],
-            "ebn":  "1" if p["end_bal_negative"] else "",
-            "sgn":  p["net_sign"],
-            "open": "1" if is_open else "",
-            "hidden": "",  # headers never hidden
-            "pfc":  str(p.get("funded_count", 0)),
-            "tbc":  str(p.get("total_count", 0)),
-        })
-        rows.append(header)
+        # Start balance
+        body_rows.append(_r(rt="sb", lbl=p["start_bal_fmt"]))
 
-        # ── Start balance ─────────────────────────────────────────────────────
-        rows.append(_r(pid, is_open, rt="sb", lbl=p["start_bal_fmt"]))
-
-        # ── Income lines ──────────────────────────────────────────────────────
+        # Income lines
         for ln in p.get("income_lines", []):
-            rows.append(_r(pid, is_open, rt="inc", lbl=ln["label"], amt=ln["amount_fmt"]))
+            body_rows.append(_r(rt="inc", lbl=ln["label"], amt=ln["amount_fmt"]))
 
-        # ── Transfer lines (with cumulative totals) ───────────────────────────
+        # Transfer lines (with cumulative totals)
         for ln in p.get("transfer_lines", []):
-            rows.append(_r(pid, is_open, rt="xfr", lbl=ln["label"],
-                           amt=ln["amount_fmt"], cum=ln.get("cum_fmt", "")))
+            body_rows.append(_r(rt="xfr", lbl=ln["label"],
+                                amt=ln["amount_fmt"], cum=ln.get("cum_fmt", "")))
 
-        # ── Alloc events (vault deducts + informational allocs) ───────────────
+        # Alloc events (vault deducts + informational allocs)
         for ae in p.get("alloc_events", []):
-            rows.append(_r(pid, is_open, rt="ae", lbl=ae["name"],
-                           amt=_fmt(ae["amount"]), sub2=ae["ae_type"]))
+            body_rows.append(_r(rt="ae", lbl=ae["name"],
+                                amt=_fmt(ae["amount"]), sub2=ae["ae_type"]))
 
-        # ── Balance after transfers ───────────────────────────────────────────
+        # Balance after transfers
         if p.get("has_income") or p.get("has_transfers") or p.get("has_alloc_events"):
-            rows.append(_r(pid, is_open, rt="bat", lbl=p["bal_after_xfr_fmt"]))
+            body_rows.append(_r(rt="bat", lbl=p["bal_after_xfr_fmt"]))
 
-        # ── Funded section ────────────────────────────────────────────────────
+        # Funded section
         if p.get("has_funded"):
-            rows.append(_r(pid, is_open, rt="sbh", lbl="Pre-Funded",
-                           c1="#34d399"))
+            body_rows.append(_r(rt="sbh", lbl="Pre-Funded", c1="#34d399"))
             for ln in p["funded_lines"]:
                 rt = {"date": "fdt", "bill": "fbl", "bal": "fba"}.get(ln["row_type"], "fbl")
-                rows.append(_r(pid, is_open, rt=rt, lbl=ln["text"], amt=ln["amount_fmt"]))
+                body_rows.append(_r(rt=rt, lbl=ln["text"], amt=ln["amount_fmt"]))
 
-        # ── Unfunded section ──────────────────────────────────────────────────
+        # Unfunded section
         if p.get("has_unfunded"):
-            rows.append(_r(pid, is_open, rt="sbh", lbl="Needs Funding",
-                           c1="#f87171"))
+            body_rows.append(_r(rt="sbh", lbl="Needs Funding", c1="#f87171"))
             for ln in p["unfunded_lines"]:
                 rt  = {"date": "udt", "bill": "ubl", "bal": "uba"}.get(ln["row_type"], "ubl")
                 neg = "1" if ln["text"].startswith("-") else ""
-                rows.append(_r(pid, is_open, rt=rt, lbl=ln["text"],
-                               amt=ln["amount_fmt"], neg=neg))
+                body_rows.append(_r(rt=rt, lbl=ln["text"], amt=ln["amount_fmt"], neg=neg))
 
-        # ── Period footer ─────────────────────────────────────────────────────
-        rows.append(_r(pid, is_open,
-                       rt="pf",
-                       lbl=p["start_bal_fmt"],
-                       amt=p["safe_to_spend_fmt"],
-                       c1=p["sts_color"],
-                       neg="1" if p["end_bal_negative"] else "",
-                       shf="1" if p["shortfall"] else "",
-                       ebf=p["end_bal_fmt"],
-                       ebn="1" if p["end_bal_negative"] else ""))
+        # Period footer
+        body_rows.append(_r(
+            rt="pf",
+            amt=p["safe_to_spend_fmt"],
+            c1=p["sts_color"],
+            shf="1" if p["shortfall"] else "",
+            ebf=p["end_bal_fmt"],
+            ebn="1" if p["end_bal_negative"] else "",
+        ))
 
-    return rows
+        result.append({
+            "pid":     pid,
+            "lbl":     p["label"],
+            "sub":     p["date_range"],
+            "amt":     p["net_fmt"],
+            "c1":      "#34d399" if not p["net_negative"] else "#f87171",
+            "c2":      p["sts_color"],
+            "neg":     "1" if p["net_negative"] else "",
+            "shf":     "1" if p["shortfall"] else "",
+            "pt":      p["type"],
+            "ebf":     p["end_bal_fmt"],
+            "ebn":     "1" if p["end_bal_negative"] else "",
+            "sgn":     p["net_sign"],
+            "is_open": "1" if is_open else "",
+            "pfc":     str(p.get("funded_count", 0)),
+            "tbc":     str(p.get("total_count", 0)),
+            "rows":    body_rows,
+        })
+
+    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -433,7 +421,7 @@ class AppState(rx.State):
     # ── Forecast ──────────────────────────────────────────────────────────────
     forecast_range:    int              = 3
     forecast_account:  str              = ""
-    forecast_rows:     list[dict]       = []   # flat display rows (all-str values)
+    forecast_periods:  list[dict]       = []   # per-period card dicts (nested rows)
     forecast_accounts: list[dict]       = []   # [{id,name,color,balance_fmt}]
     forecast_loading:  bool             = False
     fc_start_bal:      str              = "—"
@@ -455,7 +443,7 @@ class AppState(rx.State):
     wi_bucket_overrides: dict       = {}    # bid -> expr string ("+50", "200", etc.)
     wi_rule_overrides:   dict       = {}    # rule_id -> value string
     wi_off_buckets:      list[str]  = []    # bucket IDs turned off in what-if
-    wi_rows:             list[dict] = []    # flat forecast rows for what-if result
+    wi_periods:          list[dict] = []    # per-period card dicts for what-if result
     wi_start_bal:        str        = "—"
     wi_total_income:     str        = "—"
     wi_total_unfunded:   str        = "—"
@@ -605,7 +593,7 @@ class AppState(rx.State):
                     auto_pids.append(p["id"])
             self.fc_open_pids = auto_pids
 
-        self.forecast_rows = _flatten_periods(result["periods"], set(self.fc_open_pids))
+        self.forecast_periods = _build_forecast_periods(result["periods"], set(self.fc_open_pids))
 
     def set_forecast_range(self, n: int):
         self.forecast_range = n
@@ -696,7 +684,7 @@ class AppState(rx.State):
         self.wi_off_buckets      = []
         self.wi_active           = False
         self.wi_active_scenario_id = ""
-        self.wi_rows             = []
+        self.wi_periods          = []
         self.wi_start_bal        = "—"
         self.wi_total_income     = "—"
         self.wi_total_unfunded   = "—"
@@ -737,7 +725,7 @@ class AppState(rx.State):
         self.wi_safe_to_spend   = result["safe_to_spend"]
         self.wi_sts_color       = result["sts_color"]
         self.wi_shortfall_count = result["shortfall_count"]
-        self.wi_rows            = _flatten_periods(result["periods"])
+        self.wi_periods         = _build_forecast_periods(result["periods"])
 
     def _build_wi_bucket_rows(self):
         """Build category-grouped bucket list for the What-If editor."""
