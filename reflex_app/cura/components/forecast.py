@@ -625,29 +625,47 @@ def _tl_row(r: dict) -> rx.Component:
             style={"padding": "8px 0 6px", "border_bottom": f"1px solid {BORDER}33"},
         )),
 
-        # Bill event
+        # Bill event — three display states:
+        #   pd=="1"  → paid/confirmed: grey dot, strike-through
+        #   sch=="1" → scheduled (future-dated tx exists): amber dot, "Scheduled" label
+        #   else     → upcoming/overdue: red dot (or faded if past)
         ("bill", rx.hstack(
             rx.box(style={
                 "width": "10px", "height": "10px", "border_radius": "50%",
-                "background": rx.cond(r["pd"] == "1", TEXT3, rx.cond(r["pa"] == "1", TEXT3, RED)),
                 "flex_shrink": "0", "margin_top": "2px",
+                "background": rx.cond(
+                    r["pd"] == "1", TEXT3,
+                    rx.cond(r["sch"] == "1", AMBER,
+                            rx.cond(r["pa"] == "1", TEXT3, RED))
+                ),
                 "opacity": rx.cond(r["pa"] == "1", "0.5", "1"),
             }),
             rx.vstack(
                 rx.text(r["lbl"], style={
                     "font_size": "12px",
-                    "color": rx.cond(r["pd"] == "1", TEXT3, TEXT),
+                    "color": rx.cond(r["pd"] == "1", TEXT3,
+                                     rx.cond(r["sch"] == "1", TEXT, TEXT)),
                     "font_weight": "500",
                     "text_decoration": rx.cond(r["pd"] == "1", "line-through", "none"),
                 }),
-                rx.text("Bill due", style={"font_size": "12px", "color": TEXT3,
-                                            "font_family": MONO}),
+                rx.text(
+                    rx.cond(r["sch"] == "1", "Scheduled",
+                            rx.cond(r["pd"] == "1", "Paid", "Bill due")),
+                    style={
+                        "font_size": "11px", "font_family": MONO,
+                        "color": rx.cond(r["sch"] == "1", AMBER, TEXT3),
+                    },
+                ),
                 gap="1px", align_items="flex_start",
             ),
             rx.spacer(),
             rx.text(r["amt"], style={
-                "font_size": "12px", "font_family": MONO,
-                "color": rx.cond(r["pd"] == "1", TEXT3, rx.cond(r["pa"] == "1", TEXT3, RED)),
+                "font_size": "12px", "font_family": MONO, "font_weight": "600",
+                "color": rx.cond(
+                    r["pd"] == "1", TEXT3,
+                    rx.cond(r["sch"] == "1", AMBER,
+                            rx.cond(r["pa"] == "1", TEXT3, RED))
+                ),
                 "text_decoration": rx.cond(r["pd"] == "1", "line-through", "none"),
             }),
             align_items="flex_start", gap="10px", width="100%",
@@ -669,7 +687,7 @@ def _timeline_subpanel() -> rx.Component:
                 width="100%", gap="0px",
             ),
             rx.box(
-                rx.text("No income or bills in the next 30 days",
+                rx.text("No income or bills in the next 60 days",
                         style={"color": TEXT3, "font_size": "12px"}),
                 rx.text("Add paychecks and bills in Setup",
                         style={"color": TEXT3, "font_size": "11px", "margin_top": "4px"}),
@@ -1074,19 +1092,6 @@ def _whatif_subpanel() -> rx.Component:
             ),
         ),
 
-        # ── What-if forecast period cards ─────────────────────────────────────
-        rx.cond(
-            AppState.wi_active & (AppState.wi_periods.length() > 0),
-            rx.box(
-                rx.text("What-If Forecast",
-                        style={"font_size": "11px", "color": TEXT3, "font_family": MONO,
-                               "letter_spacing": "0.1em", "text_transform": "uppercase",
-                               "margin_bottom": "12px", "margin_top": "4px"}),
-                rx.foreach(AppState.wi_periods.to(list[dict[str, Any]]), _period_card),
-                width="100%",
-            ),
-            rx.box(),
-        ),
     )
 
 

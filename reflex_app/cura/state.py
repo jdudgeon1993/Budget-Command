@@ -2664,7 +2664,9 @@ class AppState(rx.State):
 
         # ── Forecast ───────────────────────────────────────────────────────
         self._refresh_forecast_accounts()
-        self._run_forecast()
+        # preserve_open=True keeps whatever cards the user has expanded;
+        # auto-open only happens when fc_open_pids is still empty (first load)
+        self._run_forecast(preserve_open=bool(self.fc_open_pids))
 
         if self.active_panel == "reports":
             self._build_reports()

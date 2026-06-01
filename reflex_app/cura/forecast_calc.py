@@ -288,15 +288,22 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         target  = budget if budget > 0 else bill_a
         return (alloc >= target * 0.99) if target > 0 else alloc > 0
 
-    # Check if a bill is already PAID (spent) in current month
+    # Check if a bill is already PAID (spent) in current month.
+    # Scheduled (future-dated) transactions are intentional but not yet executed —
+    # exclude them so the bucket still appears in the forecast until money actually moves.
     paid_bids: set[str] = set()
     for t in txs:
-        if t.get("type") == "out" and t.get("bucketId") and _mid(date.fromisoformat(t["date"])) == today_mid:
+        if (t.get("type") == "out" and t.get("bucketId")
+                and not _is_scheduled(t)
+                and _mid(date.fromisoformat(t["date"])) == today_mid):
             bid_ = t["bucketId"]
             alloc_ = float(monthly_allocs.get(today_mid, {}).get(bid_, 0))
-            spent_ = sum(float(tx.get("amount") or 0) for tx in txs
-                         if tx.get("bucketId") == bid_ and tx.get("type") == "out"
-                         and _mid(date.fromisoformat(tx["date"])) == today_mid)
+            spent_ = sum(
+                float(tx.get("amount") or 0) for tx in txs
+                if tx.get("bucketId") == bid_ and tx.get("type") == "out"
+                and not _is_scheduled(tx)
+                and _mid(date.fromisoformat(tx["date"])) == today_mid
+            )
             if alloc_ > 0 and spent_ >= alloc_ * 0.99:
                 paid_bids.add(bid_)
 
@@ -513,7 +520,12 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
     def _bill_amt(b: dict) -> float:
         return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
 
-    def _is_paid(b: dict, bd: date) -> bool:
+    def _is_paid(b: dict, bd: date, occurrence: int = 1) -> bool:
+        """
+        True when confirmed (non-scheduled) spending for this bucket+month
+        covers `occurrence` × the per-event amount.  Prevents a single
+        transaction from marking every recurrence in the month as done.
+        """
         mid = _mid(bd)
         amt = _bill_amt(b)
         if not amt:
@@ -522,8 +534,19 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
             float(t.get("amount") or 0) for t in txs
             if t.get("bucketId") == b["id"] and t.get("type") == "out"
             and t.get("monthId") == mid
+            and not _is_scheduled(t)
         )
-        return spent >= amt * 0.99
+        return spent >= amt * occurrence * 0.99
+
+    def _has_scheduled_tx(b: dict, bd: date) -> bool:
+        """True if there is a future-dated (scheduled, not yet executed) tx for this month."""
+        mid = _mid(bd)
+        return any(
+            t for t in txs
+            if t.get("bucketId") == b["id"] and t.get("type") == "out"
+            and t.get("monthId") == mid
+            and _is_scheduled(t)
+        )
 
     dated_bills = [b for b in buckets if not b.get("archived") and b.get("dueDay") is not None
                    and _bill_amt(b) > 0]
@@ -531,25 +554,37 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
                    and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
                    and _bill_amt(b) > 0]
 
+    # occurrence_count tracks how many times each (bucket, month) pair has appeared
+    # so the nth occurrence checks: total_spent >= n × per_event_amount
+    occ_count: dict[tuple, int] = {}
+
     bill_by_date: dict[date, list] = {}
     for b in dated_bills:
         for bd in _bill_dates(b.get("dueDay"), b.get("payFreq"), today, end):
+            key = (b["id"], _mid(bd))
+            occ_count[key] = occ_count.get(key, 0) + 1
+            occ = occ_count[key]
             bill_by_date.setdefault(bd, []).append({
                 "name":       b["name"],
                 "amount_fmt": _fmt(_bill_amt(b)),
-                "paid":       _is_paid(b, bd),
+                "paid":       _is_paid(b, bd, occ),
+                "scheduled":  not _is_paid(b, bd, occ) and _has_scheduled_tx(b, bd),
             })
     for b in freq_bills:
         for bd in _freq_only_dates(b["payFreq"], today, end):
+            key = (b["id"], _mid(bd))
+            occ_count[key] = occ_count.get(key, 0) + 1
+            occ = occ_count[key]
             bill_by_date.setdefault(bd, []).append({
                 "name":       b["name"],
                 "amount_fmt": _fmt(_bill_amt(b)),
-                "paid":       _is_paid(b, bd),
+                "paid":       _is_paid(b, bd, occ),
+                "scheduled":  not _is_paid(b, bd, occ) and _has_scheduled_tx(b, bd),
             })
 
     all_dates = sorted(set(pc_by_date.keys()) | set(bill_by_date.keys()))
 
-    _blank = {"rt": "", "lbl": "", "amt": "", "td": "", "pa": "", "pd": ""}
+    _blank = {"rt": "", "lbl": "", "amt": "", "td": "", "pa": "", "pd": "", "sch": ""}
 
     def _row(**kw) -> dict:
         r = dict(_blank)
@@ -573,12 +608,14 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
         for pc in pc_by_date.get(d, []):
             rows.append(_row(rt="paycheck", lbl=pc["label"], amt=pc["amount_fmt"]))
 
-        # Unpaid bills first, then paid
-        bills = sorted(bill_by_date.get(d, []), key=lambda b: (b["paid"], b["name"]))
+        # Order: unpaid/unscheduled first, then scheduled, then paid
+        bills = sorted(bill_by_date.get(d, []),
+                       key=lambda b: (b["paid"], b["scheduled"], b["name"]))
         for bl in bills:
             rows.append(_row(rt="bill", lbl=bl["name"], amt=bl["amount_fmt"],
                              pa="1" if d < today else "",
-                             pd="1" if bl["paid"] else ""))
+                             pd="1" if bl["paid"] else "",
+                             sch="1" if bl["scheduled"] and d >= today else ""))
 
     return rows
 
