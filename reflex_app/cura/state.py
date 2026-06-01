@@ -1438,41 +1438,61 @@ class AppState(rx.State):
     #  Bucket reorder (▲ / ▼ buttons)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _swap_bucket_order(self, bid: str, direction: int):
-        """Swap bid with its neighbor (direction=-1 up, +1 down) within the same category."""
-        buckets = list((self._raw or {}).get("buckets", []))
-        target = next((b for b in buckets if b["id"] == bid), None)
-        if not target:
-            return
-        cat_id = target.get("catId", "")
-        siblings = sorted(
-            [b for b in buckets if b.get("catId") == cat_id and not b.get("archived")],
-            key=lambda b: b.get("order", 0),
-        )
-        idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), None)
-        if idx is None:
-            return
-        swap_idx = idx + direction
-        if swap_idx < 0 or swap_idx >= len(siblings):
-            return
-        other = siblings[swap_idx]
-        a_order = int(target.get("order", 0))
-        b_order = int(other.get("order", 0))
-        # If orders are equal assign distinct values so the swap is visible
-        if a_order == b_order:
-            a_order, b_order = idx, swap_idx
-        DB.upsert_bucket(self.user_id, self.access_token, bid, {"sort_order": b_order})
-        DB.upsert_bucket(self.user_id, self.access_token, other["id"], {"sort_order": a_order})
-        # Reload fresh data (same pattern as save_budget_edit etc.)
-        data = DB.load_all(self.user_id, self.access_token)
-        self._raw = data
-        self._process(data, self.active_mid)
+    async def move_bucket_up(self, bid: str):
+        yield
+        try:
+            buckets = list((self._raw or {}).get("buckets", []))
+            target  = next((b for b in buckets if b["id"] == bid), None)
+            if not target:
+                return
+            cat_id   = target.get("catId", "")
+            siblings = sorted(
+                [b for b in buckets if b.get("catId") == cat_id and not b.get("archived")],
+                key=lambda b: b.get("order", 0),
+            )
+            idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), None)
+            if idx is None or idx == 0:
+                return
+            other   = siblings[idx - 1]
+            a_order = int(target.get("order", 0))
+            b_order = int(other.get("order", 0))
+            if a_order == b_order:
+                a_order, b_order = idx, idx - 1
+            DB.upsert_bucket(self.user_id, self.access_token, bid,        {"sort_order": b_order})
+            DB.upsert_bucket(self.user_id, self.access_token, other["id"], {"sort_order": a_order})
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+        except Exception as e:
+            yield rx.toast.error(f"Reorder failed: {e}", duration=6000)
 
-    def move_bucket_up(self, bid: str):
-        self._swap_bucket_order(bid, -1)
-
-    def move_bucket_down(self, bid: str):
-        self._swap_bucket_order(bid, 1)
+    async def move_bucket_down(self, bid: str):
+        yield
+        try:
+            buckets = list((self._raw or {}).get("buckets", []))
+            target  = next((b for b in buckets if b["id"] == bid), None)
+            if not target:
+                return
+            cat_id   = target.get("catId", "")
+            siblings = sorted(
+                [b for b in buckets if b.get("catId") == cat_id and not b.get("archived")],
+                key=lambda b: b.get("order", 0),
+            )
+            idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), None)
+            if idx is None or idx >= len(siblings) - 1:
+                return
+            other   = siblings[idx + 1]
+            a_order = int(target.get("order", 0))
+            b_order = int(other.get("order", 0))
+            if a_order == b_order:
+                a_order, b_order = idx + 1, idx
+            DB.upsert_bucket(self.user_id, self.access_token, bid,        {"sort_order": b_order})
+            DB.upsert_bucket(self.user_id, self.access_token, other["id"], {"sort_order": a_order})
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+        except Exception as e:
+            yield rx.toast.error(f"Reorder failed: {e}", duration=6000)
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Bucket settings dialog
