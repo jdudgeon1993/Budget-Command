@@ -435,6 +435,70 @@ def _forecast_subpanel() -> rx.Component:
             style={"margin_bottom": "12px"},
         ),
 
+        # Saved scenario chips
+        rx.cond(
+            AppState.wi_scenarios.length() > 0,
+            rx.box(
+                rx.hstack(
+                    rx.text("SCENARIOS",
+                            style={"font_size": "9px", "color": TEXT3, "font_family": MONO,
+                                   "letter_spacing": "0.1em", "flex_shrink": "0"}),
+                    rx.hstack(
+                        rx.foreach(
+                            AppState.wi_scenarios.to(list[dict[str, Any]]),
+                            lambda sc: rx.box(
+                                sc["name"],
+                                on_click=AppState.apply_fc_scenario(sc["id"]),
+                                style=rx.cond(
+                                    AppState.fc_active_scenario_id == sc["id"],
+                                    {"padding": "3px 10px", "border_radius": "16px",
+                                     "cursor": "pointer", "font_size": "11px",
+                                     "font_family": MONO, "background": f"{AMBER}22",
+                                     "color": AMBER, "border": f"1px solid {AMBER}55"},
+                                    {"padding": "3px 10px", "border_radius": "16px",
+                                     "cursor": "pointer", "font_size": "11px",
+                                     "font_family": MONO, "background": BG3,
+                                     "color": TEXT3, "border": f"1px solid {BORDER}",
+                                     "_hover": {"color": TEXT2, "border_color": BORDER2}},
+                                ),
+                            ),
+                        ),
+                        gap="6px", flex_wrap="wrap",
+                    ),
+                    rx.cond(
+                        AppState.fc_active_scenario_id != "",
+                        rx.box(
+                            "Clear",
+                            on_click=AppState.clear_fc_scenario,
+                            style={"font_size": "10px", "color": TEXT3, "cursor": "pointer",
+                                   "padding": "2px 8px", "border_radius": "6px",
+                                   "border": f"1px solid {BORDER}",
+                                   "_hover": {"color": RED, "border_color": RED + "44"}},
+                        ),
+                        rx.box(),
+                    ),
+                    gap="8px", align_items="center", flex_wrap="wrap", width="100%",
+                ),
+                rx.cond(
+                    AppState.fc_active_scenario_id != "",
+                    rx.box(
+                        rx.text("Scenario: ", style={"font_size": "10px", "color": AMBER,
+                                                      "font_family": MONO}),
+                        rx.text(AppState.fc_active_scenario_name,
+                                style={"font_size": "10px", "color": AMBER, "font_weight": "600"}),
+                        style={"display": "inline-flex", "gap": "4px", "align_items": "center",
+                               "padding": "4px 10px", "background": f"{AMBER}12",
+                               "border_radius": "6px", "margin_top": "8px"},
+                    ),
+                    rx.box(),
+                ),
+                style={"margin_bottom": "12px", "padding": "10px 12px",
+                       "background": BG2, "border_radius": "8px",
+                       "border": f"1px solid {BORDER}"},
+            ),
+            rx.box(),
+        ),
+
         # KPI bar
         rx.cond(
             AppState.forecast_loading,
@@ -583,7 +647,7 @@ def _timeline_subpanel() -> rx.Component:
                 width="100%", gap="0px",
             ),
             rx.box(
-                rx.text("No income or bills in the next 60 days",
+                rx.text("No income or bills in the next 30 days",
                         style={"color": TEXT3, "font_size": "12px"}),
                 rx.text("Add paychecks and bills in Setup",
                         style={"color": TEXT3, "font_size": "11px", "margin_top": "4px"}),
@@ -596,6 +660,23 @@ def _timeline_subpanel() -> rx.Component:
 # ─────────────────────────────────────────────────────────────────────────────
 #  ── WHAT-IF sub-panel ────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _month_pill(label: str, key: str, status: str) -> rx.Component:
+    is_off = status == "off"
+    return rx.box(
+        label,
+        on_click=AppState.toggle_wi_month_schedule(key),
+        style={
+            "font_size": "9px", "font_family": MONO, "cursor": "pointer",
+            "padding": "2px 5px", "border_radius": "4px",
+            "background": rx.cond(status == "off", BG3, f"{ACCENT}22"),
+            "color": rx.cond(status == "off", TEXT3, ACCENT),
+            "border": rx.cond(status == "off", f"1px solid {BORDER}", f"1px solid {ACCENT}44"),
+            "text_decoration": rx.cond(status == "off", "line-through", "none"),
+            "_hover": {"opacity": "0.8"},
+        },
+    )
+
 
 def _wi_bucket_row(r: dict) -> rx.Component:
     return rx.match(
@@ -613,56 +694,88 @@ def _wi_bucket_row(r: dict) -> rx.Component:
         )),
 
         # Bucket row
-        ("bkt", rx.hstack(
-            # On/Off toggle
-            rx.box(
-                rx.cond(
-                    r["is_off"] == "1",
-                    rx.text("◎", style={"color": TEXT3, "font_size": "14px"}),
-                    rx.text("●", style={"color": r["color"], "font_size": "14px"}),
+        ("bkt", rx.vstack(
+            rx.hstack(
+                # On/Off toggle
+                rx.box(
+                    rx.cond(
+                        r["is_off"] == "1",
+                        rx.text("◎", style={"color": TEXT3, "font_size": "14px"}),
+                        rx.text("●", style={"color": r["color"], "font_size": "14px"}),
+                    ),
+                    on_click=AppState.toggle_wi_bucket_off(r["bid"]),
+                    style={"cursor": "pointer", "flex_shrink": "0", "_hover": {"opacity": "0.7"}},
                 ),
-                on_click=AppState.toggle_wi_bucket_off(r["bid"]),
-                style={"cursor": "pointer", "flex_shrink": "0", "_hover": {"opacity": "0.7"}},
-            ),
-            # Bucket name + due info
-            rx.vstack(
-                rx.text(r["name"], style={
-                    "font_size": "13px", "color": rx.cond(r["is_off"] == "1", TEXT3, TEXT),
-                    "text_decoration": rx.cond(r["is_off"] == "1", "line-through", "none"),
+                # Bucket name + due info
+                rx.vstack(
+                    rx.text(r["name"], style={
+                        "font_size": "13px", "color": rx.cond(r["is_off"] == "1", TEXT3, TEXT),
+                        "text_decoration": rx.cond(r["is_off"] == "1", "line-through", "none"),
+                    }),
+                    rx.cond(
+                        r["due_info"] != "",
+                        rx.text(r["due_info"], style={"font_size": "9px", "color": TEXT3,
+                                                       "font_family": MONO}),
+                        rx.box(),
+                    ),
+                    gap="1px", align_items="flex_start", flex="1",
+                ),
+                # Base amount
+                rx.text(r["base_fmt"], style={"font_size": "11px", "color": TEXT3,
+                                               "font_family": MONO, "min_width": "52px",
+                                               "text_align": "right"}),
+                # Override input
+                rx.input(
+                    placeholder="+50",
+                    value=r["override_val"],
+                    on_change=AppState.set_wi_bucket_override(r["bid"]),
+                    style={
+                        "background": BG3, "border": f"1px solid {BORDER}",
+                        "border_radius": "6px", "padding": "4px 8px",
+                        "color": TEXT, "font_family": MONO, "font_size": "12px",
+                        "width": "66px", "text_align": "right",
+                        "_focus": {"border_color": ACCENT, "outline": "none"},
+                    },
+                ),
+                # Effective amount
+                rx.text(r["eff_fmt"], style={
+                    "font_size": "12px", "font_family": MONO, "font_weight": "600",
+                    "color": rx.cond(r["is_off"] == "1", TEXT3,
+                                      rx.cond(r["override_val"] != "", AMBER, TEXT2)),
+                    "min_width": "52px", "text_align": "right",
                 }),
-                rx.cond(
-                    r["due_info"] != "",
-                    rx.text(r["due_info"], style={"font_size": "9px", "color": TEXT3,
-                                                   "font_family": MONO}),
-                    rx.box(),
+                align_items="center", gap="8px", width="100%",
+            ),
+            # Month schedule pills + due day override sub-row
+            rx.hstack(
+                rx.text("MONTHS:", style={"font_size": "8px", "color": TEXT3,
+                                           "font_family": MONO, "letter_spacing": "0.06em",
+                                           "flex_shrink": "0"}),
+                _month_pill(r["ml0"], r["mi0"], r["ms0"]),
+                _month_pill(r["ml1"], r["mi1"], r["ms1"]),
+                _month_pill(r["ml2"], r["mi2"], r["ms2"]),
+                _month_pill(r["ml3"], r["mi3"], r["ms3"]),
+                _month_pill(r["ml4"], r["mi4"], r["ms4"]),
+                _month_pill(r["ml5"], r["mi5"], r["ms5"]),
+                rx.spacer(),
+                rx.text("Day:", style={"font_size": "9px", "color": TEXT3,
+                                        "font_family": MONO, "flex_shrink": "0"}),
+                rx.input(
+                    placeholder=r["due_info"],
+                    value=r["due_day_override"],
+                    on_change=AppState.set_wi_due_day_override(r["bid"]),
+                    style={
+                        "background": BG3, "border": f"1px solid {BORDER}",
+                        "border_radius": "4px", "padding": "2px 6px",
+                        "color": TEXT, "font_family": MONO, "font_size": "11px",
+                        "width": "44px", "text_align": "center",
+                        "_focus": {"border_color": ACCENT, "outline": "none"},
+                    },
                 ),
-                gap="1px", align_items="flex_start", flex="1",
+                gap="4px", align_items="center", width="100%",
+                style={"padding_left": "22px", "opacity": rx.cond(r["is_off"] == "1", "0.4", "1")},
             ),
-            # Base amount
-            rx.text(r["base_fmt"], style={"font_size": "11px", "color": TEXT3,
-                                           "font_family": MONO, "min_width": "60px",
-                                           "text_align": "right"}),
-            # Override input
-            rx.input(
-                placeholder="+50",
-                value=r["override_val"],
-                on_change=AppState.set_wi_bucket_override(r["bid"]),
-                style={
-                    "background": BG3, "border": f"1px solid {BORDER}",
-                    "border_radius": "6px", "padding": "4px 8px",
-                    "color": TEXT, "font_family": MONO, "font_size": "12px",
-                    "width": "70px", "text_align": "right",
-                    "_focus": {"border_color": ACCENT, "outline": "none"},
-                },
-            ),
-            # Effective amount
-            rx.text(r["eff_fmt"], style={
-                "font_size": "12px", "font_family": MONO, "font_weight": "600",
-                "color": rx.cond(r["is_off"] == "1", TEXT3,
-                                  rx.cond(r["override_val"] != "", AMBER, TEXT2)),
-                "min_width": "60px", "text_align": "right",
-            }),
-            align_items="center", gap="8px", width="100%",
+            width="100%", gap="4px",
             style={"padding": "6px 0", "border_bottom": f"1px solid {BORDER}33",
                    "opacity": rx.cond(r["is_off"] == "1", "0.5", "1")},
         )),
@@ -900,7 +1013,7 @@ def _whatif_subpanel() -> rx.Component:
                     gap="8px", align_items="center", width="100%",
                     style={"margin_bottom": "6px"},
                 ),
-                rx.text("Override syntax: +50 (add), -20 (subtract), *1.1 (multiply), =200 (set)",
+                rx.text("Override syntax: +50 (add), -20 (subtract), *1.1 (multiply), /2 (divide), =200 (set)",
                         style={"font_size": "9px", "color": TEXT3, "margin_bottom": "8px"}),
                 rx.vstack(
                     rx.foreach(AppState.wi_bucket_rows.to(list[dict[str, Any]]), _wi_bucket_row),

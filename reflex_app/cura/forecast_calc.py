@@ -37,7 +37,7 @@ def _range_label(s: date, e: date) -> str:
 # ── Math expression evaluator for What-If overrides ──────────────────────────
 
 def _apply_expr(base: float, expr: str) -> float:
-    """Apply a math expression to a base value. Supports: +N, -N, *N, =N, or N."""
+    """Apply a math expression to a base value. Supports: +N, -N, *N, /N, =N, or N."""
     if not expr or not str(expr).strip():
         return base
     s = str(expr).strip().replace(",", "").replace("$", "")
@@ -48,6 +48,9 @@ def _apply_expr(base: float, expr: str) -> float:
             return max(0.0, base - float(s[1:]))
         elif s.startswith("*"):
             return max(0.0, base * float(s[1:]))
+        elif s.startswith("/"):
+            divisor = float(s[1:])
+            return max(0.0, base / divisor) if divisor != 0 else base
         elif s.startswith("="):
             return max(0.0, float(s[1:]))
         else:
@@ -164,7 +167,9 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      income_override: float = 0.0,
                      bucket_overrides: dict = None,
                      rule_overrides: dict = None,
-                     off_buckets: list = None) -> dict:
+                     off_buckets: list = None,
+                     schedule: dict = None,
+                     due_day_overrides: dict = None) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -176,9 +181,11 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     off_buckets:      [bid, ...] — buckets to exclude from forecast
     """
     today = date.today()
-    bucket_overrides = bucket_overrides or {}
-    rule_overrides   = rule_overrides or {}
-    off_set          = set(off_buckets or [])
+    bucket_overrides  = bucket_overrides or {}
+    rule_overrides    = rule_overrides or {}
+    off_set           = set(off_buckets or [])
+    schedule          = schedule or {}
+    due_day_overrides = due_day_overrides or {}
 
     accounts   = data.get("accounts", [])
     buckets    = data.get("buckets", [])
@@ -351,6 +358,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         def _add_bill(b: dict, bd: date) -> None:
             if b["id"] in paid_bids and _mid(bd) == today_mid:
                 return
+            if schedule.get(f"{b['id']}_{_mid(bd)}", "on") == "off":
+                return
             amt   = _effective_bill_amt(b)
             entry = {"name": b["name"], "amount": amt}
             if _funded(b["id"], bd):
@@ -360,7 +369,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
         overdue_start = date(today.year, today.month, 1) if is_gap else ps
         for b in dated_bills:
-            for bd in _bill_dates(b.get("dueDay"), b.get("payFreq"), overdue_start, pe):
+            eff_due = due_day_overrides.get(b["id"]) or b.get("dueDay")
+            for bd in _bill_dates(eff_due, b.get("payFreq"), overdue_start, pe):
                 _add_bill(b, bd)
         for b in freq_bills:
             for bd in _freq_only_dates(b["payFreq"], ps, pe):
@@ -588,16 +598,19 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
 # ── 6-month What-If chart data ────────────────────────────────────────────────
 
 def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: dict = None,
-                   off_buckets: list = None, income_override: float = 0.0) -> list[dict]:
+                   off_buckets: list = None, income_override: float = 0.0,
+                   schedule: dict = None, due_day_overrides: dict = None) -> list[dict]:
     """
     Returns list of 6 monthly dicts for the What-If bar chart.
     Each dict: {label, income, bills, surplus, surplus_positive}
     """
     today          = date.today()
-    bucket_overrides = bucket_overrides or {}
-    off_set        = set(off_buckets or [])
-    paychecks      = data.get("paychecks", [])
-    buckets        = data.get("buckets", [])
+    bucket_overrides  = bucket_overrides or {}
+    off_set           = set(off_buckets or [])
+    schedule          = schedule or {}
+    due_day_overrides = due_day_overrides or {}
+    paychecks         = data.get("paychecks", [])
+    buckets           = data.get("buckets", [])
 
     def _eff_bill(b: dict) -> float:
         bid  = b["id"]
@@ -647,11 +660,17 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
                 month_income += raw_amt
 
         # Monthly bills
+        mid_str = _mid(m_start)
         month_bills = 0.0
         for b in active_dated:
-            dates = _bill_dates(b.get("dueDay"), b.get("payFreq"), m_start, m_end)
+            if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
+                continue
+            eff_due = due_day_overrides.get(b["id"]) or b.get("dueDay")
+            dates = _bill_dates(eff_due, b.get("payFreq"), m_start, m_end)
             month_bills += _eff_bill(b) * len(dates)
         for b in active_freq:
+            if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
+                continue
             dates = _freq_only_dates(b["payFreq"], m_start, m_end)
             month_bills += _eff_bill(b) * len(dates)
 

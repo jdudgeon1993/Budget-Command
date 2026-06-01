@@ -439,24 +439,30 @@ class AppState(rx.State):
     tl_rows:         list[dict] = []   # flat 60-day event feed
 
     # ── What-If ───────────────────────────────────────────────────────────────
-    wi_income_str:       str        = ""    # monthly income override input
-    wi_bucket_overrides: dict       = {}    # bid -> expr string ("+50", "200", etc.)
-    wi_rule_overrides:   dict       = {}    # rule_id -> value string
-    wi_off_buckets:      list[str]  = []    # bucket IDs turned off in what-if
-    wi_periods:          list[dict] = []    # per-period card dicts for what-if result
-    wi_start_bal:        str        = "—"
-    wi_total_income:     str        = "—"
-    wi_total_unfunded:   str        = "—"
-    wi_safe_to_spend:    str        = "—"
-    wi_sts_color:        str        = "#818cf8"
-    wi_shortfall_count:  int        = 0
-    wi_active:           bool       = False
-    wi_bucket_rows:      list[dict] = []    # category-grouped bucket editor rows
-    wi_rules_rows:       list[dict] = []    # rules editor rows
-    wi_chart_svg:        str        = ""    # pre-computed 6-month SVG bar chart
-    wi_scenarios:        list[dict] = []    # [{id, name}] loaded from DB
-    wi_active_scenario_id: str      = ""
-    wi_scenario_name:    str        = ""
+    wi_income_str:        str        = ""    # monthly income override input
+    wi_bucket_overrides:  dict       = {}    # bid -> expr string ("+50", "200", etc.)
+    wi_rule_overrides:    dict       = {}    # rule_id -> value string
+    wi_off_buckets:       list[str]  = []    # bucket IDs turned off in what-if
+    wi_schedule:          dict       = {}    # f"{bid}_{mid}" -> "off" (default "on")
+    wi_due_day_overrides: dict       = {}    # bid -> int day override
+    wi_periods:           list[dict] = []    # per-period card dicts for what-if result
+    wi_start_bal:         str        = "—"
+    wi_total_income:      str        = "—"
+    wi_total_unfunded:    str        = "—"
+    wi_safe_to_spend:     str        = "—"
+    wi_sts_color:         str        = "#818cf8"
+    wi_shortfall_count:   int        = 0
+    wi_active:            bool       = False
+    wi_bucket_rows:       list[dict] = []    # category-grouped bucket editor rows
+    wi_rules_rows:        list[dict] = []    # rules editor rows
+    wi_chart_svg:         str        = ""    # pre-computed 6-month SVG bar chart
+    wi_scenarios:         list[dict] = []    # [{id, name, allocs}] loaded from DB
+    wi_active_scenario_id: str       = ""
+    wi_scenario_name:     str        = ""
+
+    # ── Forecast scenario overlay ─────────────────────────────────────────────
+    fc_active_scenario_id:   str  = ""
+    fc_active_scenario_name: str  = ""
 
     # ── Internal raw data (not sent to client — prefixed with _) ─────────────
     # Note: in Reflex 0.9 all state vars go to client; use _ prefix by convention
@@ -630,7 +636,7 @@ class AppState(rx.State):
         from .forecast_calc import compute_simple_timeline
         if not self._raw:
             return
-        rows      = compute_simple_timeline(self._raw, n_days=60)
+        rows      = compute_simple_timeline(self._raw, n_days=30)
         self.tl_rows = _flatten_timeline(rows)
 
     # ── What-If events ────────────────────────────────────────────────────────
@@ -678,29 +684,112 @@ class AppState(rx.State):
         self._build_wi_chart_svg()
 
     def reset_whatif(self):
-        self.wi_income_str       = ""
-        self.wi_bucket_overrides = {}
-        self.wi_rule_overrides   = {}
-        self.wi_off_buckets      = []
-        self.wi_active           = False
+        self.wi_income_str        = ""
+        self.wi_bucket_overrides  = {}
+        self.wi_rule_overrides    = {}
+        self.wi_off_buckets       = []
+        self.wi_schedule          = {}
+        self.wi_due_day_overrides = {}
+        self.wi_active            = False
         self.wi_active_scenario_id = ""
-        self.wi_periods          = []
-        self.wi_start_bal        = "—"
-        self.wi_total_income     = "—"
-        self.wi_total_unfunded   = "—"
-        self.wi_safe_to_spend    = "—"
-        self.wi_sts_color        = "#818cf8"
-        self.wi_shortfall_count  = 0
-        self.wi_chart_svg        = ""
+        self.wi_periods           = []
+        self.wi_start_bal         = "—"
+        self.wi_total_income      = "—"
+        self.wi_total_unfunded    = "—"
+        self.wi_safe_to_spend     = "—"
+        self.wi_sts_color         = "#818cf8"
+        self.wi_shortfall_count   = 0
+        self.wi_chart_svg         = ""
         self._build_wi_bucket_rows()
         self._build_wi_rules_rows()
+
+    def toggle_wi_month_schedule(self, key: str):
+        """key = '{bid}_{mid}' — toggle on/off for that bucket+month."""
+        sched = dict(self.wi_schedule)
+        if sched.get(key, "on") == "off":
+            del sched[key]
+        else:
+            sched[key] = "off"
+        self.wi_schedule = sched
+        self._update_wi_active()
+        self._run_whatif()
+        self._build_wi_bucket_rows()
+        self._build_wi_chart_svg()
+
+    def set_wi_due_day_override(self, bid: str, val: str):
+        overrides = dict(self.wi_due_day_overrides)
+        v = val.strip()
+        if v and v.isdigit() and 1 <= int(v) <= 31:
+            overrides[bid] = v
+        elif bid in overrides:
+            del overrides[bid]
+        self.wi_due_day_overrides = overrides
+        self._update_wi_active()
+        self._run_whatif()
+        self._build_wi_bucket_rows()
+        self._build_wi_chart_svg()
+
+    def apply_fc_scenario(self, sid: str):
+        """Apply a saved What-If scenario to the Forecast tab."""
+        try:
+            rows = DB.list_scenarios(self.user_id, self.access_token)
+            sc   = next((r for r in rows if r["id"] == sid), None)
+            if not sc:
+                return
+            allocs = sc.get("allocations", {})
+            self.fc_active_scenario_id   = sid
+            self.fc_active_scenario_name = sc["name"]
+            self._run_forecast_with_scenario(allocs)
+        except Exception:
+            pass
+
+    def clear_fc_scenario(self):
+        self.fc_active_scenario_id   = ""
+        self.fc_active_scenario_name = ""
+        self._run_forecast()
+
+    def _run_forecast_with_scenario(self, allocs: dict):
+        from .forecast_calc import compute_forecast
+        if not self._raw:
+            return
+        income_ov = 0.0
+        try:
+            income_ov = float(allocs.get("_income", "").replace(",", "").replace("$", ""))
+        except Exception:
+            pass
+        result = compute_forecast(
+            self._raw, self.forecast_range, self.forecast_account,
+            income_override=income_ov,
+            bucket_overrides=allocs.get("_overrides", {}),
+            rule_overrides=allocs.get("_rule_overrides", {}),
+            off_buckets=allocs.get("_off_buckets", []),
+            schedule=allocs.get("_schedule", {}),
+            due_day_overrides={k: int(v) for k, v in allocs.get("_due_day_overrides", {}).items() if v},
+        )
+        self.fc_start_bal       = result["start_balance"]
+        self.fc_total_income    = result["total_income"]
+        self.fc_total_unfunded  = result["total_unfunded"]
+        self.fc_safe_to_spend   = result["safe_to_spend"]
+        self.fc_sts_color       = result["sts_color"]
+        self.fc_shortfall_count = result["shortfall_count"]
+        auto_pids = []
+        periods = result["periods"]
+        if periods:
+            auto_pids.append(periods[0]["id"])
+        for p in periods:
+            if p["shortfall"] and p["id"] not in auto_pids:
+                auto_pids.append(p["id"])
+        self.fc_open_pids = auto_pids
+        self.forecast_periods = _build_forecast_periods(result["periods"], set(self.fc_open_pids))
 
     def _update_wi_active(self):
         self.wi_active = bool(
             self.wi_income_str.strip() or
             self.wi_bucket_overrides or
             self.wi_rule_overrides or
-            self.wi_off_buckets
+            self.wi_off_buckets or
+            self.wi_schedule or
+            self.wi_due_day_overrides
         )
 
     def _run_whatif(self):
@@ -718,6 +807,8 @@ class AppState(rx.State):
             bucket_overrides=dict(self.wi_bucket_overrides),
             rule_overrides=dict(self.wi_rule_overrides),
             off_buckets=list(self.wi_off_buckets),
+            schedule=dict(self.wi_schedule),
+            due_day_overrides={k: int(v) for k, v in self.wi_due_day_overrides.items() if v},
         )
         self.wi_start_bal       = result["start_balance"]
         self.wi_total_income    = result["total_income"]
@@ -731,12 +822,25 @@ class AppState(rx.State):
         """Build category-grouped bucket list for the What-If editor."""
         if not self._raw:
             return
-        from .forecast_calc import _apply_expr
+        import calendar as _cal_mod
+        from datetime import date as _date_cls
+        from .forecast_calc import _apply_expr, _mid as _fc_mid
         raw       = self._raw
         cats      = sorted(raw.get("cats", []), key=lambda c: c.get("order", 0))
         buckets   = [b for b in raw.get("buckets", []) if not b.get("archived")]
         overrides = dict(self.wi_bucket_overrides)
         off_set   = set(self.wi_off_buckets)
+        schedule  = dict(self.wi_schedule)
+        due_ovs   = dict(self.wi_due_day_overrides)
+        today     = _date_cls.today()
+
+        # Compute 6 upcoming months: (mid_str, short_label)
+        months_6: list[tuple[str, str]] = []
+        for i in range(6):
+            m_idx = (today.month - 1 + i) % 12
+            yr    = today.year + (today.month - 1 + i) // 12
+            d     = _date_cls(yr, m_idx + 1, 1)
+            months_6.append((_fc_mid(d), d.strftime("%b")))
 
         rows: list[dict] = []
         for cat in cats:
@@ -752,7 +856,10 @@ class AppState(rx.State):
                 "rt": "cat", "id": cid, "name": cat.get("name", ""),
                 "color": cat.get("color", "#818cf8"),
                 "is_off": "", "bid": "", "base_fmt": "", "override_val": "",
-                "eff_fmt": "", "due_info": "",
+                "eff_fmt": "", "due_info": "", "due_day_override": "",
+                "mi0": "", "mi1": "", "mi2": "", "mi3": "", "mi4": "", "mi5": "",
+                "ml0": "", "ml1": "", "ml2": "", "ml3": "", "ml4": "", "ml5": "",
+                "ms0": "", "ms1": "", "ms2": "", "ms3": "", "ms4": "", "ms5": "",
             })
             for b in cat_bkts:
                 bid   = b["id"]
@@ -765,17 +872,29 @@ class AppState(rx.State):
                     due_info = f"due {b['dueDay']}"
                 elif b.get("payFreq"):
                     due_info = b["payFreq"]
+                # Month schedule pills
+                mi = [months_6[i][0] for i in range(6)]  # mid strings
+                ml = [months_6[i][1] for i in range(6)]  # labels
+                ms = [schedule.get(f"{bid}_{mi[i]}", "on") for i in range(6)]  # on/off
                 rows.append({
-                    "rt":           "bkt",
-                    "id":           bid,
-                    "bid":          bid,
-                    "name":         b.get("name", ""),
-                    "color":        cat.get("color", "#818cf8"),
-                    "base_fmt":     _fmt(base),
-                    "override_val": expr,
-                    "eff_fmt":      _fmt(eff),
-                    "is_off":       is_off,
-                    "due_info":     due_info,
+                    "rt":              "bkt",
+                    "id":              bid,
+                    "bid":             bid,
+                    "name":            b.get("name", ""),
+                    "color":           cat.get("color", "#818cf8"),
+                    "base_fmt":        _fmt(base),
+                    "override_val":    expr,
+                    "eff_fmt":         _fmt(eff),
+                    "is_off":          is_off,
+                    "due_info":        due_info,
+                    "due_day_override": due_ovs.get(bid, ""),
+                    "mi0": f"{bid}_{mi[0]}", "mi1": f"{bid}_{mi[1]}",
+                    "mi2": f"{bid}_{mi[2]}", "mi3": f"{bid}_{mi[3]}",
+                    "mi4": f"{bid}_{mi[4]}", "mi5": f"{bid}_{mi[5]}",
+                    "ml0": ml[0], "ml1": ml[1], "ml2": ml[2],
+                    "ml3": ml[3], "ml4": ml[4], "ml5": ml[5],
+                    "ms0": ms[0], "ms1": ms[1], "ms2": ms[2],
+                    "ms3": ms[3], "ms4": ms[4], "ms5": ms[5],
                 })
         self.wi_bucket_rows = rows
 
@@ -821,6 +940,8 @@ class AppState(rx.State):
             rule_overrides=dict(self.wi_rule_overrides),
             off_buckets=list(self.wi_off_buckets),
             income_override=income_ov,
+            schedule=dict(self.wi_schedule),
+            due_day_overrides={k: int(v) for k, v in self.wi_due_day_overrides.items() if v},
         )
         if not months:
             self.wi_chart_svg = ""
@@ -889,7 +1010,7 @@ class AppState(rx.State):
             return
         try:
             rows = DB.list_scenarios(self.user_id, self.access_token)
-            self.wi_scenarios = [{"id": r["id"], "name": r["name"]} for r in rows]
+            self.wi_scenarios = [{"id": r["id"], "name": r["name"], "allocs": r.get("allocations", {})} for r in rows]
         except Exception:
             self.wi_scenarios = []
 
@@ -899,10 +1020,12 @@ class AppState(rx.State):
     async def save_wi_scenario(self):
         name = self.wi_scenario_name.strip() or "Untitled"
         allocs = {
-            "_overrides":      dict(self.wi_bucket_overrides),
-            "_rule_overrides": dict(self.wi_rule_overrides),
-            "_off_buckets":    list(self.wi_off_buckets),
-            "_income":         self.wi_income_str,
+            "_overrides":          dict(self.wi_bucket_overrides),
+            "_rule_overrides":     dict(self.wi_rule_overrides),
+            "_off_buckets":        list(self.wi_off_buckets),
+            "_income":             self.wi_income_str,
+            "_schedule":           dict(self.wi_schedule),
+            "_due_day_overrides":  dict(self.wi_due_day_overrides),
         }
         try:
             if self.wi_active_scenario_id:
@@ -928,6 +1051,8 @@ class AppState(rx.State):
             self.wi_rule_overrides     = allocs.get("_rule_overrides", {})
             self.wi_off_buckets        = allocs.get("_off_buckets", [])
             self.wi_income_str         = allocs.get("_income", "")
+            self.wi_schedule           = allocs.get("_schedule", {})
+            self.wi_due_day_overrides  = allocs.get("_due_day_overrides", {})
             self.wi_active_scenario_id = sid
             self.wi_scenario_name      = sc["name"]
             self._update_wi_active()
@@ -1792,14 +1917,17 @@ class AppState(rx.State):
         if amount <= 0:
             self.edit_tx_error = "Amount must be positive"
             return
+        mid = _date_to_mid(self.edit_tx_date)
         self.edit_tx_saving = True
         self.edit_tx_error  = ""
         yield
         try:
+            DB.ensure_month(self.user_id, self.access_token, mid)
             DB.update_transaction(self.user_id, self.access_token, self.edit_tx_id, {
                 "description":        self.edit_tx_desc.strip(),
                 "amount":             amount,
                 "date":               self.edit_tx_date,
+                "month_id":           mid,
                 "account_id":         self.edit_tx_account,
                 "bucket_id":          self.edit_tx_bucket or None,
                 "to_account_id":      self.edit_tx_to_account or None,
