@@ -1440,7 +1440,7 @@ class AppState(rx.State):
 
     def _swap_bucket_order(self, bid: str, direction: int):
         """Swap bid with its neighbor (direction=-1 up, +1 down) within the same category."""
-        buckets = (self._raw or {}).get("buckets", [])
+        buckets = list((self._raw or {}).get("buckets", []))
         target = next((b for b in buckets if b["id"] == bid), None)
         if not target:
             return
@@ -1458,17 +1458,15 @@ class AppState(rx.State):
         other = siblings[swap_idx]
         a_order = int(target.get("order", 0))
         b_order = int(other.get("order", 0))
-        # If orders are equal, assign distinct values so the swap is visible
+        # If orders are equal assign distinct values so the swap is visible
         if a_order == b_order:
             a_order, b_order = idx, swap_idx
         DB.upsert_bucket(self.user_id, self.access_token, bid, {"sort_order": b_order})
         DB.upsert_bucket(self.user_id, self.access_token, other["id"], {"sort_order": a_order})
-        for b in buckets:
-            if b["id"] == bid:
-                b["order"] = b_order
-            elif b["id"] == other["id"]:
-                b["order"] = a_order
-        self._process(self._raw, self.active_mid)
+        # Reload fresh data (same pattern as save_budget_edit etc.)
+        data = DB.load_all(self.user_id, self.access_token)
+        self._raw = data
+        self._process(data, self.active_mid)
 
     def move_bucket_up(self, bid: str):
         self._swap_bucket_order(bid, -1)
