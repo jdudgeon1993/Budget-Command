@@ -275,7 +275,6 @@ class AppState(rx.State):
     # ── Processed display data ────────────────────────────────────────────────
     # Flat list: {"row_type": "header"|"bucket", ...}
     bucket_rows: list[dict[str, Any]] = []
-    dnd_payload: str = ""          # transient: "src_bid|dst_bid" cleared after use
     # Flat list: {"row_type": "date_header"|"tx", ...}
     ledger_rows: list[dict[str, Any]] = []
 
@@ -1436,33 +1435,46 @@ class AppState(rx.State):
         ]
 
     # ─────────────────────────────────────────────────────────────────────────
-    #  Bucket drag-and-drop reorder
+    #  Bucket reorder (▲ / ▼ buttons)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def reorder_bucket_drop(self, payload: str):
-        self.dnd_payload = ""  # clear so next identical drop still fires on_change
-        parts = payload.split("|", 1)
-        if len(parts) != 2:
-            return
-        src_bid, dst_bid = parts
-        if src_bid == dst_bid:
-            return
+    def _swap_bucket_order(self, bid: str, direction: int):
+        """Swap bid with its neighbor (direction=-1 up, +1 down) within the same category."""
         buckets = (self._raw or {}).get("buckets", [])
-        src = next((b for b in buckets if b["id"] == src_bid), None)
-        dst = next((b for b in buckets if b["id"] == dst_bid), None)
-        if not src or not dst:
+        target = next((b for b in buckets if b["id"] == bid), None)
+        if not target:
             return
-        src_order = int(src.get("order", 0))
-        dst_order = int(dst.get("order", 0))
-        DB.upsert_bucket(self.user_id, self.access_token, src_bid, {"sort_order": dst_order})
-        DB.upsert_bucket(self.user_id, self.access_token, dst_bid, {"sort_order": src_order})
-        # Optimistic update: swap orders in _raw and re-process
+        cat_id = target.get("catId", "")
+        siblings = sorted(
+            [b for b in buckets if b.get("catId") == cat_id and not b.get("archived")],
+            key=lambda b: b.get("order", 0),
+        )
+        idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), None)
+        if idx is None:
+            return
+        swap_idx = idx + direction
+        if swap_idx < 0 or swap_idx >= len(siblings):
+            return
+        other = siblings[swap_idx]
+        a_order = int(target.get("order", 0))
+        b_order = int(other.get("order", 0))
+        # If orders are equal, assign distinct values so the swap is visible
+        if a_order == b_order:
+            a_order, b_order = idx, swap_idx
+        DB.upsert_bucket(self.user_id, self.access_token, bid, {"sort_order": b_order})
+        DB.upsert_bucket(self.user_id, self.access_token, other["id"], {"sort_order": a_order})
         for b in buckets:
-            if b["id"] == src_bid:
-                b["order"] = dst_order
-            elif b["id"] == dst_bid:
-                b["order"] = src_order
+            if b["id"] == bid:
+                b["order"] = b_order
+            elif b["id"] == other["id"]:
+                b["order"] = a_order
         self._process(self._raw, self.active_mid)
+
+    def move_bucket_up(self, bid: str):
+        self._swap_bucket_order(bid, -1)
+
+    def move_bucket_down(self, bid: str):
+        self._swap_bucket_order(bid, 1)
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Bucket settings dialog
