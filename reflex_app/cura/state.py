@@ -3149,12 +3149,14 @@ class AppState(rx.State):
         def _empty_month_cols() -> dict:
             d: dict = {}
             for i in range(3):
-                d[f"m{i}_budget"] = ""
-                d[f"m{i}_spent"]  = ""
-                d[f"m{i}_pct"]    = "0"
-                d[f"m{i}_status"] = ""
-                d[f"m{i}_var"]    = ""
-                d[f"show_m{i}"]   = ""
+                d[f"m{i}_budget"]    = ""
+                d[f"m{i}_spent"]     = ""
+                d[f"m{i}_pct"]       = "0"
+                d[f"m{i}_bar_w"]     = "0%"
+                d[f"m{i}_status"]    = ""
+                d[f"m{i}_var"]       = ""
+                d[f"m{i}_var_color"] = TEXT3
+                d[f"show_m{i}"]      = ""
             return d
 
         for cat in cats_sorted:
@@ -3174,7 +3176,7 @@ class AppState(rx.State):
                 "color":    cat.get("color", "#818cf8"),
                 "bid":      "", "cat_name": "",
                 **_empty_month_cols(),
-                "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_status": "",
+                "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_var_color": TEXT3, "avg_status": "",
             }
             for i in range(n):
                 cat_hdr[f"show_m{i}"] = "1"
@@ -3189,7 +3191,7 @@ class AppState(rx.State):
                     "cat_name": cat.get("name", ""),
                     "color":    cat.get("color", "#818cf8"),
                     **_empty_month_cols(),
-                    "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_status": "",
+                    "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_var_color": TEXT3, "avg_status": "",
                 }
                 budgets: list[float] = []
                 spents:  list[float] = []
@@ -3208,12 +3210,16 @@ class AppState(rx.State):
                     var = budget - spent
                     var_str = (f"+{_fmt(var)}" if var > 0.005 else
                                _fmt(var) if var < -0.005 else "✓")
-                    row[f"m{i}_budget"] = _fmt(budget) if budget > 0 else "—"
-                    row[f"m{i}_spent"]  = _fmt(spent)  if spent  > 0 else "—"
-                    row[f"m{i}_pct"]    = str(pct)
-                    row[f"m{i}_status"] = status
-                    row[f"m{i}_var"]    = var_str
-                    row[f"show_m{i}"]   = "1"
+                    var_color = ("#34d399" if var_str.startswith("+") or var_str == "✓"
+                                 else "#f87171")
+                    row[f"m{i}_budget"]    = _fmt(budget) if budget > 0 else "—"
+                    row[f"m{i}_spent"]     = _fmt(spent)  if spent  > 0 else "—"
+                    row[f"m{i}_pct"]       = str(pct)
+                    row[f"m{i}_bar_w"]     = f"{min(100, pct)}%"
+                    row[f"m{i}_status"]    = status
+                    row[f"m{i}_var"]       = var_str
+                    row[f"m{i}_var_color"] = var_color
+                    row[f"show_m{i}"]      = "1"
                     budgets.append(budget)
                     spents.append(spent)
 
@@ -3221,13 +3227,16 @@ class AppState(rx.State):
                     avg_b  = sum(budgets) / len(budgets)
                     avg_s  = sum(spents)  / len(spents)
                     avg_v  = avg_b - avg_s
-                    row["avg_budget"] = _fmt(avg_b) if avg_b > 0 else "—"
-                    row["avg_spent"]  = _fmt(avg_s) if avg_s > 0 else "—"
-                    row["avg_var"]    = (f"+{_fmt(avg_v)}" if avg_v > 0.005 else
-                                        _fmt(avg_v) if avg_v < -0.005 else "✓")
-                    row["avg_status"] = ("over" if avg_s > avg_b + 0.005 else
-                                         "close" if avg_b > 0 and avg_s >= avg_b * 0.85 else
-                                         "ok" if avg_s > 0 else "")
+                    avg_var_str = (f"+{_fmt(avg_v)}" if avg_v > 0.005 else
+                                   _fmt(avg_v) if avg_v < -0.005 else "✓")
+                    row["avg_budget"]    = _fmt(avg_b) if avg_b > 0 else "—"
+                    row["avg_spent"]     = _fmt(avg_s) if avg_s > 0 else "—"
+                    row["avg_var"]       = avg_var_str
+                    row["avg_var_color"] = ("#34d399" if avg_var_str.startswith("+") or avg_var_str == "✓"
+                                            else "#f87171")
+                    row["avg_status"]    = ("over" if avg_s > avg_b + 0.005 else
+                                            "close" if avg_b > 0 and avg_s >= avg_b * 0.85 else
+                                            "ok" if avg_s > 0 else "")
                 bva_rows.append(row)
 
         self.bva_rows = bva_rows

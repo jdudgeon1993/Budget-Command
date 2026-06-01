@@ -80,10 +80,8 @@ def _tab_bar() -> rx.Component:
 
 # ── Budget vs Actual ──────────────────────────────────────────────────────────
 
-def _bva_month_cell(pct_str, spent, budget, var_str, status, show) -> rx.Component:
-    pct_int = pct_str.to(int)
-    bar_w   = rx.cond(pct_int > 100, "100%", rx.cond(pct_int < 1, "0%", pct_str + "%"))
-    c       = rx.cond(
+def _bva_month_cell(bar_w, spent, budget, var_str, var_color, status, show) -> rx.Component:
+    c = rx.cond(
         status == "over",  "#f87171",
         rx.cond(status == "close", "#fbbf24", "#34d399"),
     )
@@ -102,7 +100,6 @@ def _bva_month_cell(pct_str, spent, budget, var_str, status, show) -> rx.Compone
                     }),
                     gap="4px", align_items="baseline",
                 ),
-                # Progress bar
                 rx.box(
                     rx.box(style={
                         "height": "3px", "border_radius": "2px",
@@ -116,10 +113,7 @@ def _bva_month_cell(pct_str, spent, budget, var_str, status, show) -> rx.Compone
                 ),
                 rx.text(var_str, style={
                     "font_size": "10px", "font_family": MONO,
-                    "color": rx.cond(
-                        var_str == "✓", "#34d399",
-                        rx.cond(var_str.contains("+"), "#34d399", "#f87171"),
-                    ),
+                    "color": var_color,
                 }),
                 gap="3px", align_items="flex-start", width="100%",
             ),
@@ -156,12 +150,12 @@ def _bva_row(row: dict) -> rx.Component:
                 "min_width": "140px", "flex": "2", "padding_left": "16px",
             }),
             # Month cells
-            _bva_month_cell(row["m0_pct"], row["m0_spent"], row["m0_budget"],
-                            row["m0_var"], row["m0_status"], row["show_m0"]),
-            _bva_month_cell(row["m1_pct"], row["m1_spent"], row["m1_budget"],
-                            row["m1_var"], row["m1_status"], row["show_m1"]),
-            _bva_month_cell(row["m2_pct"], row["m2_spent"], row["m2_budget"],
-                            row["m2_var"], row["m2_status"], row["show_m2"]),
+            _bva_month_cell(row["m0_bar_w"], row["m0_spent"], row["m0_budget"],
+                            row["m0_var"], row["m0_var_color"], row["m0_status"], row["show_m0"]),
+            _bva_month_cell(row["m1_bar_w"], row["m1_spent"], row["m1_budget"],
+                            row["m1_var"], row["m1_var_color"], row["m1_status"], row["show_m1"]),
+            _bva_month_cell(row["m2_bar_w"], row["m2_spent"], row["m2_budget"],
+                            row["m2_var"], row["m2_var_color"], row["m2_status"], row["show_m2"]),
             # Avg
             rx.vstack(
                 rx.text(row["avg_spent"], style={
@@ -173,10 +167,7 @@ def _bva_row(row: dict) -> rx.Component:
                 }),
                 rx.text(row["avg_var"], style={
                     "font_size": "10px", "font_family": MONO,
-                    "color": rx.cond(
-                        row["avg_var"] == "✓", "#34d399",
-                        rx.cond(row["avg_var"].contains("+"), "#34d399", "#f87171"),
-                    ),
+                    "color": row["avg_var_color"],
                 }),
                 gap="2px", align_items="flex-start",
                 style={"min_width": "90px", "flex": "1", "padding": "4px 8px"},
