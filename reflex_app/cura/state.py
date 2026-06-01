@@ -275,6 +275,7 @@ class AppState(rx.State):
     # ── Processed display data ────────────────────────────────────────────────
     # Flat list: {"row_type": "header"|"bucket", ...}
     bucket_rows: list[dict[str, Any]] = []
+    dnd_payload: str = ""          # transient: "src_bid|dst_bid" cleared after use
     # Flat list: {"row_type": "date_header"|"tx", ...}
     ledger_rows: list[dict[str, Any]] = []
 
@@ -1433,6 +1434,35 @@ class AppState(rx.State):
             }
             for t in txs
         ]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Bucket drag-and-drop reorder
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def reorder_bucket_drop(self, payload: str):
+        self.dnd_payload = ""  # clear so next identical drop still fires on_change
+        parts = payload.split("|", 1)
+        if len(parts) != 2:
+            return
+        src_bid, dst_bid = parts
+        if src_bid == dst_bid:
+            return
+        buckets = (self._raw or {}).get("buckets", [])
+        src = next((b for b in buckets if b["id"] == src_bid), None)
+        dst = next((b for b in buckets if b["id"] == dst_bid), None)
+        if not src or not dst:
+            return
+        src_order = int(src.get("order", 0))
+        dst_order = int(dst.get("order", 0))
+        DB.upsert_bucket(self.user_id, self.access_token, src_bid, {"sort_order": dst_order})
+        DB.upsert_bucket(self.user_id, self.access_token, dst_bid, {"sort_order": src_order})
+        # Optimistic update: swap orders in _raw and re-process
+        for b in buckets:
+            if b["id"] == src_bid:
+                b["order"] = dst_order
+            elif b["id"] == dst_bid:
+                b["order"] = src_order
+        self._process(self._raw, self.active_mid)
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Bucket settings dialog

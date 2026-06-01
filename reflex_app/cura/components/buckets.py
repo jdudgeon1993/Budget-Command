@@ -780,8 +780,14 @@ def _bucket_row(row: dict) -> rx.Component:
         # ── Bucket card ──────────────────────────────────────────────────────
         rx.box(
 
-            # ── Main row: name · alloc / budget · spent · left · status · actions ──
+            # ── Main row: drag handle · name · alloc / budget · spent · left · status · actions ──
             rx.hstack(
+                # Drag handle
+                rx.box("⠿", style={
+                    "font_size": "16px", "color": TEXT3, "cursor": "grab",
+                    "padding": "0 4px 0 0", "flex_shrink": "0", "line_height": "1",
+                    "user_select": "none",
+                }),
                 # Name
                 rx.text(row["name"], style={
                     "font_size": "15px", "font_weight": "600",
@@ -986,6 +992,7 @@ def _bucket_row(row: dict) -> rx.Component:
                 rx.box(),
             ),
 
+            custom_attrs={"data-bid": row["id"], "draggable": "true"},
             style={
                 "background": BG2,
                 "border": f"1px solid {BORDER}",
@@ -1143,8 +1150,76 @@ def _add_bucket_strip() -> rx.Component:
 
 # ── Main panel (2-column: left=buckets, right=scoreboard) ────────────────────
 
+_DND_SCRIPT = """
+<style>
+  [data-bid] { cursor: grab; }
+  [data-bid]:active { cursor: grabbing; }
+  .bucket-dragging { opacity: 0.35 !important; cursor: grabbing !important; }
+  .bucket-drag-over { outline: 2px solid #818cf8 !important; outline-offset: -2px; }
+</style>
+<script>
+(function() {
+  var src = null, overEl = null;
+  function byBid(e) { return e.target.closest('[data-bid]'); }
+  document.addEventListener('dragstart', function(e) {
+    var el = byBid(e);
+    if (!el) return;
+    src = el.getAttribute('data-bid');
+    el.classList.add('bucket-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  document.addEventListener('dragend', function(e) {
+    var el = byBid(e);
+    if (el) el.classList.remove('bucket-dragging');
+    if (overEl) { overEl.classList.remove('bucket-drag-over'); overEl = null; }
+    src = null;
+  });
+  document.addEventListener('dragenter', function(e) {
+    var el = byBid(e);
+    if (!el || !src) return;
+    if (overEl) overEl.classList.remove('bucket-drag-over');
+    overEl = el;
+    overEl.classList.add('bucket-drag-over');
+  });
+  document.addEventListener('dragleave', function(e) {
+    if (!overEl) return;
+    if (e.relatedTarget && overEl.contains(e.relatedTarget)) return;
+    overEl.classList.remove('bucket-drag-over');
+    overEl = null;
+  });
+  document.addEventListener('dragover', function(e) {
+    if (byBid(e) && src) e.preventDefault();
+  });
+  document.addEventListener('drop', function(e) {
+    var el = byBid(e);
+    if (!el || !src) return;
+    e.preventDefault();
+    if (overEl) { overEl.classList.remove('bucket-drag-over'); overEl = null; }
+    var dst = el.getAttribute('data-bid');
+    if (dst === src) { src = null; return; }
+    var input = document.getElementById('bucket-dnd-payload');
+    if (!input) { src = null; return; }
+    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(input, src + '|' + dst);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    src = null;
+  });
+})();
+</script>
+"""
+
+
 def buckets_panel() -> rx.Component:
     return rx.box(
+        # DnD script + CSS (injected once per render)
+        rx.html(_DND_SCRIPT),
+        # Hidden payload input — value bound to state so it resets after each drop
+        rx.input(
+            id="bucket-dnd-payload",
+            value=AppState.dnd_payload,
+            on_change=AppState.reorder_bucket_drop,
+            style={"display": "none"},
+        ),
         rx.box(
             # ── Left column: bucket list ──────────────────────────────────
             rx.vstack(

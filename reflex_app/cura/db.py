@@ -181,6 +181,7 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         "contrib_freq": "contrib_freq",
         "recurring": "recurring",
         "notes": "notes",
+        "sort_order": "sort_order",
     }
     payload: dict = {"id": bid, "user_id": uid}
     for k, v in fields.items():
