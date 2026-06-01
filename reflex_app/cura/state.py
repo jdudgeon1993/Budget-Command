@@ -3155,7 +3155,7 @@ class AppState(rx.State):
                 d[f"m{i}_bar_w"]     = "0%"
                 d[f"m{i}_status"]    = ""
                 d[f"m{i}_var"]       = ""
-                d[f"m{i}_var_color"] = TEXT3
+                d[f"m{i}_var_color"] = "#6868a2"
                 d[f"show_m{i}"]      = ""
             return d
 
@@ -3176,7 +3176,7 @@ class AppState(rx.State):
                 "color":    cat.get("color", "#818cf8"),
                 "bid":      "", "cat_name": "",
                 **_empty_month_cols(),
-                "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_var_color": TEXT3, "avg_status": "",
+                "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_var_color": "#6868a2", "avg_status": "",
             }
             for i in range(n):
                 cat_hdr[f"show_m{i}"] = "1"
@@ -3191,7 +3191,7 @@ class AppState(rx.State):
                     "cat_name": cat.get("name", ""),
                     "color":    cat.get("color", "#818cf8"),
                     **_empty_month_cols(),
-                    "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_var_color": TEXT3, "avg_status": "",
+                    "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_var_color": "#6868a2", "avg_status": "",
                 }
                 budgets: list[float] = []
                 spents:  list[float] = []
