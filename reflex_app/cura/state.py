@@ -1458,8 +1458,8 @@ class AppState(rx.State):
             b_order = int(other.get("order", 0))
             if a_order == b_order:
                 a_order, b_order = idx, idx - 1
-            DB.upsert_bucket(self.user_id, self.access_token, bid,        {"sort_order": b_order})
-            DB.upsert_bucket(self.user_id, self.access_token, other["id"], {"sort_order": a_order})
+            DB.update_bucket_order(self.user_id, self.access_token, bid,        b_order)
+            DB.update_bucket_order(self.user_id, self.access_token, other["id"], a_order)
             data = DB.load_all(self.user_id, self.access_token)
             self._raw = data
             self._process(data, self.active_mid)
@@ -1486,8 +1486,8 @@ class AppState(rx.State):
             b_order = int(other.get("order", 0))
             if a_order == b_order:
                 a_order, b_order = idx + 1, idx
-            DB.upsert_bucket(self.user_id, self.access_token, bid,        {"sort_order": b_order})
-            DB.upsert_bucket(self.user_id, self.access_token, other["id"], {"sort_order": a_order})
+            DB.update_bucket_order(self.user_id, self.access_token, bid,        b_order)
+            DB.update_bucket_order(self.user_id, self.access_token, other["id"], a_order)
             data = DB.load_all(self.user_id, self.access_token)
             self._raw = data
             self._process(data, self.active_mid)

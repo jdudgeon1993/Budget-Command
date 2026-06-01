@@ -169,6 +169,12 @@ def ensure_month(uid: str, token: str, mid: str) -> None:
         c.table("bcc_months").insert({"id": mid, "user_id": uid}).execute()
 
 
+def update_bucket_order(uid: str, token: str, bid: str, sort_order: int) -> None:
+    """Update only sort_order for an existing bucket (pure UPDATE, no INSERT path)."""
+    client(token).table("bcc_buckets").update({"sort_order": sort_order}) \
+        .eq("id", bid).eq("user_id", uid).execute()
+
+
 def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
     """Patch one or more columns on a bucket row."""
     col_map = {
