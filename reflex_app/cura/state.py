@@ -344,6 +344,16 @@ class AppState(rx.State):
     expense_buckets: list[dict[str, Any]] = []   # [{id, name}]
     account_options: list[dict[str, Any]] = []   # [{id, name}]
 
+    # ── Reports panel ────────────────────────────────────────────────────────
+    reports_tab:       str = "bva"   # "bva" | "summary" | "trends" | "payees" | "debt"
+    bva_rows:          list[dict[str, Any]] = []   # flat: row_type "cat"|"bucket", m0/m1/m2 cols
+    bva_month_hdrs:    list[dict[str, Any]] = []   # [{label, mid}] × 3 (some may be empty)
+    summary_cards:     list[dict] = []             # [{label, income_fmt, spent_fmt, net_fmt, net_positive, savings_rate, cat_rows:[...]}]
+    trend_svg:         str = ""
+    trend_rows:        list[dict[str, Any]] = []   # [{label, income_fmt, spent_fmt, net_fmt, net_positive, savings_rate}]
+    payee_spend_rows:  list[dict[str, Any]] = []   # [{payee, total_fmt, count, pct_str, bar_w, cat_name}]
+    debt_tracker_rows: list[dict] = []             # [{name, color, balance_fmt, total_paid_fmt, payment_count, avg_payment_fmt, months:[{label,paid_fmt}]}]
+
     # ── UI state ─────────────────────────────────────────────────────────────
     active_panel:  str  = "buckets"
     is_loading:    bool = False
@@ -1241,6 +1251,8 @@ class AppState(rx.State):
 
     def set_panel(self, name: str):
         self.active_panel = name
+        if name == "reports" and self._raw:
+            self._build_reports()
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Add-transaction sheet
@@ -2654,6 +2666,9 @@ class AppState(rx.State):
         self._refresh_forecast_accounts()
         self._run_forecast()
 
+        if self.active_panel == "reports":
+            self._build_reports()
+
     # ─────────────────────────────────────────────────────────────────────────
     #  Accounts panel
     # ─────────────────────────────────────────────────────────────────────────
@@ -3024,3 +3039,351 @@ class AppState(rx.State):
         except Exception as e:
             self.auth_error = str(e)
             self.is_loading = False
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Reports builder
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def set_reports_tab(self, tab: str):
+        self.reports_tab = tab
+
+    def _build_reports(self):
+        raw = self._raw
+        if not raw:
+            return
+
+        accounts    = raw.get("accounts", [])
+        all_buckets = raw.get("buckets", [])
+        cats        = raw.get("cats", [])
+        txs         = raw.get("txs", [])
+        all_months  = raw.get("months", [])
+
+        budget_aid_set = {a["id"] for a in accounts if a.get("type") == "budget"}
+        active_buckets = [b for b in all_buckets if not b.get("archived")]
+        cat_map        = {c["id"]: c for c in cats}
+        cats_sorted    = sorted(cats, key=lambda c: c.get("order", 0))
+
+        # ── Determine report months (last ≤3 with any transactions) ──────
+        tx_mids = sorted(
+            {t["monthId"] for t in txs if t.get("monthId")},
+            key=month_sort_key,
+        )
+        report_mids = tx_mids[-3:]
+        n = len(report_mids)
+        if not report_mids:
+            return
+
+        # ── Per-month aggregate objects ───────────────────────────────────
+        monthly: list[dict] = []
+        for mid in report_mids:
+            yr, m0 = parse_month_id(mid)
+            label  = f"{MONTH_NAMES[m0][:3]} {yr}"
+            m_obj  = next(
+                (m for m in all_months if m.get("id") == mid),
+                {"id": mid, "allocations": {}, "budgets": {},
+                 "rolloverReleased": {}, "skippedBuckets": {}, "vaultWithdrawals": {}},
+            )
+            income = sum(
+                float(t.get("amount", 0)) for t in txs
+                if t.get("monthId") == mid and t.get("type") == "in"
+                and t.get("accountId") in budget_aid_set and not is_scheduled(t)
+            )
+            spent = sum(
+                float(t.get("amount", 0)) for t in txs
+                if t.get("monthId") == mid and t.get("type") == "out"
+                and not is_scheduled(t)
+            )
+            alloc = total_allocated(m_obj, active_buckets)
+            net   = income - spent
+            savings_rate = round(net / income * 100) if income > 0 else 0
+            monthly.append({
+                "mid": mid, "label": label, "m_obj": m_obj,
+                "income": income, "spent": spent, "alloc": alloc,
+                "net": net, "savings_rate": savings_rate,
+            })
+
+        # ── Monthly Summary cards ─────────────────────────────────────────
+        summary_cards: list[dict] = []
+        for m in monthly:
+            cat_rows: list[dict] = []
+            for cat in cats_sorted:
+                cid  = cat["id"]
+                cb   = [b for b in active_buckets
+                        if b.get("catId") == cid and b.get("type") != "vault"]
+                if not cb:
+                    continue
+                cat_spent  = sum(b_spent(m["mid"], b["id"], txs) for b in cb)
+                cat_budget = sum(
+                    b_budget(m["m_obj"], b["id"]) or float(b.get("defaultBudget") or 0)
+                    for b in cb
+                )
+                if cat_spent < 0.01 and cat_budget < 0.01:
+                    continue
+                pct = min(100, round(cat_spent / cat_budget * 100)) if cat_budget > 0 else 0
+                cat_rows.append({
+                    "name":       cat.get("name", ""),
+                    "color":      cat.get("color", "#818cf8"),
+                    "spent_fmt":  _fmt(cat_spent),
+                    "budget_fmt": _fmt(cat_budget) if cat_budget > 0 else "",
+                    "pct":        str(pct),
+                    "bar_w":      f"{pct}%",
+                    "is_over":    "1" if cat_spent > cat_budget + 0.005 else "",
+                })
+            net_positive = "1" if m["net"] >= 0 else ""
+            summary_cards.append({
+                "label":        m["label"],
+                "income_fmt":   _fmt(m["income"]),
+                "spent_fmt":    _fmt(m["spent"]),
+                "net_fmt":      _fmt(m["net"]),
+                "net_positive": net_positive,
+                "net_color":    "#34d399" if net_positive else "#f87171",
+                "savings_rate": f"{m['savings_rate']}%",
+                "alloc_fmt":    _fmt(m["alloc"]),
+                "cat_rows":     cat_rows,
+            })
+        self.summary_cards = summary_cards
+
+        # ── Budget vs Actual ──────────────────────────────────────────────
+        bva_rows: list[dict[str, Any]] = []
+
+        def _empty_month_cols() -> dict:
+            d: dict = {}
+            for i in range(3):
+                d[f"m{i}_budget"] = ""
+                d[f"m{i}_spent"]  = ""
+                d[f"m{i}_pct"]    = "0"
+                d[f"m{i}_status"] = ""
+                d[f"m{i}_var"]    = ""
+                d[f"show_m{i}"]   = ""
+            return d
+
+        for cat in cats_sorted:
+            cid      = cat["id"]
+            cb = sorted(
+                [b for b in active_buckets
+                 if b.get("catId") == cid and b.get("type") != "vault"],
+                key=lambda b: b.get("order", 0),
+            )
+            if not cb:
+                continue
+
+            # Category header row
+            cat_hdr: dict[str, Any] = {
+                "row_type": "cat",
+                "name":     cat.get("name", ""),
+                "color":    cat.get("color", "#818cf8"),
+                "bid":      "", "cat_name": "",
+                **_empty_month_cols(),
+                "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_status": "",
+            }
+            for i in range(n):
+                cat_hdr[f"show_m{i}"] = "1"
+            bva_rows.append(cat_hdr)
+
+            for b in cb:
+                bid   = b["id"]
+                row: dict[str, Any] = {
+                    "row_type": "bucket",
+                    "bid":      bid,
+                    "name":     b.get("name", ""),
+                    "cat_name": cat.get("name", ""),
+                    "color":    cat.get("color", "#818cf8"),
+                    **_empty_month_cols(),
+                    "avg_budget": "", "avg_spent": "", "avg_var": "", "avg_status": "",
+                }
+                budgets: list[float] = []
+                spents:  list[float] = []
+                for i, m in enumerate(monthly):
+                    budget = b_budget(m["m_obj"], bid) or float(b.get("defaultBudget") or 0)
+                    spent  = b_spent(m["mid"], bid, txs)
+                    pct    = min(150, round(spent / budget * 100)) if budget > 0 else 0
+                    if spent > budget + 0.005:
+                        status = "over"
+                    elif budget > 0 and spent >= budget * 0.85:
+                        status = "close"
+                    elif spent > 0:
+                        status = "ok"
+                    else:
+                        status = ""
+                    var = budget - spent
+                    var_str = (f"+{_fmt(var)}" if var > 0.005 else
+                               _fmt(var) if var < -0.005 else "✓")
+                    row[f"m{i}_budget"] = _fmt(budget) if budget > 0 else "—"
+                    row[f"m{i}_spent"]  = _fmt(spent)  if spent  > 0 else "—"
+                    row[f"m{i}_pct"]    = str(pct)
+                    row[f"m{i}_status"] = status
+                    row[f"m{i}_var"]    = var_str
+                    row[f"show_m{i}"]   = "1"
+                    budgets.append(budget)
+                    spents.append(spent)
+
+                if budgets:
+                    avg_b  = sum(budgets) / len(budgets)
+                    avg_s  = sum(spents)  / len(spents)
+                    avg_v  = avg_b - avg_s
+                    row["avg_budget"] = _fmt(avg_b) if avg_b > 0 else "—"
+                    row["avg_spent"]  = _fmt(avg_s) if avg_s > 0 else "—"
+                    row["avg_var"]    = (f"+{_fmt(avg_v)}" if avg_v > 0.005 else
+                                        _fmt(avg_v) if avg_v < -0.005 else "✓")
+                    row["avg_status"] = ("over" if avg_s > avg_b + 0.005 else
+                                         "close" if avg_b > 0 and avg_s >= avg_b * 0.85 else
+                                         "ok" if avg_s > 0 else "")
+                bva_rows.append(row)
+
+        self.bva_rows = bva_rows
+
+        hdrs = [{"label": m["label"], "mid": m["mid"]} for m in monthly]
+        while len(hdrs) < 3:
+            hdrs.append({"label": "", "mid": ""})
+        self.bva_month_hdrs = hdrs
+
+        # ── Trends ───────────────────────────────────────────────────────
+        self.trend_svg  = self._build_trend_svg(monthly)
+        self.trend_rows = [
+            {
+                "label":        m["label"],
+                "income_fmt":   _fmt(m["income"]),
+                "spent_fmt":    _fmt(m["spent"]),
+                "net_fmt":      _fmt(m["net"]),
+                "net_color":    "#34d399" if m["net"] >= 0 else "#f87171",
+                "savings_rate": f"{m['savings_rate']}%",
+                "rate_color":   "#34d399" if m["savings_rate"] >= 10 else
+                                "#fbbf24" if m["savings_rate"] >= 0 else "#f87171",
+            }
+            for m in monthly
+        ]
+
+        # ── Top Payees ────────────────────────────────────────────────────
+        bkt_cat: dict[str, str] = {
+            b["id"]: cat_map.get(b.get("catId", ""), {}).get("name", "")
+            for b in all_buckets
+        }
+        payee_totals: dict[str, float] = {}
+        payee_counts: dict[str, int]   = {}
+        payee_cats:   dict[str, str]   = {}
+        report_mid_set = {m["mid"] for m in monthly}
+        for t in txs:
+            if t.get("type") != "out" or t.get("monthId") not in report_mid_set:
+                continue
+            if is_scheduled(t):
+                continue
+            desc = (t.get("desc") or "").strip() or "(no description)"
+            amt  = float(t.get("amount") or 0)
+            payee_totals[desc] = payee_totals.get(desc, 0.0) + amt
+            payee_counts[desc] = payee_counts.get(desc, 0) + 1
+            if desc not in payee_cats:
+                payee_cats[desc] = bkt_cat.get(t.get("bucketId") or "", "")
+        total_spend = sum(payee_totals.values()) or 1
+        sorted_payees = sorted(payee_totals.items(), key=lambda x: -x[1])[:15]
+        max_v = sorted_payees[0][1] if sorted_payees else 1
+        self.payee_spend_rows = [
+            {
+                "payee":     p,
+                "total_fmt": _fmt(v),
+                "count":     str(payee_counts.get(p, 0)),
+                "pct_str":   f"{round(v / total_spend * 100)}%",
+                "bar_w":     f"{round(v / max_v * 100)}%",
+                "cat_name":  payee_cats.get(p, ""),
+            }
+            for p, v in sorted_payees
+        ]
+
+        # ── Debt Tracker ──────────────────────────────────────────────────
+        debt_accounts = [a for a in accounts
+                         if a.get("type") == "debt" and not a.get("archived")]
+        debt_rows: list[dict] = []
+        for a in debt_accounts:
+            aid      = a["id"]
+            cur_bal  = acct_balance(a, txs)
+            payments = [t for t in txs if t.get("debtPaymentAccountId") == aid]
+            total_paid = sum(float(t.get("amount", 0)) for t in payments)
+            m_rows: list[dict] = []
+            for m in monthly:
+                m_paid = sum(
+                    float(t.get("amount", 0)) for t in payments
+                    if t.get("monthId") == m["mid"]
+                )
+                m_rows.append({
+                    "label":    m["label"],
+                    "paid_fmt": _fmt(m_paid) if m_paid > 0 else "—",
+                })
+            debt_rows.append({
+                "name":             a.get("name", ""),
+                "color":            a.get("color", "#818cf8"),
+                "balance_fmt":      _fmt(abs(cur_bal)),
+                "total_paid_fmt":   _fmt(total_paid),
+                "payment_count":    str(len(payments)),
+                "avg_payment_fmt":  (_fmt(total_paid / len(payments))
+                                     if payments else "—"),
+                "months":           m_rows,
+            })
+        self.debt_tracker_rows = debt_rows
+
+    def _build_trend_svg(self, monthly: list[dict]) -> str:
+        if not monthly:
+            return ""
+        W, H      = 520, 180
+        bar_h_max = 100
+        n         = len(monthly)
+        pair_w    = 54
+        gap       = (W - n * pair_w) // (n + 1)
+        max_v     = max(max(m["income"], m["spent"]) for m in monthly) or 1.0
+
+        def _scale(v: float) -> int:
+            return max(3, round(abs(v) / max_v * bar_h_max))
+
+        parts = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
+            f'style="font-family:system-ui,sans-serif;overflow:visible">'
+        ]
+        # Subtle gridlines
+        for frac in (0.25, 0.5, 0.75, 1.0):
+            y  = bar_h_max - round(frac * bar_h_max) + 8
+            lv = max_v * frac
+            lbl = f"${lv:,.0f}"
+            parts.append(
+                f'<line x1="0" y1="{y}" x2="{W}" y2="{y}" '
+                f'stroke="#ffffff0d" stroke-width="1"/>'
+                f'<text x="2" y="{y - 2}" font-size="8" fill="#ffffff25">{lbl}</text>'
+            )
+        # Bars
+        for i, m in enumerate(monthly):
+            x  = gap + i * (pair_w + gap)
+            ih = _scale(m["income"])
+            sh = _scale(m["spent"])
+            # Income bar (green)
+            parts.append(
+                f'<rect x="{x}" y="{bar_h_max - ih + 8}" '
+                f'width="{pair_w // 2 - 2}" height="{ih}" '
+                f'rx="3" fill="#34d399" opacity="0.85"/>'
+            )
+            # Spend bar (amber if under income, red if over)
+            sc = "#fbbf24" if m["spent"] <= m["income"] else "#f87171"
+            parts.append(
+                f'<rect x="{x + pair_w // 2 + 2}" y="{bar_h_max - sh + 8}" '
+                f'width="{pair_w // 2 - 2}" height="{sh}" '
+                f'rx="3" fill="{sc}" opacity="0.85"/>'
+            )
+            # Month label
+            parts.append(
+                f'<text x="{x + pair_w // 2}" y="{bar_h_max + 24}" '
+                f'text-anchor="middle" font-size="10" fill="#9090b0">{m["label"]}</text>'
+            )
+            # Net label
+            net     = m["income"] - m["spent"]
+            nc      = "#34d399" if net >= 0 else "#f87171"
+            ns      = f"+${abs(net):,.0f}" if net >= 0 else f"-${abs(net):,.0f}"
+            parts.append(
+                f'<text x="{x + pair_w // 2}" y="{bar_h_max + 38}" '
+                f'text-anchor="middle" font-size="8" fill="{nc}">{ns}</text>'
+            )
+        # Legend
+        ly = H - 12
+        parts.append(
+            f'<rect x="8" y="{ly - 8}" width="10" height="8" rx="2" fill="#34d399" opacity="0.85"/>'
+            f'<text x="22" y="{ly}" font-size="9" fill="#9090b0">Income</text>'
+            f'<rect x="76" y="{ly - 8}" width="10" height="8" rx="2" fill="#fbbf24" opacity="0.85"/>'
+            f'<text x="90" y="{ly}" font-size="9" fill="#9090b0">Spending</text>'
+        )
+        parts.append("</svg>")
+        return "".join(parts)
