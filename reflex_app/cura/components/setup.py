@@ -36,7 +36,7 @@ def _sel(*options, value, on_change, **extra) -> rx.Component:
 
 def _section_head(label: str) -> rx.Component:
     return rx.text(label, style={
-        "font_size": "9px", "letter_spacing": "0.16em",
+        "font_size": "11px", "letter_spacing": "0.16em",
         "text_transform": "uppercase", "color": TEXT3,
         "font_family": MONO, "padding_bottom": "8px",
         "border_bottom": f"1px solid {BORDER}",
@@ -49,7 +49,7 @@ def _pill_btn(label: str, on_click, color: str = ACCENT) -> rx.Component:
         label,
         on_click=on_click,
         style={
-            "font_family": MONO, "font_size": "9px", "letter_spacing": "0.08em",
+            "font_family": MONO, "font_size": "11px", "letter_spacing": "0.08em",
             "text_transform": "uppercase", "padding": "3px 10px",
             "border_radius": "10px", "border": f"1px solid {color}44",
             "color": color, "cursor": "pointer", "flex_shrink": "0",
@@ -65,7 +65,7 @@ def _pc_row(row: dict) -> rx.Component:
         rx.vstack(
             rx.text(row["label"], style={"font_size": "13px", "color": TEXT, "font_weight": "600"}),
             rx.text(row["freq_label"],
-                    style={"font_size": "10px", "color": TEXT3, "font_family": MONO}),
+                    style={"font_size": "12px", "color": TEXT3, "font_family": MONO}),
             gap="1px", align_items="flex-start", flex="1",
         ),
         rx.text(row["amount_fmt"], style={
@@ -184,12 +184,12 @@ def _rule_row(row: dict) -> rx.Component:
                 rx.cond(
                     row["rule_type"] == "internal",
                     rx.text("INTERNAL", style={
-                        "font_size": "8px", "color": ACCENT, "font_family": MONO,
+                        "font_size": "11px", "color": ACCENT, "font_family": MONO,
                         "letter_spacing": "0.1em", "background": f"{ACCENT}1a",
                         "padding": "1px 5px", "border_radius": "4px",
                     }),
                     rx.text("EXTERNAL", style={
-                        "font_size": "8px", "color": AMBER, "font_family": MONO,
+                        "font_size": "11px", "color": AMBER, "font_family": MONO,
                         "letter_spacing": "0.1em", "background": f"{AMBER}1a",
                         "padding": "1px 5px", "border_radius": "4px",
                     }),
@@ -199,9 +199,9 @@ def _rule_row(row: dict) -> rx.Component:
             rx.cond(
                 row["rule_type"] == "internal",
                 rx.text(row["value_str"], " → ", row["bucket_name"],
-                        style={"font_size": "10px", "color": TEXT3, "font_family": MONO}),
+                        style={"font_size": "12px", "color": TEXT3, "font_family": MONO}),
                 rx.text(row["value_str"], " (external transfer)",
-                        style={"font_size": "10px", "color": TEXT3, "font_family": MONO}),
+                        style={"font_size": "12px", "color": TEXT3, "font_family": MONO}),
             ),
             gap="1px", align_items="flex-start", flex="1",
         ),
@@ -258,7 +258,7 @@ def _rule_dialog() -> rx.Component:
 
                 rx.vstack(
                     rx.text("Rule Name", style={
-                        "font_size": "9px", "color": TEXT3, "letter_spacing": "0.1em",
+                        "font_size": "11px", "color": TEXT3, "letter_spacing": "0.1em",
                         "text_transform": "uppercase", "font_family": MONO,
                     }),
                     _inp("e.g. 5% to Emergency Fund", AppState.rule_sheet_name,
@@ -269,7 +269,7 @@ def _rule_dialog() -> rx.Component:
                 rx.hstack(
                     rx.vstack(
                         rx.text("Type", style={
-                            "font_size": "9px", "color": TEXT3, "letter_spacing": "0.1em",
+                            "font_size": "11px", "color": TEXT3, "letter_spacing": "0.1em",
                             "text_transform": "uppercase", "font_family": MONO,
                         }),
                         _sel(
@@ -286,7 +286,7 @@ def _rule_dialog() -> rx.Component:
                             rx.cond(AppState.rule_sheet_val_type == "pct",
                                     "Percent (%)", "Amount ($)"),
                             style={
-                                "font_size": "9px", "color": TEXT3, "letter_spacing": "0.1em",
+                                "font_size": "11px", "color": TEXT3, "letter_spacing": "0.1em",
                                 "text_transform": "uppercase", "font_family": MONO,
                             },
                         ),
@@ -302,7 +302,7 @@ def _rule_dialog() -> rx.Component:
                     is_internal,
                     rx.vstack(
                         rx.text("Destination Bucket", style={
-                            "font_size": "9px", "color": TEXT3, "letter_spacing": "0.1em",
+                            "font_size": "11px", "color": TEXT3, "letter_spacing": "0.1em",
                             "text_transform": "uppercase", "font_family": MONO,
                         }),
                         rx.el.select(

@@ -41,16 +41,16 @@ def _payday_row(row: dict) -> rx.Component:
             rx.cond(
                 is_internal,
                 rx.text("→ ", row["bucket_name"],
-                        style={"font_size": "10px", "color": TEXT3, "font_family": MONO}),
+                        style={"font_size": "12px", "color": TEXT3, "font_family": MONO}),
                 rx.text("External transfer",
-                        style={"font_size": "10px", "color": AMBER, "font_family": MONO}),
+                        style={"font_size": "12px", "color": AMBER, "font_family": MONO}),
             ),
             gap="1px", align_items="flex-start", flex="1",
         ),
 
         # Value label
         rx.text(row["value_str"], style={
-            "font_size": "10px", "color": TEXT3, "font_family": MONO,
+            "font_size": "12px", "color": TEXT3, "font_family": MONO,
             "white_space": "nowrap",
         }),
 
@@ -79,7 +79,7 @@ def payday_modal() -> rx.Component:
                 rx.hstack(
                     rx.vstack(
                         rx.text("PAYDAY", style={
-                            "font_size": "10px", "letter_spacing": "0.18em",
+                            "font_size": "12px", "letter_spacing": "0.18em",
                             "color": TEXT3, "font_family": MONO,
                         }),
                         rx.hstack(

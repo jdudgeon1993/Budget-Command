@@ -29,7 +29,7 @@ def _select_style() -> dict:
 def _field(label: str, child: rx.Component) -> rx.Component:
     return rx.vstack(
         rx.text(label, style={
-            "font_size": "10px", "color": TEXT3, "letter_spacing": "0.1em",
+            "font_size": "12px", "color": TEXT3, "letter_spacing": "0.1em",
             "text_transform": "uppercase", "font_family": MONO,
         }),
         child,
@@ -49,7 +49,7 @@ def _rts_hero() -> rx.Component:
             # Label row + Distribute CTA
             rx.hstack(
                 rx.text("READY TO ASSIGN", style={
-                    "font_size": "9px", "letter_spacing": "0.18em",
+                    "font_size": "11px", "letter_spacing": "0.18em",
                     "color": TEXT3, "font_family": MONO,
                 }),
                 rx.spacer(),
@@ -258,7 +258,7 @@ def _scoreboard() -> rx.Component:
         rx.box(
             rx.hstack(
                 rx.text("NEEDS ATTENTION", style={
-                    "font_size": "9px", "letter_spacing": "0.14em",
+                    "font_size": "11px", "letter_spacing": "0.14em",
                     "text_transform": "uppercase", "color": TEXT3,
                     "font_family": MONO, "font_weight": "600",
                 }),
@@ -310,7 +310,7 @@ def _scoreboard() -> rx.Component:
             AppState.cat_rollup_rows.length() > 0,
             rx.box(
                 rx.text("CATEGORIES", style={
-                    "font_size": "9px", "letter_spacing": "0.14em",
+                    "font_size": "11px", "letter_spacing": "0.14em",
                     "text_transform": "uppercase", "color": TEXT3,
                     "font_family": MONO, "font_weight": "600",
                     "display": "block", "margin_bottom": "14px",
@@ -427,7 +427,7 @@ def _vault_fields() -> rx.Component:
             rx.hstack(
                 rx.vstack(
                     rx.text("VAULT BALANCE", style={
-                        "font_size": "9px", "letter_spacing": "0.14em",
+                        "font_size": "11px", "letter_spacing": "0.14em",
                         "color": TEXT3, "font_family": MONO,
                     }),
                     rx.text(AppState.bsf_vault_total_fmt, style={

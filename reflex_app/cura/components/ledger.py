@@ -29,7 +29,7 @@ def _select_style() -> dict:
 def _field(label: str, child: rx.Component) -> rx.Component:
     return rx.vstack(
         rx.text(label, style={
-            "font_size": "10px", "color": TEXT3, "letter_spacing": "0.1em",
+            "font_size": "12px", "color": TEXT3, "letter_spacing": "0.1em",
             "text_transform": "uppercase", "font_family": MONO,
         }),
         child,
@@ -49,7 +49,7 @@ _CARD = {
 }
 
 _SECTION_LABEL = {
-    "font_size": "9px", "letter_spacing": "0.14em",
+    "font_size": "11px", "letter_spacing": "0.14em",
     "text_transform": "uppercase", "color": TEXT3,
     "font_family": MONO, "font_weight": "600",
     "display": "block", "margin_bottom": "12px",
@@ -87,11 +87,23 @@ def _spend_bar(row: dict) -> rx.Component:
                 "text_overflow": "ellipsis", "white_space": "nowrap",
                 "font_weight": "600",
             }),
-            rx.text(row["spent_fmt"], style={
-                "font_size": "13px", "font_family": MONO,
-                "color": rx.cond(row["is_over"] == "1", RED, TEXT2),
-                "white_space": "nowrap", "flex_shrink": "0",
-            }),
+            rx.hstack(
+                rx.text(row["spent_fmt"], style={
+                    "font_size": "13px", "font_family": MONO,
+                    "color": rx.cond(row["is_over"] == "1", RED, TEXT2),
+                    "white_space": "nowrap",
+                }),
+                rx.cond(
+                    row["pct_str"] != "0%",
+                    rx.text(row["pct_str"], style={
+                        "font_size": "11px", "font_family": MONO,
+                        "color": rx.cond(row["is_over"] == "1", RED, TEXT3),
+                        "white_space": "nowrap",
+                    }),
+                    rx.box(),
+                ),
+                gap="5px", align_items="center", flex_shrink="0",
+            ),
             align_items="center", gap="8px", width="100%",
         ),
         rx.box(
@@ -102,9 +114,11 @@ def _spend_bar(row: dict) -> rx.Component:
                 "transition": "width 0.35s ease",
             }),
             style={
-                "height": "4px", "border_radius": "3px",
+                "height": "5px", "border_radius": "3px",
                 "background": BG3, "overflow": "hidden", "width": "100%",
             },
+            role="progressbar",
+            aria_label=row["name"],
         ),
         gap="5px", width="100%",
         style={"margin_bottom": "10px"},
@@ -200,7 +214,7 @@ def _ledger_scoreboard() -> rx.Component:
             rx.hstack(
                 # Row labels
                 rx.vstack(
-                    rx.text("", style={"font_size": "10px", "color": "transparent"}),
+                    rx.text("", style={"font_size": "12px", "color": "transparent"}),
                     rx.text("Income", style={"font_size": "13px", "color": TEXT3}),
                     rx.text("Spent", style={"font_size": "13px", "color": TEXT3}),
                     gap="8px", align_items="flex-start",
@@ -209,7 +223,7 @@ def _ledger_scoreboard() -> rx.Component:
                 # This month column
                 rx.vstack(
                     rx.text("This", style={
-                        "font_size": "10px", "color": TEXT3,
+                        "font_size": "12px", "color": TEXT3,
                         "letter_spacing": "0.08em", "font_family": MONO,
                     }),
                     rx.text(AppState.income_fmt, style={
@@ -225,7 +239,7 @@ def _ledger_scoreboard() -> rx.Component:
                 # Last month column
                 rx.vstack(
                     rx.text("Last", style={
-                        "font_size": "10px", "color": TEXT3,
+                        "font_size": "12px", "color": TEXT3,
                         "letter_spacing": "0.08em", "font_family": MONO,
                     }),
                     rx.text(AppState.last_month_income_fmt, style={
@@ -384,11 +398,16 @@ def _tx_row(row: dict) -> rx.Component:
                         rx.box(
                             "⋯",
                             on_click=AppState.open_edit_tx(row["id"]),
+                            role="button",
+                            tab_index="0",
+                            aria_label="Edit transaction",
                             style={
                                 "font_size": "18px", "color": TEXT3, "cursor": "pointer",
-                                "padding": "0px 6px", "border_radius": "6px",
-                                "line_height": "1.2",
+                                "padding": "6px 10px", "border_radius": "6px",
+                                "line_height": "1.2", "min_height": "36px",
+                                "display": "flex", "align_items": "center",
                                 "_hover": {"color": TEXT, "background": BG3},
+                                "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
                             },
                         ),
                         align_items="center", gap="8px", flex_shrink="0",
@@ -447,7 +466,7 @@ def edit_tx_dialog() -> rx.Component:
                 rx.hstack(
                     rx.vstack(
                         rx.text("TRANSACTION", style={
-                            "font_size": "10px", "letter_spacing": "0.18em",
+                            "font_size": "12px", "letter_spacing": "0.18em",
                             "color": TEXT3, "font_family": MONO,
                         }),
                         rx.hstack(
@@ -578,19 +597,25 @@ def edit_tx_dialog() -> rx.Component:
                         rx.cond(
                             AppState.edit_tx_reconciled,
                             rx.text("✓  Yes", style={
-                                "font_size": "12px", "color": GREEN, "font_family": MONO,
-                                "padding": "5px 12px", "border_radius": "6px",
+                                "font_size": "13px", "color": GREEN, "font_family": MONO,
+                                "padding": "6px 14px", "border_radius": "6px",
                                 "background": f"{GREEN}18", "border": f"1px solid {GREEN}44",
                                 "cursor": "pointer",
                             }),
-                            rx.text("No", style={
-                                "font_size": "12px", "color": TEXT3, "font_family": MONO,
-                                "padding": "5px 12px", "border_radius": "6px",
+                            rx.text("○  No", style={
+                                "font_size": "13px", "color": TEXT3, "font_family": MONO,
+                                "padding": "6px 14px", "border_radius": "6px",
                                 "background": BG3, "border": f"1px solid {BORDER}",
                                 "cursor": "pointer",
                             }),
                         ),
                         on_click=AppState.set_edit_tx_reconciled(~AppState.edit_tx_reconciled),
+                        role="button",
+                        tab_index="0",
+                        aria_label="Toggle reconciled status",
+                        aria_pressed=rx.cond(AppState.edit_tx_reconciled, "true", "false"),
+                        style={"_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px",
+                                                   "border_radius": "6px"}},
                     ),
                     width="100%", align_items="center",
                 ),

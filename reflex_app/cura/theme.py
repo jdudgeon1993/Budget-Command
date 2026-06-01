@@ -7,7 +7,7 @@ BORDER  = "#252535"
 BORDER2 = "#3c3c56"
 TEXT    = "#f0f0fa"
 TEXT2   = "#8282a2"
-TEXT3   = "#4e4e6a"
+TEXT3   = "#6868a2"
 GREEN   = "#34d399"
 RED     = "#f87171"
 AMBER   = "#fbbf24"
@@ -57,7 +57,7 @@ def status_badge_style(pill: str) -> dict:
     color = pill_color(pill)
     return {
         "font_family": MONO,
-        "font_size": "9px",
+        "font_size": "11px",
         "letter_spacing": "0.07em",
         "text_transform": "uppercase",
         "padding": "2px 7px",
@@ -84,6 +84,23 @@ body {{
 
 /* Progress bar fill animation */
 .prog-fill {{ transition: width 0.35s ease; }}
+
+/* Focus-visible ring — keyboard users see a clear outline on any focusable element */
+:focus-visible {{
+  outline: 2px solid {ACCENT} !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+}}
+
+/* Touch-target utility — wrap small clickable things to meet 44px minimum */
+.touch-target {{
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}}
 
 /* Scrollbars */
 ::-webkit-scrollbar {{ width: 4px; height: 4px; }}
