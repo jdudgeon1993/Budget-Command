@@ -4,7 +4,7 @@ import reflex as rx
 from typing import Any
 from ..state import AppState
 from ..theme import (BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3,
-                     GREEN, AMBER, ACCENT, RED, MONO, SANS)
+                     GREEN, AMBER, ACCENT, RED, MONO, SANS, VIOLET)
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
@@ -422,11 +422,150 @@ def _rules_section() -> rx.Component:
     )
 
 
+# ── Category row ─────────────────────────────────────────────────────────────
+
+def _cat_row(row: dict) -> rx.Component:
+    is_editing = AppState.cat_edit_id == row["id"]
+    return rx.vstack(
+        rx.cond(
+            is_editing,
+            # Edit mode
+            rx.hstack(
+                rx.box(style={
+                    "width": "10px", "height": "10px", "border_radius": "50%",
+                    "background": AppState.cat_edit_color, "flex_shrink": "0",
+                }),
+                rx.input(
+                    value=AppState.cat_edit_name,
+                    on_change=AppState.set_cat_edit_name,
+                    style={
+                        "flex": "1", "background": BG3, "border": f"1px solid {ACCENT}",
+                        "border_radius": "6px", "color": TEXT, "font_family": MONO,
+                        "font_size": "13px", "padding": "5px 8px", "outline": "none",
+                    },
+                ),
+                rx.color_picker.root(
+                    rx.color_picker.trigger(
+                        rx.box(style={
+                            "width": "28px", "height": "28px", "border_radius": "6px",
+                            "background": AppState.cat_edit_color,
+                            "border": f"1px solid {BORDER}", "cursor": "pointer",
+                            "flex_shrink": "0",
+                        }),
+                    ),
+                    rx.color_picker.content(rx.color_picker.area(), rx.color_picker.sliders()),
+                    value=AppState.cat_edit_color,
+                    on_change=AppState.set_cat_edit_color,
+                ),
+                rx.box(
+                    rx.cond(AppState.cat_saving, "…", "✓"),
+                    on_click=AppState.save_cat_edit,
+                    style={
+                        "font_size": "14px", "color": GREEN, "cursor": "pointer",
+                        "padding": "2px 6px", "border_radius": "4px",
+                        "_hover": {"background": f"{GREEN}18"},
+                    },
+                ),
+                rx.box(
+                    "✕",
+                    on_click=AppState.close_cat_edit,
+                    style={
+                        "font_size": "14px", "color": TEXT3, "cursor": "pointer",
+                        "padding": "2px 6px", "border_radius": "4px",
+                        "_hover": {"color": RED, "background": f"{RED}11"},
+                    },
+                ),
+                align_items="center", width="100%", gap="6px",
+                style={
+                    "background": f"{ACCENT}0a", "border": f"1px solid {ACCENT}33",
+                    "border_radius": "8px", "padding": "8px 12px",
+                },
+            ),
+            # View mode
+            rx.hstack(
+                rx.vstack(
+                    rx.box("▲", on_click=AppState.move_cat_up(row["id"]),
+                           style={"font_size": "9px", "color": TEXT3, "cursor": "pointer",
+                                  "line_height": "1", "padding": "1px 4px",
+                                  "_hover": {"color": ACCENT}}),
+                    rx.box("▼", on_click=AppState.move_cat_down(row["id"]),
+                           style={"font_size": "9px", "color": TEXT3, "cursor": "pointer",
+                                  "line_height": "1", "padding": "1px 4px",
+                                  "_hover": {"color": ACCENT}}),
+                    gap="0px", align_items="center", flex_shrink="0",
+                ),
+                rx.box(style={
+                    "width": "10px", "height": "10px", "border_radius": "50%",
+                    "background": row["color"], "flex_shrink": "0",
+                }),
+                rx.text(row["name"], style={
+                    "flex": "1", "font_size": "13px", "color": TEXT, "font_weight": "600",
+                }),
+                rx.text(row["bucket_count"], " buckets",
+                        style={"font_size": "12px", "color": TEXT3, "font_family": MONO}),
+                rx.box(
+                    "Edit",
+                    on_click=AppState.open_cat_edit(row["id"]),
+                    style={
+                        "font_size": "11px", "color": ACCENT, "cursor": "pointer",
+                        "padding": "3px 8px", "border_radius": "4px",
+                        "border": f"1px solid {ACCENT}44",
+                        "_hover": {"background": f"{ACCENT}11"},
+                        "font_family": MONO,
+                    },
+                ),
+                rx.box(
+                    "Archive",
+                    on_click=AppState.archive_category(row["id"]),
+                    style={
+                        "font_size": "11px", "color": TEXT3, "cursor": "pointer",
+                        "padding": "3px 8px", "border_radius": "4px",
+                        "_hover": {"color": RED, "background": f"{RED}11"},
+                        "font_family": MONO,
+                    },
+                ),
+                align_items="center", width="100%", gap="8px",
+                style={
+                    "background": BG2, "border": f"1px solid {BORDER}",
+                    "border_radius": "8px", "padding": "8px 12px",
+                },
+            ),
+        ),
+        gap="0px", width="100%", margin_bottom="5px",
+    )
+
+
+# ── Categories section ────────────────────────────────────────────────────────
+
+def _categories_section() -> rx.Component:
+    return rx.vstack(
+        _section_head("Categories"),
+        rx.text(
+            "Organize your buckets. Rename, recolor, or archive categories here.",
+            style={"font_size": "11px", "color": TEXT3, "line_height": "1.5",
+                   "margin_bottom": "8px"},
+        ),
+        rx.cond(
+            AppState.cat_rows.length() == 0,
+            rx.text("No categories yet. Create one when you add a bucket.",
+                    style={"font_size": "12px", "color": TEXT3, "font_family": MONO,
+                           "padding": "8px 0"}),
+            rx.foreach(
+                AppState.cat_rows.to(list[dict[str, Any]]),
+                _cat_row,
+            ),
+        ),
+        gap="0px", align_items="stretch", width="100%",
+    )
+
+
 # ── Main panel ────────────────────────────────────────────────────────────────
 
 def setup_panel() -> rx.Component:
     return rx.vstack(
         _paychecks_section(),
+        rx.divider(style={"border_color": BORDER, "margin": "20px 0"}),
+        _categories_section(),
         rx.divider(style={"border_color": BORDER, "margin": "20px 0"}),
         _rules_section(),
         gap="0px", align_items="stretch", width="100%",

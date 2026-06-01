@@ -1164,11 +1164,78 @@ def _add_bucket_strip() -> rx.Component:
 # ── Main panel (2-column: left=buckets, right=scoreboard) ────────────────────
 
 
+def _month_workflow_bar() -> rx.Component:
+    """Contextual actions: copy last month, close/reopen month."""
+    return rx.hstack(
+        # Month status badge
+        rx.cond(
+            AppState.month_is_closed,
+            rx.box(
+                "CLOSED",
+                style={
+                    "font_size": "10px", "letter_spacing": "0.12em",
+                    "text_transform": "uppercase", "color": TEXT3,
+                    "font_family": MONO, "padding": "3px 8px",
+                    "border": f"1px solid {BORDER2}", "border_radius": "6px",
+                },
+            ),
+            rx.box(),
+        ),
+        rx.spacer(),
+        # Copy last month allocations
+        rx.cond(
+            ~AppState.month_is_closed,
+            rx.box(
+                rx.cond(AppState.copy_allocs_saving, "Copying…", "Copy Last Month"),
+                on_click=AppState.do_copy_allocs,
+                style={
+                    "font_size": "11px", "color": TEXT3, "cursor": "pointer",
+                    "padding": "5px 10px", "border_radius": "6px",
+                    "border": f"1px solid {BORDER}", "font_family": MONO,
+                    "_hover": {"color": TEXT2, "border_color": BORDER2},
+                },
+            ),
+            rx.box(),
+        ),
+        # Close / Reopen month
+        rx.cond(
+            AppState.month_is_closed,
+            rx.box(
+                "Reopen Month",
+                on_click=AppState.do_reopen_month,
+                style={
+                    "font_size": "11px", "color": AMBER, "cursor": "pointer",
+                    "padding": "5px 10px", "border_radius": "6px",
+                    "border": f"1px solid {AMBER}44", "font_family": MONO,
+                    "_hover": {"background": f"{AMBER}0d"},
+                },
+            ),
+            rx.cond(
+                AppState.month_status_str == "past",
+                rx.box(
+                    rx.cond(AppState.close_month_saving, "Closing…", "Close Month"),
+                    on_click=AppState.do_close_month,
+                    style={
+                        "font_size": "11px", "color": TEXT3, "cursor": "pointer",
+                        "padding": "5px 10px", "border_radius": "6px",
+                        "border": f"1px solid {BORDER}", "font_family": MONO,
+                        "_hover": {"color": TEXT2, "border_color": BORDER2},
+                    },
+                ),
+                rx.box(),
+            ),
+        ),
+        width="100%", align_items="center", gap="6px",
+        style={"margin_bottom": "10px", "flex_wrap": "wrap"},
+    )
+
+
 def buckets_panel() -> rx.Component:
     return rx.box(
         rx.box(
             # ── Left column: bucket list ──────────────────────────────────
             rx.vstack(
+                _month_workflow_bar(),
                 rx.foreach(AppState.bucket_rows.to(list[dict[str, Any]]), _bucket_row),
                 _add_bucket_strip(),
                 gap="0", align_items="stretch", width="100%",

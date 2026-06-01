@@ -13,6 +13,7 @@ What changed:
 import reflex as rx
 from .state import AppState
 from .pages.login import login_page
+from .pages.signup import signup_page
 from .pages.dashboard import dashboard_page
 
 
@@ -30,6 +31,12 @@ app.add_page(
     login_page,
     route="/",
     title="Cura",
+)
+
+app.add_page(
+    signup_page,
+    route="/signup",
+    title="Cura — Create Account",
 )
 
 app.add_page(

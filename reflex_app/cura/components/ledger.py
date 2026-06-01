@@ -757,12 +757,23 @@ def add_tx_sheet() -> rx.Component:
                         },
                     ),
 
-                    # Description
-                    rx.input(
-                        placeholder="Description",
-                        value=AppState.sheet_desc,
-                        on_change=AppState.set_sheet_desc,
-                        style=_input_style(),
+                    # Description with payee autocomplete
+                    rx.box(
+                        rx.input(
+                            placeholder="Description",
+                            value=AppState.sheet_desc,
+                            on_change=AppState.set_sheet_desc,
+                            list="payee-list",
+                            style=_input_style(),
+                        ),
+                        rx.el.datalist(
+                            rx.foreach(
+                                AppState.payee_options,
+                                lambda p: rx.el.option(value=p),
+                            ),
+                            id="payee-list",
+                        ),
+                        style={"position": "relative", "width": "100%"},
                     ),
 
                     # Date + Account

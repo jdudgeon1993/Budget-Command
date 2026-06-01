@@ -11,6 +11,7 @@ from ..components.ledger    import ledger_panel
 from ..components.forecast  import forecast_panel
 from ..components.setup     import setup_panel
 from ..components.payday    import payday_modal
+from ..components.accounts  import accounts_panel
 
 
 # ── Mobile header ─────────────────────────────────────────────────────────────
@@ -202,7 +203,7 @@ def panel_content() -> rx.Component:
             AppState.active_panel,
             ("buckets",  buckets_panel()),
             ("ledger",   ledger_panel()),
-            ("accounts", _accounts_stub()),
+            ("accounts", accounts_panel()),
             ("insights", forecast_panel()),
             ("setup",    setup_panel()),
             buckets_panel(),

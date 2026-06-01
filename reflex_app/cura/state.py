@@ -284,10 +284,61 @@ class AppState(rx.State):
     spent_total:  float = 0.0
     total_alloc_val: float = 0.0
 
-    # ── Accounts ─────────────────────────────────────────────────────────────
+    # ── Accounts panel ───────────────────────────────────────────────────────
     accounts_rows: list[dict[str, Any]] = []   # for accounts panel
     total_cash:    float = 0.0
     total_debt:    float = 0.0
+    acct_expanded_id:  str = ""
+    acct_ledger_rows:  list[dict[str, Any]] = []
+
+    # Account settings drawer
+    acct_settings_open:    bool = False
+    acct_settings_aid:     str  = ""
+    acct_settings_name:    str  = ""
+    acct_settings_type:    str  = "budget"
+    acct_settings_color:   str  = "#3a7fc1"
+    acct_settings_opening: str  = "0"
+    acct_settings_apr:     str  = ""
+    acct_settings_min_pay: str  = ""
+    acct_settings_credit:  str  = ""
+    acct_settings_is_promo: bool = False
+    acct_settings_promo_end: str = ""
+    acct_settings_saving:  bool = False
+    acct_settings_error:   str  = ""
+
+    # Add account
+    add_acct_open:    bool = False
+    add_acct_name:    str  = ""
+    add_acct_type:    str  = "budget"
+    add_acct_color:   str  = "#3a7fc1"
+    add_acct_opening: str  = "0"
+    add_acct_saving:  bool = False
+    add_acct_error:   str  = ""
+
+    # Debt payment
+    debt_pay_open:         bool = False
+    debt_pay_aid:          str  = ""
+    debt_pay_acct_name:    str  = ""
+    debt_pay_amount:       str  = ""
+    debt_pay_date:         str  = ""
+    debt_pay_from_account: str  = ""
+    debt_pay_bucket:       str  = ""
+    debt_pay_saving:       bool = False
+    debt_pay_error:        str  = ""
+
+    # ── Category management ───────────────────────────────────────────────────
+    cat_rows: list[dict[str, Any]] = []   # [{id, name, color, order, bucket_count}]
+    cat_edit_id:    str  = ""
+    cat_edit_name:  str  = ""
+    cat_edit_color: str  = ""
+    cat_saving:     bool = False
+
+    # ── Month workflow ────────────────────────────────────────────────────────
+    copy_allocs_saving:  bool = False
+    close_month_saving:  bool = False
+
+    # ── Payee autocomplete ────────────────────────────────────────────────────
+    payee_options: list[str] = []
 
     # ── Form selects ──────────────────────────────────────────────────────────
     expense_buckets: list[dict[str, Any]] = []   # [{id, name}]
@@ -1206,6 +1257,7 @@ class AppState(rx.State):
         self.sheet_bucket      = self.expense_buckets[0]["id"] if self.expense_buckets else ""
         self.sheet_income_type = "paycheck"
         self.sheet_error       = ""
+        self.load_payees()
 
     def close_sheet(self):
         self.sheet_open  = False
@@ -2544,6 +2596,20 @@ class AppState(rx.State):
         self.total_cash = sum(r["balance"] for r in acc_rows if r["type"] != "debt")
         self.total_debt = sum(r["balance"] for r in acc_rows if r["type"] == "debt")
 
+        # ── Category rows (for category management in Setup panel) ─────────
+        self.cat_rows = [
+            {
+                "id":           c["id"],
+                "name":         c.get("name", ""),
+                "color":        c.get("color", "#818cf8"),
+                "order":        c.get("order", 0),
+                "bucket_count": str(len([b for b in all_buckets
+                                         if b.get("catId") == c["id"] and not b.get("archived")])),
+            }
+            for c in cats_sorted
+            if not c.get("archived")
+        ]
+
         # ── Form selects ───────────────────────────────────────────────────
         self.expense_buckets = [
             {"id": b["id"], "name": b.get("name", "")}
@@ -2587,3 +2653,374 @@ class AppState(rx.State):
         # ── Forecast ───────────────────────────────────────────────────────
         self._refresh_forecast_accounts()
         self._run_forecast()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Accounts panel
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def open_add_account(self):
+        self.add_acct_name    = ""
+        self.add_acct_type    = "budget"
+        self.add_acct_color   = "#3a7fc1"
+        self.add_acct_opening = "0"
+        self.add_acct_saving  = False
+        self.add_acct_error   = ""
+        self.add_acct_open    = True
+
+    async def save_add_account(self):
+        if not self.add_acct_name.strip():
+            self.add_acct_error = "Name is required"
+            return
+        try:
+            opening = round(float(self.add_acct_opening or "0"), 2)
+        except ValueError:
+            self.add_acct_error = "Invalid opening balance"
+            return
+        self.add_acct_saving = True
+        self.add_acct_error  = ""
+        yield
+        try:
+            DB.insert_account(
+                self.user_id, self.access_token,
+                self.add_acct_name.strip(), self.add_acct_type,
+                self.add_acct_color, opening,
+            )
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw            = data
+            self._process(data, self.active_mid)
+            self.add_acct_open   = False
+            self.add_acct_saving = False
+            yield rx.toast.success("Account added")
+        except Exception as e:
+            self.add_acct_saving = False
+            self.add_acct_error  = str(e)
+
+    def open_account_settings(self, aid: str):
+        acct = next((a for a in (self._raw.get("accounts") or []) if a["id"] == aid), None)
+        if not acct:
+            return
+        v = float(acct.get("openingBalance") or 0)
+        self.acct_settings_aid       = aid
+        self.acct_settings_name      = acct.get("name", "")
+        self.acct_settings_type      = acct.get("type", "budget")
+        self.acct_settings_color     = acct.get("color", "#3a7fc1")
+        self.acct_settings_opening   = str(int(v)) if v == int(v) else f"{v:.2f}"
+        self.acct_settings_apr       = str(acct.get("debtAPR") or "")
+        self.acct_settings_min_pay   = str(acct.get("debtMinPayment") or "")
+        self.acct_settings_credit    = str(acct.get("creditLimit") or "")
+        self.acct_settings_is_promo  = bool(acct.get("isPromo"))
+        self.acct_settings_promo_end = acct.get("promoEndDate") or ""
+        self.acct_settings_saving    = False
+        self.acct_settings_error     = ""
+        self.acct_settings_open      = True
+
+    async def save_account_settings(self):
+        if not self.acct_settings_name.strip():
+            self.acct_settings_error = "Name is required"
+            return
+        try:
+            opening = round(float(self.acct_settings_opening or "0"), 2)
+            apr     = float(self.acct_settings_apr) if self.acct_settings_apr.strip() else None
+            min_pay = float(self.acct_settings_min_pay) if self.acct_settings_min_pay.strip() else None
+            credit  = float(self.acct_settings_credit) if self.acct_settings_credit.strip() else None
+        except ValueError:
+            self.acct_settings_error = "Invalid number"
+            return
+        self.acct_settings_saving = True
+        self.acct_settings_error  = ""
+        yield
+        try:
+            fields: dict = {
+                "name":            self.acct_settings_name.strip(),
+                "type":            self.acct_settings_type,
+                "color":           self.acct_settings_color,
+                "opening_balance": opening,
+            }
+            if apr is not None:     fields["debt_apr"]          = apr
+            if min_pay is not None: fields["debt_min_payment"]  = min_pay
+            if credit is not None:  fields["credit_limit"]      = credit
+            if self.acct_settings_type == "debt":
+                fields["is_promo"]       = self.acct_settings_is_promo
+                fields["promo_end_date"] = self.acct_settings_promo_end or None
+            DB.update_account(self.user_id, self.access_token, self.acct_settings_aid, fields)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw                 = data
+            self._process(data, self.active_mid)
+            self.acct_settings_open   = False
+            self.acct_settings_saving = False
+            yield rx.toast.success("Account updated")
+        except Exception as e:
+            self.acct_settings_saving = False
+            self.acct_settings_error  = str(e)
+
+    async def archive_account(self, aid: str):
+        try:
+            DB.update_account(self.user_id, self.access_token, aid, {"archived": True})
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw               = data
+            self._process(data, self.active_mid)
+            self.acct_settings_open = False
+            yield rx.toast.success("Account archived")
+        except Exception as e:
+            self.acct_settings_error = str(e)
+
+    def toggle_acct_expand(self, aid: str):
+        if self.acct_expanded_id == aid:
+            self.acct_expanded_id = ""
+            self.acct_ledger_rows = []
+            return
+        self.acct_expanded_id = aid
+        raw_txs    = (self._raw or {}).get("txs", [])
+        bucket_map = {b["id"]: b.get("name", "") for b in (self._raw or {}).get("buckets", [])}
+        txs = sorted(
+            [t for t in raw_txs if t.get("accountId") == aid],
+            key=lambda t: t.get("date", ""),
+            reverse=True,
+        )[:20]
+        self.acct_ledger_rows = [
+            {
+                "id":         t["id"],
+                "date_label": _date_label(t.get("date", "")),
+                "desc":       t.get("desc") or "—",
+                "amount_fmt": (f"+{_fmt(float(t.get('amount') or 0))}" if t.get("type") == "in"
+                               else f"−{_fmt(float(t.get('amount') or 0))}"),
+                "amt_color":  ("#34d399" if t.get("type") == "in" else
+                               "#f87171" if t.get("type") == "out" else "#8282a2"),
+                "bucket":     bucket_map.get(t.get("bucketId") or "", ""),
+            }
+            for t in txs
+        ]
+
+    def open_debt_payment(self, aid: str):
+        acct = next((a for a in (self._raw.get("accounts") or []) if a["id"] == aid), None)
+        if not acct:
+            return
+        budget_accts = [a for a in (self._raw.get("accounts") or [])
+                        if a.get("type") == "budget" and not a.get("archived")]
+        self.debt_pay_aid          = aid
+        self.debt_pay_acct_name    = acct.get("name", "")
+        self.debt_pay_amount       = ""
+        self.debt_pay_date         = date.today().isoformat()
+        self.debt_pay_from_account = budget_accts[0]["id"] if budget_accts else ""
+        self.debt_pay_bucket       = ""
+        self.debt_pay_saving       = False
+        self.debt_pay_error        = ""
+        self.debt_pay_open         = True
+
+    async def save_debt_payment(self):
+        try:
+            amount = round(float(self.debt_pay_amount or "0"), 2)
+        except ValueError:
+            self.debt_pay_error = "Invalid amount"
+            return
+        if amount <= 0:
+            self.debt_pay_error = "Amount must be positive"
+            return
+        if not self.debt_pay_from_account:
+            self.debt_pay_error = "Select a source account"
+            return
+        self.debt_pay_saving = True
+        self.debt_pay_error  = ""
+        yield
+        try:
+            mid = _date_to_mid(self.debt_pay_date)
+            DB.ensure_month(self.user_id, self.access_token, mid)
+            DB.insert_debt_payment(
+                self.user_id, self.access_token,
+                self.debt_pay_aid, self.debt_pay_from_account,
+                amount, self.debt_pay_date, mid,
+                self.debt_pay_acct_name, self.debt_pay_bucket,
+            )
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw            = data
+            self._process(data, self.active_mid)
+            self.debt_pay_open   = False
+            self.debt_pay_saving = False
+            yield rx.toast.success("Payment recorded")
+        except Exception as e:
+            self.debt_pay_saving = False
+            self.debt_pay_error  = str(e)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Category management
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def open_cat_edit(self, cid: str):
+        cat = next((c for c in (self._raw.get("cats") or []) if c["id"] == cid), None)
+        if not cat:
+            return
+        self.cat_edit_id    = cid
+        self.cat_edit_name  = cat.get("name", "")
+        self.cat_edit_color = cat.get("color", "#818cf8")
+        self.cat_saving     = False
+
+    def close_cat_edit(self):
+        self.cat_edit_id = ""
+
+    async def save_cat_edit(self):
+        if not self.cat_edit_id or not self.cat_edit_name.strip():
+            return
+        self.cat_saving = True
+        yield
+        try:
+            DB.update_category(self.user_id, self.access_token, self.cat_edit_id, {
+                "name":  self.cat_edit_name.strip(),
+                "color": self.cat_edit_color,
+            })
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw        = data
+            self._process(data, self.active_mid)
+            self.cat_edit_id = ""
+            self.cat_saving  = False
+            yield rx.toast.success("Category updated")
+        except Exception as e:
+            self.cat_saving = False
+            yield rx.toast.error(str(e))
+
+    async def archive_category(self, cid: str):
+        try:
+            DB.update_category(self.user_id, self.access_token, cid, {"archived": True})
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw        = data
+            self._process(data, self.active_mid)
+            self.cat_edit_id = ""
+            yield rx.toast.success("Category archived")
+        except Exception as e:
+            yield rx.toast.error(str(e))
+
+    async def move_cat_up(self, cid: str):
+        yield
+        try:
+            cats = sorted(
+                [c for c in (self._raw or {}).get("cats", []) if not c.get("archived")],
+                key=lambda c: c.get("order", 0),
+            )
+            idx = next((i for i, c in enumerate(cats) if c["id"] == cid), None)
+            if idx is None or idx == 0:
+                return
+            other   = cats[idx - 1]
+            a_order = int(cats[idx].get("order", 0))
+            b_order = int(other.get("order", 0))
+            if a_order == b_order:
+                a_order, b_order = idx, idx - 1
+            DB.update_category_order(self.user_id, self.access_token, cid, b_order)
+            DB.update_category_order(self.user_id, self.access_token, other["id"], a_order)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+        except Exception as e:
+            yield rx.toast.error(f"Reorder failed: {e}")
+
+    async def move_cat_down(self, cid: str):
+        yield
+        try:
+            cats = sorted(
+                [c for c in (self._raw or {}).get("cats", []) if not c.get("archived")],
+                key=lambda c: c.get("order", 0),
+            )
+            idx = next((i for i, c in enumerate(cats) if c["id"] == cid), None)
+            if idx is None or idx >= len(cats) - 1:
+                return
+            other   = cats[idx + 1]
+            a_order = int(cats[idx].get("order", 0))
+            b_order = int(other.get("order", 0))
+            if a_order == b_order:
+                a_order, b_order = idx + 1, idx
+            DB.update_category_order(self.user_id, self.access_token, cid, b_order)
+            DB.update_category_order(self.user_id, self.access_token, other["id"], a_order)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+        except Exception as e:
+            yield rx.toast.error(f"Reorder failed: {e}")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Month workflow
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def do_copy_allocs(self):
+        months      = self._raw.get("months") or []
+        sorted_mids = sorted({m["id"] for m in months}, key=month_sort_key)
+        if self.active_mid not in sorted_mids or sorted_mids.index(self.active_mid) == 0:
+            yield rx.toast.info("No previous month to copy from")
+            return
+        src_mid = sorted_mids[sorted_mids.index(self.active_mid) - 1]
+        self.copy_allocs_saving = True
+        yield
+        try:
+            DB.ensure_month(self.user_id, self.access_token, self.active_mid)
+            DB.copy_month_allocs(self.user_id, self.access_token, self.active_mid, src_mid)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw               = data
+            self._process(data, self.active_mid)
+            self.copy_allocs_saving = False
+            yield rx.toast.success("Allocations copied from previous month")
+        except Exception as e:
+            self.copy_allocs_saving = False
+            yield rx.toast.error(f"Copy failed: {e}")
+
+    async def do_close_month(self):
+        self.close_month_saving = True
+        yield
+        try:
+            DB.ensure_month(self.user_id, self.access_token, self.active_mid)
+            accounts = (self._raw or {}).get("accounts", [])
+            txs      = (self._raw or {}).get("txs", [])
+            DB.close_month(self.user_id, self.access_token, self.active_mid, accounts, txs)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw               = data
+            self._process(data, self.active_mid)
+            self.close_month_saving = False
+            yield rx.toast.success("Month closed")
+        except Exception as e:
+            self.close_month_saving = False
+            yield rx.toast.error(f"Close failed: {e}")
+
+    async def do_reopen_month(self):
+        yield
+        try:
+            DB.reopen_month(self.user_id, self.access_token, self.active_mid)
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+            yield rx.toast.success("Month reopened")
+        except Exception as e:
+            yield rx.toast.error(f"Reopen failed: {e}")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Payees
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def load_payees(self):
+        try:
+            self.payee_options = DB.get_payees(self.user_id, self.access_token)
+        except Exception:
+            pass
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Signup
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def signup(self, form_data: dict):
+        email    = (form_data.get("email") or "").strip()
+        password = (form_data.get("password") or "").strip()
+        confirm  = (form_data.get("confirm") or "").strip()
+        self.auth_error = ""
+        if password != confirm:
+            self.auth_error = "Passwords do not match."
+            return
+        if len(password) < 6:
+            self.auth_error = "Password must be at least 6 characters."
+            return
+        self.is_loading = True
+        yield
+        try:
+            auth = DB.sign_up(email, password)
+            self.access_token = auth["access_token"]
+            self.user_id      = auth["user_id"]
+            self.user_email   = auth["user_email"]
+            self.is_loading   = False
+            yield rx.redirect("/dashboard")
+        except Exception as e:
+            self.auth_error = str(e)
+            self.is_loading = False

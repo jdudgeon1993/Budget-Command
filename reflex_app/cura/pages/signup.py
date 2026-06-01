@@ -1,8 +1,8 @@
-"""Login page — replaces login.html."""
+"""Signup page."""
 
 import reflex as rx
 from ..state import AppState
-from ..theme import BG, BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3, ACCENT, RED, MONO, SANS
+from ..theme import BG, BG2, BG3, BORDER, TEXT, TEXT2, TEXT3, ACCENT, RED, MONO, SANS
 
 
 def _input(name: str, label: str, type_: str = "text", placeholder: str = "") -> rx.Component:
@@ -23,7 +23,7 @@ def _input(name: str, label: str, type_: str = "text", placeholder: str = "") ->
     )
 
 
-def login_page() -> rx.Component:
+def signup_page() -> rx.Component:
     return rx.center(
         rx.box(
             # Logo
@@ -31,8 +31,9 @@ def login_page() -> rx.Component:
                 rx.text("CURA", style={"font_size": "24px", "font_weight": "700",
                                         "letter_spacing": "0.2em", "color": ACCENT,
                                         "text_align": "center"}),
-                rx.text("Budget Command", style={"font_size": "11px", "color": TEXT3,
-                                                  "letter_spacing": "0.1em", "text_align": "center"}),
+                rx.text("Create your account", style={"font_size": "11px", "color": TEXT3,
+                                                       "letter_spacing": "0.1em",
+                                                       "text_align": "center"}),
                 gap="4px", margin_bottom="28px",
             ),
 
@@ -51,23 +52,14 @@ def login_page() -> rx.Component:
                 rx.box(),
             ),
 
-            # Sign up link
-            rx.text(
-                "New here? ",
-                rx.el.a("Create an account", href="/signup",
-                        style={"color": ACCENT, "text_decoration": "none",
-                               "_hover": {"text_decoration": "underline"}}),
-                style={"font_size": "12px", "color": TEXT3, "text_align": "center",
-                       "margin_bottom": "18px"},
-            ),
-
             # Form
             rx.form(
                 rx.vstack(
-                    _input("email",    "Email",    "email",    "you@example.com"),
-                    _input("password", "Password", "password", "••••••••"),
+                    _input("email",    "Email",            "email",    "you@example.com"),
+                    _input("password", "Password",         "password", "Min 6 characters"),
+                    _input("confirm",  "Confirm Password", "password", "Repeat password"),
                     rx.el.button(
-                        rx.cond(AppState.is_loading, "Signing in…", "Sign In"),
+                        rx.cond(AppState.is_loading, "Creating account…", "Create Account"),
                         type="submit",
                         disabled=AppState.is_loading,
                         style={
@@ -83,7 +75,17 @@ def login_page() -> rx.Component:
                     ),
                     gap="14px",
                 ),
-                on_submit=AppState.login,
+                on_submit=AppState.signup,
+            ),
+
+            # Sign in link
+            rx.text(
+                "Already have an account? ",
+                rx.el.a("Sign in", href="/login", style={"color": ACCENT,
+                                                          "text_decoration": "none",
+                                                          "_hover": {"text_decoration": "underline"}}),
+                style={"font_size": "12px", "color": TEXT3, "text_align": "center",
+                       "margin_top": "18px"},
             ),
 
             style={

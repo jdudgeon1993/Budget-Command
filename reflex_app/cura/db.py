@@ -66,6 +66,7 @@ def load_all(uid: str, token: str) -> dict:
     cats = [{
         "id": c["id"], "name": c["name"],
         "color": c.get("color", ""), "order": c.get("sort_order", 0),
+        "archived": bool(c.get("archived")),
     } for c in cats_raw]
 
     buckets = [{
@@ -119,6 +120,7 @@ def load_all(uid: str, token: str) -> dict:
 
     months = [{
         "id": m["id"], "closed": bool(m.get("closed")),
+        "closing_snapshot": m.get("closing_snapshot") or {},
         "allocations": alloc_by_mid.get(m["id"], {}),
         "budgets": budget_by_mid.get(m["id"], {}),
         "rolloverReleased": rollrel_by_mid.get(m["id"], {}),
@@ -144,6 +146,7 @@ def insert_transaction(uid: str, token: str, tx: dict) -> str:
         "bucket_id": tx.get("bucketId") or None,
         "to_account_id": tx.get("toAccountId") or None,
         "income_type": tx.get("incomeType") or None,
+        "debt_payment_account_id": tx.get("debtPaymentAccountId") or None,
     }).execute()
     return tx_id
 
@@ -308,3 +311,141 @@ def update_scenario(uid: str, token: str, sid: str, name: str, allocations: dict
 def delete_scenario(uid: str, token: str, sid: str) -> None:
     db = client(token)
     db.table("bcc_scenarios").delete().eq("id", sid).eq("user_id", uid).execute()
+
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+def sign_up(email: str, password: str) -> dict:
+    """Register a new user. Returns {access_token, user_id, user_email} or raises."""
+    c = client()
+    resp = c.auth.sign_up({"email": email, "password": password})
+    if not resp.session:
+        raise ValueError("Check your email to confirm your account, then sign in.")
+    return {
+        "access_token": resp.session.access_token,
+        "user_id": resp.user.id,
+        "user_email": resp.user.email,
+    }
+
+
+# ── Accounts ──────────────────────────────────────────────────────────────────
+
+def insert_account(uid: str, token: str, name: str, atype: str,
+                   color: str, opening_balance: float = 0.0) -> str:
+    aid = f"a_{uuid.uuid4().hex[:10]}"
+    existing = client(token).table("bcc_accounts").select("sort_order") \
+        .eq("user_id", uid).order("sort_order", desc=True).limit(1).execute().data or []
+    sort_order = (existing[0]["sort_order"] + 1) if existing else 1
+    client(token).table("bcc_accounts").insert({
+        "id": aid, "user_id": uid, "name": name, "type": atype,
+        "color": color, "opening_balance": opening_balance,
+        "archived": False, "sort_order": sort_order,
+    }).execute()
+    return aid
+
+
+def update_account(uid: str, token: str, aid: str, fields: dict) -> None:
+    col_map = {
+        "name": "name", "type": "type", "color": "color",
+        "opening_balance": "opening_balance",
+        "debt_apr": "debt_apr", "debt_min_payment": "debt_min_payment",
+        "credit_limit": "credit_limit",
+        "is_promo": "is_promo", "promo_end_date": "promo_end_date",
+        "archived": "archived",
+    }
+    payload = {col_map[k]: v for k, v in fields.items() if k in col_map}
+    if payload:
+        client(token).table("bcc_accounts").update(payload) \
+            .eq("id", aid).eq("user_id", uid).execute()
+
+
+def insert_debt_payment(uid: str, token: str, debt_aid: str, from_aid: str,
+                        amount: float, pay_date: str, mid: str,
+                        debt_name: str, bucket_id: str = "") -> str:
+    tx_id = f"tx_{uuid.uuid4().hex[:12]}"
+    client(token).table("bcc_transactions").insert({
+        "id": tx_id, "user_id": uid,
+        "account_id": from_aid, "month_id": mid,
+        "type": "out", "amount": amount,
+        "date": pay_date,
+        "description": f"Payment — {debt_name}",
+        "bucket_id": bucket_id or None,
+        "debt_payment_account_id": debt_aid,
+    }).execute()
+    return tx_id
+
+
+# ── Categories ────────────────────────────────────────────────────────────────
+
+def update_category(uid: str, token: str, cid: str, fields: dict) -> None:
+    col_map = {"name": "name", "color": "color", "archived": "archived"}
+    payload = {col_map[k]: v for k, v in fields.items() if k in col_map}
+    if payload:
+        client(token).table("bcc_categories").update(payload) \
+            .eq("id", cid).eq("user_id", uid).execute()
+
+
+def update_category_order(uid: str, token: str, cid: str, sort_order: int) -> None:
+    client(token).table("bcc_categories").update({"sort_order": sort_order}) \
+        .eq("id", cid).eq("user_id", uid).execute()
+
+
+# ── Month workflow ────────────────────────────────────────────────────────────
+
+def copy_month_allocs(uid: str, token: str, dst_mid: str, src_mid: str) -> None:
+    """Copy allocation rows from src_mid → dst_mid, skipping already-set buckets."""
+    db = client(token)
+    src = db.table("bcc_month_allocations").select("*") \
+        .eq("user_id", uid).eq("month_id", src_mid).execute().data or []
+    if not src:
+        return
+    existing_bids = {
+        r["bucket_id"] for r in
+        (db.table("bcc_month_allocations").select("bucket_id")
+           .eq("user_id", uid).eq("month_id", dst_mid).execute().data or [])
+    }
+    rows = [
+        {"user_id": uid, "month_id": dst_mid,
+         "bucket_id": r["bucket_id"], "amount": r["amount"]}
+        for r in src if r["bucket_id"] not in existing_bids
+    ]
+    if rows:
+        db.table("bcc_month_allocations").insert(rows).execute()
+
+
+def close_month(uid: str, token: str, mid: str, accounts: list, txs: list) -> None:
+    from datetime import date as _date
+    from .formulas import acct_balance as _bal, is_scheduled as _sched
+    cash = sum(_bal(a, txs) for a in accounts if a.get("type") != "debt" and not a.get("archived"))
+    debt = sum(_bal(a, txs) for a in accounts if a.get("type") == "debt" and not a.get("archived"))
+    income = sum(float(t.get("amount", 0)) for t in txs
+                 if t.get("monthId") == mid and t.get("type") == "in" and not _sched(t))
+    spent  = sum(float(t.get("amount", 0)) for t in txs
+                 if t.get("monthId") == mid and t.get("type") == "out" and not _sched(t))
+    snapshot = {"date": str(_date.today()), "cash": round(cash, 2),
+                "net_worth": round(cash - debt, 2), "debt_total": round(debt, 2),
+                "income": round(income, 2), "spent": round(spent, 2)}
+    client(token).table("bcc_months").update({
+        "closed": True, "closing_snapshot": snapshot,
+        "closing_date": str(_date.today()),
+    }).eq("id", mid).eq("user_id", uid).execute()
+
+
+def reopen_month(uid: str, token: str, mid: str) -> None:
+    client(token).table("bcc_months").update({"closed": False}) \
+        .eq("id", mid).eq("user_id", uid).execute()
+
+
+# ── Payees ────────────────────────────────────────────────────────────────────
+
+def get_payees(uid: str, token: str) -> list:
+    rows = client(token).table("bcc_transactions").select("description") \
+        .eq("user_id", uid).execute().data or []
+    seen, result = set(), []
+    for r in rows:
+        d = (r.get("description") or "").strip()
+        if d and d not in seen:
+            seen.add(d)
+            result.append(d)
+    return sorted(result, key=str.lower)
+
