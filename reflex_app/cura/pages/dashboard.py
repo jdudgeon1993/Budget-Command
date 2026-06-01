@@ -36,7 +36,7 @@ def mobile_header() -> rx.Component:
         # Month nav
         rx.hstack(
             rx.box("←", on_click=AppState.go_prev_month,
-                   role="button", tab_index="0", aria_label="Previous month",
+                   role="button", tab_index=0, aria_label="Previous month",
                    style={"cursor": "pointer", "color": TEXT3, "padding": "8px 10px",
                           "border_radius": "6px", "font_size": "16px", "line_height": "1",
                           "_hover": {"color": ACCENT}}),
@@ -46,7 +46,7 @@ def mobile_header() -> rx.Component:
                            "border_radius": "8px", "padding": "4px 10px",
                            "white_space": "nowrap"}),
             rx.box("→", on_click=AppState.go_next_month,
-                   role="button", tab_index="0", aria_label="Next month",
+                   role="button", tab_index=0, aria_label="Next month",
                    style={"cursor": "pointer", "color": TEXT3, "padding": "8px 10px",
                           "border_radius": "6px", "font_size": "16px", "line_height": "1",
                           "_hover": {"color": ACCENT}}),
@@ -95,7 +95,7 @@ def _mob_tab(label: str, panel: str, icon_d: str) -> rx.Component:
                                "text_transform": "uppercase", "line_height": "1"}),
         on_click=AppState.set_panel(panel),
         role="button",
-        tab_index="0",
+        tab_index=0,
         aria_label=label,
         aria_current=rx.cond(is_active, "page", "false"),
         style=rx.cond(
@@ -234,14 +234,14 @@ def dashboard_page() -> rx.Component:
                                "text_transform": "uppercase", "color": TEXT2, "flex": "1"}),
                 rx.hstack(
                     rx.box("←", on_click=AppState.go_prev_month,
-                           role="button", tab_index="0", aria_label="Previous month",
+                           role="button", tab_index=0, aria_label="Previous month",
                            style={"cursor": "pointer", "color": TEXT3, "padding": "6px 10px",
                                   "border_radius": "6px", "font_size": "15px",
                                   "_hover": {"color": ACCENT, "background": BG3}}),
                     rx.text(AppState.month_display,
                             style={"font_size": "13px", "color": TEXT2}),
                     rx.box("→", on_click=AppState.go_next_month,
-                           role="button", tab_index="0", aria_label="Next month",
+                           role="button", tab_index=0, aria_label="Next month",
                            style={"cursor": "pointer", "color": TEXT3, "padding": "6px 10px",
                                   "border_radius": "6px", "font_size": "15px",
                                   "_hover": {"color": ACCENT, "background": BG3}}),

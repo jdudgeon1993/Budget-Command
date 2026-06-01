@@ -399,7 +399,7 @@ def _tx_row(row: dict) -> rx.Component:
                             "⋯",
                             on_click=AppState.open_edit_tx(row["id"]),
                             role="button",
-                            tab_index="0",
+                            tab_index=0,
                             aria_label="Edit transaction",
                             style={
                                 "font_size": "18px", "color": TEXT3, "cursor": "pointer",
@@ -611,7 +611,7 @@ def edit_tx_dialog() -> rx.Component:
                         ),
                         on_click=AppState.set_edit_tx_reconciled(~AppState.edit_tx_reconciled),
                         role="button",
-                        tab_index="0",
+                        tab_index=0,
                         aria_label="Toggle reconciled status",
                         aria_pressed=rx.cond(AppState.edit_tx_reconciled, "true", "false"),
                         style={"_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px",

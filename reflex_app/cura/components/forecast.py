@@ -370,7 +370,7 @@ def _period_card(p: dict) -> rx.Component:
         ),
         on_click=AppState.toggle_period_collapse(p["pid"]),
         role="button",
-        tab_index="0",
+        tab_index=0,
         aria_label=p["lbl"],
         aria_expanded=rx.cond(p["is_open"] == "1", "true", "false"),
         style={
@@ -560,7 +560,7 @@ def _forecast_subpanel() -> rx.Component:
                     "Go to Setup →",
                     on_click=AppState.set_panel("setup"),
                     role="button",
-                    tab_index="0",
+                    tab_index=0,
                     style={
                         "margin_top": "12px", "padding": "8px 20px",
                         "border_radius": "8px", "cursor": "pointer",
@@ -688,7 +688,7 @@ def _month_pill(label: str, key: str, status: str) -> rx.Component:
         label,
         on_click=AppState.toggle_wi_month_schedule(key),
         role="button",
-        tab_index="0",
+        tab_index=0,
         aria_label=rx.cond(status == "off", f"Enable {label}", f"Disable {label}"),
         aria_pressed=rx.cond(status == "off", "false", "true"),
         style={
@@ -1059,7 +1059,7 @@ def _whatif_subpanel() -> rx.Component:
                     "Go to Setup →",
                     on_click=AppState.set_panel("setup"),
                     role="button",
-                    tab_index="0",
+                    tab_index=0,
                     style={
                         "margin_top": "12px", "padding": "8px 20px",
                         "border_radius": "8px", "cursor": "pointer",
