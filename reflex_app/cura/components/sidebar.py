@@ -26,7 +26,6 @@ def _nav_item(label: str, panel: str, icon_path: str) -> rx.Component:
         role="button",
         tab_index=0,
         aria_label=label,
-        on_key_down=AppState.set_panel(panel),
         style=rx.cond(
             is_active,
             {
