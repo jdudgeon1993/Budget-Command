@@ -12,6 +12,7 @@ from ..components.forecast  import forecast_panel
 from ..components.setup     import setup_panel
 from ..components.payday    import payday_modal
 from ..components.accounts  import accounts_panel
+from ..components.reports   import reports_panel
 
 
 # ── Mobile header ─────────────────────────────────────────────────────────────
@@ -130,6 +131,10 @@ def mobile_nav() -> rx.Component:
         _mob_tab("Accounts", "accounts",
             '<rect x="2" y="5" width="20" height="14" rx="2"/>'
             '<line x1="2" y1="10" x2="22" y2="10"/>'),
+        _mob_tab("Reports", "reports",
+            '<rect x="3" y="3" width="18" height="4" rx="1"/>'
+            '<rect x="3" y="10" width="12" height="4" rx="1"/>'
+            '<rect x="3" y="17" width="15" height="4" rx="1"/>'),
         _mob_tab("Forecast", "insights",
             '<line x1="18" y1="20" x2="18" y2="10"/>'
             '<line x1="12" y1="20" x2="12" y2="4"/>'
@@ -204,6 +209,7 @@ def panel_content() -> rx.Component:
             ("buckets",  buckets_panel()),
             ("ledger",   ledger_panel()),
             ("accounts", accounts_panel()),
+            ("reports",  reports_panel()),
             ("insights", forecast_panel()),
             ("setup",    setup_panel()),
             buckets_panel(),
