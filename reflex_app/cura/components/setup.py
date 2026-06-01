@@ -444,18 +444,16 @@ def _cat_row(row: dict) -> rx.Component:
                         "font_size": "13px", "padding": "5px 8px", "outline": "none",
                     },
                 ),
-                rx.color_picker.root(
-                    rx.color_picker.trigger(
-                        rx.box(style={
-                            "width": "28px", "height": "28px", "border_radius": "6px",
-                            "background": AppState.cat_edit_color,
-                            "border": f"1px solid {BORDER}", "cursor": "pointer",
-                            "flex_shrink": "0",
-                        }),
-                    ),
-                    rx.color_picker.content(rx.color_picker.area(), rx.color_picker.sliders()),
+                rx.el.input(
+                    type="color",
                     value=AppState.cat_edit_color,
                     on_change=AppState.set_cat_edit_color,
+                    style={
+                        "width": "32px", "height": "32px", "border_radius": "6px",
+                        "border": f"1px solid {BORDER}", "cursor": "pointer",
+                        "background": "transparent", "padding": "2px",
+                        "flex_shrink": "0",
+                    },
                 ),
                 rx.box(
                     rx.cond(AppState.cat_saving, "…", "✓"),

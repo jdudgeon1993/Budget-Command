@@ -269,18 +269,15 @@ def _add_account_dialog() -> rx.Component:
                              input_mode="decimal"),
                     ),
                     _field("Color",
-                        rx.color_picker.root(
-                            rx.color_picker.trigger(
-                                rx.box(style={
-                                    "width": "100%", "height": "36px",
-                                    "border_radius": "8px",
-                                    "background": AppState.add_acct_color,
-                                    "border": f"1px solid {BORDER}", "cursor": "pointer",
-                                }),
-                            ),
-                            rx.color_picker.content(rx.color_picker.area(), rx.color_picker.sliders()),
+                        rx.el.input(
+                            type="color",
                             value=AppState.add_acct_color,
                             on_change=AppState.set_add_acct_color,
+                            style={
+                                "width": "100%", "height": "36px", "border_radius": "8px",
+                                "border": f"1px solid {BORDER}", "cursor": "pointer",
+                                "background": "transparent", "padding": "2px",
+                            },
                         ),
                     ),
                     gap="10px", width="100%",
@@ -364,18 +361,15 @@ def _account_settings_dialog() -> rx.Component:
                         ),
                     ),
                     _field("Color",
-                        rx.color_picker.root(
-                            rx.color_picker.trigger(
-                                rx.box(style={
-                                    "width": "100%", "height": "36px",
-                                    "border_radius": "8px",
-                                    "background": AppState.acct_settings_color,
-                                    "border": f"1px solid {BORDER}", "cursor": "pointer",
-                                }),
-                            ),
-                            rx.color_picker.content(rx.color_picker.area(), rx.color_picker.sliders()),
+                        rx.el.input(
+                            type="color",
                             value=AppState.acct_settings_color,
                             on_change=AppState.set_acct_settings_color,
+                            style={
+                                "width": "100%", "height": "36px", "border_radius": "8px",
+                                "border": f"1px solid {BORDER}", "cursor": "pointer",
+                                "background": "transparent", "padding": "2px",
+                            },
                         ),
                     ),
                     gap="10px", width="100%",
