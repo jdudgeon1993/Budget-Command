@@ -1074,25 +1074,16 @@ class AppState(rx.State):
             yield rx.toast.error(f"Delete failed: {e}")
 
     def _refresh_forecast_accounts(self):
+        from .formulas import acct_balance
         raw = self._raw
         if not raw:
             return
         accounts = raw.get("accounts", [])
         txs      = raw.get("txs", [])
-
-        def _bal(a):
-            bal = float(a.get("openingBalance") or 0)
-            for t in txs:
-                if t.get("accountId") == a["id"]:
-                    bal += float(t.get("amount") or 0) if t.get("type") == "in" else -float(t.get("amount") or 0)
-                if t.get("toAccountId") == a["id"] and t.get("type") == "xfr":
-                    bal += float(t.get("amount") or 0)
-            return bal
-
         self.forecast_accounts = [
             {"id": a["id"], "name": a["name"],
              "color": a.get("color", "#818cf8"),
-             "balance_fmt": _fmt(_bal(a))}
+             "balance_fmt": _fmt(acct_balance(a, txs))}
             for a in accounts
             if a.get("type") == "budget" and not a.get("archived")
         ]

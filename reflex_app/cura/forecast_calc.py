@@ -5,6 +5,7 @@ Ported from app/app.py forecast endpoint.
 
 import calendar as _cal
 from datetime import date, timedelta
+from .formulas import acct_balance as _acct_balance, is_scheduled as _is_scheduled
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -194,26 +195,13 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     paychecks  = data.get("paychecks", [])
     rules_raw  = data.get("allocationRules", [])
 
-    # ── Starting balance ──────────────────────────────────────────────────────
-    def _acct_bal(a: dict) -> float:
-        aid = a["id"]
-        bal = float(a.get("openingBalance") or 0)
-        for t in txs:
-            if t.get("accountId") == aid:
-                if t.get("type") == "in":
-                    bal += float(t.get("amount") or 0)
-                elif t.get("type") in ("out", "xfr"):
-                    bal -= float(t.get("amount") or 0)
-            if t.get("toAccountId") == aid and t.get("type") == "xfr":
-                bal += float(t.get("amount") or 0)
-        return bal
-
+    # ── Starting balance — use canonical formula (skips scheduled/future txs) ──
     budget_accounts = [a for a in accounts if a.get("type") == "budget" and not a.get("archived")]
     if account_id:
         start_accounts = [a for a in budget_accounts if a["id"] == account_id]
     else:
         start_accounts = budget_accounts
-    start_balance = sum(_acct_bal(a) for a in start_accounts)
+    start_balance = sum(_acct_balance(a, txs) for a in start_accounts)
 
     # ── End date ──────────────────────────────────────────────────────────────
     y = today.year + (today.month - 1 + n_months) // 12
