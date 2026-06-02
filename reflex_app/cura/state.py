@@ -3558,8 +3558,9 @@ class AppState(rx.State):
             return max(3, round(abs(v) / max_v * bar_h_max))
 
         parts = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
-            f'style="font-family:system-ui,sans-serif;overflow:visible">'
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
+            f'preserveAspectRatio="xMidYMid meet" '
+            f'style="width:100%;height:auto;font-family:system-ui,sans-serif;overflow:visible">'
         ]
         # Subtle gridlines
         for frac in (0.25, 0.5, 0.75, 1.0):

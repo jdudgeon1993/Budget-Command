@@ -5,7 +5,8 @@ Ported from app/app.py forecast endpoint.
 
 import calendar as _cal
 from datetime import date, timedelta
-from .formulas import acct_balance as _acct_balance, is_scheduled as _is_scheduled
+from .formulas import (acct_balance as _acct_balance, is_scheduled as _is_scheduled,
+                       b_alloc, b_spent, rollover_bal_raw)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -27,6 +28,28 @@ def _date_label(d: date) -> str:
     if d == today + timedelta(days=1):
         return "Tomorrow"
     return d.strftime("%a, %b %-d")
+
+
+def _natural_monthly_income(paychecks: list, ref_date: date) -> float:
+    """Sum of paycheck amounts that land in ref_date's calendar month."""
+    y, m = ref_date.year, ref_date.month
+    m_start = date(y, m, 1)
+    m_end   = date(y, m, _cal.monthrange(y, m)[1])
+    total = 0.0
+    for pc in paychecks:
+        anchor = pc.get("anchor_date") or pc.get("anchorDate")
+        if not anchor:
+            continue
+        for _ in _gen_pay_dates(anchor, int(pc.get("freq", 14)), m_start, m_end):
+            total += float(pc.get("amount") or 0)
+    return total
+
+
+def _income_scale(income_override: float, nat_monthly: float) -> float:
+    """Scale factor to apply to each paycheck amount when override is set."""
+    if income_override > 0 and nat_monthly > 0:
+        return income_override / nat_monthly
+    return 1.0
 
 
 def _range_label(s: date, e: date) -> str:
@@ -245,9 +268,9 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
     # ── Income override — scale all paycheck amounts ──────────────────────────
     if income_override > 0:
-        nat_income = sum(pc["amount"] for pcs in pay_events.values() for pc in pcs)
-        if nat_income > 0:
-            scale = (income_override * n_months) / nat_income
+        nat_monthly = _natural_monthly_income(paychecks, today)
+        scale = _income_scale(income_override, nat_monthly)
+        if scale != 1.0:
             for pcs in pay_events.values():
                 for pc_hit in pcs:
                     pc_hit["amount"]   = round(pc_hit["amount"] * scale, 2)
@@ -286,7 +309,16 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         budget  = float(monthly_budgets.get(mid_, {}).get(bid, 0))
         bill_a  = _effective_bill_amt(next((b for b in buckets if b["id"] == bid), {}))
         target  = budget if budget > 0 else bill_a
-        return (alloc >= target * 0.99) if target > 0 else alloc > 0
+        if target <= 0:
+            return alloc > 0
+        # For current month include rollover — a bucket funded by carryover is not unfunded
+        if mid_ == today_mid:
+            bucket_obj = next((b for b in buckets if b["id"] == bid), None)
+            if bucket_obj and bucket_obj.get("rollover"):
+                roll = rollover_bal_raw(bucket_obj, mid_, months_raw, txs)
+                avail = alloc + roll - b_spent(mid_, bid, txs)
+                return avail >= target * 0.99
+        return alloc >= target * 0.99
 
     # Check if a bill is already PAID (spent) in current month.
     # Scheduled (future-dated) transactions are intentional but not yet executed —
@@ -645,17 +677,8 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
         return base
 
     # Compute natural monthly income for scaling
-    nat_monthly = 0.0
-    if income_override > 0 and paychecks:
-        y0, m0 = today.year, today.month
-        m_start = date(y0, m0, 1)
-        m_end   = date(y0, m0, _cal.monthrange(y0, m0)[1])
-        for pc in paychecks:
-            anchor = pc.get("anchor_date") or pc.get("anchorDate")
-            if not anchor:
-                continue
-            for _ in _gen_pay_dates(anchor, int(pc.get("freq", 14)), m_start, m_end):
-                nat_monthly += float(pc.get("amount") or 0)
+    nat_monthly = _natural_monthly_income(paychecks, today) if income_override > 0 else 0.0
+    income_scale = _income_scale(income_override, nat_monthly)
 
     active_dated  = [b for b in buckets if not b.get("archived") and b["id"] not in off_set
                      and b.get("dueDay") is not None and _eff_bill(b) > 0]
@@ -679,10 +702,7 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
             if not anchor:
                 continue
             for _ in _gen_pay_dates(anchor, int(pc.get("freq", 14)), m_start, m_end):
-                raw_amt = float(pc.get("amount") or 0)
-                if income_override > 0 and nat_monthly > 0:
-                    raw_amt = raw_amt * (income_override / nat_monthly)
-                month_income += raw_amt
+                month_income += float(pc.get("amount") or 0) * income_scale
 
         # Monthly bills
         mid_str = _mid(m_start)
