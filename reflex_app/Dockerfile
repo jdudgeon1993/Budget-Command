@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y curl unzip --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps from reflex_app/
-COPY reflex_app/requirements_reflex.txt .
-RUN pip install --no-cache-dir -r requirements_reflex.txt
+COPY reflex_app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Reflex app source
 COPY reflex_app/cura/ ./cura/
@@ -35,8 +35,8 @@ RUN apt-get update && apt-get install -y curl unzip --no-install-recommends \
     && apt-get install -y nodejs --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-COPY reflex_app/requirements_reflex.txt .
-RUN pip install --no-cache-dir -r requirements_reflex.txt
+COPY reflex_app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # App source + compiled .web/ from builder
 COPY --from=builder /app .
