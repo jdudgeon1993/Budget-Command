@@ -120,7 +120,8 @@ _BLOCK_DEFAULTS: dict = {
 
 def _date_label(date_str: str) -> str:
     try:
-        d = date.fromisoformat(date_str)
+        # Tolerate full timestamps ("2026-05-15T00:00:00+00:00") by taking the day.
+        d = date.fromisoformat((date_str or "")[:10])
         today = date.today()
         if d == today: return "Today"
         if d == today - timedelta(days=1): return "Yesterday"
@@ -399,7 +400,7 @@ class AppState(rx.State):
     # ── Ledger search ─────────────────────────────────────────────────────────
     ledger_query: str = ""
     ledger_acct_filter: str = ""           # "" = All; acct_id = single account view
-    acct_month_start: dict[str, float] = {}  # acct_id → balance at start of active month
+    acct_balance_map: dict[str, float] = {}  # acct_id → real current balance (anchors running bal)
 
     # ── Category select options ───────────────────────────────────────────────
     cat_options: list[dict[str, Any]] = []
@@ -665,36 +666,44 @@ class AppState(rx.State):
                 elif ttype == "out": spent += amt
                 elif ttype == "xfr": xfer  += amt
 
-        # ── 2. Running balance helpers (per account) ──────────────────────
-        def _apply(bal: float, r: dict) -> float:
-            if not show_rb:
-                return bal
+        # ── 2. Running balance, anchored to the account's real balance ────
+        # Day key = calendar day (strip any time component); "" = undated.
+        def _day_key(d: str) -> str:
+            return (d or "")[:10]
+
+        def _effect(r: dict) -> float:
+            """Signed change this tx made to the selected account's balance."""
             t = r.get("type", "")
             a = float(r.get("amount") or 0)
-            if   t == "in"  and r.get("acct_id") == acct: bal += a
-            elif t == "out" and r.get("acct_id") == acct: bal -= a
-            elif t == "xfr":
-                if   r.get("acct_id")    == acct: bal -= a
-                elif r.get("to_acct_id") == acct: bal += a
-            return bal
+            if r.get("acct_id") == acct:
+                if t == "in":            return a
+                if t in ("out", "xfr"):  return -a
+            elif t == "xfr" and r.get("to_acct_id") == acct:
+                return a
+            return 0.0
 
-        # Posted: accumulate oldest→newest from month-start balance
-        base = self.acct_month_start.get(acct, 0.0) if acct else 0.0
-        posted_old = sorted(posted, key=lambda r: (r.get("date", ""), r.get("id", "")))
+        current_bal = self.acct_balance_map.get(acct, 0.0) if acct else 0.0
+
+        # Posted: walk newest→oldest from the real current balance so each
+        # day's RB is the true end-of-day balance and the latest = account total.
         day_bal: dict[str, float] = {}
-        bal = base
-        for r in posted_old:
-            bal = _apply(bal, r)
-            day_bal[r.get("date", "")] = bal
-        latest_posted_bal = bal
+        if show_rb:
+            running = current_bal
+            for r in posted:  # already newest-first
+                dk = _day_key(r.get("date", ""))
+                if dk not in day_bal:
+                    day_bal[dk] = running        # end-of-day balance
+                running -= _effect(r)            # step back before this tx
 
-        # Scheduled: project forward from latest posted balance
-        sched_old = sorted(scheduled, key=lambda r: (r.get("date", ""), r.get("id", "")))
+        # Scheduled: project forward from the real current balance.
         sday_bal: dict[str, float] = {}
-        pbal = latest_posted_bal
-        for r in sched_old:
-            pbal = _apply(pbal, r)
-            sday_bal[r.get("date", "")] = pbal
+        if show_rb:
+            pbal = current_bal
+            for r in sorted(scheduled, key=lambda r: (_day_key(r.get("date", "")), r.get("id", ""))):
+                pbal += _effect(r)
+                sday_bal[_day_key(r.get("date", ""))] = pbal
+
+        latest_posted_bal = current_bal
 
         # ── 3. Build per-day cards (newest-first; ledger_rows already is) ──
         def _plural(n: int, word: str) -> str:
@@ -704,21 +713,25 @@ class AppState(rx.State):
             order: list[str] = []
             buckets: dict[str, list[dict]] = {}
             for r in rows:
-                d = r.get("date", "")
-                if d not in buckets:
-                    buckets[d] = []
-                    order.append(d)
-                buckets[d].append(r)
+                dk = _day_key(r.get("date", ""))
+                if dk not in buckets:
+                    buckets[dk] = []
+                    order.append(dk)
+                buckets[dk].append(r)
+            # Undated group (if any) sorts to the end.
+            order.sort(key=lambda dk: (dk == "", ))
             out: list[dict] = []
-            for d in order:
-                txs = buckets[d]
-                rb = balmap.get(d, 0.0)
+            for dk in order:
+                txs = buckets[dk]
+                rb = balmap.get(dk, 0.0)
+                # Undated rows still belong to the active month — label them
+                # with the month rather than a vague "Undated".
                 out.append({
                     **_BLOCK_DEFAULTS,
                     "kind":       "day",
-                    "date_label": _date_label(d),
+                    "date_label": _date_label(dk) if dk else (self.month_display or "Undated"),
                     "meta":       _plural(len(txs), "transaction"),
-                    "rb_label":   (("PRB " if is_sched else "RB ") + _fmt(rb)) if show_rb else "",
+                    "rb_label":   (("PRB " if is_sched else "RB ") + _fmt(rb)) if (show_rb and dk) else "",
                     "rb_color":   "#34d399" if rb >= 0 else "#f87171",
                     "is_sched":   "1" if is_sched else "",
                     "txs":        txs,
@@ -2877,31 +2890,6 @@ class AppState(rx.State):
         self.ledger_rows     = ledger_flat
         self.ledger_tx_count = sum(1 for r in ledger_flat if r.get("row_type") == "tx")
 
-        # ── Account starting balance for active month (for running balance) ─
-        mid_date_str = f"{year}-{m0+1:02d}-01"
-        start_bals: dict[str, float] = {
-            a["id"]: float(a.get("openingBalance", 0) or 0)
-            for a in accounts if not a.get("archived")
-        }
-        for t in txs:
-            tx_date = (t.get("date") or "")[:10]
-            if not tx_date or tx_date >= mid_date_str or is_scheduled(t):
-                continue
-            ttype_ = t.get("type", "")
-            amt_   = float(t.get("amount", 0) or 0)
-            aid_   = t.get("accountId", "") or ""
-            to_aid_ = t.get("toAccountId", "") or ""
-            if ttype_ == "out" and aid_:
-                start_bals[aid_] = start_bals.get(aid_, 0.0) - amt_
-            elif ttype_ == "in" and aid_:
-                start_bals[aid_] = start_bals.get(aid_, 0.0) + amt_
-            elif ttype_ == "xfr":
-                if aid_:
-                    start_bals[aid_] = start_bals.get(aid_, 0.0) - amt_
-                if to_aid_:
-                    start_bals[to_aid_] = start_bals.get(to_aid_, 0.0) + amt_
-        self.acct_month_start = start_bals
-
         # ── Accounts rows ──────────────────────────────────────────────────
         acc_rows = []
         for a in accounts:
@@ -2920,6 +2908,7 @@ class AppState(rx.State):
             })
 
         self.accounts_rows = acc_rows
+        self.acct_balance_map = {r["id"]: r["balance"] for r in acc_rows}
         self.total_cash = sum(r["balance"] for r in acc_rows if r["type"] != "debt")
         self.total_debt = sum(r["balance"] for r in acc_rows if r["type"] == "debt")
 
