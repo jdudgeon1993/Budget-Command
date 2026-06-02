@@ -7,6 +7,28 @@ No database calls here; queries happen in routes and pass data in.
 from datetime import date
 
 
+# ── Safe coercers ─────────────────────────────────────────────────────────────
+
+def _safe_date(v) -> "date | None":
+    """Parse any date-like value to a date; return None on failure."""
+    if v is None:
+        return None
+    if isinstance(v, date):
+        return v
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except (ValueError, TypeError):
+        return None
+
+
+def _money(v) -> float:
+    """Coerce any value to a non-negative float rounded to 2dp."""
+    try:
+        return round(float(v or 0), 2)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 # ── Month ID helpers ──────────────────────────────────────────────────────────
 
 def month_id(year: int, month: int) -> str:
@@ -60,12 +82,8 @@ def month_status(mid: str) -> str:
 
 def is_scheduled(tx: dict) -> bool:
     """A transaction is scheduled (future-dated) if its date is after today."""
-    tx_date = tx.get("date")
-    if tx_date is None:
-        return False
-    if isinstance(tx_date, str):
-        tx_date = date.fromisoformat(tx_date)
-    return tx_date > date.today()
+    d = _safe_date(tx.get("date"))
+    return d is not None and d > date.today()
 
 
 # ── 3.1 Account Balance ───────────────────────────────────────────────────────
@@ -102,10 +120,10 @@ def acct_balance(account: dict, transactions: list[dict]) -> float:
             elif tx_type == "adjustment":
                 balance += amount  # raw, no mult
 
-        if t.get("toAccountId") == acct_id and t.get("type") == "xfr":
+        elif t.get("toAccountId") == acct_id and t.get("type") == "xfr":
             balance += mult * amount
 
-        if t.get("debtPaymentAccountId") == acct_id and t.get("type") == "out":
+        elif t.get("debtPaymentAccountId") == acct_id and t.get("type") == "out":
             balance -= amount  # reduces debt balance, no mult
 
     return balance

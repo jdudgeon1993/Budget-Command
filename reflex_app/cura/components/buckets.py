@@ -1230,13 +1230,36 @@ def _month_workflow_bar() -> rx.Component:
     )
 
 
+def _buckets_empty_state() -> rx.Component:
+    return rx.vstack(
+        rx.text("🪣", style={"font_size": "40px", "line_height": "1"}),
+        rx.text("No budget categories yet", style={
+            "font_size": "16px", "font_weight": "600", "color": TEXT,
+        }),
+        rx.text(
+            "Go to Setup → add a category, then add buckets below.",
+            style={"font_size": "13px", "color": TEXT2, "text_align": "center", "max_width": "280px"},
+        ),
+        gap="10px", align_items="center",
+        style={
+            "padding": "48px 24px", "width": "100%",
+            "border": f"1px dashed {BORDER2}", "border_radius": "10px",
+            "margin_top": "12px",
+        },
+    )
+
+
 def buckets_panel() -> rx.Component:
     return rx.box(
         rx.box(
             # ── Left column: bucket list ──────────────────────────────────
             rx.vstack(
                 _month_workflow_bar(),
-                rx.foreach(AppState.bucket_rows.to(list[dict[str, Any]]), _bucket_row),
+                rx.cond(
+                    AppState.bucket_rows.length() == 0,
+                    _buckets_empty_state(),
+                    rx.foreach(AppState.bucket_rows.to(list[dict[str, Any]]), _bucket_row),
+                ),
                 _add_bucket_strip(),
                 gap="0", align_items="stretch", width="100%",
             ),

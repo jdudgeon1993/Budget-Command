@@ -260,10 +260,10 @@ def _build_forecast_periods(periods: list[dict], open_pids: set = None) -> list[
 class AppState(rx.State):
 
     # ── Auth ─────────────────────────────────────────────────────────────────
-    access_token: str = ""
-    user_id:      str = ""
-    user_email:   str = ""
-    auth_error:   str = ""
+    _access_token: str = ""   # backend-only: never serialized to browser
+    _user_id:      str = ""   # backend-only: never serialized to browser
+    user_email:    str = ""
+    auth_error:    str = ""
 
     # ── Month navigation ──────────────────────────────────────────────────────
     active_mid:       str = ""
@@ -536,7 +536,7 @@ class AppState(rx.State):
 
     @rx.var
     def is_logged_in(self) -> bool:
-        return bool(self.access_token and self.user_id)
+        return bool(self._access_token and self._user_id)
 
     @rx.var
     def total_cash_fmt(self) -> str:
@@ -794,7 +794,7 @@ class AppState(rx.State):
     def apply_fc_scenario(self, sid: str):
         """Apply a saved What-If scenario to the Forecast tab."""
         try:
-            rows = DB.list_scenarios(self.user_id, self.access_token)
+            rows = DB.list_scenarios(self._user_id, self._access_token)
             sc   = next((r for r in rows if r["id"] == sid), None)
             if not sc:
                 return
@@ -1068,10 +1068,10 @@ class AppState(rx.State):
 
     def _load_wi_scenarios(self):
         """Load scenarios from DB into wi_scenarios."""
-        if not self.user_id:
+        if not self._user_id:
             return
         try:
-            rows = DB.list_scenarios(self.user_id, self.access_token)
+            rows = DB.list_scenarios(self._user_id, self._access_token)
             self.wi_scenarios = [{"id": r["id"], "name": r["name"], "allocs": r.get("allocations", {})} for r in rows]
         except Exception:
             self.wi_scenarios = []
@@ -1091,10 +1091,10 @@ class AppState(rx.State):
         }
         try:
             if self.wi_active_scenario_id:
-                DB.update_scenario(self.user_id, self.access_token,
+                DB.update_scenario(self._user_id, self._access_token,
                                    self.wi_active_scenario_id, name, allocs)
             else:
-                sid = DB.save_scenario(self.user_id, self.access_token, name, allocs)
+                sid = DB.save_scenario(self._user_id, self._access_token, name, allocs)
                 self.wi_active_scenario_id = sid
             self._load_wi_scenarios()
             self.wi_scenario_name = ""
@@ -1104,7 +1104,7 @@ class AppState(rx.State):
 
     def load_wi_scenario(self, sid: str):
         try:
-            rows = DB.list_scenarios(self.user_id, self.access_token)
+            rows = DB.list_scenarios(self._user_id, self._access_token)
             sc   = next((r for r in rows if r["id"] == sid), None)
             if not sc:
                 return
@@ -1127,7 +1127,7 @@ class AppState(rx.State):
 
     async def delete_wi_scenario(self, sid: str):
         try:
-            DB.delete_scenario(self.user_id, self.access_token, sid)
+            DB.delete_scenario(self._user_id, self._access_token, sid)
             self._load_wi_scenarios()
             if self.wi_active_scenario_id == sid:
                 self.wi_active_scenario_id = ""
@@ -1162,8 +1162,8 @@ class AppState(rx.State):
         yield
         try:
             auth = DB.sign_in(email, password)
-            self.access_token = auth["access_token"]
-            self.user_id      = auth["user_id"]
+            self._access_token = auth["access_token"]
+            self._user_id      = auth["user_id"]
             self.user_email   = auth["user_email"]
             self.is_loading   = False
             yield rx.redirect("/dashboard")
@@ -1172,8 +1172,8 @@ class AppState(rx.State):
             self.is_loading = False
 
     def logout(self):
-        self.access_token = ""
-        self.user_id      = ""
+        self._access_token = ""
+        self._user_id      = ""
         self.user_email   = ""
         self._raw         = {}
         return rx.redirect("/login")
@@ -1198,10 +1198,10 @@ class AppState(rx.State):
         (logout-redirect or reload-from-truth) and returns the rx event the
         caller should yield. Centralises auth handling so every handler agrees."""
         if DB.is_auth_error(e):
-            self.access_token = ""
+            self._access_token = ""
             return rx.redirect("/login")
         try:
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
         except Exception:
@@ -1210,7 +1210,7 @@ class AppState(rx.State):
 
     def _reload(self):
         """Refetch from the DB and reprocess for the active month."""
-        data = DB.load_all(self.user_id, self.access_token)
+        data = DB.load_all(self._user_id, self._access_token)
         self._raw = data
         self._process(data, self.active_mid)
 
@@ -1221,14 +1221,14 @@ class AppState(rx.State):
         self.is_loading = True
         yield
         try:
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             if not self.active_mid:
                 self.active_mid = current_month_id()
             self._process(data, self.active_mid)
         except Exception as e:
             if DB.is_auth_error(e):
-                self.access_token = ""
+                self._access_token = ""
                 yield rx.redirect("/login")
                 return
             self.panel_error = str(e)
@@ -1254,13 +1254,13 @@ class AppState(rx.State):
                 if self._busy or self._interaction_open():
                     continue
                 try:
-                    data = DB.load_all(self.user_id, self.access_token)
+                    data = DB.load_all(self._user_id, self._access_token)
                     self._raw = data
                     self._process(data, self.active_mid)
                 except Exception as e:
                     # Auth death must surface, not vanish.
                     if DB.is_auth_error(e):
-                        self.access_token = ""
+                        self._access_token = ""
                         self._polling = False
                         return
 
@@ -1357,7 +1357,7 @@ class AppState(rx.State):
         yield
         try:
             mid = _date_to_mid(self.sheet_date)
-            DB.ensure_month(self.user_id, self.access_token, mid)
+            DB.ensure_month(self._user_id, self._access_token, mid)
             tx = {
                 "accountId":    self.sheet_account,
                 "monthId":      mid,
@@ -1369,8 +1369,8 @@ class AppState(rx.State):
                 "toAccountId":  self.sheet_to_account if self.sheet_type == "xfr" else "",
                 "incomeType":   self.sheet_income_type if self.sheet_type == "in" else None,
             }
-            tx_id = DB.insert_transaction(self.user_id, self.access_token, tx)
-            data = DB.load_all(self.user_id, self.access_token)
+            tx_id = DB.insert_transaction(self._user_id, self._access_token, tx)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
             self.sheet_open  = False
@@ -1383,7 +1383,7 @@ class AppState(rx.State):
                     self.payday_open = True
         except Exception as e:
             if DB.is_auth_error(e):
-                self.access_token = ""
+                self._access_token = ""
                 yield rx.redirect("/login")
             else:
                 self.sheet_error = f"Failed: {e}"
@@ -1398,7 +1398,7 @@ class AppState(rx.State):
     async def delete_tx(self, tx_id: str):
         self._busy = True
         try:
-            DB.delete_transaction(self.user_id, self.access_token, tx_id)
+            DB.delete_transaction(self._user_id, self._access_token, tx_id)
             self._reload()
         except Exception as e:
             yield self._on_db_error(e)
@@ -1415,8 +1415,8 @@ class AppState(rx.State):
         self._busy = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, self.active_mid)
-            DB.upsert_alloc(self.user_id, self.access_token, self.active_mid, bucket_id, budget)
+            DB.ensure_month(self._user_id, self._access_token, self.active_mid)
+            DB.upsert_alloc(self._user_id, self._access_token, self.active_mid, bucket_id, budget)
             yield rx.toast.success("Bucket filled", duration=1500)
         except Exception as e:
             yield self._on_db_error(e)
@@ -1445,7 +1445,7 @@ class AppState(rx.State):
         self._busy = True
         yield
         try:
-            DB.upsert_budget(self.user_id, self.access_token, self.active_mid, bid, amount)
+            DB.upsert_budget(self._user_id, self._access_token, self.active_mid, bid, amount)
             self._reload()
             yield rx.toast.success("Saved", duration=1200)
         except Exception as e:
@@ -1493,8 +1493,8 @@ class AppState(rx.State):
         self._busy = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, self.active_mid)
-            DB.upsert_alloc(self.user_id, self.access_token, self.active_mid, bid, amount)
+            DB.ensure_month(self._user_id, self._access_token, self.active_mid)
+            DB.upsert_alloc(self._user_id, self._access_token, self.active_mid, bid, amount)
             yield rx.toast.success("Saved", duration=1200)
         except Exception as e:
             yield self._on_db_error(e)
@@ -1571,9 +1571,9 @@ class AppState(rx.State):
             b_order = int(other.get("order", 0))
             if a_order == b_order:
                 a_order, b_order = idx, idx - 1
-            DB.update_bucket_order(self.user_id, self.access_token, bid,        b_order)
-            DB.update_bucket_order(self.user_id, self.access_token, other["id"], a_order)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.update_bucket_order(self._user_id, self._access_token, bid,        b_order)
+            DB.update_bucket_order(self._user_id, self._access_token, other["id"], a_order)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
         except Exception as e:
@@ -1599,9 +1599,9 @@ class AppState(rx.State):
             b_order = int(other.get("order", 0))
             if a_order == b_order:
                 a_order, b_order = idx + 1, idx
-            DB.update_bucket_order(self.user_id, self.access_token, bid,        b_order)
-            DB.update_bucket_order(self.user_id, self.access_token, other["id"], a_order)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.update_bucket_order(self._user_id, self._access_token, bid,        b_order)
+            DB.update_bucket_order(self._user_id, self._access_token, other["id"], a_order)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
         except Exception as e:
@@ -1673,7 +1673,7 @@ class AppState(rx.State):
         self.bsf_error  = ""
         yield
         try:
-            DB.upsert_bucket(self.user_id, self.access_token, self.bsettings_bid, {
+            DB.upsert_bucket(self._user_id, self._access_token, self.bsettings_bid, {
                 "name":           self.bsf_name.strip(),
                 "type":           self.bsf_type,
                 "cat_id":         self.bsf_cat_id,
@@ -1688,7 +1688,7 @@ class AppState(rx.State):
                 "contrib_freq":   self.bsf_contrib_freq or None,
                 "recurring":      self.bsf_recurring,
             })
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw           = data
             self._process(data, self.active_mid)
             self.bsettings_open = False
@@ -1700,8 +1700,8 @@ class AppState(rx.State):
 
     async def archive_bucket_confirm(self, bid: str):
         try:
-            DB.upsert_bucket(self.user_id, self.access_token, bid, {"archived": True})
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.upsert_bucket(self._user_id, self._access_token, bid, {"archived": True})
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw           = data
             self._process(data, self.active_mid)
             self.bsettings_open = False
@@ -1740,9 +1740,9 @@ class AppState(rx.State):
         self._busy = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, mid)
-            DB.upsert_alloc(self.user_id, self.access_token, mid, bid, new_vault)
-            DB.upsert_alloc(self.user_id, self.access_token, mid, dest, new_dest)
+            DB.ensure_month(self._user_id, self._access_token, mid)
+            DB.upsert_alloc(self._user_id, self._access_token, mid, bid, new_vault)
+            DB.upsert_alloc(self._user_id, self._access_token, mid, dest, new_dest)
             yield rx.toast.success("Vault transferred")
         except Exception as e:
             yield self._on_db_error(e)
@@ -1775,12 +1775,12 @@ class AppState(rx.State):
         self._busy = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, mid)
-            DB.upsert_alloc(self.user_id, self.access_token, mid, bid, new_alloc)
+            DB.ensure_month(self._user_id, self._access_token, mid)
+            DB.upsert_alloc(self._user_id, self._access_token, mid, bid, new_alloc)
             if from_prior > 0:
                 existing_wd = float(active_month.get("vaultWithdrawals", {}).get(bid) or 0)
                 DB.upsert_vault_withdrawal(
-                    self.user_id, self.access_token, mid, bid,
+                    self._user_id, self._access_token, mid, bid,
                     round(existing_wd + from_prior, 2)
                 )
             yield rx.toast.success("Released to pool")
@@ -1823,7 +1823,7 @@ class AppState(rx.State):
                     self.add_bkt_saving = False
                     return
                 cat_id = DB.insert_category(
-                    self.user_id, self.access_token,
+                    self._user_id, self._access_token,
                     self.add_bkt_new_cat_name.strip(),
                     self.add_bkt_new_cat_color,
                 )
@@ -1831,10 +1831,10 @@ class AppState(rx.State):
                 self.add_bkt_saving = False
                 return
             DB.insert_bucket(
-                self.user_id, self.access_token,
+                self._user_id, self._access_token,
                 self.add_bkt_name.strip(), cat_id, self.add_bkt_type,
             )
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw                  = data
             self._process(data, self.active_mid)
             self.add_bkt_name          = ""
@@ -1896,9 +1896,9 @@ class AppState(rx.State):
         self._busy = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, mid)
+            DB.ensure_month(self._user_id, self._access_token, mid)
             for bid, new_val in new_allocs.items():
-                DB.upsert_alloc(self.user_id, self.access_token, mid, bid, new_val)
+                DB.upsert_alloc(self._user_id, self._access_token, mid, bid, new_val)
             yield rx.toast.success("Distributed!")
         except Exception as e:
             yield self._on_db_error(e)
@@ -1927,11 +1927,11 @@ class AppState(rx.State):
         yield
         try:
             DB.insert_paycheck(
-                self.user_id, self.access_token,
+                self._user_id, self._access_token,
                 self.setup_pc_label.strip(), amt, freq,
                 self.setup_pc_anchor.strip(),
             )
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw            = data
             self._process(data, self.active_mid)
             self.setup_pc_label  = ""
@@ -1945,8 +1945,8 @@ class AppState(rx.State):
 
     async def delete_paycheck_item(self, pc_id: str):
         try:
-            DB.delete_paycheck(self.user_id, self.access_token, pc_id)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.delete_paycheck(self._user_id, self._access_token, pc_id)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
             yield rx.toast.success("Deleted")
@@ -1991,14 +1991,14 @@ class AppState(rx.State):
         yield
         try:
             DB.insert_alloc_rule(
-                self.user_id, self.access_token,
+                self._user_id, self._access_token,
                 self.rule_sheet_name.strip(),
                 self.rule_sheet_itype,
                 self.rule_sheet_val_type,
                 value,
                 self.rule_sheet_bid,
             )
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw              = data
             self._process(data, self.active_mid)
             self.rule_sheet_open   = False
@@ -2010,8 +2010,8 @@ class AppState(rx.State):
 
     async def toggle_alloc_rule_item(self, rule_id: str):
         try:
-            DB.toggle_alloc_rule(self.user_id, self.access_token, rule_id)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.toggle_alloc_rule(self._user_id, self._access_token, rule_id)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
         except Exception:
@@ -2019,8 +2019,8 @@ class AppState(rx.State):
 
     async def delete_alloc_rule_item(self, rule_id: str):
         try:
-            DB.delete_alloc_rule(self.user_id, self.access_token, rule_id)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.delete_alloc_rule(self._user_id, self._access_token, rule_id)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
             yield rx.toast.success("Rule deleted")
@@ -2062,8 +2062,8 @@ class AppState(rx.State):
         self.edit_tx_open = False
         yield
         try:
-            DB.delete_transaction(self.user_id, self.access_token, tx_id)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.delete_transaction(self._user_id, self._access_token, tx_id)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
             yield rx.toast.success("Transaction deleted")
@@ -2086,8 +2086,8 @@ class AppState(rx.State):
         self.edit_tx_error  = ""
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, mid)
-            DB.update_transaction(self.user_id, self.access_token, self.edit_tx_id, {
+            DB.ensure_month(self._user_id, self._access_token, mid)
+            DB.update_transaction(self._user_id, self._access_token, self.edit_tx_id, {
                 "description":        self.edit_tx_desc.strip(),
                 "amount":             amount,
                 "date":               self.edit_tx_date,
@@ -2098,7 +2098,7 @@ class AppState(rx.State):
                 "income_type":        self.edit_tx_income_type if self.edit_tx_type == "in" else None,
                 "reconciled":         self.edit_tx_reconciled,
             })
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw           = data
             self._process(data, self.active_mid)
             self.edit_tx_open   = False
@@ -2158,7 +2158,7 @@ class AppState(rx.State):
         self.payday_saving = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, mid)
+            DB.ensure_month(self._user_id, self._access_token, mid)
             all_months   = self._raw.get("months") or []
             active_month = next((m for m in all_months if m.get("id") == mid), {})
             cur_allocs   = active_month.get("allocations", {})
@@ -2167,10 +2167,10 @@ class AppState(rx.State):
                     bid      = row["bucket_id"]
                     existing = float(cur_allocs.get(bid) or 0)
                     DB.upsert_alloc(
-                        self.user_id, self.access_token, mid, bid,
+                        self._user_id, self._access_token, mid, bid,
                         round(existing + row["amount"], 2),
                     )
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw      = data
             self._process(data, mid)
             self.payday_open   = False
@@ -2197,6 +2197,14 @@ class AppState(rx.State):
         cats        = data.get("cats") or []
         all_months  = data.get("months") or []
         txs         = data.get("txs") or []
+
+        # Pre-index non-scheduled "out" transactions by (bucket_id, month_id)
+        # so bucket rows avoid scanning all transactions per bucket per month.
+        _spent_idx: dict[tuple, float] = {}
+        for _t in txs:
+            if _t.get("type") == "out" and not is_scheduled(_t):
+                _k = (_t.get("bucketId") or "", _t.get("monthId") or "")
+                _spent_idx[_k] = _spent_idx.get(_k, 0.0) + float(_t.get("amount") or 0)
 
         active_month = next(
             (m for m in all_months if m.get("id") == mid),
@@ -2308,12 +2316,16 @@ class AppState(rx.State):
                 budget = b_budget(active_month, bid) or float(b.get("defaultBudget") or 0)
 
                 if btype == "vault":
-                    vault_total = vault_accumulated(bid, all_months)
-                    spent       = vault_total
-                    avail       = vault_total
+                    vault_total      = vault_accumulated(bid, all_months)
+                    vault_withdrawn  = sum(
+                        float((m.get("vaultWithdrawals") or {}).get(bid) or 0)
+                        for m in all_months
+                    )
+                    spent = vault_withdrawn  # actual withdrawals from the vault
+                    avail = vault_total      # remaining accumulated balance
                 else:
                     vault_total = 0.0
-                    spent = b_spent(mid, bid, txs)
+                    spent = _spent_idx.get((bid, mid), 0.0)
                     avail = bucket_available(b, active_month, all_months, txs)
 
                 status = _bucket_status(alloc, budget, spent, avail)
@@ -2747,11 +2759,11 @@ class AppState(rx.State):
         yield
         try:
             DB.insert_account(
-                self.user_id, self.access_token,
+                self._user_id, self._access_token,
                 self.add_acct_name.strip(), self.add_acct_type,
                 self.add_acct_color, opening,
             )
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw            = data
             self._process(data, self.active_mid)
             self.add_acct_open   = False
@@ -2808,8 +2820,8 @@ class AppState(rx.State):
             if self.acct_settings_type == "debt":
                 fields["is_promo"]       = self.acct_settings_is_promo
                 fields["promo_end_date"] = self.acct_settings_promo_end or None
-            DB.update_account(self.user_id, self.access_token, self.acct_settings_aid, fields)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.update_account(self._user_id, self._access_token, self.acct_settings_aid, fields)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw                 = data
             self._process(data, self.active_mid)
             self.acct_settings_open   = False
@@ -2821,8 +2833,8 @@ class AppState(rx.State):
 
     async def archive_account(self, aid: str):
         try:
-            DB.update_account(self.user_id, self.access_token, aid, {"archived": True})
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.update_account(self._user_id, self._access_token, aid, {"archived": True})
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw               = data
             self._process(data, self.active_mid)
             self.acct_settings_open = False
@@ -2890,14 +2902,14 @@ class AppState(rx.State):
         yield
         try:
             mid = _date_to_mid(self.debt_pay_date)
-            DB.ensure_month(self.user_id, self.access_token, mid)
+            DB.ensure_month(self._user_id, self._access_token, mid)
             DB.insert_debt_payment(
-                self.user_id, self.access_token,
+                self._user_id, self._access_token,
                 self.debt_pay_aid, self.debt_pay_from_account,
                 amount, self.debt_pay_date, mid,
                 self.debt_pay_acct_name, self.debt_pay_bucket,
             )
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw            = data
             self._process(data, self.active_mid)
             self.debt_pay_open   = False
@@ -2929,11 +2941,11 @@ class AppState(rx.State):
         self.cat_saving = True
         yield
         try:
-            DB.update_category(self.user_id, self.access_token, self.cat_edit_id, {
+            DB.update_category(self._user_id, self._access_token, self.cat_edit_id, {
                 "name":  self.cat_edit_name.strip(),
                 "color": self.cat_edit_color,
             })
-            data = DB.load_all(self.user_id, self.access_token)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw        = data
             self._process(data, self.active_mid)
             self.cat_edit_id = ""
@@ -2945,8 +2957,8 @@ class AppState(rx.State):
 
     async def archive_category(self, cid: str):
         try:
-            DB.update_category(self.user_id, self.access_token, cid, {"archived": True})
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.update_category(self._user_id, self._access_token, cid, {"archived": True})
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw        = data
             self._process(data, self.active_mid)
             self.cat_edit_id = ""
@@ -2969,9 +2981,9 @@ class AppState(rx.State):
             b_order = int(other.get("order", 0))
             if a_order == b_order:
                 a_order, b_order = idx, idx - 1
-            DB.update_category_order(self.user_id, self.access_token, cid, b_order)
-            DB.update_category_order(self.user_id, self.access_token, other["id"], a_order)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.update_category_order(self._user_id, self._access_token, cid, b_order)
+            DB.update_category_order(self._user_id, self._access_token, other["id"], a_order)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
         except Exception as e:
@@ -2992,9 +3004,9 @@ class AppState(rx.State):
             b_order = int(other.get("order", 0))
             if a_order == b_order:
                 a_order, b_order = idx + 1, idx
-            DB.update_category_order(self.user_id, self.access_token, cid, b_order)
-            DB.update_category_order(self.user_id, self.access_token, other["id"], a_order)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.update_category_order(self._user_id, self._access_token, cid, b_order)
+            DB.update_category_order(self._user_id, self._access_token, other["id"], a_order)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
         except Exception as e:
@@ -3014,9 +3026,9 @@ class AppState(rx.State):
         self.copy_allocs_saving = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, self.active_mid)
-            DB.copy_month_allocs(self.user_id, self.access_token, self.active_mid, src_mid)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.ensure_month(self._user_id, self._access_token, self.active_mid)
+            DB.copy_month_allocs(self._user_id, self._access_token, self.active_mid, src_mid)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw               = data
             self._process(data, self.active_mid)
             self.copy_allocs_saving = False
@@ -3029,11 +3041,11 @@ class AppState(rx.State):
         self.close_month_saving = True
         yield
         try:
-            DB.ensure_month(self.user_id, self.access_token, self.active_mid)
+            DB.ensure_month(self._user_id, self._access_token, self.active_mid)
             accounts = (self._raw or {}).get("accounts", [])
             txs      = (self._raw or {}).get("txs", [])
-            DB.close_month(self.user_id, self.access_token, self.active_mid, accounts, txs)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.close_month(self._user_id, self._access_token, self.active_mid, accounts, txs)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw               = data
             self._process(data, self.active_mid)
             self.close_month_saving = False
@@ -3045,8 +3057,8 @@ class AppState(rx.State):
     async def do_reopen_month(self):
         yield
         try:
-            DB.reopen_month(self.user_id, self.access_token, self.active_mid)
-            data = DB.load_all(self.user_id, self.access_token)
+            DB.reopen_month(self._user_id, self._access_token, self.active_mid)
+            data = DB.load_all(self._user_id, self._access_token)
             self._raw = data
             self._process(data, self.active_mid)
             yield rx.toast.success("Month reopened")
@@ -3061,7 +3073,7 @@ class AppState(rx.State):
         # Read-only autocomplete fetch. Degrade gracefully to an empty list on
         # failure; any auth death surfaces on the next write via _on_db_error.
         try:
-            self.payee_options = DB.get_payees(self.user_id, self.access_token)
+            self.payee_options = DB.get_payees(self._user_id, self._access_token)
         except Exception:
             self.payee_options = []
 
@@ -3084,8 +3096,8 @@ class AppState(rx.State):
         yield
         try:
             auth = DB.sign_up(email, password)
-            self.access_token = auth["access_token"]
-            self.user_id      = auth["user_id"]
+            self._access_token = auth["access_token"]
+            self._user_id      = auth["user_id"]
             self.user_email   = auth["user_email"]
             self.is_loading   = False
             yield rx.redirect("/dashboard")
