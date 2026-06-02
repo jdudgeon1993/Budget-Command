@@ -95,131 +95,130 @@ def _tx_row(row: dict) -> rx.Component:
         row["row_type"] == "month_totals",
         _month_totals_row(row),
 
-        # Date separator + table row
         rx.vstack(
-            # Date separator (shown once per date group)
+            # ── Date separator ──────────────────────────────────────────────
             rx.cond(
                 row["date_label"] != "",
                 rx.hstack(
                     rx.text(row["date_label"], style={
-                        "font_size": "11px", "letter_spacing": "0.08em",
+                        "font_size": "12px", "letter_spacing": "0.06em",
                         "text_transform": "uppercase", "color": TEXT2,
                         "font_family": MONO, "white_space": "nowrap",
-                        "flex_shrink": "0", "font_weight": "600",
+                        "flex_shrink": "0", "font_weight": "700",
                     }),
                     rx.box(style={
                         "flex": "1", "height": "1px",
-                        "background": BORDER2, "margin_left": "8px",
+                        "background": BORDER, "margin_left": "10px",
                     }),
-                    align_items="center",
-                    style={"padding": "12px 12px 5px", "width": "100%"},
+                    align_items="center", width="100%",
+                    style={"padding": "14px 14px 6px"},
                 ),
                 rx.box(),
             ),
 
-            # Transaction row
-            rx.hstack(
-                # Left border indicator
-                rx.box(style={
-                    "width": "3px", "align_self": "stretch", "flex_shrink": "0",
-                    "border_radius": "2px",
-                    "background": rx.cond(
-                        row["left_border"] != "none",
-                        row["amt_color"],
-                        "transparent",
-                    ),
-                }),
-
-                # Description + sub-info
-                rx.vstack(
-                    rx.text(
-                        rx.cond(row["desc"] != "", row["desc"], "—"),
-                        style={
-                            "font_size": "13px", "font_weight": "600", "line_height": "1.2",
-                            "color": rx.cond(row["desc"] != "", TEXT, TEXT3),
-                        },
-                    ),
-                    rx.hstack(
-                        # Account/Bucket sub-label
-                        rx.text(
-                            rx.cond(
-                                row["to_account"] != "",
-                                row["account"],
-                                rx.cond(row["bucket"] != "", row["bucket"], row["account"]),
-                            ),
-                            style={"font_size": "11px", "color": TEXT3, "font_family": MONO},
-                        ),
-                        # Type chip
-                        rx.cond(
-                            row["type_chip"] != "",
-                            rx.text(row["type_chip"], style={
-                                "font_size": "10px", "font_family": MONO,
-                                "letter_spacing": "0.06em",
-                                "padding": "1px 6px", "border_radius": "5px",
-                                "color": row["chip_color"],
-                                "background": row["chip_bg"],
-                                "white_space": "nowrap", "flex_shrink": "0",
-                            }),
-                            rx.box(),
-                        ),
-                        # Reconciled check
-                        rx.cond(
-                            row["reconciled_str"] != "",
-                            rx.text("✓", style={
-                                "font_size": "11px", "color": GREEN,
-                                "font_family": MONO, "flex_shrink": "0",
-                            }),
-                            rx.box(),
-                        ),
-                        gap="5px", align_items="center",
-                    ),
-                    gap="3px", align_items="flex-start", flex="1", min_width="0",
-                ),
-
-                rx.spacer(),
-
-                # Amount + running balance + edit
+            # ── Transaction card ────────────────────────────────────────────
+            rx.box(
                 rx.hstack(
+                    # Left: description + sub-label + chips
                     rx.vstack(
-                        rx.text(row["amount_fmt"], style={
-                            "font_size": "13px", "font_family": MONO, "font_weight": "700",
-                            "color": row["amt_color"], "white_space": "nowrap",
-                            "text_align": "right",
-                        }),
-                        # Running balance (single-account view only)
+                        rx.text(
+                            rx.cond(row["desc"] != "", row["desc"], "—"),
+                            style={
+                                "font_size": "14px", "font_weight": "600",
+                                "line_height": "1.2",
+                                "color": rx.cond(row["desc"] != "", TEXT, TEXT3),
+                            },
+                        ),
+                        rx.hstack(
+                            rx.text(
+                                rx.cond(
+                                    row["to_account"] != "",
+                                    row["account"],
+                                    rx.cond(row["bucket"] != "", row["bucket"], row["account"]),
+                                ),
+                                style={"font_size": "12px", "color": TEXT3, "font_family": MONO},
+                            ),
+                            rx.cond(
+                                row["type_chip"] != "",
+                                rx.text(row["type_chip"], style={
+                                    "font_size": "11px", "font_family": MONO,
+                                    "letter_spacing": "0.06em",
+                                    "padding": "1px 7px", "border_radius": "6px",
+                                    "color": row["chip_color"],
+                                    "background": row["chip_bg"],
+                                    "border": row["chip_border"],
+                                    "white_space": "nowrap", "flex_shrink": "0",
+                                }),
+                                rx.box(),
+                            ),
+                            rx.cond(
+                                row["reconciled_str"] != "",
+                                rx.text("✓", style={
+                                    "font_size": "11px", "color": GREEN,
+                                    "font_family": MONO, "flex_shrink": "0",
+                                }),
+                                rx.box(),
+                            ),
+                            gap="6px", align_items="center",
+                        ),
+                        gap="4px", align_items="flex-start",
+                        flex="1", min_width="0",
+                    ),
+
+                    # Right: amount + running balance + edit
+                    rx.hstack(
+                        # Running balance (single-account view)
                         rx.cond(
                             AppState.ledger_acct_filter != "",
-                            rx.text(row["running_balance"], style={
-                                "font_size": "11px", "font_family": MONO,
-                                "color": TEXT3, "white_space": "nowrap",
-                                "text_align": "right",
+                            rx.vstack(
+                                rx.text(row["amount_fmt"], style={
+                                    "font_size": "14px", "font_family": MONO,
+                                    "font_weight": "700", "color": row["amt_color"],
+                                    "white_space": "nowrap", "text_align": "right",
+                                }),
+                                rx.text(row["running_balance"], style={
+                                    "font_size": "11px", "font_family": MONO,
+                                    "color": TEXT2, "white_space": "nowrap",
+                                    "text_align": "right",
+                                }),
+                                gap="1px", align_items="flex-end",
+                            ),
+                            rx.text(row["amount_fmt"], style={
+                                "font_size": "14px", "font_family": MONO,
+                                "font_weight": "700", "color": row["amt_color"],
+                                "white_space": "nowrap",
                             }),
-                            rx.box(),
                         ),
-                        gap="1px", align_items="flex-end",
+                        rx.box(
+                            "⋯",
+                            on_click=AppState.open_edit_tx(row["id"]),
+                            role="button", tab_index=0, aria_label="Edit transaction",
+                            style={
+                                "font_size": "18px", "color": TEXT3, "cursor": "pointer",
+                                "padding": "6px 10px", "border_radius": "6px",
+                                "line_height": "1.2", "min_height": "36px",
+                                "display": "flex", "align_items": "center",
+                                "_hover": {"color": TEXT, "background": BG3},
+                                "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
+                            },
+                        ),
+                        align_items="center", gap="8px", flex_shrink="0",
                     ),
-                    rx.box(
-                        "⋯",
-                        on_click=AppState.open_edit_tx(row["id"]),
-                        role="button", tab_index=0, aria_label="Edit transaction",
-                        style={
-                            "font_size": "18px", "color": TEXT3, "cursor": "pointer",
-                            "padding": "4px 8px", "border_radius": "6px",
-                            "line_height": "1.2", "min_height": "32px",
-                            "display": "flex", "align_items": "center",
-                            "_hover": {"color": TEXT, "background": BG3},
-                            "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
-                        },
-                    ),
-                    align_items="center", gap="4px", flex_shrink="0",
-                ),
 
-                align_items="center", width="100%", gap="10px",
+                    align_items="center", width="100%", gap="12px",
+                ),
                 style={
-                    "padding": "9px 12px 9px 8px",
-                    "border_bottom": f"1px solid {BORDER}",
-                    "_hover": {"background": BG3},
-                    "cursor": "default",
+                    "background": BG2,
+                    "border": f"1px solid {BORDER}",
+                    "border_left": row["left_border"],
+                    "border_radius": "8px",
+                    "padding": rx.cond(
+                        row["left_border"] != "none",
+                        "11px 14px 11px 11px",
+                        "11px 14px",
+                    ),
+                    "margin_bottom": "5px",
+                    "_hover": {"border_color": BORDER2},
                 },
             ),
 
@@ -1381,18 +1380,30 @@ def accounts_panel() -> rx.Component:
                     style={"margin_bottom": "4px", "width": "100%"},
                 ),
 
-                # Single-account header hint
+                # Bank statement column headers (single-account view)
                 rx.cond(
                     AppState.ledger_acct_filter != "",
                     rx.hstack(
-                        rx.text(
-                            "Bank Statement View — amounts show running balance",
-                            style={
-                                "font_size": "11px", "color": TEXT3,
-                                "font_family": MONO, "font_style": "italic",
-                            },
-                        ),
-                        style={"padding": "4px 0 8px"},
+                        rx.text("DESCRIPTION", style={
+                            "font_size": "10px", "color": TEXT3, "font_family": MONO,
+                            "letter_spacing": "0.1em", "flex": "1",
+                        }),
+                        rx.text("AMOUNT", style={
+                            "font_size": "10px", "color": TEXT3, "font_family": MONO,
+                            "letter_spacing": "0.1em", "text_align": "right",
+                            "margin_right": "8px",
+                        }),
+                        rx.text("BALANCE", style={
+                            "font_size": "10px", "color": ACCENT, "font_family": MONO,
+                            "letter_spacing": "0.1em", "white_space": "nowrap",
+                        }),
+                        style={
+                            "padding": "6px 14px 6px",
+                            "border_bottom": f"1px solid {BORDER}",
+                            "background": BG3,
+                            "border_radius": "8px 8px 0 0",
+                        },
+                        align_items="center", width="100%",
                     ),
                     rx.box(),
                 ),
