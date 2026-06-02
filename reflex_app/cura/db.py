@@ -244,6 +244,13 @@ def insert_paycheck(uid: str, token: str, label: str, amount: float, freq: int, 
     return pc_id
 
 
+def update_paycheck(uid: str, token: str, pc_id: str, label: str, amount: float, freq: int, anchor_date: str) -> None:
+    client(token).table("bcc_paychecks").update({
+        "label": label, "amount": amount, "freq": freq,
+        "anchor_date": anchor_date or None,
+    }).eq("id", pc_id).eq("user_id", uid).execute()
+
+
 def delete_paycheck(uid: str, token: str, pc_id: str) -> None:
     client(token).table("bcc_paychecks").delete().eq("id", pc_id).eq("user_id", uid).execute()
 

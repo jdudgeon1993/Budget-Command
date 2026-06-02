@@ -73,6 +73,17 @@ def _pc_row(row: dict) -> rx.Component:
             "color": GREEN, "white_space": "nowrap",
         }),
         rx.box(
+            "Edit",
+            on_click=AppState.open_edit_paycheck(row["id"]),
+            style={
+                "font_size": "11px", "color": ACCENT, "cursor": "pointer",
+                "padding": "3px 8px", "border_radius": "4px",
+                "border": f"1px solid {ACCENT}44",
+                "_hover": {"background": f"{ACCENT}11"},
+                "font_family": MONO, "flex_shrink": "0",
+            },
+        ),
+        rx.box(
             "✕",
             on_click=AppState.delete_paycheck_item(row["id"]),
             style={
@@ -87,6 +98,71 @@ def _pc_row(row: dict) -> rx.Component:
             "border_radius": "8px", "padding": "10px 12px",
             "margin_bottom": "5px",
         },
+    )
+
+
+def _edit_paycheck_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Edit Paycheck",
+                            style={"font_size": "16px", "font_weight": "700", "color": TEXT,
+                                   "margin_bottom": "16px"}),
+            rx.vstack(
+                rx.hstack(
+                    _inp("Label", AppState.edit_pc_label, AppState.set_edit_pc_label, flex="2"),
+                    _inp("Amount", AppState.edit_pc_amount, AppState.set_edit_pc_amount,
+                         type_="number", input_mode="decimal", flex="1"),
+                    gap="8px", width="100%",
+                ),
+                rx.hstack(
+                    _sel(
+                        rx.el.option("Biweekly (every 2 weeks)", value="14"),
+                        rx.el.option("Weekly", value="7"),
+                        rx.el.option("Semi-monthly (1st & 15th)", value="15"),
+                        value=AppState.edit_pc_freq,
+                        on_change=AppState.set_edit_pc_freq,
+                        flex="2",
+                    ),
+                    _inp("Anchor date (YYYY-MM-DD)", AppState.edit_pc_anchor,
+                         AppState.set_edit_pc_anchor, flex="2"),
+                    gap="8px", width="100%",
+                ),
+                rx.cond(
+                    AppState.edit_pc_error != "",
+                    rx.text(AppState.edit_pc_error,
+                            style={"font_size": "11px", "color": RED, "font_family": MONO}),
+                    rx.box(),
+                ),
+                rx.hstack(
+                    rx.box(
+                        "Cancel",
+                        on_click=AppState.close_edit_paycheck,
+                        style={
+                            "padding": "8px 16px", "border_radius": "8px",
+                            "border": f"1px solid {BORDER}", "color": TEXT2,
+                            "font_size": "12px", "cursor": "pointer", "font_family": MONO,
+                            "_hover": {"background": BG3},
+                        },
+                    ),
+                    rx.box(
+                        rx.cond(AppState.edit_pc_saving, "Saving…", "Save"),
+                        on_click=AppState.save_edit_paycheck,
+                        style={
+                            "padding": "8px 16px", "border_radius": "8px",
+                            "background": rx.cond(AppState.edit_pc_saving, BORDER, ACCENT),
+                            "color": "#fff", "font_size": "12px", "cursor": "pointer",
+                            "font_family": MONO, "_hover": {"opacity": "0.9"},
+                        },
+                    ),
+                    gap="8px", justify_content="flex-end", width="100%",
+                ),
+                gap="10px", width="100%",
+            ),
+            style={"background": BG2, "border": f"1px solid {BORDER}", "max_width": "480px",
+                   "padding": "24px"},
+        ),
+        open=AppState.edit_pc_open,
+        on_open_change=lambda v: AppState.close_edit_paycheck(),
     )
 
 
@@ -535,6 +611,35 @@ def _cat_row(row: dict) -> rx.Component:
 
 # ── Categories section ────────────────────────────────────────────────────────
 
+def _archived_cat_row(row: dict) -> rx.Component:
+    return rx.hstack(
+        rx.box(style={
+            "width": "10px", "height": "10px", "border_radius": "50%",
+            "background": row["color"], "flex_shrink": "0",
+        }),
+        rx.text(row["name"], style={
+            "flex": "1", "font_size": "13px", "color": TEXT3, "font_style": "italic",
+        }),
+        rx.box(
+            "Restore",
+            on_click=AppState.unarchive_category(row["id"]),
+            style={
+                "font_size": "11px", "color": GREEN, "cursor": "pointer",
+                "padding": "3px 8px", "border_radius": "4px",
+                "border": f"1px solid {GREEN}44",
+                "_hover": {"background": f"{GREEN}11"},
+                "font_family": MONO, "flex_shrink": "0",
+            },
+        ),
+        align_items="center", width="100%", gap="8px",
+        style={
+            "background": BG2, "border": f"1px dashed {BORDER}",
+            "border_radius": "8px", "padding": "8px 12px",
+            "margin_bottom": "5px", "opacity": "0.7",
+        },
+    )
+
+
 def _categories_section() -> rx.Component:
     return rx.vstack(
         _section_head("Categories"),
@@ -553,6 +658,35 @@ def _categories_section() -> rx.Component:
                 _cat_row,
             ),
         ),
+        # Archived categories toggle
+        rx.box(
+            rx.hstack(
+                rx.box(
+                    rx.cond(AppState.show_archived_cats, "▲ Hide archived", "▼ Show archived"),
+                    on_click=AppState.toggle_show_archived_cats,
+                    style={
+                        "font_size": "11px", "color": TEXT3, "cursor": "pointer",
+                        "font_family": MONO, "_hover": {"color": TEXT2},
+                    },
+                ),
+                justify_content="flex-end", width="100%",
+            ),
+            margin_top="8px",
+        ),
+        rx.cond(
+            AppState.show_archived_cats,
+            rx.cond(
+                AppState.archived_cat_rows.length() == 0,
+                rx.text("No archived categories.",
+                        style={"font_size": "12px", "color": TEXT3, "font_family": MONO,
+                               "padding": "8px 0"}),
+                rx.foreach(
+                    AppState.archived_cat_rows.to(list[dict[str, Any]]),
+                    _archived_cat_row,
+                ),
+            ),
+            rx.box(),
+        ),
         gap="0px", align_items="stretch", width="100%",
     )
 
@@ -560,11 +694,15 @@ def _categories_section() -> rx.Component:
 # ── Main panel ────────────────────────────────────────────────────────────────
 
 def setup_panel() -> rx.Component:
-    return rx.vstack(
-        _paychecks_section(),
-        rx.divider(style={"border_color": BORDER, "margin": "20px 0"}),
-        _categories_section(),
-        rx.divider(style={"border_color": BORDER, "margin": "20px 0"}),
-        _rules_section(),
-        gap="0px", align_items="stretch", width="100%",
+    return rx.box(
+        _edit_paycheck_dialog(),
+        rx.vstack(
+            _paychecks_section(),
+            rx.divider(style={"border_color": BORDER, "margin": "20px 0"}),
+            _categories_section(),
+            rx.divider(style={"border_color": BORDER, "margin": "20px 0"}),
+            _rules_section(),
+            gap="0px", align_items="stretch", width="100%",
+        ),
+        width="100%",
     )

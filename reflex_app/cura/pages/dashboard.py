@@ -1,7 +1,6 @@
 """Dashboard page — the main app shell with sidebar + panel switcher."""
 
 import reflex as rx
-from typing import Any
 from ..state import AppState
 from ..theme import (BG, BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3,
                      GREEN, AMBER, ACCENT, RED, MONO, SANS, SIDEBAR_W, NAV_H, HDR_H, GLOBAL_CSS)
@@ -135,7 +134,7 @@ def mobile_nav() -> rx.Component:
             '<rect x="3" y="3" width="18" height="4" rx="1"/>'
             '<rect x="3" y="10" width="12" height="4" rx="1"/>'
             '<rect x="3" y="17" width="15" height="4" rx="1"/>'),
-        _mob_tab("Forecast", "insights",
+        _mob_tab("Insights", "insights",
             '<line x1="18" y1="20" x2="18" y2="10"/>'
             '<line x1="12" y1="20" x2="12" y2="4"/>'
             '<line x1="6" y1="20" x2="6" y2="14"/>'),
@@ -165,42 +164,6 @@ def mobile_nav() -> rx.Component:
 
 
 # ── Panel switcher ────────────────────────────────────────────────────────────
-
-def _accounts_stub() -> rx.Component:
-    return rx.vstack(
-        rx.text("Accounts", style={"font_size": "16px", "font_weight": "700",
-                                    "color": TEXT, "margin_bottom": "12px"}),
-        rx.foreach(
-            AppState.accounts_rows.to(list[dict[str, Any]]),
-            lambda a: rx.hstack(
-                rx.box(style={"width": "10px", "height": "10px", "border_radius": "50%",
-                               "background": a["color"], "flex_shrink": "0"}),
-                rx.text(a["name"], style={"flex": "1", "color": TEXT}),
-                rx.text(a["type_upper"],
-                        style={"font_size": "11px", "color": TEXT3, "letter_spacing": "0.08em"}),
-                rx.text(a["balance_fmt"],
-                        style={"font_family": MONO, "color": a["bal_color"], "font_weight": "700"}),
-                align_items="center",
-                style={
-                    "background": BG2, "border": f"1px solid {BORDER}",
-                    "border_radius": "8px", "padding": "10px 14px", "width": "100%",
-                },
-            ),
-        ),
-        align_items="stretch",
-    )
-
-
-def _stub_panel(title: str) -> rx.Component:
-    return rx.center(
-        rx.vstack(
-            rx.text(title, style={"font_size": "18px", "color": TEXT2}),
-            rx.text("Coming soon", style={"font_size": "12px", "color": TEXT3}),
-            align_items="center", gap="8px",
-        ),
-        style={"min_height": "300px"},
-    )
-
 
 def panel_content() -> rx.Component:
     return rx.box(

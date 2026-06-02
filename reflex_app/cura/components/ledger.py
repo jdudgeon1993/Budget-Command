@@ -911,36 +911,50 @@ def ledger_panel() -> rx.Component:
         rx.box(
             # ── Left column: search + transaction list ────────────────────
             rx.vstack(
-                # Search bar
+                # Search bar + export button
                 rx.hstack(
-                    rx.html(
-                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
-                        'stroke="currentColor" stroke-width="2" style="color:#4e4e6a;flex-shrink:0">'
-                        '<circle cx="11" cy="11" r="8"/>'
-                        '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-                    ),
-                    rx.input(
-                        placeholder="Search transactions…",
-                        value=AppState.ledger_query,
-                        on_change=AppState.set_ledger_query,
+                    rx.hstack(
+                        rx.html(
+                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
+                            'stroke="currentColor" stroke-width="2" style="color:#4e4e6a;flex-shrink:0">'
+                            '<circle cx="11" cy="11" r="8"/>'
+                            '<line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+                        ),
+                        rx.input(
+                            placeholder="Search transactions…",
+                            value=AppState.ledger_query,
+                            on_change=AppState.set_ledger_query,
+                            style={
+                                "background": "transparent", "border": "none", "outline": "none",
+                                "color": TEXT, "font_family": MONO, "font_size": "13px",
+                                "flex": "1", "width": "100%",
+                            },
+                        ),
+                        rx.cond(
+                            AppState.ledger_query != "",
+                            rx.box("×", on_click=AppState.set_ledger_query(""),
+                                   style={"color": TEXT3, "cursor": "pointer", "font_size": "18px",
+                                          "_hover": {"color": TEXT}}),
+                            rx.box(),
+                        ),
                         style={
-                            "background": "transparent", "border": "none", "outline": "none",
-                            "color": TEXT, "font_family": MONO, "font_size": "13px",
-                            "flex": "1", "width": "100%",
+                            "background": BG2, "border": f"1px solid {BORDER}",
+                            "border_radius": "8px", "padding": "9px 14px",
+                            "align_items": "center", "gap": "8px", "flex": "1",
                         },
                     ),
-                    rx.cond(
-                        AppState.ledger_query != "",
-                        rx.box("×", on_click=AppState.set_ledger_query(""),
-                               style={"color": TEXT3, "cursor": "pointer", "font_size": "18px",
-                                      "_hover": {"color": TEXT}}),
-                        rx.box(),
+                    rx.box(
+                        "↓ CSV",
+                        on_click=AppState.export_transactions_csv,
+                        style={
+                            "font_family": MONO, "font_size": "11px", "letter_spacing": "0.08em",
+                            "padding": "8px 12px", "border_radius": "8px",
+                            "border": f"1px solid {BORDER}", "color": TEXT2,
+                            "cursor": "pointer", "white_space": "nowrap", "flex_shrink": "0",
+                            "_hover": {"background": BG2, "color": TEXT},
+                        },
                     ),
-                    style={
-                        "background": BG2, "border": f"1px solid {BORDER}",
-                        "border_radius": "8px", "padding": "9px 14px",
-                        "margin_bottom": "16px", "align_items": "center", "gap": "8px",
-                    },
+                    gap="8px", align_items="center", margin_bottom="16px", width="100%",
                 ),
 
                 # Transaction list
@@ -948,7 +962,7 @@ def ledger_panel() -> rx.Component:
 
                 # Empty state
                 rx.cond(
-                    AppState.filtered_ledger.length() == 0,
+                    AppState.ledger_tx_count == 0,
                     rx.box(
                         rx.text("No transactions this month",
                                 style={"color": TEXT3, "font_size": "13px", "font_family": MONO}),

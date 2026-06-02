@@ -544,7 +544,7 @@ def _debt_card(row: dict) -> rx.Component:
                 gap="2px",
             ),
             rx.vstack(
-                rx.text("Paid (period)", style={"font_size": "10px", "color": TEXT3,
+                rx.text("Lifetime Paid", style={"font_size": "10px", "color": TEXT3,
                                                  "text_transform": "uppercase",
                                                  "font_family": MONO, "letter_spacing": "0.08em"}),
                 rx.text(row["total_paid_fmt"], style={
