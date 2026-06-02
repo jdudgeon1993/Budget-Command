@@ -349,7 +349,7 @@ class AppState(rx.State):
     account_options: list[dict[str, Any]] = []   # [{id, name}]
 
     # ── Reports panel ────────────────────────────────────────────────────────
-    reports_tab:       str = "bva"   # "bva" | "summary" | "trends" | "payees" | "debt"
+    reports_tab:       str = "snapshot"  # "snapshot" | "bva" | "summary" | "trends" | "payees" | "debt"
     bva_rows:          list[dict[str, Any]] = []   # flat: row_type "cat"|"bucket", m0/m1/m2 cols
     bva_month_hdrs:    list[dict[str, Any]] = []   # [{label, mid}] × 3 (some may be empty)
     summary_cards:     list[dict] = []             # [{label, income_fmt, spent_fmt, net_fmt, net_positive, savings_rate, cat_rows:[...]}]
@@ -388,6 +388,8 @@ class AppState(rx.State):
 
     # ── Ledger search ─────────────────────────────────────────────────────────
     ledger_query: str = ""
+    ledger_acct_filter: str = ""          # "" = All; acct_id = single account view
+    acct_tx_running: dict[str, str] = {}  # "{tx_id}:{acct_id}" → running balance fmt
 
     # ── Category select options ───────────────────────────────────────────────
     cat_options: list[dict[str, Any]] = []
@@ -624,17 +626,30 @@ class AppState(rx.State):
 
     @rx.var
     def filtered_ledger(self) -> list[dict[str, Any]]:
-        if not self.ledger_query:
-            return self.ledger_rows
-        q = self.ledger_query.lower()
-        # Keep month_totals row; filter tx rows by query
+        acct_filter = self.ledger_acct_filter
+        q = self.ledger_query.lower() if self.ledger_query else ""
+        running = self.acct_tx_running
+
         matches: list[dict] = []
         for row in self.ledger_rows:
             if row["row_type"] == "month_totals":
-                matches.append(row)
-            elif row["row_type"] == "tx":
-                if q in row.get("desc", "").lower() or q in row.get("bucket", "").lower():
-                    matches.append(dict(row))
+                if not acct_filter:
+                    matches.append(row)
+                continue
+            if row["row_type"] != "tx":
+                continue
+            # Account filter
+            if acct_filter:
+                if row.get("acct_id", "") != acct_filter and row.get("to_acct_id", "") != acct_filter:
+                    continue
+            # Text search
+            if q and q not in row.get("desc", "").lower() and q not in row.get("bucket", "").lower():
+                continue
+            r = dict(row)
+            if acct_filter:
+                r["running_balance"] = running.get(f"{r['id']}:{acct_filter}", "")
+            matches.append(r)
+
         # Re-stamp date_label on first tx of each date group
         prev = ""
         for row in matches:
@@ -2671,7 +2686,7 @@ class AppState(rx.State):
             "left_border": "none", "type_chip": "", "chip_color": "#8282a2",
             "chip_bg": "#8282a218", "chip_border": "1px solid #8282a233",
             "reconciled_str": "", "inc_fmt": "", "spent_fmt": "",
-            "date_label": "",
+            "date_label": "", "acct_id": "", "to_acct_id": "", "running_balance": "",
         }
         _HDR_DEFAULTS = {"label": "", "date": "", "net_fmt": "", "net_color": ""}
 
@@ -2760,11 +2775,44 @@ class AppState(rx.State):
                 "chip_color":     chip_color,
                 "chip_bg":        chip_color + "18",
                 "chip_border":    "1px solid " + chip_color + "33",
+                "acct_id":        t.get("accountId", "") or "",
+                "to_acct_id":     t.get("toAccountId", "") or "",
                 **_HDR_DEFAULTS,
             })
 
         self.ledger_rows     = ledger_flat
         self.ledger_tx_count = sum(1 for r in ledger_flat if r.get("row_type") == "tx")
+
+        # ── All-time per-account running balances ──────────────────────────
+        acct_opening = {
+            a["id"]: float(a.get("openingBalance", 0) or 0)
+            for a in accounts if not a.get("archived")
+        }
+        acct_bal_run = dict(acct_opening)
+        all_txs_sorted = sorted(
+            [t for t in txs if not is_scheduled(t)],
+            key=lambda t: (t.get("date", "")[:10], t.get("created_at", "") or t.get("id", "")),
+        )
+        running_map: dict[str, str] = {}
+        for t in all_txs_sorted:
+            ttype_ = t.get("type", "")
+            amt_   = float(t.get("amount", 0) or 0)
+            aid_   = t.get("accountId", "") or ""
+            to_aid_ = t.get("toAccountId", "") or ""
+            if ttype_ == "out" and aid_:
+                acct_bal_run[aid_] = acct_bal_run.get(aid_, 0.0) - amt_
+                running_map[f"{t['id']}:{aid_}"] = _fmt(acct_bal_run[aid_])
+            elif ttype_ == "in" and aid_:
+                acct_bal_run[aid_] = acct_bal_run.get(aid_, 0.0) + amt_
+                running_map[f"{t['id']}:{aid_}"] = _fmt(acct_bal_run[aid_])
+            elif ttype_ == "xfr":
+                if aid_:
+                    acct_bal_run[aid_] = acct_bal_run.get(aid_, 0.0) - amt_
+                    running_map[f"{t['id']}:{aid_}"] = _fmt(acct_bal_run[aid_])
+                if to_aid_:
+                    acct_bal_run[to_aid_] = acct_bal_run.get(to_aid_, 0.0) + amt_
+                    running_map[f"{t['id']}:{to_aid_}"] = _fmt(acct_bal_run[to_aid_])
+        self.acct_tx_running = running_map
 
         # ── Accounts rows ──────────────────────────────────────────────────
         acc_rows = []

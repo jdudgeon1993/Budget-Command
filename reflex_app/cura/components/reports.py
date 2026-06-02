@@ -65,6 +65,7 @@ def _tab(label: str, key: str) -> rx.Component:
 
 def _tab_bar() -> rx.Component:
     return rx.hstack(
+        _tab("Snapshot",         "snapshot"),
         _tab("Budget vs Actual", "bva"),
         _tab("Monthly Summary",  "summary"),
         _tab("Trends",           "trends"),
@@ -596,6 +597,249 @@ def _debt_tab() -> rx.Component:
     )
 
 
+# ── Snapshot tab (monthly KPIs + account balances + spend by bucket) ─────────
+
+def _snapshot_account_row(row: dict) -> rx.Component:
+    return rx.hstack(
+        rx.box(style={
+            "width": "9px", "height": "9px", "border_radius": "50%",
+            "background": row["color"], "flex_shrink": "0",
+        }),
+        rx.text(row["name"], style={
+            "font_size": "13px", "color": TEXT, "flex": "1",
+            "min_width": "0", "overflow": "hidden",
+            "text_overflow": "ellipsis", "white_space": "nowrap",
+        }),
+        rx.text(row["balance_fmt"], style={
+            "font_size": "13px", "font_family": MONO, "font_weight": "700",
+            "color": row["bal_color"], "white_space": "nowrap", "flex_shrink": "0",
+        }),
+        align_items="center", gap="9px", width="100%",
+        style={"margin_bottom": "6px"},
+    )
+
+
+def _snapshot_spend_bar(row: dict) -> rx.Component:
+    return rx.vstack(
+        rx.hstack(
+            rx.text(row["name"], style={
+                "font_size": "13px", "color": TEXT, "flex": "1",
+                "min_width": "0", "overflow": "hidden",
+                "text_overflow": "ellipsis", "white_space": "nowrap",
+                "font_weight": "600",
+            }),
+            rx.hstack(
+                rx.text(row["spent_fmt"], style={
+                    "font_size": "13px", "font_family": MONO,
+                    "color": rx.cond(row["is_over"] == "1", RED, TEXT2),
+                    "white_space": "nowrap",
+                }),
+                rx.cond(
+                    row["pct_str"] != "0%",
+                    rx.text(row["pct_str"], style={
+                        "font_size": "11px", "font_family": MONO,
+                        "color": rx.cond(row["is_over"] == "1", RED, TEXT3),
+                        "white_space": "nowrap",
+                    }),
+                    rx.box(),
+                ),
+                gap="5px", align_items="center", flex_shrink="0",
+            ),
+            align_items="center", gap="8px", width="100%",
+        ),
+        rx.box(
+            rx.box(style={
+                "height": "100%", "border_radius": "3px",
+                "background": rx.cond(row["is_over"] == "1", RED, ACCENT),
+                "width": row["pct_str"],
+                "transition": "width 0.35s ease",
+            }),
+            style={
+                "height": "5px", "border_radius": "3px",
+                "background": BG3, "overflow": "hidden", "width": "100%",
+            },
+        ),
+        gap="5px", width="100%",
+        style={"margin_bottom": "10px"},
+    )
+
+
+def _snapshot_tab() -> rx.Component:
+    _CARD = {
+        "background": BG2, "border": f"1px solid {BORDER}",
+        "border_radius": "12px", "padding": "16px 18px",
+        "margin_bottom": "14px", "width": "100%",
+    }
+    _LABEL = {
+        "font_size": "11px", "letter_spacing": "0.14em",
+        "text_transform": "uppercase", "color": TEXT3,
+        "font_family": MONO, "font_weight": "600",
+        "display": "block", "margin_bottom": "12px",
+    }
+    return rx.box(
+        rx.box(
+            # Left: KPIs + spend breakdown
+            rx.vstack(
+                # This Month
+                rx.box(
+                    rx.text("THIS MONTH", style=_LABEL),
+                    rx.hstack(
+                        rx.hstack(
+                            rx.box(style={
+                                "width": "7px", "height": "7px", "border_radius": "50%",
+                                "background": GREEN, "flex_shrink": "0",
+                            }),
+                            rx.text("Income", style={"font_size": "12px", "color": TEXT3}),
+                            rx.text(AppState.income_fmt, style={
+                                "font_size": "14px", "color": GREEN,
+                                "font_family": MONO, "font_weight": "700",
+                            }),
+                            align_items="center", gap="6px",
+                        ),
+                        rx.hstack(
+                            rx.box(style={
+                                "width": "7px", "height": "7px", "border_radius": "50%",
+                                "background": RED, "flex_shrink": "0",
+                            }),
+                            rx.text("Spent", style={"font_size": "12px", "color": TEXT3}),
+                            rx.text(AppState.spent_fmt, style={
+                                "font_size": "14px", "color": RED,
+                                "font_family": MONO, "font_weight": "700",
+                            }),
+                            align_items="center", gap="6px",
+                        ),
+                        gap="16px", flex_wrap="wrap",
+                    ),
+                    rx.divider(style={"border_color": BORDER, "margin": "10px 0"}),
+                    rx.hstack(
+                        rx.text("Net (Ready to Spend)", style={"font_size": "13px", "color": TEXT3}),
+                        rx.spacer(),
+                        rx.text(AppState.rts_fmt, style={
+                            "font_size": "15px", "font_family": MONO, "font_weight": "800",
+                            "color": AppState.rts_color,
+                        }),
+                        align_items="center", width="100%",
+                    ),
+                    style=_CARD,
+                ),
+
+                # VS Last Month
+                rx.box(
+                    rx.text("VS LAST MONTH", style=_LABEL),
+                    rx.hstack(
+                        rx.vstack(
+                            rx.text("", style={"font_size": "12px", "color": "transparent"}),
+                            rx.text("Income", style={"font_size": "13px", "color": TEXT3}),
+                            rx.text("Spent",  style={"font_size": "13px", "color": TEXT3}),
+                            gap="8px", align_items="flex-start",
+                        ),
+                        rx.spacer(),
+                        rx.vstack(
+                            rx.text("This", style={
+                                "font_size": "12px", "color": TEXT3,
+                                "letter_spacing": "0.08em", "font_family": MONO,
+                            }),
+                            rx.text(AppState.income_fmt, style={
+                                "font_size": "13px", "color": GREEN,
+                                "font_family": MONO, "font_weight": "600",
+                            }),
+                            rx.text(AppState.spent_fmt, style={
+                                "font_size": "13px", "color": RED,
+                                "font_family": MONO, "font_weight": "600",
+                            }),
+                            gap="8px", align_items="flex-end",
+                        ),
+                        rx.vstack(
+                            rx.text("Last", style={
+                                "font_size": "12px", "color": TEXT3,
+                                "letter_spacing": "0.08em", "font_family": MONO,
+                            }),
+                            rx.text(AppState.last_month_income_fmt, style={
+                                "font_size": "13px", "color": TEXT2,
+                                "font_family": MONO,
+                            }),
+                            rx.text(AppState.last_month_spent_fmt, style={
+                                "font_size": "13px", "color": TEXT2,
+                                "font_family": MONO,
+                            }),
+                            gap="8px", align_items="flex-end",
+                        ),
+                        align_items="flex-start", width="100%",
+                    ),
+                    rx.divider(style={"border_color": BORDER, "margin": "10px 0"}),
+                    rx.text(AppState.mom_verdict, style={
+                        "font_size": "13px", "font_family": MONO, "font_weight": "700",
+                        "color": rx.cond(AppState.mom_better, GREEN, RED),
+                    }),
+                    style=_CARD,
+                ),
+
+                # Spending by Bucket
+                rx.cond(
+                    AppState.ledger_bucket_spend.length() > 0,
+                    rx.box(
+                        rx.text("SPENDING BY BUCKET", style=_LABEL),
+                        rx.foreach(
+                            AppState.ledger_bucket_spend.to(list[dict[str, Any]]),
+                            _snapshot_spend_bar,
+                        ),
+                        style=_CARD,
+                    ),
+                    rx.box(),
+                ),
+
+                gap="0", align_items="stretch", width="100%",
+            ),
+
+            # Right: Account balances
+            rx.box(
+                rx.box(
+                    rx.text("ACCOUNTS", style=_LABEL),
+                    rx.foreach(
+                        AppState.accounts_rows.to(list[dict[str, Any]]),
+                        _snapshot_account_row,
+                    ),
+                    rx.divider(style={"border_color": BORDER, "margin": "8px 0 10px"}),
+                    rx.hstack(
+                        rx.text("Cash", style={"font_size": "13px", "color": TEXT3}),
+                        rx.spacer(),
+                        rx.text(AppState.total_cash_fmt, style={
+                            "font_size": "14px", "font_family": MONO,
+                            "font_weight": "700", "color": GREEN,
+                        }),
+                        align_items="center", width="100%",
+                        style={"margin_bottom": "5px"},
+                    ),
+                    rx.cond(
+                        AppState.total_debt > 0,
+                        rx.hstack(
+                            rx.text("Debt", style={"font_size": "13px", "color": TEXT3}),
+                            rx.spacer(),
+                            rx.text(AppState.total_debt_fmt, style={
+                                "font_size": "14px", "font_family": MONO,
+                                "font_weight": "700", "color": RED,
+                            }),
+                            align_items="center", width="100%",
+                        ),
+                        rx.box(),
+                    ),
+                    style=_CARD,
+                ),
+                style={"position": "sticky", "top": "72px"},
+            ),
+
+            class_name="split-grid",
+            style={
+                "display": "grid",
+                "grid_template_columns": "1fr 340px",
+                "gap": "24px",
+                "align_items": "start",
+                "width": "100%",
+            },
+        ),
+    )
+
+
 # ── Main panel ────────────────────────────────────────────────────────────────
 
 def reports_panel() -> rx.Component:
@@ -603,12 +847,13 @@ def reports_panel() -> rx.Component:
         _tab_bar(),
         rx.match(
             AppState.reports_tab,
+            ("snapshot", _snapshot_tab()),
             ("bva",     _bva_tab()),
             ("summary", _summary_tab()),
             ("trends",  _trends_tab()),
             ("payees",  _payees_tab()),
             ("debt",    _debt_tab()),
-            _bva_tab(),
+            _snapshot_tab(),
         ),
         gap="20px", align_items="stretch", width="100%",
     )

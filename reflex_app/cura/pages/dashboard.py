@@ -6,7 +6,6 @@ from ..theme import (BG, BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3,
                      GREEN, AMBER, ACCENT, RED, MONO, SANS, SIDEBAR_W, NAV_H, HDR_H, GLOBAL_CSS)
 from ..components.sidebar   import sidebar
 from ..components.buckets   import buckets_panel
-from ..components.ledger    import ledger_panel
 from ..components.forecast  import forecast_panel
 from ..components.setup     import setup_panel
 from ..components.payday    import payday_modal
@@ -120,13 +119,6 @@ def mobile_nav() -> rx.Component:
             '<rect x="14" y="3" width="7" height="7" rx="1"/>'
             '<rect x="3" y="14" width="7" height="7" rx="1"/>'
             '<rect x="14" y="14" width="7" height="7" rx="1"/>'),
-        _mob_tab("Ledger", "ledger",
-            '<line x1="8" y1="6" x2="21" y2="6"/>'
-            '<line x1="8" y1="12" x2="21" y2="12"/>'
-            '<line x1="8" y1="18" x2="21" y2="18"/>'
-            '<circle cx="3" cy="6" r="1" fill="currentColor" stroke="none"/>'
-            '<circle cx="3" cy="12" r="1" fill="currentColor" stroke="none"/>'
-            '<circle cx="3" cy="18" r="1" fill="currentColor" stroke="none"/>'),
         _mob_tab("Accounts", "accounts",
             '<rect x="2" y="5" width="20" height="14" rx="2"/>'
             '<line x1="2" y1="10" x2="22" y2="10"/>'),
@@ -170,7 +162,6 @@ def panel_content() -> rx.Component:
         rx.match(
             AppState.active_panel,
             ("buckets",  buckets_panel()),
-            ("ledger",   ledger_panel()),
             ("accounts", accounts_panel()),
             ("reports",  reports_panel()),
             ("insights", forecast_panel()),
