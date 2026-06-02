@@ -108,6 +108,16 @@ def _months_left(target_date_str: str) -> int:
 
 # ── Date label ────────────────────────────────────────────────────────────────
 
+# Uniform shape for ledger "blocks" (section headers + per-day cards) so that
+# rx.foreach / rx.match can access any key on any block without KeyErrors.
+_BLOCK_DEFAULTS: dict = {
+    "kind": "", "label": "", "meta": "",
+    "balance_label": "", "balance_color": "",
+    "date_label": "", "rb_label": "", "rb_color": "", "is_sched": "",
+    "txs": [],
+}
+
+
 def _date_label(date_str: str) -> str:
     try:
         d = date.fromisoformat(date_str)
@@ -625,67 +635,125 @@ class AppState(rx.State):
         return self.month_status_str == "closed"
 
     @rx.var
-    def filtered_ledger(self) -> list[dict[str, Any]]:
-        acct_filter = self.ledger_acct_filter
+    def ledger_view(self) -> dict[str, Any]:
+        """Bank-statement view: Scheduled + Current Statement sections, each
+        grouped into per-day cards with a running balance, plus KPI totals.
+        Reacts to ledger_acct_filter and ledger_query."""
+        acct = self.ledger_acct_filter
         q = self.ledger_query.lower() if self.ledger_query else ""
+        show_rb = bool(acct)   # running balance only meaningful for one account
 
-        # ── 1. Collect tx rows that pass filters ──────────────────────────
-        tx_rows: list[dict] = []
-        has_month_totals = False
-        month_totals_row: dict = {}
+        # ── 1. Split filtered tx rows into posted vs scheduled + KPI sums ──
+        posted: list[dict] = []
+        scheduled: list[dict] = []
+        inc = sched_total = spent = xfer = 0.0
         for row in self.ledger_rows:
-            if row["row_type"] == "month_totals":
-                if not acct_filter:
-                    has_month_totals = True
-                    month_totals_row = row
+            if row.get("row_type") != "tx":
                 continue
-            if row["row_type"] != "tx":
+            if acct and row.get("acct_id", "") != acct and row.get("to_acct_id", "") != acct:
                 continue
-            if acct_filter:
-                if row.get("acct_id", "") != acct_filter and row.get("to_acct_id", "") != acct_filter:
-                    continue
             if q and q not in row.get("desc", "").lower() and q not in row.get("bucket", "").lower():
                 continue
-            tx_rows.append(dict(row))
+            amt   = float(row.get("amount") or 0)
+            ttype = row.get("type", "")
+            if row.get("scheduled", False):
+                scheduled.append(dict(row))
+                sched_total += amt
+            else:
+                posted.append(dict(row))
+                if   ttype == "in":  inc   += amt
+                elif ttype == "out": spent += amt
+                elif ttype == "xfr": xfer  += amt
 
-        # ── 2. Running balance for single-account view ────────────────────
-        if acct_filter and tx_rows:
-            # Sort oldest→newest to accumulate running balance correctly
-            ordered = sorted(tx_rows, key=lambda r: (r.get("date", ""), r.get("id", "")))
-            bal = self.acct_month_start.get(acct_filter, 0.0)
-            for r in ordered:
-                ttype_ = r.get("type", "")
-                amt_   = float(r.get("amount", 0) or 0)
-                aid_   = r.get("acct_id", "")
-                to_aid_ = r.get("to_acct_id", "")
-                if r.get("scheduled", False):
-                    r["running_balance"] = ""
-                    continue
-                if ttype_ == "out" and aid_ == acct_filter:
-                    bal -= amt_
-                elif ttype_ == "in" and aid_ == acct_filter:
-                    bal += amt_
-                elif ttype_ == "xfr":
-                    if aid_ == acct_filter:
-                        bal -= amt_
-                    elif to_aid_ == acct_filter:
-                        bal += amt_
-                r["running_balance"] = _fmt(bal)
+        # ── 2. Running balance helpers (per account) ──────────────────────
+        def _apply(bal: float, r: dict) -> float:
+            if not show_rb:
+                return bal
+            t = r.get("type", "")
+            a = float(r.get("amount") or 0)
+            if   t == "in"  and r.get("acct_id") == acct: bal += a
+            elif t == "out" and r.get("acct_id") == acct: bal -= a
+            elif t == "xfr":
+                if   r.get("acct_id")    == acct: bal -= a
+                elif r.get("to_acct_id") == acct: bal += a
+            return bal
 
-        # ── 3. Re-stamp date_label (newest-first display order) ───────────
-        # tx_rows came from ledger_rows which is newest-first
-        prev = ""
-        for r in tx_rows:
-            d = r.get("date", "")
-            r["date_label"] = _date_label(d) if d != prev else ""
-            prev = d
+        # Posted: accumulate oldest→newest from month-start balance
+        base = self.acct_month_start.get(acct, 0.0) if acct else 0.0
+        posted_old = sorted(posted, key=lambda r: (r.get("date", ""), r.get("id", "")))
+        day_bal: dict[str, float] = {}
+        bal = base
+        for r in posted_old:
+            bal = _apply(bal, r)
+            day_bal[r.get("date", "")] = bal
+        latest_posted_bal = bal
 
-        # ── 4. Assemble final list ────────────────────────────────────────
-        result: list[dict] = []
-        if has_month_totals:
-            result.append(month_totals_row)
-        result.extend(tx_rows)
-        return result
+        # Scheduled: project forward from latest posted balance
+        sched_old = sorted(scheduled, key=lambda r: (r.get("date", ""), r.get("id", "")))
+        sday_bal: dict[str, float] = {}
+        pbal = latest_posted_bal
+        for r in sched_old:
+            pbal = _apply(pbal, r)
+            sday_bal[r.get("date", "")] = pbal
+
+        # ── 3. Build per-day cards (newest-first; ledger_rows already is) ──
+        def _plural(n: int, word: str) -> str:
+            return f"{n} {word}" + ("s" if n != 1 else "")
+
+        def _days(rows: list[dict], balmap: dict, is_sched: bool) -> list[dict]:
+            order: list[str] = []
+            buckets: dict[str, list[dict]] = {}
+            for r in rows:
+                d = r.get("date", "")
+                if d not in buckets:
+                    buckets[d] = []
+                    order.append(d)
+                buckets[d].append(r)
+            out: list[dict] = []
+            for d in order:
+                txs = buckets[d]
+                rb = balmap.get(d, 0.0)
+                out.append({
+                    **_BLOCK_DEFAULTS,
+                    "kind":       "day",
+                    "date_label": _date_label(d),
+                    "meta":       _plural(len(txs), "transaction"),
+                    "rb_label":   (("PRB " if is_sched else "RB ") + _fmt(rb)) if show_rb else "",
+                    "rb_color":   "#34d399" if rb >= 0 else "#f87171",
+                    "is_sched":   "1" if is_sched else "",
+                    "txs":        txs,
+                })
+            return out
+
+        blocks: list[dict] = []
+        if scheduled:
+            blocks.append({
+                **_BLOCK_DEFAULTS,
+                "kind":  "section",
+                "label": "Scheduled",
+                "meta":  f"{len(scheduled)} pending",
+            })
+            blocks.extend(_days(scheduled, sday_bal, True))
+        if posted:
+            blocks.append({
+                **_BLOCK_DEFAULTS,
+                "kind":          "section",
+                "label":         "Current Statement",
+                "meta":          _plural(len(posted), "transaction"),
+                "balance_label": (f"Balance {_fmt(latest_posted_bal)}") if show_rb else "",
+                "balance_color": "#34d399" if latest_posted_bal >= 0 else "#f87171",
+            })
+            blocks.extend(_days(posted, day_bal, False))
+
+        return {
+            "blocks":          blocks,
+            "income_fmt":      _fmt(inc),
+            "scheduled_fmt":   _fmt(sched_total),
+            "spent_fmt":       _fmt(spent),
+            "transferred_fmt": _fmt(xfer),
+            "has_scheduled":   "1" if scheduled else "",
+            "empty":           "1" if not blocks else "",
+        }
 
     @rx.var
     def forecast_shortfall_label(self) -> str:

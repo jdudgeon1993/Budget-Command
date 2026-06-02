@@ -60,170 +60,191 @@ def _sel(*opts, value, on_change, **extra) -> rx.Component:
     )
 
 
-# ── Month totals row ──────────────────────────────────────────────────────────
+# ── KPI summary boxes ─────────────────────────────────────────────────────────
 
-def _month_totals_row(row: dict) -> rx.Component:
-    return rx.hstack(
-        rx.text(row["inc_fmt"], style={
-            "font_size": "12px", "color": GREEN, "font_family": MONO, "font_weight": "700",
+def _kpi_box(label: str, value, color: str) -> rx.Component:
+    return rx.vstack(
+        rx.text(label, style={
+            "font_size": "11px", "letter_spacing": "0.1em",
+            "text_transform": "uppercase", "color": TEXT3, "font_family": MONO,
         }),
-        rx.text("income", style={"font_size": "11px", "color": TEXT3}),
-        rx.text("·", style={"color": TEXT3, "font_size": "11px"}),
-        rx.text(row["spent_fmt"], style={
-            "font_size": "12px", "color": RED, "font_family": MONO, "font_weight": "700",
+        rx.text(value, style={
+            "font_size": "16px", "font_weight": "700", "font_family": MONO,
+            "color": color, "white_space": "nowrap",
         }),
-        rx.text("spent", style={"font_size": "11px", "color": TEXT3}),
-        rx.text("·", style={"color": TEXT3, "font_size": "11px"}),
-        rx.text("net", style={"font_size": "11px", "color": TEXT3}),
-        rx.text(row["net_fmt"], style={
-            "font_size": "13px", "font_family": MONO, "font_weight": "800",
-            "color": row["net_color"],
-        }),
-        align_items="center", gap="5px", flex_wrap="wrap",
+        gap="3px", align_items="flex-start",
         style={
-            "padding": "6px 12px 12px",
-            "border_bottom": f"1px solid {BORDER}",
-            "margin_bottom": "8px",
+            "flex": "1", "min_width": "120px",
+            "background": BG2, "border": f"1px solid {color}44",
+            "border_radius": "10px", "padding": "10px 14px",
         },
     )
 
 
-# ── Transaction table row ─────────────────────────────────────────────────────
+def _kpi_row() -> rx.Component:
+    return rx.hstack(
+        _kpi_box("Income",      AppState.ledger_view["income_fmt"],      GREEN),
+        _kpi_box("Scheduled",   AppState.ledger_view["scheduled_fmt"],   AMBER),
+        _kpi_box("Spent",       AppState.ledger_view["spent_fmt"],       RED),
+        _kpi_box("Transferred", AppState.ledger_view["transferred_fmt"], TEXT2),
+        gap="10px", width="100%", flex_wrap="wrap",
+        style={"margin_bottom": "12px"},
+    )
 
-def _tx_row(row: dict) -> rx.Component:
-    return rx.cond(
-        row["row_type"] == "month_totals",
-        _month_totals_row(row),
 
+# ── Transaction line (Excel-style table row) ──────────────────────────────────
+
+def _tx_line(row: dict) -> rx.Component:
+    return rx.hstack(
+        # Description + sub-label + chips
         rx.vstack(
-            # ── Date separator ──────────────────────────────────────────────
-            rx.cond(
-                row["date_label"] != "",
-                rx.hstack(
-                    rx.text(row["date_label"], style={
-                        "font_size": "12px", "letter_spacing": "0.06em",
-                        "text_transform": "uppercase", "color": TEXT2,
-                        "font_family": MONO, "white_space": "nowrap",
-                        "flex_shrink": "0", "font_weight": "700",
-                    }),
-                    rx.box(style={
-                        "flex": "1", "height": "1px",
-                        "background": BORDER, "margin_left": "10px",
-                    }),
-                    align_items="center", width="100%",
-                    style={"padding": "14px 14px 6px"},
-                ),
-                rx.box(),
-            ),
-
-            # ── Transaction card ────────────────────────────────────────────
-            rx.box(
-                rx.hstack(
-                    # Left: description + sub-label + chips
-                    rx.vstack(
-                        rx.text(
-                            rx.cond(row["desc"] != "", row["desc"], "—"),
-                            style={
-                                "font_size": "14px", "font_weight": "600",
-                                "line_height": "1.2",
-                                "color": rx.cond(row["desc"] != "", TEXT, TEXT3),
-                            },
-                        ),
-                        rx.hstack(
-                            rx.text(
-                                rx.cond(
-                                    row["to_account"] != "",
-                                    row["account"],
-                                    rx.cond(row["bucket"] != "", row["bucket"], row["account"]),
-                                ),
-                                style={"font_size": "12px", "color": TEXT3, "font_family": MONO},
-                            ),
-                            rx.cond(
-                                row["type_chip"] != "",
-                                rx.text(row["type_chip"], style={
-                                    "font_size": "11px", "font_family": MONO,
-                                    "letter_spacing": "0.06em",
-                                    "padding": "1px 7px", "border_radius": "6px",
-                                    "color": row["chip_color"],
-                                    "background": row["chip_bg"],
-                                    "border": row["chip_border"],
-                                    "white_space": "nowrap", "flex_shrink": "0",
-                                }),
-                                rx.box(),
-                            ),
-                            rx.cond(
-                                row["reconciled_str"] != "",
-                                rx.text("✓", style={
-                                    "font_size": "11px", "color": GREEN,
-                                    "font_family": MONO, "flex_shrink": "0",
-                                }),
-                                rx.box(),
-                            ),
-                            gap="6px", align_items="center",
-                        ),
-                        gap="4px", align_items="flex-start",
-                        flex="1", min_width="0",
-                    ),
-
-                    # Right: amount + running balance + edit
-                    rx.hstack(
-                        # Running balance (single-account view)
-                        rx.cond(
-                            AppState.ledger_acct_filter != "",
-                            rx.vstack(
-                                rx.text(row["amount_fmt"], style={
-                                    "font_size": "14px", "font_family": MONO,
-                                    "font_weight": "700", "color": row["amt_color"],
-                                    "white_space": "nowrap", "text_align": "right",
-                                }),
-                                rx.text(row["running_balance"], style={
-                                    "font_size": "11px", "font_family": MONO,
-                                    "color": TEXT2, "white_space": "nowrap",
-                                    "text_align": "right",
-                                }),
-                                gap="1px", align_items="flex-end",
-                            ),
-                            rx.text(row["amount_fmt"], style={
-                                "font_size": "14px", "font_family": MONO,
-                                "font_weight": "700", "color": row["amt_color"],
-                                "white_space": "nowrap",
-                            }),
-                        ),
-                        rx.box(
-                            "⋯",
-                            on_click=AppState.open_edit_tx(row["id"]),
-                            role="button", tab_index=0, aria_label="Edit transaction",
-                            style={
-                                "font_size": "18px", "color": TEXT3, "cursor": "pointer",
-                                "padding": "6px 10px", "border_radius": "6px",
-                                "line_height": "1.2", "min_height": "36px",
-                                "display": "flex", "align_items": "center",
-                                "_hover": {"color": TEXT, "background": BG3},
-                                "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
-                            },
-                        ),
-                        align_items="center", gap="8px", flex_shrink="0",
-                    ),
-
-                    align_items="center", width="100%", gap="12px",
-                ),
+            rx.text(
+                rx.cond(row["desc"] != "", row["desc"], "—"),
                 style={
-                    "background": BG2,
-                    "border": f"1px solid {BORDER}",
-                    "border_left": row["left_border"],
-                    "border_radius": "8px",
-                    "padding": rx.cond(
-                        row["left_border"] != "none",
-                        "11px 14px 11px 11px",
-                        "11px 14px",
-                    ),
-                    "margin_bottom": "5px",
-                    "_hover": {"border_color": BORDER2},
+                    "font_size": "13px", "font_weight": "600", "line_height": "1.2",
+                    "color": rx.cond(row["desc"] != "", TEXT, TEXT3),
                 },
             ),
-
-            gap="0", width="100%",
+            rx.hstack(
+                rx.text(
+                    rx.cond(
+                        row["to_account"] != "",
+                        row["account"],
+                        rx.cond(row["bucket"] != "", row["bucket"], row["account"]),
+                    ),
+                    style={"font_size": "11px", "color": TEXT3, "font_family": MONO},
+                ),
+                rx.cond(
+                    row["type_chip"] != "",
+                    rx.text(row["type_chip"], style={
+                        "font_size": "10px", "font_family": MONO,
+                        "letter_spacing": "0.06em",
+                        "padding": "1px 6px", "border_radius": "5px",
+                        "color": row["chip_color"],
+                        "background": row["chip_bg"],
+                        "border": row["chip_border"],
+                        "white_space": "nowrap", "flex_shrink": "0",
+                    }),
+                    rx.box(),
+                ),
+                rx.cond(
+                    row["reconciled_str"] != "",
+                    rx.text("✓", style={
+                        "font_size": "11px", "color": GREEN,
+                        "font_family": MONO, "flex_shrink": "0",
+                    }),
+                    rx.box(),
+                ),
+                gap="6px", align_items="center",
+            ),
+            gap="3px", align_items="flex-start", flex="1", min_width="0",
         ),
+
+        # Amount (right-aligned column)
+        rx.text(row["amount_fmt"], style={
+            "font_size": "13px", "font_family": MONO, "font_weight": "700",
+            "color": row["amt_color"], "white_space": "nowrap",
+            "text_align": "right", "flex_shrink": "0",
+        }),
+
+        # Edit affordance
+        rx.box(
+            "⋯",
+            on_click=AppState.open_edit_tx(row["id"]),
+            role="button", tab_index=0, aria_label="Edit transaction",
+            style={
+                "font_size": "18px", "color": TEXT3, "cursor": "pointer",
+                "padding": "4px 8px", "border_radius": "6px",
+                "line_height": "1.2", "min_height": "32px", "flex_shrink": "0",
+                "display": "flex", "align_items": "center",
+                "_hover": {"color": TEXT, "background": BG3},
+                "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
+            },
+        ),
+
+        align_items="center", width="100%", gap="12px",
+        style={
+            "padding": "9px 12px 9px 11px",
+            "border_left": row["left_border"],
+            "border_bottom": f"1px solid {BORDER}",
+            "_hover": {"background": BG3},
+        },
+    )
+
+
+# ── Section header (Scheduled / Current Statement) ────────────────────────────
+
+def _section_header(block: dict) -> rx.Component:
+    return rx.hstack(
+        rx.text(block["label"], style={
+            "font_size": "15px", "font_weight": "700", "color": TEXT,
+            "letter_spacing": "0.02em",
+        }),
+        rx.text(block["meta"], style={
+            "font_size": "11px", "color": TEXT3, "font_family": MONO,
+        }),
+        rx.spacer(),
+        rx.cond(
+            block["balance_label"] != "",
+            rx.text(block["balance_label"], style={
+                "font_size": "14px", "font_family": MONO, "font_weight": "700",
+                "color": block["balance_color"], "white_space": "nowrap",
+            }),
+            rx.box(),
+        ),
+        align_items="center", width="100%", gap="10px",
+        style={"padding": "8px 4px 8px", "margin_top": "10px"},
+    )
+
+
+# ── Day card (date header + its transaction rows) ─────────────────────────────
+
+def _day_card(block: dict) -> rx.Component:
+    return rx.box(
+        # Date header row
+        rx.hstack(
+            rx.text(block["date_label"], style={
+                "font_size": "12px", "font_weight": "700", "color": TEXT2,
+                "letter_spacing": "0.04em", "white_space": "nowrap",
+                "text_transform": "uppercase", "font_family": MONO,
+            }),
+            rx.text(block["meta"], style={
+                "font_size": "11px", "color": TEXT3, "font_family": MONO,
+            }),
+            rx.spacer(),
+            rx.cond(
+                block["rb_label"] != "",
+                rx.text(block["rb_label"], style={
+                    "font_size": "13px", "font_family": MONO, "font_weight": "700",
+                    "color": block["rb_color"], "white_space": "nowrap",
+                }),
+                rx.box(),
+            ),
+            align_items="center", width="100%", gap="10px",
+            style={
+                "padding": "8px 12px",
+                "background": BG3,
+                "border_bottom": f"1px solid {BORDER}",
+            },
+        ),
+        # Transaction rows
+        rx.foreach(block["txs"].to(list[dict[str, Any]]), _tx_line),
+        style={
+            "background": BG2, "border": f"1px solid {BORDER}",
+            "border_radius": "10px", "overflow": "hidden",
+            "margin_bottom": "10px", "width": "100%",
+        },
+    )
+
+
+# ── Block dispatcher ──────────────────────────────────────────────────────────
+
+def _ledger_block(block: dict) -> rx.Component:
+    return rx.match(
+        block["kind"],
+        ("section", _section_header(block)),
+        ("day",     _day_card(block)),
+        rx.box(),
     )
 
 
@@ -1305,16 +1326,30 @@ def accounts_panel() -> rx.Component:
             # ── Left column: filter chips + transactions ──────────────────
             rx.vstack(
 
-                # Filter chips row
-                rx.hstack(
-                    _all_chip(),
-                    rx.foreach(
-                        AppState.accounts_rows.to(list[dict[str, Any]]),
-                        _filter_chip,
+                # Account filter chips (contained + labeled)
+                rx.box(
+                    rx.text("ACCOUNTS", style={
+                        "font_size": "10px", "letter_spacing": "0.14em",
+                        "text_transform": "uppercase", "color": TEXT3,
+                        "font_family": MONO, "margin_bottom": "8px",
+                    }),
+                    rx.hstack(
+                        _all_chip(),
+                        rx.foreach(
+                            AppState.accounts_rows.to(list[dict[str, Any]]),
+                            _filter_chip,
+                        ),
+                        gap="6px", flex_wrap="wrap",
                     ),
-                    gap="6px", flex_wrap="wrap",
-                    style={"margin_bottom": "12px"},
+                    style={
+                        "background": BG2, "border": f"1px solid {BORDER}",
+                        "border_radius": "10px", "padding": "12px 14px",
+                        "margin_bottom": "12px", "width": "100%",
+                    },
                 ),
+
+                # KPI summary boxes
+                _kpi_row(),
 
                 # Search bar + CSV export + Add Tx
                 rx.hstack(
@@ -1380,52 +1415,17 @@ def accounts_panel() -> rx.Component:
                     style={"margin_bottom": "4px", "width": "100%"},
                 ),
 
-                # Bank statement column headers (single-account view)
-                rx.cond(
-                    AppState.ledger_acct_filter != "",
-                    rx.hstack(
-                        rx.text("DESCRIPTION", style={
-                            "font_size": "10px", "color": TEXT3, "font_family": MONO,
-                            "letter_spacing": "0.1em", "flex": "1",
-                        }),
-                        rx.text("AMOUNT", style={
-                            "font_size": "10px", "color": TEXT3, "font_family": MONO,
-                            "letter_spacing": "0.1em", "text_align": "right",
-                            "margin_right": "8px",
-                        }),
-                        rx.text("BALANCE", style={
-                            "font_size": "10px", "color": ACCENT, "font_family": MONO,
-                            "letter_spacing": "0.1em", "white_space": "nowrap",
-                        }),
-                        style={
-                            "padding": "6px 14px 6px",
-                            "border_bottom": f"1px solid {BORDER}",
-                            "background": BG3,
-                            "border_radius": "8px 8px 0 0",
-                        },
-                        align_items="center", width="100%",
-                    ),
-                    rx.box(),
-                ),
-
-                # Transaction list
-                rx.box(
-                    rx.foreach(
-                        AppState.filtered_ledger.to(list[dict[str, Any]]),
-                        _tx_row,
-                    ),
-                    style={
-                        "background": BG2, "border": f"1px solid {BORDER}",
-                        "border_radius": "10px", "overflow": "hidden",
-                        "width": "100%",
-                    },
+                # Statement blocks (sections + per-day cards)
+                rx.foreach(
+                    AppState.ledger_view["blocks"].to(list[dict[str, Any]]),
+                    _ledger_block,
                 ),
 
                 # Empty state
                 rx.cond(
-                    AppState.ledger_tx_count == 0,
+                    AppState.ledger_view["empty"] == "1",
                     rx.box(
-                        rx.text("No transactions this month.",
+                        rx.text("No transactions to show.",
                                 style={"color": TEXT3, "font_size": "13px",
                                        "font_family": MONO}),
                         style={"text_align": "center", "padding": "40px 0"},
