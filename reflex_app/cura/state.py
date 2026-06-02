@@ -2320,6 +2320,9 @@ class AppState(rx.State):
         if amount <= 0:
             self.edit_tx_error = "Amount must be positive"
             return
+        if not self.edit_tx_date:
+            self.edit_tx_error = "Date is required."
+            return
         if self.edit_tx_type == "xfr" and self.edit_tx_to_account == self.edit_tx_account:
             self.edit_tx_error = "Source and destination accounts must differ"
             return
