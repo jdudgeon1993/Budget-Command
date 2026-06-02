@@ -359,6 +359,7 @@ class AppState(rx.State):
     is_loading:    bool = False
     panel_error:   str  = ""
     _polling:      bool = False  # background poll running
+    _busy:         bool = False  # a mutating write is in flight (poll backs off)
 
     # Inline budget editing
     editing_budget_bid: str = ""
@@ -1181,6 +1182,38 @@ class AppState(rx.State):
     #  Dashboard load
     # ─────────────────────────────────────────────────────────────────────────
 
+    # ── Shared write/error plumbing ───────────────────────────────────────────
+    def _interaction_open(self) -> bool:
+        """True when the user has an inline edit or modal open — the poll must
+        not reload underneath them or their in-progress input is lost."""
+        return bool(
+            self.editing_bid or self.editing_budget_bid or self.cat_edit_id
+            or self.sheet_open or self.bsettings_open or self.rule_sheet_open
+            or self.edit_tx_open or self.payday_open or self.acct_settings_open
+            or self.add_acct_open or self.debt_pay_open
+        )
+
+    def _on_db_error(self, e: Exception):
+        """Standard recovery for a failed DB write. Performs the side-effect
+        (logout-redirect or reload-from-truth) and returns the rx event the
+        caller should yield. Centralises auth handling so every handler agrees."""
+        if DB.is_auth_error(e):
+            self.access_token = ""
+            return rx.redirect("/login")
+        try:
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+        except Exception:
+            pass
+        return rx.toast.error("Couldn't save — reloaded the latest data")
+
+    def _reload(self):
+        """Refetch from the DB and reprocess for the active month."""
+        data = DB.load_all(self.user_id, self.access_token)
+        self._raw = data
+        self._process(data, self.active_mid)
+
     async def on_dashboard_load(self):
         if not self.is_logged_in:
             yield rx.redirect("/login")
@@ -1208,19 +1241,28 @@ class AppState(rx.State):
 
     @rx.event(background=True)
     async def poll_data(self):
-        """Refresh data from DB every 30 seconds silently."""
+        """Refresh data from the DB on an interval — but never clobber work in
+        progress. Skips the reload while a write is in flight (`_busy`) or the
+        user has an edit/modal open (`_interaction_open`)."""
         while True:
             await asyncio.sleep(30)
             async with self:
                 if not self.is_logged_in:
                     self._polling = False
                     return
+                # Back off: a mutation is mid-flight or the user is editing.
+                if self._busy or self._interaction_open():
+                    continue
                 try:
                     data = DB.load_all(self.user_id, self.access_token)
                     self._raw = data
                     self._process(data, self.active_mid)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Auth death must surface, not vanish.
+                    if DB.is_auth_error(e):
+                        self.access_token = ""
+                        self._polling = False
+                        return
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Month navigation
@@ -1311,6 +1353,7 @@ class AppState(rx.State):
             return
 
         self.sheet_saving = True
+        self._busy = True
         yield
         try:
             mid = _date_to_mid(self.sheet_date)
@@ -1339,22 +1382,28 @@ class AppState(rx.State):
                     self.payday_amount_fmt = _fmt(amount)
                     self.payday_open = True
         except Exception as e:
-            self.sheet_error = f"Failed: {e}"
+            if DB.is_auth_error(e):
+                self.access_token = ""
+                yield rx.redirect("/login")
+            else:
+                self.sheet_error = f"Failed: {e}"
         finally:
             self.sheet_saving = False
+            self._busy = False
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Delete transaction
     # ─────────────────────────────────────────────────────────────────────────
 
     async def delete_tx(self, tx_id: str):
+        self._busy = True
         try:
             DB.delete_transaction(self.user_id, self.access_token, tx_id)
-            data = DB.load_all(self.user_id, self.access_token)
-            self._raw = data
-            self._process(data, self.active_mid)
+            self._reload()
         except Exception as e:
-            self.panel_error = str(e)
+            yield self._on_db_error(e)
+        finally:
+            self._busy = False
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Fill bucket
@@ -1363,19 +1412,16 @@ class AppState(rx.State):
     async def fill_bucket(self, bucket_id: str, budget: float):
         self._set_raw_alloc(bucket_id, budget)
         self._process(self._raw, self.active_mid)
+        self._busy = True
         yield
         try:
             DB.ensure_month(self.user_id, self.access_token, self.active_mid)
             DB.upsert_alloc(self.user_id, self.access_token, self.active_mid, bucket_id, budget)
             yield rx.toast.success("Bucket filled", duration=1500)
         except Exception as e:
-            if DB.is_auth_error(e):
-                yield rx.redirect("/login")
-            else:
-                data = DB.load_all(self.user_id, self.access_token)
-                self._raw = data
-                self._process(data, self.active_mid)
-                yield rx.toast.error("Could not fill bucket")
+            yield self._on_db_error(e)
+        finally:
+            self._busy = False
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Inline allocation editing
@@ -1386,7 +1432,7 @@ class AppState(rx.State):
         self.editing_budget_bid = bid
         self.edit_budget_val    = v
 
-    def save_budget_edit(self):
+    async def save_budget_edit(self):
         bid = self.editing_budget_bid
         if not bid:
             return
@@ -1396,10 +1442,16 @@ class AppState(rx.State):
             amount = 0.0
         self.editing_budget_bid = ""
         self.edit_budget_val    = ""
-        DB.upsert_budget(self.user_id, self.access_token, self.active_mid, bid, amount)
-        data = DB.load_all(self.user_id, self.access_token)
-        self._raw = data
-        self._process(data, self.active_mid)
+        self._busy = True
+        yield
+        try:
+            DB.upsert_budget(self.user_id, self.access_token, self.active_mid, bid, amount)
+            self._reload()
+            yield rx.toast.success("Saved", duration=1200)
+        except Exception as e:
+            yield self._on_db_error(e)
+        finally:
+            self._busy = False
 
     def cancel_budget_edit(self):
         self.editing_budget_bid = ""
@@ -1407,7 +1459,7 @@ class AppState(rx.State):
 
     def handle_budget_key(self, key: str):
         if key == "Enter":
-            self.save_budget_edit()
+            yield AppState.save_budget_edit()
         elif key == "Escape":
             self.cancel_budget_edit()
 
@@ -1438,19 +1490,16 @@ class AppState(rx.State):
             return
         self._set_raw_alloc(bid, amount)
         self._process(self._raw, self.active_mid)
+        self._busy = True
         yield
         try:
             DB.ensure_month(self.user_id, self.access_token, self.active_mid)
             DB.upsert_alloc(self.user_id, self.access_token, self.active_mid, bid, amount)
             yield rx.toast.success("Saved", duration=1200)
         except Exception as e:
-            if DB.is_auth_error(e):
-                yield rx.redirect("/login")
-            else:
-                data = DB.load_all(self.user_id, self.access_token)
-                self._raw = data
-                self._process(data, self.active_mid)
-                yield rx.toast.error("Could not save allocation")
+            yield self._on_db_error(e)
+        finally:
+            self._busy = False
 
     def handle_alloc_key(self, key: str):
         if key == "Escape":
@@ -1688,6 +1737,7 @@ class AppState(rx.State):
         self._process(self._raw, mid)
         self.bsf_transfer_amt = ""
         self.bsettings_open   = False
+        self._busy = True
         yield
         try:
             DB.ensure_month(self.user_id, self.access_token, mid)
@@ -1695,10 +1745,9 @@ class AppState(rx.State):
             DB.upsert_alloc(self.user_id, self.access_token, mid, dest, new_dest)
             yield rx.toast.success("Vault transferred")
         except Exception as e:
-            data = DB.load_all(self.user_id, self.access_token)
-            self._raw = data
-            self._process(data, mid)
-            yield rx.toast.error("Transfer failed")
+            yield self._on_db_error(e)
+        finally:
+            self._busy = False
 
     async def vault_release_pool(self):
         """Release vault savings back to RTS pool."""
@@ -1723,6 +1772,7 @@ class AppState(rx.State):
         self._process(self._raw, mid)
         self.bsf_release_amt = ""
         self.bsettings_open  = False
+        self._busy = True
         yield
         try:
             DB.ensure_month(self.user_id, self.access_token, mid)
@@ -1735,10 +1785,9 @@ class AppState(rx.State):
                 )
             yield rx.toast.success("Released to pool")
         except Exception as e:
-            data = DB.load_all(self.user_id, self.access_token)
-            self._raw = data
-            self._process(data, mid)
-            yield rx.toast.error("Release failed")
+            yield self._on_db_error(e)
+        finally:
+            self._busy = False
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Add bucket (with optional inline category creation)
@@ -1844,17 +1893,17 @@ class AppState(rx.State):
             self._raw["months"] = months
 
         self._process(self._raw, mid)
+        self._busy = True
         yield
         try:
             DB.ensure_month(self.user_id, self.access_token, mid)
             for bid, new_val in new_allocs.items():
                 DB.upsert_alloc(self.user_id, self.access_token, mid, bid, new_val)
             yield rx.toast.success("Distributed!")
-        except Exception:
-            data = DB.load_all(self.user_id, self.access_token)
-            self._raw = data
-            self._process(data, mid)
-            yield rx.toast.error("Could not distribute")
+        except Exception as e:
+            yield self._on_db_error(e)
+        finally:
+            self._busy = False
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Paychecks
@@ -3009,10 +3058,12 @@ class AppState(rx.State):
     # ─────────────────────────────────────────────────────────────────────────
 
     def load_payees(self):
+        # Read-only autocomplete fetch. Degrade gracefully to an empty list on
+        # failure; any auth death surfaces on the next write via _on_db_error.
         try:
             self.payee_options = DB.get_payees(self.user_id, self.access_token)
         except Exception:
-            pass
+            self.payee_options = []
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Signup

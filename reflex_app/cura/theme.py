@@ -80,10 +80,31 @@ body {{
   font-family: {SANS};
   font-size: 14px;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }}
+
+/* Text selection picks up the accent instead of the browser default */
+::selection {{ background: {ACCENT}44; color: {TEXT}; }}
 
 /* Progress bar fill animation */
 .prog-fill {{ transition: width 0.35s ease; }}
+
+/* Tabular figures so money columns line up cleanly */
+.mono, [style*="Share Tech Mono"] {{ font-variant-numeric: tabular-nums; }}
+
+/* Modal / sheet entrance — gentle fade + lift */
+@keyframes sheet-in {{
+  from {{ opacity: 0; transform: translateY(12px); }}
+  to   {{ opacity: 1; transform: translateY(0); }}
+}}
+@keyframes backdrop-in {{
+  from {{ opacity: 0; }}
+  to   {{ opacity: 1; }}
+}}
+.sheet-backdrop-fx {{ animation: backdrop-in 0.18s ease-out; }}
+.sheet-card {{ animation: sheet-in 0.24s cubic-bezier(0.16, 1, 0.3, 1); }}
 
 /* Focus-visible ring — keyboard users see a clear outline on any focusable element */
 :focus-visible {{
@@ -149,8 +170,18 @@ body {{
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  animation: backdrop-in 0.18s ease-out;
 }}
+.sheet-backdrop > * {{ animation: sheet-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }}
 @media (min-width: 768px) {{
   .sheet-backdrop {{ align-items: center; }}
+}}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {{
+  *, *::before, *::after {{
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }}
 }}
 """

@@ -879,6 +879,7 @@ def add_tx_sheet() -> rx.Component:
 
                     gap="12px", width="100%",
                 ),
+                class_name="sheet-card",
                 style={
                     "position": "relative", "z_index": "1",
                     "background": BG2, "border": f"1px solid {BORDER}",
@@ -888,6 +889,7 @@ def add_tx_sheet() -> rx.Component:
                 },
             ),
 
+            class_name="sheet-backdrop-fx",
             style={
                 "position": "fixed", "inset": "0",
                 "background": "rgba(0,0,0,0.6)",
