@@ -2795,7 +2795,9 @@ class AppState(rx.State):
             "reconciled_str": "", "inc_fmt": "", "spent_fmt": "",
             "date_label": "", "acct_id": "", "to_acct_id": "", "running_balance": "",
         }
-        _HDR_DEFAULTS = {"label": "", "date": "", "net_fmt": "", "net_color": ""}
+        # NOTE: no "date" key here — tx rows set their own real date, and a
+        # "date" default would overwrite it via the trailing dict spread.
+        _HDR_DEFAULTS = {"label": "", "net_fmt": "", "net_color": ""}
 
         ledger_flat: list[dict] = []
 
