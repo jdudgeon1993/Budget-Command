@@ -1529,9 +1529,15 @@ def reconcile_modal() -> rx.Component:
                             justify="between", width="100%", align_items="flex-start",
                         ),
                         style={
-                            "background": BG3, "border": f"1px solid {BORDER}",
-                            "border_radius": "10px", "padding": "12px 16px",
+                            "background": "rgba(255,255,255,0.04)",
+                            "border": rx.cond(
+                                AppState.recon_can_finish,
+                                "1px solid rgba(48,209,88,0.30)",
+                                f"1px solid {BORDER}",
+                            ),
+                            "border_radius": "10px", "padding": "14px 18px",
                             "width": "100%",
+                            "transition": "border-color 0.2s ease",
                         },
                     ),
 
@@ -1628,21 +1634,26 @@ def reconcile_modal() -> rx.Component:
                     gap="14px", width="100%",
                 ),
 
+                class_name="sheet-card",
                 style={
-                    "background": BG2, "border": f"1px solid {BORDER}",
+                    "background": "rgba(14,14,20,0.97)",
+                    "border": f"1px solid {BORDER2}",
                     "border_radius": "16px", "padding": "22px",
                     "width": "100%", "max_width": "480px",
                     "max_height": "90vh", "overflow_y": "auto",
+                    "box_shadow": "0 24px 60px rgba(0,0,0,0.70)",
                 },
             ),
 
             style={
                 "position": "fixed", "inset": "0",
-                "background": "rgba(0,0,0,0.65)",
-                "backdrop_filter": "blur(4px)",
+                "background": "rgba(0,0,0,0.72)",
+                "backdrop_filter": "blur(8px)",
+                "-webkit-backdrop-filter": "blur(8px)",
                 "z_index": "300",
                 "display": "flex", "align_items": "center", "justify_content": "center",
                 "padding": "20px",
+                "animation": "backdrop-in 0.18s ease-out",
             },
         ),
         rx.box(),
