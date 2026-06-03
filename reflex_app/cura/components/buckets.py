@@ -782,7 +782,7 @@ def _bucket_row(row: dict) -> rx.Component:
 
             # ── Main row: order buttons · name · alloc / budget · spent · left · status · actions ──
             rx.hstack(
-                # ▲/▼ reorder buttons
+                # ▲/▼ reorder buttons (hidden on mobile via .bkt-reorder CSS class)
                 rx.vstack(
                     rx.box("▲",
                         on_click=AppState.move_bucket_up(row["id"]),
@@ -801,15 +801,16 @@ def _bucket_row(row: dict) -> rx.Component:
                         },
                     ),
                     gap="0px", align_items="center", flex_shrink="0",
+                    class_name="bkt-reorder",
                 ),
-                # Name
+                # Name — shrinks on mobile via .bkt-name CSS class
                 rx.text(row["name"], style={
                     "font_size": "15px", "font_weight": "600",
                     "color": rx.cond(row["is_skipped"] == "1", TEXT3, TEXT),
                     "min_width": "0", "overflow": "hidden",
                     "text_overflow": "ellipsis", "white_space": "nowrap",
                     "flex_shrink": "0", "max_width": "220px",
-                }),
+                }, class_name="bkt-name"),
 
                 # Numbers: alloc / budget · spent · left
                 rx.hstack(
@@ -819,35 +820,40 @@ def _bucket_row(row: dict) -> rx.Component:
                         "font_family": MONO, "flex_shrink": "0",
                     }),
                     _budget_cell(row),
-                    rx.text("·", style={
-                        "color": TEXT3, "font_size": "12px",
-                        "padding": "0 3px", "flex_shrink": "0",
-                    }),
-                    rx.text(
-                        rx.cond(row["spent_fmt"] != "", row["spent_fmt"], "—"),
-                        style={
+                    # Spent + left: hidden on mobile — alloc/budget is what matters
+                    rx.hstack(
+                        rx.text("·", style={
+                            "color": TEXT3, "font_size": "12px",
+                            "padding": "0 3px", "flex_shrink": "0",
+                        }),
+                        rx.text(
+                            rx.cond(row["spent_fmt"] != "", row["spent_fmt"], "—"),
+                            style={
+                                "font_size": "14px", "font_family": MONO,
+                                "color": rx.cond(row["is_over"] == "1", RED, TEXT2),
+                                "flex_shrink": "0",
+                            },
+                        ),
+                        rx.text("spent", style={
+                            "font_size": "11px", "color": TEXT3,
+                            "font_family": MONO, "flex_shrink": "0",
+                        }),
+                        rx.text("·", style={
+                            "color": TEXT3, "font_size": "12px",
+                            "padding": "0 3px", "flex_shrink": "0",
+                        }),
+                        rx.text(row["left_avail_fmt"], style={
                             "font_size": "14px", "font_family": MONO,
-                            "color": rx.cond(row["is_over"] == "1", RED, TEXT2),
+                            "color": rx.cond(row["is_funded"] == "1", GREEN, TEXT2),
                             "flex_shrink": "0",
-                        },
+                        }),
+                        rx.text("left", style={
+                            "font_size": "11px", "color": TEXT3,
+                            "font_family": MONO, "flex_shrink": "0",
+                        }),
+                        align_items="baseline", gap="5px",
+                        class_name="desktop-only",
                     ),
-                    rx.text("spent", style={
-                        "font_size": "11px", "color": TEXT3,
-                        "font_family": MONO, "flex_shrink": "0",
-                    }),
-                    rx.text("·", style={
-                        "color": TEXT3, "font_size": "12px",
-                        "padding": "0 3px", "flex_shrink": "0",
-                    }),
-                    rx.text(row["left_avail_fmt"], style={
-                        "font_size": "14px", "font_family": MONO,
-                        "color": rx.cond(row["is_funded"] == "1", GREEN, TEXT2),
-                        "flex_shrink": "0",
-                    }),
-                    rx.text("left", style={
-                        "font_size": "11px", "color": TEXT3,
-                        "font_family": MONO, "flex_shrink": "0",
-                    }),
                     align_items="baseline", gap="5px", flex="1", flex_wrap="wrap",
                 ),
 
@@ -863,7 +869,7 @@ def _bucket_row(row: dict) -> rx.Component:
                                 row["is_over"] == "1", RED,
                                 rx.cond(row["is_funded"] == "1", GREEN, AMBER)
                             ),
-                        }),
+                        }, class_name="desktop-only"),
                         rx.box(),
                     ),
                     rx.cond(
@@ -1087,6 +1093,7 @@ def _add_bucket_strip() -> rx.Component:
         ),
 
         # ── Main strip row: [Category ▾] [Name] [Type ▾] [+ Add] ─────────
+        # On mobile this wraps to 2 rows via flex-wrap
         rx.hstack(
             rx.cond(
                 AppState.add_bkt_creating_cat,
@@ -1150,6 +1157,7 @@ def _add_bucket_strip() -> rx.Component:
             ),
 
             gap="8px", width="100%", align_items="center",
+            flex_wrap="wrap",
         ),
 
         gap="6px", width="100%",
@@ -1281,5 +1289,5 @@ def buckets_panel() -> rx.Component:
             },
         ),
         bucket_settings_dialog(),
-        style={"padding": "0"},
+        style={"padding": "0", "overflow_x": "hidden", "width": "100%"},
     )

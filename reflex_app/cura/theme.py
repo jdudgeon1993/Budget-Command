@@ -152,10 +152,13 @@ body {{
 /* Mobile */
 @media (max-width: 767px) {{
   .sidebar-fixed {{ display: none !important; }}
-  .main-content {{ margin-left: 0 !important; padding-bottom: {NAV_H}; }}
+  .main-content {{ margin-left: 0 !important; padding-bottom: {NAV_H}; overflow-x: hidden; }}
   .mobile-only {{ display: flex !important; }}
   .desktop-only {{ display: none !important; }}
   .split-grid {{ grid-template-columns: 1fr !important; }}
+  /* Bucket row: hide reorder buttons and compact the name */
+  .bkt-reorder {{ display: none !important; }}
+  .bkt-name {{ max-width: 120px !important; flex-shrink: 1 !important; }}
 }}
 @media (min-width: 768px) {{
   .mobile-only {{ display: none !important; }}
