@@ -15,71 +15,83 @@ from ..components.reports   import reports_panel
 
 # ── Mobile header ─────────────────────────────────────────────────────────────
 
+_MOB_BRAND_ICON = (
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" '
+    'stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="3" y="3" width="7" height="7" rx="1.5"/>'
+    '<rect x="14" y="3" width="7" height="7" rx="1.5"/>'
+    '<rect x="3" y="14" width="7" height="7" rx="1.5"/>'
+    '<rect x="14" y="14" width="7" height="7" rx="1.5"/>'
+    '</svg>'
+)
+
+
 def mobile_header() -> rx.Component:
     return rx.hstack(
-        rx.text("CURA", style={"font_size": "13px", "font_weight": "700",
-                                "letter_spacing": "0.16em", "color": ACCENT}),
+        # Brand mark
+        rx.hstack(
+            rx.box(
+                rx.html(_MOB_BRAND_ICON),
+                style={
+                    "width": "26px", "height": "26px", "flex_shrink": "0",
+                    "background": ACCENT, "border_radius": "7px",
+                    "display": "flex", "align_items": "center", "justify_content": "center",
+                },
+            ),
+            rx.text("CURA", style={
+                "font_size": "13px", "font_weight": "700",
+                "letter_spacing": "0.14em", "color": "#fff",
+                "text_transform": "uppercase",
+            }),
+            align_items="center", gap="7px",
+        ),
         rx.spacer(),
-        # RTS — the most important number
+        # RTS — most important number
         rx.vstack(
             rx.text(AppState.rts_fmt, style={
-                "font_size": "15px", "font_weight": "700", "font_family": MONO,
-                "color": AppState.rts_color, "line_height": "1",
+                "font_size": "17px", "font_weight": "600", "font_family": MONO,
+                "color": "#BF5AF2", "line_height": "1", "letter_spacing": "-0.01em",
             }),
-            rx.text("ready to spend", style={
-                "font_size": "12px", "color": TEXT3, "letter_spacing": "0.08em",
-                "text_transform": "uppercase", "font_family": MONO,
+            rx.text("ready to assign", style={
+                "font_size": "10px", "color": "rgba(255,255,255,0.30)",
+                "letter_spacing": "0.08em", "text_transform": "uppercase",
+                "font_family": MONO, "line_height": "1",
             }),
-            align_items="center", gap="1px",
+            align_items="center", gap="3px",
         ),
         rx.spacer(),
         # Month nav
         rx.hstack(
             rx.box("←", on_click=AppState.go_prev_month,
                    role="button", tab_index=0, aria_label="Previous month",
-                   style={"cursor": "pointer", "color": TEXT3, "padding": "8px 10px",
-                          "border_radius": "6px", "font_size": "16px", "line_height": "1",
-                          "_hover": {"color": ACCENT}}),
+                   style={
+                       "cursor": "pointer", "color": "rgba(255,255,255,0.30)",
+                       "padding": "6px 10px", "border_radius": "6px",
+                       "font_size": "15px", "line_height": "1",
+                       "_hover": {"color": "#BF5AF2", "background": "rgba(255,255,255,0.05)"},
+                   }),
             rx.text(AppState.month_display,
-                    style={"font_size": "12px", "color": TEXT2, "letter_spacing": "0.06em",
-                           "background": BG3, "border": f"1px solid {BORDER}",
-                           "border_radius": "8px", "padding": "4px 10px",
-                           "white_space": "nowrap"}),
+                    style={
+                        "font_size": "11px", "color": "rgba(255,255,255,0.42)",
+                        "letter_spacing": "0.06em", "font_family": MONO,
+                        "white_space": "nowrap",
+                    }),
             rx.box("→", on_click=AppState.go_next_month,
                    role="button", tab_index=0, aria_label="Next month",
-                   style={"cursor": "pointer", "color": TEXT3, "padding": "8px 10px",
-                          "border_radius": "6px", "font_size": "16px", "line_height": "1",
-                          "_hover": {"color": ACCENT}}),
-            align_items="center", gap="2px",
-        ),
-        # Setup gear — moved out of bottom nav
-        rx.box(
-            rx.html(
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
-                'stroke="currentColor" stroke-width="1.75">'
-                '<circle cx="12" cy="12" r="3"/>'
-                '<path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1'
-                'a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1'
-                '-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1'
-                'a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1'
-                ' 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/>'
-                '</svg>'
-            ),
-            on_click=AppState.set_panel("setup"),
-            style={
-                "color": rx.cond(AppState.active_panel == "setup", ACCENT, TEXT3),
-                "cursor": "pointer", "padding": "6px",
-                "border_radius": "8px",
-                "_hover": {"color": TEXT2},
-                "_active": {"opacity": "0.7"},
-            },
+                   style={
+                       "cursor": "pointer", "color": "rgba(255,255,255,0.30)",
+                       "padding": "6px 10px", "border_radius": "6px",
+                       "font_size": "15px", "line_height": "1",
+                       "_hover": {"color": "#BF5AF2", "background": "rgba(255,255,255,0.05)"},
+                   }),
+            align_items="center", gap="0px",
         ),
         align_items="center",
         class_name="mobile-only",
         style={
             "position": "fixed", "top": "0", "left": "0", "right": "0",
-            "height": HDR_H, "background": BG2, "border_bottom": f"1px solid {BORDER}",
-            "padding": "0 8px 0 12px", "gap": "6px", "z_index": "90",
+            "height": HDR_H, "background": BG, "border_bottom": f"1px solid {BORDER}",
+            "padding": "0 4px 0 10px", "gap": "4px", "z_index": "90",
         },
     )
 
@@ -100,13 +112,14 @@ def _mob_tab(label: str, panel: str, icon_d: str) -> rx.Component:
         aria_current=rx.cond(is_active, "page", "false"),
         style=rx.cond(
             is_active,
-            {"color": ACCENT, "cursor": "pointer", "align_items": "center",
+            {"color": "#D8A4FF", "cursor": "pointer", "align_items": "center",
              "gap": "4px", "flex": "1", "justify_content": "center",
              "min_height": "44px", "padding": "4px 0",
              "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"}},
-            {"color": TEXT3, "cursor": "pointer", "align_items": "center",
+            {"color": "rgba(255,255,255,0.30)", "cursor": "pointer", "align_items": "center",
              "gap": "4px", "flex": "1", "justify_content": "center",
              "min_height": "44px", "padding": "4px 0",
+             "_hover": {"color": "rgba(255,255,255,0.60)"},
              "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"}},
         ),
     )
@@ -130,18 +143,26 @@ def mobile_nav() -> rx.Component:
             '<line x1="18" y1="20" x2="18" y2="10"/>'
             '<line x1="12" y1="20" x2="12" y2="4"/>'
             '<line x1="6" y1="20" x2="6" y2="14"/>'),
-        # FAB
+        # FAB — pulsing violet
         rx.box(
-            "+",
+            rx.html(
+                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" '
+                'stroke="white" stroke-width="2.5" aria-hidden="true">'
+                '<line x1="12" y1="5" x2="12" y2="19"/>'
+                '<line x1="5" y1="12" x2="19" y2="12"/></svg>'
+            ),
             on_click=AppState.open_sheet,
+            class_name="mobile-fab",
+            role="button",
+            tab_index=0,
+            aria_label="Add transaction",
             style={
-                "width": "48px", "height": "48px", "border_radius": "50%",
+                "width": "52px", "height": "52px", "border_radius": "50%",
                 "background": ACCENT, "color": "#fff",
                 "display": "flex", "align_items": "center", "justify_content": "center",
-                "font_size": "26px", "font_weight": "300", "cursor": "pointer",
-                "margin": "0 10px", "flex_shrink": "0",
-                "box_shadow": f"0 4px 16px {ACCENT}80",
-                "_active": {"transform": "scale(0.93)"},
+                "cursor": "pointer", "flex_shrink": "0",
+                "margin_bottom": "4px",
+                "_active": {"transform": "scale(0.92)"},
             },
         ),
         class_name="mobile-only",
@@ -191,22 +212,36 @@ def dashboard_page() -> rx.Component:
             # Desktop top header bar
             rx.hstack(
                 rx.text(AppState.active_panel.upper(),
-                        style={"font_size": "11px", "letter_spacing": "0.12em",
-                               "text_transform": "uppercase", "color": TEXT2, "flex": "1"}),
+                        style={
+                            "font_size": "10px", "letter_spacing": "0.14em",
+                            "text_transform": "uppercase", "color": "rgba(255,255,255,0.28)",
+                            "font_family": MONO, "flex": "1",
+                        }),
                 rx.hstack(
                     rx.box("←", on_click=AppState.go_prev_month,
                            role="button", tab_index=0, aria_label="Previous month",
-                           style={"cursor": "pointer", "color": TEXT3, "padding": "6px 10px",
-                                  "border_radius": "6px", "font_size": "15px",
-                                  "_hover": {"color": ACCENT, "background": BG3}}),
+                           style={
+                               "cursor": "pointer", "color": "rgba(255,255,255,0.30)",
+                               "padding": "6px 12px", "border_radius": "6px",
+                               "font_size": "15px", "line_height": "1",
+                               "_hover": {"color": "#BF5AF2", "background": "rgba(255,255,255,0.05)"},
+                               "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
+                           }),
                     rx.text(AppState.month_display,
-                            style={"font_size": "13px", "color": TEXT2}),
+                            style={
+                                "font_size": "12px", "color": "rgba(255,255,255,0.42)",
+                                "letter_spacing": "0.06em", "font_family": MONO,
+                            }),
                     rx.box("→", on_click=AppState.go_next_month,
                            role="button", tab_index=0, aria_label="Next month",
-                           style={"cursor": "pointer", "color": TEXT3, "padding": "6px 10px",
-                                  "border_radius": "6px", "font_size": "15px",
-                                  "_hover": {"color": ACCENT, "background": BG3}}),
-                    align_items="center", gap="4px",
+                           style={
+                               "cursor": "pointer", "color": "rgba(255,255,255,0.30)",
+                               "padding": "6px 12px", "border_radius": "6px",
+                               "font_size": "15px", "line_height": "1",
+                               "_hover": {"color": "#BF5AF2", "background": "rgba(255,255,255,0.05)"},
+                               "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
+                           }),
+                    align_items="center", gap="2px",
                 ),
                 class_name="desktop-only",
                 style={
@@ -214,6 +249,8 @@ def dashboard_page() -> rx.Component:
                     "padding": "0 24px", "height": HDR_H, "align_items": "center",
                     "position": "sticky", "top": "0", "z_index": "40",
                     "gap": "12px",
+                    "backdrop_filter": "blur(8px)",
+                    "-webkit-backdrop_filter": "blur(8px)",
                 },
             ),
 
@@ -221,9 +258,13 @@ def dashboard_page() -> rx.Component:
             rx.cond(
                 AppState.is_loading,
                 rx.box(
-                    rx.text("Loading…", style={"color": TEXT3, "font_size": "12px",
-                                               "font_family": MONO}),
-                    style={"padding": "40px", "text_align": "center"},
+                    rx.vstack(
+                        rx.box(class_name="skeleton", style={"height": "18px", "width": "180px", "border_radius": "6px"}),
+                        rx.box(class_name="skeleton", style={"height": "14px", "width": "120px", "border_radius": "6px"}),
+                        rx.box(class_name="skeleton", style={"height": "14px", "width": "150px", "border_radius": "6px"}),
+                        gap="10px", align_items="flex_start",
+                    ),
+                    style={"padding": "40px"},
                 ),
                 # Panels
                 rx.box(
