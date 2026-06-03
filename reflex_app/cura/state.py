@@ -499,9 +499,18 @@ class AppState(rx.State):
     edit_tx_to_account:   str  = ""
     edit_tx_bucket:       str  = ""
     edit_tx_income_type:  str  = "paycheck"
-    edit_tx_reconciled:   bool = False
-    edit_tx_saving:       bool = False
-    edit_tx_error:        str  = ""
+    edit_tx_reconciled:       bool = False
+    _edit_tx_was_reconciled:  bool = False   # snapshot at open time
+    edit_tx_saving:           bool = False
+    edit_tx_error:            str  = ""
+
+    # ── Reconciliation ───────────────────────────────────────────────────────
+    recon_open:               bool        = False
+    recon_account_id:         str         = ""
+    recon_statement_balance:  str         = ""
+    recon_unchecked_ids:      list[str]   = []   # explicitly unchecked tx IDs (rest = checked)
+    recon_saving:             bool        = False
+    recon_error:              str         = ""
 
     # ── Payday modal ──────────────────────────────────────────────────
     payday_open:       bool = False
@@ -634,6 +643,103 @@ class AppState(rx.State):
     @rx.var
     def month_is_closed(self) -> bool:
         return self.month_status_str == "closed"
+
+    # ── Reconciliation computed vars ─────────────────────────────────────────
+
+    @rx.var
+    def recon_account_name(self) -> str:
+        for a in self.accounts_rows:
+            if a.get("id") == self.recon_account_id:
+                return a.get("name", "")
+        return ""
+
+    @rx.var
+    def recon_txs(self) -> list[dict[str, Any]]:
+        """All unreconciled, non-scheduled transactions for the reconcile account,
+        newest-first.  These are pre-checked (shown in the modal as cleared)."""
+        acct = self.recon_account_id
+        if not acct:
+            return []
+        out = []
+        for row in self.ledger_rows:
+            if row.get("row_type") != "tx":
+                continue
+            if row.get("acct_id", "") != acct and row.get("to_acct_id", "") != acct:
+                continue
+            if row.get("scheduled", False):
+                continue
+            if row.get("reconciled", False):
+                continue
+            out.append(dict(row))
+        return out  # ledger_rows is already newest-first
+
+    @rx.var
+    def recon_already_cleared(self) -> float:
+        """Sum of signed effects from already-reconciled transactions for this account."""
+        acct = self.recon_account_id
+        if not acct:
+            return 0.0
+        total = 0.0
+        for row in self.ledger_rows:
+            if row.get("row_type") != "tx":
+                continue
+            if row.get("scheduled", False):
+                continue
+            if not row.get("reconciled", False):
+                continue
+            if row.get("acct_id", "") != acct and row.get("to_acct_id", "") != acct:
+                continue
+            t = row.get("type", "")
+            a = float(row.get("amount") or 0)
+            if row.get("acct_id") == acct:
+                if t == "in":           total += a
+                elif t in ("out","xfr"): total -= a
+            elif t == "xfr" and row.get("to_acct_id") == acct:
+                total += a
+        return total
+
+    @rx.var
+    def recon_cleared_balance(self) -> float:
+        """Already-reconciled amount + newly checked amount."""
+        acct = self.recon_account_id
+        unchecked = set(self.recon_unchecked_ids)
+        checked_sum = 0.0
+        for row in self.recon_txs:
+            tx_id = str(row.get("id", ""))
+            if tx_id in unchecked:   # explicitly unchecked → skip
+                continue
+            t = row.get("type", "")
+            a = float(row.get("amount") or 0)
+            if row.get("acct_id") == acct:
+                if t == "in":            checked_sum += a
+                elif t in ("out","xfr"): checked_sum -= a
+            elif t == "xfr" and row.get("to_acct_id") == acct:
+                checked_sum += a
+        return self.recon_already_cleared + checked_sum
+
+    @rx.var
+    def recon_difference(self) -> float:
+        try:
+            stmt = float(self.recon_statement_balance.replace("$","").replace(",","") or "0")
+        except ValueError:
+            return 0.0
+        return round(stmt - self.recon_cleared_balance, 2)
+
+    @rx.var
+    def recon_difference_fmt(self) -> str:
+        d = self.recon_difference
+        return f"${abs(d):,.2f}" if d >= 0 else f"-${abs(d):,.2f}"
+
+    @rx.var
+    def recon_cleared_fmt(self) -> str:
+        b = self.recon_cleared_balance
+        return f"${b:,.2f}" if b >= 0 else f"-${abs(b):,.2f}"
+
+    @rx.var
+    def recon_can_finish(self) -> bool:
+        if not self.recon_statement_balance:
+            return False
+        return abs(self.recon_difference) < 0.015   # ±1 cent tolerance
 
     @rx.var
     def ledger_view(self) -> dict[str, Any]:
@@ -2284,8 +2390,9 @@ class AppState(rx.State):
         self.edit_tx_to_account   = tx.get("toAccountId", "")
         self.edit_tx_bucket       = tx.get("bucketId", "")
         self.edit_tx_income_type  = tx.get("incomeType", "paycheck") or "paycheck"
-        self.edit_tx_reconciled   = bool(tx.get("reconciled"))
-        self.edit_tx_error        = ""
+        self.edit_tx_reconciled        = bool(tx.get("reconciled"))
+        self._edit_tx_was_reconciled   = bool(tx.get("reconciled"))
+        self.edit_tx_error             = ""
         self.edit_tx_saving       = False
         self.edit_tx_open         = True
 
@@ -2341,17 +2448,90 @@ class AppState(rx.State):
                 "bucket_id":          self.edit_tx_bucket or None,
                 "to_account_id":      self.edit_tx_to_account or None,
                 "income_type":        self.edit_tx_income_type if self.edit_tx_type == "in" else None,
-                "reconciled":         self.edit_tx_reconciled,
+                # If the tx was reconciled when opened, editing it removes the cleared status.
+                "reconciled": False if self._edit_tx_was_reconciled else self.edit_tx_reconciled,
             })
             data = DB.load_all(self.user_id, self.access_token)
-            self._raw           = data
+            self._raw                    = data
             self._process(data, self.active_mid)
-            self.edit_tx_open   = False
-            self.edit_tx_saving = False
+            self.edit_tx_open            = False
+            self.edit_tx_saving          = False
+            self._edit_tx_was_reconciled = False
             yield rx.toast.success("Transaction updated")
         except Exception as e:
             self.edit_tx_saving = False
             self.edit_tx_error  = str(e)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Reconciliation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def open_reconcile(self, acct_id: str = ""):
+        """Open the reconcile modal, optionally pre-selecting an account."""
+        # If no account given, pick the first non-debt account
+        if not acct_id:
+            for a in self.accounts_rows:
+                if a.get("type") != "debt":
+                    acct_id = a.get("id", "")
+                    break
+        self.recon_account_id        = acct_id
+        self.recon_statement_balance = ""
+        self.recon_unchecked_ids     = []
+        self.recon_saving            = False
+        self.recon_error             = ""
+        self.recon_open              = True
+
+    def close_reconcile(self):
+        self.recon_open = False
+
+    def set_recon_account_id(self, v: str):
+        self.recon_account_id        = v
+        self.recon_statement_balance = ""
+        self.recon_unchecked_ids     = []
+        self.recon_error             = ""
+
+    def set_recon_statement_balance(self, v: str):
+        self.recon_statement_balance = v
+
+    def toggle_recon_tx(self, tx_id: str):
+        ids = list(self.recon_unchecked_ids)
+        if tx_id in ids:
+            ids.remove(tx_id)   # was unchecked → check it
+        else:
+            ids.append(tx_id)   # was checked  → uncheck it
+        self.recon_unchecked_ids = ids
+
+    async def finish_reconcile(self):
+        if not self.recon_can_finish:
+            self.recon_error = "Difference must be $0.00 before finishing."
+            return
+        unchecked = set(self.recon_unchecked_ids)
+        ids_to_mark = [
+            str(row.get("id", ""))
+            for row in self.recon_txs
+            if str(row.get("id", "")) not in unchecked
+        ]
+        if not ids_to_mark:
+            self.recon_error = "No transactions selected."
+            return
+        self.recon_saving = True
+        self.recon_error  = ""
+        yield
+        try:
+            for tx_id in ids_to_mark:
+                DB.update_transaction(
+                    self.user_id, self.access_token, tx_id,
+                    {"reconciled": True},
+                )
+            data = DB.load_all(self.user_id, self.access_token)
+            self._raw = data
+            self._process(data, self.active_mid)
+            self.recon_open   = False
+            self.recon_saving = False
+            yield rx.toast.success(f"Reconciled {len(ids_to_mark)} transaction{'s' if len(ids_to_mark) != 1 else ''}")
+        except Exception as e:
+            self.recon_saving = False
+            self.recon_error  = str(e)
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Payday modal

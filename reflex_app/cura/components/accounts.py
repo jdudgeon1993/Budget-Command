@@ -432,6 +432,32 @@ def edit_tx_dialog() -> rx.Component:
                     width="100%", align_items="center",
                 ),
 
+                # Reconciled warning
+                rx.cond(
+                    AppState.edit_tx_reconciled,
+                    rx.hstack(
+                        rx.html(
+                            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" '
+                            f'stroke="{AMBER}" stroke-width="2" aria-hidden="true">'
+                            '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 '
+                            '1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
+                            '<line x1="12" y1="9" x2="12" y2="13"/>'
+                            '<line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+                        ),
+                        rx.text(
+                            "This transaction is reconciled. Saving will remove the cleared status.",
+                            style={"font_size": "12px", "color": AMBER, "font_family": MONO,
+                                   "flex": "1"},
+                        ),
+                        style={
+                            "background": f"{AMBER}10", "border": f"1px solid {AMBER}33",
+                            "border_radius": "8px", "padding": "8px 10px",
+                            "align_items": "flex-start", "gap": "8px", "width": "100%",
+                        },
+                    ),
+                    rx.box(),
+                ),
+
                 # Error
                 rx.cond(
                     AppState.edit_tx_error != "",
@@ -1318,6 +1344,310 @@ def _all_chip() -> rx.Component:
     )
 
 
+# ── Reconcile modal ──────────────────────────────────────────────────────────
+
+def _recon_tx_row(row: dict) -> rx.Component:
+    """Single transaction row inside the reconcile checklist."""
+    tx_id      = row["id"].to(str)
+    # Checked by default — only explicitly unchecked IDs are in recon_unchecked_ids
+    is_checked = ~AppState.recon_unchecked_ids.contains(tx_id)
+    return rx.hstack(
+        # Checkbox-style indicator
+        rx.box(
+            rx.cond(
+                is_checked,
+                rx.html(
+                    f'<svg width="14" height="14" viewBox="0 0 24 24" fill="{GREEN}" '
+                    f'stroke="{GREEN}" stroke-width="2" aria-hidden="true">'
+                    '<rect x="3" y="3" width="18" height="18" rx="3"/>'
+                    '<polyline points="20 6 9 17 4 12" stroke="white" stroke-width="2.5" '
+                    'fill="none"/></svg>'
+                ),
+                rx.html(
+                    f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
+                    f'stroke="{BORDER2}" stroke-width="1.5" aria-hidden="true">'
+                    '<rect x="3" y="3" width="18" height="18" rx="3"/></svg>'
+                ),
+            ),
+            style={"flex_shrink": "0"},
+        ),
+        # Description + date
+        rx.vstack(
+            rx.text(row["desc"], style={
+                "font_size": "13px", "color": rx.cond(is_checked, TEXT, TEXT3),
+                "font_weight": "500", "line_height": "1.2",
+                "overflow": "hidden", "text_overflow": "ellipsis", "white_space": "nowrap",
+                "max_width": "200px",
+            }),
+            rx.text(row["date_label"], style={
+                "font_size": "11px", "color": TEXT3, "font_family": MONO,
+            }),
+            gap="1px", align_items="flex-start",
+        ),
+        rx.spacer(),
+        # Amount
+        rx.text(row["amount_fmt"], style={
+            "font_size": "13px", "font_family": MONO, "font_weight": "700",
+            "color": rx.cond(is_checked, row["amt_color"], TEXT3),
+            "white_space": "nowrap",
+        }),
+        on_click=AppState.toggle_recon_tx(tx_id),
+        role="checkbox",
+        aria_checked=rx.cond(is_checked, "true", "false"),
+        style={
+            "padding": "10px 14px", "min_height": "52px",
+            "border_bottom": f"1px solid {BORDER}",
+            "cursor": "pointer", "width": "100%",
+            "align_items": "center", "gap": "10px",
+            "_hover": {"background": BG3},
+            "_active": {"opacity": "0.8"},
+        },
+    )
+
+
+def reconcile_modal() -> rx.Component:
+    """Full-screen-style reconciliation overlay."""
+    diff_color = rx.cond(AppState.recon_can_finish, GREEN, AMBER)
+
+    return rx.cond(
+        AppState.recon_open,
+        rx.box(
+            rx.box(
+                rx.vstack(
+                    # ── Header ───────────────────────────────────────────
+                    rx.hstack(
+                        rx.vstack(
+                            rx.text("RECONCILE", style={
+                                "font_size": "11px", "letter_spacing": "0.16em",
+                                "color": TEXT3, "font_family": MONO,
+                            }),
+                            rx.text(AppState.recon_account_name, style={
+                                "font_size": "17px", "font_weight": "700", "color": TEXT,
+                                "line_height": "1.1",
+                            }),
+                            gap="2px", align_items="flex-start",
+                        ),
+                        rx.spacer(),
+                        rx.box(
+                            "×",
+                            on_click=AppState.close_reconcile,
+                            style={
+                                "font_size": "24px", "color": TEXT3, "cursor": "pointer",
+                                "line_height": "1", "_hover": {"color": TEXT},
+                                "padding": "4px 6px",
+                            },
+                        ),
+                        align_items="flex-start", width="100%",
+                    ),
+
+                    rx.divider(style={"border_color": BORDER}),
+
+                    # ── Account selector (if multiple accounts) ───────────
+                    rx.cond(
+                        AppState.accounts_rows.length() > 1,
+                        rx.el.select(
+                            AppState.accounts_rows.to(list[dict[str, Any]]).foreach(
+                                lambda a: rx.el.option(a["name"], value=a["id"])
+                            ),
+                            value=AppState.recon_account_id,
+                            on_change=AppState.set_recon_account_id,
+                            style={**_select_style(), "margin_bottom": "4px"},
+                        ),
+                        rx.box(),
+                    ),
+
+                    # ── Statement balance input ───────────────────────────
+                    rx.vstack(
+                        rx.text("Enter your bank balance", style={
+                            "font_size": "11px", "letter_spacing": "0.1em",
+                            "text_transform": "uppercase", "color": TEXT3,
+                            "font_family": MONO,
+                        }),
+                        rx.input(
+                            placeholder="0.00",
+                            value=AppState.recon_statement_balance,
+                            on_change=AppState.set_recon_statement_balance,
+                            type="text", input_mode="decimal",
+                            auto_focus=True,
+                            style={
+                                **_input_style(),
+                                "font_size": "22px", "text_align": "center",
+                                "font_family": MONO, "font_weight": "700",
+                                "border_color": rx.cond(
+                                    AppState.recon_statement_balance != "",
+                                    rx.cond(AppState.recon_can_finish, GREEN, BORDER),
+                                    BORDER,
+                                ),
+                            },
+                        ),
+                        gap="6px", width="100%",
+                    ),
+
+                    # ── Running totals ────────────────────────────────────
+                    rx.box(
+                        rx.hstack(
+                            rx.vstack(
+                                rx.text("STATEMENT", style={
+                                    "font_size": "10px", "letter_spacing": "0.12em",
+                                    "color": TEXT3, "font_family": MONO,
+                                }),
+                                rx.text(
+                                    rx.cond(
+                                        AppState.recon_statement_balance != "",
+                                        "$" + AppState.recon_statement_balance,
+                                        "—",
+                                    ),
+                                    style={"font_size": "15px", "font_family": MONO,
+                                           "font_weight": "700", "color": TEXT},
+                                ),
+                                align_items="center", gap="2px",
+                            ),
+                            rx.vstack(
+                                rx.text("CLEARED", style={
+                                    "font_size": "10px", "letter_spacing": "0.12em",
+                                    "color": TEXT3, "font_family": MONO,
+                                }),
+                                rx.text(AppState.recon_cleared_fmt, style={
+                                    "font_size": "15px", "font_family": MONO,
+                                    "font_weight": "700", "color": TEXT,
+                                }),
+                                align_items="center", gap="2px",
+                            ),
+                            rx.vstack(
+                                rx.text("DIFFERENCE", style={
+                                    "font_size": "10px", "letter_spacing": "0.12em",
+                                    "color": TEXT3, "font_family": MONO,
+                                }),
+                                rx.text(AppState.recon_difference_fmt, style={
+                                    "font_size": "20px", "font_family": MONO,
+                                    "font_weight": "800",
+                                    "color": diff_color,
+                                }),
+                                align_items="center", gap="2px",
+                            ),
+                            justify="between", width="100%", align_items="flex-start",
+                        ),
+                        style={
+                            "background": BG3, "border": f"1px solid {BORDER}",
+                            "border_radius": "10px", "padding": "12px 16px",
+                            "width": "100%",
+                        },
+                    ),
+
+                    # ── Instruction ───────────────────────────────────────
+                    rx.text(
+                        "Uncheck any transactions that haven't posted to your bank yet.",
+                        style={"font_size": "12px", "color": TEXT3, "font_family": MONO,
+                               "text_align": "center"},
+                    ),
+
+                    # ── Transaction checklist ─────────────────────────────
+                    rx.cond(
+                        AppState.recon_txs.length() == 0,
+                        rx.box(
+                            rx.text("No unreconciled transactions.", style={
+                                "font_size": "13px", "color": TEXT3, "font_family": MONO,
+                                "text_align": "center", "padding": "20px",
+                            }),
+                            style={"width": "100%"},
+                        ),
+                        rx.box(
+                            rx.foreach(
+                                AppState.recon_txs.to(list[dict[str, Any]]),
+                                _recon_tx_row,
+                            ),
+                            style={
+                                "width": "100%",
+                                "border": f"1px solid {BORDER}",
+                                "border_radius": "10px",
+                                "overflow": "hidden",
+                                "max_height": "320px",
+                                "overflow_y": "auto",
+                            },
+                        ),
+                    ),
+
+                    # ── Error ─────────────────────────────────────────────
+                    rx.cond(
+                        AppState.recon_error != "",
+                        rx.text(AppState.recon_error, style={
+                            "color": RED, "font_size": "12px", "font_family": MONO,
+                        }),
+                        rx.box(),
+                    ),
+
+                    # ── Footer ────────────────────────────────────────────
+                    rx.hstack(
+                        rx.box(
+                            "Cancel",
+                            on_click=AppState.close_reconcile,
+                            style={
+                                "flex": "1", "padding": "11px", "border_radius": "8px",
+                                "border": f"1px solid {BORDER}", "color": TEXT3,
+                                "font_size": "12px", "text_align": "center",
+                                "cursor": "pointer", "font_family": MONO,
+                                "_hover": {"color": TEXT2},
+                            },
+                        ),
+                        rx.box(
+                            rx.cond(
+                                AppState.recon_saving,
+                                "Saving…",
+                                rx.cond(
+                                    AppState.recon_can_finish,
+                                    "✓  Finish Reconciliation",
+                                    "Difference must be $0.00",
+                                ),
+                            ),
+                            on_click=AppState.finish_reconcile,
+                            style={
+                                "flex": "2", "padding": "11px", "border_radius": "8px",
+                                "background": rx.cond(
+                                    AppState.recon_can_finish,
+                                    rx.cond(AppState.recon_saving, BORDER, GREEN),
+                                    BG3,
+                                ),
+                                "color": rx.cond(AppState.recon_can_finish, "#fff", TEXT3),
+                                "border": rx.cond(
+                                    AppState.recon_can_finish,
+                                    f"1px solid {GREEN}",
+                                    f"1px solid {BORDER}",
+                                ),
+                                "font_size": "12px", "text_align": "center",
+                                "cursor": rx.cond(AppState.recon_can_finish, "pointer", "default"),
+                                "font_family": MONO, "font_weight": "700",
+                                "letter_spacing": "0.06em",
+                                "_hover": {"opacity": rx.cond(AppState.recon_can_finish, "0.9", "1")},
+                                "transition": "all 0.2s ease",
+                            },
+                        ),
+                        gap="8px", width="100%",
+                    ),
+
+                    gap="14px", width="100%",
+                ),
+
+                style={
+                    "background": BG2, "border": f"1px solid {BORDER}",
+                    "border_radius": "16px", "padding": "22px",
+                    "width": "100%", "max_width": "480px",
+                    "max_height": "90vh", "overflow_y": "auto",
+                },
+            ),
+
+            style={
+                "position": "fixed", "inset": "0",
+                "background": "rgba(0,0,0,0.65)",
+                "backdrop_filter": "blur(4px)",
+                "z_index": "300",
+                "display": "flex", "align_items": "center", "justify_content": "center",
+                "padding": "20px",
+            },
+        ),
+        rx.box(),
+    )
+
+
 # ── Main panel ────────────────────────────────────────────────────────────────
 
 def accounts_panel() -> rx.Component:
@@ -1399,6 +1729,19 @@ def accounts_panel() -> rx.Component:
                         },
                     ),
                     rx.box(
+                        "⚖ Reconcile",
+                        on_click=AppState.open_reconcile(AppState.ledger_acct_filter),
+                        style={
+                            "font_family": MONO, "font_size": "11px",
+                            "letter_spacing": "0.08em",
+                            "padding": "8px 12px", "border_radius": "8px",
+                            "border": f"1px solid {GREEN}55", "color": GREEN,
+                            "cursor": "pointer", "white_space": "nowrap",
+                            "flex_shrink": "0",
+                            "_hover": {"background": f"{GREEN}0d"},
+                        },
+                    ),
+                    rx.box(
                         "+ Tx",
                         on_click=AppState.open_sheet,
                         style={
@@ -1452,10 +1795,11 @@ def accounts_panel() -> rx.Component:
             },
         ),
 
-        # Dialogs
+        # Dialogs + modals
         edit_tx_dialog(),
         add_tx_sheet(),
         _add_account_dialog(),
         _account_settings_dialog(),
         _debt_payment_dialog(),
+        reconcile_modal(),
     )
