@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cura · Forecast v2 Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0C0C10;--bg2:rgba(255,255,255,0.05);--bg3:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --text:#FFFFFF;--text2:#9090B8;--text3:#606088;
+  --green:#30D158;--red:#FF453A;--amber:#FF9F0A;--accent:#BF5AF2;
+  --sans:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  --left-w:272px;
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:14px;height:100%;overflow:hidden;-webkit-font-smoothing:antialiased}
+#app{display:flex;height:100vh;overflow:hidden}
+
+/* ── Left pane ── */
+.lp{width:var(--left-w);min-width:var(--left-w);background:var(--bg);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.lp-head{padding:14px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;flex-shrink:0}
+.brand{width:24px;height:24px;background:var(--accent);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lp-scroll{flex:1;overflow-y:auto;padding-bottom:16px}
+.lp-scroll::-webkit-scrollbar{width:3px}
+.lp-scroll::-webkit-scrollbar-thumb{background:rgba(191,90,242,.3);border-radius:2px}
+.sec-label{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--text3);
+  text-transform:uppercase;padding:14px 16px 6px}
+.sc-row{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;
+  transition:background .12s;user-select:none}
+.sc-row:hover{background:var(--bg3)}
+.sc-row.active{background:rgba(191,90,242,.10)}
+.sc-dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--text3);flex-shrink:0;transition:all .12s}
+.sc-row.active .sc-dot{background:var(--accent);border-color:var(--accent)}
+.sc-name{flex:1;font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-row.active .sc-name{color:var(--text);font-weight:500}
+.sc-del{font-size:15px;color:var(--text3);padding:1px 4px;border-radius:3px;
+  opacity:0;line-height:1;transition:all .12s}
+.sc-row:hover .sc-del{opacity:1}
+.sc-del:hover{color:var(--red);background:rgba(255,69,58,.12)}
+.sc-delta{font-family:var(--mono);font-size:10px;margin-left:auto;padding:1px 6px;
+  border-radius:10px;white-space:nowrap;flex-shrink:0}
+.new-sc{display:flex;align-items:center;gap:8px;padding:9px 16px;cursor:pointer;
+  color:var(--text3);font-size:12px;transition:color .12s;margin-top:2px}
+.new-sc:hover{color:var(--accent)}
+.new-sc .plus{color:var(--accent);font-size:17px;font-weight:300;line-height:1}
+
+/* ── Scenario editor ── */
+.editor{border-top:1px solid var(--border);padding-top:4px}
+.ed-block{padding:8px 12px}
+.ed-hdr{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--text3);
+  text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between}
+.add-lnk{font-family:var(--mono);font-size:10px;color:var(--accent);cursor:pointer;opacity:.7;transition:opacity .12s}
+.add-lnk:hover{opacity:1}
+.pd-row{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.day-lbl{font-family:var(--mono);font-size:10px;color:var(--text3);min-width:32px;flex-shrink:0}
+.amt-in{background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-family:var(--mono);font-size:11px;padding:4px 7px;
+  text-align:right;outline:none;width:80px;transition:border-color .12s}
+.amt-in:focus{border-color:var(--accent)}
+.amt-in.ov{border-color:rgba(191,90,242,.45);color:var(--accent)}
+.day-in{background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-family:var(--mono);font-size:11px;padding:4px 6px;
+  text-align:center;outline:none;width:40px;transition:border-color .12s}
+.day-in:focus{border-color:var(--accent)}
+.reset-lnk{font-size:12px;color:var(--text3);cursor:pointer;padding:0 2px;
+  line-height:1;transition:color .12s;flex-shrink:0}
+.reset-lnk:hover{color:var(--amber)}
+.row-del{font-size:14px;color:var(--text3);cursor:pointer;padding:0 2px;
+  line-height:1;transition:color .12s;flex-shrink:0}
+.row-del:hover{color:var(--red)}
+.bkt-row{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.bkt-tog{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--text3);
+  cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.bkt-tog.on{background:var(--accent);border-color:var(--accent)}
+.bkt-tog.off{border-color:rgba(255,255,255,.18)}
+.bkt-n{flex:1;font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;min-width:0}
+.bkt-row.is-off .bkt-n{color:var(--text3);text-decoration:line-through}
+.due-tag{font-family:var(--mono);font-size:9px;color:var(--text3);background:var(--bg3);
+  padding:1px 4px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+.bkt-ov{width:64px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-family:var(--mono);font-size:11px;padding:3px 6px;
+  text-align:right;outline:none;flex-shrink:0;transition:border-color .12s}
+.bkt-ov:focus{border-color:var(--accent)}
+.bkt-ov.ov{border-color:rgba(191,90,242,.45);color:var(--accent)}
+.bkt-row.is-off .bkt-ov{opacity:.25;pointer-events:none}
+.name-in{background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-size:12px;font-family:var(--sans);padding:5px 8px;
+  outline:none;width:100%;transition:border-color .12s;margin:0 12px 10px;
+  display:block;width:calc(100% - 24px)}
+.name-in:focus{border-color:var(--accent)}
+
+/* ── Right pane ── */
+.rp{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.rp-ctrl{display:flex;align-items:center;gap:10px;padding:12px 20px;
+  border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);
+  flex-shrink:0;flex-wrap:wrap}
+.pill{padding:4px 12px;border-radius:16px;cursor:pointer;font-size:11px;
+  font-family:var(--mono);letter-spacing:.05em;border:1px solid var(--border);
+  background:var(--bg3);color:var(--text3);transition:all .12s;user-select:none}
+.pill:hover{border-color:var(--border2);color:var(--text2)}
+.pill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.sc-badge{display:flex;align-items:center;gap:6px;margin-left:auto;
+  padding:4px 10px;border-radius:20px;background:rgba(191,90,242,.10);
+  border:1px solid rgba(191,90,242,.25)}
+.sc-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.sc-badge-nm{font-family:var(--mono);font-size:11px;color:#D8A4FF;letter-spacing:.04em}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  margin:14px 20px 10px;overflow:hidden;flex-shrink:0}
+.kpi-bar{display:flex;align-items:stretch}
+.kpi{flex:1;padding:13px 16px;border-right:1px solid var(--border)}
+.kpi:last-child{border-right:none}
+.kpi-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--text3);
+  text-transform:uppercase;margin-bottom:4px}
+.kpi-val{font-family:var(--mono);font-size:17px;font-weight:700;line-height:1;letter-spacing:-.01em}
+.kpi-sub{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:3px}
+.periods{flex:1;overflow-y:auto;padding:0 20px 28px}
+.periods::-webkit-scrollbar{width:4px}
+.periods::-webkit-scrollbar-thumb{background:rgba(191,90,242,.25);border-radius:2px}
+
+/* ── Period card ── */
+.pc{border:1px solid var(--border2);border-radius:10px;margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+.pc.shf{border-color:rgba(255,69,58,.45)}
+.pc-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;
+  background:var(--bg2);transition:background .12s;user-select:none}
+.pc-head:hover{background:var(--bg3)}
+.pc.shf .pc-head{background:rgba(255,69,58,.05)}
+.pc-chev{font-size:9px;color:var(--text3);transition:transform .18s;width:12px;text-align:center;flex-shrink:0}
+.pc.open .pc-chev{transform:rotate(90deg)}
+.pc-date{font-family:var(--mono);font-size:12px;font-weight:600;min-width:54px}
+.pc-dow{font-family:var(--mono);font-size:10px;color:var(--text3);min-width:24px}
+.pc-sp{flex:1}
+.pc-badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:10px}
+.pc-badge.shf{background:rgba(255,69,58,.15);color:var(--red)}
+.pc-badge.ok{background:rgba(48,209,88,.10);color:var(--green)}
+.pc-inc{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--green);min-width:54px;text-align:right}
+.pc-bal{font-family:var(--mono);font-size:11px;color:var(--text3);min-width:72px;text-align:right}
+.pc-body{display:none;border-top:1px solid var(--border);background:rgba(0,0,0,.18)}
+.pc.open .pc-body{display:block}
+.bkt-line{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.03)}
+.bkt-line:last-of-type{border-bottom:none}
+.bl-name{font-size:12px;color:var(--text2)}
+.bl-due{font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:8px}
+.bl-amt{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text)}
+.pc-totals{border-top:1px solid var(--border);padding:9px 14px;
+  display:flex;gap:20px;background:var(--bg2);flex-wrap:wrap}
+.tot{display:flex;flex-direction:column;gap:2px}
+.tot-lbl{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
+.tot-val{font-family:var(--mono);font-size:13px;font-weight:600}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 20px;gap:8px;text-align:center;flex:1}
+.empty h3{font-size:16px;font-weight:600;color:var(--text2)}
+.empty p{font-size:13px;color:var(--text3)}
+::selection{background:rgba(191,90,242,.3)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TODAY = new Date(2026, 5, 3); // Jun 3 2026
+
+const BASE_BUCKETS = [
+  {id:'rent',    name:'Rent',           target:1500, due:1},
+  {id:'car',     name:'Car Payment',    target:420,  due:5},
+  {id:'util',    name:'Utilities',      target:140,  due:12},
+  {id:'insure',  name:'Insurance',      target:220,  due:15},
+  {id:'phone',   name:'Phone',          target:95,   due:20},
+  {id:'gym',     name:'Gym',            target:50,   due:20},
+  {id:'groc',    name:'Groceries',      target:450,  due:null},
+  {id:'gas',     name:'Gas',            target:120,  due:null},
+  {id:'dining',  name:'Dining Out',     target:200,  due:null},
+  {id:'emerg',   name:'Emergency Fund', target:300,  due:null},
+  {id:'entert',  name:'Entertainment',  target:150,  due:null},
+];
+
+const BASE_PAYDAYS = [
+  {id:'pd1', day:15,  amount:3500},
+  {id:'pd2', day:-1,  amount:3200}, // -1 = last day of month
+];
+
+const START_BALANCE = 4200;
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────────────────────────────────────
+
+let S = {
+  scenarios: [
+    {id:'baseline', name:'Baseline', isBaseline:true,
+     paydayOv:{}, bucketOv:{}, offBuckets:[], extraPds:[], extraBkts:[]},
+    {id:'sc1', name:'New Car Lease', isBaseline:false,
+     paydayOv:{}, bucketOv:{car:620, insure:285}, offBuckets:['entert'], extraPds:[], extraBkts:[]},
+    {id:'sc2', name:'Pay Raise', isBaseline:false,
+     paydayOv:{pd1:4200, pd2:3800}, bucketOv:{emerg:500}, offBuckets:[], extraPds:[], extraBkts:[]},
+  ],
+  activeId: 'baseline',
+  range: 3,
+  expanded: new Set(),
+  renaming: null,
+};
+
+function active() { return S.scenarios.find(s => s.id === S.activeId) || S.scenarios[0]; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+function fmt(n, plus=false) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const a = Math.abs(n);
+  const s = a >= 10000 ? '$' + (a/1000).toFixed(1).replace(/\.0$/,'')+'k'
+          : a >= 1000  ? '$' + a.toLocaleString('en-US',{maximumFractionDigits:0})
+          :               '$' + a.toFixed(0);
+  return n < 0 ? '−'+s : (plus && n > 0 ? '+'+s : s);
+}
+
+function ordinal(d) {
+  if (d < 0) return 'Last';
+  const s = ['th','st','nd','rd'];
+  const v = d % 100;
+  return d + (s[(v-20)%10]||s[v]||s[0]);
+}
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function fmtDate(d) { return `${MONTHS[d.getMonth()]} ${d.getDate()}`; }
+function fmtDow(d)  { return DAYS[d.getDay()]; }
+
+function lastDay(y, m) { return new Date(y, m+1, 0).getDate(); }
+
+let _debTimers = {};
+function debounce(key, fn, ms=280) {
+  clearTimeout(_debTimers[key]);
+  _debTimers[key] = setTimeout(fn, ms);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Forecast engine
+// ─────────────────────────────────────────────────────────────────────────────
+
+function genPaydays(sc, range) {
+  const end = new Date(TODAY.getFullYear(), TODAY.getMonth() + range, TODAY.getDate());
+  const result = [];
+
+  const allBase = [...BASE_PAYDAYS];
+
+  let cur = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+  while (cur < end) {
+    const yr = cur.getFullYear(), mo = cur.getMonth();
+
+    for (const pd of allBase) {
+      const day = pd.day === -1 ? lastDay(yr, mo) : pd.day;
+      const dt  = new Date(yr, mo, day);
+      if (dt >= TODAY && dt < end) {
+        const ovAmt = sc.paydayOv[pd.id];
+        result.push({ id:`${pd.id}-${yr}-${mo}`, baseId:pd.id,
+                      date:dt, amount: ovAmt !== undefined ? ovAmt : pd.amount,
+                      isOv: ovAmt !== undefined });
+      }
+    }
+
+    for (let i = 0; i < (sc.extraPds || []).length; i++) {
+      const epd = sc.extraPds[i];
+      const day = epd.day === -1 || epd.day === 'last' ? lastDay(yr, mo) : parseInt(epd.day) || 1;
+      if (day >= 1 && day <= 31) {
+        const dt = new Date(yr, mo, Math.min(day, lastDay(yr, mo)));
+        if (dt >= TODAY && dt < end) {
+          result.push({ id:`extra-${i}-${yr}-${mo}`, baseId:null,
+                        date:dt, amount: parseFloat(epd.amount)||0, isExtra:true });
+        }
+      }
+    }
+
+    cur.setMonth(cur.getMonth() + 1);
+  }
+
+  result.sort((a,b) => a.date - b.date);
+  return result;
+}
+
+function effectiveBuckets(sc) {
+  const all = [...BASE_BUCKETS,
+    ...(sc.extraBkts||[]).map((b,i) => ({
+      id:`xb${i}`, name:b.name||'Bucket',
+      target: parseFloat(b.target)||0,
+      due: parseInt(b.due)||null
+    }))
+  ];
+  return all.map(b => {
+    const isOff = (sc.offBuckets||[]).includes(b.id);
+    const ov    = sc.bucketOv && sc.bucketOv[b.id];
+    return {...b, eff: isOff ? 0 : (ov !== undefined ? parseFloat(ov)||0 : b.target),
+            isOff, isOv: ov !== undefined};
+  }).filter(b => !b.isOff);
+}
+
+function computeForecast(sc, range) {
+  const pds  = genPaydays(sc, range);
+  if (!pds.length) return null;
+  const bkts = effectiveBuckets(sc);
+
+  // count paydays per month for undated allocation
+  const pdPerMo = {};
+  for (const p of pds) {
+    const k = `${p.date.getFullYear()}-${p.date.getMonth()}`;
+    pdPerMo[k] = (pdPerMo[k]||0) + 1;
+  }
+
+  let bal = START_BALANCE;
+  const periods = [];
+  let totInc = 0, totShf = 0, totObl = 0;
+
+  for (let i = 0; i < pds.length; i++) {
+    const pd   = pds[i];
+    const prev = i === 0 ? new Date(TODAY.getFullYear(), TODAY.getMonth()-1, 28) : pds[i-1].date;
+    const moKey = `${pd.date.getFullYear()}-${pd.date.getMonth()}`;
+    const nPd  = pdPerMo[moKey] || 1;
+
+    const obligations = [];
+
+    for (const b of bkts) {
+      if (b.due !== null) {
+        // find the due date in the window (prev, pd.date]
+        for (let offset = -1; offset <= 1; offset++) {
+          const yr = pd.date.getFullYear(), mo = pd.date.getMonth() + offset;
+          const due = new Date(yr, mo, b.due);
+          if (due > prev && due <= pd.date) {
+            obligations.push({...b, amount: b.eff, dueDate: due});
+            break;
+          }
+        }
+      } else {
+        obligations.push({...b, amount: b.eff / nPd, dueDate: null});
+      }
+    }
+
+    const totalObl = obligations.reduce((s,o) => s + o.amount, 0);
+    const income   = pd.amount;
+    const shortfall = Math.max(0, totalObl - income);
+    const surplus   = Math.max(0, income - totalObl);
+
+    bal += income;
+    bal -= Math.min(totalObl, bal);
+
+    totInc += income;
+    totShf += shortfall;
+    totObl += totalObl;
+
+    periods.push({ id:pd.id, date:pd.date, income, obligations,
+                   totalObl, shortfall, surplus, bal, isOv:pd.isOv });
+  }
+
+  return {
+    startBal: START_BALANCE,
+    totalInc: totInc,
+    totalObl: totObl,
+    safeToSpend: Math.max(0, totInc - totObl),
+    totalShf: totShf,
+    endBal: bal,
+    periods,
+  };
+}
+
+// Delta vs baseline (for scenario badge)
+function baselineForecast() {
+  const base = S.scenarios.find(s => s.isBaseline);
+  return base ? computeForecast(base, S.range) : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Render
+// ─────────────────────────────────────────────────────────────────────────────
+
+function render() {
+  const sc = active();
+  const fc = computeForecast(sc, S.range);
+  const bf = sc.isBaseline ? null : baselineForecast();
+
+  document.getElementById('app').innerHTML = `
+    <div class="lp">${renderLeft(sc, fc, bf)}</div>
+    <div class="rp">${renderRight(sc, fc, bf)}</div>
+  `;
+  bindEvents();
+}
+
+function renderLeft(sc, fc, bf) {
+  const scList = S.scenarios.map(s => {
+    const isSc = s.id === sc.id;
+    let delta = '';
+    if (!s.isBaseline && bf) {
+      const sfc = computeForecast(s, S.range);
+      if (sfc && bf) {
+        const d = sfc.safeToSpend - bf.safeToSpend;
+        const col = d > 0 ? 'var(--green)' : d < 0 ? 'var(--red)' : 'var(--text3)';
+        delta = `<span class="sc-delta" style="background:${d>0?'rgba(48,209,88,.10)':d<0?'rgba(255,69,58,.10)':'rgba(255,255,255,.06)'};color:${col}">${fmt(d,true)}</span>`;
+      }
+    }
+    const nameHtml = S.renaming === s.id
+      ? `<input class="name-in" style="margin:0;flex:1;width:auto" data-a="rename-commit" data-id="${esc(s.id)}" value="${esc(s.name)}" autofocus>`
+      : `<span class="sc-name" data-a="rename-start" data-id="${esc(s.id)}">${esc(s.name)}</span>`;
+    return `<div class="sc-row${isSc?' active':''}" data-a="select" data-id="${esc(s.id)}">
+      <div class="sc-dot"></div>
+      ${nameHtml}
+      ${delta}
+      ${s.isBaseline?'': `<span class="sc-del" data-a="del-sc" data-id="${esc(s.id)}">×</span>`}
+    </div>`;
+  }).join('');
+
+  const editor = !sc.isBaseline ? renderEditor(sc) : '';
+
+  return `
+    <div class="lp-head">
+      <div class="brand">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+        </svg>
+      </div>
+      <span style="font-size:13px;font-weight:700;letter-spacing:.12em">CURA</span>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--text3)">FORECAST</span>
+    </div>
+    <div class="lp-scroll">
+      <div class="sec-label">Scenarios</div>
+      ${scList}
+      <div class="new-sc" data-a="new-sc">
+        <span class="plus">+</span><span>New Scenario</span>
+      </div>
+      ${editor}
+    </div>`;
+}
+
+function renderEditor(sc) {
+  // Paydays section
+  const pdRows = BASE_PAYDAYS.map(pd => {
+    const ov  = sc.paydayOv[pd.id];
+    const amt = ov !== undefined ? ov : pd.amount;
+    const lbl = pd.day === -1 ? 'Last' : ordinal(pd.day);
+    return `<div class="pd-row">
+      <span class="day-lbl">${lbl}</span>
+      <input class="amt-in${ov!==undefined?' ov':''}" data-a="pd-ov" data-pd="${pd.id}"
+             value="${amt}" placeholder="${pd.amount}" type="number">
+      ${ov!==undefined ? `<span class="reset-lnk" data-a="pd-reset" data-pd="${pd.id}" title="Reset">↺</span>` : '<span style="width:16px"></span>'}
+    </div>`;
+  }).join('');
+
+  const extraPdRows = (sc.extraPds||[]).map((epd,i) => `
+    <div class="pd-row">
+      <input class="day-in" data-a="xpd-day" data-i="${i}" value="${epd.day||''}" placeholder="Day" type="text">
+      <input class="amt-in" data-a="xpd-amt" data-i="${i}" value="${epd.amount||''}" placeholder="Amt" type="number" style="flex:1">
+      <span class="row-del" data-a="del-xpd" data-i="${i}">×</span>
+    </div>`).join('');
+
+  // Buckets section — baseline buckets + extra
+  const allBkts = [...BASE_BUCKETS, ...(sc.extraBkts||[]).map((b,i)=>({
+    id:`xb${i}`, name:b.name||'Bucket', target:parseFloat(b.target)||0, due:parseInt(b.due)||null, isExtra:true, xIdx:i
+  }))];
+
+  const bktRows = allBkts.map(b => {
+    const isOff = (sc.offBuckets||[]).includes(b.id);
+    const ov    = sc.bucketOv && sc.bucketOv[b.id];
+    const amt   = ov !== undefined ? parseFloat(ov)||0 : b.target;
+    const dueLbl = b.due ? `d.${b.due}` : '—';
+    const togSvg = isOff ? '' : `<svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="2"><polyline points="1,5 4,8 9,2"/></svg>`;
+    return `<div class="bkt-row${isOff?' is-off':''}">
+      <div class="bkt-tog ${isOff?'off':'on'}" data-a="bkt-tog" data-bkt="${b.id}">${togSvg}</div>
+      <span class="bkt-n">${esc(b.name)}</span>
+      <span class="due-tag">${dueLbl}</span>
+      <input class="bkt-ov${ov!==undefined?' ov':''}" data-a="bkt-ov" data-bkt="${b.id}"
+             value="${amt}" type="number" ${isOff?'disabled':''}>
+      ${b.isExtra ? `<span class="row-del" data-a="del-xbkt" data-i="${b.xIdx}">×</span>` : ''}
+    </div>`;
+  }).join('');
+
+  const extraBktRows = (sc.extraBkts||[]).length === 0 ? '' : ''; // rendered above
+
+  return `<div class="editor">
+    <div class="ed-block">
+      <div class="ed-hdr">Paydays <span class="add-lnk" data-a="add-xpd">+ Add</span></div>
+      ${pdRows}${extraPdRows}
+    </div>
+    <div class="ed-block">
+      <div class="ed-hdr">Buckets <span class="add-lnk" data-a="add-xbkt">+ Add</span></div>
+      ${bktRows}
+    </div>
+  </div>`;
+}
+
+function renderRight(sc, fc, bf) {
+  const rangeBtns = [2,3,6,12].map(n =>
+    `<div class="pill${S.range===n?' on':''}" data-a="range" data-n="${n}">${n} Mo</div>`
+  ).join('');
+
+  const badge = !sc.isBaseline
+    ? `<div class="sc-badge"><div class="sc-badge-dot"></div><span class="sc-badge-nm">${esc(sc.name)}</span></div>`
+    : '';
+
+  const ctrl = `<div class="rp-ctrl">
+    <div style="display:flex;gap:6px">${rangeBtns}</div>
+    <div style="width:1px;height:16px;background:var(--border);margin:0 2px"></div>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">
+      Starts ${fmt(START_BALANCE)} · ${new Date(2026,5,3).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+    </span>
+    ${badge}
+  </div>`;
+
+  if (!fc) {
+    return ctrl + `<div class="empty"><h3>No paydays configured</h3>
+      <p>Add a payday to see your forecast.</p></div>`;
+  }
+
+  // KPI delta vs baseline
+  const deltaLine = (bf && !sc.isBaseline) ? (() => {
+    const d = fc.safeToSpend - bf.safeToSpend;
+    const col = d > 0 ? 'var(--green)' : d < 0 ? 'var(--red)' : 'var(--text3)';
+    return `<span style="font-family:var(--mono);font-size:10px;color:${col}"> (${fmt(d,true)} vs baseline)</span>`;
+  })() : '';
+
+  const shfWarn = fc.totalShf > 0
+    ? `<div style="background:rgba(255,69,58,.08);padding:6px 16px;border-top:1px solid rgba(255,69,58,.2)">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--red)">
+          ⚠ ${fc.periods.filter(p=>p.shortfall>0).length} period${fc.periods.filter(p=>p.shortfall>0).length!==1?'s':''} with shortfalls — review obligations below
+        </span>
+       </div>` : '';
+
+  const kpi = `<div class="kpi-card">
+    <div class="kpi-bar">
+      <div class="kpi">
+        <div class="kpi-lbl">Start Balance</div>
+        <div class="kpi-val">${fmt(fc.startBal)}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Total Income</div>
+        <div class="kpi-val" style="color:var(--green)">${fmt(fc.totalInc)}</div>
+        <div class="kpi-sub">${fc.periods.length} paydays</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Obligations</div>
+        <div class="kpi-val">${fmt(fc.totalObl)}</div>
+        <div class="kpi-sub">${fc.totalShf>0?`<span style="color:var(--red)">-${fmt(fc.totalShf)} unfunded</span>`:'fully covered'}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Safe to Spend${deltaLine}</div>
+        <div class="kpi-val" style="color:${fc.safeToSpend>0?'var(--accent)':'var(--red)'}">${fmt(fc.safeToSpend)}</div>
+        <div class="kpi-sub" style="color:var(--text3)">End bal ${fmt(fc.endBal)}</div>
+      </div>
+    </div>
+    ${shfWarn}
+  </div>`;
+
+  const cards = fc.periods.map(p => renderPeriod(p, bf)).join('');
+
+  return `${ctrl}${kpi}<div class="periods">${cards}</div>`;
+}
+
+function renderPeriod(p, bf) {
+  const open = S.expanded.has(p.id);
+
+  // build obligations list
+  const oblLines = p.obligations.map(o => {
+    const dueStr = o.dueDate ? `due ${fmtDate(o.dueDate)}` : `÷${Math.round(1/(o.amount/o.eff||1))}`;
+    return `<div class="bkt-line">
+      <div><span class="bl-name">${esc(o.name)}</span><span class="bl-due">${dueStr}</span></div>
+      <span class="bl-amt">${fmt(o.amount)}</span>
+    </div>`;
+  }).join('');
+
+  const badge = p.shortfall > 0
+    ? `<span class="pc-badge shf">−${fmt(p.shortfall)} short</span>`
+    : `<span class="pc-badge ok">+${fmt(p.surplus)} surplus</span>`;
+
+  const totals = `<div class="pc-totals">
+    <div class="tot"><span class="tot-lbl">Income</span><span class="tot-val" style="color:var(--green)">${fmt(p.income)}</span></div>
+    <div class="tot"><span class="tot-lbl">Obligations</span><span class="tot-val">${fmt(p.totalObl)}</span></div>
+    ${p.shortfall > 0
+      ? `<div class="tot"><span class="tot-lbl">Shortfall</span><span class="tot-val" style="color:var(--red)">−${fmt(p.shortfall)}</span></div>`
+      : `<div class="tot"><span class="tot-lbl">Surplus</span><span class="tot-val" style="color:var(--green)">+${fmt(p.surplus)}</span></div>`
+    }
+    <div class="tot"><span class="tot-lbl">Running Bal</span><span class="tot-val" style="color:${p.bal<0?'var(--red)':'var(--text)'}">${fmt(p.bal)}</span></div>
+  </div>`;
+
+  return `<div class="pc${p.shortfall>0?' shf':''}${open?' open':''}" data-pid="${p.id}">
+    <div class="pc-head" data-a="toggle-period" data-pid="${p.id}">
+      <span class="pc-chev">▶</span>
+      <span class="pc-date">${fmtDate(p.date)}</span>
+      <span class="pc-dow">${fmtDow(p.date)}</span>
+      <span class="pc-sp"></span>
+      ${badge}
+      <span style="width:10px"></span>
+      <span class="pc-inc">${fmt(p.income)}</span>
+      <span style="width:8px"></span>
+      <span class="pc-bal" style="color:${p.bal<0?'var(--red)':'var(--text3)'}">bal ${fmt(p.bal)}</span>
+    </div>
+    <div class="pc-body">
+      ${oblLines}
+      ${totals}
+    </div>
+  </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Event handling (delegated)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function bindEvents() {
+  const app = document.getElementById('app');
+  app.addEventListener('click', handleClick);
+  app.addEventListener('input', handleInput);
+  app.addEventListener('keydown', handleKeydown);
+  app.addEventListener('blur', handleBlur, true);
+}
+
+function scByIdMut(id) {
+  // returns the scenario for mutation (direct reference)
+  return S.scenarios.find(s => s.id === id);
+}
+
+function handleClick(e) {
+  const el = e.target.closest('[data-a]');
+  if (!el) return;
+  const a  = el.dataset.a;
+  const sc = active();
+
+  if (a === 'select') {
+    e.stopPropagation();
+    S.activeId = el.dataset.id;
+    S.renaming = null;
+    render(); return;
+  }
+  if (a === 'del-sc') {
+    e.stopPropagation();
+    const id = el.dataset.id;
+    S.scenarios = S.scenarios.filter(s => s.id !== id);
+    if (S.activeId === id) S.activeId = 'baseline';
+    render(); return;
+  }
+  if (a === 'new-sc') {
+    const id = 'sc-' + Date.now();
+    S.scenarios.push({id, name:'New Scenario', isBaseline:false,
+      paydayOv:{}, bucketOv:{}, offBuckets:[], extraPds:[], extraBkts:[]});
+    S.activeId = id;
+    S.renaming = id;
+    render(); return;
+  }
+  if (a === 'rename-start') {
+    e.stopPropagation();
+    S.renaming = el.dataset.id;
+    render();
+    document.querySelector('.name-in')?.select();
+    return;
+  }
+  if (a === 'range') {
+    S.range = parseInt(el.dataset.n);
+    render(); return;
+  }
+  if (a === 'toggle-period') {
+    const pid = el.dataset.pid;
+    S.expanded.has(pid) ? S.expanded.delete(pid) : S.expanded.add(pid);
+    render(); return;
+  }
+  if (a === 'pd-reset') {
+    const m = scByIdMut(sc.id);
+    delete m.paydayOv[el.dataset.pd];
+    render(); return;
+  }
+  if (a === 'bkt-tog') {
+    const m   = scByIdMut(sc.id);
+    const bid = el.dataset.bkt;
+    const off = m.offBuckets || [];
+    if (off.includes(bid)) m.offBuckets = off.filter(x=>x!==bid);
+    else m.offBuckets = [...off, bid];
+    render(); return;
+  }
+  if (a === 'add-xpd') {
+    const m = scByIdMut(sc.id);
+    m.extraPds.push({day:'', amount:''});
+    render(); return;
+  }
+  if (a === 'del-xpd') {
+    const m = scByIdMut(sc.id);
+    m.extraPds.splice(parseInt(el.dataset.i), 1);
+    render(); return;
+  }
+  if (a === 'add-xbkt') {
+    const m = scByIdMut(sc.id);
+    m.extraBkts.push({name:'', target:'', due:''});
+    render(); return;
+  }
+  if (a === 'del-xbkt') {
+    const m = scByIdMut(sc.id);
+    m.extraBkts.splice(parseInt(el.dataset.i), 1);
+    render(); return;
+  }
+}
+
+function handleInput(e) {
+  const el = e.target;
+  const a  = el.dataset.a;
+  if (!a) return;
+  const sc = scByIdMut(active().id);
+  if (!sc) return;
+
+  if (a === 'pd-ov') {
+    const val = parseFloat(el.value);
+    debounce('pd-'+el.dataset.pd, () => {
+      if (!isNaN(val) && val > 0) sc.paydayOv[el.dataset.pd] = val;
+      else delete sc.paydayOv[el.dataset.pd];
+      render();
+    });
+    // live visual feedback without full re-render
+    el.classList.toggle('ov', el.value !== '');
+    return;
+  }
+  if (a === 'bkt-ov') {
+    const val = parseFloat(el.value);
+    debounce('bkt-'+el.dataset.bkt, () => {
+      const orig = BASE_BUCKETS.find(b=>b.id===el.dataset.bkt);
+      if (!isNaN(val) && orig && val !== orig.target) sc.bucketOv[el.dataset.bkt] = val;
+      else if (!isNaN(val) && val >= 0) sc.bucketOv[el.dataset.bkt] = val;
+      render();
+    });
+    el.classList.toggle('ov', el.value !== '');
+    return;
+  }
+  if (a === 'xpd-day') {
+    sc.extraPds[parseInt(el.dataset.i)].day = el.value;
+    debounce('xpd-'+el.dataset.i, () => render());
+    return;
+  }
+  if (a === 'xpd-amt') {
+    sc.extraPds[parseInt(el.dataset.i)].amount = el.value;
+    debounce('xpd-amt-'+el.dataset.i, () => render());
+    return;
+  }
+  if (a === 'xbkt-name') {
+    sc.extraBkts[parseInt(el.dataset.i)].name = el.value;
+    debounce('xbn-'+el.dataset.i, () => render());
+    return;
+  }
+  if (a === 'xbkt-amt') {
+    sc.extraBkts[parseInt(el.dataset.i)].target = el.value;
+    debounce('xba-'+el.dataset.i, () => render());
+    return;
+  }
+  if (a === 'xbkt-due') {
+    sc.extraBkts[parseInt(el.dataset.i)].due = el.value;
+    debounce('xbd-'+el.dataset.i, () => render());
+    return;
+  }
+  if (a === 'rename-commit') {
+    sc.name = el.value.trim() || sc.name;
+  }
+}
+
+function handleKeydown(e) {
+  if (e.key === 'Enter') {
+    const el = e.target;
+    if (el.dataset.a === 'rename-commit') {
+      const sc = scByIdMut(el.dataset.id);
+      if (sc) sc.name = el.value.trim() || sc.name;
+      S.renaming = null;
+      render();
+    }
+    if (el.dataset.a === 'pd-ov' || el.dataset.a === 'bkt-ov') {
+      clearTimeout(_debTimers['pd-'+el.dataset.pd]);
+      clearTimeout(_debTimers['bkt-'+el.dataset.bkt]);
+      const sc = scByIdMut(active().id);
+      if (!sc) return;
+      if (el.dataset.a === 'pd-ov') {
+        const v = parseFloat(el.value);
+        if (!isNaN(v) && v > 0) sc.paydayOv[el.dataset.pd] = v;
+        else delete sc.paydayOv[el.dataset.pd];
+      } else {
+        const v = parseFloat(el.value);
+        if (!isNaN(v)) sc.bucketOv[el.dataset.bkt] = v;
+      }
+      render();
+    }
+  }
+  if (e.key === 'Escape' && S.renaming) {
+    S.renaming = null;
+    render();
+  }
+}
+
+function handleBlur(e) {
+  const el = e.target;
+  if (el.dataset.a === 'rename-commit') {
+    const sc = scByIdMut(el.dataset.id);
+    if (sc) sc.name = el.value.trim() || sc.name;
+    S.renaming = null;
+    // defer to avoid conflict with click
+    setTimeout(() => render(), 80);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Boot
+// ─────────────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
