@@ -107,6 +107,49 @@ PANEL_STYLE = {
 
 MONO_STYLE = {"font_family": MONO}
 
+# Timeline / What-If panel styles
+PANEL_HDR = {
+    "height": "44px",
+    "min_height": "44px",
+    "display": "flex",
+    "align_items": "center",
+    "padding": "0 14px",
+    "cursor": "pointer",
+    "background": BG2,
+    "border_bottom": f"1px solid {BORDER}",
+    "user_select": "none",
+    "_hover": {"background": BG3},
+    "_active": {"opacity": "0.85"},
+}
+
+GRID_NAME_CELL = {
+    "position": "sticky",
+    "left": "0",
+    "z_index": "5",
+    "background": BG,
+    "border_right": f"1px solid {BORDER}",
+    "min_width": "160px",
+    "max_width": "160px",
+    "padding": "6px 10px",
+    "white_space": "nowrap",
+    "overflow": "hidden",
+    "text_overflow": "ellipsis",
+}
+
+GRID_CELL = {
+    "min_width": "100px",
+    "max_width": "120px",
+    "height": "38px",
+    "padding": "0 8px",
+    "cursor": "pointer",
+    "position": "relative",
+    "text_align": "right",
+    "vertical_align": "middle",
+    "white_space": "nowrap",
+    "border_right": f"1px solid {BORDER}",
+    "_hover": {"background": BG3},
+}
+
 
 def pill_color(pill: str) -> str:
     return {

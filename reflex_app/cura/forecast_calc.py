@@ -9,6 +9,39 @@ from .formulas import (acct_balance as _acct_balance, is_scheduled as _is_schedu
                        b_alloc, b_spent, rollover_bal_raw)
 
 
+# ── Timeline helpers ──────────────────────────────────────────────────────────
+
+def ym_key(year: int, month: int) -> str:
+    """Canonical month key used by wi_timeline: '2026-9'."""
+    return f"{year}-{month}"
+
+
+def ym_int(key) -> float:
+    """Convert 'YYYY-M' key (or None) to a sortable integer for comparison."""
+    if not key:
+        return float("-inf")
+    try:
+        parts = str(key).split("-")
+        return int(parts[0]) * 12 + int(parts[1])
+    except (IndexError, ValueError):
+        return float("-inf")
+
+
+def get_timeline_rule(timeline: dict, bid: str, year: int, month: int):
+    """Return the applicable timeline rule for bucket *bid* in (year, month), or None."""
+    rules = timeline.get(bid, [])
+    if not rules:
+        return None
+    cur = year * 12 + month
+    applicable = None
+    for r in sorted(rules, key=lambda r: ym_int(r.get("from"))):
+        if ym_int(r.get("from")) <= cur:
+            applicable = r
+        else:
+            break
+    return applicable
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _mid(d: date) -> str:
@@ -193,7 +226,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      rule_overrides: dict = None,
                      off_buckets: list = None,
                      schedule: dict = None,
-                     due_day_overrides: dict = None) -> dict:
+                     due_day_overrides: dict = None,
+                     timeline: dict = None) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -295,13 +329,19 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     monthly_budgets = {m.get("id", ""): m.get("budgets", {}) for m in months_raw}
     today_mid = _mid(today)
 
-    def _effective_bill_amt(b: dict) -> float:
+    def _effective_bill_amt(b: dict, for_year: int = 0, for_month: int = 0) -> float:
         bid = b["id"]
+        base = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        if timeline and for_year and for_month:
+            rule = get_timeline_rule(timeline, bid, for_year, for_month)
+            if rule is not None:
+                if not rule.get("enabled", True):
+                    return 0.0
+                if rule.get("amount") is not None:
+                    return float(rule["amount"])
         if bid in bucket_overrides:
-            raw = bucket_overrides[bid]
-            base = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
-            return _apply_expr(base, str(raw))
-        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+            return _apply_expr(base, str(bucket_overrides[bid]))
+        return base
 
     def _funded(bid: str, bill_date: date) -> bool:
         mid_    = _mid(bill_date)
@@ -387,7 +427,13 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                 return
             if schedule.get(f"{b['id']}_{_mid(bd)}", "on") == "off":
                 return
-            amt   = _effective_bill_amt(b)
+            if timeline:
+                rule = get_timeline_rule(timeline, b["id"], bd.year, bd.month)
+                if rule is not None and not rule.get("enabled", True):
+                    return
+            amt = _effective_bill_amt(b, bd.year, bd.month)
+            if amt <= 0:
+                return
             entry = {"name": b["name"], "amount": amt}
             if _funded(b["id"], bd):
                 funded_by_day.setdefault(bd, []).append(entry)
@@ -656,7 +702,8 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
 
 def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: dict = None,
                    off_buckets: list = None, income_override: float = 0.0,
-                   schedule: dict = None, due_day_overrides: dict = None) -> list[dict]:
+                   schedule: dict = None, due_day_overrides: dict = None,
+                   timeline: dict = None) -> list[dict]:
     """
     Returns list of 6 monthly dicts for the What-If bar chart.
     Each dict: {label, income, bills, surplus, surplus_positive}
@@ -669,9 +716,16 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
     paychecks         = data.get("paychecks", [])
     buckets           = data.get("buckets", [])
 
-    def _eff_bill(b: dict) -> float:
+    def _eff_bill(b: dict, for_year: int = 0, for_month: int = 0) -> float:
         bid  = b["id"]
         base = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        if timeline and for_year and for_month:
+            rule = get_timeline_rule(timeline, bid, for_year, for_month)
+            if rule is not None:
+                if not rule.get("enabled", True):
+                    return 0.0
+                if rule.get("amount") is not None:
+                    return float(rule["amount"])
         if bid in bucket_overrides:
             return _apply_expr(base, str(bucket_overrides[bid]))
         return base
@@ -710,14 +764,22 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
         for b in active_dated:
             if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
                 continue
+            if timeline:
+                rule = get_timeline_rule(timeline, b["id"], yr, cal_m)
+                if rule is not None and not rule.get("enabled", True):
+                    continue
             eff_due = due_day_overrides.get(b["id"]) or b.get("dueDay")
             dates = _bill_dates(eff_due, b.get("payFreq"), m_start, m_end)
-            month_bills += _eff_bill(b) * len(dates)
+            month_bills += _eff_bill(b, yr, cal_m) * len(dates)
         for b in active_freq:
             if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
                 continue
+            if timeline:
+                rule = get_timeline_rule(timeline, b["id"], yr, cal_m)
+                if rule is not None and not rule.get("enabled", True):
+                    continue
             dates = _freq_only_dates(b["payFreq"], m_start, m_end)
-            month_bills += _eff_bill(b) * len(dates)
+            month_bills += _eff_bill(b, yr, cal_m) * len(dates)
 
         surplus = round(month_income - month_bills, 2)
         results.append({
@@ -730,3 +792,99 @@ def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: di
         })
 
     return results
+
+
+# ── Balance trajectory SVG ────────────────────────────────────────────────────
+
+def build_balance_svg(periods: list, width: int = 840, height: int = 120) -> str:
+    """Build a balance-over-time SVG from forecast period dicts."""
+    if not periods:
+        return ""
+
+    def _parse(s: str) -> float:
+        s = (s or "").strip().replace(",", "")
+        if s.startswith("-$") or (s.startswith("-") and len(s) > 1):
+            return -float(s.lstrip("-$").lstrip("-") or "0")
+        return float(s.lstrip("$") or "0")
+
+    # Use start_bal of first period + end_bal of every period
+    pts: list[float] = []
+    try:
+        pts.append(_parse(periods[0].get("start_bal_fmt", "0")))
+    except Exception:
+        pts.append(0.0)
+    for p in periods:
+        try:
+            pts.append(_parse(p.get("end_bal_fmt", "0")))
+        except Exception:
+            pts.append(0.0)
+
+    pad_l, pad_r, pad_t, pad_b = 32, 16, 12, 24
+    cw = width - pad_l - pad_r
+    ch = height - pad_t - pad_b
+
+    min_v = min(pts + [0])
+    max_v = max(pts + [0])
+    v_range = max_v - min_v or 1.0
+
+    n = len(pts)
+
+    def xp(i: int) -> float:
+        return pad_l + (i / max(n - 1, 1)) * cw
+
+    def yp(v: float) -> float:
+        return pad_t + (1.0 - (v - min_v) / v_range) * ch
+
+    zero_y = yp(0.0)
+    coords = [(xp(i), yp(v)) for i, v in enumerate(pts)]
+
+    # Area path
+    area_d = f"M {coords[0][0]:.1f},{zero_y:.1f}"
+    for cx, cy in coords:
+        area_d += f" L {cx:.1f},{cy:.1f}"
+    area_d += f" L {coords[-1][0]:.1f},{zero_y:.1f} Z"
+
+    # Line path
+    line_d = " ".join(f"{'M' if i == 0 else 'L'} {cx:.1f},{cy:.1f}"
+                      for i, (cx, cy) in enumerate(coords))
+
+    final_v = pts[-1]
+    line_col  = "#30D158" if final_v >= 0 else "#FF453A"
+    area_col  = "rgba(48,209,88,0.10)" if final_v >= 0 else "rgba(255,69,58,0.09)"
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'style="overflow:visible;font-family:\'JetBrains Mono\',monospace">'
+    ]
+
+    # Zero baseline
+    parts.append(
+        f'<line x1="{pad_l}" y1="{zero_y:.1f}" x2="{pad_l + cw}" y2="{zero_y:.1f}" '
+        f'stroke="rgba(255,255,255,0.10)" stroke-dasharray="4,4" stroke-width="1"/>'
+    )
+
+    # Area fill
+    parts.append(f'<path d="{area_d}" fill="{area_col}"/>')
+
+    # Line
+    parts.append(
+        f'<path d="{line_d}" stroke="{line_col}" stroke-width="2" fill="none" '
+        f'stroke-linejoin="round" stroke-linecap="round"/>'
+    )
+
+    # Dots + balance labels every other point
+    for i, (cx, cy) in enumerate(coords):
+        v = pts[i]
+        c = "#30D158" if v >= 0 else "#FF453A"
+        parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="3.5" fill="{c}" stroke="{c}" stroke-width="1"/>')
+        if i % 2 == 0 or i == n - 1:
+            lbl = f"${abs(v):,.0f}" if v >= 0 else f"-${abs(v):,.0f}"
+            anchor = "middle" if 0 < i < n - 1 else ("start" if i == 0 else "end")
+            y_off = cy - 8 if cy > pad_t + 18 else cy + 16
+            parts.append(
+                f'<text x="{cx:.1f}" y="{y_off:.1f}" text-anchor="{anchor}" '
+                f'font-size="9" fill="{c}" opacity="0.85">{lbl}</text>'
+            )
+
+    parts.append("</svg>")
+    return "".join(parts)

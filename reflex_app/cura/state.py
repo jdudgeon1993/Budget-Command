@@ -561,6 +561,22 @@ class AppState(rx.State):
     wi_scenario_name:        str       = ""
     wi_scenarios_rls_error:  bool      = False
 
+    # ── Timeline / new what-if vars ───────────────────────────────────────────
+    # {bid: [{from: "YYYY-M"|None, amount: float|None, enabled: bool}]}
+    wi_timeline:    dict       = {}
+    wi_life_events: list[dict] = []    # [{id, name, month, color}]
+    wi_panel_open:  dict       = {"chart": True, "grid": True, "periods": True}
+    wi_active_pd:   int        = -1
+    wi_rp_tab:      str        = "periods"   # "periods" | "intel"
+    # Cell popover state
+    wi_pop_open:       bool = False
+    wi_pop_bkt_id:     str  = ""
+    wi_pop_mkey:       str  = ""
+    wi_pop_apply_from: str  = ""
+    wi_pop_enabled:    bool = True
+    wi_pop_amount:     str  = ""
+    wi_balance_svg:    str  = ""
+
     # ── Forecast scenario overlay ─────────────────────────────────────────────
     fc_active_scenario_id:   str  = ""
     fc_active_scenario_name: str  = ""
@@ -862,6 +878,116 @@ class AppState(rx.State):
         n = self.fc_shortfall_count
         return f"⚠ {n} period{'s' if n != 1 else ''} with negative balance"
 
+    @rx.var
+    def wi_grid_months(self) -> list[dict[str, str]]:
+        """Six upcoming month headers for the timeline grid."""
+        from datetime import date
+        today = date.today()
+        out = []
+        for i in range(6):
+            m_idx = (today.month - 1 + i) % 12
+            yr    = today.year + (today.month - 1 + i) // 12
+            cal_m = m_idx + 1
+            d     = date(yr, cal_m, 1)
+            out.append({
+                "mkey":  f"{yr}-{cal_m}",
+                "label": d.strftime("%b '%y"),
+                "year":  str(yr),
+                "month": str(cal_m),
+            })
+        return out
+
+    @rx.var
+    def wi_grid_rows(self) -> list[dict[str, Any]]:
+        """Timeline grid rows — one per bucket with per-month cell states."""
+        from datetime import date
+        from .forecast_calc import get_timeline_rule
+        if not self._raw:
+            return []
+        today    = date.today()
+        buckets  = [b for b in self._raw.get("buckets", []) if not b.get("archived")]
+        cats     = sorted(self._raw.get("cats", []), key=lambda c: c.get("order", 0))
+        timeline = dict(self.wi_timeline)
+
+        months_6 = []
+        for i in range(6):
+            m_idx = (today.month - 1 + i) % 12
+            yr    = today.year + (today.month - 1 + i) // 12
+            cal_m = m_idx + 1
+            months_6.append((yr, cal_m, f"{yr}-{cal_m}"))
+
+        rows: list[dict[str, Any]] = []
+        for cat in cats:
+            cid      = cat["id"]
+            cat_bkts = sorted(
+                [b for b in buckets if b.get("catId") == cid
+                 and (b.get("dueDay") is not None or b.get("payFreq")
+                      or float(b.get("defaultBudget") or 0) > 0)],
+                key=lambda b: b.get("order", 0),
+            )
+            for b in cat_bkts:
+                bid      = b["id"]
+                base_amt = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+                cells: list[dict[str, str]] = []
+                prev_enabled = True
+                prev_amount  = base_amt
+                for yr, cal_m, mk in months_6:
+                    rule    = get_timeline_rule(timeline, bid, yr, cal_m) if timeline.get(bid) else None
+                    enabled = rule.get("enabled", True) if rule else True
+                    amt     = float(rule["amount"]) if (rule and rule.get("amount") is not None and enabled) else (base_amt if enabled else 0.0)
+                    if not enabled:
+                        tx_cls = "off"
+                    elif not prev_enabled and enabled:
+                        tx_cls = "start"
+                    elif abs(amt - prev_amount) > 0.005 and enabled:
+                        tx_cls = "chg"
+                    else:
+                        tx_cls = "on"
+                    cells.append({
+                        "mkey":       mk,
+                        "tx_class":   tx_cls,
+                        "enabled":    "1" if enabled else "",
+                        "amount_fmt": f"${amt:,.0f}" if (enabled and amt > 0) else ("—" if enabled else "off"),
+                    })
+                    prev_enabled = enabled
+                    prev_amount  = amt
+                rows.append({
+                    "bid":       bid,
+                    "name":      b.get("name", ""),
+                    "cat_color": cat.get("color", "#818cf8"),
+                    "due":       str(b.get("dueDay", "") or b.get("payFreq", "") or ""),
+                    "cells":     cells,
+                })
+        return rows
+
+    @rx.var
+    def wi_chart_open(self) -> bool:
+        return bool(self.wi_panel_open.get("chart", True))
+
+    @rx.var
+    def wi_grid_open(self) -> bool:
+        return bool(self.wi_panel_open.get("grid", True))
+
+    @rx.var
+    def wi_periods_open(self) -> bool:
+        return bool(self.wi_panel_open.get("periods", True))
+
+    @rx.var
+    def wi_pop_rules(self) -> list[dict[str, str]]:
+        """Timeline rules for the currently-open cell popover bucket."""
+        bid   = self.wi_pop_bkt_id
+        rules = self.wi_timeline.get(bid, [])
+        out   = []
+        for i, r in enumerate(rules):
+            from_lbl = r.get("from") or "Default"
+            out.append({
+                "idx":        str(i),
+                "from_label": from_lbl,
+                "amount_fmt": f"${float(r.get('amount') or 0):,.0f}" if r.get("amount") is not None else "—",
+                "enabled":    "1" if r.get("enabled", True) else "",
+            })
+        return out
+
     # ─────────────────────────────────────────────────────────────────────────
     #  Forecast events
     # ─────────────────────────────────────────────────────────────────────────
@@ -915,6 +1041,8 @@ class AppState(rx.State):
         if tab == "timeline":
             self._run_timeline()
         elif tab == "whatif":
+            if not self.wi_timeline:
+                self._init_baseline_timeline()
             self._build_wi_bucket_rows()
             self._build_wi_rules_rows()
             self._run_whatif()
@@ -992,8 +1120,14 @@ class AppState(rx.State):
         self.wi_sts_color         = "#818cf8"
         self.wi_shortfall_count   = 0
         self.wi_chart_svg         = ""
+        self.wi_timeline          = {}
+        self.wi_life_events       = []
+        self.wi_active_pd         = -1
+        self.wi_pop_open          = False
+        self.wi_balance_svg       = ""
         self._build_wi_bucket_rows()
         self._build_wi_rules_rows()
+        self._init_baseline_timeline()
 
     def toggle_wi_month_schedule(self, key: str):
         """key = '{bid}_{mid}' — toggle on/off for that bucket+month."""
@@ -1082,17 +1216,27 @@ class AppState(rx.State):
         self.forecast_periods = _build_forecast_periods(result["periods"], set(self.fc_open_pids))
 
     def _update_wi_active(self):
+        # Check if timeline has any non-default rules
+        tl_active = any(
+            any(r.get("from") is not None or not r.get("enabled", True)
+                or (r.get("amount") is not None and abs(float(r.get("amount") or 0)
+                    - float((next((b for b in (self._raw.get("buckets", []) if self._raw else [])
+                                  if b["id"] == bid), {}) or {}).get("defaultBudget") or 0)) > 0.01)
+                for r in rules)
+            for bid, rules in (self.wi_timeline or {}).items()
+        )
         self.wi_active = bool(
             self.wi_income_str.strip() or
             self.wi_bucket_overrides or
             self.wi_rule_overrides or
             self.wi_off_buckets or
             self.wi_schedule or
-            self.wi_due_day_overrides
+            self.wi_due_day_overrides or
+            tl_active
         )
 
     def _run_whatif(self):
-        from .forecast_calc import compute_forecast
+        from .forecast_calc import compute_forecast, build_balance_svg
         if not self._raw:
             return
         income_ov = 0.0
@@ -1100,6 +1244,7 @@ class AppState(rx.State):
             income_ov = float(self.wi_income_str.replace(",", "").replace("$", ""))
         except Exception:
             pass
+        tl = dict(self.wi_timeline) if self.wi_timeline else None
         result = compute_forecast(
             self._raw, self.forecast_range, self.forecast_account,
             income_override=income_ov,
@@ -1108,6 +1253,7 @@ class AppState(rx.State):
             off_buckets=list(self.wi_off_buckets),
             schedule=dict(self.wi_schedule),
             due_day_overrides={k: int(v) for k, v in self.wi_due_day_overrides.items() if v},
+            timeline=tl,
         )
         self.wi_start_bal       = result["start_balance"]
         self.wi_total_income    = result["total_income"]
@@ -1116,6 +1262,7 @@ class AppState(rx.State):
         self.wi_sts_color       = result["sts_color"]
         self.wi_shortfall_count = result["shortfall_count"]
         self.wi_periods         = _build_forecast_periods(result["periods"])
+        self.wi_balance_svg     = build_balance_svg(result["periods"])
 
     def _build_wi_bucket_rows(self):
         """Build category-grouped bucket list for the What-If editor."""
@@ -1327,6 +1474,8 @@ class AppState(rx.State):
             "_income":             self.wi_income_str,
             "_schedule":           dict(self.wi_schedule),
             "_due_day_overrides":  dict(self.wi_due_day_overrides),
+            "_timeline":           dict(self.wi_timeline),
+            "_life_events":        list(self.wi_life_events),
         }
         try:
             if self.wi_active_scenario_id:
@@ -1367,6 +1516,11 @@ class AppState(rx.State):
             self.wi_income_str         = allocs.get("_income", "")
             self.wi_schedule           = allocs.get("_schedule", {})
             self.wi_due_day_overrides  = allocs.get("_due_day_overrides", {})
+            if "_timeline" in allocs:
+                self.wi_timeline   = allocs["_timeline"]
+            else:
+                self._init_baseline_timeline()
+            self.wi_life_events        = allocs.get("_life_events", [])
             self.wi_active_scenario_id = sid
             self.wi_scenario_name      = sc["name"]
             self._update_wi_active()
@@ -1386,6 +1540,109 @@ class AppState(rx.State):
             yield rx.toast.success("Scenario deleted")
         except Exception as e:
             yield rx.toast.error(f"Delete failed: {e}")
+
+    # ── Timeline / cell-popover event handlers ────────────────────────────────
+
+    def _init_baseline_timeline(self):
+        """Seed wi_timeline from real bucket defaults so the grid starts populated."""
+        if not self._raw:
+            return
+        timeline: dict = {}
+        for b in self._raw.get("buckets", []):
+            if b.get("archived"):
+                continue
+            amt = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+            if amt <= 0 and not b.get("dueDay") and not b.get("payFreq"):
+                continue
+            timeline[b["id"]] = [{"from": None, "amount": amt, "enabled": True}]
+        self.wi_timeline = timeline
+
+    def open_cell_pop(self, bid: str, mkey: str):
+        """Open the cell popover for bucket `bid` at month `mkey`."""
+        from .forecast_calc import get_timeline_rule
+        tl   = dict(self.wi_timeline)
+        rule = get_timeline_rule(tl, bid, *[int(p) for p in mkey.split("-")])
+        self.wi_pop_bkt_id     = bid
+        self.wi_pop_mkey       = mkey
+        self.wi_pop_apply_from = mkey
+        self.wi_pop_enabled    = rule.get("enabled", True) if rule else True
+        self.wi_pop_amount     = str(rule["amount"]) if (rule and rule.get("amount") is not None) else ""
+        self.wi_pop_open       = True
+
+    def close_cell_pop(self, _open: bool = False):
+        self.wi_pop_open = False
+
+    def set_pop_apply_from(self, mkey: str):
+        self.wi_pop_apply_from = mkey
+
+    def set_pop_amount(self, v: str):
+        self.wi_pop_amount = v
+
+    def set_pop_enabled(self, v: bool):
+        self.wi_pop_enabled = v
+
+    def apply_pop_rule(self):
+        """Add or update a timeline rule from the popover."""
+        bid        = self.wi_pop_bkt_id
+        apply_from = self.wi_pop_apply_from or None
+        amt_str    = self.wi_pop_amount.strip().replace(",", "").replace("$", "")
+        amt: float | None = None
+        try:
+            amt = float(amt_str)
+        except (ValueError, TypeError):
+            # Use bucket's default amount
+            if self._raw:
+                b = next((b for b in self._raw.get("buckets", []) if b["id"] == bid), None)
+                if b:
+                    amt = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+
+        timeline = dict(self.wi_timeline)
+        rules    = list(timeline.get(bid, []))
+
+        # Remove any existing rule with same `from`
+        rules = [r for r in rules if r.get("from") != apply_from]
+        rules.append({"from": apply_from, "amount": amt, "enabled": self.wi_pop_enabled})
+
+        # Sort: None first, then chronological
+        from .forecast_calc import ym_int
+        rules.sort(key=lambda r: ym_int(r.get("from")))
+        timeline[bid]     = rules
+        self.wi_timeline  = timeline
+        self.wi_pop_open  = False
+        self._update_wi_active()
+        self._run_whatif()
+
+    def del_wi_timeline_rule(self, bid: str, rule_idx: str):
+        """Delete a single timeline rule by index (string for Reflex event compat)."""
+        try:
+            idx = int(rule_idx)
+        except (ValueError, TypeError):
+            return
+        timeline = dict(self.wi_timeline)
+        rules    = list(timeline.get(bid, []))
+        if 0 <= idx < len(rules):
+            rules.pop(idx)
+        if rules:
+            timeline[bid] = rules
+        else:
+            timeline.pop(bid, None)
+        self.wi_timeline = timeline
+        self._update_wi_active()
+        self._run_whatif()
+
+    def toggle_wi_panel(self, key: str):
+        """Toggle a collapsible panel open/closed."""
+        panels = dict(self.wi_panel_open)
+        panels[key] = not panels.get(key, True)
+        self.wi_panel_open = panels
+
+    def set_wi_rp_tab(self, tab: str):
+        self.wi_rp_tab = tab
+
+    def set_wi_active_pd(self, idx: int):
+        self.wi_active_pd = -1 if self.wi_active_pd == idx else idx
+
+    # ── Private helpers ───────────────────────────────────────────────────────
 
     def _refresh_forecast_accounts(self):
         from .formulas import acct_balance
