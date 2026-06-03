@@ -1,1189 +1,414 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="1">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Cura 2.0 — Design Direction</title>
+  <title>Cura — 5 Design Directions</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --sidebar:        #12121E;
-      --sidebar-hover:  #1C1C2E;
-      --sidebar-active: rgba(91,91,214,0.14);
-      --sidebar-border: rgba(255,255,255,0.07);
 
-      --bg:         #F5F5FB;
-      --surface:    #FFFFFF;
-      --surface2:   #F0F0F8;
-      --border:     rgba(0,0,0,0.08);
-      --shadow-sm:  0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
-      --shadow-md:  0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
+/* ══════════════════════════════════════════════════════════
+   THEME TOKENS
+══════════════════════════════════════════════════════════ */
 
-      --text:       #0F0F1C;
-      --text2:      #6B6B8A;
-      --text3:      #A0A0BC;
+:root, [data-theme="1"] {
+  --sidebar:           #12121E;
+  --sidebar-hover:     rgba(255,255,255,0.05);
+  --sidebar-active-bg: rgba(91,91,214,0.14);
+  --sidebar-border:    rgba(255,255,255,0.07);
+  --nav-active:        #AFAFFF;
+  --rts-sidebar:       #8B8BFF;
+  --bg:       #F5F5FB;
+  --surface:  #FFFFFF;
+  --surface2: #F0F0F8;
+  --border:   rgba(0,0,0,0.08);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
+  --text:  #0F0F1C;  --text2: #6B6B8A;  --text3: #A0A0BC;
+  --accent:     #5B5BD6;
+  --accent-dim: rgba(91,91,214,0.10);
+  --accent-glow: rgba(91,91,214,0.28);
+  --alloc:      #5B5BD6;
+  --green:  #16A34A; --green-dim:  rgba(22,163,74,0.09);
+  --red:    #DC2626; --red-dim:    rgba(220,38,38,0.08);
+  --amber:  #D97706; --amber-dim:  rgba(217,119,6,0.09);
+  --hero-bg:      linear-gradient(135deg,#111128 0%,#1C1C3A 100%);
+  --hero-glow:    rgba(91,91,214,0.25);
+  --rts-hero-amt: #ffffff;
+  --r-xs:4px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:20px;
+  --sans: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --page-bg:    #DCDCEE;
+  --page-label: #7070A0;
+  --bar-bg:     rgba(12,12,22,0.96);
+  --bar-border: rgba(255,255,255,0.10);
+}
 
-      --accent:     #5B5BD6;
-      --accent-dim: rgba(91,91,214,0.10);
+[data-theme="2"] {
+  --sidebar:           #000000;
+  --sidebar-hover:     rgba(255,255,255,0.05);
+  --sidebar-active-bg: rgba(79,133,255,0.12);
+  --sidebar-border:    rgba(255,255,255,0.06);
+  --nav-active:        #80AAFF;
+  --rts-sidebar:       #5588FF;
+  --bg:       #0D0D18;
+  --surface:  #141424;
+  --surface2: #1C1C30;
+  --border:   rgba(255,255,255,0.07);
+  --shadow-sm: 0 1px 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.5);
+  --shadow-md: 0 8px 32px rgba(0,0,0,0.7);
+  --text:  #E8E8FF;  --text2: #7070A0;  --text3: #484880;
+  --accent:     #4F85FF;
+  --accent-dim: rgba(79,133,255,0.12);
+  --accent-glow: rgba(79,133,255,0.30);
+  --alloc:      #7AACFF;
+  --green:  #34D399; --green-dim:  rgba(52,211,153,0.10);
+  --red:    #F87171; --red-dim:    rgba(248,113,113,0.10);
+  --amber:  #FCD34D; --amber-dim:  rgba(252,211,77,0.10);
+  --hero-bg:      linear-gradient(135deg,#000010 0%,#070720 100%);
+  --hero-glow:    rgba(79,133,255,0.30);
+  --rts-hero-amt: #ffffff;
+  --r-xs:4px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:20px;
+  --sans: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --page-bg:    #040408;
+  --page-label: #404060;
+  --bar-bg:     rgba(0,0,0,0.97);
+  --bar-border: rgba(255,255,255,0.08);
+}
 
-      --green:      #16A34A;
-      --green-dim:  rgba(22,163,74,0.09);
-      --red:        #DC2626;
-      --red-dim:    rgba(220,38,38,0.08);
-      --amber:      #D97706;
-      --amber-dim:  rgba(217,119,6,0.09);
-      --violet:     #7C3AED;
+[data-theme="3"] {
+  --sidebar:           #000000;
+  --sidebar-hover:     rgba(0,208,132,0.07);
+  --sidebar-active-bg: rgba(0,208,132,0.12);
+  --sidebar-border:    rgba(0,208,132,0.18);
+  --nav-active:        #00D084;
+  --rts-sidebar:       #00D084;
+  --bg:       #050505;
+  --surface:  #0A0A0A;
+  --surface2: #111111;
+  --border:   rgba(0,208,132,0.18);
+  --shadow-sm: 0 0 0 1px rgba(0,208,132,0.15);
+  --shadow-md: 0 0 0 1px rgba(0,208,132,0.2), 0 4px 20px rgba(0,208,132,0.07);
+  --text:  #00D084;  --text2: rgba(0,208,132,0.60);  --text3: rgba(0,208,132,0.35);
+  --accent:     #00D084;
+  --accent-dim: rgba(0,208,132,0.08);
+  --accent-glow: rgba(0,208,132,0.30);
+  --alloc:      #00D084;
+  --green:  #00D084; --green-dim:  rgba(0,208,132,0.08);
+  --red:    #FF4444; --red-dim:    rgba(255,68,68,0.08);
+  --amber:  #FFB800; --amber-dim:  rgba(255,184,0,0.08);
+  --hero-bg:      linear-gradient(135deg,#001A0D 0%,#002817 100%);
+  --hero-glow:    rgba(0,208,132,0.35);
+  --rts-hero-amt: #00D084;
+  --r-xs:2px; --r-sm:2px; --r-md:2px; --r-lg:2px; --r-pill:2px;
+  --sans: 'JetBrains Mono', monospace;
+  --mono: 'JetBrains Mono', monospace;
+  --page-bg:    #000000;
+  --page-label: rgba(0,208,132,0.35);
+  --bar-bg:     #000000;
+  --bar-border: rgba(0,208,132,0.20);
+}
 
-      --sans: 'Inter', system-ui, sans-serif;
-      --mono: 'JetBrains Mono', monospace;
+[data-theme="4"] {
+  --sidebar:           #1C2B1C;
+  --sidebar-hover:     rgba(255,255,255,0.06);
+  --sidebar-active-bg: rgba(74,120,74,0.20);
+  --sidebar-border:    rgba(255,255,255,0.07);
+  --nav-active:        #8FCC8F;
+  --rts-sidebar:       #7ABF7A;
+  --bg:       #FAF8F3;
+  --surface:  #FFFFFF;
+  --surface2: #F5F2EA;
+  --border:   rgba(0,0,0,0.07);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+  --text:  #1A1A0A;  --text2: #6B6B3A;  --text3: #A09A72;
+  --accent:     #B45309;
+  --accent-dim: rgba(180,83,9,0.09);
+  --accent-glow: rgba(180,83,9,0.22);
+  --alloc:      #B45309;
+  --green:  #2D7A3A; --green-dim:  rgba(45,122,58,0.09);
+  --red:    #B91C1C; --red-dim:    rgba(185,28,28,0.08);
+  --amber:  #B45309; --amber-dim:  rgba(180,83,9,0.09);
+  --hero-bg:      linear-gradient(135deg,#1C2B1C 0%,#243824 100%);
+  --hero-glow:    rgba(120,185,120,0.22);
+  --rts-hero-amt: #A8D8A8;
+  --r-xs:4px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:20px;
+  --sans: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --page-bg:    #E8E4D8;
+  --page-label: #8A7A52;
+  --bar-bg:     rgba(22,35,22,0.97);
+  --bar-border: rgba(255,255,255,0.10);
+}
 
-      --sidebar-w: 244px;
-      --hdr-h: 54px;
-    }
+[data-theme="5"] {
+  --sidebar:           #0C0C10;
+  --sidebar-hover:     rgba(255,255,255,0.05);
+  --sidebar-active-bg: rgba(191,90,242,0.15);
+  --sidebar-border:    rgba(255,255,255,0.06);
+  --nav-active:        #D8A4FF;
+  --rts-sidebar:       #BF5AF2;
+  --bg:       #0C0C10;
+  --surface:  rgba(255,255,255,0.05);
+  --surface2: rgba(255,255,255,0.08);
+  --border:   rgba(255,255,255,0.08);
+  --shadow-sm: 0 1px 0 rgba(255,255,255,0.05), 0 4px 24px rgba(191,90,242,0.08);
+  --shadow-md: 0 8px 40px rgba(191,90,242,0.18);
+  --text:  #FFFFFF;  --text2: #9090B8;  --text3: #606088;
+  --accent:     #BF5AF2;
+  --accent-dim: rgba(191,90,242,0.12);
+  --accent-glow: rgba(191,90,242,0.38);
+  --alloc:      #BF5AF2;
+  --green:  #30D158; --green-dim:  rgba(48,209,88,0.10);
+  --red:    #FF453A; --red-dim:    rgba(255,69,58,0.10);
+  --amber:  #FF9F0A; --amber-dim:  rgba(255,159,10,0.10);
+  --hero-bg:      linear-gradient(135deg,#1A0028 0%,#2A003C 100%);
+  --hero-glow:    rgba(191,90,242,0.40);
+  --rts-hero-amt: #E8B4FF;
+  --r-xs:4px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:20px;
+  --sans: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --page-bg:    #080810;
+  --page-label: #5050A0;
+  --bar-bg:     rgba(8,8,16,0.97);
+  --bar-border: rgba(191,90,242,0.20);
+}
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ══════════════════════════════════════════════════════════
+   RESET
+══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--page-bg); color: var(--text); -webkit-font-smoothing: antialiased; padding: 68px 0 80px; }
 
-    body {
-      font-family: var(--sans);
-      background: #DCDCEE;
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-      padding: 0 0 80px;
-    }
+/* Terminal: override sidebar text to green */
+[data-theme="3"] .brand-name, [data-theme="3"] .brand-sub,
+[data-theme="3"] .month-label, [data-theme="3"] .nav-item,
+[data-theme="3"] .sidebar-rts-sub, [data-theme="3"] .user-email,
+[data-theme="3"] .signout-btn { color: rgba(0,208,132,0.45); }
+[data-theme="3"] .nav-item:hover { color: rgba(0,208,132,0.8) !important; }
+[data-theme="3"] .month-arrow { color: rgba(0,208,132,0.30); }
 
-    /* ── Demo scaffolding ─────────────────────────────────────── */
-    .section-label {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #6868A0;
-      padding: 36px 0 14px;
-      text-align: center;
-    }
+/* ══════════════════════════════════════════════════════════
+   THEME BAR
+══════════════════════════════════════════════════════════ */
+#theme-bar {
+  position:fixed; top:0; left:0; right:0; z-index:1000;
+  height:56px; background:var(--bar-bg); border-bottom:1px solid var(--bar-border);
+  display:flex; align-items:stretch; padding:0 20px; gap:2px;
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+}
+.bar-brand { display:flex; align-items:center; gap:10px; padding-right:20px; margin-right:6px; border-right:1px solid var(--bar-border); flex-shrink:0; }
+.bar-logo { width:26px; height:26px; background:var(--accent); border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px var(--accent-glow); }
+.bar-wordmark { font-size:13px; font-weight:700; letter-spacing:0.12em; color:#fff; text-transform:uppercase; }
+.bar-tagline { font-size:10px; color:rgba(255,255,255,0.28); letter-spacing:0.06em; }
+.theme-btn {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:0 16px; min-width:108px; border:none; border-bottom:2px solid transparent;
+  background:none; cursor:pointer; gap:1px; font-family:var(--sans); transition:border-color 0.15s;
+}
+.t-num  { font-size:9px; font-family:'JetBrains Mono',monospace; letter-spacing:0.1em; color:rgba(255,255,255,0.25); }
+.t-name { font-size:13px; font-weight:600; color:rgba(255,255,255,0.38); white-space:nowrap; }
+.t-desc { font-size:10px; color:rgba(255,255,255,0.20); white-space:nowrap; }
+.theme-btn.active .t-name { color:#ffffff; }
+.theme-btn.active .t-desc { color:rgba(255,255,255,0.45); }
+.theme-btn.active { border-bottom-color:var(--accent); }
+.theme-btn:hover .t-name { color:rgba(255,255,255,0.65); }
 
-    /* ── Desktop frame ────────────────────────────────────────── */
-    .desktop-frame {
-      width: 1280px;
-      height: 760px;
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 32px 100px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.15);
-      display: flex;
-      margin: 0 auto;
-    }
-    .desktop-frame.tall { height: 700px; }
+/* ══════════════════════════════════════════════════════════
+   SCAFFOLDING
+══════════════════════════════════════════════════════════ */
+.section-label { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--page-label); padding:32px 0 16px; text-align:center; }
+.frame-scroll { overflow-x:auto; padding:0 20px 4px; }
+.desktop-frame { width:1280px; height:760px; border-radius:var(--r-lg); overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.4),0 0 0 1px rgba(0,0,0,0.2); display:flex; margin:0 auto; }
 
-    /* ── Sidebar ──────────────────────────────────────────────── */
-    .sidebar {
-      width: var(--sidebar-w);
-      background: var(--sidebar);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-      border-right: 1px solid var(--sidebar-border);
-    }
+/* ══════════════════════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════════════════════ */
+.sidebar { width:244px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--sidebar-border); display:flex; flex-direction:column; }
+.sidebar-brand { padding:20px 18px 16px; border-bottom:1px solid var(--sidebar-border); }
+.brand-row { display:flex; align-items:center; gap:10px; margin-bottom:5px; }
+.brand-icon { width:30px; height:30px; flex-shrink:0; background:var(--accent); border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px var(--accent-glow); }
+.brand-name { font-size:14px; font-weight:700; letter-spacing:0.14em; color:#fff; text-transform:uppercase; }
+.brand-sub  { font-size:11px; color:rgba(255,255,255,0.28); letter-spacing:0.07em; text-transform:uppercase; }
+.sidebar-rts { padding:14px 18px; border-bottom:1px solid var(--sidebar-border); }
+.sidebar-rts-lbl { font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.28); margin-bottom:3px; font-family:var(--mono); }
+.sidebar-rts-amt { font-family:var(--mono); font-size:28px; font-weight:600; color:var(--rts-sidebar); line-height:1; }
+.sidebar-rts-sub { font-size:11px; color:rgba(255,255,255,0.25); margin-top:3px; }
+.month-nav { display:flex; align-items:center; gap:4px; padding:8px 12px; border-bottom:1px solid var(--sidebar-border); }
+.month-arrow { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); color:rgba(255,255,255,0.30); font-size:15px; cursor:pointer; flex-shrink:0; }
+.month-label { flex:1; text-align:center; font-size:12px; color:rgba(255,255,255,0.42); letter-spacing:0.06em; font-family:var(--mono); }
+.sidebar-nav { flex:1; padding:10px; overflow-y:auto; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--r-sm); color:rgba(255,255,255,0.38); font-size:13px; font-weight:500; cursor:pointer; margin-bottom:1px; }
+.nav-item:hover { background:var(--sidebar-hover); color:rgba(255,255,255,0.65); }
+.nav-item.active { background:var(--sidebar-active-bg); color:var(--nav-active); }
+.nav-item svg { width:16px; height:16px; flex-shrink:0; }
+.sidebar-cta { margin:0 10px 10px; padding:12px; background:var(--accent); border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; gap:8px; color:#fff; font-size:12px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-family:var(--mono); cursor:pointer; box-shadow:0 4px 16px var(--accent-glow); }
+.sidebar-footer { display:flex; align-items:center; gap:9px; padding:11px 14px; border-top:1px solid var(--sidebar-border); }
+.user-avatar { width:28px; height:28px; border-radius:50%; flex-shrink:0; background:linear-gradient(135deg,var(--accent),#8B5CF6); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; }
+.user-email  { font-size:11px; color:rgba(255,255,255,0.28); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.signout-btn { font-size:11px; color:rgba(255,255,255,0.22); cursor:pointer; padding:3px 6px; }
 
-    .sidebar-brand {
-      padding: 20px 18px 16px;
-      border-bottom: 1px solid var(--sidebar-border);
-    }
-    .brand-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 5px;
-    }
-    .brand-icon {
-      width: 30px;
-      height: 30px;
-      background: var(--accent);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(91,91,214,0.4);
-    }
-    .brand-name {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      color: #fff;
-      text-transform: uppercase;
-    }
-    .brand-sub {
-      font-size: 11px;
-      color: rgba(255,255,255,0.28);
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
-    }
+/* ══════════════════════════════════════════════════════════
+   MAIN
+══════════════════════════════════════════════════════════ */
+.main { flex:1; background:var(--bg); display:flex; flex-direction:column; min-width:0; overflow-y:auto; }
+.main-header { position:sticky; top:0; height:54px; z-index:10; background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; gap:12px; }
+.hdr-panel { font-size:12px; font-weight:600; color:var(--text2); letter-spacing:0.10em; text-transform:uppercase; flex:1; font-family:var(--mono); }
+.panel-grid { padding:24px; display:grid; grid-template-columns:1fr 336px; gap:24px; align-items:start; }
+.right-sticky { position:sticky; top:calc(54px + 16px); }
 
-    /* RTS permanent in sidebar */
-    .sidebar-rts {
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--sidebar-border);
-    }
-    .sidebar-rts-lbl {
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.28);
-      margin-bottom: 3px;
-    }
-    .sidebar-rts-amt {
-      font-family: var(--mono);
-      font-size: 28px;
-      font-weight: 600;
-      color: #8B8BFF;
-      line-height: 1;
-      letter-spacing: -0.01em;
-    }
-    .sidebar-rts-sub {
-      font-size: 11px;
-      color: rgba(255,255,255,0.25);
-      margin-top: 3px;
-    }
+/* ══════════════════════════════════════════════════════════
+   CARDS
+══════════════════════════════════════════════════════════ */
+.card { background:var(--surface); border-radius:var(--r-md); box-shadow:var(--shadow-sm); border:1px solid var(--border); }
+.card-pad { padding:18px 20px; }
+.card-label { font-size:10px; letter-spacing:0.14em; text-transform:uppercase; font-weight:600; color:var(--text3); margin-bottom:14px; font-family:var(--mono); }
 
-    /* Month nav */
-    .month-nav {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--sidebar-border);
-    }
-    .month-arrow {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      color: rgba(255,255,255,0.3);
-      cursor: pointer;
-      font-size: 15px;
-      flex-shrink: 0;
-    }
-    .month-arrow:hover { background: var(--sidebar-hover); color: rgba(255,255,255,0.65); }
-    .month-label {
-      flex: 1;
-      text-align: center;
-      font-size: 12px;
-      color: rgba(255,255,255,0.42);
-      letter-spacing: 0.06em;
-    }
+/* ══════════════════════════════════════════════════════════
+   RTS HERO
+══════════════════════════════════════════════════════════ */
+.rts-hero { background:var(--hero-bg); border-radius:var(--r-lg); padding:20px; margin-bottom:12px; position:relative; overflow:hidden; }
+.rts-hero::before { content:''; position:absolute; top:-50px; right:-50px; width:180px; height:180px; border-radius:50%; background:radial-gradient(circle,var(--hero-glow) 0%,transparent 68%); }
+.rts-hero-lbl { font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(255,255,255,0.32); margin-bottom:5px; font-family:var(--mono); }
+.rts-hero-amt { font-family:var(--mono); font-size:46px; font-weight:700; color:var(--rts-hero-amt); line-height:1; letter-spacing:-0.02em; margin-bottom:6px; }
+.rts-hero-sub { font-size:12px; color:rgba(255,255,255,0.35); margin-bottom:16px; }
+.rts-progress-track { height:5px; border-radius:var(--r-pill); background:rgba(255,255,255,0.10); overflow:hidden; margin-bottom:16px; }
+.rts-progress-fill  { height:100%; border-radius:var(--r-pill); background:var(--accent); }
+.rts-kpis { display:flex; gap:18px; }
+.rts-kpi  { display:flex; flex-direction:column; gap:2px; }
+.rts-kpi-lbl { font-size:10px; color:rgba(255,255,255,0.30); letter-spacing:0.08em; font-family:var(--mono); }
+.rts-kpi-val { font-family:var(--mono); font-size:13px; font-weight:600; }
+.distribute-btn { position:absolute; top:18px; right:18px; background:var(--accent); color:#fff; border:none; border-radius:var(--r-pill); padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--mono); box-shadow:0 2px 8px var(--accent-glow); }
 
-    /* Nav */
-    .sidebar-nav {
-      flex: 1;
-      padding: 10px 10px;
-      overflow-y: auto;
-    }
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      color: rgba(255,255,255,0.38);
-      font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 1px;
-      transition: all 0.12s;
-    }
-    .nav-item:hover { background: var(--sidebar-hover); color: rgba(255,255,255,0.65); }
-    .nav-item.active { background: var(--sidebar-active); color: #AFAFFF; }
-    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+/* ══════════════════════════════════════════════════════════
+   BUCKETS
+══════════════════════════════════════════════════════════ */
+.workflow-bar { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+.wf-btn { font-size:11px; font-family:var(--mono); padding:5px 12px; border-radius:var(--r-sm); border:1px solid var(--border); color:var(--text2); cursor:pointer; background:var(--surface); box-shadow:var(--shadow-sm); }
+.wf-spacer { flex:1; }
+.cat-header { display:flex; align-items:center; gap:8px; padding:14px 2px 6px; }
+.cat-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.cat-name { font-size:11px; letter-spacing:0.10em; text-transform:uppercase; font-weight:600; color:var(--text2); flex:1; font-family:var(--mono); }
+.cat-total{ font-family:var(--mono); font-size:11px; color:var(--text3); }
+.bucket-card { background:var(--surface); border-radius:var(--r-md); box-shadow:var(--shadow-sm); border:1px solid var(--border); border-left:3px solid var(--border); padding:11px 14px; margin-bottom:5px; }
+.bucket-card.funded  { border-left-color:var(--green); }
+.bucket-card.over    { border-left-color:var(--red); }
+.bucket-card.partial { border-left-color:var(--amber); }
+.bucket-main    { display:flex; align-items:center; gap:10px; }
+.reorder        { display:flex; flex-direction:column; gap:1px; flex-shrink:0; }
+.reorder span   { font-size:9px; color:var(--text3); cursor:pointer; line-height:1; padding:1px 3px; }
+.bucket-name    { font-size:14px; font-weight:600; color:var(--text); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.bucket-nums    { display:flex; align-items:baseline; gap:5px; flex-shrink:0; }
+.alloc-val      { font-family:var(--mono); font-size:15px; font-weight:600; color:var(--alloc); }
+.num-div        { font-size:13px; color:var(--text3); }
+.budget-val     { font-family:var(--mono); font-size:13px; font-weight:500; color:var(--text2); }
+.spent-val      { font-family:var(--mono); font-size:13px; color:var(--text3); }
+.left-val       { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--green); }
+.left-val.neg   { color:var(--red); }
+.bucket-actions { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+.status-pill    { font-size:10px; font-family:var(--mono); letter-spacing:0.05em; font-weight:600; padding:3px 8px; border-radius:var(--r-pill); white-space:nowrap; }
+.status-pill.funded  { color:var(--green); background:var(--green-dim); }
+.status-pill.over    { color:var(--red);   background:var(--red-dim); }
+.status-pill.partial { color:var(--amber); background:var(--amber-dim); }
+.fill-btn { font-size:11px; font-family:var(--mono); padding:4px 10px; border-radius:var(--r-sm); border:1px solid var(--accent-dim); color:var(--accent); cursor:pointer; background:none; }
+.icon-btn { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border-radius:var(--r-sm); cursor:pointer; color:var(--text3); font-size:13px; }
+.icon-btn:hover { background:var(--surface2); color:var(--text2); }
+.add-strip { border:1.5px dashed var(--border); border-radius:var(--r-md); padding:11px 14px; margin-top:10px; display:flex; gap:8px; align-items:center; }
+.add-strip select, .add-strip input { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); padding:8px 10px; font-size:13px; color:var(--text); outline:none; font-family:var(--sans); }
+.add-strip select { flex:0 0 130px; }
+.add-strip input  { flex:1; }
+.toolbar-btn { padding:8px 13px; border-radius:var(--r-sm); font-size:11px; font-family:var(--mono); cursor:pointer; white-space:nowrap; border:1px solid var(--border); background:var(--surface); color:var(--text2); box-shadow:var(--shadow-sm); letter-spacing:0.04em; }
+.toolbar-btn.primary { background:var(--accent); color:#fff; border-color:transparent; box-shadow:0 2px 8px var(--accent-glow); }
+.toolbar-btn.success { border-color:var(--green-dim); color:var(--green); }
 
-    /* CTA */
-    .sidebar-cta {
-      margin: 0 10px 10px;
-      padding: 12px;
-      background: var(--accent);
-      border-radius: 9px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      cursor: pointer;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      box-shadow: 0 4px 16px rgba(91,91,214,0.38);
-    }
+/* ══════════════════════════════════════════════════════════
+   RIGHT COLUMN WIDGETS
+══════════════════════════════════════════════════════════ */
+.attention-row { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--r-sm); background:var(--amber-dim); border:1px solid var(--amber-dim); margin-bottom:6px; }
+.attention-row.over { background:var(--red-dim); border-color:var(--red-dim); }
+.attention-name { flex:1; font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.attention-lbl  { font-family:var(--mono); font-size:12px; color:var(--amber); white-space:nowrap; }
+.attention-lbl.over { color:var(--red); }
+.fill-mini { font-size:11px; font-family:var(--mono); padding:3px 10px; border-radius:var(--r-sm); border:1px solid var(--accent-dim); color:var(--accent); cursor:pointer; }
+.cat-bar-row  { margin-bottom:13px; }
+.cat-bar-hdr  { display:flex; align-items:center; gap:7px; margin-bottom:6px; }
+.cat-bar-name { font-size:12px; font-weight:600; color:var(--text); flex:1; }
+.cat-bar-pct  { font-family:var(--mono); font-size:12px; font-weight:700; }
+.cat-bar-track{ height:5px; border-radius:var(--r-pill); background:var(--surface2); overflow:hidden; }
+.cat-bar-fill { height:100%; border-radius:var(--r-pill); }
 
-    /* User footer */
-    .sidebar-footer {
-      display: flex;
-      align-items: center;
-      padding: 11px 14px;
-      border-top: 1px solid var(--sidebar-border);
-      gap: 9px;
-    }
-    .user-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), #8B5CF6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      color: #fff;
-      flex-shrink: 0;
-    }
-    .user-email {
-      font-size: 11px;
-      color: rgba(255,255,255,0.28);
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .signout-btn {
-      font-size: 11px;
-      color: rgba(255,255,255,0.22);
-      cursor: pointer;
-      white-space: nowrap;
-      padding: 3px 6px;
-      border-radius: 4px;
-    }
-    .signout-btn:hover { color: rgba(255,255,255,0.5); }
+/* ══════════════════════════════════════════════════════════
+   MOBILE
+══════════════════════════════════════════════════════════ */
+.mobile-frames { display:flex; gap:32px; justify-content:center; flex-wrap:wrap; padding:0 20px; }
+.mobile-frame  { width:390px; height:780px; border-radius:44px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,0.4),0 0 0 1px rgba(0,0,0,0.15); background:var(--bg); display:flex; flex-direction:column; }
+.mob-hdr { height:58px; background:var(--sidebar); display:flex; align-items:center; padding:0 12px 0 16px; gap:8px; flex-shrink:0; border-bottom:1px solid var(--sidebar-border); }
+.mob-brand { display:flex; align-items:center; gap:8px; }
+.mob-brand-icon { width:26px; height:26px; background:var(--accent); border-radius:7px; display:flex; align-items:center; justify-content:center; }
+.mob-brand-name { font-size:12px; font-weight:700; letter-spacing:0.14em; color:#fff; }
+.mob-rts-center { flex:1; text-align:center; }
+.mob-rts-amt { font-family:var(--mono); font-size:17px; font-weight:700; color:var(--rts-sidebar); line-height:1; }
+.mob-rts-lbl { font-size:10px; color:rgba(255,255,255,0.28); letter-spacing:0.07em; font-family:var(--mono); }
+.mob-month { display:flex; align-items:center; gap:2px; }
+.mob-arr { width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.35); font-size:16px; }
+.mob-month-pill { font-size:11px; color:rgba(255,255,255,0.45); padding:4px 8px; border-radius:var(--r-sm); background:rgba(255,255,255,0.07); white-space:nowrap; font-family:var(--mono); }
+.mob-content { flex:1; overflow-y:auto; padding:14px; background:var(--bg); }
+.mob-bottom-nav { height:66px; background:var(--sidebar); border-top:1px solid var(--sidebar-border); display:flex; align-items:center; flex-shrink:0; }
+.mob-tab { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; height:100%; cursor:pointer; color:rgba(255,255,255,0.28); }
+.mob-tab.active { color:var(--nav-active); }
+.mob-tab-lbl { font-size:10px; letter-spacing:0.05em; text-transform:uppercase; font-family:var(--mono); }
+.mob-fab { width:52px; height:52px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:300; color:#fff; flex-shrink:0; margin:0 8px; box-shadow:0 4px 18px var(--accent-glow); }
 
-    /* ── Main ─────────────────────────────────────────────────── */
-    .main {
-      flex: 1;
-      background: var(--bg);
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-    .main-header {
-      position: sticky;
-      top: 0;
-      height: var(--hdr-h);
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      z-index: 10;
-      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
-    }
-    .hdr-panel {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text2);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      flex: 1;
-    }
-    .hdr-month-nav {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .hdr-arrow {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      color: var(--text3);
-      cursor: pointer;
-      font-size: 15px;
-    }
-    .hdr-arrow:hover { background: var(--surface2); color: var(--text2); }
-    .hdr-month-lbl { font-size: 13px; color: var(--text2); }
+/* ══════════════════════════════════════════════════════════
+   DESIGN SYSTEM
+══════════════════════════════════════════════════════════ */
+.ds-wrap { max-width:1280px; margin:0 auto; padding:0 24px; }
+.ds-grid { display:grid; grid-template-columns:1fr 1fr; gap:40px; }
+.ds-sub  { font-size:11px; font-weight:600; color:var(--text2); margin-bottom:14px; font-family:var(--mono); letter-spacing:0.10em; text-transform:uppercase; }
+.swatch-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.swatch { text-align:center; }
+.swatch-block { width:52px; height:52px; border-radius:var(--r-sm); margin-bottom:5px; border:1px solid var(--border); }
+.swatch-name  { font-size:10px; color:var(--text3); font-family:monospace; line-height:1.4; }
+.change-item  { font-size:13px; color:var(--text2); line-height:1.8; }
+.change-item b { color:var(--text); }
+.theme-desc { display:none; }
+[data-theme="1"] .theme-desc[data-for="1"],
+[data-theme="2"] .theme-desc[data-for="2"],
+[data-theme="3"] .theme-desc[data-for="3"],
+[data-theme="4"] .theme-desc[data-for="4"],
+[data-theme="5"] .theme-desc[data-for="5"] { display:block; }
 
-    /* ── Layout grid ──────────────────────────────────────────── */
-    .panel-grid {
-      padding: 24px;
-      display: grid;
-      grid-template-columns: 1fr 336px;
-      gap: 24px;
-      align-items: start;
-      min-height: 0;
-    }
-    .right-sticky { position: sticky; top: calc(var(--hdr-h) + 16px); }
-
-    /* ── Cards ────────────────────────────────────────────────── */
-    .card {
-      background: var(--surface);
-      border-radius: 12px;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid var(--border);
-    }
-    .card-pad { padding: 18px 20px; }
-    .card-label {
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: var(--text3);
-      margin-bottom: 14px;
-    }
-
-    /* ── RTS hero (scoreboard right col) ──────────────────────── */
-    .rts-hero {
-      background: linear-gradient(135deg, #111128 0%, #1C1C3A 100%);
-      border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 12px;
-      position: relative;
-      overflow: hidden;
-    }
-    .rts-hero::before {
-      content: '';
-      position: absolute;
-      top: -50px; right: -50px;
-      width: 180px; height: 180px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(91,91,214,0.22) 0%, transparent 68%);
-    }
-    .rts-hero-lbl {
-      font-size: 10px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.32);
-      margin-bottom: 5px;
-    }
-    .rts-hero-amt {
-      font-family: var(--mono);
-      font-size: 46px;
-      font-weight: 700;
-      color: #fff;
-      line-height: 1;
-      letter-spacing: -0.02em;
-      margin-bottom: 6px;
-    }
-    .rts-hero-sub {
-      font-size: 12px;
-      color: rgba(255,255,255,0.35);
-      margin-bottom: 16px;
-    }
-    .rts-progress-track {
-      height: 5px;
-      border-radius: 3px;
-      background: rgba(255,255,255,0.1);
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-    .rts-progress-fill {
-      height: 100%;
-      border-radius: 3px;
-      background: var(--accent);
-    }
-    .rts-kpis { display: flex; gap: 18px; }
-    .rts-kpi { display: flex; flex-direction: column; gap: 2px; }
-    .rts-kpi-lbl { font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 0.08em; }
-    .rts-kpi-val { font-family: var(--mono); font-size: 13px; font-weight: 600; }
-    .distribute-btn {
-      position: absolute;
-      top: 18px; right: 18px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 20px;
-      padding: 6px 14px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: var(--sans);
-      box-shadow: 0 2px 8px rgba(91,91,214,0.5);
-    }
-
-    /* ── Workflow bar ──────────────────────────────────────────── */
-    .workflow-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    .wf-btn {
-      font-size: 11px;
-      font-family: var(--mono);
-      padding: 5px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      color: var(--text2);
-      cursor: pointer;
-      background: var(--surface);
-      box-shadow: var(--shadow-sm);
-    }
-    .wf-spacer { flex: 1; }
-
-    /* ── Category header ──────────────────────────────────────── */
-    .cat-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 2px 6px;
-    }
-    .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .cat-name {
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: var(--text2);
-      flex: 1;
-    }
-    .cat-total { font-family: var(--mono); font-size: 11px; color: var(--text3); }
-
-    /* ── Bucket card ──────────────────────────────────────────── */
-    .bucket-card {
-      background: var(--surface);
-      border-radius: 10px;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--border);
-      padding: 11px 14px;
-      margin-bottom: 5px;
-      transition: box-shadow 0.15s;
-    }
-    .bucket-card:hover { box-shadow: var(--shadow-md); }
-    .bucket-card.funded { border-left-color: var(--green); }
-    .bucket-card.over   { border-left-color: var(--red); }
-    .bucket-card.partial { border-left-color: var(--amber); }
-
-    .bucket-main {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .reorder {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      flex-shrink: 0;
-    }
-    .reorder span {
-      font-size: 9px;
-      color: var(--text3);
-      cursor: pointer;
-      line-height: 1;
-      padding: 1px 3px;
-    }
-    .reorder span:hover { color: var(--accent); }
-    .bucket-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      min-width: 0;
-    }
-    .bucket-nums {
-      display: flex;
-      align-items: baseline;
-      gap: 5px;
-      flex-shrink: 0;
-    }
-    .alloc-val {
-      font-family: var(--mono);
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--accent);
-      cursor: text;
-    }
-    .num-div { font-size: 13px; color: var(--text3); }
-    .budget-val {
-      font-family: var(--mono);
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text2);
-      cursor: text;
-    }
-    .spent-grp {
-      display: flex;
-      align-items: baseline;
-      gap: 4px;
-    }
-    .spent-val { font-family: var(--mono); font-size: 13px; color: var(--text3); }
-    .left-val { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--green); }
-    .left-val.neg { color: var(--red); }
-
-    .bucket-actions {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      flex-shrink: 0;
-    }
-    .status-pill {
-      font-size: 10px;
-      font-family: var(--mono);
-      letter-spacing: 0.05em;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 20px;
-      white-space: nowrap;
-    }
-    .status-pill.funded { color: var(--green); background: var(--green-dim); }
-    .status-pill.over   { color: var(--red);   background: var(--red-dim);   }
-    .status-pill.partial{ color: var(--amber);  background: var(--amber-dim); }
-
-    .fill-btn {
-      font-size: 11px;
-      font-family: var(--mono);
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(91,91,214,0.3);
-      color: var(--accent);
-      cursor: pointer;
-      background: none;
-    }
-    .icon-btn {
-      width: 26px;
-      height: 26px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      cursor: pointer;
-      color: var(--text3);
-      font-size: 13px;
-    }
-    .icon-btn:hover { background: var(--surface2); color: var(--text2); }
-
-    /* ── Add bucket strip ─────────────────────────────────────── */
-    .add-strip {
-      border: 1.5px dashed rgba(0,0,0,0.12);
-      border-radius: 10px;
-      padding: 11px 14px;
-      margin-top: 10px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .add-strip select, .add-strip input {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 13px;
-      color: var(--text);
-      outline: none;
-      font-family: var(--sans);
-      box-shadow: var(--shadow-sm);
-    }
-    .add-strip select { flex: 0 0 130px; }
-    .add-strip input { flex: 1; }
-
-    /* ── Needs attention ──────────────────────────────────────── */
-    .attention-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      border-radius: 8px;
-      background: var(--amber-dim);
-      border: 1px solid rgba(217,119,6,0.14);
-      margin-bottom: 6px;
-    }
-    .attention-row.over {
-      background: var(--red-dim);
-      border-color: rgba(220,38,38,0.14);
-    }
-    .attention-name {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      min-width: 0;
-    }
-    .attention-lbl { font-family: var(--mono); font-size: 12px; color: var(--amber); white-space: nowrap; }
-    .attention-lbl.over { color: var(--red); }
-    .fill-mini {
-      font-size: 11px;
-      font-family: var(--mono);
-      padding: 3px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(91,91,214,0.28);
-      color: var(--accent);
-      cursor: pointer;
-    }
-
-    /* ── Category bar ─────────────────────────────────────────── */
-    .cat-bar-row { margin-bottom: 13px; }
-    .cat-bar-hdr { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
-    .cat-bar-name { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; }
-    .cat-bar-pct { font-family: var(--mono); font-size: 12px; font-weight: 700; }
-    .cat-bar-track { height: 5px; border-radius: 3px; background: var(--surface2); overflow: hidden; }
-    .cat-bar-fill { height: 100%; border-radius: 3px; }
-
-    /* ── Accounts panel ───────────────────────────────────────── */
-    .chip-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .chip {
-      padding: 5px 14px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-family: var(--mono);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .chip.active { color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(91,91,214,0.22); }
-    .chip.inactive { color: var(--text2); background: var(--surface2); border: 1px solid var(--border); }
-    .chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .kpi-box {
-      background: var(--surface);
-      border-radius: 10px;
-      padding: 12px 14px;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid var(--border);
-    }
-    .kpi-lbl { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
-    .kpi-val { font-family: var(--mono); font-size: 17px; font-weight: 700; }
-
-    /* Toolbar */
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    .search-box {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 14px;
-      flex: 1;
-      box-shadow: var(--shadow-sm);
-    }
-    .search-box input {
-      background: none;
-      border: none;
-      outline: none;
-      font-family: var(--sans);
-      font-size: 13px;
-      color: var(--text);
-      flex: 1;
-      min-width: 0;
-    }
-    .toolbar-btn {
-      padding: 8px 13px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-family: var(--mono);
-      cursor: pointer;
-      white-space: nowrap;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text2);
-      box-shadow: var(--shadow-sm);
-      letter-spacing: 0.04em;
-    }
-    .toolbar-btn.primary { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(91,91,214,0.3); }
-    .toolbar-btn.success { border-color: rgba(22,163,74,0.3); color: var(--green); }
-
-    /* Statement */
-    .stmt-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 0 7px;
-    }
-    .stmt-title { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--text2); }
-    .stmt-count {
-      font-size: 11px;
-      font-family: var(--mono);
-      color: var(--text3);
-      background: var(--surface2);
-      border-radius: 10px;
-      padding: 1px 8px;
-      border: 1px solid var(--border);
-    }
-
-    .day-card {
-      background: var(--surface);
-      border-radius: 10px;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid var(--border);
-      margin-bottom: 8px;
-      overflow: hidden;
-    }
-    .day-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 14px;
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border);
-    }
-    .day-date { font-size: 12px; font-weight: 600; color: var(--text2); flex: 1; }
-    .day-rb { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); }
-
-    .tx-row {
-      display: flex;
-      align-items: center;
-      padding: 10px 14px;
-      gap: 10px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-    .tx-row:last-child { border-bottom: none; }
-    .tx-row:hover { background: var(--surface2); }
-    .tx-bar { width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
-    .tx-desc-col { flex: 1; min-width: 0; }
-    .tx-desc { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tx-sub { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-    .tx-chip {
-      font-size: 10px;
-      font-family: var(--mono);
-      padding: 1px 7px;
-      border-radius: 10px;
-      white-space: nowrap;
-    }
-    .tx-chip.expense { color: var(--red); background: var(--red-dim); }
-    .tx-chip.income  { color: var(--green); background: var(--green-dim); }
-    .tx-chip.xfr     { color: var(--text2); background: var(--surface2); }
-    .tx-bucket-lbl { font-size: 11px; color: var(--text3); }
-    .tx-recon { font-size: 11px; color: var(--green); flex-shrink: 0; }
-    .tx-amt { font-family: var(--mono); font-size: 14px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
-    .tx-amt.income { color: var(--green); }
-    .tx-amt.expense { color: var(--red); }
-    .tx-amt.xfr { color: var(--text2); }
-    .tx-edit { color: var(--text3); cursor: pointer; font-size: 15px; padding: 0 2px; flex-shrink: 0; }
-    .tx-edit:hover { color: var(--text2); }
-
-    /* Right col account card */
-    .acct-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 0;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-    }
-    .acct-row:last-child { border-bottom: none; }
-    .acct-row:hover .acct-name { color: var(--accent); }
-    .acct-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-    .acct-info { flex: 1; }
-    .acct-name { font-size: 13px; font-weight: 600; color: var(--text); transition: color 0.12s; }
-    .acct-type { font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; font-family: var(--mono); }
-    .acct-bal { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--green); }
-    .acct-gear { color: var(--text3); font-size: 13px; cursor: pointer; padding: 3px 5px; border-radius: 4px; }
-    .acct-gear:hover { color: var(--accent); background: var(--surface2); }
-
-    /* ── Design system section ────────────────────────────────── */
-    .ds-wrap {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-    .ds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-    .ds-sub { font-size: 12px; font-weight: 600; color: #444; margin-bottom: 14px; }
-    .swatch-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-    .swatch {
-      text-align: center;
-    }
-    .swatch-block {
-      width: 56px;
-      height: 56px;
-      border-radius: 10px;
-      margin-bottom: 5px;
-    }
-    .swatch-name { font-size: 10px; color: #888; font-family: monospace; }
-
-    /* ── Mobile frame ─────────────────────────────────────────── */
-    .mobile-frames { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; padding: 0 20px; }
-    .mobile-frame {
-      width: 390px;
-      height: 780px;
-      border-radius: 44px;
-      overflow: hidden;
-      box-shadow: 0 32px 100px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.12);
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-    }
-    .mob-hdr {
-      height: 58px;
-      background: var(--sidebar);
-      display: flex;
-      align-items: center;
-      padding: 0 12px 0 16px;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .mob-brand { display: flex; align-items: center; gap: 8px; }
-    .mob-brand-icon {
-      width: 26px; height: 26px;
-      background: var(--accent);
-      border-radius: 7px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .mob-brand-name { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: #fff; }
-    .mob-rts-center { flex: 1; text-align: center; }
-    .mob-rts-amt { font-family: var(--mono); font-size: 17px; font-weight: 700; color: #8B8BFF; line-height: 1; }
-    .mob-rts-lbl { font-size: 10px; color: rgba(255,255,255,0.28); letter-spacing: 0.07em; }
-    .mob-month { display: flex; align-items: center; gap: 2px; }
-    .mob-arr { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.35); font-size: 16px; }
-    .mob-month-pill { font-size: 11px; color: rgba(255,255,255,0.45); padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.07); white-space: nowrap; }
-    .mob-content { flex: 1; overflow-y: auto; padding: 14px; }
-    .mob-bottom-nav {
-      height: 66px;
-      background: var(--sidebar);
-      border-top: 1px solid var(--sidebar-border);
-      display: flex;
-      align-items: center;
-      padding: 0;
-      flex-shrink: 0;
-    }
-    .mob-tab {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      height: 100%;
-      cursor: pointer;
-      color: rgba(255,255,255,0.28);
-    }
-    .mob-tab.active { color: #AFAFFF; }
-    .mob-tab-lbl { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
-    .mob-fab {
-      width: 52px; height: 52px;
-      border-radius: 50%;
-      background: var(--accent);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 28px;
-      font-weight: 300;
-      color: #fff;
-      flex-shrink: 0;
-      margin: 0 8px;
-      box-shadow: 0 4px 18px rgba(91,91,214,0.5);
-    }
   </style>
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!--  DESKTOP — BUCKETS PANEL                                         -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- THEME BAR -->
+<div id="theme-bar">
+  <div class="bar-brand">
+    <div class="bar-logo">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+        <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+      </svg>
+    </div>
+    <div><div class="bar-wordmark">Cura</div><div class="bar-tagline">5 directions</div></div>
+  </div>
+  <button class="theme-btn active" data-t="1"><span class="t-num">01</span><span class="t-name">Duotone</span><span class="t-desc">Dark sidebar · Light main</span></button>
+  <button class="theme-btn" data-t="2"><span class="t-num">02</span><span class="t-name">Midnight</span><span class="t-desc">Premium dark · Electric blue</span></button>
+  <button class="theme-btn" data-t="3"><span class="t-num">03</span><span class="t-name">Terminal</span><span class="t-desc">Data-dense · Mono green</span></button>
+  <button class="theme-btn" data-t="4"><span class="t-num">04</span><span class="t-name">Warm</span><span class="t-desc">Forest · Cream · Earthy</span></button>
+  <button class="theme-btn" data-t="5"><span class="t-num">05</span><span class="t-name">Electric</span><span class="t-desc">All-dark · Neon violet</span></button>
+</div>
 
-<p class="section-label">Cura 2.0 · Desktop · Buckets Panel</p>
 
+<!-- DESKTOP FRAME -->
+<p class="section-label">Desktop · Buckets Panel · 1280px</p>
+<div class="frame-scroll">
 <div class="desktop-frame">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-row">
-        <div class="brand-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-        </div>
-        <span class="brand-name">Cura</span>
-      </div>
-      <div class="brand-sub">Personal Finance</div>
-    </div>
-
-    <div class="sidebar-rts">
-      <div class="sidebar-rts-lbl">Ready to assign</div>
-      <div class="sidebar-rts-amt">$847.32</div>
-      <div class="sidebar-rts-sub">$3,200 income · 74% allocated</div>
-    </div>
-
-    <div class="month-nav">
-      <div class="month-arrow">←</div>
-      <div class="month-label">June 2026</div>
-      <div class="month-arrow">→</div>
-    </div>
-
-    <nav class="sidebar-nav">
-      <div class="nav-item active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-        Buckets
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
-        </svg>
-        Accounts
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6" y1="20" x2="6" y2="14"/>
-        </svg>
-        Insights
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/>
-          <rect x="3" y="17" width="15" height="4" rx="1"/>
-        </svg>
-        Reports
-      </div>
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/>
-        </svg>
-        Setup
-      </div>
-    </nav>
-
-    <div class="sidebar-cta">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      Add Transaction
-    </div>
-
-    <div class="sidebar-footer">
-      <div class="user-avatar">JD</div>
-      <div class="user-email">jdudgeon1993@gmail.com</div>
-      <div class="signout-btn">Sign out</div>
-    </div>
-  </aside>
-
-  <!-- MAIN -->
-  <main class="main">
-    <header class="main-header">
-      <span class="hdr-panel">Buckets</span>
-      <div class="hdr-month-nav">
-        <div class="hdr-arrow">←</div>
-        <span class="hdr-month-lbl">June 2026</span>
-        <div class="hdr-arrow">→</div>
-      </div>
-    </header>
-
-    <div class="panel-grid">
-
-      <!-- LEFT: Bucket list -->
-      <div>
-        <div class="workflow-bar">
-          <button class="wf-btn">Copy Last Month</button>
-          <button class="wf-btn">Close Month</button>
-          <div class="wf-spacer"></div>
-        </div>
-
-        <div class="cat-header">
-          <div class="cat-dot" style="background:#6366F1"></div>
-          <span class="cat-name">Housing</span>
-          <span class="cat-total">$2,100 / $2,100</span>
-        </div>
-
-        <div class="bucket-card funded">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Rent / Mortgage</div>
-            <div class="bucket-nums">
-              <span class="alloc-val">$1,500</span>
-              <span class="num-div">/</span>
-              <span class="budget-val">$1,500</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="spent-val">$1,500 spent</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="left-val">$0 left</span>
-            </div>
-            <div class="bucket-actions">
-              <span class="status-pill funded">Paid</span>
-              <div class="icon-btn">▾</div>
-              <div class="icon-btn">⋯</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bucket-card partial">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Utilities</div>
-            <div class="bucket-nums">
-              <span class="alloc-val">$200</span>
-              <span class="num-div">/</span>
-              <span class="budget-val">$300</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="spent-val">$140 spent</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="left-val" style="color:var(--amber)">$60 left</span>
-            </div>
-            <div class="bucket-actions">
-              <span class="status-pill partial">−$100</span>
-              <button class="fill-btn">Fill</button>
-              <div class="icon-btn">▾</div>
-              <div class="icon-btn">⋯</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="cat-header">
-          <div class="cat-dot" style="background:#10B981"></div>
-          <span class="cat-name">Food &amp; Dining</span>
-          <span class="cat-total">$450 / $500</span>
-        </div>
-
-        <div class="bucket-card funded">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Groceries</div>
-            <div class="bucket-nums">
-              <span class="alloc-val">$350</span>
-              <span class="num-div">/</span>
-              <span class="budget-val">$400</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="spent-val">$280 spent</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="left-val">$70 left</span>
-            </div>
-            <div class="bucket-actions">
-              <span class="status-pill funded">Funded</span>
-              <div class="icon-btn">▾</div>
-              <div class="icon-btn">⋯</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bucket-card over">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Dining Out</div>
-            <div class="bucket-nums">
-              <span class="alloc-val">$100</span>
-              <span class="num-div">/</span>
-              <span class="budget-val">$100</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="spent-val" style="color:var(--red)">$127 spent</span>
-              <span class="num-div" style="padding:0 2px">·</span>
-              <span class="left-val neg">−$27 left</span>
-            </div>
-            <div class="bucket-actions">
-              <span class="status-pill over">Over $27</span>
-              <div class="icon-btn">▾</div>
-              <div class="icon-btn">⋯</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="add-strip">
-          <select><option>— Category —</option><option>Housing</option><option>Food &amp; Dining</option></select>
-          <input type="text" placeholder="Bucket name…">
-          <select style="flex:0 0 105px"><option>Expense</option><option>Sinking</option><option>Vault</option></select>
-          <button class="toolbar-btn primary">+ Add</button>
-        </div>
-      </div>
-
-      <!-- RIGHT: Scoreboard -->
-      <div class="right-sticky">
-
-        <div class="rts-hero">
-          <button class="distribute-btn">Distribute</button>
-          <div class="rts-hero-lbl">Ready to assign</div>
-          <div class="rts-hero-amt">$847.32</div>
-          <div class="rts-hero-sub">$352.68 still needs a home</div>
-          <div class="rts-progress-track">
-            <div class="rts-progress-fill" style="width:74%"></div>
-          </div>
-          <div class="rts-kpis">
-            <div class="rts-kpi">
-              <span class="rts-kpi-lbl">Income</span>
-              <span class="rts-kpi-val" style="color:#4ade80">$3,200</span>
-            </div>
-            <div class="rts-kpi">
-              <span class="rts-kpi-lbl">Alloc'd</span>
-              <span class="rts-kpi-val" style="color:#A5A5FF">$2,352</span>
-            </div>
-            <div class="rts-kpi">
-              <span class="rts-kpi-lbl">Spent</span>
-              <span class="rts-kpi-val" style="color:#FCA5A5">$2,047</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="card card-pad" style="margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-            <span class="card-label" style="margin-bottom:0">Needs attention</span>
-            <span style="background:var(--red-dim);color:var(--red);border-radius:10px;padding:1px 9px;font-size:12px;font-family:var(--mono);font-weight:700">2</span>
-          </div>
-          <div class="attention-row">
-            <div class="attention-name">Utilities</div>
-            <div class="attention-lbl">−$100</div>
-            <div class="fill-mini">Fill</div>
-          </div>
-          <div class="attention-row over">
-            <div class="attention-name">Dining Out</div>
-            <div class="attention-lbl over">Over $27</div>
-          </div>
-        </div>
-
-        <div class="card card-pad">
-          <div class="card-label">Categories</div>
-          <div class="cat-bar-row">
-            <div class="cat-bar-hdr">
-              <div class="cat-dot" style="background:#6366F1"></div>
-              <span class="cat-bar-name">Housing</span>
-              <span class="cat-bar-pct" style="color:var(--green)">100%</span>
-            </div>
-            <div class="cat-bar-track">
-              <div class="cat-bar-fill" style="width:100%;background:#6366F1"></div>
-            </div>
-          </div>
-          <div class="cat-bar-row">
-            <div class="cat-bar-hdr">
-              <div class="cat-dot" style="background:#10B981"></div>
-              <span class="cat-bar-name">Food &amp; Dining</span>
-              <span class="cat-bar-pct" style="color:var(--amber)">90%</span>
-            </div>
-            <div class="cat-bar-track">
-              <div class="cat-bar-fill" style="width:90%;background:var(--accent)"></div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div><!-- /panel-grid -->
-  </main>
-</div><!-- /desktop-frame buckets -->
-
-
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!--  DESKTOP — ACCOUNTS PANEL                                        -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
-
-<p class="section-label">Cura 2.0 · Desktop · Accounts Panel</p>
-
-<div class="desktop-frame tall">
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="brand-row">
@@ -1200,6 +425,7 @@
     <div class="sidebar-rts">
       <div class="sidebar-rts-lbl">Ready to assign</div>
       <div class="sidebar-rts-amt">$847.32</div>
+      <div class="sidebar-rts-sub">74% allocated · June 2026</div>
     </div>
     <div class="month-nav">
       <div class="month-arrow">←</div>
@@ -1207,25 +433,20 @@
       <div class="month-arrow">→</div>
     </div>
     <nav class="sidebar-nav">
-      <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Buckets
-      </div>
       <div class="nav-item active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        Accounts
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Buckets
       </div>
       <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        Insights
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Accounts
       </div>
       <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="17" width="15" height="4" rx="1"/></svg>
-        Reports
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Insights
       </div>
       <div class="nav-item">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"/><path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/></svg>
-        Setup
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="17" width="15" height="4" rx="1"/></svg>Reports
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"/><path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/></svg>Setup
       </div>
     </nav>
     <div class="sidebar-cta">
@@ -1241,210 +462,143 @@
 
   <main class="main">
     <header class="main-header">
-      <span class="hdr-panel">Accounts</span>
+      <span class="hdr-panel">Buckets</span>
     </header>
-
     <div class="panel-grid">
-      <!-- LEFT -->
+
       <div>
-        <!-- Account filter chips -->
-        <div class="card card-pad" style="margin-bottom:16px">
-          <div class="card-label">Accounts</div>
-          <div class="chip-row">
-            <div class="chip active">All</div>
-            <div class="chip inactive">
-              <div class="chip-dot" style="background:#6366F1"></div>Checking
-            </div>
-            <div class="chip inactive">
-              <div class="chip-dot" style="background:#10B981"></div>Savings
-            </div>
+        <div class="workflow-bar">
+          <button class="wf-btn">Copy Last Month</button>
+          <button class="wf-btn">Close Month</button>
+          <div class="wf-spacer"></div>
+        </div>
+
+        <div class="cat-header">
+          <div class="cat-dot" style="background:#6366F1"></div>
+          <span class="cat-name">Housing</span>
+          <span class="cat-total">$2,100 / $2,100</span>
+        </div>
+        <div class="bucket-card funded">
+          <div class="bucket-main">
+            <div class="reorder"><span>▲</span><span>▼</span></div>
+            <div class="bucket-name">Rent / Mortgage</div>
+            <div class="bucket-nums"><span class="alloc-val">$1,500</span><span class="num-div">/</span><span class="budget-val">$1,500</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$1,500 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val">$0 left</span></div>
+            <div class="bucket-actions"><span class="status-pill funded">Paid</span><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
+          </div>
+        </div>
+        <div class="bucket-card partial">
+          <div class="bucket-main">
+            <div class="reorder"><span>▲</span><span>▼</span></div>
+            <div class="bucket-name">Utilities</div>
+            <div class="bucket-nums"><span class="alloc-val">$200</span><span class="num-div">/</span><span class="budget-val">$300</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$140 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val" style="color:var(--amber)">$60 left</span></div>
+            <div class="bucket-actions"><span class="status-pill partial">−$100</span><button class="fill-btn">Fill</button><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
           </div>
         </div>
 
-        <!-- KPI row -->
-        <div class="kpi-grid">
-          <div class="kpi-box">
-            <div class="kpi-lbl">Income</div>
-            <div class="kpi-val" style="color:var(--green)">$3,200</div>
+        <div class="cat-header">
+          <div class="cat-dot" style="background:#10B981"></div>
+          <span class="cat-name">Food &amp; Dining</span>
+          <span class="cat-total">$450 / $500</span>
+        </div>
+        <div class="bucket-card funded">
+          <div class="bucket-main">
+            <div class="reorder"><span>▲</span><span>▼</span></div>
+            <div class="bucket-name">Groceries</div>
+            <div class="bucket-nums"><span class="alloc-val">$350</span><span class="num-div">/</span><span class="budget-val">$400</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$280 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val">$70 left</span></div>
+            <div class="bucket-actions"><span class="status-pill funded">Funded</span><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
           </div>
-          <div class="kpi-box">
-            <div class="kpi-lbl">Scheduled</div>
-            <div class="kpi-val" style="color:var(--amber)">$840</div>
-          </div>
-          <div class="kpi-box">
-            <div class="kpi-lbl">Spent</div>
-            <div class="kpi-val" style="color:var(--red)">$2,047</div>
-          </div>
-          <div class="kpi-box">
-            <div class="kpi-lbl">Transferred</div>
-            <div class="kpi-val" style="color:var(--text2)">$500</div>
+        </div>
+        <div class="bucket-card over">
+          <div class="bucket-main">
+            <div class="reorder"><span>▲</span><span>▼</span></div>
+            <div class="bucket-name">Dining Out</div>
+            <div class="bucket-nums"><span class="alloc-val">$100</span><span class="num-div">/</span><span class="budget-val">$100</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val" style="color:var(--red)">$127 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val neg">−$27 left</span></div>
+            <div class="bucket-actions"><span class="status-pill over">Over $27</span><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
           </div>
         </div>
 
-        <!-- Toolbar -->
-        <div class="toolbar">
-          <div class="search-box">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input placeholder="Search transactions…">
-          </div>
-          <button class="toolbar-btn success">⚖ Reconcile</button>
-          <button class="toolbar-btn">↓ CSV</button>
-          <button class="toolbar-btn primary">+ Tx</button>
+        <div class="cat-header">
+          <div class="cat-dot" style="background:#F59E0B"></div>
+          <span class="cat-name">Transport</span>
+          <span class="cat-total">$280 / $350</span>
         </div>
-
-        <!-- Statement -->
-        <div class="stmt-header">
-          <span class="stmt-title">Current Statement</span>
-          <span class="stmt-count">12 transactions</span>
-        </div>
-
-        <div class="day-card">
-          <div class="day-header">
-            <span class="day-date">Tue, Jun 3</span>
-            <span style="font-size:11px;color:var(--text3);flex:1;padding-left:6px">2 transactions</span>
-            <span class="day-rb">$2,847.32</span>
-          </div>
-          <div class="tx-row">
-            <div class="tx-bar" style="background:var(--red)"></div>
-            <div class="tx-desc-col">
-              <div class="tx-desc">Whole Foods Market</div>
-              <div class="tx-sub">
-                <span class="tx-chip expense">Expense</span>
-                <span class="tx-bucket-lbl">Groceries</span>
-              </div>
-            </div>
-            <span class="tx-recon">✓</span>
-            <span class="tx-amt expense">−$84.27</span>
-            <span class="tx-edit">⋯</span>
-          </div>
-          <div class="tx-row">
-            <div class="tx-bar" style="background:var(--green)"></div>
-            <div class="tx-desc-col">
-              <div class="tx-desc">Direct Deposit — Employer</div>
-              <div class="tx-sub"><span class="tx-chip income">Income</span></div>
-            </div>
-            <span class="tx-amt income">+$3,200.00</span>
-            <span class="tx-edit">⋯</span>
+        <div class="bucket-card partial">
+          <div class="bucket-main">
+            <div class="reorder"><span>▲</span><span>▼</span></div>
+            <div class="bucket-name">Gas</div>
+            <div class="bucket-nums"><span class="alloc-val">$150</span><span class="num-div">/</span><span class="budget-val">$200</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$95 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val" style="color:var(--amber)">$55 left</span></div>
+            <div class="bucket-actions"><span class="status-pill partial">−$50</span><button class="fill-btn">Fill</button><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
           </div>
         </div>
 
-        <div class="day-card">
-          <div class="day-header">
-            <span class="day-date">Mon, Jun 2</span>
-            <span style="font-size:11px;color:var(--text3);flex:1;padding-left:6px">2 transactions</span>
-            <span class="day-rb">−$268.05</span>
-          </div>
-          <div class="tx-row">
-            <div class="tx-bar" style="background:var(--red)"></div>
-            <div class="tx-desc-col">
-              <div class="tx-desc">Netflix</div>
-              <div class="tx-sub">
-                <span class="tx-chip expense">Expense</span>
-                <span class="tx-bucket-lbl">Subscriptions</span>
-              </div>
-            </div>
-            <span class="tx-recon">✓</span>
-            <span class="tx-amt expense">−$18.99</span>
-            <span class="tx-edit">⋯</span>
-          </div>
-          <div class="tx-row">
-            <div class="tx-bar" style="background:var(--text3)"></div>
-            <div class="tx-desc-col">
-              <div class="tx-desc">Transfer → Savings</div>
-              <div class="tx-sub"><span class="tx-chip xfr">Transfer</span></div>
-            </div>
-            <span class="tx-amt xfr">$500.00</span>
-            <span class="tx-edit">⋯</span>
-          </div>
+        <div class="add-strip">
+          <select><option>— Category —</option><option>Housing</option><option>Food &amp; Dining</option><option>Transport</option></select>
+          <input type="text" placeholder="Bucket name…">
+          <select style="flex:0 0 105px"><option>Expense</option><option>Sinking</option><option>Vault</option></select>
+          <button class="toolbar-btn primary">+ Add</button>
         </div>
       </div>
 
-      <!-- RIGHT -->
       <div class="right-sticky">
+        <div class="rts-hero">
+          <button class="distribute-btn">Distribute</button>
+          <div class="rts-hero-lbl">Ready to assign</div>
+          <div class="rts-hero-amt">$847.32</div>
+          <div class="rts-hero-sub">$352.68 still needs a home</div>
+          <div class="rts-progress-track"><div class="rts-progress-fill" style="width:74%"></div></div>
+          <div class="rts-kpis">
+            <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:#4ade80">$3,200</span></div>
+            <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">$2,352</span></div>
+            <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">$2,047</span></div>
+          </div>
+        </div>
+
         <div class="card card-pad" style="margin-bottom:12px">
-          <div class="card-label">Accounts</div>
-          <div class="acct-row">
-            <div class="acct-dot" style="background:#6366F1"></div>
-            <div class="acct-info">
-              <div class="acct-name">Checking</div>
-              <div class="acct-type">Budget</div>
-            </div>
-            <div class="acct-bal">$2,847.32</div>
-            <div class="acct-gear">⚙</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span class="card-label" style="margin-bottom:0">Needs Attention</span>
+            <span style="background:var(--red-dim);color:var(--red);border-radius:var(--r-pill);padding:1px 9px;font-size:12px;font-family:var(--mono);font-weight:700">2</span>
           </div>
-          <div class="acct-row">
-            <div class="acct-dot" style="background:#10B981"></div>
-            <div class="acct-info">
-              <div class="acct-name">Savings</div>
-              <div class="acct-type">Savings</div>
-            </div>
-            <div class="acct-bal">$12,450.00</div>
-            <div class="acct-gear">⚙</div>
-          </div>
-          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:12px;color:var(--text2)">Cash Total</span>
-            <span style="font-family:var(--mono);font-size:15px;font-weight:800;color:var(--green)">$15,297.32</span>
-          </div>
+          <div class="attention-row"><div class="attention-name">Utilities</div><div class="attention-lbl">−$100</div><div class="fill-mini">Fill</div></div>
+          <div class="attention-row over"><div class="attention-name">Dining Out</div><div class="attention-lbl over">Over $27</div></div>
         </div>
 
         <div class="card card-pad">
-          <div class="card-label">This Month</div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-            <div style="display:flex;align-items:center;gap:6px">
-              <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
-              <span style="font-size:11px;color:var(--text3)">Income</span>
-              <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green)">$3,200</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <div style="width:7px;height:7px;border-radius:50%;background:var(--red)"></div>
-              <span style="font-size:11px;color:var(--text3)">Spent</span>
-              <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--red)">$2,047</span>
-            </div>
+          <div class="card-label">Categories</div>
+          <div class="cat-bar-row">
+            <div class="cat-bar-hdr"><div class="cat-dot" style="background:#6366F1"></div><span class="cat-bar-name">Housing</span><span class="cat-bar-pct" style="color:var(--green)">100%</span></div>
+            <div class="cat-bar-track"><div class="cat-bar-fill" style="width:100%;background:#6366F1"></div></div>
           </div>
-          <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:12px;color:var(--text2)">Net</span>
-            <span style="font-family:var(--mono);font-size:17px;font-weight:800;color:var(--green)">+$1,153</span>
+          <div class="cat-bar-row">
+            <div class="cat-bar-hdr"><div class="cat-dot" style="background:#10B981"></div><span class="cat-bar-name">Food &amp; Dining</span><span class="cat-bar-pct" style="color:var(--amber)">90%</span></div>
+            <div class="cat-bar-track"><div class="cat-bar-fill" style="width:90%;background:#10B981"></div></div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-bar-hdr"><div class="cat-dot" style="background:#F59E0B"></div><span class="cat-bar-name">Transport</span><span class="cat-bar-pct" style="color:var(--amber)">80%</span></div>
+            <div class="cat-bar-track"><div class="cat-bar-fill" style="width:80%;background:#F59E0B"></div></div>
           </div>
         </div>
       </div>
+
     </div>
   </main>
-</div><!-- /desktop accounts -->
+</div>
+</div>
 
 
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!--  MOBILE — BUCKETS + ACCOUNTS                                     -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
-
-<p class="section-label">Cura 2.0 · Mobile (390px) · Buckets · Accounts</p>
-
+<!-- MOBILE FRAMES -->
+<p class="section-label">Mobile · 390px · Buckets &amp; Accounts</p>
 <div class="mobile-frames">
 
-  <!-- Mobile: Buckets -->
   <div class="mobile-frame">
     <div class="mob-hdr">
       <div class="mob-brand">
-        <div class="mob-brand-icon">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-        </div>
+        <div class="mob-brand-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
         <span class="mob-brand-name">CURA</span>
       </div>
-      <div class="mob-rts-center">
-        <div class="mob-rts-amt">$847.32</div>
-        <div class="mob-rts-lbl">ready to assign</div>
-      </div>
-      <div class="mob-month">
-        <div class="mob-arr">←</div>
-        <div class="mob-month-pill">Jun 26</div>
-        <div class="mob-arr">→</div>
-      </div>
+      <div class="mob-rts-center"><div class="mob-rts-amt">$847.32</div><div class="mob-rts-lbl">ready to assign</div></div>
+      <div class="mob-month"><div class="mob-arr">←</div><div class="mob-month-pill">Jun 26</div><div class="mob-arr">→</div></div>
     </div>
-
     <div class="mob-content">
-      <!-- Mini RTS hero -->
       <div class="rts-hero" style="margin-bottom:14px;padding:16px">
         <div class="rts-hero-lbl">Ready to assign</div>
         <div class="rts-hero-amt" style="font-size:38px">$847.32</div>
@@ -1456,273 +610,179 @@
           <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">$2,047</span></div>
         </div>
       </div>
-
-      <div class="cat-header" style="padding-top:4px">
-        <div class="cat-dot" style="background:#6366F1"></div>
-        <span class="cat-name">Housing</span>
-      </div>
-
-      <div class="bucket-card funded" style="margin-bottom:5px">
-        <div class="bucket-main" style="gap:8px">
-          <div class="bucket-name">Rent / Mortgage</div>
-          <div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$1,500</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$1,500</span></div>
-          <div class="bucket-actions"><span class="status-pill funded">Paid</span><div class="icon-btn">⋯</div></div>
-        </div>
-      </div>
-
-      <div class="bucket-card partial" style="margin-bottom:5px">
-        <div class="bucket-main" style="gap:8px">
-          <div class="bucket-name">Utilities</div>
-          <div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$200</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$300</span></div>
-          <div class="bucket-actions"><button class="fill-btn" style="padding:3px 8px;font-size:11px">Fill</button><div class="icon-btn">⋯</div></div>
-        </div>
-      </div>
-
-      <div class="cat-header">
-        <div class="cat-dot" style="background:#10B981"></div>
-        <span class="cat-name">Food &amp; Dining</span>
-      </div>
-
-      <div class="bucket-card funded" style="margin-bottom:5px">
-        <div class="bucket-main" style="gap:8px">
-          <div class="bucket-name">Groceries</div>
-          <div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$350</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$400</span></div>
-          <div class="bucket-actions"><span class="status-pill funded">OK</span><div class="icon-btn">⋯</div></div>
-        </div>
-      </div>
-
-      <div class="bucket-card over" style="margin-bottom:5px">
-        <div class="bucket-main" style="gap:8px">
-          <div class="bucket-name">Dining Out</div>
-          <div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$100</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$100</span></div>
-          <div class="bucket-actions"><span class="status-pill over">−$27</span><div class="icon-btn">⋯</div></div>
-        </div>
-      </div>
+      <div class="cat-header" style="padding-top:4px"><div class="cat-dot" style="background:#6366F1"></div><span class="cat-name">Housing</span></div>
+      <div class="bucket-card funded" style="margin-bottom:5px"><div class="bucket-main" style="gap:8px"><div class="bucket-name">Rent / Mortgage</div><div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$1,500</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$1,500</span></div><div class="bucket-actions"><span class="status-pill funded">Paid</span><div class="icon-btn">⋯</div></div></div></div>
+      <div class="bucket-card partial" style="margin-bottom:5px"><div class="bucket-main" style="gap:8px"><div class="bucket-name">Utilities</div><div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$200</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$300</span></div><div class="bucket-actions"><button class="fill-btn" style="padding:3px 8px;font-size:11px">Fill</button><div class="icon-btn">⋯</div></div></div></div>
+      <div class="cat-header"><div class="cat-dot" style="background:#10B981"></div><span class="cat-name">Food &amp; Dining</span></div>
+      <div class="bucket-card funded" style="margin-bottom:5px"><div class="bucket-main" style="gap:8px"><div class="bucket-name">Groceries</div><div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$350</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$400</span></div><div class="bucket-actions"><span class="status-pill funded">OK</span><div class="icon-btn">⋯</div></div></div></div>
+      <div class="bucket-card over" style="margin-bottom:5px"><div class="bucket-main" style="gap:8px"><div class="bucket-name">Dining Out</div><div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$100</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$100</span></div><div class="bucket-actions"><span class="status-pill over">−$27</span><div class="icon-btn">⋯</div></div></div></div>
+      <div class="cat-header"><div class="cat-dot" style="background:#F59E0B"></div><span class="cat-name">Transport</span></div>
+      <div class="bucket-card partial" style="margin-bottom:5px"><div class="bucket-main" style="gap:8px"><div class="bucket-name">Gas</div><div class="bucket-nums"><span class="alloc-val" style="font-size:14px">$150</span><span class="num-div">/</span><span class="budget-val" style="font-size:12px">$200</span></div><div class="bucket-actions"><span class="status-pill partial">−$50</span><div class="icon-btn">⋯</div></div></div></div>
     </div>
-
     <div class="mob-bottom-nav">
-      <div class="mob-tab active">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        <span class="mob-tab-lbl">Buckets</span>
-      </div>
-      <div class="mob-tab">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        <span class="mob-tab-lbl">Accounts</span>
-      </div>
+      <div class="mob-tab active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="mob-tab-lbl">Buckets</span></div>
+      <div class="mob-tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg><span class="mob-tab-lbl">Accounts</span></div>
       <div class="mob-fab">+</div>
-      <div class="mob-tab">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="17" width="15" height="4" rx="1"/></svg>
-        <span class="mob-tab-lbl">Reports</span>
-      </div>
-      <div class="mob-tab">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span class="mob-tab-lbl">Insights</span>
-      </div>
+      <div class="mob-tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="17" width="15" height="4" rx="1"/></svg><span class="mob-tab-lbl">Reports</span></div>
+      <div class="mob-tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span class="mob-tab-lbl">Insights</span></div>
     </div>
   </div>
 
-  <!-- Mobile: Accounts -->
   <div class="mobile-frame">
     <div class="mob-hdr">
       <div class="mob-brand">
-        <div class="mob-brand-icon">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-        </div>
+        <div class="mob-brand-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
         <span class="mob-brand-name">CURA</span>
       </div>
-      <div class="mob-rts-center">
-        <div class="mob-rts-amt">$847.32</div>
-        <div class="mob-rts-lbl">ready to assign</div>
-      </div>
-      <div class="mob-month">
-        <div class="mob-arr">←</div>
-        <div class="mob-month-pill">Jun 26</div>
-        <div class="mob-arr">→</div>
-      </div>
+      <div class="mob-rts-center"><div class="mob-rts-amt">$847.32</div><div class="mob-rts-lbl">ready to assign</div></div>
+      <div class="mob-month"><div class="mob-arr">←</div><div class="mob-month-pill">Jun 26</div><div class="mob-arr">→</div></div>
     </div>
-
     <div class="mob-content" style="padding:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-        <div class="kpi-box" style="padding:10px 12px"><div class="kpi-lbl">Income</div><div class="kpi-val" style="color:var(--green);font-size:15px">$3,200</div></div>
-        <div class="kpi-box" style="padding:10px 12px"><div class="kpi-lbl">Scheduled</div><div class="kpi-val" style="color:var(--amber);font-size:15px">$840</div></div>
-        <div class="kpi-box" style="padding:10px 12px"><div class="kpi-lbl">Spent</div><div class="kpi-val" style="color:var(--red);font-size:15px">$2,047</div></div>
-        <div class="kpi-box" style="padding:10px 12px"><div class="kpi-lbl">Transferred</div><div class="kpi-val" style="color:var(--text2);font-size:15px">$500</div></div>
+        <div class="card" style="padding:10px 12px"><div class="card-label" style="margin-bottom:3px">Income</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green)">$3,200</div></div>
+        <div class="card" style="padding:10px 12px"><div class="card-label" style="margin-bottom:3px">Scheduled</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--amber)">$840</div></div>
+        <div class="card" style="padding:10px 12px"><div class="card-label" style="margin-bottom:3px">Spent</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--red)">$2,047</div></div>
+        <div class="card" style="padding:10px 12px"><div class="card-label" style="margin-bottom:3px">Transferred</div><div style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text2)">$500</div></div>
       </div>
-
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div class="search-box" style="flex:1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="Search…"></div>
+        <div class="card" style="flex:1;padding:8px 12px;display:flex;align-items:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="Search transactions…" style="background:none;border:none;outline:none;font-family:var(--sans);font-size:13px;color:var(--text);flex:1;min-width:0"></div>
+        <button class="toolbar-btn success" style="padding:8px 10px;font-size:10px">⚖</button>
         <button class="toolbar-btn primary" style="padding:8px 12px">+ Tx</button>
       </div>
-
-      <div class="stmt-header" style="padding-top:0">
-        <span class="stmt-title">Current Statement</span>
-        <span class="stmt-count">12</span>
-      </div>
-
-      <div class="day-card">
-        <div class="day-header">
-          <span class="day-date">Tue, Jun 3</span>
-          <span class="day-rb" style="font-size:11px">$2,847.32</span>
+      <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;color:var(--text2);padding:8px 0 10px;font-family:var(--mono)">Current Statement</div>
+      <div class="card" style="margin-bottom:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
+          <span style="font-size:12px;font-weight:600;color:var(--text2);flex:1">Tue, Jun 3</span>
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text)">$2,847.32</span>
         </div>
-        <div class="tx-row" style="padding:9px 12px">
-          <div class="tx-bar" style="background:var(--red)"></div>
-          <div class="tx-desc-col">
-            <div class="tx-desc">Whole Foods Market</div>
-            <div class="tx-sub"><span class="tx-chip expense">Expense</span><span class="tx-bucket-lbl">Groceries</span></div>
-          </div>
-          <span class="tx-amt expense">−$84.27</span>
+        <div style="display:flex;align-items:center;padding:10px 14px;gap:10px;border-bottom:1px solid var(--border)">
+          <div style="width:3px;align-self:stretch;border-radius:2px;background:var(--red);flex-shrink:0"></div>
+          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text)">Whole Foods Market</div><div style="display:flex;gap:6px;margin-top:2px"><span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:var(--r-pill);color:var(--red);background:var(--red-dim)">Expense</span><span style="font-size:11px;color:var(--text3)">Groceries</span></div></div>
+          <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--red);white-space:nowrap">−$84.27</span>
         </div>
-        <div class="tx-row" style="padding:9px 12px">
-          <div class="tx-bar" style="background:var(--green)"></div>
-          <div class="tx-desc-col">
-            <div class="tx-desc">Direct Deposit</div>
-            <div class="tx-sub"><span class="tx-chip income">Income</span></div>
-          </div>
-          <span class="tx-amt income">+$3,200</span>
+        <div style="display:flex;align-items:center;padding:10px 14px;gap:10px">
+          <div style="width:3px;align-self:stretch;border-radius:2px;background:var(--green);flex-shrink:0"></div>
+          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text)">Direct Deposit</div><div style="display:flex;gap:6px;margin-top:2px"><span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:var(--r-pill);color:var(--green);background:var(--green-dim)">Income</span></div></div>
+          <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--green);white-space:nowrap">+$3,200</span>
         </div>
       </div>
-
-      <div class="day-card">
-        <div class="day-header">
-          <span class="day-date">Mon, Jun 2</span>
-          <span class="day-rb" style="font-size:11px">−$268.05</span>
+      <div class="card" style="overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
+          <span style="font-size:12px;font-weight:600;color:var(--text2);flex:1">Mon, Jun 2</span>
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--red)">−$268.05</span>
         </div>
-        <div class="tx-row" style="padding:9px 12px">
-          <div class="tx-bar" style="background:var(--red)"></div>
-          <div class="tx-desc-col">
-            <div class="tx-desc">Netflix</div>
-            <div class="tx-sub"><span class="tx-chip expense">Expense</span><span class="tx-bucket-lbl">Subscriptions</span></div>
-          </div>
-          <span class="tx-amt expense">−$18.99</span>
+        <div style="display:flex;align-items:center;padding:10px 14px;gap:10px">
+          <div style="width:3px;align-self:stretch;border-radius:2px;background:var(--red);flex-shrink:0"></div>
+          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text)">Netflix</div><div style="display:flex;gap:6px;margin-top:2px"><span style="font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:var(--r-pill);color:var(--red);background:var(--red-dim)">Expense</span><span style="font-size:11px;color:var(--text3)">Subscriptions</span></div></div>
+          <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--red);white-space:nowrap">−$18.99</span>
         </div>
       </div>
     </div>
-
     <div class="mob-bottom-nav">
-      <div class="mob-tab">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        <span class="mob-tab-lbl">Buckets</span>
-      </div>
-      <div class="mob-tab active">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-        <span class="mob-tab-lbl">Accounts</span>
-      </div>
+      <div class="mob-tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="mob-tab-lbl">Buckets</span></div>
+      <div class="mob-tab active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg><span class="mob-tab-lbl">Accounts</span></div>
       <div class="mob-fab">+</div>
-      <div class="mob-tab">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="17" width="15" height="4" rx="1"/></svg>
-        <span class="mob-tab-lbl">Reports</span>
-      </div>
-      <div class="mob-tab">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span class="mob-tab-lbl">Insights</span>
-      </div>
+      <div class="mob-tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="17" width="15" height="4" rx="1"/></svg><span class="mob-tab-lbl">Reports</span></div>
+      <div class="mob-tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span class="mob-tab-lbl">Insights</span></div>
     </div>
   </div>
 
-</div><!-- /mobile-frames -->
+</div>
 
 
-<!-- ══════════════════════════════════════════════════════════════════ -->
-<!--  DESIGN SYSTEM REFERENCE                                         -->
-<!-- ══════════════════════════════════════════════════════════════════ -->
-
-<p class="section-label">Design System Reference</p>
-
+<!-- DESIGN SYSTEM -->
+<p class="section-label">Design System · Color + Type</p>
 <div class="ds-wrap">
   <div class="ds-grid">
 
-    <!-- Colors -->
     <div>
       <div class="ds-sub">Color Palette</div>
-      <div class="swatch-row">
-        <div class="swatch">
-          <div class="swatch-block" style="background:#12121E"></div>
-          <div class="swatch-name">#12121E<br>Sidebar</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-block" style="background:#F5F5FB;border:1px solid #ccc"></div>
-          <div class="swatch-name">#F5F5FB<br>Main BG</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-block" style="background:#FFFFFF;border:1px solid #ccc"></div>
-          <div class="swatch-name">#FFFFFF<br>Surface</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-block" style="background:#5B5BD6"></div>
-          <div class="swatch-name">#5B5BD6<br>Accent</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-block" style="background:#16A34A"></div>
-          <div class="swatch-name">#16A34A<br>Income</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-block" style="background:#DC2626"></div>
-          <div class="swatch-name">#DC2626<br>Expense</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-block" style="background:#D97706"></div>
-          <div class="swatch-name">#D97706<br>Scheduled</div>
+      <div class="theme-desc" data-for="1">
+        <div class="swatch-row">
+          <div class="swatch"><div class="swatch-block" style="background:#12121E"></div><div class="swatch-name">#12121E<br>Sidebar</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#F5F5FB;border-color:#ccc"></div><div class="swatch-name">#F5F5FB<br>Main BG</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FFFFFF;border-color:#ccc"></div><div class="swatch-name">#FFF<br>Surface</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#5B5BD6"></div><div class="swatch-name">#5B5BD6<br>Accent</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#16A34A"></div><div class="swatch-name">#16A34A<br>Income</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#DC2626"></div><div class="swatch-name">#DC2626<br>Expense</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#D97706"></div><div class="swatch-name">#D97706<br>Warning</div></div>
         </div>
       </div>
-
-      <div class="ds-sub" style="margin-top:20px">What changes vs current</div>
-      <div style="font-size:13px;color:#444;line-height:1.7">
-        <div>← <b>Dark sidebar, light main</b> — contrast creates "breathing room" and energy</div>
-        <div>← <b>White cards with shadow</b> — depth instead of dark-on-dark borders</div>
-        <div>← <b>Accent #5B5BD6</b> — 40% more saturation than current #818cf8</div>
-        <div>← <b>RTS hero stays dark</b> — anchor element draws the eye immediately</div>
-        <div>← <b>RTS in sidebar</b> — visible on every panel, not just Buckets</div>
-        <div>← <b>Filled status pills</b> — clear at a glance vs text-only labels</div>
-        <div>← <b>Toolbar buttons unified</b> — one style system, primary/secondary/success</div>
+      <div class="theme-desc" data-for="2">
+        <div class="swatch-row">
+          <div class="swatch"><div class="swatch-block" style="background:#000000"></div><div class="swatch-name">#000<br>Sidebar</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#0D0D18"></div><div class="swatch-name">#0D0D18<br>Main BG</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#141424"></div><div class="swatch-name">#141424<br>Surface</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#4F85FF"></div><div class="swatch-name">#4F85FF<br>Accent</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#34D399"></div><div class="swatch-name">#34D399<br>Income</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#F87171"></div><div class="swatch-name">#F87171<br>Expense</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FCD34D"></div><div class="swatch-name">#FCD34D<br>Warning</div></div>
+        </div>
       </div>
-    </div>
-
-    <!-- Typography -->
-    <div>
-      <div class="ds-sub">Typography</div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-size:10px;color:#999;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Hero number — JetBrains Mono 46px 700</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:46px;font-weight:700;color:#0F0F1C;line-height:1;letter-spacing:-0.02em">$2,847.32</div>
+      <div class="theme-desc" data-for="3">
+        <div class="swatch-row">
+          <div class="swatch"><div class="swatch-block" style="background:#000000"></div><div class="swatch-name">#000<br>Sidebar</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#050505"></div><div class="swatch-name">#050505<br>Main BG</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#0A0A0A"></div><div class="swatch-name">#0A0A0A<br>Surface</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#00D084"></div><div class="swatch-name">#00D084<br>Primary</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FF4444"></div><div class="swatch-name">#FF4444<br>Error</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FFB800"></div><div class="swatch-name">#FFB800<br>Warning</div></div>
+        </div>
       </div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-size:10px;color:#999;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Sidebar RTS — JetBrains Mono 28px 600</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:600;color:#8B8BFF;line-height:1">$847.32</div>
+      <div class="theme-desc" data-for="4">
+        <div class="swatch-row">
+          <div class="swatch"><div class="swatch-block" style="background:#1C2B1C"></div><div class="swatch-name">#1C2B1C<br>Sidebar</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FAF8F3;border-color:#ccc"></div><div class="swatch-name">#FAF8F3<br>Main BG</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FFFFFF;border-color:#ccc"></div><div class="swatch-name">#FFF<br>Surface</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#B45309"></div><div class="swatch-name">#B45309<br>Accent</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#2D7A3A"></div><div class="swatch-name">#2D7A3A<br>Income</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#B91C1C"></div><div class="swatch-name">#B91C1C<br>Expense</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#B45309"></div><div class="swatch-name">#B45309<br>Warning</div></div>
+        </div>
       </div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-size:10px;color:#999;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Section label — Inter 10px 600 uppercase</div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#A0A0BC">Ready to assign</div>
-      </div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-size:10px;color:#999;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Body — Inter 13-14px 500</div>
-        <div style="font-size:14px;font-weight:500;color:#0F0F1C">Rent / Mortgage <span style="color:#6B6B8A;font-weight:400">· June 2026</span></div>
-      </div>
-
-      <div style="margin-bottom:20px">
-        <div style="font-size:10px;color:#999;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;font-family:monospace">Financial data — JetBrains Mono 13-15px 600</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:#5B5BD6">$1,500</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#16A34A">+$3,200.00</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#DC2626">−$84.27</div>
+      <div class="theme-desc" data-for="5">
+        <div class="swatch-row">
+          <div class="swatch"><div class="swatch-block" style="background:#0C0C10"></div><div class="swatch-name">#0C0C10<br>BG</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.15)"></div><div class="swatch-name">Glass<br>Surface</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#BF5AF2"></div><div class="swatch-name">#BF5AF2<br>Accent</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#30D158"></div><div class="swatch-name">#30D158<br>Income</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FF453A"></div><div class="swatch-name">#FF453A<br>Expense</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:#FF9F0A"></div><div class="swatch-name">#FF9F0A<br>Warning</div></div>
+        </div>
       </div>
 
       <div style="margin-top:24px">
-        <div class="ds-sub">Fonts to import</div>
-        <div style="font-size:12px;font-family:monospace;background:#F0F0F8;padding:10px 14px;border-radius:8px;line-height:1.8;color:#333">
-          Inter (400, 500, 600, 700, 800)<br>
-          JetBrains Mono (400, 500, 600)<br>
-          <span style="color:#888">— Replace: Rajdhani, Share Tech Mono, Bebas Neue</span>
-        </div>
+        <div class="ds-sub">Shape &amp; Type</div>
+        <div class="theme-desc change-item" data-for="1"><b>Font:</b> Inter body · JetBrains Mono numbers<br><b>Corners:</b> 10px cards · 6px buttons · 20px pills<br><b>Depth:</b> White cards with subtle box-shadow<br><b>Vibe:</b> Contrast from sidebar ↔ light main</div>
+        <div class="theme-desc change-item" data-for="2"><b>Font:</b> Inter body · JetBrains Mono numbers<br><b>Corners:</b> 10px cards · 6px buttons · 20px pills<br><b>Depth:</b> Three dark layers — black / navy / card<br><b>Vibe:</b> Electric blue on near-black — Linear meets finance</div>
+        <div class="theme-desc change-item" data-for="3"><b>Font:</b> JetBrains Mono <em>everywhere</em> — zero Inter<br><b>Corners:</b> 2px everywhere — fully sharp, no rounding<br><b>Depth:</b> Neon green borders on black — no shadows<br><b>Vibe:</b> Bloomberg terminal, command center, power-user</div>
+        <div class="theme-desc change-item" data-for="4"><b>Font:</b> Inter body · JetBrains Mono numbers<br><b>Corners:</b> 10px cards · 6px buttons · 20px pills<br><b>Depth:</b> White cards on warm cream — soft shadows<br><b>Vibe:</b> Calm, trustworthy, premium leather notebook</div>
+        <div class="theme-desc change-item" data-for="5"><b>Font:</b> Inter body · JetBrains Mono numbers<br><b>Corners:</b> 10px cards · 6px buttons · 20px pills<br><b>Depth:</b> Glass cards on deep black — glow accents<br><b>Vibe:</b> Neon violet — alive, electric, unmissable on OLED</div>
       </div>
+    </div>
+
+    <div>
+      <div class="ds-sub">Direction Notes</div>
+      <div class="theme-desc change-item" data-for="1">← <b>Duotone contrast</b> — dark sidebar anchors the eye, light main breathes<br>← <b>White cards + shadow</b> — depth instead of dark-on-dark borders<br>← <b>Accent #5B5BD6</b> — 40% more saturated than current #818cf8<br>← <b>RTS hero stays dark</b> — the one scoreboard that demands attention<br>← <b>RTS in sidebar</b> — visible on every panel, not just Buckets<br>← <b>Filled status pills</b> — readable at a glance, not text-only<br>← <b>Inter + JetBrains Mono</b> — replaces Rajdhani + Share Tech Mono</div>
+      <div class="theme-desc change-item" data-for="2">← <b>Premium dark done right</b> — three distinct dark layers, not one flat black<br>← <b>Electric blue #4F85FF</b> — punchy, professional, high-contrast<br>← <b>No white anywhere</b> — full dark immersion like Linear or Vercel<br>← <b>Elevated shadows</b> — cards float via deep drop shadows<br>← <b>Semantic greens warmer</b> — #34D399 pops on dark navy<br>← <b>Sidebar is pure black</b> — max contrast against navy main area<br>← <b>Best for night use</b> — zero eye strain, stunning on OLED screens</div>
+      <div class="theme-desc change-item" data-for="3">← <b>Mono-only typography</b> — JetBrains Mono for every element<br>← <b>Zero border-radius</b> — sharp corners, architectural grid<br>← <b>Green-on-black</b> — neon #00D084 is the only accent color<br>← <b>Borders = structure</b> — no shadows, all definition from glow borders<br>← <b>Data density first</b> — everything compact, information-forward<br>← <b>Niche but memorable</b> — "command center" feel for power users<br>← <b>Terminal nostalgia</b> — Bloomberg, trading floors, focus mode</div>
+      <div class="theme-desc change-item" data-for="4">← <b>Forest green sidebar</b> — #1C2B1C like a premium leather planner<br>← <b>Warm cream main</b> — #FAF8F3, soft, inviting, stress-free<br>← <b>Amber accent</b> — #B45309 for allocations and CTAs<br>← <b>Softer green/red</b> — income and expense feel calm, not alarming<br>← <b>Smallest visual footprint</b> — designed to feel calm, not urgent<br>← <b>Trust signal</b> — feels like a real bank, not a startup app<br>← <b>Perfect in daylight</b> — warm tones match natural light</div>
+      <div class="theme-desc change-item" data-for="5">← <b>Glass card system</b> — rgba surfaces float on deep black canvas<br>← <b>Electric violet #BF5AF2</b> — loudest accent in the set<br>← <b>Neon glow everywhere</b> — FAB, brand icon, RTS hero all glow purple<br>← <b>Apple dark palette</b> — #30D158 green, #FF453A red, #FF9F0A amber<br>← <b>Sidebar blends into main</b> — unified dark canvas, no hard divide<br>← <b>Most "alive" of the five</b> — screams energy, screams try-me<br>← <b>Mobile-first ideal</b> — OLED black + neon feels native on iPhone</div>
     </div>
 
   </div>
 </div>
+
+<script>
+  const root = document.documentElement;
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      root.dataset.theme = btn.dataset.t;
+      document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
 
 </body>
 </html>
