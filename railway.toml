@@ -1,6 +1,9 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "reflex_app/Dockerfile"
+dockerContext = "."
 
 [deploy]
-startCommand = "cd app && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60"
-healthcheckPath = "/health"
+healthcheckPath = "/ping"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
