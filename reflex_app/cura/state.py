@@ -674,48 +674,30 @@ class AppState(rx.State):
         return out  # ledger_rows is already newest-first
 
     @rx.var
-    def recon_already_cleared(self) -> float:
-        """Sum of signed effects from already-reconciled transactions for this account."""
+    def recon_cleared_balance(self) -> float:
+        """cleared_balance = real account balance minus the signed effect of
+        every unchecked transaction.  Anchoring to the real balance automatically
+        includes the opening balance, so the math is correct regardless of how
+        many prior reconciliations have been done."""
         acct = self.recon_account_id
         if not acct:
             return 0.0
-        total = 0.0
-        for row in self.ledger_rows:
-            if row.get("row_type") != "tx":
-                continue
-            if row.get("scheduled", False):
-                continue
-            if not row.get("reconciled", False):
-                continue
-            if row.get("acct_id", "") != acct and row.get("to_acct_id", "") != acct:
-                continue
-            t = row.get("type", "")
-            a = float(row.get("amount") or 0)
-            if row.get("acct_id") == acct:
-                if t == "in":           total += a
-                elif t in ("out","xfr"): total -= a
-            elif t == "xfr" and row.get("to_acct_id") == acct:
-                total += a
-        return total
-
-    @rx.var
-    def recon_cleared_balance(self) -> float:
-        """Already-reconciled amount + newly checked amount."""
-        acct = self.recon_account_id
+        current = self.acct_balance_map.get(acct, 0.0)
         unchecked = set(self.recon_unchecked_ids)
-        checked_sum = 0.0
+        uncleared_effect = 0.0
         for row in self.recon_txs:
             tx_id = str(row.get("id", ""))
-            if tx_id in unchecked:   # explicitly unchecked → skip
+            if tx_id not in unchecked:   # checked → already in current balance, keep it
                 continue
+            # This tx is unchecked (hasn't posted) — subtract its effect
             t = row.get("type", "")
             a = float(row.get("amount") or 0)
             if row.get("acct_id") == acct:
-                if t == "in":            checked_sum += a
-                elif t in ("out","xfr"): checked_sum -= a
+                if t == "in":            uncleared_effect += a
+                elif t in ("out","xfr"): uncleared_effect -= a
             elif t == "xfr" and row.get("to_acct_id") == acct:
-                checked_sum += a
-        return self.recon_already_cleared + checked_sum
+                uncleared_effect += a
+        return current - uncleared_effect
 
     @rx.var
     def recon_difference(self) -> float:
