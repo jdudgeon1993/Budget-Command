@@ -18,6 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the Reflex app source
 COPY reflex_app/cura/ ./cura/
 COPY reflex_app/rxconfig.py .
+# Static files served at root (assets/ → public/ in Next.js build)
+COPY reflex_app/assets/ ./assets/
 
 # Compile Next.js frontend into .web/
 # No env vars needed at build time — all Supabase calls happen at runtime
