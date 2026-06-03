@@ -632,9 +632,9 @@ class AppState(rx.State):
 
     @rx.var
     def rts_color(self) -> str:
-        if self.rts < -0.005: return "#f87171"
-        if self.rts < 0.01:   return "#34d399"
-        return "#818cf8"
+        if self.rts < -0.005: return "#FF453A"
+        if self.rts < 0.01:   return "#30D158"
+        return "#BF5AF2"
 
     @rx.var
     def distribute_visible(self) -> bool:
@@ -1258,7 +1258,7 @@ class AppState(rx.State):
             # Income bar (accent blue)
             parts.append(
                 f'<rect x="{x}" y="{bar_area_h - ih + 4}" width="{bar_w // 2 - 2}" height="{ih}" '
-                f'rx="3" fill="#818cf8" opacity="0.85"/>'
+                f'rx="3" fill="#BF5AF2" opacity="0.85"/>'
             )
             # Bills bar (amber if surplus else red)
             bill_color = "#fbbf24" if m["surplus_positive"] else "#f87171"
@@ -1270,7 +1270,7 @@ class AppState(rx.State):
             # Month label
             parts.append(
                 f'<text x="{x + bar_w // 2}" y="{bar_area_h + 18}" '
-                f'text-anchor="middle" font-size="10" fill="#818cf8">{m["label"]}</text>'
+                f'text-anchor="middle" font-size="10" fill="#BF5AF2">{m["label"]}</text>'
             )
             # Surplus/shortfall indicator
             s_color = "#34d399" if m["surplus_positive"] else "#f87171"
@@ -1285,7 +1285,7 @@ class AppState(rx.State):
 
         # Legend
         parts.append(
-            f'<rect x="8" y="{H - 16}" width="10" height="8" rx="2" fill="#818cf8" opacity="0.85"/>'
+            f'<rect x="8" y="{H - 16}" width="10" height="8" rx="2" fill="#BF5AF2" opacity="0.85"/>'
             f'<text x="22" y="{H - 9}" font-size="9" fill="#9090b0">Income</text>'
             f'<rect x="70" y="{H - 16}" width="10" height="8" rx="2" fill="#fbbf24" opacity="0.85"/>'
             f'<text x="84" y="{H - 9}" font-size="9" fill="#9090b0">Bills</text>'
