@@ -919,6 +919,8 @@ class AppState(rx.State):
             self._build_wi_rules_rows()
             self._run_whatif()
             self._load_wi_scenarios()
+        elif tab == "forecast":
+            self._load_wi_scenarios()
 
     # ── Timeline events ───────────────────────────────────────────────────────
 
@@ -1019,19 +1021,26 @@ class AppState(rx.State):
         self._build_wi_bucket_rows()
         self._build_wi_chart_svg()
 
-    def apply_fc_scenario(self, sid: str):
+    async def apply_fc_scenario(self, sid: str):
         """Apply a saved What-If scenario to the Forecast tab."""
+        sc = next((s for s in self.wi_scenarios if s["id"] == sid), None)
+        if not sc:
+            # Not cached yet — fall back to a fresh load
+            try:
+                self._load_wi_scenarios()
+            except Exception:
+                pass
+            sc = next((s for s in self.wi_scenarios if s["id"] == sid), None)
+        if not sc:
+            yield rx.toast.error("Scenario not found")
+            return
+        allocs = sc.get("allocs", {})
+        self.fc_active_scenario_id   = sid
+        self.fc_active_scenario_name = sc["name"]
         try:
-            rows = DB.list_scenarios(self.user_id, self.access_token)
-            sc   = next((r for r in rows if r["id"] == sid), None)
-            if not sc:
-                return
-            allocs = sc.get("allocations", {})
-            self.fc_active_scenario_id   = sid
-            self.fc_active_scenario_name = sc["name"]
             self._run_forecast_with_scenario(allocs)
-        except Exception:
-            pass
+        except Exception as e:
+            yield rx.toast.error(f"Failed to apply scenario: {e}")
 
     def clear_fc_scenario(self):
         self.fc_active_scenario_id   = ""
@@ -1339,13 +1348,19 @@ class AppState(rx.State):
             else:
                 yield rx.toast.error(f"Save failed: {msg}")
 
-    def load_wi_scenario(self, sid: str):
+    async def load_wi_scenario(self, sid: str):
+        sc = next((s for s in self.wi_scenarios if s["id"] == sid), None)
+        if not sc:
+            try:
+                self._load_wi_scenarios()
+            except Exception:
+                pass
+            sc = next((s for s in self.wi_scenarios if s["id"] == sid), None)
+        if not sc:
+            yield rx.toast.error("Scenario not found")
+            return
+        allocs = sc.get("allocs", {})
         try:
-            rows = DB.list_scenarios(self.user_id, self.access_token)
-            sc   = next((r for r in rows if r["id"] == sid), None)
-            if not sc:
-                return
-            allocs = sc.get("allocations", {})
             self.wi_bucket_overrides   = allocs.get("_overrides", {})
             self.wi_rule_overrides     = allocs.get("_rule_overrides", {})
             self.wi_off_buckets        = allocs.get("_off_buckets", [])
@@ -1359,8 +1374,8 @@ class AppState(rx.State):
             self._build_wi_bucket_rows()
             self._build_wi_rules_rows()
             self._build_wi_chart_svg()
-        except Exception:
-            pass
+        except Exception as e:
+            yield rx.toast.error(f"Failed to load scenario: {e}")
 
     async def delete_wi_scenario(self, sid: str):
         try:
@@ -1467,6 +1482,7 @@ class AppState(rx.State):
             if not self.active_mid:
                 self.active_mid = current_month_id()
             self._process(data, self.active_mid)
+            self._load_wi_scenarios()
         except Exception as e:
             if DB.is_auth_error(e):
                 self.access_token = ""
@@ -1536,6 +1552,8 @@ class AppState(rx.State):
         self.active_panel = name
         if name == "reports" and self._raw:
             self._build_reports()
+        elif name == "insights":
+            self._load_wi_scenarios()
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Add-transaction sheet
