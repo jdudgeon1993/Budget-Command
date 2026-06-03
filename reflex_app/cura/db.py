@@ -11,8 +11,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SUPABASE_URL      = os.environ.get("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_URL         = os.environ.get("SUPABASE_URL", "")
+SUPABASE_ANON_KEY    = os.environ.get("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 
 def client(token: str = "") -> Client:
@@ -20,6 +21,48 @@ def client(token: str = "") -> Client:
     if token:
         c.postgrest.auth(token)
     return c
+
+
+def _service_client() -> Client:
+    """Service-role client — bypasses RLS. Only for schema migrations."""
+    key = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
+    return create_client(SUPABASE_URL, key)
+
+
+def ensure_schema() -> None:
+    """
+    Idempotent — ensures bcc_scenarios table + RLS policy exist.
+    Called once on app startup when SUPABASE_SERVICE_KEY is set.
+    """
+    if not SUPABASE_SERVICE_KEY:
+        return
+    try:
+        sc = _service_client()
+        sc.rpc("exec_sql", {"sql": """
+            CREATE TABLE IF NOT EXISTS bcc_scenarios (
+                id              TEXT PRIMARY KEY,
+                user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+                name            TEXT NOT NULL,
+                allocations     JSONB NOT NULL DEFAULT '{}',
+                income_override NUMERIC(12,2),
+                schedule        JSONB NOT NULL DEFAULT '{}',
+                sort_order      INTEGER NOT NULL DEFAULT 0,
+                created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            ALTER TABLE bcc_scenarios ENABLE ROW LEVEL SECURITY;
+            DO $$ BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_policies
+                WHERE tablename = 'bcc_scenarios' AND policyname = 'bcc_scenarios_user_policy'
+              ) THEN
+                CREATE POLICY bcc_scenarios_user_policy ON bcc_scenarios
+                  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+              END IF;
+            END $$;
+        """}).execute()
+    except Exception:
+        pass  # best-effort; migration SQL in schema_migrations.sql is the canonical fix
 
 
 def sign_in(email: str, password: str) -> dict:

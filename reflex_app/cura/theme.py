@@ -294,15 +294,33 @@ body {{
 /* ── Mobile responsive ──────────────────────────────────── */
 @media (max-width: 767px) {{
   .sidebar-fixed  {{ display: none !important; }}
-  .main-content   {{ margin-left: 0 !important; padding-bottom: {NAV_H}; overflow-x: hidden; }}
+  .main-content   {{ margin-left: 0 !important; overflow-x: hidden; }}
   .mobile-only    {{ display: flex !important; }}
   .desktop-only   {{ display: none !important; }}
+  /* 2-col split → single col; scoreboard un-sticks */
   .split-grid     {{ grid-template-columns: 1fr !important; }}
+  .split-grid > * {{ position: static !important; }}
+  /* Panel content padding on mobile */
+  .panel-content-box {{
+    padding-left:   12px !important;
+    padding-right:  12px !important;
+    padding-top:    calc(12px + {HDR_H}) !important;
+    padding-bottom: calc(28px + {NAV_H}) !important;
+  }}
   .bkt-reorder    {{ display: none !important; }}
   .bkt-name       {{ max-width: 120px !important; flex-shrink: 1 !important; }}
+  /* KPI vertical dividers become confusing when rows wrap */
+  .kpi-divider    {{ display: none !important; }}
+  /* Forecast What-If: hide less-critical columns on narrow screens */
+  .wi-col-override  {{ display: none !important; }}
+  .wi-col-effective {{ display: none !important; }}
 }}
 @media (min-width: 768px) {{
   .mobile-only    {{ display: none !important; }}
+  .panel-content-box {{
+    padding:     24px !important;
+    padding-top: calc(24px + {HDR_H}) !important;
+  }}
 }}
 
 /* ── Reduced motion ─────────────────────────────────────── */

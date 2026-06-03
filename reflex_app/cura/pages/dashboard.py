@@ -269,9 +269,11 @@ def dashboard_page() -> rx.Component:
                 # Panels
                 rx.box(
                     panel_content(),
+                    class_name="panel-content-box",
                     style={
-                        "padding": "20px 24px",
-                        "padding_top": f"calc(20px + {HDR_H})",  # desktop: below sticky header
+                        "padding": "20px 16px",
+                        "padding_top": f"calc(16px + {HDR_H})",
+                        "padding_bottom": f"calc(20px + {NAV_H})",  # mobile: clear bottom nav
                         "max_width": "1400px",
                         "margin_left": "auto",
                         "margin_right": "auto",

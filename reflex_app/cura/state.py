@@ -556,9 +556,10 @@ class AppState(rx.State):
     wi_bucket_rows:       list[dict] = []    # category-grouped bucket editor rows
     wi_rules_rows:        list[dict] = []    # rules editor rows
     wi_chart_svg:         str        = ""    # pre-computed 6-month SVG bar chart
-    wi_scenarios:         list[dict] = []    # [{id, name, allocs}] loaded from DB
-    wi_active_scenario_id: str       = ""
-    wi_scenario_name:     str        = ""
+    wi_scenarios:             list[dict] = []    # [{id, name, allocs}] loaded from DB
+    wi_active_scenario_id:   str       = ""
+    wi_scenario_name:        str       = ""
+    wi_scenarios_rls_error:  bool      = False
 
     # ── Forecast scenario overlay ─────────────────────────────────────────────
     fc_active_scenario_id:   str  = ""
@@ -1300,8 +1301,10 @@ class AppState(rx.State):
         try:
             rows = DB.list_scenarios(self.user_id, self.access_token)
             self.wi_scenarios = [{"id": r["id"], "name": r["name"], "allocs": r.get("allocations", {})} for r in rows]
-        except Exception:
+        except Exception as e:
             self.wi_scenarios = []
+            if "42501" in str(e) or "row-level security" in str(e).lower():
+                self.wi_scenarios_rls_error = True
 
     def set_wi_scenario_name(self, val: str):
         self.wi_scenario_name = val
@@ -1327,7 +1330,14 @@ class AppState(rx.State):
             self.wi_scenario_name = ""
             yield rx.toast.success("Scenario saved")
         except Exception as e:
-            yield rx.toast.error(f"Save failed: {e}")
+            msg = str(e)
+            if "42501" in msg or "row-level security" in msg.lower():
+                yield rx.toast.error(
+                    "Scenario save blocked by database permissions. "
+                    "Run schema_migrations.sql in your Supabase SQL editor to fix this."
+                )
+            else:
+                yield rx.toast.error(f"Save failed: {msg}")
 
     def load_wi_scenario(self, sid: str):
         try:
