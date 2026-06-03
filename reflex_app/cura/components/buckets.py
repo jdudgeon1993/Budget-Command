@@ -4,7 +4,8 @@ import reflex as rx
 from typing import Any
 from ..state import AppState
 from ..theme import (BG2, BG3, BORDER, BORDER2, TEXT, TEXT2, TEXT3,
-                     GREEN, AMBER, ACCENT, RED, VIOLET, MONO, SANS)
+                     GREEN, AMBER, ACCENT, RED, VIOLET, MONO, SANS,
+                     status_badge_style)
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
@@ -861,15 +862,19 @@ def _bucket_row(row: dict) -> rx.Component:
                 rx.hstack(
                     rx.cond(
                         row["status_label"] != "",
-                        rx.text(row["status_label"], style={
-                            "font_size": "11px", "font_family": MONO,
-                            "letter_spacing": "0.06em", "white_space": "nowrap",
-                            "font_weight": "600",
-                            "color": rx.cond(
-                                row["is_over"] == "1", RED,
-                                rx.cond(row["is_funded"] == "1", GREEN, AMBER)
+                        rx.text(
+                            row["status_label"],
+                            class_name="desktop-only",
+                            style=rx.cond(
+                                row["is_over"] == "1",
+                                status_badge_style("over"),
+                                rx.cond(
+                                    row["is_funded"] == "1",
+                                    status_badge_style("funded"),
+                                    status_badge_style("funding"),
+                                ),
                             ),
-                        }, class_name="desktop-only"),
+                        ),
                         rx.box(),
                     ),
                     rx.cond(
@@ -1012,6 +1017,7 @@ def _bucket_row(row: dict) -> rx.Component:
                 rx.box(),
             ),
 
+            class_name="bucket-card-el",
             style={
                 "background": BG2,
                 "border": f"1px solid {BORDER}",
@@ -1025,7 +1031,6 @@ def _bucket_row(row: dict) -> rx.Component:
                 "padding": "11px 14px",
                 "margin_bottom": "5px",
                 "opacity": rx.cond(row["is_skipped"] == "1", "0.4", "1"),
-                "_hover": {"border_color": BORDER2},
             },
         ),
     )
