@@ -168,7 +168,7 @@ def mobile_nav() -> rx.Component:
         class_name="mobile-only",
         style={
             "position": "fixed", "bottom": "0", "left": "0", "right": "0",
-            "width": "100%", "height": NAV_H, "background": BG2,
+            "width": "100%", "height": NAV_H, "background": BG,
             "border_top": f"1px solid {BORDER}",
             "display": "flex", "align_items": "center",
             "padding": "0", "z_index": "100",
