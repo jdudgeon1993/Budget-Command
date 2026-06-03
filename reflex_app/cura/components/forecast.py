@@ -34,10 +34,11 @@ def _tab_btn(label: str, tab: str) -> rx.Component:
             active,
             {"padding": "5px 16px", "border_radius": "20px", "cursor": "pointer",
              "font_size": "11px", "font_family": MONO, "letter_spacing": "0.06em",
-             "background": ACCENT, "color": "#fff", "border": f"1px solid {ACCENT}"},
+             "background": f"{ACCENT}20", "color": "#D8A4FF",
+             "border": f"1px solid {ACCENT}44"},
             {"padding": "5px 16px", "border_radius": "20px", "cursor": "pointer",
              "font_size": "11px", "font_family": MONO, "letter_spacing": "0.06em",
-             "background": BG3, "color": TEXT3, "border": f"1px solid {BORDER}",
+             "background": "transparent", "color": TEXT3, "border": f"1px solid {BORDER}",
              "_hover": {"color": TEXT2, "border_color": BORDER2}},
         ),
     )

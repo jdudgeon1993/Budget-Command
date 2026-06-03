@@ -502,9 +502,11 @@ def edit_tx_dialog() -> rx.Component:
                 gap="14px", width="100%",
             ),
             style={
-                "background": BG2, "border": f"1px solid {BORDER}",
-                "border_radius": "14px", "padding": "24px",
+                "background": "rgba(14,14,22,0.96)",
+                "border": f"1px solid {BORDER2}",
+                "border_radius": "16px", "padding": "24px",
                 "max_width": "460px", "width": "95vw",
+                "box_shadow": "0 24px 60px rgba(0,0,0,0.65)",
             },
         ),
         open=AppState.edit_tx_open,
