@@ -6,7 +6,7 @@
 
   <div class="tx-type-row">
     {% for val, label in [('out','Expense'),('in','Income'),('xfr','Transfer')] %}
-    <label class="tx-type {{ 'on' if tx.type == val }}">
+    <label class="tx-type {{ 'on' if tx.type == val }}" onclick="updateTxFields('{{ val }}')">
       <input type="radio" name="type" value="{{ val }}" {{ 'checked' if tx.type == val }} hidden>{{ label }}
     </label>
     {% endfor %}
@@ -26,15 +26,15 @@
       {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if a.id == tx.accountId }}>{{ a.name }}</option>{% endfor %}
     </select>
   </div>
-  <div class="tx-field">
-    <label>To account <span class="tx-hint">(transfers)</span></label>
+  <div class="tx-field" id="tf-toAcct" style="{{ '' if tx.type == 'xfr' else 'display:none' }}">
+    <label>To account</label>
     <select name="toAccountId">
       <option value="">—</option>
       {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if a.id == tx.toAccountId }}>{{ a.name }}</option>{% endfor %}
     </select>
   </div>
-  <div class="tx-field">
-    <label>Bucket <span class="tx-hint">(expenses)</span></label>
+  <div class="tx-field" id="tf-bucket" style="{{ '' if tx.type == 'out' else 'display:none' }}">
+    <label>Bucket</label>
     <select name="bucketId">
       <option value="">—</option>
       {% for grp in buckets_by_cat %}
@@ -44,9 +44,26 @@
       {% endfor %}
     </select>
   </div>
+  <div class="tx-field" id="tf-incomeType" style="{{ '' if tx.type == 'in' else 'display:none' }}">
+    <label>Income type</label>
+    <select name="incomeType">
+      <option value="paycheck" {{ 'selected' if tx.incomeType == 'paycheck' or not tx.incomeType }}>Paycheck</option>
+      <option value="other" {{ 'selected' if tx.incomeType == 'other' }}>Other income</option>
+    </select>
+  </div>
   <div class="tx-field">
     <label>Payee / note</label>
-    <input type="text" name="desc" value="{{ tx.desc or '' }}">
+    <input type="text" name="desc" value="{{ tx.desc or '' }}" list="payee-list-edit" autocomplete="off">
+    <datalist id="payee-list-edit">
+      {% for p in payees %}<option value="{{ p }}">{% endfor %}
+    </datalist>
+  </div>
+  <div class="tx-field" style="display:flex;align-items:center;gap:12px">
+    <label style="margin-bottom:0;flex:1">Reconciled</label>
+    <select name="reconciled" style="width:auto;flex:0 0 auto">
+      <option value="1" {{ 'selected' if tx.reconciled }}>✓ Yes — reconciled</option>
+      <option value="0" {{ 'selected' if not tx.reconciled }}>Not reconciled</option>
+    </select>
   </div>
 
   <div class="tx-actions">
@@ -63,3 +80,15 @@
   <input type="hidden" name="back" value="{{ back }}">
   <button class="edit-delete-btn" style="width:100%" type="submit">Delete Transaction</button>
 </form>
+
+<script>
+function updateTxFields(t){
+  document.querySelectorAll('.tx-type').forEach(function(el){el.classList.remove('on');});
+  var lbl=document.querySelector('.tx-type input[value="'+t+'"]');
+  if(lbl)lbl.closest('.tx-type').classList.add('on');
+  document.getElementById('tf-toAcct').style.display=(t==='xfr')?'':'none';
+  document.getElementById('tf-bucket').style.display=(t==='out')?'':'none';
+  document.getElementById('tf-incomeType').style.display=(t==='in')?'':'none';
+  document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
+}
+</script>

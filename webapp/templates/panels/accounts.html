@@ -9,6 +9,51 @@
       <div class="sum-card"><div class="sum-label">Transferred</div><div class="sum-val c-text2">{{ summary.transferred | money }}</div></div>
     </div>
 
+    {# ── Search + account filter ── #}
+    <div class="ledger-toolbar">
+      <input class="ledger-search" type="search" placeholder="Search transactions…"
+             oninput="searchTx(this.value)" aria-label="Search transactions">
+      <div class="acct-filter-bar">
+        <button class="acct-filter-chip active" data-aid="all" onclick="filterLedger(this,'all')">All</button>
+        {% for a in cards %}
+        <button class="acct-filter-chip" data-aid="{{ a.id }}" onclick="filterLedger(this,'{{ a.id }}')"
+                style="--chip-color:{{ a.color }}">{{ a.name }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── Scheduled / upcoming section ── #}
+    {% if scheduled %}
+    <div class="statement-label" style="color:var(--amber)">Upcoming</div>
+    {% for day in scheduled %}
+    <div class="ledger-day">
+      <div class="ledger-head">
+        <span class="ledger-date" style="color:var(--amber)">{{ day.label }}</span>
+        <span class="ledger-net" style="color:var(--amber)">{{ day.net | money }}</span>
+      </div>
+      {% for t in day.rows %}
+      <div class="tx-row" data-aid="{{ t.account_id }}">
+        <div class="tx-stripe" style="background:var(--amber);width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
+        <div class="tx-body">
+          <div class="tx-name">{{ t.desc }}</div>
+          <div class="tx-meta">
+            <span class="tx-pill" style="color:var(--amber);background:rgba(251,191,36,.12)">Scheduled</span>
+            {% if t.sub %}<span class="tx-cat">{{ t.sub }}</span>{% endif %}
+            <span class="tx-acct-lbl" style="color:var(--text3);font-size:11px">{{ t.account_name }}</span>
+          </div>
+        </div>
+        <span class="tx-amt" style="color:var(--amber)">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
+        {% if t.id %}
+        <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
+           hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# ── Posted transactions ── #}
     <div class="statement-label">Current Statement</div>
     {% for day in ledger %}
     <div class="ledger-day">
@@ -17,13 +62,18 @@
         <span class="ledger-net {{ 'c-red' if day.net < 0 else 'c-green' }}">{{ day.net | money }}</span>
       </div>
       {% for t in day.rows %}
-      <div class="tx-row">
+      <div class="tx-row" data-aid="{{ t.account_id }}">
         <div class="tx-stripe" style="background:var(--{{ 'green' if t.color=='green' else 'red' if t.color=='red' else 'text2' }});width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
         <div class="tx-body">
-          <div class="tx-name">{{ t.desc }}{% if t.scheduled %} <span style="color:var(--amber);font-size:11px">· scheduled</span>{% endif %}</div>
+          <div class="tx-name">
+            {{ t.desc }}
+            {% if t.reconciled %}<span class="tx-recon" title="Reconciled">✓</span>{% endif %}
+          </div>
           <div class="tx-meta">
             <span class="tx-pill c-{{ t.color }} bg-{{ t.color }}">{{ t.pill }}</span>
-            {% if t.category %}<span class="tx-cat">{{ t.category }}</span>{% endif %}
+            {% if t.sub %}<span class="tx-cat">{{ t.sub }}</span>{% endif %}
+            {% if t.income_type and t.type == 'in' %}<span class="tx-cat">{{ t.income_type | capitalize }}</span>{% endif %}
+            <span class="tx-acct-lbl">{{ t.account_name }}</span>
           </div>
         </div>
         <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
@@ -52,9 +102,18 @@
         <div class="acct-dot" style="width:8px;height:8px;border-radius:50%;background:{{ a.color or 'var(--accent)' }};flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
           <div class="acct-name">{{ a.name }}</div>
-          <div class="acct-type">{{ a.type }}</div>
+          <div class="acct-type">
+            {{ a.type }}
+            {% if a.type == 'debt' and a.debtAPR %}<span style="color:var(--red);font-size:10px;margin-left:4px">{{ "%.1f"|format(a.debtAPR) }}% APR</span>{% endif %}
+          </div>
         </div>
         <div class="acct-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</div>
+        {% if a.type == 'debt' %}
+        <a class="vault-action-btn" style="font-size:10px;padding:2px 6px"
+           href="{{ url_for('panels.debt_payment', aid=a.id) }}"
+           hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}" hx-target="#modal-body"
+           title="Record a payment">Pay</a>
+        {% endif %}
         <a class="tx-edit-link" href="{{ url_for('panels.account_edit', aid=a.id) }}"
            hx-get="{{ url_for('panels.account_edit', aid=a.id) }}" hx-target="#modal-body"
            title="Edit account">⚙</a>
@@ -63,4 +122,29 @@
     </div>
   </div>
 </div>
+
+<script>
+function filterLedger(btn, aid) {
+  document.querySelectorAll('.acct-filter-chip').forEach(function(c){c.classList.remove('active');});
+  btn.classList.add('active');
+  document.querySelectorAll('.tx-row[data-aid]').forEach(function(r){
+    r.style.display=(aid==='all'||r.dataset.aid===aid)?'':'none';
+  });
+  document.querySelectorAll('.ledger-day').forEach(function(d){
+    var vis=d.querySelectorAll('.tx-row:not([style*="display: none"]):not([style*="display:none"])').length;
+    d.style.display=vis?'':'none';
+  });
+}
+function searchTx(q){
+  q=q.toLowerCase().trim();
+  document.querySelectorAll('.tx-row').forEach(function(r){
+    var txt=(r.querySelector('.tx-name')||r).textContent.toLowerCase();
+    r.style.display=(!q||txt.includes(q))?'':'none';
+  });
+  document.querySelectorAll('.ledger-day').forEach(function(d){
+    var vis=d.querySelectorAll('.tx-row:not([style*="display: none"]):not([style*="display:none"])').length;
+    d.style.display=vis?'':'none';
+  });
+}
+</script>
 {% endblock %}
