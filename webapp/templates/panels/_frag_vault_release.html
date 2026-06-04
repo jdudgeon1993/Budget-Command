@@ -17,6 +17,21 @@
            value="{{ vault_accum | money | replace('$','') | replace(',','') }}"
            placeholder="0.00" required autofocus>
   </div>
+  <div class="edit-field">
+    <label>Was this planned?</label>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--text1);cursor:pointer">
+        <input type="radio" name="is_planned" value="1" checked> Planned
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--text1);cursor:pointer">
+        <input type="radio" name="is_planned" value="0"> Unplanned / Emergency
+      </label>
+    </div>
+  </div>
+  <div class="edit-field">
+    <label>Reason <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(required)</span></label>
+    <textarea name="reason" rows="2" placeholder="What is this money being used for?" required style="resize:vertical"></textarea>
+  </div>
   <div class="edit-actions">
     <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
     <button class="toolbar-btn primary" type="submit"

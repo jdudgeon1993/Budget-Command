@@ -112,6 +112,17 @@ function _syncNav(){
   var h=document.getElementById('hdr-panel');
   if(h){var seg=path.split('/').filter(Boolean)[0]||'buckets';h.textContent=seg;}
 }
+document.addEventListener('htmx:beforeSwap',function(e){
+  if(e.detail.target.id==='panel'){
+    sessionStorage.setItem('_pScroll',window.scrollY);
+  }
+});
+document.addEventListener('htmx:afterSettle',function(e){
+  if(e.detail.target.id==='panel'){
+    var y=sessionStorage.getItem('_pScroll');
+    if(y){window.scrollTo(0,parseInt(y));sessionStorage.removeItem('_pScroll');}
+  }
+});
 document.addEventListener('htmx:afterSwap',function(e){
   if(e.detail.target.id==='modal-body'){openModal();}
   if(e.detail.target.id==='panel'){e.detail.target.classList.remove('panel-loading');_syncNav();}

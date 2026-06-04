@@ -111,15 +111,25 @@
       {% if b.goal_reached %}
       <span class="meta-badge meta-vault" style="color:var(--green)">✓ Goal reached!</span>
       {% endif %}
+      {% if b.monthly_needed %}
+      <span class="meta-badge meta-due">need {{ b.monthly_needed | money }}/mo</span>
+      {% endif %}
     </div>
     {% if b.target_amount > 0 %}
     <div class="bkt-progress-wrap">
       <div class="bkt-progress-bar" style="width:{{ b.progress_pct }}%"></div>
     </div>
     {% endif %}
-  {% elif b.due_day %}
+  {% elif b.due_day or b.pay_freq %}
     <div class="bucket-meta">
-      <span class="meta-badge meta-due">Due {{ b.due_day }}</span>
+      {% if b.due_day %}
+      {% set _ord = {'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','6':'6th','7':'7th','8':'8th','9':'9th','10':'10th','11':'11th','12':'12th','13':'13th','14':'14th','15':'15th','16':'16th','17':'17th','18':'18th','19':'19th','20':'20th','21':'21st','22':'22nd','23':'23rd','24':'24th','25':'25th','26':'26th','27':'27th','28':'28th','eom':'End of Month'} %}
+      <span class="meta-badge meta-due">Due {{ _ord.get(b.due_day | string, b.due_day | string) }}</span>
+      {% endif %}
+      {% if b.pay_freq %}
+      {% set _freq_label = {'monthly':'Monthly','biweekly':'Biweekly','weekly':'Weekly','triweekly':'Triweekly'} %}
+      <span class="meta-badge meta-contrib">{{ _freq_label.get(b.pay_freq, b.pay_freq | capitalize) }}</span>
+      {% endif %}
     </div>
   {% endif %}
 
