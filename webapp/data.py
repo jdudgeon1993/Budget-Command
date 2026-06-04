@@ -138,12 +138,27 @@ def bucket_rows():
                 if t.get("monthId") == mid and t.get("bucketId") == bid
                 and t.get("type") == "out" and not F.is_scheduled(t)
             ], key=lambda x: x["date"], reverse=True)
+            target_amount = float(b.get("targetAmount") or 0)
+            target_date = b.get("targetDate") or ""
+            contrib_freq = b.get("contribFreq") or ""
+            progress_pct = 0
+            goal_reached = False
+            if target_amount > 0 and b.get("type") in ("sinking", "goal"):
+                progress_pct = min(100, max(0, round((left / target_amount) * 100)))
+                goal_reached = left >= target_amount
             row = {
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left,
                 "status": status, "pill": pill, "needed": needed,
-                "roll_bal": roll_bal, "vault_total": vault_total,
-                "due_day": b.get("dueDay"), "txs": bkt_txs,
+                "vault_total": vault_total,
+                "due_day": b.get("dueDay"),
+                "target_amount": target_amount,
+                "target_date": target_date,
+                "contrib_freq": contrib_freq,
+                "progress_pct": progress_pct,
+                "goal_reached": goal_reached,
+                "rollover": b.get("rollover", False),
+                "txs": bkt_txs,
             }
             rows.append(row)
             if status in ("partial", "over"):
@@ -154,7 +169,9 @@ def bucket_rows():
             "pct": min(100, round((cat_alloc / cat_budget) * 100)) if cat_budget else 0,
             "buckets": rows,
         })
-    return {"groups": groups, "attention": attention, "cats": cats}
+    return {"groups": groups, "attention": attention, "cats": cats,
+            "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
+                            for b in buckets if not b.get("archived")]}
 
 
 # ── Accounts panel view-model ─────────────────────────────────────────────────

@@ -126,6 +126,7 @@ def load_all(uid: str, token: str) -> dict:
         "recurring": bool(b.get("recurring")),
         "notes": b.get("notes") or "",
         "order": b.get("sort_order", 0),
+        "debtAccountId": b.get("debt_account_id") or "",
     } for b in sorted(buckets_raw, key=lambda x: x.get("sort_order", 0))]
 
     txs = [{
@@ -155,7 +156,7 @@ def load_all(uid: str, token: str) -> dict:
 
     skipped_by_mid: dict[str, dict] = {}
     for s in skipped_raw:
-        skipped_by_mid.setdefault(s["month_id"], {})[s["bucket_id"]] = bool(s.get("skipped"))
+        skipped_by_mid.setdefault(s["month_id"], {})[s["bucket_id"]] = True
 
     vault_by_mid: dict[str, dict] = {}
     for v in vaultwd_raw:
@@ -234,6 +235,7 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         "recurring": "recurring",
         "notes": "notes",
         "sort_order": "sort_order",
+        "debt_account_id": "debt_account_id",
     }
     payload: dict = {"id": bid, "user_id": uid}
     for k, v in fields.items():
@@ -361,6 +363,49 @@ def update_scenario(uid: str, token: str, sid: str, name: str, allocations: dict
 def delete_scenario(uid: str, token: str, sid: str) -> None:
     db = client(token)
     db.table("bcc_scenarios").delete().eq("id", sid).eq("user_id", uid).execute()
+
+
+def vault_transfer(uid: str, token: str, mid: str, from_bid: str, to_bid: str,
+                   amount: float, new_from_alloc: float, new_to_alloc: float) -> None:
+    """Reduce vault alloc, increase destination bucket alloc, record transfer."""
+    import uuid as _uuid
+    db = client(token)
+    db.table("bcc_month_allocations").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": from_bid, "amount": new_from_alloc,
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+    db.table("bcc_month_allocations").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": to_bid, "amount": new_to_alloc,
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+    try:
+        db.table("bcc_vault_transfers").insert({
+            "id": f"vt_{_uuid.uuid4().hex[:10]}", "user_id": uid,
+            "from_bucket_id": from_bid, "to_bucket_id": to_bid,
+            "amount": amount, "month_id": mid, "reason": "planned",
+        }).execute()
+    except Exception:
+        pass  # bcc_vault_transfers may not exist in all deploys
+
+
+def vault_release_to_pool(uid: str, token: str, mid: str, bid: str,
+                          amount: float, current_alloc: float) -> None:
+    """Release vault savings back to RTS pool."""
+    db = client(token)
+    # Drain current month alloc first
+    from_alloc = min(amount, current_alloc)
+    remaining = round(amount - from_alloc, 2)
+    new_alloc = round(current_alloc - from_alloc, 2)
+    db.table("bcc_month_allocations").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": new_alloc,
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+    # Any remaining comes from prior-month savings → record as vault withdrawal
+    if remaining > 0:
+        existing = db.table("bcc_month_vault_withdrawals").select("amount") \
+            .eq("user_id", uid).eq("month_id", mid).eq("bucket_id", bid).execute().data or []
+        existing_wd = float(existing[0]["amount"]) if existing else 0.0
+        db.table("bcc_month_vault_withdrawals").upsert({
+            "user_id": uid, "month_id": mid, "bucket_id": bid,
+            "amount": round(existing_wd + remaining, 2),
+        }, on_conflict="user_id,month_id,bucket_id").execute()
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────

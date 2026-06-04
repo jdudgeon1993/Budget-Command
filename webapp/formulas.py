@@ -267,8 +267,6 @@ def ready_to_spend(
     active_buckets = [b for b in buckets if not b.get("archived")]
 
     def _claimed(b: dict) -> float:
-        if b.get("type") == "vault":
-            return vault_accumulated(b["id"], all_months)
         return max(0.0, bucket_available(b, active_month, all_months, transactions))
 
     if status == "past":

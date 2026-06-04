@@ -177,7 +177,7 @@ def bucket_settings(bid):
                 "default_budget": _num("default_budget"),
                 "rollover": f.get("rollover") == "1",
                 "notes": f.get("notes", ""),
-                "due_day": int(f.get("due_day") or 0) or None,
+                "due_day": (f.get("due_day") or "").strip() or None,
                 "due_amount": _num("due_amount"),
                 "pay_freq": f.get("pay_freq") or None,
                 "target_amount": _num("target_amount"),
@@ -191,10 +191,15 @@ def bucket_settings(bid):
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
         return redirect(url_for("panels.buckets"))
+    data_ctx = D.load_data()
+    debt_accounts = [{"id": a["id"], "name": a["name"]}
+                     for a in data_ctx.get("accounts", [])
+                     if a.get("type") == "debt" and not a.get("archived")]
     if _is_modal():
-        return render_template("panels/_frag_bucket.html", bucket=bucket, cats=cats)
+        return render_template("panels/_frag_bucket.html", bucket=bucket, cats=cats,
+                               debt_accounts=debt_accounts)
     return render_panel("panels/edit_bucket.html", "buckets",
-                        bucket=bucket, cats=cats)
+                        bucket=bucket, cats=cats, debt_accounts=debt_accounts)
 
 
 @bp.route("/buckets/<bid>/archive", methods=["POST"])
@@ -208,6 +213,88 @@ def archive_bucket(bid):
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
     return redirect(url_for("panels.buckets"))
+
+
+@bp.route("/buckets/<bid>/vault-transfer", methods=["GET", "POST"])
+@login_required
+def vault_transfer(bid):
+    data = D.load_data()
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket or bucket.get("type") != "vault":
+        return redirect(url_for("panels.buckets"))
+    if request.method == "POST":
+        f = request.form
+        to_bid = f.get("to_bid", "")
+        try:
+            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            amount = 0.0
+        if amount > 0 and to_bid:
+            month = D.active_month(data)
+            mid = D.active_mid()
+            from_alloc = D.F.b_alloc(month, bid)
+            to_alloc = D.F.b_alloc(month, to_bid)
+            new_from = max(0.0, round(from_alloc - amount, 2))
+            new_to = round(to_alloc + amount, 2)
+            if not current_app.config["DEV_SEED"]:
+                DB.vault_transfer(session["user_id"], session["access_token"],
+                                  mid, bid, to_bid, amount, new_from, new_to)
+                flash(f"Transferred ${amount:,.2f} from vault.", "ok")
+            else:
+                flash("Dev mode: transfer not persisted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+        return redirect(url_for("panels.buckets"))
+    # GET — render transfer form in modal
+    dest_buckets = [b for b in data.get("buckets", [])
+                    if not b.get("archived") and b.get("type") != "vault"]
+    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
+    month = D.active_month(data)
+    vault_alloc = D.F.b_alloc(month, bid)
+    vault_accum = D.F.vault_accumulated(bid, data.get("months", []))
+    dest_by_cat = []
+    for c in cats:
+        bkts = [b for b in dest_buckets if b.get("catId") == c["id"]]
+        if bkts:
+            dest_by_cat.append({"cat": c["name"], "buckets": bkts})
+    return render_template("panels/_frag_vault_transfer.html",
+                           bucket=bucket, dest_by_cat=dest_by_cat,
+                           vault_alloc=vault_alloc, vault_accum=vault_accum)
+
+
+@bp.route("/buckets/<bid>/vault-release", methods=["GET", "POST"])
+@login_required
+def vault_release_to_pool(bid):
+    data = D.load_data()
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket or bucket.get("type") != "vault":
+        return redirect(url_for("panels.buckets"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            amount = 0.0
+        if amount > 0:
+            month = D.active_month(data)
+            mid = D.active_mid()
+            current_alloc = D.F.b_alloc(month, bid)
+            if not current_app.config["DEV_SEED"]:
+                DB.vault_release_to_pool(session["user_id"], session["access_token"],
+                                         mid, bid, amount, current_alloc)
+                flash(f"Released ${amount:,.2f} from vault to pool.", "ok")
+            else:
+                flash("Dev mode: release not persisted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+        return redirect(url_for("panels.buckets"))
+    # GET — render release form in modal
+    month = D.active_month(data)
+    vault_alloc = D.F.b_alloc(month, bid)
+    vault_accum = D.F.vault_accumulated(bid, data.get("months", []))
+    return render_template("panels/_frag_vault_release.html",
+                           bucket=bucket, vault_alloc=vault_alloc, vault_accum=vault_accum)
 
 
 # ── Budget inline edit ───────────────────────────────────────────────────────

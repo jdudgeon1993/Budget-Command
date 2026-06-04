@@ -3,6 +3,7 @@
     <div class="bucket-name">{{ b.name }}</div>
 
     <div class="bucket-nums">
+      {# ── Allocation input (all types) ── #}
       <form method="post" action="{{ url_for('panels.set_alloc', bid=b.id) }}"
             style="display:contents"
             hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
@@ -20,6 +21,25 @@
         <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
                aria-label="Budget for {{ b.name }}" title="Budget target">
       </form>
+
+      {# ── Extra numbers: type-aware ── #}
+      {% if b.btype == 'vault' %}
+      <span class="nums-extra">
+        <span class="num-div" style="padding:0 4px">·</span>
+        <span class="vault-accum-val">{{ b.vault_total | money }}</span>
+        <span class="spent-lbl"> saved</span>
+      </span>
+      {% elif b.btype in ('sinking', 'goal') %}
+      <span class="nums-extra">
+        <span class="num-div" style="padding:0 4px">·</span>
+        <span class="left-val {{ 'neg' if b.left < 0 }}">{{ b.left | money }}</span>
+        <span class="left-lbl"> saved</span>
+        {% if b.target_amount > 0 %}
+        <span class="num-div" style="padding:0 4px">/</span>
+        <span class="target-val">{{ b.target_amount | money }}</span>
+        {% endif %}
+      </span>
+      {% else %}
       <span class="nums-extra">
         <span class="num-div" style="padding:0 4px">·</span>
         <span class="spent-val" {% if b.status == 'over' %}style="color:var(--red)"{% endif %}>{{ b.spent | money }}</span>
@@ -28,17 +48,27 @@
         <span class="left-val {{ 'neg' if b.left < 0 }}">{{ b.left | money }}</span>
         <span class="left-lbl"> left</span>
       </span>
+      {% endif %}
     </div>
 
     <div class="bucket-actions">
-      <span class="status-pill {{ b.status }}">{{ b.pill }}</span>
-      {% if b.status == 'partial' and b.budget > 0 %}
-      <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}"
-            style="display:inline"
-            hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}"
-            hx-target="#panel" hx-swap="innerHTML">
-        <button class="fill-btn" type="submit" title="Set allocation to budget">Fill</button>
-      </form>
+      {% if b.btype == 'vault' %}
+        <a class="vault-action-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
+           hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}"
+           hx-target="#modal-body" title="Transfer to another bucket">⇄ Transfer</a>
+        <a class="vault-action-btn" href="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
+           hx-get="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
+           hx-target="#modal-body" title="Release savings back to pool">↑ Release</a>
+      {% else %}
+        <span class="status-pill {{ b.status }}">{{ b.pill }}</span>
+        {% if b.status == 'partial' and b.budget > 0 %}
+        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}"
+              style="display:inline"
+              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}"
+              hx-target="#panel" hx-swap="innerHTML">
+          <button class="fill-btn" type="submit" title="Set allocation to budget">Fill</button>
+        </form>
+        {% endif %}
       {% endif %}
       <button class="bkt-expand-btn" type="button"
               id="exp-{{ b.id }}"
@@ -62,24 +92,38 @@
     </div>
   </div>
 
-  {# Meta badges: due date, rollover carry, vault total #}
-  {% if b.due_day or (b.roll_bal and b.roll_bal != 0) or (b.btype == 'vault' and b.vault_total) %}
-  <div class="bucket-meta">
-    {% if b.due_day %}
-    <span class="meta-badge meta-due">Due {{ b.due_day }}</span>
+  {# ── Meta badges: type-aware, no rollover ── #}
+  {% if b.btype == 'vault' %}
+    {# Vault: show monthly contribution note if defaultBudget set #}
+    {% if b.budget > 0 %}
+    <div class="bucket-meta">
+      <span class="meta-badge meta-vault">{{ b.budget | money }}/mo contribution</span>
+    </div>
     {% endif %}
-    {% if b.roll_bal and b.roll_bal > 0.005 %}
-    <span class="meta-badge meta-roll">↩ {{ b.roll_bal | money }} rollover</span>
-    {% elif b.roll_bal and b.roll_bal < -0.005 %}
-    <span class="meta-badge meta-roll neg">{{ b.roll_bal | money }} overspent carry</span>
+  {% elif b.btype in ('sinking', 'goal') %}
+    <div class="bucket-meta">
+      {% if b.contrib_freq %}
+      <span class="meta-badge meta-contrib">{{ b.contrib_freq | capitalize }}</span>
+      {% endif %}
+      {% if b.target_date %}
+      <span class="meta-badge meta-due">Target {{ b.target_date }}</span>
+      {% endif %}
+      {% if b.goal_reached %}
+      <span class="meta-badge meta-vault" style="color:var(--green)">✓ Goal reached!</span>
+      {% endif %}
+    </div>
+    {% if b.target_amount > 0 %}
+    <div class="bkt-progress-wrap">
+      <div class="bkt-progress-bar" style="width:{{ b.progress_pct }}%"></div>
+    </div>
     {% endif %}
-    {% if b.btype == 'vault' and b.vault_total %}
-    <span class="meta-badge meta-vault">Vault {{ b.vault_total | money }}</span>
-    {% endif %}
-  </div>
+  {% elif b.due_day %}
+    <div class="bucket-meta">
+      <span class="meta-badge meta-due">Due {{ b.due_day }}</span>
+    </div>
   {% endif %}
 
-  {# Inline transaction list — toggled by ▸ button #}
+  {# ── Inline transaction list ── #}
   <div class="bucket-txs" id="txs-{{ b.id }}" style="display:none">
     {% if b.txs %}
     {% for tx in b.txs %}

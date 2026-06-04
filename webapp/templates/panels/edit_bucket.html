@@ -47,8 +47,8 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="edit-field">
           <label>Due day <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(1–28)</span></label>
-          <input type="number" name="due_day" min="1" max="28"
-                 value="{{ bucket.dueDay or '' }}" placeholder="e.g. 15">
+          <input type="text" name="due_day"
+                 value="{{ bucket.dueDay or '' }}" placeholder="1–28 or eom">
         </div>
         <div class="edit-field">
           <label>Pay frequency</label>
@@ -66,6 +66,13 @@
         <select name="rollover" style="width:auto;flex:0 0 auto">
           <option value="1" {{ 'selected' if bucket.rollover }}>Yes — roll over</option>
           <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
+        </select>
+      </div>
+      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
+        <label style="margin-bottom:0;flex:1">Recurring bill</label>
+        <select name="recurring" style="width:auto;flex:0 0 auto">
+          <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
+          <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
         </select>
       </div>
     </div>
