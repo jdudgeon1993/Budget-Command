@@ -1,0 +1,75 @@
+{% extends layout %}
+{% block panel %}
+<div class="panel-grid">
+  <div>
+    <div class="workflow-bar">
+      <button class="wf-btn">Copy Last Month</button>
+      <button class="wf-btn">Close Month</button>
+    </div>
+
+    {% for grp in groups %}
+    <div class="cat-header">
+      <div class="cat-dot" style="background:{{ grp.color }}"></div>
+      <span class="cat-name">{{ grp.name }}</span>
+      <span class="cat-total">{{ grp.alloc | money }} / {{ grp.budget | money }}</span>
+    </div>
+    {% for b in grp.buckets %}
+      {% include "panels/_bucket_row.html" %}
+    {% endfor %}
+    {% endfor %}
+
+    <div class="add-strip">
+      <select>
+        <option>— Category —</option>
+        {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+      <input type="text" placeholder="Bucket name…">
+      <select style="flex:0 0 105px"><option>Expense</option><option>Sinking</option><option>Vault</option></select>
+      <button class="toolbar-btn primary">+ Add</button>
+    </div>
+  </div>
+
+  <div class="right-sticky">
+    <div class="rts-hero">
+      <div class="rts-hero-lbl">Ready to assign</div>
+      <div class="rts-hero-amt">{{ shell.rts | money }}</div>
+      <div class="rts-hero-sub">{{ shell.unhomed | money }} still needs a home</div>
+      <div class="rts-progress-track"><div class="rts-progress-fill" style="width:{{ shell.pct }}%"></div></div>
+      <div class="rts-kpis">
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:var(--green)">{{ shell.income | money }}</span></div>
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">{{ shell.allocated | money }}</span></div>
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">{{ shell.spent | money }}</span></div>
+      </div>
+    </div>
+
+    {% if attention %}
+    <div class="card card-pad" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span class="card-label" style="margin-bottom:0">Needs Attention</span>
+        <span style="background:var(--red-dim);color:var(--red);border-radius:var(--r-pill);padding:1px 9px;font-size:12px;font-family:var(--mono);font-weight:700">{{ attention | length }}</span>
+      </div>
+      {% for a in attention %}
+      <div class="attention-row {{ 'over' if a.status == 'over' }}">
+        <div class="attention-name">{{ a.name }}</div>
+        <div class="attention-lbl {{ 'over' if a.status == 'over' }}">{{ a.pill }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card card-pad">
+      <div class="card-label">Categories</div>
+      {% for grp in groups %}
+      <div class="cat-bar-row">
+        <div class="cat-bar-hdr">
+          <div class="cat-dot" style="background:{{ grp.color }}"></div>
+          <span class="cat-bar-name">{{ grp.name }}</span>
+          <span class="cat-bar-pct" style="color:{{ 'var(--green)' if grp.pct >= 100 else 'var(--amber)' }}">{{ grp.pct }}%</span>
+        </div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:{{ grp.pct }}%;background:{{ grp.color }}"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

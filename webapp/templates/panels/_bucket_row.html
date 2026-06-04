@@ -1,0 +1,20 @@
+<div class="bucket-card {{ b.status }}">
+  <div class="bucket-main">
+    <div class="bucket-name">{{ b.name }}</div>
+    <div class="bucket-nums">
+      <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
+             hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
+             hx-trigger="change" hx-target="closest .bucket-card" hx-swap="outerHTML"
+             aria-label="Allocation for {{ b.name }}">
+      <span class="num-div">/</span>
+      <span class="budget-val">{{ b.budget | money }}</span>
+      <span class="num-div" style="padding:0 2px">·</span>
+      <span class="spent-val" {% if b.status == 'over' %}style="color:var(--red)"{% endif %}>{{ b.spent | money }} spent</span>
+      <span class="num-div" style="padding:0 2px">·</span>
+      <span class="left-val {{ 'neg' if b.left < 0 }}">{{ b.left | money }} left</span>
+    </div>
+    <div class="bucket-actions">
+      <span class="status-pill {{ b.status }}">{{ b.pill }}</span>
+    </div>
+  </div>
+</div>
