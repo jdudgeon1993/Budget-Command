@@ -72,6 +72,12 @@ def set_alloc(bid):
 
 # ── Month navigation ──────────────────────────────────────────────────────────
 
+@bp.route("/accounts")
+@login_required
+def accounts():
+    return render_panel("panels/accounts.html", "accounts", **D.accounts_view())
+
+
 @bp.route("/month/<direction>")
 @login_required
 def month_nav(direction):
@@ -91,6 +97,6 @@ def _stub(name, title):
     return view
 
 
-for _name, _title in [("accounts", "Accounts"), ("insights", "Forecast"),
+for _name, _title in [("insights", "Forecast"),
                       ("reports", "Reports"), ("setup", "Setup")]:
     bp.add_url_rule(f"/{_name}", endpoint=_name, view_func=_stub(_name, _title))

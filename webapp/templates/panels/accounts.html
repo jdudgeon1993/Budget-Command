@@ -1,0 +1,53 @@
+{% extends layout %}
+{% block panel %}
+<div class="panel-grid">
+  <div>
+    <div class="sum-grid">
+      <div class="sum-card"><div class="sum-label">Income</div><div class="sum-val c-green">{{ summary.income | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Scheduled</div><div class="sum-val" style="color:var(--amber)">{{ summary.scheduled | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Spent</div><div class="sum-val c-red">{{ summary.spent | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Transferred</div><div class="sum-val c-text2">{{ summary.transferred | money }}</div></div>
+    </div>
+
+    <div class="statement-label">Current Statement</div>
+    {% for day in ledger %}
+    <div class="ledger-day">
+      <div class="ledger-head">
+        <span class="ledger-date">{{ day.label }}</span>
+        <span class="ledger-net {{ 'c-red' if day.net < 0 else 'c-green' }}">{{ day.net | money }}</span>
+      </div>
+      {% for t in day.rows %}
+      <div class="tx-row">
+        <div class="tx-stripe bg-{{ t.color }}" style="background:var(--{{ 'green' if t.color=='green' else 'red' if t.color=='red' else 'text2' }})"></div>
+        <div class="tx-body">
+          <div class="tx-name">{{ t.desc }}{% if t.scheduled %} <span style="color:var(--amber);font-size:11px">· scheduled</span>{% endif %}</div>
+          <div class="tx-meta">
+            <span class="tx-pill c-{{ t.color }} bg-{{ t.color }}">{{ t.pill }}</span>
+            {% if t.category %}<span class="tx-cat">{{ t.category }}</span>{% endif %}
+          </div>
+        </div>
+        <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="stub">No transactions this month.</div>
+    {% endfor %}
+  </div>
+
+  <div class="right-sticky">
+    <div class="card card-pad">
+      <div class="card-label">Accounts</div>
+      {% for a in cards %}
+      <div class="acct-card">
+        <div style="flex:1">
+          <div class="acct-name">{{ a.name }}</div>
+          <div class="acct-type">{{ a.type }}</div>
+        </div>
+        <div class="acct-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

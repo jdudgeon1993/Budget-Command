@@ -126,3 +126,65 @@ def bucket_rows():
             "buckets": rows,
         })
     return {"groups": groups, "attention": attention, "cats": cats}
+
+
+# ── Accounts panel view-model ─────────────────────────────────────────────────
+
+def accounts_view():
+    """Account cards (with live balances) + month summary + a grouped ledger."""
+    data = load_data()
+    mid = active_mid()
+    txs = data.get("txs", [])
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
+
+    cards = [{
+        "id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
+        "balance": F.acct_balance(a, txs),
+    } for a in accounts]
+
+    month_txs = [t for t in txs if t.get("monthId") == mid]
+    summary = {
+        "income": F.month_income(mid, txs, accounts),
+        "spent": sum(t["amount"] for t in month_txs if t.get("type") == "out" and not F.is_scheduled(t)),
+        "scheduled": sum(t["amount"] for t in month_txs if t.get("type") == "out" and F.is_scheduled(t)),
+        "transferred": sum(t["amount"] for t in month_txs if t.get("type") == "xfr"),
+    }
+
+    # Ledger: rows shaped for display, grouped by date (most recent first).
+    rows = []
+    for t in month_txs:
+        ttype = t.get("type", "out")
+        amt = float(t.get("amount") or 0)
+        if ttype == "in":
+            signed, color, pill = amt, "green", "Income"
+        elif ttype == "xfr":
+            signed, color, pill = -amt, "text2", "Transfer"
+        else:
+            signed, color, pill = -amt, "red", "Expense"
+        rows.append({
+            "date": t.get("date", ""), "desc": t.get("desc") or "Transaction",
+            "pill": pill, "color": color, "signed": signed,
+            "category": bkt_name.get(t.get("bucketId"), ""),
+            "scheduled": F.is_scheduled(t),
+        })
+    rows.sort(key=lambda r: r["date"], reverse=True)
+
+    groups, cur = [], None
+    for r in rows:
+        if cur is None or cur["date"] != r["date"]:
+            cur = {"date": r["date"], "label": _date_label(r["date"]), "net": 0.0, "rows": []}
+            groups.append(cur)
+        cur["net"] += r["signed"]
+        cur["rows"].append(r)
+
+    return {"cards": cards, "summary": summary, "ledger": groups}
+
+
+def _date_label(iso: str) -> str:
+    from datetime import date as _date
+    try:
+        dt = _date.fromisoformat(iso[:10])
+        return dt.strftime("%a, %b ") + str(dt.day)
+    except (ValueError, TypeError):
+        return iso
