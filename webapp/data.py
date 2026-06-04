@@ -265,11 +265,16 @@ def accounts_view():
         for t in txs if t.get("desc") and t.get("type") not in ("opening",)
     ), key=str.lower)
 
+    acct_balances = {a["id"]: round(F.acct_balance(a, txs), 2) for a in accounts}
+    acct_types = {a["id"]: a.get("type", "budget") for a in accounts}
+
     return {
         "cards": cards, "summary": summary,
         "ledger": _group(posted_txs),
         "scheduled": _group(sched_txs),
         "payees": payees,
+        "acct_balances": acct_balances,
+        "acct_types": acct_types,
     }
 
 

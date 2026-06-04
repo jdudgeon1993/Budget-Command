@@ -197,6 +197,7 @@ svg{display:block}
 .ledger-head{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--surface2);border-bottom:1px solid var(--border)}
 .ledger-date{font-size:12px;font-weight:600;color:var(--text2);flex:1}
 .ledger-net{font-family:var(--mono);font-size:12px;font-weight:600}
+.ledger-running{font-family:var(--mono);font-size:12px;font-weight:700}
 .tx-row{display:flex;align-items:center;padding:10px 14px;gap:10px;border-bottom:1px solid var(--border)}
 .tx-row:last-child{border-bottom:none}
 .tx-stripe{width:3px;align-self:stretch;border-radius:2px;flex-shrink:0}
@@ -405,9 +406,15 @@ svg{display:block}
 .tx-recon{color:var(--green);font-size:11px;margin-left:4px;font-weight:700}
 .tx-acct-lbl{font-size:11px;color:var(--text3)}
 
-/* Account card Pay button */
-.acct-card{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+/* Account card */
+.acct-card{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer}
 .acct-card:last-child{border-bottom:none}
+.acct-card-active .acct-name{color:var(--accent)}
+.acct-card-active .acct-dot{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+
+/* Balance bar shown when an account is filtered */
+.acct-bal-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:12px;font-size:12px;color:var(--text2)}
+.acct-bal-bar-name{font-weight:700;color:var(--text);font-size:13px}
 
 /* Statement label */
 .statement-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:12px 0 6px}

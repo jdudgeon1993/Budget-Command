@@ -4,7 +4,7 @@
   <div>
     <div class="sum-grid">
       <div class="sum-card"><div class="sum-label">Income</div><div class="sum-val c-green">{{ summary.income | money }}</div></div>
-      <div class="sum-card"><div class="sum-label">Scheduled</div><div class="sum-val" style="color:var(--amber)">{{ summary.scheduled | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Upcoming</div><div class="sum-val" style="color:var(--amber)">{{ summary.scheduled | money }}</div></div>
       <div class="sum-card"><div class="sum-label">Spent</div><div class="sum-val c-red">{{ summary.spent | money }}</div></div>
       <div class="sum-card"><div class="sum-label">Transferred</div><div class="sum-val c-text2">{{ summary.transferred | money }}</div></div>
     </div>
@@ -22,6 +22,14 @@
       </div>
     </div>
 
+    {# ── Per-account balance banner (visible when a single account is filtered) ── #}
+    <div id="acct-bal-bar" class="acct-bal-bar" style="display:none">
+      <span id="acct-bal-name" class="acct-bal-bar-name"></span>
+      <span style="color:var(--text3)">·</span>
+      <span style="color:var(--text3)">Current balance</span>
+      <span id="acct-bal-amt" class="mono" style="margin-left:auto;font-weight:700"></span>
+    </div>
+
     {# ── Scheduled / upcoming section ── #}
     {% if scheduled %}
     <div class="statement-label" style="color:var(--amber)">Upcoming</div>
@@ -30,16 +38,22 @@
       <div class="ledger-head">
         <span class="ledger-date" style="color:var(--amber)">{{ day.label }}</span>
         <span class="ledger-net" style="color:var(--amber)">{{ day.net | money }}</span>
+        <span class="ledger-running" style="display:none"></span>
       </div>
       {% for t in day.rows %}
-      <div class="tx-row" data-aid="{{ t.account_id }}">
+      <div class="tx-row"
+           data-aid="{{ t.account_id }}"
+           data-to-aid="{{ t.toAccountId or '' }}"
+           data-type="{{ t.type }}"
+           data-signed="{{ t.signed }}"
+           data-amt="{{ t.amount }}">
         <div class="tx-stripe" style="background:var(--amber);width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
         <div class="tx-body">
           <div class="tx-name">{{ t.desc }}</div>
           <div class="tx-meta">
             <span class="tx-pill" style="color:var(--amber);background:rgba(251,191,36,.12)">Scheduled</span>
             {% if t.sub %}<span class="tx-cat">{{ t.sub }}</span>{% endif %}
-            <span class="tx-acct-lbl" style="color:var(--text3);font-size:11px">{{ t.account_name }}</span>
+            <span class="tx-acct-lbl">{{ t.account_name }}</span>
           </div>
         </div>
         <span class="tx-amt" style="color:var(--amber)">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
@@ -60,9 +74,15 @@
       <div class="ledger-head">
         <span class="ledger-date">{{ day.label }}</span>
         <span class="ledger-net {{ 'c-red' if day.net < 0 else 'c-green' }}">{{ day.net | money }}</span>
+        <span class="ledger-running" style="display:none"></span>
       </div>
       {% for t in day.rows %}
-      <div class="tx-row" data-aid="{{ t.account_id }}">
+      <div class="tx-row"
+           data-aid="{{ t.account_id }}"
+           data-to-aid="{{ t.toAccountId or '' }}"
+           data-type="{{ t.type }}"
+           data-signed="{{ t.signed }}"
+           data-amt="{{ t.amount }}">
         <div class="tx-stripe" style="background:var(--{{ 'green' if t.color=='green' else 'red' if t.color=='red' else 'text2' }});width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
         <div class="tx-body">
           <div class="tx-name">
@@ -98,7 +118,7 @@
            style="font-size:12px">+ Add</a>
       </div>
       {% for a in cards %}
-      <div class="acct-card">
+      <div class="acct-card" data-aid="{{ a.id }}" onclick="filterLedger(document.querySelector('.acct-filter-chip[data-aid=\'{{ a.id }}\']'),'{{ a.id }}')">
         <div class="acct-dot" style="width:8px;height:8px;border-radius:50%;background:{{ a.color or 'var(--accent)' }};flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
           <div class="acct-name">{{ a.name }}</div>
@@ -112,11 +132,11 @@
         <a class="vault-action-btn" style="font-size:10px;padding:2px 6px"
            href="{{ url_for('panels.debt_payment', aid=a.id) }}"
            hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}" hx-target="#modal-body"
-           title="Record a payment">Pay</a>
+           title="Record a payment" onclick="event.stopPropagation()">Pay</a>
         {% endif %}
         <a class="tx-edit-link" href="{{ url_for('panels.account_edit', aid=a.id) }}"
            hx-get="{{ url_for('panels.account_edit', aid=a.id) }}" hx-target="#modal-body"
-           title="Edit account">⚙</a>
+           title="Edit account" onclick="event.stopPropagation()">⚙</a>
       </div>
       {% endfor %}
     </div>
@@ -124,17 +144,110 @@
 </div>
 
 <script>
-function filterLedger(btn, aid) {
-  document.querySelectorAll('.acct-filter-chip').forEach(function(c){c.classList.remove('active');});
-  btn.classList.add('active');
-  document.querySelectorAll('.tx-row[data-aid]').forEach(function(r){
-    r.style.display=(aid==='all'||r.dataset.aid===aid)?'':'none';
+var acctBalances = {{ acct_balances | tojson }};
+var acctTypes    = {{ acct_types | tojson }};
+
+function _money(v){
+  var s='$'+Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return v<0?'-'+s:s;
+}
+
+function _txEffect(r,aid){
+  var mult=acctTypes[aid]==='debt'?-1:1;
+  var t=r.dataset.type, a=parseFloat(r.dataset.amt)||0;
+  if(r.dataset.aid===aid){
+    if(t==='in')  return mult*a;
+    if(t==='out') return -mult*a;
+    if(t==='xfr') return -mult*a;
+    if(t==='adjustment') return a;
+  } else if(r.dataset.toAid===aid&&t==='xfr'){
+    return mult*a;
+  }
+  return 0;
+}
+
+function _updateRunningBal(aid){
+  if(aid==='all'||acctBalances[aid]===undefined){
+    document.querySelectorAll('.ledger-running').forEach(function(e){e.style.display='none';});
+    document.querySelectorAll('.ledger-net').forEach(function(e){e.style.display='';});
+    return;
+  }
+  var bal=acctBalances[aid];
+  document.querySelectorAll('.ledger-day').forEach(function(d){
+    if(d.style.display==='none') return;
+    var dayEffect=0;
+    d.querySelectorAll('.tx-row').forEach(function(r){
+      if(r.style.display!=='none') dayEffect+=_txEffect(r,aid);
+    });
+    var run=d.querySelector('.ledger-running'), net=d.querySelector('.ledger-net');
+    if(run){run.textContent=_money(bal);run.className='ledger-running '+(bal<0?'c-red':'c-green');run.style.display='';}
+    if(net) net.style.display='none';
+    bal-=dayEffect;
   });
+}
+
+function filterLedger(btn,aid){
+  document.querySelectorAll('.acct-filter-chip').forEach(function(c){c.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+
+  // Highlight account card
+  document.querySelectorAll('.acct-card[data-aid]').forEach(function(c){c.classList.remove('acct-card-active');});
+  if(aid!=='all'){
+    var ac=document.querySelector('.acct-card[data-aid="'+aid+'"]');
+    if(ac) ac.classList.add('acct-card-active');
+  }
+
+  // Balance banner
+  var bar=document.getElementById('acct-bal-bar');
+  if(bar){
+    if(aid!=='all'&&acctBalances[aid]!==undefined){
+      var nm=btn?btn.textContent.trim():'';
+      var b=acctBalances[aid];
+      document.getElementById('acct-bal-name').textContent=nm;
+      var amtEl=document.getElementById('acct-bal-amt');
+      amtEl.textContent=_money(b);
+      amtEl.className='mono '+(b<0?'c-red':'c-green');
+      bar.style.display='flex';
+    } else {
+      bar.style.display='none';
+    }
+  }
+
+  // Show/hide rows; flip transfer display for destination-account view
+  document.querySelectorAll('.tx-row[data-aid]').forEach(function(r){
+    var fromMatch=r.dataset.aid===aid;
+    var toMatch=r.dataset.toAid===aid&&r.dataset.type==='xfr';
+    var show=aid==='all'||fromMatch||toMatch;
+    r.style.display=show?'':'none';
+    var amtEl=r.querySelector('.tx-amt'), pillEl=r.querySelector('.tx-pill');
+    if(show){
+      if(toMatch&&!fromMatch){
+        var a=parseFloat(r.dataset.amt)||0;
+        if(amtEl){amtEl.textContent='+'+_money(a);amtEl.className='tx-amt c-green';}
+        if(pillEl){pillEl.textContent='Transfer In';pillEl.className='tx-pill c-green bg-green';}
+      } else {
+        var s=parseFloat(r.dataset.signed)||0;
+        if(amtEl){
+          amtEl.textContent=(s>0?'+':'')+_money(s);
+          amtEl.className='tx-amt c-'+(r.dataset.type==='in'?'green':r.dataset.type==='xfr'?'text2':'red');
+        }
+        if(pillEl&&r.dataset.type==='xfr'){
+          pillEl.textContent='Transfer';
+          pillEl.className='tx-pill c-text2 bg-text2';
+        }
+      }
+    }
+  });
+
+  // Collapse empty day groups
   document.querySelectorAll('.ledger-day').forEach(function(d){
     var vis=d.querySelectorAll('.tx-row:not([style*="display: none"]):not([style*="display:none"])').length;
     d.style.display=vis?'':'none';
   });
+
+  _updateRunningBal(aid);
 }
+
 function searchTx(q){
   q=q.toLowerCase().trim();
   document.querySelectorAll('.tx-row').forEach(function(r){
@@ -145,6 +258,8 @@ function searchTx(q){
     var vis=d.querySelectorAll('.tx-row:not([style*="display: none"]):not([style*="display:none"])').length;
     d.style.display=vis?'':'none';
   });
+  var chip=document.querySelector('.acct-filter-chip.active');
+  if(chip) _updateRunningBal(chip.dataset.aid);
 }
 </script>
 {% endblock %}
