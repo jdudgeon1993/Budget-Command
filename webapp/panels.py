@@ -5,7 +5,7 @@ just the #panel fragment on an HTMX request (SPA-feel, no reload).
 """
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
-                   session, current_app, flash, jsonify, Response)
+                   session, current_app, flash, jsonify, Response, make_response)
 
 from . import db as DB
 from . import data as D
@@ -130,6 +130,25 @@ def _buckets_response():
     if request.headers.get("HX-Request") == "true":
         return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
     return redirect(url_for("panels.buckets"))
+
+
+def _is_modal():
+    return request.headers.get("HX-Target") == "modal-body"
+
+
+def _panel_close_modal(panel_tmpl, active_panel, **ctx):
+    """Return panel HTML + HX-Trigger:closeModal for HTMX form submits inside modals."""
+    resp = make_response(render_panel(panel_tmpl, active_panel, **ctx))
+    resp.headers["HX-Trigger"] = "closeModal"
+    return resp
+
+
+_PANEL_MAP = {
+    "accounts": ("panels/accounts.html", lambda: D.accounts_view()),
+    "buckets":  ("panels/buckets.html",  lambda: D.bucket_rows()),
+    "reports":  ("panels/reports.html",  lambda: D.reports_view()),
+    "setup":    ("panels/setup.html",    lambda: D.setup_view()),
+}
 
 
 # ── Bucket settings ───────────────────────────────────────────────────────────
@@ -321,7 +340,11 @@ def account_new():
             flash("Dev mode: account not persisted.", "ok")
         else:
             flash("Name is required.", "error")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
         return redirect(url_for("panels.accounts"))
+    if _is_modal():
+        return render_template("panels/_frag_account.html", account=None)
     return render_panel("panels/edit_account.html", "accounts", account=None)
 
 
@@ -349,7 +372,11 @@ def account_edit(aid):
             flash("Account updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
         return redirect(url_for("panels.accounts"))
+    if _is_modal():
+        return render_template("panels/_frag_account.html", account=account)
     return render_panel("panels/edit_account.html", "accounts", account=account)
 
 
@@ -361,6 +388,8 @@ def account_archive(aid):
         flash("Account archived.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
+    if request.headers.get("HX-Request") == "true":
+        return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
     return redirect(url_for("panels.accounts"))
 
 
@@ -534,8 +563,15 @@ def transaction_edit(tid):
             flash("Transaction updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
-        return redirect(url_for("panels." + (f.get("back") or "accounts")))
+        back_panel = f.get("back") or "accounts"
+        if request.headers.get("HX-Request") == "true":
+            tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+            return _panel_close_modal(tmpl, back_panel, **ctx_fn())
+        return redirect(url_for("panels." + back_panel))
     back = session.get("active_panel", "accounts")
+    if _is_modal():
+        return render_template("panels/_frag_edit_tx.html", tx=tx, back=back,
+                               **D.tx_form_ctx())
     return render_panel("panels/edit_tx.html", back,
                         tx=tx, back=back, **D.tx_form_ctx())
 
@@ -543,13 +579,16 @@ def transaction_edit(tid):
 @bp.route("/transaction/<tid>/delete", methods=["POST"])
 @login_required
 def transaction_delete(tid):
-    back = request.form.get("back") or "accounts"
+    back_panel = request.form.get("back") or "accounts"
     if not current_app.config["DEV_SEED"]:
         DB.delete_transaction(session["user_id"], session["access_token"], tid)
         flash("Transaction deleted.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
-    return redirect(url_for("panels." + back))
+    if request.headers.get("HX-Request") == "true":
+        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+        return _panel_close_modal(tmpl, back_panel, **ctx_fn())
+    return redirect(url_for("panels." + back_panel))
 
 
 @bp.route("/transaction/new")
@@ -557,6 +596,9 @@ def transaction_delete(tid):
 def transaction_new():
     tx_type = request.args.get("type", "out")
     back = session.get("active_panel", "buckets")
+    if _is_modal():
+        return render_template("panels/_frag_add_tx.html", tx_type=tx_type, back=back,
+                               **D.tx_form_ctx())
     return render_panel("panels/add_tx.html", back, tx_type=tx_type, back=back,
                         **D.tx_form_ctx())
 
@@ -585,7 +627,11 @@ def transaction_create():
         flash("Transaction added.", "ok")
     else:
         flash("Amount and account are required.", "error")
-    return redirect(url_for("panels." + (f.get("back") or "buckets")))
+    back_panel = f.get("back") or "buckets"
+    if request.headers.get("HX-Request") == "true":
+        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+        return _panel_close_modal(tmpl, back_panel, **ctx_fn())
+    return redirect(url_for("panels." + back_panel))
 
 
 @bp.route("/month/<direction>")

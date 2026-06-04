@@ -28,7 +28,8 @@
         </div>
         <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
         {% if t.id %}
-        <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}">Edit</a>
+        <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
+           hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
         {% endif %}
       </div>
       {% endfor %}
@@ -42,7 +43,9 @@
     <div class="card card-pad">
       <div class="card-label" style="display:flex;align-items:center;justify-content:space-between">
         <span>Accounts</span>
-        <a class="tx-edit-link" href="{{ url_for('panels.account_new') }}" style="font-size:12px">+ Add</a>
+        <a class="tx-edit-link" href="{{ url_for('panels.account_new') }}"
+           hx-get="{{ url_for('panels.account_new') }}" hx-target="#modal-body"
+           style="font-size:12px">+ Add</a>
       </div>
       {% for a in cards %}
       <div class="acct-card">
@@ -52,7 +55,9 @@
           <div class="acct-type">{{ a.type }}</div>
         </div>
         <div class="acct-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</div>
-        <a class="tx-edit-link" href="{{ url_for('panels.account_edit', aid=a.id) }}" title="Edit account">⚙</a>
+        <a class="tx-edit-link" href="{{ url_for('panels.account_edit', aid=a.id) }}"
+           hx-get="{{ url_for('panels.account_edit', aid=a.id) }}" hx-target="#modal-body"
+           title="Edit account">⚙</a>
       </div>
       {% endfor %}
     </div>

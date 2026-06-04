@@ -1,0 +1,65 @@
+<div class="modal-title">Edit Transaction</div>
+<form class="tx-form" method="post" action="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
+      hx-post="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
+      hx-target="#panel" hx-swap="innerHTML">
+  <input type="hidden" name="back" value="{{ back }}">
+
+  <div class="tx-type-row">
+    {% for val, label in [('out','Expense'),('in','Income'),('xfr','Transfer')] %}
+    <label class="tx-type {{ 'on' if tx.type == val }}">
+      <input type="radio" name="type" value="{{ val }}" {{ 'checked' if tx.type == val }} hidden>{{ label }}
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="tx-field">
+    <label>Amount</label>
+    <input type="text" name="amount" inputmode="decimal" value="{{ tx.amount }}" required>
+  </div>
+  <div class="tx-field">
+    <label>Date</label>
+    <input type="date" name="date" value="{{ tx.date[:10] if tx.date else today }}">
+  </div>
+  <div class="tx-field">
+    <label>Account</label>
+    <select name="accountId">
+      {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if a.id == tx.accountId }}>{{ a.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="tx-field">
+    <label>To account <span class="tx-hint">(transfers)</span></label>
+    <select name="toAccountId">
+      <option value="">—</option>
+      {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if a.id == tx.toAccountId }}>{{ a.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="tx-field">
+    <label>Bucket <span class="tx-hint">(expenses)</span></label>
+    <select name="bucketId">
+      <option value="">—</option>
+      {% for grp in buckets_by_cat %}
+      <optgroup label="{{ grp.cat }}">
+        {% for b in grp.buckets %}<option value="{{ b.id }}" {{ 'selected' if b.id == tx.bucketId }}>{{ b.name }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="tx-field">
+    <label>Payee / note</label>
+    <input type="text" name="desc" value="{{ tx.desc or '' }}">
+  </div>
+
+  <div class="tx-actions">
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Save Changes</button>
+  </div>
+</form>
+
+<form method="post" action="{{ url_for('panels.transaction_delete', tid=tx.id) }}"
+      hx-post="{{ url_for('panels.transaction_delete', tid=tx.id) }}"
+      hx-target="#panel" hx-swap="innerHTML"
+      style="margin-top:8px"
+      onsubmit="return confirm('Delete this transaction?')">
+  <input type="hidden" name="back" value="{{ back }}">
+  <button class="edit-delete-btn" style="width:100%" type="submit">Delete Transaction</button>
+</form>

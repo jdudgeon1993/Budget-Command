@@ -10,6 +10,13 @@
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
 </head>
 <body>
+<div id="nprogress"><div id="nprogress-bar"></div></div>
+<div id="modal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()" type="button">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
 {% set p = shell.active_panel %}
 {% macro icon(name) -%}
   {% if name == 'buckets' %}<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
@@ -47,7 +54,8 @@
       </a>
       {% endfor %}
     </nav>
-    <a class="sidebar-cta" href="{{ url_for('panels.transaction_new') }}">
+    <a class="sidebar-cta" href="{{ url_for('panels.transaction_new') }}"
+       hx-get="{{ url_for('panels.transaction_new') }}" hx-target="#modal-body">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Transaction
     </a>
@@ -86,7 +94,29 @@
     </a>
     {% endfor %}
   </nav>
-  <a class="mob-fab-float" href="{{ url_for('panels.transaction_new') }}" aria-label="Add transaction">+</a>
+  <a class="mob-fab-float" href="{{ url_for('panels.transaction_new') }}"
+     hx-get="{{ url_for('panels.transaction_new') }}" hx-target="#modal-body"
+     aria-label="Add transaction">+</a>
 </div>
+<script>
+function openModal(){var m=document.getElementById('modal');m.style.display='flex';requestAnimationFrame(function(){m.classList.add('open');});}
+function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';document.getElementById('modal-body').innerHTML='';},220);}
+document.body.addEventListener('closeModal',closeModal);
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+document.addEventListener('htmx:afterSwap',function(e){
+  if(e.detail.target.id==='modal-body'){openModal();}
+  if(e.detail.target.id==='panel'){e.detail.target.classList.remove('panel-loading');}
+});
+document.addEventListener('htmx:beforeRequest',function(e){
+  var b=document.getElementById('nprogress-bar');
+  b.classList.remove('done');b.classList.add('running');
+  if(e.detail.target&&e.detail.target.id==='panel')e.detail.target.classList.add('panel-loading');
+});
+document.addEventListener('htmx:afterRequest',function(){
+  var b=document.getElementById('nprogress-bar');
+  b.classList.remove('running');b.classList.add('done');
+  setTimeout(function(){b.classList.remove('done');b.style.width='';},500);
+});
+</script>
 </body>
 </html>
