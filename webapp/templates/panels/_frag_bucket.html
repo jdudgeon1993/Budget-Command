@@ -1,0 +1,62 @@
+<div class="modal-title">{{ bucket.name }}</div>
+<form class="edit-form" method="post"
+      action="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
+      hx-post="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
+      hx-target="#panel" hx-swap="innerHTML"
+      style="padding:0;border:none;background:none;box-shadow:none">
+
+  <div class="edit-field">
+    <label>Name</label>
+    <input type="text" name="name" value="{{ bucket.name }}" required autofocus>
+  </div>
+  <div class="edit-field">
+    <label>Category</label>
+    <select name="catId">
+      {% for c in cats %}
+      <option value="{{ c.id }}" {{ 'selected' if c.id == bucket.catId }}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="edit-field">
+    <label>Type</label>
+    <select name="type">
+      <option value="expense" {{ 'selected' if bucket.type == 'expense' }}>Expense</option>
+      <option value="sinking" {{ 'selected' if bucket.type == 'sinking' }}>Sinking Fund</option>
+      <option value="vault"   {{ 'selected' if bucket.type == 'vault' }}>Vault</option>
+    </select>
+  </div>
+  <div class="edit-field">
+    <label>Default monthly budget</label>
+    <input type="text" name="default_budget" inputmode="decimal"
+           value="{{ bucket.defaultBudget or '' }}" placeholder="0">
+  </div>
+  <div class="edit-field">
+    <label>Due day <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(1–28, blank = none)</span></label>
+    <input type="number" name="due_day" min="1" max="28"
+           value="{{ bucket.dueDay or '' }}" placeholder="e.g. 15">
+  </div>
+  <div class="edit-field" style="display:flex;align-items:center;gap:12px">
+    <label style="margin-bottom:0;flex:1">Rollover unspent balance</label>
+    <select name="rollover" style="width:auto;flex:0 0 auto">
+      <option value="1" {{ 'selected' if bucket.rollover }}>Yes — roll over</option>
+      <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
+    </select>
+  </div>
+  <div class="edit-field">
+    <label>Notes</label>
+    <textarea name="notes" rows="2" style="resize:vertical">{{ bucket.notes or '' }}</textarea>
+  </div>
+
+  <div class="edit-actions">
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Save Changes</button>
+  </div>
+</form>
+
+<form method="post" action="{{ url_for('panels.archive_bucket', bid=bucket.id) }}"
+      hx-post="{{ url_for('panels.archive_bucket', bid=bucket.id) }}"
+      hx-target="#panel" hx-swap="innerHTML"
+      style="margin-top:8px"
+      onsubmit="return confirm('Archive {{ bucket.name }}?')">
+  <button class="edit-delete-btn" style="width:100%" type="submit">Archive Bucket</button>
+</form>

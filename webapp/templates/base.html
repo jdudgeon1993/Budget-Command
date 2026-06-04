@@ -7,10 +7,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
-  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+  <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
 </head>
 <body>
 <div id="nprogress"><div id="nprogress-bar"></div></div>
+<template id="add-tx-tpl">{% with accounts=shell.tx_accounts,buckets_by_cat=shell.tx_buckets_by_cat,today=shell.tx_today,tx_type='out',back=shell.active_panel %}{% include "panels/_frag_add_tx.html" %}{% endwith %}</template>
 <div id="modal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal()" type="button">✕</button>
@@ -54,11 +55,10 @@
       </a>
       {% endfor %}
     </nav>
-    <a class="sidebar-cta" href="{{ url_for('panels.transaction_new') }}"
-       hx-get="{{ url_for('panels.transaction_new') }}" hx-target="#modal-body">
+    <button class="sidebar-cta" type="button" onclick="openAddTxModal()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Transaction
-    </a>
+    </button>
     <div class="sidebar-footer">
       <div class="user-avatar">{{ (shell.user_email[:2] or 'JD') | upper }}</div>
       <div class="user-email">{{ shell.user_email }}</div>
@@ -76,7 +76,7 @@
       <div class="mob-month"><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='prev') }}">←</a><div class="mob-month-pill">{{ shell.month_label }}</div><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='next') }}">→</a></div>
     </header>
     <header class="main-header">
-      <span class="hdr-panel">{{ p }}</span>
+      <span class="hdr-panel" id="hdr-panel">{{ p }}</span>
     </header>
 
     {% with msgs = get_flashed_messages(with_categories=true) %}
@@ -94,18 +94,27 @@
     </a>
     {% endfor %}
   </nav>
-  <a class="mob-fab-float" href="{{ url_for('panels.transaction_new') }}"
-     hx-get="{{ url_for('panels.transaction_new') }}" hx-target="#modal-body"
-     aria-label="Add transaction">+</a>
+  <button class="mob-fab-float" type="button" onclick="openAddTxModal()" aria-label="Add transaction">+</button>
 </div>
 <script>
+function _restoreAddTx(){var t=document.getElementById('add-tx-tpl');if(t)document.getElementById('modal-body').innerHTML=t.innerHTML;}
 function openModal(){var m=document.getElementById('modal');m.style.display='flex';requestAnimationFrame(function(){m.classList.add('open');});}
-function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';document.getElementById('modal-body').innerHTML='';},220);}
+function openAddTxModal(){_restoreAddTx();openModal();}
+function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';_restoreAddTx();},220);}
 document.body.addEventListener('closeModal',closeModal);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+function _syncNav(){
+  var path=location.pathname;
+  document.querySelectorAll('.nav-item,.mob-tab').forEach(function(a){
+    var href=a.getAttribute('href');
+    a.classList.toggle('active',!!href&&(path===href||path.startsWith(href+'/')));
+  });
+  var h=document.getElementById('hdr-panel');
+  if(h){var seg=path.split('/').filter(Boolean)[0]||'buckets';h.textContent=seg;}
+}
 document.addEventListener('htmx:afterSwap',function(e){
   if(e.detail.target.id==='modal-body'){openModal();}
-  if(e.detail.target.id==='panel'){e.detail.target.classList.remove('panel-loading');}
+  if(e.detail.target.id==='panel'){e.detail.target.classList.remove('panel-loading');_syncNav();}
 });
 document.addEventListener('htmx:beforeRequest',function(e){
   var b=document.getElementById('nprogress-bar');

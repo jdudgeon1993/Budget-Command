@@ -37,6 +37,7 @@
       </form>
       {% endif %}
       <a class="bucket-settings-link" href="{{ url_for('panels.bucket_settings', bid=b.id) }}"
+         hx-get="{{ url_for('panels.bucket_settings', bid=b.id) }}" hx-target="#modal-body"
          title="Bucket settings">⚙</a>
       <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}"
             style="display:inline"

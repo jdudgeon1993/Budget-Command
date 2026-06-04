@@ -161,6 +161,7 @@ def bucket_settings(bid):
     if not bucket:
         flash("Bucket not found.", "error")
         return redirect(url_for("panels.buckets"))
+    cats = data.get("cats", [])
     if request.method == "POST":
         f = request.form
         try:
@@ -180,8 +181,11 @@ def bucket_settings(bid):
             flash("Bucket updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
         return redirect(url_for("panels.buckets"))
-    cats = data.get("cats", [])
+    if _is_modal():
+        return render_template("panels/_frag_bucket.html", bucket=bucket, cats=cats)
     return render_panel("panels/edit_bucket.html", "buckets",
                         bucket=bucket, cats=cats)
 
@@ -194,6 +198,8 @@ def archive_bucket(bid):
         flash("Bucket archived.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
+    if request.headers.get("HX-Request") == "true":
+        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
     return redirect(url_for("panels.buckets"))
 
 

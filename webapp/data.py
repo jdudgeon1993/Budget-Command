@@ -46,6 +46,7 @@ def month_label(mid: str) -> str:
 # ── Shell view-model (sidebar RTS, header, month) ─────────────────────────────
 
 def shell_ctx(active_panel: str = "") -> dict:
+    from datetime import date as _date
     data = load_data()
     mid = active_mid()
     month = active_month(data)
@@ -60,6 +61,17 @@ def shell_ctx(active_panel: str = "") -> dict:
     spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
     pct = min(100, round((allocated / income) * 100)) if income else 0
 
+    # Pre-render context for add-transaction modal (so it can be instant, no round-trip)
+    tx_accounts = [{"id": a["id"], "name": a["name"]}
+                   for a in accounts if not a.get("archived")]
+    cats_sorted = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    tx_buckets_by_cat = []
+    for c in cats_sorted:
+        bkts = [{"id": b["id"], "name": b["name"]} for b in buckets
+                if b.get("catId") == c["id"]]
+        if bkts:
+            tx_buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
+
     return {
         "active_panel": active_panel,
         "user_email": session.get("email", ""),
@@ -70,6 +82,9 @@ def shell_ctx(active_panel: str = "") -> dict:
         "spent": spent,
         "pct": pct,
         "unhomed": max(rts, 0),
+        "tx_accounts": tx_accounts,
+        "tx_buckets_by_cat": tx_buckets_by_cat,
+        "tx_today": _date.today().isoformat(),
     }
 
 
