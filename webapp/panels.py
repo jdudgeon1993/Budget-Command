@@ -58,7 +58,10 @@ def set_alloc(bid):
     if not current_app.config["DEV_SEED"]:
         DB.upsert_alloc(session["user_id"], session["access_token"],
                         D.active_mid(), bid, amount)
-    # Find the freshly-computed row + its category color.
+    # No-JS fallback: a plain form submit (Enter) reloads the panel.
+    if request.headers.get("HX-Request") != "true":
+        return redirect(url_for("panels.buckets"))
+    # HTMX: swap just the row + out-of-band Ready-to-Assign.
     vm = D.bucket_rows()
     row = color = None
     for grp in vm["groups"]:
