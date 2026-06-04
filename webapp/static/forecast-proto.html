@@ -471,12 +471,13 @@ table.tl{border-collapse:collapse;table-layout:fixed}
 /* ════════════════════════════════════════════════
    CONSTANTS
    ════════════════════════════════════════════════ */
-const PAY_FREQ  = 'biweekly';
-const START_BAL = 4200;
-const START_INC = 3200;
+const _LIVE = window.CURA_LIVE || {};
+const PAY_FREQ  = _LIVE.payFreq || 'biweekly';
+const START_BAL = _LIVE.startBal != null ? _LIVE.startBal : 4200;
+const START_INC = _LIVE.startInc != null ? _LIVE.startInc : 3200;
 const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const BASE_BKTS = [
+const _FALLBACK_BKTS = [
   {id:'rent',     name:'Rent',             target:2200, due:1,   freq:'monthly'},
   {id:'mortgage', name:'Mortgage',         target:0,    due:1,   freq:'monthly'},
   {id:'electric', name:'Electric',         target:140,  due:15,  freq:'monthly'},
@@ -490,6 +491,7 @@ const BASE_BKTS = [
   {id:'dining',   name:'Dining Out',       target:200,  due:null,freq:'biweekly'},
   {id:'savings',  name:'Savings Transfer', target:500,  due:null,freq:'monthly'},
 ];
+const BASE_BKTS = (_LIVE.buckets && _LIVE.buckets.length) ? _LIVE.buckets : _FALLBACK_BKTS;
 
 const GOAL_COLORS  = ['#0A84FF','#BF5AF2','#34C759','#FF9F0A','#FF3B30','#5AC8FA'];
 const EVENT_COLORS = ['#BF5AF2','#0A84FF','#34C759','#FF9F0A','#FF3B30'];
@@ -500,57 +502,21 @@ const EVENT_COLORS = ['#BF5AF2','#0A84FF','#34C759','#FF9F0A','#FF3B30'];
 let S = loadState() || defaultState();
 
 function defaultState(){
+  const tl = {};
+  BASE_BKTS.forEach(b => { tl[b.id] = [{from:null,amount:b.target||0,enabled:(b.target||0)>0}]; });
   return {
-    scenarios:[
-      {
-        id:'baseline', name:'Baseline', isBase:true, incScale:1,
-        timeline:{
-          rent:     [{from:null,amount:2200,enabled:true},{from:'2026-8',amount:0,enabled:false}],
-          mortgage: [{from:null,amount:0,enabled:false},{from:'2026-8',amount:1800,enabled:true}],
-          electric: [{from:null,amount:140,enabled:true}],
-          groceries:[{from:null,amount:320,enabled:true}],
-          gas:      [{from:null,amount:90, enabled:true}],
-          car_pay:  [{from:null,amount:420,enabled:true}],
-          car_ins:  [{from:null,amount:180,enabled:true}],
-          phone:    [{from:null,amount:85, enabled:true}],
-          subscr:   [{from:null,amount:65, enabled:true}],
-          gym:      [{from:null,amount:40, enabled:true}],
-          dining:   [{from:null,amount:200,enabled:true}],
-          savings:  [{from:null,amount:500,enabled:true}],
-        },
-        extraBkts:[],
-        events:[{id:'ev1',name:'Move Out / In',color:'#BF5AF2',month:'2026-8'}],
-      },
-      {
-        id:'sc1', name:'Pay Raise +15%', isBase:false, incScale:1.15,
-        timeline:{
-          rent:     [{from:null,amount:2200,enabled:true},{from:'2026-8',amount:0,enabled:false}],
-          mortgage: [{from:null,amount:0,enabled:false},{from:'2026-8',amount:1800,enabled:true}],
-          electric: [{from:null,amount:140,enabled:true}],
-          groceries:[{from:null,amount:320,enabled:true}],
-          gas:      [{from:null,amount:90, enabled:true}],
-          car_pay:  [{from:null,amount:420,enabled:true}],
-          car_ins:  [{from:null,amount:180,enabled:true}],
-          phone:    [{from:null,amount:85, enabled:true}],
-          subscr:   [{from:null,amount:65, enabled:true}],
-          gym:      [{from:null,amount:40, enabled:true}],
-          dining:   [{from:null,amount:200,enabled:true}],
-          savings:  [{from:null,amount:900,enabled:true}],
-        },
-        extraBkts:[], events:[],
-      },
-    ],
-    goals:[
-      {id:'g1',name:'Emergency Fund',amount:10000,color:'#0A84FF'},
-      {id:'g2',name:'Vacation Fund', amount:3500, color:'#FF9F0A'},
-    ],
+    scenarios:[{
+      id:'baseline', name:'Baseline', isBase:true, incScale:1,
+      timeline:tl, extraBkts:[], events:[],
+    }],
+    goals:[],
     activeId:'baseline',
     pinnedId:null,
     range:6,
-    rpTab:'periods',    // 'periods' | 'intel'
+    rpTab:'periods',
     panelOpen:{chart:true, grid:true, periods:true},
     activePd:-1,
-    mobileTab:'grid',   // 'sc' | 'grid' | 'chart' | 'pd'
+    mobileTab:'grid',
   };
 }
 
@@ -657,8 +623,8 @@ function pinnedSc(){ return S.scenarios.find(s=>s.id===S.pinnedId)||null; }
 /* ════════════════════════════════════════════════
    PERSISTENCE
    ════════════════════════════════════════════════ */
-function saveState(){ try{ localStorage.setItem('cura_v5',JSON.stringify(S)); }catch(e){} }
-function loadState(){ try{ const r=localStorage.getItem('cura_v5'); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function saveState(){ try{ localStorage.setItem('cura_live_v1',JSON.stringify(S)); }catch(e){} }
+function loadState(){ try{ const r=localStorage.getItem('cura_live_v1'); return r?JSON.parse(r):null; }catch(e){ return null; } }
 
 /* ════════════════════════════════════════════════
    RENDER ROOT

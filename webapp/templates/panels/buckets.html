@@ -3,8 +3,12 @@
 <div class="panel-grid">
   <div>
     <div class="workflow-bar">
-      <button class="wf-btn">Copy Last Month</button>
-      <button class="wf-btn">Close Month</button>
+      <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents">
+        <button class="wf-btn" type="submit">Copy Last Month</button>
+      </form>
+      <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents">
+        <button class="wf-btn" type="submit">Close Month</button>
+      </form>
     </div>
 
     {% for grp in groups %}
@@ -18,15 +22,19 @@
     {% endfor %}
     {% endfor %}
 
-    <div class="add-strip">
-      <select>
-        <option>— Category —</option>
+    <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}">
+      <select name="catId" style="flex:0 0 130px" required>
+        <option value="">— Category —</option>
         {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
       </select>
-      <input type="text" placeholder="Bucket name…">
-      <select style="flex:0 0 105px"><option>Expense</option><option>Sinking</option><option>Vault</option></select>
-      <button class="toolbar-btn primary">+ Add</button>
-    </div>
+      <input type="text" name="name" placeholder="Bucket name…" required>
+      <select name="type" style="flex:0 0 105px">
+        <option value="expense">Expense</option>
+        <option value="sinking">Sinking</option>
+        <option value="vault">Vault</option>
+      </select>
+      <button class="toolbar-btn primary" type="submit">+ Add</button>
+    </form>
   </div>
 
   <div class="right-sticky">

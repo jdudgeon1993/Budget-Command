@@ -5,12 +5,18 @@
       <form method="post" action="{{ url_for('panels.set_alloc', bid=b.id) }}"
             style="display:contents"
             hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
-            hx-trigger="change from:find input" hx-target="closest .bucket-card" hx-swap="outerHTML">
+            hx-trigger="change from:find input[name=alloc]" hx-target="closest .bucket-card" hx-swap="outerHTML">
         <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
                aria-label="Allocation for {{ b.name }}">
       </form>
       <span class="num-div">/</span>
-      <span class="budget-val">{{ b.budget | money }}</span>
+      <form method="post" action="{{ url_for('panels.set_budget', bid=b.id) }}"
+            style="display:contents"
+            hx-post="{{ url_for('panels.set_budget', bid=b.id) }}"
+            hx-trigger="change from:find input[name=budget]" hx-target="closest .bucket-card" hx-swap="outerHTML">
+        <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
+               aria-label="Budget for {{ b.name }}" title="Budget target">
+      </form>
       <span class="num-div" style="padding:0 2px">·</span>
       <span class="spent-val" {% if b.status == 'over' %}style="color:var(--red)"{% endif %}>{{ b.spent | money }} spent</span>
       <span class="num-div" style="padding:0 2px">·</span>
@@ -18,6 +24,12 @@
     </div>
     <div class="bucket-actions">
       <span class="status-pill {{ b.status }}">{{ b.pill }}</span>
+      <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}" style="display:inline">
+        <button class="reorder-btn" type="submit" title="Move up">▲</button>
+      </form>
+      <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}" style="display:inline">
+        <button class="reorder-btn" type="submit" title="Move down">▼</button>
+      </form>
     </div>
   </div>
 </div>

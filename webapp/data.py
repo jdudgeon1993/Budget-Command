@@ -140,6 +140,7 @@ def accounts_view():
 
     cards = [{
         "id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
+        "color": a.get("color", "#818cf8"),
         "balance": F.acct_balance(a, txs),
     } for a in accounts]
 
@@ -163,10 +164,15 @@ def accounts_view():
         else:
             signed, color, pill = -amt, "red", "Expense"
         rows.append({
-            "date": t.get("date", ""), "desc": t.get("desc") or "Transaction",
+            "id": t.get("id", ""), "date": t.get("date", ""),
+            "desc": t.get("desc") or "Transaction",
             "pill": pill, "color": color, "signed": signed,
             "category": bkt_name.get(t.get("bucketId"), ""),
             "scheduled": F.is_scheduled(t),
+            "type": ttype, "amount": amt,
+            "accountId": t.get("accountId", ""),
+            "bucketId": t.get("bucketId", ""),
+            "toAccountId": t.get("toAccountId", ""),
         })
     rows.sort(key=lambda r: r["date"], reverse=True)
 
@@ -272,6 +278,58 @@ def tx_form_ctx():
             buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
     return {"accounts": accounts, "buckets_by_cat": buckets_by_cat,
             "today": _date.today().isoformat(), "mid": active_mid()}
+
+
+def tx_by_id(tid: str) -> dict | None:
+    """Find a single transaction by ID from the loaded data."""
+    for t in load_data().get("txs", []):
+        if t.get("id") == tid:
+            return t
+    return None
+
+
+def forecast_data_ctx() -> dict:
+    """Real-data seed for the forecast builder (buckets, balances, income)."""
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data)
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+    paychecks = data.get("paychecks", [])
+
+    # Cash balance: non-debt accounts
+    start_bal = round(sum(
+        F.acct_balance(a, txs)
+        for a in accounts
+        if a.get("type") not in ("debt",)
+    ), 2)
+
+    # Monthly income: normalize each paycheck to per-month
+    freq_factor = {7: 52/12, 14: 26/12, 15: 2.0, 30: 1.0}
+    start_inc = round(sum(
+        float(p.get("amount", 0)) * freq_factor.get(int(p.get("freq") or 14), 26/12)
+        for p in paychecks
+    ), 2)
+
+    pay_freq = "biweekly"
+    if paychecks:
+        freq = int(paychecks[0].get("freq") or 14)
+        pay_freq = {7: "weekly", 14: "biweekly", 15: "semimonthly", 30: "monthly"}.get(freq, "biweekly")
+
+    bkt_rows = []
+    for b in buckets:
+        target = F.b_budget(month, b["id"])
+        if not target:
+            target = float(b.get("defaultBudget") or b.get("default_budget") or 0)
+        bkt_rows.append({
+            "id": b["id"], "name": b["name"], "target": round(target, 2),
+            "due": b.get("dueDay") or b.get("due_day"),
+            "freq": b.get("payFreq") or b.get("pay_freq") or "monthly",
+        })
+
+    return {"startBal": start_bal, "startInc": start_inc,
+            "payFreq": pay_freq, "buckets": bkt_rows}
 
 
 def _date_label(iso: str) -> str:

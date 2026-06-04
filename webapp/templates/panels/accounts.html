@@ -18,7 +18,7 @@
       </div>
       {% for t in day.rows %}
       <div class="tx-row">
-        <div class="tx-stripe bg-{{ t.color }}" style="background:var(--{{ 'green' if t.color=='green' else 'red' if t.color=='red' else 'text2' }})"></div>
+        <div class="tx-stripe" style="background:var(--{{ 'green' if t.color=='green' else 'red' if t.color=='red' else 'text2' }});width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
         <div class="tx-body">
           <div class="tx-name">{{ t.desc }}{% if t.scheduled %} <span style="color:var(--amber);font-size:11px">· scheduled</span>{% endif %}</div>
           <div class="tx-meta">
@@ -27,6 +27,9 @@
           </div>
         </div>
         <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
+        {% if t.id %}
+        <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}">Edit</a>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -37,14 +40,19 @@
 
   <div class="right-sticky">
     <div class="card card-pad">
-      <div class="card-label">Accounts</div>
+      <div class="card-label" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Accounts</span>
+        <a class="tx-edit-link" href="{{ url_for('panels.account_new') }}" style="font-size:12px">+ Add</a>
+      </div>
       {% for a in cards %}
       <div class="acct-card">
-        <div style="flex:1">
+        <div class="acct-dot" style="width:8px;height:8px;border-radius:50%;background:{{ a.color or 'var(--accent)' }};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
           <div class="acct-name">{{ a.name }}</div>
           <div class="acct-type">{{ a.type }}</div>
         </div>
         <div class="acct-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</div>
+        <a class="tx-edit-link" href="{{ url_for('panels.account_edit', aid=a.id) }}" title="Edit account">⚙</a>
       </div>
       {% endfor %}
     </div>

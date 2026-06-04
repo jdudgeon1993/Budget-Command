@@ -5,14 +5,32 @@
   <div class="card card-pad setup-card">
     <div class="card-label">Paychecks</div>
     {% for p in paychecks %}
-    <div class="setup-row">
-      <div class="setup-main">
-        <span class="setup-name">{{ p.label }}</span>
-        <span class="setup-meta">{{ freq_label.get(p.freq, p.freq ~ ' days') }} · from {{ p.anchor[:10] }}</span>
-      </div>
-      <span class="setup-fig c-green">{{ p.amount | money }}</span>
-      <form method="post" action="{{ url_for('panels.del_paycheck', pid=p.id) }}"><button class="setup-del" title="Delete">✕</button></form>
-    </div>
+    <details class="setup-expand-row">
+      <summary>
+        <div class="setup-main">
+          <span class="setup-name">{{ p.label }}</span>
+          <span class="setup-meta">{{ freq_label.get(p.freq, p.freq ~ ' days') }} · from {{ p.anchor[:10] }}</span>
+        </div>
+        <span class="setup-fig c-green">{{ p.amount | money }}</span>
+        <span class="setup-edit-toggle">Edit ▾</span>
+        <form method="post" action="{{ url_for('panels.del_paycheck', pid=p.id) }}" style="display:contents"
+              onsubmit="return confirm('Delete this paycheck?');event.stopPropagation()">
+          <button class="setup-del" type="submit" title="Delete" onclick="event.stopPropagation()">✕</button>
+        </form>
+      </summary>
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_paycheck', pid=p.id) }}">
+        <input name="label" value="{{ p.label }}" placeholder="Label" style="flex:1;min-width:100px">
+        <input name="amount" value="{{ p.amount }}" placeholder="Amount" inputmode="decimal" style="flex:0 0 90px">
+        <select name="freq" style="flex:0 0 120px">
+          <option value="14" {{ 'selected' if p.freq == 14 }}>Bi-weekly</option>
+          <option value="7" {{ 'selected' if p.freq == 7 }}>Weekly</option>
+          <option value="15" {{ 'selected' if p.freq == 15 }}>Semi-monthly</option>
+          <option value="30" {{ 'selected' if p.freq == 30 }}>Monthly</option>
+        </select>
+        <input name="anchor" type="date" value="{{ p.anchor[:10] if p.anchor else '' }}" style="flex:0 0 140px">
+        <button class="toolbar-btn primary" type="submit">Save</button>
+      </form>
+    </details>
     {% else %}<div class="setup-empty">No paychecks yet.</div>{% endfor %}
     <form class="setup-add" method="post" action="{{ url_for('panels.add_paycheck') }}">
       <input name="label" placeholder="Label" required>
@@ -28,11 +46,23 @@
   <div class="card card-pad setup-card">
     <div class="card-label">Categories</div>
     {% for c in cats %}
-    <div class="setup-row">
-      <div class="cat-dot" style="background:{{ c.color }}"></div>
-      <div class="setup-main"><span class="setup-name">{{ c.name }}</span></div>
-      <span class="setup-meta">{{ c.count }} bucket{{ '' if c.count == 1 else 's' }}</span>
-    </div>
+    <details class="setup-expand-row">
+      <summary>
+        <div class="cat-dot" style="background:{{ c.color }}"></div>
+        <div class="setup-main"><span class="setup-name">{{ c.name }}</span></div>
+        <span class="setup-meta">{{ c.count }} bucket{{ '' if c.count == 1 else 's' }}</span>
+        <span class="setup-edit-toggle">Edit ▾</span>
+        <form method="post" action="{{ url_for('panels.del_category', cid=c.id) }}" style="display:contents"
+              onsubmit="return confirm('Archive this category?');event.stopPropagation()">
+          <button class="setup-del" type="submit" title="Archive" onclick="event.stopPropagation()">✕</button>
+        </form>
+      </summary>
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_category', cid=c.id) }}">
+        <input name="name" value="{{ c.name }}" placeholder="Category name" required style="flex:1">
+        <input name="color" type="color" value="{{ c.color }}" style="flex:0 0 48px;padding:4px;height:38px">
+        <button class="toolbar-btn primary" type="submit">Save</button>
+      </form>
+    </details>
     {% else %}<div class="setup-empty">No categories yet.</div>{% endfor %}
     <form class="setup-add" method="post" action="{{ url_for('panels.add_category') }}">
       <input name="name" placeholder="Category name" required>
@@ -49,8 +79,16 @@
         <span class="setup-name">{{ r.name }}</span>
         <span class="setup-meta">→ {{ r.bucket }}</span>
       </div>
-      <span class="setup-fig">{{ (r.value ~ '%') if r.is_pct else (r.value | money) }}</span>
-      <form method="post" action="{{ url_for('panels.del_rule', rid=r.id) }}"><button class="setup-del" title="Delete">✕</button></form>
+      <span class="setup-fig">{{ (r.value | int ~ '%') if r.is_pct else (r.value | money) }}</span>
+      <form method="post" action="{{ url_for('panels.toggle_rule', rid=r.id) }}" style="display:contents">
+        <button class="setup-toggle-btn {{ 'active' if r.active }}" type="submit"
+                title="{{ 'Active — click to disable' if r.active else 'Disabled — click to enable' }}">
+          {{ '● ON' if r.active else '◎ OFF' }}
+        </button>
+      </form>
+      <form method="post" action="{{ url_for('panels.del_rule', rid=r.id) }}" style="display:contents">
+        <button class="setup-del" type="submit" title="Delete" onclick="return confirm('Delete this rule?')">✕</button>
+      </form>
     </div>
     {% else %}<div class="setup-empty">No allocation rules yet.</div>{% endfor %}
     <form class="setup-add" method="post" action="{{ url_for('panels.add_rule') }}">

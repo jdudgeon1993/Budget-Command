@@ -5,7 +5,7 @@ just the #panel fragment on an HTMX request (SPA-feel, no reload).
 """
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
-                   session, current_app, flash)
+                   session, current_app, flash, jsonify, Response)
 
 from . import db as DB
 from . import data as D
@@ -73,12 +73,190 @@ def set_alloc(bid):
             + render_template("panels/_oob_rts.html", shell=shell))
 
 
+# ── Budget inline edit ───────────────────────────────────────────────────────
+
+@bp.route("/buckets/<bid>/budget", methods=["POST"])
+@login_required
+def set_budget(bid):
+    try:
+        amount = round(float(request.form.get("budget", "0").replace("$", "").replace(",", "")), 2)
+    except ValueError:
+        amount = 0.0
+    data = D.load_data()
+    month = D.active_month(data)
+    month.setdefault("budgets", {})[bid] = amount
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_budget(session["user_id"], session["access_token"],
+                         D.active_mid(), bid, amount)
+    if request.headers.get("HX-Request") != "true":
+        return redirect(url_for("panels.buckets"))
+    vm = D.bucket_rows()
+    row = color = None
+    for grp in vm["groups"]:
+        for b in grp["buckets"]:
+            if b["id"] == bid:
+                row, color = b, grp["color"]
+    shell = D.shell_ctx("buckets")
+    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
+            + render_template("panels/_oob_rts.html", shell=shell))
+
+
+# ── Add bucket ────────────────────────────────────────────────────────────────
+
+@bp.route("/buckets", methods=["POST"])
+@login_required
+def add_bucket():
+    f = request.form
+    name = f.get("name", "").strip()
+    cat_id = f.get("catId", "")
+    btype = f.get("type", "expense")
+    if name and cat_id and not current_app.config["DEV_SEED"]:
+        DB.insert_bucket(session["user_id"], session["access_token"], name, cat_id, btype)
+        flash("Bucket added.", "ok")
+    elif current_app.config["DEV_SEED"]:
+        flash("Dev mode: bucket not persisted.", "ok")
+    else:
+        flash("Name and category are required.", "error")
+    return redirect(url_for("panels.buckets"))
+
+
+# ── Bucket reorder ────────────────────────────────────────────────────────────
+
+@bp.route("/buckets/<bid>/move/<direction>", methods=["POST"])
+@login_required
+def move_bucket(bid, direction):
+    data = D.load_data()
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    this_b = next((b for b in buckets if b["id"] == bid), None)
+    if not this_b:
+        return redirect(url_for("panels.buckets"))
+    siblings = sorted(
+        [b for b in buckets if b.get("catId") == this_b.get("catId")],
+        key=lambda b: b.get("order", 0)
+    )
+    idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), -1)
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if 0 <= idx < len(siblings) and 0 <= swap_idx < len(siblings):
+        b1, b2 = siblings[idx], siblings[swap_idx]
+        o1 = b1.get("order", idx)
+        o2 = b2.get("order", swap_idx)
+        if not current_app.config["DEV_SEED"]:
+            DB.update_bucket_order(session["user_id"], session["access_token"], b1["id"], o2)
+            DB.update_bucket_order(session["user_id"], session["access_token"], b2["id"], o1)
+    return redirect(url_for("panels.buckets"))
+
+
+# ── Month workflow ────────────────────────────────────────────────────────────
+
+@bp.route("/month/copy", methods=["POST"])
+@login_required
+def month_copy():
+    mid = D.active_mid()
+    y, m0 = D.F.parse_month_id(mid)
+    total = y * 12 + m0 - 1
+    prev_mid = f"m_{total // 12}_{total % 12}"
+    if not current_app.config["DEV_SEED"]:
+        DB.copy_month_allocs(session["user_id"], session["access_token"], mid, prev_mid)
+        flash("Allocations copied from last month.", "ok")
+    else:
+        flash("Dev mode: copy not persisted.", "ok")
+    return redirect(url_for("panels.buckets"))
+
+
+@bp.route("/month/close", methods=["POST"])
+@login_required
+def month_close():
+    data = D.load_data()
+    if not current_app.config["DEV_SEED"]:
+        DB.close_month(session["user_id"], session["access_token"],
+                       D.active_mid(), data.get("accounts", []), data.get("txs", []))
+        flash("Month closed.", "ok")
+    else:
+        flash("Dev mode: close not persisted.", "ok")
+    return redirect(url_for("panels.buckets"))
+
+
+@bp.route("/month/reopen", methods=["POST"])
+@login_required
+def month_reopen():
+    if not current_app.config["DEV_SEED"]:
+        DB.reopen_month(session["user_id"], session["access_token"], D.active_mid())
+        flash("Month reopened.", "ok")
+    else:
+        flash("Dev mode: reopen not persisted.", "ok")
+    return redirect(url_for("panels.buckets"))
+
+
 # ── Month navigation ──────────────────────────────────────────────────────────
 
 @bp.route("/accounts")
 @login_required
 def accounts():
     return render_panel("panels/accounts.html", "accounts", **D.accounts_view())
+
+
+# ── Add / edit account ────────────────────────────────────────────────────────
+
+@bp.route("/accounts/new", methods=["GET", "POST"])
+@login_required
+def account_new():
+    if request.method == "POST":
+        f = request.form
+        try:
+            ob = round(float(f.get("opening_balance", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            ob = 0.0
+        name = f.get("name", "").strip()
+        if name and not current_app.config["DEV_SEED"]:
+            DB.insert_account(session["user_id"], session["access_token"],
+                              name, f.get("type", "budget"),
+                              f.get("color", "#818cf8"), ob)
+            flash("Account added.", "ok")
+        elif current_app.config["DEV_SEED"]:
+            flash("Dev mode: account not persisted.", "ok")
+        else:
+            flash("Name is required.", "error")
+        return redirect(url_for("panels.accounts"))
+    return render_panel("panels/edit_account.html", "accounts", account=None)
+
+
+@bp.route("/accounts/<aid>/edit", methods=["GET", "POST"])
+@login_required
+def account_edit(aid):
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if not account:
+        flash("Account not found.", "error")
+        return redirect(url_for("panels.accounts"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            ob = round(float(f.get("opening_balance", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            ob = 0.0
+        if not current_app.config["DEV_SEED"]:
+            DB.update_account(session["user_id"], session["access_token"], aid, {
+                "name": f.get("name", "").strip(),
+                "type": f.get("type", "budget"),
+                "color": f.get("color", "#818cf8"),
+                "opening_balance": ob,
+            })
+            flash("Account updated.", "ok")
+        else:
+            flash("Dev mode: change not persisted.", "ok")
+        return redirect(url_for("panels.accounts"))
+    return render_panel("panels/edit_account.html", "accounts", account=account)
+
+
+@bp.route("/accounts/<aid>/archive", methods=["POST"])
+@login_required
+def account_archive(aid):
+    if not current_app.config["DEV_SEED"]:
+        DB.update_account(session["user_id"], session["access_token"], aid, {"archived": True})
+        flash("Account archived.", "ok")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return redirect(url_for("panels.accounts"))
 
 
 @bp.route("/reports")
@@ -147,6 +325,126 @@ def add_rule():
 @login_required
 def del_rule(rid):
     return _dev_or(lambda u, t: DB.delete_alloc_rule(u, t, rid))
+
+
+@bp.route("/setup/paycheck/<pid>/edit", methods=["POST"])
+@login_required
+def edit_paycheck(pid):
+    f = request.form
+    try:
+        amt = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+    except ValueError:
+        amt = 0.0
+    if not current_app.config["DEV_SEED"]:
+        DB.update_paycheck(session["user_id"], session["access_token"],
+                           pid, f.get("label", "Paycheck"), amt,
+                           int(f.get("freq") or 14),
+                           f.get("anchor") or D.tx_form_ctx()["today"])
+        flash("Paycheck updated.", "ok")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return redirect(url_for("panels.setup"))
+
+
+@bp.route("/setup/category/<cid>/edit", methods=["POST"])
+@login_required
+def edit_category(cid):
+    f = request.form
+    if not current_app.config["DEV_SEED"]:
+        DB.update_category(session["user_id"], session["access_token"], cid,
+                           {"name": f.get("name", ""), "color": f.get("color", "#818cf8")})
+        flash("Category updated.", "ok")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return redirect(url_for("panels.setup"))
+
+
+@bp.route("/setup/category/<cid>/delete", methods=["POST"])
+@login_required
+def del_category(cid):
+    if not current_app.config["DEV_SEED"]:
+        DB.update_category(session["user_id"], session["access_token"], cid, {"archived": True})
+        flash("Category archived.", "ok")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return redirect(url_for("panels.setup"))
+
+
+@bp.route("/setup/rule/<rid>/toggle", methods=["POST"])
+@login_required
+def toggle_rule(rid):
+    if not current_app.config["DEV_SEED"]:
+        DB.toggle_alloc_rule(session["user_id"], session["access_token"], rid)
+    return redirect(url_for("panels.setup"))
+
+
+# ── Forecast builder (iframe with real data) ──────────────────────────────────
+
+@bp.route("/forecast/builder")
+@login_required
+def forecast_builder():
+    import os, json as _json
+    live_data = D.forecast_data_ctx()
+    proto_path = os.path.join(current_app.static_folder, "forecast-proto.html")
+    with open(proto_path, "r") as fh:
+        content = fh.read()
+    injection = f'<script>window.CURA_LIVE = {_json.dumps(live_data)};</script>\n'
+    content = content.replace("</head>", injection + "</head>", 1)
+    return Response(content, content_type="text/html")
+
+
+@bp.route("/api/forecast-data")
+@login_required
+def forecast_data_api():
+    return jsonify(D.forecast_data_ctx())
+
+
+@bp.route("/transaction/<tid>/edit", methods=["GET", "POST"])
+@login_required
+def transaction_edit(tid):
+    tx = D.tx_by_id(tid)
+    if not tx:
+        flash("Transaction not found.", "error")
+        return redirect(url_for("panels.accounts"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            amount = 0.0
+        iso = f.get("date") or D.tx_form_ctx()["today"]
+        y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
+        mid = D.F.month_id(int(y), int(m) - 1)
+        if not current_app.config["DEV_SEED"]:
+            DB.update_transaction(session["user_id"], session["access_token"], tid, {
+                "account_id": f.get("accountId", ""),
+                "month_id": mid,
+                "type": f.get("type", "out"),
+                "amount": amount,
+                "date": iso,
+                "description": f.get("desc", ""),
+                "bucket_id": f.get("bucketId") or None,
+                "to_account_id": f.get("toAccountId") or None,
+            })
+            flash("Transaction updated.", "ok")
+        else:
+            flash("Dev mode: change not persisted.", "ok")
+        return redirect(url_for("panels." + (f.get("back") or "accounts")))
+    back = session.get("active_panel", "accounts")
+    return render_panel("panels/edit_tx.html", back,
+                        tx=tx, back=back, **D.tx_form_ctx())
+
+
+@bp.route("/transaction/<tid>/delete", methods=["POST"])
+@login_required
+def transaction_delete(tid):
+    back = request.form.get("back") or "accounts"
+    if not current_app.config["DEV_SEED"]:
+        DB.delete_transaction(session["user_id"], session["access_token"], tid)
+        flash("Transaction deleted.", "ok")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return redirect(url_for("panels." + back))
 
 
 @bp.route("/transaction/new")

@@ -1,0 +1,47 @@
+{% extends layout %}
+{% block panel %}
+<div class="edit-page-wrap">
+  <form class="edit-form card" method="post"
+        action="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}">
+    <div class="edit-form-title">{{ 'Edit Account' if account else 'Add Account' }}</div>
+    <div class="edit-form-sub">{{ account.name if account else 'Add a new bank or credit account.' }}</div>
+
+    <div class="edit-field">
+      <label>Account name</label>
+      <input type="text" name="name" value="{{ account.name if account else '' }}" placeholder="e.g. Chase Checking" required autofocus>
+    </div>
+    <div class="edit-field">
+      <label>Type</label>
+      <select name="type">
+        {% for val, label in [('budget','Checking / Cash'),('savings','Savings'),('debt','Credit / Debt'),('investment','Investment')] %}
+        <option value="{{ val }}" {{ 'selected' if account and account.type == val }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="edit-field">
+      <label>Opening balance</label>
+      <input type="text" name="opening_balance" inputmode="decimal"
+             value="{{ account.openingBalance if account else '0' }}"
+             placeholder="0.00">
+    </div>
+    <div class="edit-field">
+      <label>Color</label>
+      <input type="color" name="color" value="{{ account.color if account else '#818cf8' }}"
+             style="height:40px;padding:4px;background:var(--surface2)">
+    </div>
+
+    <div class="edit-actions">
+      <a class="toolbar-btn" href="{{ url_for('panels.accounts') }}">Cancel</a>
+      <button class="toolbar-btn primary" type="submit">{{ 'Save Changes' if account else 'Add Account' }}</button>
+    </div>
+  </form>
+
+  {% if account %}
+  <form method="post" action="{{ url_for('panels.account_archive', aid=account.id) }}"
+        style="margin-top:8px"
+        onsubmit="return confirm('Archive this account? It will be hidden from the app.')">
+    <button class="edit-delete-btn" style="width:100%" type="submit">Archive Account</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
