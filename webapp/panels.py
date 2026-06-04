@@ -283,6 +283,11 @@ def vault_release_to_pool(bid):
             if not current_app.config["DEV_SEED"]:
                 DB.vault_release_to_pool(session["user_id"], session["access_token"],
                                          mid, bid, amount, current_alloc)
+                reason = f.get("reason", "").strip()
+                is_planned = f.get("is_planned") == "1"
+                if reason:
+                    DB.log_vault_release(session["user_id"], session["access_token"],
+                                         mid, bid, amount, reason, is_planned)
                 flash(f"Released ${amount:,.2f} from vault to pool.", "ok")
             else:
                 flash("Dev mode: release not persisted.", "ok")
@@ -720,6 +725,18 @@ def transaction_create():
         "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
         "toAccountId": f.get("toAccountId") or "",
     }
+    # Block vault buckets from receiving transactions
+    bucket_id = tx.get("bucketId", "")
+    if bucket_id:
+        _bkt = next((b for b in D.load_data().get("buckets", []) if b["id"] == bucket_id), None)
+        if _bkt and _bkt.get("type") == "vault":
+            flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
+            back_panel = f.get("back") or "buckets"
+            if request.headers.get("HX-Request") == "true":
+                tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+                return _panel_close_modal(tmpl, back_panel, **ctx_fn())
+            return redirect(url_for("panels." + back_panel))
+
     if current_app.config["DEV_SEED"]:
         flash("Dev mode: transaction not persisted (no database).", "ok")
     elif amount > 0 and tx["accountId"]:
