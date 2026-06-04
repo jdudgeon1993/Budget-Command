@@ -181,6 +181,54 @@ def accounts_view():
     return {"cards": cards, "summary": summary, "ledger": groups}
 
 
+def reports_view():
+    """Budget-vs-Actual + category spending + month totals + account snapshot."""
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data)
+    txs = data.get("txs", [])
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+
+    bva, cat_spend = [], []
+    grand_budget = grand_spent = 0.0
+    for cat in cats:
+        rows, c_budget, c_spent = [], 0.0, 0.0
+        for b in sorted([b for b in buckets if b.get("catId") == cat["id"]],
+                        key=lambda b: b.get("order", 0)):
+            budget = F.b_budget(month, b["id"])
+            spent = F.b_spent(mid, b["id"], txs)
+            c_budget += budget
+            c_spent += spent
+            rows.append({"name": b["name"], "budget": budget, "spent": spent,
+                         "variance": budget - spent,
+                         "pct": min(100, round((spent / budget) * 100)) if budget else 0})
+        if rows:
+            grand_budget += c_budget
+            grand_spent += c_spent
+            bva.append({"name": cat["name"], "color": cat.get("color", "#888"),
+                        "budget": c_budget, "spent": c_spent,
+                        "variance": c_budget - c_spent, "buckets": rows})
+            if c_spent > 0:
+                cat_spend.append({"name": cat["name"], "color": cat.get("color", "#888"),
+                                  "spent": c_spent})
+
+    total_spend = sum(c["spent"] for c in cat_spend) or 1
+    for c in cat_spend:
+        c["pct"] = round((c["spent"] / total_spend) * 100)
+    cat_spend.sort(key=lambda c: c["spent"], reverse=True)
+
+    income = F.month_income(mid, txs, accounts)
+    totals = {"income": income, "spent": grand_spent, "budget": grand_budget,
+              "net": income - grand_spent}
+    snapshot = [{"name": a["name"], "balance": F.acct_balance(a, txs)} for a in accounts]
+    net_worth = sum(s["balance"] for s in snapshot)
+
+    return {"bva": bva, "cat_spend": cat_spend, "totals": totals,
+            "snapshot": snapshot, "net_worth": net_worth}
+
+
 def tx_form_ctx():
     """Selects + defaults for the Add/Edit Transaction form."""
     from datetime import date as _date

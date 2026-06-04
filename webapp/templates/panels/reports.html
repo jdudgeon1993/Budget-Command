@@ -1,0 +1,66 @@
+{% extends layout %}
+{% block panel %}
+<div class="panel-grid">
+  <div>
+    <div class="sum-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="sum-card"><div class="sum-label">Income</div><div class="sum-val c-green">{{ totals.income | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Spent</div><div class="sum-val c-red">{{ totals.spent | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Budgeted</div><div class="sum-val" style="color:var(--accent)">{{ totals.budget | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Net</div><div class="sum-val {{ 'c-green' if totals.net >= 0 else 'c-red' }}">{{ totals.net | money }}</div></div>
+    </div>
+
+    <div class="card card-pad">
+      <div class="card-label">Budget vs Actual</div>
+      {% for cat in bva %}
+      <div class="bva-cat">
+        <div class="bva-cat-hd">
+          <div class="cat-dot" style="background:{{ cat.color }}"></div>
+          <span class="bva-cat-name">{{ cat.name }}</span>
+          <span class="bva-cat-fig">{{ cat.spent | money }} / {{ cat.budget | money }}</span>
+          <span class="bva-var {{ 'c-red' if cat.variance < 0 else 'c-green' }}">{{ cat.variance | money }}</span>
+        </div>
+        {% for b in cat.buckets %}
+        <div class="bva-row">
+          <span class="bva-name">{{ b.name }}</span>
+          <div class="bva-track"><div class="bva-fill" style="width:{{ b.pct }}%;background:{{ '#FF453A' if b.variance < 0 else cat.color }}"></div></div>
+          <span class="bva-nums">{{ b.spent | money }} / {{ b.budget | money }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="stub">No budget data this month.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="right-sticky">
+    <div class="card card-pad" style="margin-bottom:12px">
+      <div class="card-label">Spending by Category</div>
+      {% for c in cat_spend %}
+      <div class="cat-bar-row">
+        <div class="cat-bar-hdr">
+          <div class="cat-dot" style="background:{{ c.color }}"></div>
+          <span class="cat-bar-name">{{ c.name }}</span>
+          <span class="cat-bar-pct c-text2">{{ c.spent | money }}</span>
+        </div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:{{ c.pct }}%;background:{{ c.color }}"></div></div>
+      </div>
+      {% else %}<div class="stub">No spending yet.</div>{% endfor %}
+    </div>
+
+    <div class="card card-pad">
+      <div class="card-label">Account Snapshot</div>
+      {% for s in snapshot %}
+      <div class="snap-row">
+        <span class="snap-name">{{ s.name }}</span>
+        <span class="snap-bal {{ 'neg' if s.balance < 0 }}">{{ s.balance | money }}</span>
+      </div>
+      {% endfor %}
+      <div class="snap-row snap-total">
+        <span class="snap-name">Net Worth</span>
+        <span class="snap-bal">{{ net_worth | money }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

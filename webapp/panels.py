@@ -78,6 +78,12 @@ def accounts():
     return render_panel("panels/accounts.html", "accounts", **D.accounts_view())
 
 
+@bp.route("/reports")
+@login_required
+def reports():
+    return render_panel("panels/reports.html", "reports", **D.reports_view())
+
+
 @bp.route("/transaction/new")
 @login_required
 def transaction_new():
@@ -133,6 +139,5 @@ def _stub(name, title):
     return view
 
 
-for _name, _title in [("insights", "Forecast"),
-                      ("reports", "Reports"), ("setup", "Setup")]:
+for _name, _title in [("insights", "Forecast"), ("setup", "Setup")]:
     bp.add_url_rule(f"/{_name}", endpoint=_name, view_func=_stub(_name, _title))
