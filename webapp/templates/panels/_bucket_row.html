@@ -1,6 +1,7 @@
-<div class="bucket-card {{ b.status }}">
+<div class="bucket-card {{ b.status }}" id="bkt-{{ b.id }}">
   <div class="bucket-main">
     <div class="bucket-name">{{ b.name }}</div>
+
     <div class="bucket-nums">
       <form method="post" action="{{ url_for('panels.set_alloc', bid=b.id) }}"
             style="display:contents"
@@ -20,12 +21,15 @@
                aria-label="Budget for {{ b.name }}" title="Budget target">
       </form>
       <span class="nums-extra">
-        <span class="num-div" style="padding:0 2px">·</span>
-        <span class="spent-val" {% if b.status == 'over' %}style="color:var(--red)"{% endif %}>{{ b.spent | money }} spent</span>
-        <span class="num-div" style="padding:0 2px">·</span>
-        <span class="left-val {{ 'neg' if b.left < 0 }}">{{ b.left | money }} left</span>
+        <span class="num-div" style="padding:0 4px">·</span>
+        <span class="spent-val" {% if b.status == 'over' %}style="color:var(--red)"{% endif %}>{{ b.spent | money }}</span>
+        <span class="spent-lbl"> spent</span>
+        <span class="num-div" style="padding:0 4px">·</span>
+        <span class="left-val {{ 'neg' if b.left < 0 }}">{{ b.left | money }}</span>
+        <span class="left-lbl"> left</span>
       </span>
     </div>
+
     <div class="bucket-actions">
       <span class="status-pill {{ b.status }}">{{ b.pill }}</span>
       {% if b.status == 'partial' and b.budget > 0 %}
@@ -36,6 +40,10 @@
         <button class="fill-btn" type="submit" title="Set allocation to budget">Fill</button>
       </form>
       {% endif %}
+      <button class="bkt-expand-btn" type="button"
+              id="exp-{{ b.id }}"
+              onclick="toggleBktTxs('{{ b.id }}')"
+              title="{{ b.txs | length }} transaction{{ 's' if b.txs | length != 1 }} this month">▸</button>
       <a class="bucket-settings-link" href="{{ url_for('panels.bucket_settings', bid=b.id) }}"
          hx-get="{{ url_for('panels.bucket_settings', bid=b.id) }}" hx-target="#modal-body"
          title="Bucket settings">⚙</a>
@@ -52,5 +60,37 @@
         <button class="reorder-btn" type="submit" title="Move down">▼</button>
       </form>
     </div>
+  </div>
+
+  {# Meta badges: due date, rollover carry, vault total #}
+  {% if b.due_day or (b.roll_bal and b.roll_bal != 0) or (b.btype == 'vault' and b.vault_total) %}
+  <div class="bucket-meta">
+    {% if b.due_day %}
+    <span class="meta-badge meta-due">Due {{ b.due_day }}</span>
+    {% endif %}
+    {% if b.roll_bal and b.roll_bal > 0.005 %}
+    <span class="meta-badge meta-roll">↩ {{ b.roll_bal | money }} rollover</span>
+    {% elif b.roll_bal and b.roll_bal < -0.005 %}
+    <span class="meta-badge meta-roll neg">{{ b.roll_bal | money }} overspent carry</span>
+    {% endif %}
+    {% if b.btype == 'vault' and b.vault_total %}
+    <span class="meta-badge meta-vault">Vault {{ b.vault_total | money }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# Inline transaction list — toggled by ▸ button #}
+  <div class="bucket-txs" id="txs-{{ b.id }}" style="display:none">
+    {% if b.txs %}
+    {% for tx in b.txs %}
+    <div class="bkt-tx-row">
+      <span class="bkt-tx-date">{{ tx.date[5:] }}</span>
+      <span class="bkt-tx-desc">{{ tx.desc }}</span>
+      <span class="bkt-tx-amt">{{ tx.amount | money }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="bkt-tx-empty">No transactions this month</div>
+    {% endif %}
   </div>
 </div>

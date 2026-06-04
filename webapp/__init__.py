@@ -14,7 +14,7 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(panels_bp)
 
-    # Jinja money filter — matches the app's $1,234 / -$1,234 formatting.
+    # Jinja money filter — always 2 decimal places, matches $1,234.56 / -$1,234.56.
     @app.template_filter("money")
     def money(v, compact=False):
         try:
@@ -23,7 +23,7 @@ def create_app(config_class=Config):
             n = 0.0
         if compact and abs(n) >= 1000:
             return ("-$" if n < 0 else "$") + f"{abs(n) / 1000:.1f}k"
-        return (f"-${abs(n):,.0f}" if n < 0 else f"${n:,.0f}")
+        return (f"-${abs(n):,.2f}" if n < 0 else f"${n:,.2f}")
 
     @app.route("/healthz")
     def healthz():

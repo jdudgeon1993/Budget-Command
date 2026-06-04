@@ -13,6 +13,19 @@
       </form>
     </div>
 
+    <div class="bucket-col-hdr">
+      <div class="bch-name"></div>
+      <div class="bch-nums">
+        <span class="bch-alloc">Allocated</span>
+        <span class="bch-sep">/</span>
+        <span class="bch-budget">Budget</span>
+        <span class="bch-extra">
+          <span>Spent</span>
+          <span>Left</span>
+        </span>
+      </div>
+    </div>
+
     {% for grp in groups %}
     <div class="cat-header">
       <div class="cat-dot" style="background:{{ grp.color }}"></div>
@@ -24,6 +37,17 @@
     {% endfor %}
     {% endfor %}
 
+    <script>
+    function toggleBktTxs(id){
+      var el=document.getElementById('txs-'+id);
+      var btn=document.getElementById('exp-'+id);
+      if(!el)return;
+      var open=el.style.display!=='none';
+      el.style.display=open?'none':'block';
+      if(btn)btn.textContent=open?'▸':'▾';
+    }
+    </script>
+
     <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}"
           hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
       <select name="catId" style="flex:0 0 130px" required>
@@ -31,9 +55,10 @@
         {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
       </select>
       <input type="text" name="name" placeholder="Bucket name…" required>
-      <select name="type" style="flex:0 0 105px">
+      <select name="type" style="flex:0 0 110px">
         <option value="expense">Expense</option>
-        <option value="sinking">Sinking</option>
+        <option value="sinking">Sinking Fund</option>
+        <option value="goal">Goal</option>
         <option value="vault">Vault</option>
       </select>
       <button class="toolbar-btn primary" type="submit">+ Add</button>

@@ -164,19 +164,26 @@ def bucket_settings(bid):
     cats = data.get("cats", [])
     if request.method == "POST":
         f = request.form
-        try:
-            default_budget = round(float(f.get("default_budget", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            default_budget = 0.0
+        def _num(key, default=0.0):
+            try:
+                return round(float((f.get(key) or "0").replace("$", "").replace(",", "")), 2)
+            except ValueError:
+                return default
         if not current_app.config["DEV_SEED"]:
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, {
                 "name": f.get("name", bucket["name"]).strip(),
                 "cat_id": f.get("catId", bucket.get("catId", "")),
                 "type": f.get("type", bucket.get("type", "expense")),
-                "default_budget": default_budget,
+                "default_budget": _num("default_budget"),
                 "rollover": f.get("rollover") == "1",
                 "notes": f.get("notes", ""),
                 "due_day": int(f.get("due_day") or 0) or None,
+                "due_amount": _num("due_amount"),
+                "pay_freq": f.get("pay_freq") or None,
+                "target_amount": _num("target_amount"),
+                "target_date": f.get("target_date") or None,
+                "contrib_freq": f.get("contrib_freq") or None,
+                "recurring": f.get("recurring") == "1",
             })
             flash("Bucket updated.", "ok")
         else:

@@ -110,26 +110,40 @@ def bucket_rows():
             key=lambda b: b.get("order", 0),
         )
         for b in cat_bkts:
-            alloc = F.b_alloc(month, b["id"])
-            budget = F.b_budget(month, b["id"])
-            spent = F.b_spent(mid, b["id"], txs)
+            bid = b["id"]
+            alloc = F.b_alloc(month, bid)
+            budget = F.b_budget(month, bid)
+            spent = F.b_spent(mid, bid, txs)
             left = F.bucket_available(b, month, months, txs)
+            roll_bal = F.rollover_bal(b, month, months, txs)
+            vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
             over = max(spent - budget, 0) if budget else max(spent - alloc, 0)
             needed = max(budget - alloc, 0)
             if over > 0:
-                status, pill = "over", f"Over ${over:,.0f}"
+                status, pill = "over", f"Over ${over:,.2f}"
             elif needed > 0:
-                status, pill = "partial", f"−${needed:,.0f}"
+                status, pill = "partial", f"−${needed:,.2f}"
             elif budget and spent >= budget:
                 status, pill = "funded", "Paid"
             else:
                 status, pill = "funded", "Funded"
             cat_alloc += alloc
             cat_budget += budget
+            # Current month transactions for inline expand
+            bkt_txs = sorted([
+                {"date": t.get("date", "")[:10],
+                 "desc": t.get("desc") or t.get("description") or "Transaction",
+                 "amount": float(t.get("amount") or 0)}
+                for t in txs
+                if t.get("monthId") == mid and t.get("bucketId") == bid
+                and t.get("type") == "out" and not F.is_scheduled(t)
+            ], key=lambda x: x["date"], reverse=True)
             row = {
-                "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
+                "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left,
                 "status": status, "pill": pill, "needed": needed,
+                "roll_bal": roll_bal, "vault_total": vault_total,
+                "due_day": b.get("dueDay"), "txs": bkt_txs,
             }
             rows.append(row)
             if status in ("partial", "over"):
