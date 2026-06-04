@@ -363,23 +363,24 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         return alloc >= target * 0.99
 
     # Check if a bill is already PAID (spent) in current month.
-    # Scheduled (future-dated) transactions are intentional but not yet executed —
-    # exclude them so the bucket still appears in the forecast until money actually moves.
+    # Consistent with the timeline: spent >= bill_amount (not allocation).
+    # Scheduled transactions are excluded — they're intentional but not yet executed.
     paid_bids: set[str] = set()
-    for t in txs:
-        if (t.get("type") == "out" and t.get("bucketId")
-                and not _is_scheduled(t)
-                and _mid(date.fromisoformat(t["date"])) == today_mid):
-            bid_ = t["bucketId"]
-            alloc_ = float(monthly_allocs.get(today_mid, {}).get(bid_, 0))
-            spent_ = sum(
-                float(tx.get("amount") or 0) for tx in txs
-                if tx.get("bucketId") == bid_ and tx.get("type") == "out"
+    bkt_map = {b["id"]: b for b in buckets}
+    spent_by_bid: dict[str, float] = {}
+    for tx in txs:
+        if (tx.get("type") == "out" and tx.get("bucketId")
                 and not _is_scheduled(tx)
-                and _mid(date.fromisoformat(tx["date"])) == today_mid
-            )
-            if alloc_ > 0 and spent_ >= alloc_ * 0.99:
-                paid_bids.add(bid_)
+                and _mid(date.fromisoformat(tx["date"])) == today_mid):
+            bid_ = tx["bucketId"]
+            spent_by_bid[bid_] = spent_by_bid.get(bid_, 0.0) + float(tx.get("amount") or 0)
+    for bid_, spent_ in spent_by_bid.items():
+        bkt = bkt_map.get(bid_)
+        if not bkt or bkt.get("archived"):
+            continue
+        bill_amt = float(bkt.get("dueAmount") or bkt.get("defaultBudget") or 0)
+        if bill_amt > 0 and spent_ >= bill_amt * 0.99:
+            paid_bids.add(bid_)
 
     active_buckets = [b for b in buckets if not b.get("archived") and b["id"] not in off_set]
     dated_bills = [b for b in active_buckets if b.get("dueDay") is not None
