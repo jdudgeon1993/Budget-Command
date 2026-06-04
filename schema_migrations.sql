@@ -41,3 +41,18 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_bcc_scenarios_user
     ON bcc_scenarios(user_id, sort_order);
+
+-- Vault release log (reason tracking for reporting)
+CREATE TABLE IF NOT EXISTS bcc_vault_release_log (
+    id          TEXT PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    month_id    TEXT NOT NULL,
+    bucket_id   TEXT NOT NULL,
+    amount      NUMERIC(12,2) NOT NULL,
+    reason      TEXT,
+    is_planned  BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE bcc_vault_release_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY bcc_vault_release_log_user_policy ON bcc_vault_release_log
+    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());

@@ -408,6 +408,25 @@ def vault_release_to_pool(uid: str, token: str, mid: str, bid: str,
         }, on_conflict="user_id,month_id,bucket_id").execute()
 
 
+def log_vault_release(uid: str, token: str, mid: str, bid: str,
+                      amount: float, reason: str, is_planned: bool) -> None:
+    """Log a vault release reason for reporting. Best-effort — table may not exist."""
+    import uuid as _uuid
+    try:
+        client(token).table("bcc_vault_release_log").insert({
+            "id": f"vrl_{_uuid.uuid4().hex[:10]}",
+            "user_id": uid,
+            "month_id": mid,
+            "bucket_id": bid,
+            "amount": amount,
+            "reason": reason,
+            "is_planned": is_planned,
+            "created_at": __import__("datetime").datetime.utcnow().isoformat(),
+        }).execute()
+    except Exception:
+        pass  # table may not exist yet; migration in schema_migrations.sql
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 def sign_up(email: str, password: str) -> dict:

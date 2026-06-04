@@ -68,7 +68,7 @@ def shell_ctx(active_panel: str = "") -> dict:
     tx_buckets_by_cat = []
     for c in cats_sorted:
         bkts = [{"id": b["id"], "name": b["name"]} for b in buckets
-                if b.get("catId") == c["id"]]
+                if b.get("catId") == c["id"] and b.get("type") != "vault"]
         if bkts:
             tx_buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
 
@@ -333,7 +333,8 @@ def tx_form_ctx():
     for c in cats:
         bkts = [{"id": b["id"], "name": b["name"]}
                 for b in data.get("buckets", [])
-                if b.get("catId") == c["id"] and not b.get("archived")]
+                if b.get("catId") == c["id"] and not b.get("archived")
+                and b.get("type") != "vault"]
         if bkts:
             buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
     return {"accounts": accounts, "buckets_by_cat": buckets_by_cat,
