@@ -181,6 +181,33 @@ def accounts_view():
     return {"cards": cards, "summary": summary, "ledger": groups}
 
 
+def setup_view():
+    """Paychecks, categories, and allocation rules for the Setup panel."""
+    data = load_data()
+    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
+    paychecks = [{
+        "id": p["id"], "label": p.get("label", "Paycheck"),
+        "amount": float(p.get("amount") or 0),
+        "freq": int(p.get("freq") or 14),
+        "anchor": p.get("anchorDate") or p.get("anchor_date") or "",
+    } for p in data.get("paychecks", [])]
+    cats = [{
+        "id": c["id"], "name": c["name"], "color": c.get("color", "#888"),
+        "count": sum(1 for b in data.get("buckets", []) if b.get("catId") == c["id"]),
+    } for c in sorted(data.get("cats", []), key=lambda c: c.get("order", 0))]
+    rules = [{
+        "id": r["id"], "name": r.get("name", "Rule"),
+        "bucket": bkt_name.get(r.get("bucketId"), "—"),
+        "value": float(r.get("value") or 0),
+        "is_pct": (r.get("value_type") == "pct" or r.get("type") == "pct"),
+        "active": r.get("active", True),
+    } for r in data.get("allocationRules", [])]
+    buckets = [{"id": b["id"], "name": b["name"]}
+               for b in data.get("buckets", []) if not b.get("archived")]
+    return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
+            "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"}}
+
+
 def reports_view():
     """Budget-vs-Actual + category spending + month totals + account snapshot."""
     data = load_data()

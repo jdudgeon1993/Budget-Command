@@ -84,6 +84,62 @@ def reports():
     return render_panel("panels/reports.html", "reports", **D.reports_view())
 
 
+@bp.route("/setup")
+@login_required
+def setup():
+    return render_panel("panels/setup.html", "setup", **D.setup_view())
+
+
+def _dev_or(fn):
+    """Run a db mutation, or flash a dev-mode note when seeding."""
+    if current_app.config["DEV_SEED"]:
+        flash("Dev mode: change not persisted (no database).", "ok")
+    else:
+        fn(session["user_id"], session["access_token"])
+        flash("Saved.", "ok")
+    return redirect(url_for("panels.setup"))
+
+
+@bp.route("/setup/paycheck", methods=["POST"])
+@login_required
+def add_paycheck():
+    f = request.form
+    amt = float(f.get("amount", "0").replace("$", "").replace(",", "") or 0)
+    return _dev_or(lambda u, t: DB.insert_paycheck(
+        u, t, f.get("label", "Paycheck"), amt, int(f.get("freq", 14)),
+        f.get("anchor") or D.tx_form_ctx()["today"]))
+
+
+@bp.route("/setup/paycheck/<pid>/delete", methods=["POST"])
+@login_required
+def del_paycheck(pid):
+    return _dev_or(lambda u, t: DB.delete_paycheck(u, t, pid))
+
+
+@bp.route("/setup/category", methods=["POST"])
+@login_required
+def add_category():
+    f = request.form
+    return _dev_or(lambda u, t: DB.insert_category(
+        u, t, f.get("name", "Category"), f.get("color") or "#818cf8"))
+
+
+@bp.route("/setup/rule", methods=["POST"])
+@login_required
+def add_rule():
+    f = request.form
+    val = float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
+    vtype = "pct" if f.get("value_type") == "pct" else "fixed"
+    return _dev_or(lambda u, t: DB.insert_alloc_rule(
+        u, t, f.get("name", "Rule"), "internal", vtype, val, f.get("bucketId", "")))
+
+
+@bp.route("/setup/rule/<rid>/delete", methods=["POST"])
+@login_required
+def del_rule(rid):
+    return _dev_or(lambda u, t: DB.delete_alloc_rule(u, t, rid))
+
+
 @bp.route("/transaction/new")
 @login_required
 def transaction_new():
@@ -139,5 +195,5 @@ def _stub(name, title):
     return view
 
 
-for _name, _title in [("insights", "Forecast"), ("setup", "Setup")]:
+for _name, _title in [("insights", "Forecast")]:
     bp.add_url_rule(f"/{_name}", endpoint=_name, view_func=_stub(_name, _title))

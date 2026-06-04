@@ -1,0 +1,69 @@
+{% extends layout %}
+{% block panel %}
+<div class="setup-wrap">
+
+  <div class="card card-pad setup-card">
+    <div class="card-label">Paychecks</div>
+    {% for p in paychecks %}
+    <div class="setup-row">
+      <div class="setup-main">
+        <span class="setup-name">{{ p.label }}</span>
+        <span class="setup-meta">{{ freq_label.get(p.freq, p.freq ~ ' days') }} · from {{ p.anchor[:10] }}</span>
+      </div>
+      <span class="setup-fig c-green">{{ p.amount | money }}</span>
+      <form method="post" action="{{ url_for('panels.del_paycheck', pid=p.id) }}"><button class="setup-del" title="Delete">✕</button></form>
+    </div>
+    {% else %}<div class="setup-empty">No paychecks yet.</div>{% endfor %}
+    <form class="setup-add" method="post" action="{{ url_for('panels.add_paycheck') }}">
+      <input name="label" placeholder="Label" required>
+      <input name="amount" placeholder="Amount" inputmode="decimal" style="flex:0 0 100px">
+      <select name="freq" style="flex:0 0 120px">
+        <option value="14">Bi-weekly</option><option value="7">Weekly</option>
+        <option value="15">Semi-monthly</option><option value="30">Monthly</option>
+      </select>
+      <button class="toolbar-btn primary">+ Add</button>
+    </form>
+  </div>
+
+  <div class="card card-pad setup-card">
+    <div class="card-label">Categories</div>
+    {% for c in cats %}
+    <div class="setup-row">
+      <div class="cat-dot" style="background:{{ c.color }}"></div>
+      <div class="setup-main"><span class="setup-name">{{ c.name }}</span></div>
+      <span class="setup-meta">{{ c.count }} bucket{{ '' if c.count == 1 else 's' }}</span>
+    </div>
+    {% else %}<div class="setup-empty">No categories yet.</div>{% endfor %}
+    <form class="setup-add" method="post" action="{{ url_for('panels.add_category') }}">
+      <input name="name" placeholder="Category name" required>
+      <input name="color" type="color" value="#BF5AF2" style="flex:0 0 48px;padding:4px;height:38px">
+      <button class="toolbar-btn primary">+ Add</button>
+    </form>
+  </div>
+
+  <div class="card card-pad setup-card">
+    <div class="card-label">Allocation Rules</div>
+    {% for r in rules %}
+    <div class="setup-row">
+      <div class="setup-main">
+        <span class="setup-name">{{ r.name }}</span>
+        <span class="setup-meta">→ {{ r.bucket }}</span>
+      </div>
+      <span class="setup-fig">{{ (r.value ~ '%') if r.is_pct else (r.value | money) }}</span>
+      <form method="post" action="{{ url_for('panels.del_rule', rid=r.id) }}"><button class="setup-del" title="Delete">✕</button></form>
+    </div>
+    {% else %}<div class="setup-empty">No allocation rules yet.</div>{% endfor %}
+    <form class="setup-add" method="post" action="{{ url_for('panels.add_rule') }}">
+      <input name="name" placeholder="Rule name" required>
+      <select name="bucketId" style="flex:0 0 150px">
+        <option value="">— Bucket —</option>
+        {% for b in buckets %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+      </select>
+      <input name="value" placeholder="Value" inputmode="decimal" style="flex:0 0 80px">
+      <select name="value_type" style="flex:0 0 90px"><option value="fixed">$ fixed</option><option value="pct">% pct</option></select>
+      <button class="toolbar-btn primary">+ Add</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
