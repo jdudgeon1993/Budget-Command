@@ -197,54 +197,80 @@ def accounts_view():
     txs = data.get("txs", [])
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
     bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
+    acct_map = {a["id"]: a for a in accounts}
 
     cards = [{
         "id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
         "color": a.get("color", "#818cf8"),
         "balance": F.acct_balance(a, txs),
+        "debtAPR": a.get("debtAPR"),
+        "debtMinPayment": a.get("debtMinPayment"),
+        "creditLimit": a.get("creditLimit"),
     } for a in accounts]
 
     month_txs = [t for t in txs if t.get("monthId") == mid]
+    posted_txs = [t for t in month_txs if not F.is_scheduled(t)]
+    sched_txs  = [t for t in month_txs if F.is_scheduled(t)]
+
     summary = {
         "income": F.month_income(mid, txs, accounts),
-        "spent": sum(t["amount"] for t in month_txs if t.get("type") == "out" and not F.is_scheduled(t)),
-        "scheduled": sum(t["amount"] for t in month_txs if t.get("type") == "out" and F.is_scheduled(t)),
-        "transferred": sum(t["amount"] for t in month_txs if t.get("type") == "xfr"),
+        "spent": sum(t["amount"] for t in posted_txs if t.get("type") == "out"),
+        "scheduled": sum(t["amount"] for t in sched_txs if t.get("type") == "out"),
+        "transferred": sum(t["amount"] for t in posted_txs if t.get("type") == "xfr"),
     }
 
-    # Ledger: rows shaped for display, grouped by date (most recent first).
-    rows = []
-    for t in month_txs:
+    def _shape_row(t):
         ttype = t.get("type", "out")
         amt = float(t.get("amount") or 0)
+        acct = acct_map.get(t.get("accountId", ""), {})
         if ttype == "in":
             signed, color, pill = amt, "green", "Income"
         elif ttype == "xfr":
             signed, color, pill = -amt, "text2", "Transfer"
         else:
             signed, color, pill = -amt, "red", "Expense"
-        rows.append({
+        # Sub-label: bucket name for expenses, to-account for transfers
+        to_acct = acct_map.get(t.get("toAccountId", ""), {})
+        sub = bkt_name.get(t.get("bucketId", ""), "") or (to_acct.get("name", "") if ttype == "xfr" else "")
+        return {
             "id": t.get("id", ""), "date": t.get("date", ""),
             "desc": t.get("desc") or "Transaction",
             "pill": pill, "color": color, "signed": signed,
-            "category": bkt_name.get(t.get("bucketId"), ""),
+            "sub": sub,
+            "account_id": t.get("accountId", ""),
+            "account_name": acct.get("name", ""),
+            "account_color": acct.get("color", "#818cf8"),
+            "reconciled": bool(t.get("reconciled")),
+            "income_type": t.get("incomeType") or "",
             "scheduled": F.is_scheduled(t),
             "type": ttype, "amount": amt,
-            "accountId": t.get("accountId", ""),
             "bucketId": t.get("bucketId", ""),
             "toAccountId": t.get("toAccountId", ""),
-        })
-    rows.sort(key=lambda r: r["date"], reverse=True)
+        }
 
-    groups, cur = [], None
-    for r in rows:
-        if cur is None or cur["date"] != r["date"]:
-            cur = {"date": r["date"], "label": _date_label(r["date"]), "net": 0.0, "rows": []}
-            groups.append(cur)
-        cur["net"] += r["signed"]
-        cur["rows"].append(r)
+    def _group(tx_list):
+        rows = sorted([_shape_row(t) for t in tx_list], key=lambda r: r["date"], reverse=True)
+        groups, cur = [], None
+        for r in rows:
+            if cur is None or cur["date"] != r["date"]:
+                cur = {"date": r["date"], "label": _date_label(r["date"]), "net": 0.0, "rows": []}
+                groups.append(cur)
+            cur["net"] += r["signed"]
+            cur["rows"].append(r)
+        return groups
 
-    return {"cards": cards, "summary": summary, "ledger": groups}
+    # Payees for autocomplete
+    payees = sorted(set(
+        t.get("desc", "").strip()
+        for t in txs if t.get("desc") and t.get("type") not in ("opening",)
+    ), key=str.lower)
+
+    return {
+        "cards": cards, "summary": summary,
+        "ledger": _group(posted_txs),
+        "scheduled": _group(sched_txs),
+        "payees": payees,
+    }
 
 
 def setup_view():
@@ -337,8 +363,13 @@ def tx_form_ctx():
                 and b.get("type") != "vault"]
         if bkts:
             buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
+    payees = sorted(set(
+        t.get("desc", "").strip()
+        for t in data.get("txs", []) if t.get("desc") and t.get("type") not in ("opening",)
+    ), key=str.lower)
     return {"accounts": accounts, "buckets_by_cat": buckets_by_cat,
-            "today": _date.today().isoformat(), "mid": active_mid()}
+            "today": _date.today().isoformat(), "mid": active_mid(),
+            "payees": payees}
 
 
 def tx_by_id(tid: str) -> dict | None:

@@ -114,13 +114,15 @@ function _syncNav(){
 }
 document.addEventListener('htmx:beforeSwap',function(e){
   if(e.detail.target.id==='panel'){
-    sessionStorage.setItem('_pScroll',window.scrollY);
+    var m=document.querySelector('.main');
+    sessionStorage.setItem('_pScroll',m?m.scrollTop:0);
   }
 });
 document.addEventListener('htmx:afterSettle',function(e){
   if(e.detail.target.id==='panel'){
     var y=sessionStorage.getItem('_pScroll');
-    if(y){window.scrollTo(0,parseInt(y));sessionStorage.removeItem('_pScroll');}
+    var m=document.querySelector('.main');
+    if(y&&m){m.scrollTop=parseInt(y);sessionStorage.removeItem('_pScroll');}
   }
 });
 document.addEventListener('htmx:afterSwap',function(e){

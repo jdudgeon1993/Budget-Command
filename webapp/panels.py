@@ -467,13 +467,29 @@ def account_edit(aid):
             ob = round(float(f.get("opening_balance", "0").replace("$", "").replace(",", "")), 2)
         except ValueError:
             ob = 0.0
+        def _numf(key):
+            try:
+                v = (f.get(key) or "").replace("$", "").replace(",", "").replace("%", "").strip()
+                return round(float(v), 4) if v else None
+            except ValueError:
+                return None
+        fields = {
+            "name": f.get("name", "").strip(),
+            "type": f.get("type", "budget"),
+            "color": f.get("color", "#818cf8"),
+            "opening_balance": ob,
+        }
+        if f.get("type") == "debt":
+            apr = _numf("debt_apr")
+            min_pay = _numf("debt_min_payment")
+            credit = _numf("credit_limit")
+            if apr is not None: fields["debt_apr"] = apr
+            if min_pay is not None: fields["debt_min_payment"] = min_pay
+            if credit is not None: fields["credit_limit"] = credit
+            fields["is_promo"] = f.get("is_promo") == "1"
+            fields["promo_end_date"] = f.get("promo_end_date") or None
         if not current_app.config["DEV_SEED"]:
-            DB.update_account(session["user_id"], session["access_token"], aid, {
-                "name": f.get("name", "").strip(),
-                "type": f.get("type", "budget"),
-                "color": f.get("color", "#818cf8"),
-                "opening_balance": ob,
-            })
+            DB.update_account(session["user_id"], session["access_token"], aid, fields)
             flash("Account updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
@@ -496,6 +512,46 @@ def account_archive(aid):
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
     return redirect(url_for("panels.accounts"))
+
+
+@bp.route("/accounts/<aid>/pay", methods=["GET", "POST"])
+@login_required
+def debt_payment(aid):
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if not account or account.get("type") != "debt":
+        return redirect(url_for("panels.accounts"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            amount = 0.0
+        from_aid = f.get("from_aid", "")
+        pay_date = f.get("date") or D.tx_form_ctx()["today"]
+        iso = pay_date[:10]
+        y, m, _ = (iso.split("-") + ["1", "1", "1"])[:3]
+        mid = D.F.month_id(int(y), int(m) - 1)
+        bucket_id = f.get("bucketId") or ""
+        if amount > 0 and from_aid and not current_app.config["DEV_SEED"]:
+            DB.ensure_month(session["user_id"], session["access_token"], mid)
+            DB.insert_debt_payment(session["user_id"], session["access_token"],
+                                   aid, from_aid, amount, iso, mid,
+                                   account["name"], bucket_id)
+            flash(f"Payment of {amount:,.2f} recorded.", "ok")
+        elif current_app.config["DEV_SEED"]:
+            flash("Dev mode: payment not persisted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
+        return redirect(url_for("panels.accounts"))
+    # GET — render payment form
+    from_accounts = [{"id": a["id"], "name": a["name"]}
+                     for a in data.get("accounts", [])
+                     if a.get("type") != "debt" and not a.get("archived")]
+    from datetime import date as _date
+    return render_template("panels/_frag_debt_payment.html",
+                           account=account, from_accounts=from_accounts,
+                           today=_date.today().isoformat())
 
 
 @bp.route("/reports")
@@ -664,6 +720,8 @@ def transaction_edit(tid):
                 "description": f.get("desc", ""),
                 "bucket_id": f.get("bucketId") or None,
                 "to_account_id": f.get("toAccountId") or None,
+                "reconciled": f.get("reconciled") == "1",
+                "income_type": f.get("incomeType") or None,
             })
             flash("Transaction updated.", "ok")
         else:
@@ -724,6 +782,7 @@ def transaction_create():
         "type": f.get("type", "out"), "amount": amount, "date": iso,
         "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
         "toAccountId": f.get("toAccountId") or "",
+        "incomeType": f.get("incomeType") or "paycheck",
     }
     # Block vault buckets from receiving transactions
     bucket_id = tx.get("bucketId", "")
