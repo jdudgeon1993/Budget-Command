@@ -47,7 +47,7 @@
       </a>
       {% endfor %}
     </nav>
-    <a class="sidebar-cta" href="#">
+    <a class="sidebar-cta" href="{{ url_for('panels.transaction_new') }}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Transaction
     </a>
@@ -71,6 +71,9 @@
       <span class="hdr-panel">{{ p }}</span>
     </header>
 
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}<div class="flash-region">{% for cat, msg in msgs %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}</div>{% endif %}
+    {% endwith %}
     <div id="panel">{% block panel %}{% endblock %}</div>
   </main>
 
@@ -83,6 +86,7 @@
     </a>
     {% endfor %}
   </nav>
+  <a class="mob-fab-float" href="{{ url_for('panels.transaction_new') }}" aria-label="Add transaction">+</a>
 </div>
 </body>
 </html>

@@ -181,6 +181,24 @@ def accounts_view():
     return {"cards": cards, "summary": summary, "ledger": groups}
 
 
+def tx_form_ctx():
+    """Selects + defaults for the Add/Edit Transaction form."""
+    from datetime import date as _date
+    data = load_data()
+    accounts = [{"id": a["id"], "name": a["name"]}
+                for a in data.get("accounts", []) if not a.get("archived")]
+    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    buckets_by_cat = []
+    for c in cats:
+        bkts = [{"id": b["id"], "name": b["name"]}
+                for b in data.get("buckets", [])
+                if b.get("catId") == c["id"] and not b.get("archived")]
+        if bkts:
+            buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
+    return {"accounts": accounts, "buckets_by_cat": buckets_by_cat,
+            "today": _date.today().isoformat(), "mid": active_mid()}
+
+
 def _date_label(iso: str) -> str:
     from datetime import date as _date
     try:

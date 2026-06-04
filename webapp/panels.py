@@ -5,7 +5,7 @@ just the #panel fragment on an HTMX request (SPA-feel, no reload).
 """
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
-                   session, current_app)
+                   session, current_app, flash)
 
 from . import db as DB
 from . import data as D
@@ -76,6 +76,42 @@ def set_alloc(bid):
 @login_required
 def accounts():
     return render_panel("panels/accounts.html", "accounts", **D.accounts_view())
+
+
+@bp.route("/transaction/new")
+@login_required
+def transaction_new():
+    tx_type = request.args.get("type", "out")
+    back = session.get("active_panel", "buckets")
+    return render_panel("panels/add_tx.html", back, tx_type=tx_type, back=back,
+                        **D.tx_form_ctx())
+
+
+@bp.route("/transaction", methods=["POST"])
+@login_required
+def transaction_create():
+    f = request.form
+    try:
+        amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+    except ValueError:
+        amount = 0.0
+    iso = f.get("date") or D.tx_form_ctx()["today"]
+    y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
+    mid = D.F.month_id(int(y), int(m) - 1)
+    tx = {
+        "accountId": f.get("accountId", ""), "monthId": mid,
+        "type": f.get("type", "out"), "amount": amount, "date": iso,
+        "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
+        "toAccountId": f.get("toAccountId") or "",
+    }
+    if current_app.config["DEV_SEED"]:
+        flash("Dev mode: transaction not persisted (no database).", "ok")
+    elif amount > 0 and tx["accountId"]:
+        DB.insert_transaction(session["user_id"], session["access_token"], tx)
+        flash("Transaction added.", "ok")
+    else:
+        flash("Amount and account are required.", "error")
+    return redirect(url_for("panels." + (f.get("back") or "buckets")))
 
 
 @bp.route("/month/<direction>")
