@@ -5,7 +5,8 @@
       <form method="post" action="{{ url_for('panels.set_alloc', bid=b.id) }}"
             style="display:contents"
             hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
-            hx-trigger="change from:find input[name=alloc]" hx-target="closest .bucket-card" hx-swap="outerHTML">
+            hx-trigger="change from:find input[name=alloc]"
+            hx-target="closest .bucket-card" hx-swap="outerHTML">
         <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
                aria-label="Allocation for {{ b.name }}">
       </form>
@@ -13,21 +14,40 @@
       <form method="post" action="{{ url_for('panels.set_budget', bid=b.id) }}"
             style="display:contents"
             hx-post="{{ url_for('panels.set_budget', bid=b.id) }}"
-            hx-trigger="change from:find input[name=budget]" hx-target="closest .bucket-card" hx-swap="outerHTML">
+            hx-trigger="change from:find input[name=budget]"
+            hx-target="closest .bucket-card" hx-swap="outerHTML">
         <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
                aria-label="Budget for {{ b.name }}" title="Budget target">
       </form>
-      <span class="num-div" style="padding:0 2px">·</span>
-      <span class="spent-val" {% if b.status == 'over' %}style="color:var(--red)"{% endif %}>{{ b.spent | money }} spent</span>
-      <span class="num-div" style="padding:0 2px">·</span>
-      <span class="left-val {{ 'neg' if b.left < 0 }}">{{ b.left | money }} left</span>
+      <span class="nums-extra">
+        <span class="num-div" style="padding:0 2px">·</span>
+        <span class="spent-val" {% if b.status == 'over' %}style="color:var(--red)"{% endif %}>{{ b.spent | money }} spent</span>
+        <span class="num-div" style="padding:0 2px">·</span>
+        <span class="left-val {{ 'neg' if b.left < 0 }}">{{ b.left | money }} left</span>
+      </span>
     </div>
     <div class="bucket-actions">
       <span class="status-pill {{ b.status }}">{{ b.pill }}</span>
-      <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}" style="display:inline">
+      {% if b.status == 'partial' and b.budget > 0 %}
+      <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}"
+            style="display:inline"
+            hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}"
+            hx-target="#panel" hx-swap="innerHTML">
+        <button class="fill-btn" type="submit" title="Set allocation to budget">Fill</button>
+      </form>
+      {% endif %}
+      <a class="bucket-settings-link" href="{{ url_for('panels.bucket_settings', bid=b.id) }}"
+         title="Bucket settings">⚙</a>
+      <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}"
+            style="display:inline"
+            hx-post="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}"
+            hx-target="#panel" hx-swap="innerHTML">
         <button class="reorder-btn" type="submit" title="Move up">▲</button>
       </form>
-      <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}" style="display:inline">
+      <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}"
+            style="display:inline"
+            hx-post="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}"
+            hx-target="#panel" hx-swap="innerHTML">
         <button class="reorder-btn" type="submit" title="Move down">▼</button>
       </form>
     </div>

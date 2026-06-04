@@ -1,3 +1,5 @@
-{# HTMX fragment layout: only the panel block is returned (swapped into #panel).
-   Out-of-band tags inside the block (e.g. the sidebar RTS) patch the shell. #}
+{# HTMX fragment: panel block + flash messages (shown inside #panel on swaps). #}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+{% if msgs %}<div class="flash-region">{% for cat, msg in msgs %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}</div>{% endif %}
+{% endwith %}
 {% block panel %}{% endblock %}

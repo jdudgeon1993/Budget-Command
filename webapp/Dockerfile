@@ -4,7 +4,9 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY webapp/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    curl -sLo /app/webapp/static/js/htmx.min.js \
+         https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js || true
 
 COPY webapp/ ./webapp/
 

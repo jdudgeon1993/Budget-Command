@@ -3,10 +3,12 @@
 <div class="panel-grid">
   <div>
     <div class="workflow-bar">
-      <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents">
+      <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents"
+            hx-post="{{ url_for('panels.month_copy') }}" hx-target="#panel" hx-swap="innerHTML">
         <button class="wf-btn" type="submit">Copy Last Month</button>
       </form>
-      <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents">
+      <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents"
+            hx-post="{{ url_for('panels.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
         <button class="wf-btn" type="submit">Close Month</button>
       </form>
     </div>
@@ -22,7 +24,8 @@
     {% endfor %}
     {% endfor %}
 
-    <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}">
+    <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}"
+          hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
       <select name="catId" style="flex:0 0 130px" required>
         <option value="">— Category —</option>
         {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
@@ -40,7 +43,7 @@
   <div class="right-sticky">
     <div class="rts-hero">
       <div class="rts-hero-lbl">Ready to assign</div>
-      <div class="rts-hero-amt">{{ shell.rts | money }}</div>
+      <div class="rts-hero-amt" id="rts-sidebar">{{ shell.rts | money }}</div>
       <div class="rts-hero-sub">{{ shell.unhomed | money }} still needs a home</div>
       <div class="rts-progress-track"><div class="rts-progress-fill" style="width:{{ shell.pct }}%"></div></div>
       <div class="rts-kpis">
@@ -48,6 +51,12 @@
         <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">{{ shell.allocated | money }}</span></div>
         <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">{{ shell.spent | money }}</span></div>
       </div>
+      {% if shell.rts > 0 %}
+      <form method="post" action="{{ url_for('panels.distribute_rts') }}" style="display:contents"
+            hx-post="{{ url_for('panels.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="rts-distribute-btn" type="submit">DISTRIBUTE RTS →</button>
+      </form>
+      {% endif %}
     </div>
 
     {% if attention %}
@@ -60,6 +69,12 @@
       <div class="attention-row {{ 'over' if a.status == 'over' }}">
         <div class="attention-name">{{ a.name }}</div>
         <div class="attention-lbl {{ 'over' if a.status == 'over' }}">{{ a.pill }}</div>
+        {% if a.status == 'partial' and a.budget > 0 %}
+        <form method="post" action="{{ url_for('panels.fill_bucket', bid=a.id) }}" style="display:inline"
+              hx-post="{{ url_for('panels.fill_bucket', bid=a.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          <button class="fill-btn" type="submit">Fill</button>
+        </form>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

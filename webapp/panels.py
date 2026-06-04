@@ -73,6 +73,111 @@ def set_alloc(bid):
             + render_template("panels/_oob_rts.html", shell=shell))
 
 
+# ── Bucket fill / distribute ─────────────────────────────────────────────────
+
+@bp.route("/buckets/<bid>/fill", methods=["POST"])
+@login_required
+def fill_bucket(bid):
+    """Set allocation = budget for this bucket."""
+    data = D.load_data()
+    month = D.active_month(data)
+    budget = D.F.b_budget(month, bid)
+    month.setdefault("allocations", {})[bid] = budget
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_alloc(session["user_id"], session["access_token"],
+                        D.active_mid(), bid, budget)
+    flash(f"Filled.", "ok")
+    return _buckets_response()
+
+
+@bp.route("/buckets/distribute", methods=["POST"])
+@login_required
+def distribute_rts():
+    """Spread remaining RTS evenly across underfunded buckets."""
+    data = D.load_data()
+    month = D.active_month(data)
+    months = data.get("months", [])
+    accounts = data.get("accounts", [])
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+
+    rts = D.F.ready_to_spend(month, months, accounts, buckets, txs)
+    if rts <= 0:
+        return _buckets_response()
+
+    underfunded = []
+    for b in buckets:
+        alloc = D.F.b_alloc(month, b["id"])
+        budget = D.F.b_budget(month, b["id"])
+        if budget > alloc:
+            underfunded.append((b["id"], budget - alloc))
+
+    if underfunded:
+        per_bucket = min(rts / len(underfunded), max(n for _, n in underfunded))
+        for bid, needed in underfunded:
+            add = min(per_bucket, needed)
+            new_alloc = D.F.b_alloc(month, bid) + add
+            month.setdefault("allocations", {})[bid] = new_alloc
+            if not current_app.config["DEV_SEED"]:
+                DB.upsert_alloc(session["user_id"], session["access_token"],
+                                D.active_mid(), bid, new_alloc)
+    flash("RTS distributed.", "ok")
+    return _buckets_response()
+
+
+def _buckets_response():
+    """Return buckets panel for HTMX or redirect for plain requests."""
+    if request.headers.get("HX-Request") == "true":
+        return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
+    return redirect(url_for("panels.buckets"))
+
+
+# ── Bucket settings ───────────────────────────────────────────────────────────
+
+@bp.route("/buckets/<bid>/settings", methods=["GET", "POST"])
+@login_required
+def bucket_settings(bid):
+    data = D.load_data()
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket:
+        flash("Bucket not found.", "error")
+        return redirect(url_for("panels.buckets"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            default_budget = round(float(f.get("default_budget", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            default_budget = 0.0
+        if not current_app.config["DEV_SEED"]:
+            DB.upsert_bucket(session["user_id"], session["access_token"], bid, {
+                "name": f.get("name", bucket["name"]).strip(),
+                "cat_id": f.get("catId", bucket.get("catId", "")),
+                "type": f.get("type", bucket.get("type", "expense")),
+                "default_budget": default_budget,
+                "rollover": f.get("rollover") == "1",
+                "notes": f.get("notes", ""),
+                "due_day": int(f.get("due_day") or 0) or None,
+            })
+            flash("Bucket updated.", "ok")
+        else:
+            flash("Dev mode: change not persisted.", "ok")
+        return redirect(url_for("panels.buckets"))
+    cats = data.get("cats", [])
+    return render_panel("panels/edit_bucket.html", "buckets",
+                        bucket=bucket, cats=cats)
+
+
+@bp.route("/buckets/<bid>/archive", methods=["POST"])
+@login_required
+def archive_bucket(bid):
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"archived": True})
+        flash("Bucket archived.", "ok")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return redirect(url_for("panels.buckets"))
+
+
 # ── Budget inline edit ───────────────────────────────────────────────────────
 
 @bp.route("/buckets/<bid>/budget", methods=["POST"])
@@ -117,7 +222,7 @@ def add_bucket():
         flash("Dev mode: bucket not persisted.", "ok")
     else:
         flash("Name and category are required.", "error")
-    return redirect(url_for("panels.buckets"))
+    return _buckets_response()
 
 
 # ── Bucket reorder ────────────────────────────────────────────────────────────
@@ -143,7 +248,7 @@ def move_bucket(bid, direction):
         if not current_app.config["DEV_SEED"]:
             DB.update_bucket_order(session["user_id"], session["access_token"], b1["id"], o2)
             DB.update_bucket_order(session["user_id"], session["access_token"], b2["id"], o1)
-    return redirect(url_for("panels.buckets"))
+    return _buckets_response()
 
 
 # ── Month workflow ────────────────────────────────────────────────────────────
@@ -160,7 +265,7 @@ def month_copy():
         flash("Allocations copied from last month.", "ok")
     else:
         flash("Dev mode: copy not persisted.", "ok")
-    return redirect(url_for("panels.buckets"))
+    return _buckets_response()
 
 
 @bp.route("/month/close", methods=["POST"])
@@ -173,7 +278,7 @@ def month_close():
         flash("Month closed.", "ok")
     else:
         flash("Dev mode: close not persisted.", "ok")
-    return redirect(url_for("panels.buckets"))
+    return _buckets_response()
 
 
 @bp.route("/month/reopen", methods=["POST"])
@@ -184,7 +289,7 @@ def month_reopen():
         flash("Month reopened.", "ok")
     else:
         flash("Dev mode: reopen not persisted.", "ok")
-    return redirect(url_for("panels.buckets"))
+    return _buckets_response()
 
 
 # ── Month navigation ──────────────────────────────────────────────────────────
