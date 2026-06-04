@@ -90,6 +90,12 @@ def setup():
     return render_panel("panels/setup.html", "setup", **D.setup_view())
 
 
+@bp.route("/insights")
+@login_required
+def insights():
+    return render_panel("panels/forecast.html", "insights")
+
+
 def _dev_or(fn):
     """Run a db mutation, or flash a dev-mode note when seeding."""
     if current_app.config["DEV_SEED"]:
@@ -195,5 +201,4 @@ def _stub(name, title):
     return view
 
 
-for _name, _title in [("insights", "Forecast")]:
-    bp.add_url_rule(f"/{_name}", endpoint=_name, view_func=_stub(_name, _title))
+# (all panels now have real routes)
