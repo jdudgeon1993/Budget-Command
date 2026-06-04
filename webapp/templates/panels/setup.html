@@ -77,9 +77,16 @@
     <div class="setup-row">
       <div class="setup-main">
         <span class="setup-name">{{ r.name }}</span>
-        <span class="setup-meta">→ {{ r.bucket }}</span>
+        <span class="setup-meta">
+          {% if r.rule_type == 'external' %}
+            <span class="meta-badge" style="background:rgba(251,191,36,.12);color:var(--amber)">External</span>
+            transfer out
+          {% else %}
+            → {{ r.bucket if r.bucket != '—' else '(no bucket)' }}
+          {% endif %}
+        </span>
       </div>
-      <span class="setup-fig">{{ (r.value | int ~ '%') if r.is_pct else (r.value | money) }}</span>
+      <span class="setup-fig">{{ ('%.0f%%'|format(r.value)) if r.is_pct else (r.value | money) }}</span>
       <form method="post" action="{{ url_for('panels.toggle_rule', rid=r.id) }}" style="display:contents">
         <button class="setup-toggle-btn {{ 'active' if r.active }}" type="submit"
                 title="{{ 'Active — click to disable' if r.active else 'Disabled — click to enable' }}">
@@ -93,7 +100,11 @@
     {% else %}<div class="setup-empty">No allocation rules yet.</div>{% endfor %}
     <form class="setup-add" method="post" action="{{ url_for('panels.add_rule') }}">
       <input name="name" placeholder="Rule name" required>
-      <select name="bucketId" style="flex:0 0 150px">
+      <select name="rule_type" style="flex:0 0 110px" id="rule-type-sel" onchange="toggleBucketSel()">
+        <option value="internal">Internal</option>
+        <option value="external">External</option>
+      </select>
+      <select name="bucketId" id="rule-bucket-sel" style="flex:0 0 140px">
         <option value="">— Bucket —</option>
         {% for b in buckets %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
       </select>
@@ -101,6 +112,17 @@
       <select name="value_type" style="flex:0 0 90px"><option value="fixed">$ fixed</option><option value="pct">% pct</option></select>
       <button class="toolbar-btn primary">+ Add</button>
     </form>
+    <p style="font-size:11px;color:var(--text3);margin:6px 0 0">
+      <strong>Internal</strong> rules allocate $ or % of each paycheck to a bucket.
+      <strong>External</strong> rules mark money transferred out (shown in forecast).
+      Rules fire automatically when a paycheck income transaction is entered.
+    </p>
+    <script>
+    function toggleBucketSel(){
+      var ext=document.getElementById('rule-type-sel').value==='external';
+      document.getElementById('rule-bucket-sel').style.display=ext?'none':'';
+    }
+    </script>
   </div>
 
 </div>

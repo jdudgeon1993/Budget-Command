@@ -294,15 +294,59 @@ def setup_view():
     } for c in sorted(data.get("cats", []), key=lambda c: c.get("order", 0))]
     rules = [{
         "id": r["id"], "name": r.get("name", "Rule"),
-        "bucket": bkt_name.get(r.get("bucketId"), "—"),
+        "bucket": bkt_name.get(r.get("bucket_id") or r.get("bucketId"), "—"),
+        "bucket_id": r.get("bucket_id") or r.get("bucketId") or "",
         "value": float(r.get("value") or 0),
         "is_pct": (r.get("value_type") == "pct" or r.get("type") == "pct"),
         "active": r.get("active", True),
+        "rule_type": r.get("rule_type", "internal"),
     } for r in data.get("allocationRules", [])]
     buckets = [{"id": b["id"], "name": b["name"]}
                for b in data.get("buckets", []) if not b.get("archived")]
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
             "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"}}
+
+
+def income_rules_ctx(amount: float, mid: str) -> dict:
+    """Compute what active allocation rules would do for a given income amount."""
+    data = load_data()
+    rules_raw = data.get("allocationRules", [])
+    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
+    month = active_month(data)
+
+    internal, external = [], []
+    for r in rules_raw:
+        if not r.get("active", True):
+            continue
+        v = float(r.get("value") or 0)
+        vtype = r.get("value_type", "fixed")
+        computed = round(amount * v / 100, 2) if vtype == "pct" else v
+        rtype = r.get("rule_type", "internal")
+
+        if rtype == "external":
+            external.append({
+                "id": r["id"], "name": r.get("name", "Transfer"),
+                "computed": computed, "value": v, "is_pct": vtype == "pct",
+            })
+        else:
+            bid = r.get("bucket_id") or r.get("bucketId") or ""
+            if not bid:
+                continue
+            internal.append({
+                "id": r["id"], "name": r.get("name", "Rule"),
+                "bucket_id": bid, "bucket_name": bkt_name.get(bid, "—"),
+                "computed": computed, "value": v, "is_pct": vtype == "pct",
+                "current_alloc": F.b_alloc(month, bid),
+            })
+
+    total_in = sum(r["computed"] for r in internal)
+    total_ex = sum(r["computed"] for r in external)
+    return {
+        "income_amount": amount, "mid": mid,
+        "internal_rules": internal, "external_rules": external,
+        "total_internal": total_in, "total_external": total_ex,
+        "remaining": round(amount - total_in - total_ex, 2),
+    }
 
 
 def reports_view():

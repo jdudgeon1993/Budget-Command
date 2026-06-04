@@ -612,8 +612,9 @@ def add_rule():
     f = request.form
     val = float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
     vtype = "pct" if f.get("value_type") == "pct" else "fixed"
+    rtype = "external" if f.get("rule_type") == "external" else "internal"
     return _dev_or(lambda u, t: DB.insert_alloc_rule(
-        u, t, f.get("name", "Rule"), "internal", vtype, val, f.get("bucketId", "")))
+        u, t, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
 
 
 @bp.route("/setup/rule/<rid>/delete", methods=["POST"])
@@ -671,6 +672,44 @@ def toggle_rule(rid):
     if not current_app.config["DEV_SEED"]:
         DB.toggle_alloc_rule(session["user_id"], session["access_token"], rid)
     return redirect(url_for("panels.setup"))
+
+
+@bp.route("/transaction/<tid>/apply-rules", methods=["POST"])
+@login_required
+def apply_rules(tid):
+    """Apply active internal allocation rules to bucket allocations for this income tx."""
+    data = D.load_data()
+    tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
+    if not tx:
+        flash("Transaction not found.", "error")
+        return redirect(url_for("panels.buckets"))
+
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    month = next((m for m in data.get("months", []) if m.get("id") == mid),
+                 {"id": mid, "allocations": {}})
+    rules_raw = [r for r in data.get("allocationRules", [])
+                 if r.get("active", True) and r.get("rule_type", "internal") == "internal"]
+
+    applied = 0
+    for r in rules_raw:
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        if not bid:
+            continue
+        v = float(r.get("value") or 0)
+        vtype = r.get("value_type", "fixed")
+        computed = round(amount * v / 100, 2) if vtype == "pct" else v
+        if computed <= 0:
+            continue
+        new_alloc = round(D.F.b_alloc(month, bid) + computed, 2)
+        if not current_app.config["DEV_SEED"]:
+            DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, new_alloc)
+        applied += 1
+
+    flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
+    if request.headers.get("HX-Request") == "true":
+        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+    return redirect(url_for("panels.buckets"))
 
 
 # ── Forecast builder (iframe with real data) ──────────────────────────────────
@@ -796,14 +835,25 @@ def transaction_create():
                 return _panel_close_modal(tmpl, back_panel, **ctx_fn())
             return redirect(url_for("panels." + back_panel))
 
+    back_panel = f.get("back") or "buckets"
     if current_app.config["DEV_SEED"]:
         flash("Dev mode: transaction not persisted (no database).", "ok")
     elif amount > 0 and tx["accountId"]:
-        DB.insert_transaction(session["user_id"], session["access_token"], tx)
+        new_tid = DB.insert_transaction(session["user_id"], session["access_token"], tx)
         flash("Transaction added.", "ok")
+        # After a paycheck income, show allocation rules modal if rules exist
+        if (tx["type"] == "in" and tx.get("incomeType") == "paycheck"
+                and request.headers.get("HX-Request") == "true"):
+            rules_ctx = D.income_rules_ctx(amount, mid)
+            if rules_ctx["internal_rules"] or rules_ctx["external_rules"]:
+                resp = make_response(render_template(
+                    "panels/_frag_rules_apply.html",
+                    tid=new_tid, back=back_panel, **rules_ctx))
+                resp.headers["HX-Retarget"] = "#modal-body"
+                resp.headers["HX-Reswap"] = "innerHTML"
+                return resp
     else:
         flash("Amount and account are required.", "error")
-    back_panel = f.get("back") or "buckets"
     if request.headers.get("HX-Request") == "true":
         tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())

@@ -1,0 +1,59 @@
+<div class="modal-title">Apply Allocation Rules</div>
+<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:16px">
+  <span style="font-size:13px;color:var(--text2)">Paycheck received:</span>
+  <span class="mono c-green" style="font-size:18px;font-weight:700">{{ income_amount | money }}</span>
+</div>
+
+{% if not internal_rules and not external_rules %}
+<p style="color:var(--text3);font-size:13px;margin:0 0 16px">No active allocation rules. Add rules in Setup to auto-distribute income.</p>
+{% endif %}
+
+{% if external_rules %}
+<div class="rules-section-lbl">External Transfers</div>
+{% for r in external_rules %}
+<div class="rules-row">
+  <div>
+    <div class="rules-row-name">{{ r.name }}</div>
+    <div class="rules-row-meta">{{ '%.0f%%'|format(r.value) if r.is_pct else (r.value | money) }} — transfer out</div>
+  </div>
+  <span class="mono c-text2">-{{ r.computed | money }}</span>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if internal_rules %}
+<div class="rules-section-lbl" {% if external_rules %}style="margin-top:12px"{% endif %}>Bucket Allocations</div>
+{% for r in internal_rules %}
+<div class="rules-row">
+  <div>
+    <div class="rules-row-name">{{ r.bucket_name }}</div>
+    <div class="rules-row-meta">{{ r.name }} · {{ '%.0f%%'|format(r.value) if r.is_pct else (r.value | money) }}</div>
+  </div>
+  <span class="mono c-green">+{{ r.computed | money }}</span>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if internal_rules or external_rules %}
+<div class="rules-row rules-row-remaining">
+  <span style="color:var(--text2)">Remaining → Ready to Assign</span>
+  <span class="mono {{ 'c-red' if remaining < 0 else 'c-green' }}" style="font-weight:700">{{ remaining | money }}</span>
+</div>
+{% endif %}
+
+<div class="edit-actions" style="margin-top:20px">
+  <a class="toolbar-btn"
+     hx-get="{{ url_for('panels.' + back) }}"
+     hx-target="#panel" hx-swap="innerHTML"
+     onclick="closeModal()">Skip</a>
+  {% if internal_rules %}
+  <form method="post" action="{{ url_for('panels.apply_rules', tid=tid) }}"
+        hx-post="{{ url_for('panels.apply_rules', tid=tid) }}"
+        hx-target="#panel" hx-swap="innerHTML"
+        style="display:contents">
+    <button class="toolbar-btn primary" type="submit">
+      Apply {{ internal_rules | length }} Rule{{ 's' if internal_rules | length != 1 }}
+    </button>
+  </form>
+  {% endif %}
+</div>

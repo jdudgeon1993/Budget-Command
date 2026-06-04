@@ -266,8 +266,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     end_date = date(y, m, _cal.monthrange(y, m)[1])
 
     # ── Pay events ────────────────────────────────────────────────────────────
-    external_rules = [r for r in rules_raw if r.get("ruleType") == "external" and r.get("active", True)]
-    internal_rules = [r for r in rules_raw if r.get("ruleType") != "external" and r.get("active", True) and r.get("bucketId")]
+    external_rules = [r for r in rules_raw if r.get("rule_type") == "external" and r.get("active", True)]
+    internal_rules = [r for r in rules_raw if r.get("rule_type") != "external" and r.get("active", True) and (r.get("bucket_id") or r.get("bucketId"))]
     bname = {b["id"]: b["name"] for b in buckets}
     btype = {b["id"]: b.get("type", "expense") for b in buckets}
 
@@ -291,7 +291,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                 rid = r.get("id", "")
                 v   = float(rule_overrides.get(rid, r.get("value") or 0))
                 computed = round(amt * v / 100, 2) if r.get("type") == "pct" or r.get("value_type") == "pct" else v
-                bid = r["bucketId"]
+                bid = r.get("bucket_id") or r.get("bucketId", "")
                 allocs.append({"name": bname.get(bid, ""), "amount": computed,
                                "is_vault": btype.get(bid, "expense") == "vault"})
             pay_events[pd].append({"label": pc.get("label", "Paycheck"),
