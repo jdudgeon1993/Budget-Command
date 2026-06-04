@@ -1,7 +1,95 @@
 {% extends layout %}
 {% block panel %}
 <div class="fc-wrap">
-  <iframe class="fc-frame" src="{{ url_for('panels.forecast_builder') }}"
-          title="Forecast Builder" loading="lazy"></iframe>
+
+  <!-- KPI bar -->
+  <div class="fc-kpi-bar">
+    <div class="fc-kpi">
+      <div class="fc-kpi-lbl">Current Balance</div>
+      <div class="fc-kpi-val mono">{{ forecast.start_balance }}</div>
+    </div>
+    <div class="fc-kpi">
+      <div class="fc-kpi-lbl">Projected Income</div>
+      <div class="fc-kpi-val mono c-green">{{ forecast.total_income }}</div>
+    </div>
+    <div class="fc-kpi">
+      <div class="fc-kpi-lbl">Unfunded Bills</div>
+      <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
+    </div>
+    <div class="fc-kpi">
+      <div class="fc-kpi-lbl">Safe to Spend</div>
+      <div class="fc-kpi-val mono" style="color:{{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
+    </div>
+    {% if forecast.shortfall_count > 0 %}
+    <div class="fc-kpi fc-kpi-alert">
+      <div class="fc-kpi-lbl">Shortfalls</div>
+      <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Tabs -->
+  <div class="fc-tabs">
+    <button class="fc-tab active" onclick="fcTab(this,'fc-timeline')" type="button">60-Day Timeline</button>
+    <button class="fc-tab" onclick="fcTab(this,'fc-whatif')" type="button">Pay Period Forecast</button>
+  </div>
+
+  <!-- 60-Day Timeline -->
+  <div id="fc-timeline" class="fc-tab-pane">
+    {% if timeline_rows %}
+    <div class="fc-tl-list">
+      {% for row in timeline_rows %}
+        {% if row.rt == 'day' %}
+        <div class="fc-tl-day {{ 'fc-tl-day-today' if row.td }} {{ 'fc-tl-day-past' if row.pa and not row.td }}">
+          <span class="fc-tl-day-lbl">{{ row.lbl }}</span>
+          {% if row.td %}<span class="fc-type-badge fc-badge-today">Today</span>{% endif %}
+        </div>
+        {% elif row.rt == 'paycheck' %}
+        <div class="fc-tl-row fc-tl-paycheck">
+          <span class="fc-tl-lbl">💰 {{ row.lbl }}</span>
+          <span class="fc-tl-amt">{{ row.amt }}</span>
+        </div>
+        {% elif row.rt == 'bill' %}
+        <div class="fc-tl-row {% if row.pd %}fc-tl-bill-paid{% elif row.sch %}fc-tl-bill-sched{% elif row.pa %}fc-tl-bill-past{% else %}fc-tl-bill{% endif %}">
+          <span class="fc-tl-lbl">
+            {{ row.lbl }}
+            {% if row.pd %}<span class="fc-paid-badge">✓ Paid</span>{% endif %}
+            {% if row.sch %}<span class="fc-sched-badge">Scheduled</span>{% endif %}
+          </span>
+          <span class="fc-tl-amt">{{ row.amt }}</span>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="fc-empty">No upcoming paychecks or bills in the next 60 days.</div>
+    {% endif %}
+  </div>
+
+  <!-- What-If Forecast -->
+  <div id="fc-whatif" class="fc-tab-pane" style="display:none">
+    <div id="fc-whatif-content">
+      {% include "panels/_frag_forecast_whatif.html" %}
+    </div>
+  </div>
+
 </div>
+
+<script>
+function fcTab(btn, paneId) {
+  document.querySelectorAll('.fc-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.fc-tab-pane').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  document.getElementById(paneId).style.display = '';
+}
+
+function fcSkipToggle(dateStr) {
+  const form = document.getElementById('fc-whatif-form');
+  const inp = form.querySelector('[name="skip_dates"]');
+  const toggle = form.querySelector('[name="toggle_skip_date"]');
+  toggle.value = dateStr;
+  htmx.trigger(form, 'submit');
+  toggle.value = '';
+}
+</script>
 {% endblock %}

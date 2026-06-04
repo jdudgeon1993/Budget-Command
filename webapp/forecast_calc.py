@@ -227,7 +227,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      off_buckets: list = None,
                      schedule: dict = None,
                      due_day_overrides: dict = None,
-                     timeline: dict = None) -> dict:
+                     timeline: dict = None,
+                     skipped_pay_dates: list = None) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -244,6 +245,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     off_set           = set(off_buckets or [])
     schedule          = schedule or {}
     due_day_overrides = due_day_overrides or {}
+    skipped_set       = set(str(d) for d in (skipped_pay_dates or []))
 
     accounts   = data.get("accounts", [])
     buckets    = data.get("buckets", [])
@@ -399,7 +401,9 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         transfer_events: list[dict] = []
         alloc_events:    list[dict] = []
 
-        if not is_gap and ps in pay_events:
+        is_skipped = (not is_gap) and (str(ps) in skipped_set)
+
+        if not is_gap and ps in pay_events and not is_skipped:
             for pc_hit in pay_events[ps]:
                 running_balance += pc_hit["amount"]
                 grand_income    += pc_hit["amount"]
@@ -493,6 +497,10 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
         if is_gap:
             label = "Pre-Paycheck Gap"
+        elif is_skipped:
+            pc_labels = list({pc["label"] for pcs in pay_events.get(ps, []) for pc in [pcs]}) or ["Paycheck"]
+            pay_labels = list({pc_hit["label"] for pc_hit in pay_events.get(ps, [])}) or ["Paycheck"]
+            label = " + ".join(sorted(pay_labels)) + " (Skipped)"
         else:
             labels = list({e["label"] for e in income_events}) or ["Paycheck"]
             label  = " + ".join(sorted(labels))
@@ -502,6 +510,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         period_results.append({
             "id":                  str(ps),
             "type":                "gap" if is_gap else "paycheck",
+            "is_skipped":          is_skipped,
             "label":               label,
             "date_range":          _range_label(ps, pe),
             "income_lines":        income_lines,

@@ -569,7 +569,40 @@ def setup():
 @bp.route("/insights")
 @login_required
 def insights():
-    return render_panel("panels/forecast.html", "insights")
+    return render_panel("panels/forecast.html", "insights", **D.forecast_view())
+
+
+@bp.route("/forecast/whatif", methods=["POST"])
+@login_required
+def forecast_whatif():
+    f = request.form
+    try:
+        n_months = max(1, min(12, int(f.get("n_months", 3))))
+    except (ValueError, TypeError):
+        n_months = 3
+    try:
+        inc_raw = (f.get("income_override") or "0").replace("$", "").replace(",", "").strip()
+        income_override = max(0.0, float(inc_raw or 0))
+    except (ValueError, TypeError):
+        income_override = 0.0
+    skip_raw = f.get("skip_dates", "")
+    skip_dates = [s.strip() for s in skip_raw.split(",") if s.strip()]
+    toggle = (f.get("toggle_skip_date") or "").strip()
+    if toggle:
+        if toggle in skip_dates:
+            skip_dates.remove(toggle)
+        else:
+            skip_dates.append(toggle)
+    from . import forecast_calc as FC
+    data = D.load_data()
+    fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
+                             skipped_pay_dates=skip_dates)
+    svg = FC.build_balance_svg(fc["periods"])
+    return render_template("panels/_frag_forecast_whatif.html",
+                           forecast=fc, balance_svg=svg,
+                           n_months=n_months, income_override=income_override,
+                           skipped_pay_dates=skip_dates,
+                           skip_dates_str=",".join(skip_dates))
 
 
 def _dev_or(fn):

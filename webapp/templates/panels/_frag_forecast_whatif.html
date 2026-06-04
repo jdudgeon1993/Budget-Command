@@ -1,0 +1,169 @@
+<!-- Controls -->
+<form id="fc-whatif-form"
+      hx-post="{{ url_for('panels.forecast_whatif') }}"
+      hx-target="#fc-whatif-content"
+      hx-swap="innerHTML"
+      class="fc-controls">
+  <input type="hidden" name="skip_dates" value="{{ skip_dates_str }}">
+  <input type="hidden" name="toggle_skip_date" value="">
+  <span class="fc-controls-lbl">Periods:</span>
+  <select name="n_months" onchange="this.form.dispatchEvent(new Event('submit',{bubbles:true}))">
+    {% for n in [1,2,3,4,6,9,12] %}
+    <option value="{{ n }}" {{ 'selected' if n_months == n }}>{{ n }} month{{ 's' if n != 1 }}</option>
+    {% endfor %}
+  </select>
+  <span class="fc-controls-lbl">Income Override:</span>
+  <input name="income_override" type="text" inputmode="decimal"
+         placeholder="e.g. 5000" value="{{ income_override if income_override else '' }}"
+         style="width:110px">
+  <button class="toolbar-btn primary" type="submit">Refresh</button>
+  {% if skipped_pay_dates %}
+  <span class="fc-controls-lbl" style="color:var(--amber)">{{ skipped_pay_dates|length }} skipped</span>
+  {% endif %}
+</form>
+
+<!-- Balance trajectory chart -->
+{% if balance_svg %}
+<div class="fc-chart">{{ balance_svg | safe }}</div>
+{% endif %}
+
+<!-- Summary bar -->
+<div class="fc-summary-bar">
+  <span>Income: <strong style="color:var(--green)">{{ forecast.total_income }}</strong></span>
+  <span>Unfunded: <strong style="color:{% if forecast.total_unfunded != '$0.00' %}var(--red){% else %}var(--green){% endif %}">{{ forecast.total_unfunded }}</strong></span>
+  <span>Safe to Spend: <strong style="color:{{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</strong></span>
+</div>
+
+<!-- Period cards -->
+<div class="fc-periods" style="margin-top:14px">
+  {% for p in forecast.periods %}
+  <div class="fc-period {{ 'fc-period-skipped' if p.is_skipped }} {{ 'fc-period-gap' if p.type == 'gap' }} {{ 'fc-period-shortfall' if p.shortfall and not p.is_skipped }}">
+
+    <!-- Period header -->
+    <div class="fc-period-hdr">
+      <div>
+        <div class="fc-period-label">
+          {{ p.label }}
+          {% if p.type == 'gap' %}
+          <span class="fc-type-badge fc-badge-gap">Gap</span>
+          {% elif p.is_skipped %}
+          <span class="fc-type-badge fc-badge-skipped">Skipped</span>
+          {% elif p.shortfall %}
+          <span class="fc-type-badge fc-badge-shortfall">Shortfall</span>
+          {% endif %}
+        </div>
+        <div class="fc-period-range">{{ p.date_range }}</div>
+      </div>
+      <div class="fc-period-hdr-right">
+        <div style="text-align:right">
+          <div class="fc-kpi-lbl">Safe to Spend</div>
+          <div class="fc-period-sts" style="color:{{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
+        </div>
+        {% if p.type == 'paycheck' %}
+        <button class="fc-skip-btn {{ 'active' if p.is_skipped }}"
+                type="button"
+                onclick="fcSkipToggle('{{ p.id }}')">
+          {{ 'Unskip' if p.is_skipped else 'Skip' }}
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not p.is_skipped %}
+
+    <!-- Income -->
+    {% if p.has_income %}
+    <div class="fc-period-section">
+      <div class="fc-section-lbl">Income</div>
+      {% for line in p.income_lines %}
+      <div class="fc-line fc-income">
+        <span class="fc-line-lbl">{{ line.label }}</span>
+        <span class="fc-line-amt c-green">{{ line.amount_fmt }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- External Transfers -->
+    {% if p.has_transfers %}
+    <div class="fc-period-section">
+      <div class="fc-section-lbl">Transfers Out</div>
+      {% for line in p.transfer_lines %}
+      <div class="fc-line">
+        <span class="fc-line-lbl">{{ line.label }}</span>
+        <span class="fc-line-amt" style="color:var(--amber)">-{{ line.amount_fmt }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Bucket Allocations -->
+    {% if p.has_alloc_events %}
+    <div class="fc-period-section">
+      <div class="fc-section-lbl">Allocations</div>
+      {% for ae in p.alloc_events %}
+      <div class="fc-line">
+        <span class="fc-line-lbl">{{ ae.name }}{% if ae.ae_type == 'vault' %} <span class="fc-type-badge fc-badge-vault">Vault</span>{% endif %}</span>
+        <span class="fc-line-amt" style="color:var(--accent)">{{ ae.amount | money }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Funded Bills -->
+    {% if p.has_funded %}
+    <div class="fc-period-section">
+      <div class="fc-section-lbl">Bills Due — Funded ({{ p.funded_count }}/{{ p.total_count }})</div>
+      {% for line in p.funded_lines %}
+        {% if line.row_type == 'date' %}
+        <div class="fc-bill-date-hdr">{{ line.text }}</div>
+        {% elif line.row_type == 'bill' %}
+        <div class="fc-line fc-funded">
+          <span class="fc-line-lbl">{{ line.text }}</span>
+          <span class="fc-line-amt">{{ line.amount_fmt }}</span>
+        </div>
+        {% elif line.row_type == 'bal' %}
+        <div class="fc-bal-after">Balance after: <span class="mono">{{ line.text }}</span></div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Unfunded Bills -->
+    {% if p.has_unfunded %}
+    <div class="fc-period-section">
+      <div class="fc-section-lbl" style="color:var(--red)">⚠ Unfunded Bills</div>
+      {% for line in p.unfunded_lines %}
+        {% if line.row_type == 'date' %}
+        <div class="fc-bill-date-hdr" style="color:var(--red)">{{ line.text }}</div>
+        {% elif line.row_type == 'bill' %}
+        <div class="fc-line fc-unfunded">
+          <span class="fc-line-lbl">{{ line.text }}</span>
+          <span class="fc-line-amt">{{ line.amount_fmt }}</span>
+        </div>
+        {% elif line.row_type == 'bal' %}
+        <div class="fc-bal-after" style="color:var(--red)">Balance after: <span class="mono">{{ line.text }}</span></div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% endif %}{# end not is_skipped #}
+
+    <!-- Period footer: end balance -->
+    <div class="fc-period-footer">
+      <div class="fc-footer-lbl">
+        {% if p.is_skipped %}No income this period{% else %}
+        Net {{ p.net_sign }}{{ p.net_fmt }}{% endif %}
+      </div>
+      <div>
+        <span class="fc-footer-lbl" style="margin-right:8px;opacity:0.5">End Balance</span>
+        <span class="mono fc-period-sts {{ 'c-red' if p.end_bal_negative else 'c-green' }}">{{ p.end_bal_fmt }}</span>
+      </div>
+    </div>
+
+  </div>
+  {% else %}
+  <div class="fc-empty">No forecast periods — add paychecks in Setup to get started.</div>
+  {% endfor %}
+</div>
