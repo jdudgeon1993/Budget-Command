@@ -139,7 +139,7 @@ def mobile_nav() -> rx.Component:
             '<rect x="3" y="3" width="18" height="4" rx="1"/>'
             '<rect x="3" y="10" width="12" height="4" rx="1"/>'
             '<rect x="3" y="17" width="15" height="4" rx="1"/>'),
-        _mob_tab("Insights", "insights",
+        _mob_tab("Forecast", "insights",
             '<line x1="18" y1="20" x2="18" y2="10"/>'
             '<line x1="12" y1="20" x2="12" y2="4"/>'
             '<line x1="6" y1="20" x2="6" y2="14"/>'),
