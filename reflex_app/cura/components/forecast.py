@@ -1085,7 +1085,7 @@ def _cell_popover() -> rx.Component:
                     "padding": "20px",
                     "box_shadow": "0 24px 64px rgba(0,0,0,0.60)",
                 },
-                on_click=lambda: None,
+                on_click=rx.stop_propagation,
             ),
             # Backdrop overlay styles
             style={
