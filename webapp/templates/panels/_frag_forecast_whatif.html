@@ -26,13 +26,6 @@
 <div class="fc-chart">{{ balance_svg | safe }}</div>
 {% endif %}
 
-<!-- Summary bar -->
-<div class="fc-summary-bar">
-  <span>Income: <strong style="color:var(--green)">{{ forecast.total_income }}</strong></span>
-  <span>Unfunded: <strong style="color:{% if forecast.total_unfunded != '$0.00' %}var(--red){% else %}var(--green){% endif %}">{{ forecast.total_unfunded }}</strong></span>
-  <span>Safe to Spend: <strong style="color:{{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</strong></span>
-</div>
-
 <!-- Period cards -->
 <div class="fc-periods" style="margin-top:14px">
   {% for p in forecast.periods %}
@@ -53,7 +46,7 @@
       <div class="fc-period-hdr-right">
         <div style="text-align:right">
           <div class="fc-kpi-lbl">Safe to Spend</div>
-          <div class="fc-period-sts" style="color:{{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
+          <div class="fc-period-sts {{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
         </div>
         {% if p.type == 'paycheck' %}
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
@@ -74,10 +67,10 @@
 
     {% if not p.is_skipped %}
 
-    <!-- Block 1: Income flow -->
+    <!-- Block 1: Income / current balance flow -->
     <div class="fc-block fc-block-income {{ 'fc-block-no-accrue' if p.is_no_accrue }}">
       <div class="fc-brow fc-brow-hdr">
-        <span>Start</span>
+        <span>{% if p.type == 'gap' %}Current Balance{% else %}Start{% endif %}</span>
         <span class="mono c-green">{{ p.start_bal_fmt }}</span>
       </div>
       {% if not p.is_no_accrue and p.type != 'gap' %}
@@ -100,10 +93,10 @@
       </div>
       {% endif %}
       {% endif %}
-      <div class="fc-brow fc-brow-bal">
+      {% if p.type != 'gap' %}<div class="fc-brow fc-brow-bal">
         <span>Running Balance</span>
         <span class="mono c-green">{{ p.bal_after_xfr_fmt }}</span>
-      </div>
+      </div>{% endif %}
     </div>
 
     <!-- Block 2: Funded Bills -->

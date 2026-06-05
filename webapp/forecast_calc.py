@@ -198,6 +198,13 @@ def _bill_dates(due_day, pay_freq, from_date: date, to_date: date) -> list[date]
     return sorted(dates)
 
 
+def _sts_class(val: float) -> str:
+    """Semantic CSS class for a balance/STS value — resolves to theme color vars."""
+    if val > 0:  return "c-green"
+    if val == 0: return "c-amber"
+    return "c-red"
+
+
 def _freq_only_dates(pay_freq: str, from_date: date, to_date: date) -> list[date]:
     if pay_freq == "monthly":
         dates, y, m = [], from_date.year, from_date.month
@@ -584,14 +591,14 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     for i, p in enumerate(period_results):
         sts = fwd_mins[i]
         p["safe_to_spend_fmt"] = _fmt(sts)
-        p["sts_color"] = "#34d399" if sts > 0 else ("#fbbf24" if sts == 0 else "#f87171")
+        p["sts_color"]         = _sts_class(sts)
 
     shortfall_count = sum(1 for p in period_results if p["shortfall"])
 
     return {
         "start_balance":   _fmt(start_balance),
         "safe_to_spend":   _fmt(safe_to_spend),
-        "sts_color":       "#34d399" if safe_to_spend > 0 else ("#fbbf24" if safe_to_spend == 0 else "#f87171"),
+        "sts_color":       _sts_class(safe_to_spend),
         "total_income":    _fmt(grand_income),
         "total_unfunded":  _fmt(grand_unfunded),
         "shortfall_count": shortfall_count,

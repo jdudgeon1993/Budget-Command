@@ -18,7 +18,7 @@
     </div>
     <div class="fc-kpi">
       <div class="fc-kpi-lbl">Safe to Spend</div>
-      <div class="fc-kpi-val mono" style="color:{{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
+      <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
     </div>
     {% if forecast.shortfall_count > 0 %}
     <div class="fc-kpi fc-kpi-alert">
@@ -30,12 +30,12 @@
 
   <!-- Tabs -->
   <div class="fc-tabs">
-    <button class="fc-tab active" onclick="fcTab(this,'fc-timeline')" type="button">60-Day Timeline</button>
-    <button class="fc-tab" onclick="fcTab(this,'fc-whatif')" type="button">Pay Period Forecast</button>
+    <button class="fc-tab" id="fc-tab-whatif" onclick="fcTab(this,'fc-whatif')" type="button">Pay Period Forecast</button>
+    <button class="fc-tab" id="fc-tab-timeline" onclick="fcTab(this,'fc-timeline')" type="button">60-Day Timeline</button>
   </div>
 
   <!-- 60-Day Timeline -->
-  <div id="fc-timeline" class="fc-tab-pane">
+  <div id="fc-timeline" class="fc-tab-pane" style="display:none">
     {% if timeline_rows %}
     <div class="fc-tl-list">
       {% for row in timeline_rows %}
@@ -67,7 +67,7 @@
   </div>
 
   <!-- What-If Forecast -->
-  <div id="fc-whatif" class="fc-tab-pane" style="display:none">
+  <div id="fc-whatif" class="fc-tab-pane">
     <div id="fc-whatif-content">
       {% include "panels/_frag_forecast_whatif.html" %}
     </div>
@@ -81,7 +81,14 @@ function fcTab(btn, paneId) {
   document.querySelectorAll('.fc-tab-pane').forEach(p => p.style.display = 'none');
   btn.classList.add('active');
   document.getElementById(paneId).style.display = '';
+  sessionStorage.setItem('_fcTab', paneId);
 }
+(function(){
+  var saved = sessionStorage.getItem('_fcTab') || 'fc-whatif';
+  var btn = document.querySelector('.fc-tab[onclick*="' + saved + '"]');
+  if (btn) fcTab(btn, saved);
+  else { var b = document.getElementById('fc-tab-whatif'); if(b) fcTab(b,'fc-whatif'); }
+})();
 
 function fcSkipToggle(dateStr) {
   const form = document.getElementById('fc-whatif-form');
