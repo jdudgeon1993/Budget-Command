@@ -265,6 +265,32 @@ svg{display:block}
 .fc-sched-badge{font-size:9px;font-weight:700;padding:1px 5px;border-radius:var(--r-xs);background:var(--amber-dim);color:var(--amber);font-family:var(--mono);margin-left:6px;vertical-align:middle}
 .fc-badge-today{background:rgba(191,90,242,0.15);color:var(--accent)}
 
+/* Scenario selector bar */
+.fc-scenario-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 0 12px}
+.fc-sc-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-family:var(--mono);cursor:pointer;transition:background .15s,color .15s,border-color .15s;white-space:nowrap}
+.fc-sc-chip:hover{background:var(--surface2);color:var(--text)}
+.fc-sc-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.fc-sc-edit{color:var(--text3);font-size:10px;text-decoration:none;padding:0 3px;border-radius:3px;opacity:.55;transition:opacity .15s}
+.fc-sc-edit:hover{opacity:1;background:var(--surface2)}
+.fc-sc-new{padding:5px 12px;border-radius:var(--r-pill);border:1px dashed var(--border);color:var(--text3);font-size:12px;font-family:var(--mono);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;transition:border-color .15s,color .15s}
+.fc-sc-new:hover{border-color:var(--accent);color:var(--accent)}
+/* Scenario editor modal */
+.fc-sc-editor-body{padding:16px 20px;max-height:58vh;overflow-y:auto}
+.fc-sc-section-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin:16px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.fc-sc-cat-hdr{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);padding:10px 0 4px}
+.fc-sc-brow{display:grid;grid-template-columns:32px 1fr 80px;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);transition:opacity .15s}
+.fc-sc-brow-off .fc-sc-bname{opacity:.3;text-decoration:line-through}
+.fc-sc-brow-off .fc-sc-amt{opacity:.3;pointer-events:none}
+.fc-sc-bname{font-size:13px;color:var(--text)}
+.fc-sc-amt{width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-xs);padding:4px 8px;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;text-align:right}
+.fc-sc-amt:focus{border-color:var(--accent)}
+.fc-sc-toggle-wrap{position:relative;display:inline-flex;align-items:center;cursor:pointer;flex-shrink:0}
+.fc-sc-toggle-wrap input{position:absolute;opacity:0;width:0;height:0}
+.fc-sc-knob{display:inline-block;width:28px;height:16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;position:relative;transition:background .15s,border-color .15s;flex-shrink:0}
+.fc-sc-knob::after{content:'';position:absolute;width:10px;height:10px;background:var(--text3);border-radius:50%;top:2px;left:2px;transition:left .15s,background .15s}
+.fc-sc-toggle-wrap input:checked~.fc-sc-knob{background:var(--accent-dim);border-color:var(--accent)}
+.fc-sc-toggle-wrap input:checked~.fc-sc-knob::after{left:14px;background:var(--accent)}
+
 /* What-if controls */
 .fc-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border);margin-bottom:14px}
 .fc-controls select,.fc-controls input[type="text"]{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xs);padding:6px 10px;color:var(--text);font-size:13px;outline:none;font-family:var(--sans)}

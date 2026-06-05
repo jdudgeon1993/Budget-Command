@@ -8,6 +8,7 @@
   <input type="hidden" name="toggle_skip_date"     value="">
   <input type="hidden" name="no_accrue_dates"      value="{{ no_accrue_dates_str }}">
   <input type="hidden" name="toggle_no_accrue_date" value="">
+  <input type="hidden" name="active_scenario_id"   value="{{ active_scenario_id }}">
   <span class="fc-controls-lbl">Periods:</span>
   <select name="n_months" onchange="this.form.dispatchEvent(new Event('submit',{bubbles:true}))">
     {% for n in [1,2,3,4,6,9,12] %}
@@ -20,6 +21,27 @@
          style="width:110px">
   <button class="toolbar-btn primary" type="submit">Refresh</button>
 </form>
+
+<!-- Scenario selector -->
+<div class="fc-scenario-bar">
+  <button class="fc-sc-chip {{ 'active' if not active_scenario_id }}"
+          type="button" onclick="fcSetScenario('')">Baseline</button>
+  {% for sc in scenarios %}
+  <button class="fc-sc-chip {{ 'active' if active_scenario_id == sc.id }}"
+          type="button" onclick="fcSetScenario('{{ sc.id }}')">
+    {{ sc.name }}
+    <a class="fc-sc-edit"
+       hx-get="{{ url_for('panels.scenario_editor_edit', sid=sc.id) }}"
+       hx-target="#modal-body"
+       onclick="event.stopPropagation();return false;">✏</a>
+  </button>
+  {% endfor %}
+  {% if scenarios|length < 6 %}
+  <a class="fc-sc-new"
+     hx-get="{{ url_for('panels.scenario_editor_new') }}"
+     hx-target="#modal-body">+ New Scenario</a>
+  {% endif %}
+</div>
 
 <!-- Balance trajectory chart -->
 {% if balance_svg %}

@@ -1,0 +1,56 @@
+<div class="modal-title">{{ 'Edit: ' + scenario.name if scenario else 'New Scenario' }}</div>
+<form hx-post="{{ url_for('panels.scenario_update', sid=scenario.id) if scenario else url_for('panels.scenario_create') }}"
+      hx-target="#modal-body" hx-swap="innerHTML">
+
+  <div class="fc-sc-editor-body">
+    <div class="edit-field">
+      <label class="sf-lbl">Name</label>
+      <input type="text" name="name" value="{{ scenario.name if scenario else '' }}"
+             placeholder="e.g. Pay off car loan" required maxlength="40"
+             style="width:100%">
+    </div>
+
+    <div class="fc-sc-section-lbl">Bucket Adjustments</div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5">
+      Toggle buckets off to remove them from the forecast. Override the amount to model different spending.
+    </p>
+
+    {% for grp in buckets_by_cat %}
+    <div class="fc-sc-cat-hdr">{{ grp.cat_name }}</div>
+    {% for b in grp.buckets %}
+    {% set is_off = b.id in off_bucket_ids %}
+    {% set override_amt = bucket_overrides.get(b.id) %}
+    <div class="fc-sc-brow {{ 'fc-sc-brow-off' if is_off }}">
+      <label class="fc-sc-toggle-wrap">
+        <input type="checkbox" name="bucket_on_{{ b.id }}" value="1"
+               {{ '' if is_off else 'checked' }}
+               onchange="this.closest('.fc-sc-brow').classList.toggle('fc-sc-brow-off',!this.checked)">
+        <span class="fc-sc-knob"></span>
+      </label>
+      <span class="fc-sc-bname">{{ b.name }}</span>
+      <input class="fc-sc-amt" type="number" name="bucket_amt_{{ b.id }}"
+             value="{{ override_amt if override_amt is not none else '' }}"
+             placeholder="{{ b.defaultBudget | int }}" min="0" step="0.01">
+    </div>
+    {% endfor %}
+    {% endfor %}
+
+    {% if not buckets_by_cat %}
+    <p style="color:var(--text3);font-size:13px;text-align:center;padding:24px 0">
+      No buckets yet — add some in the Budgets panel first.
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="edit-actions">
+    {% if scenario %}
+    <button class="toolbar-btn" style="color:var(--red);border-color:rgba(255,69,58,.4)"
+            type="button"
+            hx-post="{{ url_for('panels.scenario_delete', sid=scenario.id) }}"
+            hx-target="#modal-body" hx-swap="innerHTML">Delete</button>
+    {% endif %}
+    <div style="flex:1"></div>
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Save Scenario</button>
+  </div>
+</form>

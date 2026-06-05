@@ -842,11 +842,23 @@ def forecast_whatif():
         else:
             no_accrue_dates.append(toggle_na)
 
+    active_sid = (f.get("active_scenario_id") or "").strip()
+    scenarios = [] if current_app.config["DEV_SEED"] else DB.list_scenarios(
+        session["user_id"], session["access_token"])
+    bucket_overrides, off_buckets = {}, []
+    if active_sid:
+        sc = next((s for s in scenarios if s["id"] == active_sid), None)
+        if sc:
+            allocs = sc.get("allocations") or {}
+            bucket_overrides = allocs.get("bucket_overrides") or {}
+            off_buckets = allocs.get("off_buckets") or []
+
     from . import forecast_calc as FC
     data = D.load_data()
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
-                             skipped_pay_dates=skip_dates,
-                             no_accrue_dates=no_accrue_dates)
+                             skipped_pay_dates=skip_dates, no_accrue_dates=no_accrue_dates,
+                             bucket_overrides=bucket_overrides or None,
+                             off_buckets=off_buckets or None)
     svg = FC.build_balance_svg(fc["periods"])
     return render_template("panels/_frag_forecast_whatif.html",
                            forecast=fc, balance_svg=svg,
@@ -854,7 +866,128 @@ def forecast_whatif():
                            skipped_pay_dates=skip_dates,
                            skip_dates_str=",".join(skip_dates),
                            no_accrue_dates=no_accrue_dates,
-                           no_accrue_dates_str=",".join(no_accrue_dates))
+                           no_accrue_dates_str=",".join(no_accrue_dates),
+                           scenarios=scenarios,
+                           active_scenario_id=active_sid)
+
+
+def _parse_scenario_form(f, data):
+    buckets = [b for b in data.get("buckets", [])
+               if not b.get("archived") and b.get("type") != "vault"]
+    bucket_overrides, off_buckets = {}, []
+    for b in buckets:
+        bid = b["id"]
+        if f.get(f"bucket_on_{bid}") != "1":
+            off_buckets.append(bid)
+        amt_raw = (f.get(f"bucket_amt_{bid}") or "").strip()
+        if amt_raw:
+            try:
+                bucket_overrides[bid] = float(amt_raw.replace("$", "").replace(",", ""))
+            except ValueError:
+                pass
+    return {"bucket_overrides": bucket_overrides, "off_buckets": off_buckets}
+
+
+def _scenario_editor_ctx(data, scenario=None):
+    all_buckets = [b for b in data.get("buckets", [])
+                   if not b.get("archived") and b.get("type") != "vault"]
+    cats = {c["id"]: c for c in data.get("cats", [])}
+    cat_order = {c["id"]: c.get("order", 0) for c in data.get("cats", [])}
+    by_cat = {}
+    for b in all_buckets:
+        by_cat.setdefault(b.get("catId", ""), []).append(b)
+    buckets_by_cat = [
+        {"cat_name": cats.get(cid, {}).get("name", "Uncategorized"), "buckets": bkts}
+        for cid, bkts in sorted(by_cat.items(), key=lambda x: cat_order.get(x[0], 999))
+    ]
+    off_bucket_ids, bucket_overrides = set(), {}
+    if scenario:
+        allocs = scenario.get("allocations") or {}
+        off_bucket_ids = set(allocs.get("off_buckets") or [])
+        bucket_overrides = allocs.get("bucket_overrides") or {}
+    return {"scenario": scenario, "buckets_by_cat": buckets_by_cat,
+            "off_bucket_ids": off_bucket_ids, "bucket_overrides": bucket_overrides}
+
+
+def _fc_frag_save_response(active_sid=""):
+    """Re-render forecast fragment + close modal after a scenario save/delete."""
+    from . import forecast_calc as FC
+    data = D.load_data()
+    scenarios = [] if current_app.config["DEV_SEED"] else DB.list_scenarios(
+        session["user_id"], session["access_token"])
+    bucket_overrides, off_buckets = {}, []
+    if active_sid:
+        sc = next((s for s in scenarios if s["id"] == active_sid), None)
+        if sc:
+            allocs = sc.get("allocations") or {}
+            bucket_overrides = allocs.get("bucket_overrides") or {}
+            off_buckets = allocs.get("off_buckets") or []
+    fc = FC.compute_forecast(data, n_months=3,
+                             bucket_overrides=bucket_overrides or None,
+                             off_buckets=off_buckets or None)
+    svg = FC.build_balance_svg(fc["periods"])
+    whatif_html = render_template("panels/_frag_forecast_whatif.html",
+                                  forecast=fc, balance_svg=svg, n_months=3,
+                                  income_override=0.0,
+                                  skipped_pay_dates=[], skip_dates_str="",
+                                  no_accrue_dates=[], no_accrue_dates_str="",
+                                  scenarios=scenarios, active_scenario_id=active_sid)
+    oob = f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{whatif_html}</div>'
+    resp = make_response(oob)
+    resp.headers["HX-Trigger"] = "closeModal"
+    return resp
+
+
+@bp.route("/scenarios/editor")
+@login_required
+def scenario_editor_new():
+    return render_template("panels/_frag_scenario_editor.html",
+                           **_scenario_editor_ctx(D.load_data()))
+
+
+@bp.route("/scenarios/<sid>/editor")
+@login_required
+def scenario_editor_edit(sid):
+    data = D.load_data()
+    scenario = None
+    if not current_app.config["DEV_SEED"]:
+        all_sc = DB.list_scenarios(session["user_id"], session["access_token"])
+        scenario = next((s for s in all_sc if s["id"] == sid), None)
+    return render_template("panels/_frag_scenario_editor.html",
+                           **_scenario_editor_ctx(data, scenario))
+
+
+@bp.route("/scenarios", methods=["POST"])
+@login_required
+def scenario_create():
+    f = request.form
+    name = (f.get("name") or "Scenario").strip()[:40]
+    data = D.load_data()
+    allocs = _parse_scenario_form(f, data)
+    sid = ""
+    if not current_app.config["DEV_SEED"]:
+        sid = DB.save_scenario(session["user_id"], session["access_token"], name, allocs)
+    return _fc_frag_save_response(active_sid=sid)
+
+
+@bp.route("/scenarios/<sid>/update", methods=["POST"])
+@login_required
+def scenario_update(sid):
+    f = request.form
+    name = (f.get("name") or "Scenario").strip()[:40]
+    data = D.load_data()
+    allocs = _parse_scenario_form(f, data)
+    if not current_app.config["DEV_SEED"]:
+        DB.update_scenario(session["user_id"], session["access_token"], sid, name, allocs)
+    return _fc_frag_save_response(active_sid=sid)
+
+
+@bp.route("/scenarios/<sid>/delete", methods=["POST"])
+@login_required
+def scenario_delete(sid):
+    if not current_app.config["DEV_SEED"]:
+        DB.delete_scenario(session["user_id"], session["access_token"], sid)
+    return _fc_frag_save_response(active_sid="")
 
 
 def _setup_panel():

@@ -605,17 +605,31 @@ def close_wizard_ctx() -> dict:
 
 
 def forecast_view(n_months: int = 3, income_override: float = 0.0,
-                  skipped_pay_dates: list = None,
-                  no_accrue_dates: list = None) -> dict:
+                  skipped_pay_dates: list = None, no_accrue_dates: list = None,
+                  active_scenario_id: str = "") -> dict:
     """Full forecast panel data: 60-day timeline + pay-period what-if."""
     from . import forecast_calc as FC
     data = load_data()
     skip_list = skipped_pay_dates or []
     no_accrue_list = no_accrue_dates or []
+
+    scenarios = []
+    if not current_app.config["DEV_SEED"]:
+        scenarios = DB.list_scenarios(session.get("user_id", ""), session.get("access_token", ""))
+
+    bucket_overrides, off_buckets = {}, []
+    if active_scenario_id:
+        sc = next((s for s in scenarios if s["id"] == active_scenario_id), None)
+        if sc:
+            allocs = sc.get("allocations") or {}
+            bucket_overrides = allocs.get("bucket_overrides") or {}
+            off_buckets = allocs.get("off_buckets") or []
+
     timeline_rows = FC.compute_simple_timeline(data, 60)
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
-                             skipped_pay_dates=skip_list,
-                             no_accrue_dates=no_accrue_list)
+                             skipped_pay_dates=skip_list, no_accrue_dates=no_accrue_list,
+                             bucket_overrides=bucket_overrides or None,
+                             off_buckets=off_buckets or None)
     svg = FC.build_balance_svg(fc["periods"])
     return {
         "timeline_rows": timeline_rows,
@@ -627,6 +641,8 @@ def forecast_view(n_months: int = 3, income_override: float = 0.0,
         "skip_dates_str": ",".join(str(d) for d in skip_list),
         "no_accrue_dates": no_accrue_list,
         "no_accrue_dates_str": ",".join(str(d) for d in no_accrue_list),
+        "scenarios": scenarios,
+        "active_scenario_id": active_scenario_id,
     }
 
 

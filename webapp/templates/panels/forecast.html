@@ -105,5 +105,11 @@ function fcNoAccrueToggle(dateStr) {
   htmx.trigger(form, 'submit');
   toggle.value = '';
 }
+
+function fcSetScenario(sid) {
+  const form = document.getElementById('fc-whatif-form');
+  form.querySelector('[name="active_scenario_id"]').value = sid;
+  htmx.trigger(form, 'submit');
+}
 </script>
 {% endblock %}
