@@ -15,15 +15,24 @@ from .seed import sample_data
 
 # ── Loading ───────────────────────────────────────────────────────────────────
 
-def load_data() -> dict:
-    """Canonical data dict for this request (cached on g)."""
-    if "data" in g:
-        return g.data
+def load_data(full_history: bool = False) -> dict:
+    """Canonical data dict for this request (cached on g).
+
+    Normal loads window transactions to the last 13 months.
+    Pass full_history=True for reports that need all-time data.
+    """
+    cache_key = "data_full" if full_history else "data"
+    if cache_key in g:
+        return g[cache_key]
     if current_app.config["DEV_SEED"]:
-        g.data = sample_data()
+        g[cache_key] = sample_data()
     else:
-        g.data = DB.load_all(session.get("user_id", ""), session.get("access_token", ""))
-    return g.data
+        tx_months = 0 if full_history else 13
+        g[cache_key] = DB.load_all(
+            session.get("user_id", ""), session.get("access_token", ""),
+            tx_months=tx_months,
+        )
+    return g[cache_key]
 
 
 def active_mid() -> str:
@@ -389,7 +398,7 @@ def income_rules_ctx(amount: float, mid: str) -> dict:
 
 def reports_view():
     """Budget-vs-Actual + category spending + month totals + account snapshot."""
-    data = load_data()
+    data = load_data(full_history=True)
     mid = active_mid()
     month = active_month(data)
     txs = data.get("txs", [])

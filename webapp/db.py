@@ -5,6 +5,7 @@ All functions are pure I/O: take uid + token, return dicts.
 
 import os
 import uuid
+import threading
 from datetime import date
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -89,24 +90,81 @@ def refresh_session(refresh_token: str) -> dict:
     }
 
 
-def load_all(uid: str, token: str) -> dict:
-    """Load every table for this user and assemble the canonical data dict."""
-    db = client(token)
-    eq = lambda tbl: db.table(tbl).select("*").eq("user_id", uid).execute().data or []
+def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
+    """Load every table for this user and assemble the canonical data dict.
 
-    accounts_raw   = eq("bcc_accounts")
-    cats_raw       = eq("bcc_categories")
-    buckets_raw    = eq("bcc_buckets")
-    txs_raw        = eq("bcc_transactions")
-    months_raw     = eq("bcc_months")
-    allocs_raw     = eq("bcc_month_allocations")
-    budgets_raw    = eq("bcc_month_budgets")
-    rollrel_raw    = eq("bcc_month_rollover_released")
-    skipped_raw    = eq("bcc_month_skipped")
-    handled_raw    = eq("bcc_month_handled")
-    vaultwd_raw    = eq("bcc_month_vault_withdrawals")
-    paychecks_raw  = eq("bcc_paychecks")
-    rules_raw      = eq("bcc_allocation_rules")
+    Queries run in parallel threads to eliminate sequential latency.
+    Transactions are windowed to the most recent tx_months (default 13 — current
+    month + 12 prior) so the payload stays small regardless of account age.
+    Reports that need full history call load_all(tx_months=0).
+    """
+    db = client(token)
+
+    # Compute the earliest month_id we want transactions for
+    from .formulas import current_month_id, parse_month_id, month_id as _mid
+    if tx_months > 0:
+        cy, cm = parse_month_id(current_month_id())
+        total = cy * 12 + cm - (tx_months - 1)
+        cutoff_mid = _mid(total // 12, total % 12)
+    else:
+        cutoff_mid = None
+
+    results: dict = {}
+    errors: list = []
+
+    def fetch(key: str, tbl: str, extra=None):
+        try:
+            q = db.table(tbl).select("*").eq("user_id", uid)
+            if extra:
+                q = extra(q)
+            results[key] = q.execute().data or []
+        except Exception as e:
+            errors.append((key, e))
+            results[key] = []
+
+    def fetch_txs():
+        try:
+            q = db.table("bcc_transactions").select("*").eq("user_id", uid)
+            if cutoff_mid:
+                q = q.gte("month_id", cutoff_mid)
+            results["txs_raw"] = q.order("date", desc=True).execute().data or []
+        except Exception as e:
+            errors.append(("txs_raw", e))
+            results["txs_raw"] = []
+
+    threads = [
+        threading.Thread(target=fetch, args=("accounts_raw",  "bcc_accounts")),
+        threading.Thread(target=fetch, args=("cats_raw",      "bcc_categories")),
+        threading.Thread(target=fetch, args=("buckets_raw",   "bcc_buckets")),
+        threading.Thread(target=fetch, args=("months_raw",    "bcc_months")),
+        threading.Thread(target=fetch, args=("allocs_raw",    "bcc_month_allocations")),
+        threading.Thread(target=fetch, args=("budgets_raw",   "bcc_month_budgets")),
+        threading.Thread(target=fetch, args=("rollrel_raw",   "bcc_month_rollover_released")),
+        threading.Thread(target=fetch, args=("skipped_raw",   "bcc_month_skipped")),
+        threading.Thread(target=fetch, args=("handled_raw",   "bcc_month_handled")),
+        threading.Thread(target=fetch, args=("vaultwd_raw",   "bcc_month_vault_withdrawals")),
+        threading.Thread(target=fetch, args=("paychecks_raw", "bcc_paychecks")),
+        threading.Thread(target=fetch, args=("rules_raw",     "bcc_allocation_rules")),
+        threading.Thread(target=fetch_txs),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    accounts_raw  = results.get("accounts_raw", [])
+    cats_raw      = results.get("cats_raw", [])
+    buckets_raw   = results.get("buckets_raw", [])
+    txs_raw       = results.get("txs_raw", [])
+    months_raw    = results.get("months_raw", [])
+    allocs_raw    = results.get("allocs_raw", [])
+    budgets_raw   = results.get("budgets_raw", [])
+    rollrel_raw   = results.get("rollrel_raw", [])
+    skipped_raw   = results.get("skipped_raw", [])
+    handled_raw   = results.get("handled_raw", [])
+    vaultwd_raw   = results.get("vaultwd_raw", [])
+    paychecks_raw = results.get("paychecks_raw", [])
+    rules_raw     = results.get("rules_raw", [])
 
     accounts = [{
         "id": a["id"], "name": a["name"], "type": a["type"],
