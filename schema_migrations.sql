@@ -42,6 +42,13 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_bcc_scenarios_user
     ON bcc_scenarios(user_id, sort_order);
 
+-- ─── bcc_buckets: goal/sinking fund fields ───────────────────────────────────
+-- These columns are required for goal/sinking bucket editing to work.
+-- Without them, ALL bucket saves fail (Supabase rejects unknown columns).
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS target_amount NUMERIC(12,2);
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS target_date   TEXT;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS contrib_freq  TEXT;
+
 -- Vault release log (reason tracking for reporting)
 CREATE TABLE IF NOT EXISTS bcc_vault_release_log (
     id          TEXT PRIMARY KEY,

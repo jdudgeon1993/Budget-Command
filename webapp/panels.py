@@ -170,21 +170,29 @@ def bucket_settings(bid):
             except ValueError:
                 return default
         if not current_app.config["DEV_SEED"]:
-            DB.upsert_bucket(session["user_id"], session["access_token"], bid, {
+            btype = f.get("type", bucket.get("type", "expense"))
+            payload = {
                 "name": f.get("name", bucket["name"]).strip(),
                 "cat_id": f.get("catId", bucket.get("catId", "")),
-                "type": f.get("type", bucket.get("type", "expense")),
+                "type": btype,
                 "default_budget": _num("default_budget"),
                 "rollover": f.get("rollover") == "1",
                 "notes": f.get("notes", ""),
-                "due_day": (f.get("due_day") or "").strip() or None,
-                "due_amount": _num("due_amount"),
-                "pay_freq": f.get("pay_freq") or None,
-                "target_amount": _num("target_amount"),
-                "target_date": f.get("target_date") or None,
-                "contrib_freq": f.get("contrib_freq") or None,
-                "recurring": f.get("recurring") == "1",
-            })
+            }
+            if btype == "expense":
+                payload.update({
+                    "due_day": (f.get("due_day") or "").strip() or None,
+                    "due_amount": _num("due_amount"),
+                    "pay_freq": f.get("pay_freq") or None,
+                    "recurring": f.get("recurring") == "1",
+                })
+            elif btype in ("goal", "sinking"):
+                payload.update({
+                    "target_amount": _num("target_amount"),
+                    "target_date": f.get("target_date") or None,
+                    "contrib_freq": f.get("contrib_freq") or None,
+                })
+            DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
             flash("Bucket updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
