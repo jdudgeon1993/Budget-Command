@@ -74,12 +74,6 @@
       <button class="toolbar-btn primary" type="submit">{{ 'Save Changes' if account else 'Add Account' }}</button>
     </div>
   </form>
-<script>
-function updateAcctFields(){
-  var t=document.getElementById('acct-type-sel').value;
-  document.getElementById('acct-debt-fields').style.display=(t==='debt')?'':'none';
-}
-</script>
 
   {% if account %}
   <form method="post" action="{{ url_for('panels.account_archive', aid=account.id) }}"
