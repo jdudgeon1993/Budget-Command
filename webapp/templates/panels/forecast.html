@@ -85,8 +85,15 @@ function fcTab(btn, paneId) {
 
 function fcSkipToggle(dateStr) {
   const form = document.getElementById('fc-whatif-form');
-  const inp = form.querySelector('[name="skip_dates"]');
   const toggle = form.querySelector('[name="toggle_skip_date"]');
+  toggle.value = dateStr;
+  htmx.trigger(form, 'submit');
+  toggle.value = '';
+}
+
+function fcNoAccrueToggle(dateStr) {
+  const form = document.getElementById('fc-whatif-form');
+  const toggle = form.querySelector('[name="toggle_no_accrue_date"]');
   toggle.value = dateStr;
   htmx.trigger(form, 'submit');
   toggle.value = '';

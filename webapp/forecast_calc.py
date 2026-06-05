@@ -228,7 +228,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      schedule: dict = None,
                      due_day_overrides: dict = None,
                      timeline: dict = None,
-                     skipped_pay_dates: list = None) -> dict:
+                     skipped_pay_dates: list = None,
+                     no_accrue_dates: list = None) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -246,6 +247,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     schedule          = schedule or {}
     due_day_overrides = due_day_overrides or {}
     skipped_set       = set(str(d) for d in (skipped_pay_dates or []))
+    no_accrue_set     = set(str(d) for d in (no_accrue_dates or []))
 
     accounts   = data.get("accounts", [])
     buckets    = data.get("buckets", [])
@@ -403,9 +405,10 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         transfer_events: list[dict] = []
         alloc_events:    list[dict] = []
 
-        is_skipped = (not is_gap) and (str(ps) in skipped_set)
+        is_skipped   = (not is_gap) and (str(ps) in skipped_set)
+        is_no_accrue = (not is_gap) and (not is_skipped) and (str(ps) in no_accrue_set)
 
-        if not is_gap and ps in pay_events and not is_skipped:
+        if not is_gap and ps in pay_events and not is_skipped and not is_no_accrue:
             for pc_hit in pay_events[ps]:
                 running_balance += pc_hit["amount"]
                 grand_income    += pc_hit["amount"]
@@ -526,6 +529,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             "id":                  str(ps),
             "type":                "gap" if is_gap else "paycheck",
             "is_skipped":          is_skipped,
+            "is_no_accrue":        is_no_accrue,
             "label":               label,
             "date_range":          _range_label(ps, pe),
             "income_lines":        income_lines,

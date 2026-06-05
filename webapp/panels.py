@@ -674,22 +674,35 @@ def forecast_whatif():
         income_override = 0.0
     skip_raw = f.get("skip_dates", "")
     skip_dates = [s.strip() for s in skip_raw.split(",") if s.strip()]
-    toggle = (f.get("toggle_skip_date") or "").strip()
-    if toggle:
-        if toggle in skip_dates:
-            skip_dates.remove(toggle)
+    toggle_skip = (f.get("toggle_skip_date") or "").strip()
+    if toggle_skip:
+        if toggle_skip in skip_dates:
+            skip_dates.remove(toggle_skip)
         else:
-            skip_dates.append(toggle)
+            skip_dates.append(toggle_skip)
+
+    no_accrue_raw = f.get("no_accrue_dates", "")
+    no_accrue_dates = [s.strip() for s in no_accrue_raw.split(",") if s.strip()]
+    toggle_na = (f.get("toggle_no_accrue_date") or "").strip()
+    if toggle_na:
+        if toggle_na in no_accrue_dates:
+            no_accrue_dates.remove(toggle_na)
+        else:
+            no_accrue_dates.append(toggle_na)
+
     from . import forecast_calc as FC
     data = D.load_data()
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
-                             skipped_pay_dates=skip_dates)
+                             skipped_pay_dates=skip_dates,
+                             no_accrue_dates=no_accrue_dates)
     svg = FC.build_balance_svg(fc["periods"])
     return render_template("panels/_frag_forecast_whatif.html",
                            forecast=fc, balance_svg=svg,
                            n_months=n_months, income_override=income_override,
                            skipped_pay_dates=skip_dates,
-                           skip_dates_str=",".join(skip_dates))
+                           skip_dates_str=",".join(skip_dates),
+                           no_accrue_dates=no_accrue_dates,
+                           no_accrue_dates_str=",".join(no_accrue_dates))
 
 
 def _setup_panel():

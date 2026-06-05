@@ -457,14 +457,17 @@ def tx_by_id(tid: str) -> dict | None:
 
 
 def forecast_view(n_months: int = 3, income_override: float = 0.0,
-                  skipped_pay_dates: list = None) -> dict:
+                  skipped_pay_dates: list = None,
+                  no_accrue_dates: list = None) -> dict:
     """Full forecast panel data: 60-day timeline + pay-period what-if."""
     from . import forecast_calc as FC
     data = load_data()
     skip_list = skipped_pay_dates or []
+    no_accrue_list = no_accrue_dates or []
     timeline_rows = FC.compute_simple_timeline(data, 60)
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
-                             skipped_pay_dates=skip_list)
+                             skipped_pay_dates=skip_list,
+                             no_accrue_dates=no_accrue_list)
     svg = FC.build_balance_svg(fc["periods"])
     return {
         "timeline_rows": timeline_rows,
@@ -474,6 +477,8 @@ def forecast_view(n_months: int = 3, income_override: float = 0.0,
         "income_override": income_override,
         "skipped_pay_dates": skip_list,
         "skip_dates_str": ",".join(str(d) for d in skip_list),
+        "no_accrue_dates": no_accrue_list,
+        "no_accrue_dates_str": ",".join(str(d) for d in no_accrue_list),
     }
 
 
