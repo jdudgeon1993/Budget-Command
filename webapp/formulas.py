@@ -247,6 +247,35 @@ def vault_accumulated(bucket_id: str, all_months: list[dict]) -> float:
     return total
 
 
+# ── Age of Money ─────────────────────────────────────────────────────────────
+
+def age_of_money(accounts: list[dict], transactions: list[dict], window_days: int = 30) -> int | None:
+    """Days between earning money and spending it.
+
+    Uses total cash (budget + savings) divided by the rolling daily spend rate.
+    Returns None if there's no spending data. Caps at 99.
+    """
+    from datetime import timedelta
+    today = date.today()
+    cutoff = today - timedelta(days=window_days)
+    budget_ids = {a["id"] for a in accounts if a.get("type") in ("budget", "savings") and not a.get("archived")}
+    spending = sum(
+        float(t.get("amount") or 0)
+        for t in transactions
+        if t.get("type") == "out"
+        and t.get("accountId") in budget_ids
+        and not is_scheduled(t)
+        and cutoff <= (_safe_date(t.get("date")) or date.min) <= today
+    )
+    if spending <= 0:
+        return None
+    cash = total_cash(accounts, transactions)
+    if cash <= 0:
+        return 0
+    daily = spending / window_days
+    return min(99, round(cash / daily))
+
+
 # ── 3.14 Month Income ─────────────────────────────────────────────────────────
 
 def month_income(month_id: str, transactions: list[dict], accounts: list[dict]) -> float:

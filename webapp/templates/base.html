@@ -73,7 +73,12 @@ document.addEventListener('htmx:afterSettle',function(e){
       <div class="sidebar-rts-lbl">Ready to assign</div>
       <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
       <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
-      <div class="sidebar-total-cash">Total cash: <span>{{ shell.total_cash | money }}</span></div>
+      <div class="sidebar-total-cash">
+        Total cash: <span>{{ shell.total_cash | money }}</span>
+        {% if shell.age_of_money is not none %}
+        · <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>
+        {% endif %}
+      </div>
     </div>
     <div class="month-nav">
       <a class="month-arrow" href="{{ url_for('panels.month_nav', direction='prev') }}">←</a>
@@ -105,7 +110,7 @@ document.addEventListener('htmx:afterSettle',function(e){
         <div class="mob-brand-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">{{ icon('buckets') }}</svg></div>
         <span class="mob-brand-name">CURA</span>
       </div>
-      <div class="mob-rts-center"><div class="mob-rts-amt">{{ shell.rts | money }}</div><div class="mob-rts-lbl">ready to assign</div></div>
+      <div class="mob-rts-center"><div class="mob-rts-amt">{{ shell.rts | money }}</div><div class="mob-rts-lbl">ready to assign{% if shell.age_of_money is not none %} · <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}</div></div>
       <div class="mob-month"><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='prev') }}">←</a><div class="mob-month-pill">{{ shell.month_label }}</div><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='next') }}">→</a></div>
     </header>
     <header class="main-header">

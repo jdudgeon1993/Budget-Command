@@ -57,6 +57,7 @@ def shell_ctx(active_panel: str = "") -> dict:
 
     rts = F.ready_to_spend(month, months, accounts, buckets, txs)
     total_cash = F.total_cash(accounts, txs)
+    aom = F.age_of_money(accounts, txs)
     income = F.month_income(mid, txs, accounts)
     allocated = F.total_allocated(month, buckets)
     spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
@@ -79,6 +80,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         "month_label": month_label(mid),
         "rts": rts,
         "total_cash": total_cash,
+        "age_of_money": aom,
         "income": income,
         "allocated": allocated,
         "spent": spent,
