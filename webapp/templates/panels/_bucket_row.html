@@ -10,6 +10,9 @@
             hx-trigger="change from:find input[name=alloc]"
             hx-target="closest .bucket-card" hx-swap="outerHTML show:false"
             onsubmit="return false">
+        {% if view_mid and view_mid != current_mid %}
+        <input type="hidden" name="m" value="{{ view_mid }}">
+        {% endif %}
         <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
                aria-label="Allocation for {{ b.name }}"
                onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
@@ -21,6 +24,9 @@
             hx-trigger="change from:find input[name=budget]"
             hx-target="closest .bucket-card" hx-swap="outerHTML show:false"
             onsubmit="return false">
+        {% if view_mid and view_mid != current_mid %}
+        <input type="hidden" name="m" value="{{ view_mid }}">
+        {% endif %}
         <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
                aria-label="Budget for {{ b.name }}" title="Budget target"
                onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
@@ -70,6 +76,9 @@
               style="display:inline"
               hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}"
               hx-target="#panel" hx-swap="innerHTML">
+          {% if view_mid and view_mid != current_mid %}
+          <input type="hidden" name="m" value="{{ view_mid }}">
+          {% endif %}
           <button class="fill-btn" type="submit" title="Set allocation to budget">Fill</button>
         </form>
         {% endif %}

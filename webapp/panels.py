@@ -41,7 +41,13 @@ def dashboard():
 @bp.route("/buckets")
 @login_required
 def buckets():
-    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
+    view_mid = request.args.get("m") or None
+    if view_mid:
+        try:
+            D.F.parse_month_id(view_mid)
+        except Exception:
+            view_mid = None
+    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
 @bp.route("/buckets/<bid>/alloc", methods=["POST"])
@@ -52,24 +58,26 @@ def set_alloc(bid):
         amount = round(float(request.form.get("alloc", "0").replace("$", "").replace(",", "")), 2)
     except ValueError:
         amount = 0.0
+    form_mid = _validated_mid(request.form.get("m"))
+    mid = form_mid or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, mid)
     month.setdefault("allocations", {})[bid] = amount
     if not current_app.config["DEV_SEED"]:
-        DB.upsert_alloc(session["user_id"], session["access_token"],
-                        D.active_mid(), bid, amount)
-    # No-JS fallback: a plain form submit (Enter) reloads the panel.
+        DB.ensure_month(session["user_id"], session["access_token"], mid)
+        DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, amount)
     if request.headers.get("HX-Request") != "true":
-        return redirect(url_for("panels.buckets"))
-    # HTMX: swap just the row + out-of-band Ready-to-Assign.
-    vm = D.bucket_rows()
+        qs = f"?m={mid}" if mid != D.active_mid() else ""
+        return redirect(url_for("panels.buckets") + qs)
+    vm = D.bucket_rows(view_mid=form_mid)
     row = color = None
     for grp in vm["groups"]:
         for b in grp["buckets"]:
             if b["id"] == bid:
                 row, color = b, grp["color"]
     shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
+    return (render_template("panels/_bucket_row.html", b=row, cat_color=color,
+                            view_mid=mid, current_mid=vm["current_mid"])
             + render_template("panels/_oob_rts.html", shell=shell))
 
 
@@ -79,23 +87,27 @@ def set_alloc(bid):
 @login_required
 def fill_bucket(bid):
     """Set allocation = budget for this bucket."""
+    form_mid = _validated_mid(request.form.get("m"))
+    mid = form_mid or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, mid)
     budget = D.F.b_budget(month, bid)
     month.setdefault("allocations", {})[bid] = budget
     if not current_app.config["DEV_SEED"]:
-        DB.upsert_alloc(session["user_id"], session["access_token"],
-                        D.active_mid(), bid, budget)
+        DB.ensure_month(session["user_id"], session["access_token"], mid)
+        DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, budget)
     flash(f"Filled.", "ok")
-    return _buckets_response()
+    return _buckets_response(view_mid=form_mid)
 
 
 @bp.route("/buckets/distribute", methods=["POST"])
 @login_required
 def distribute_rts():
     """Spread remaining RTS evenly across underfunded buckets."""
+    form_mid = _validated_mid(request.form.get("m"))
+    mid = form_mid or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, mid)
     months = data.get("months", [])
     accounts = data.get("accounts", [])
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
@@ -103,7 +115,7 @@ def distribute_rts():
 
     rts = D.F.ready_to_spend(month, months, accounts, buckets, txs)
     if rts <= 0:
-        return _buckets_response()
+        return _buckets_response(view_mid=form_mid)
 
     underfunded = []
     for b in buckets:
@@ -119,17 +131,30 @@ def distribute_rts():
             new_alloc = D.F.b_alloc(month, bid) + add
             month.setdefault("allocations", {})[bid] = new_alloc
             if not current_app.config["DEV_SEED"]:
+                DB.ensure_month(session["user_id"], session["access_token"], mid)
                 DB.upsert_alloc(session["user_id"], session["access_token"],
-                                D.active_mid(), bid, new_alloc)
+                                mid, bid, new_alloc)
     flash("RTS distributed.", "ok")
-    return _buckets_response()
+    return _buckets_response(view_mid=form_mid)
 
 
-def _buckets_response():
+def _validated_mid(raw: str) -> str | None:
+    """Return raw if it's a valid month ID string, else None."""
+    if not raw:
+        return None
+    try:
+        D.F.parse_month_id(raw)
+        return raw
+    except Exception:
+        return None
+
+
+def _buckets_response(view_mid: str = None):
     """Return buckets panel for HTMX or redirect for plain requests."""
     if request.headers.get("HX-Request") == "true":
-        return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+        return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
+    qs = f"?m={view_mid}" if view_mid and view_mid != D.active_mid() else ""
+    return redirect(url_for("panels.buckets") + qs)
 
 
 def _is_modal():
@@ -319,22 +344,26 @@ def set_budget(bid):
         amount = round(float(request.form.get("budget", "0").replace("$", "").replace(",", "")), 2)
     except ValueError:
         amount = 0.0
+    form_mid = _validated_mid(request.form.get("m"))
+    mid = form_mid or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, mid)
     month.setdefault("budgets", {})[bid] = amount
     if not current_app.config["DEV_SEED"]:
-        DB.upsert_budget(session["user_id"], session["access_token"],
-                         D.active_mid(), bid, amount)
+        DB.ensure_month(session["user_id"], session["access_token"], mid)
+        DB.upsert_budget(session["user_id"], session["access_token"], mid, bid, amount)
     if request.headers.get("HX-Request") != "true":
-        return redirect(url_for("panels.buckets"))
-    vm = D.bucket_rows()
+        qs = f"?m={mid}" if mid != D.active_mid() else ""
+        return redirect(url_for("panels.buckets") + qs)
+    vm = D.bucket_rows(view_mid=form_mid)
     row = color = None
     for grp in vm["groups"]:
         for b in grp["buckets"]:
             if b["id"] == bid:
                 row, color = b, grp["color"]
     shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
+    return (render_template("panels/_bucket_row.html", b=row, cat_color=color,
+                            view_mid=mid, current_mid=vm["current_mid"])
             + render_template("panels/_oob_rts.html", shell=shell))
 
 

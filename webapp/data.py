@@ -30,12 +30,12 @@ def active_mid() -> str:
     return session.get("active_mid") or F.current_month_id()
 
 
-def active_month(data: dict) -> dict:
-    mid = active_mid()
+def active_month(data: dict, mid: str = None) -> dict:
+    target = mid or active_mid()
     for m in data.get("months", []):
-        if m["id"] == mid:
+        if m["id"] == target:
             return m
-    return {"id": mid, "allocations": {}, "budgets": {}}
+    return {"id": target, "allocations": {}, "budgets": {}}
 
 
 def month_label(mid: str) -> str:
@@ -94,11 +94,12 @@ def shell_ctx(active_panel: str = "") -> dict:
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
 
-def bucket_rows():
+def bucket_rows(view_mid: str = None):
     """Category-grouped bucket rows with alloc/budget/spent/left + status."""
     data = load_data()
-    mid = active_mid()
-    month = active_month(data)
+    current_mid = active_mid()
+    mid = view_mid or current_mid
+    month = active_month(data, mid)
     months = data.get("months", [])
     txs = data.get("txs", [])
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
@@ -195,7 +196,15 @@ def bucket_rows():
             "pct": min(100, round((cat_alloc / cat_budget) * 100)) if cat_budget else 0,
             "buckets": rows,
         })
+    # Month tabs for the future-planning toggle
+    month_tabs = [
+        {"mid": F.month_offset(current_mid, n),
+         "label": month_label(F.month_offset(current_mid, n)),
+         "offset": n}
+        for n in (0, 1, 2)
+    ]
     return {"groups": groups, "attention": attention, "cats": cats,
+            "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
             "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
                             for b in buckets if not b.get("archived")]}
 

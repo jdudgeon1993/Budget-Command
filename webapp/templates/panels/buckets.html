@@ -2,6 +2,24 @@
 {% block panel %}
 <div class="panel-grid">
   <div>
+    {# ── Month planning tabs ── #}
+    <div class="month-tabs">
+      {% for tab in month_tabs %}
+      <a class="month-tab {% if tab.mid == view_mid %}active{% elif tab.offset > 0 %}future{% endif %}"
+         href="{{ url_for('panels.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         hx-get="{{ url_for('panels.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         hx-target="#panel" hx-swap="innerHTML">
+        {{ tab.label }}{% if tab.offset > 0 %} <span style="font-size:9px;opacity:.6;vertical-align:middle">▸</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+
+    {% if view_mid != current_mid %}
+    <div style="background:rgba(129,140,248,0.10);border:1px solid rgba(129,140,248,0.25);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--indigo)">
+      Planning allocations for <strong>{{ month_tabs | selectattr('mid','equalto',view_mid) | map(attribute='label') | first | default(view_mid) }}</strong> — spending data not available yet.
+    </div>
+    {% endif %}
+
     <div class="workflow-bar">
       <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents"
             hx-post="{{ url_for('panels.month_copy') }}" hx-target="#panel" hx-swap="innerHTML">
@@ -20,8 +38,12 @@
         <span class="bch-sep">/</span>
         <span class="bch-budget">Budget</span>
         <span class="bch-extra">
+          {% if view_mid == current_mid %}
           <span>Spent</span>
           <span>Left</span>
+          {% else %}
+          <span style="color:var(--text3)">Planned</span>
+          {% endif %}
         </span>
       </div>
     </div>
@@ -78,6 +100,9 @@
       {% if shell.rts > 0 %}
       <form method="post" action="{{ url_for('panels.distribute_rts') }}" style="display:contents"
             hx-post="{{ url_for('panels.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML">
+        {% if view_mid != current_mid %}
+        <input type="hidden" name="m" value="{{ view_mid }}">
+        {% endif %}
         <button class="rts-distribute-btn" type="submit">DISTRIBUTE RTS →</button>
       </form>
       {% endif %}
@@ -96,6 +121,9 @@
         {% if a.status == 'partial' and a.budget > 0 %}
         <form method="post" action="{{ url_for('panels.fill_bucket', bid=a.id) }}" style="display:inline"
               hx-post="{{ url_for('panels.fill_bucket', bid=a.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if view_mid != current_mid %}
+          <input type="hidden" name="m" value="{{ view_mid }}">
+          {% endif %}
           <button class="fill-btn" type="submit">Fill</button>
         </form>
         {% endif %}

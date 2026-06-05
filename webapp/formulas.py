@@ -78,6 +78,19 @@ def month_status(mid: str) -> str:
     return "present"
 
 
+def month_offset(mid: str, n: int) -> str:
+    """Return the month n months after (or before, if n<0) mid."""
+    y, m0 = parse_month_id(mid)
+    m0 += n
+    while m0 > 11:
+        m0 -= 12
+        y += 1
+    while m0 < 0:
+        m0 += 12
+        y -= 1
+    return month_id(y, m0)
+
+
 # ── Transaction helpers ───────────────────────────────────────────────────────
 
 def is_scheduled(tx: dict) -> bool:
