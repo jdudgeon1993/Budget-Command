@@ -50,18 +50,22 @@
            data-amt="{{ t.amount }}">
         <div class="tx-stripe" style="background:var(--amber);width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
         <div class="tx-body">
-          <div class="tx-name">{{ t.desc }}</div>
+          <div class="tx-row-top">
+            <div class="tx-name">{{ t.desc }}</div>
+            <div class="tx-row-right">
+              <span class="tx-amt" style="color:var(--amber)">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
+              {% if t.id %}
+              <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
+                 hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
+              {% endif %}
+            </div>
+          </div>
           <div class="tx-meta">
             <span class="tx-pill" style="color:var(--amber);background:rgba(251,191,36,.12)">Scheduled</span>
             {% if t.sub %}<span class="tx-cat">{{ t.sub }}</span>{% endif %}
             <span class="tx-acct-lbl">{{ t.account_name }}</span>
           </div>
         </div>
-        <span class="tx-amt" style="color:var(--amber)">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
-        {% if t.id %}
-        <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
-           hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
-        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -70,6 +74,11 @@
 
     {# ── Posted transactions ── #}
     <div class="statement-label">Current Statement</div>
+    {# RB pinpoint — shown when filtering to a single account #}
+    <div id="stmt-rb-pin" class="stmt-rb-pin" style="display:none">
+      <span class="stmt-rb-pin-lbl">Current Balance</span>
+      <span id="stmt-rb-pin-amt" class="mono"></span>
+    </div>
     {% for day in ledger %}
     <div class="ledger-day">
       <div class="ledger-head">
@@ -87,9 +96,18 @@
            data-amt="{{ t.amount }}">
         <div class="tx-stripe" style="background:var(--{{ 'green' if t.color=='green' else 'red' if t.color=='red' else 'text2' }});width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
         <div class="tx-body">
-          <div class="tx-name">
-            {{ t.desc }}
-            {% if t.reconciled %}<span class="tx-recon" title="Reconciled">✓</span>{% endif %}
+          <div class="tx-row-top">
+            <div class="tx-name">
+              {{ t.desc }}
+              {% if t.reconciled %}<span class="tx-recon" title="Reconciled">✓</span>{% endif %}
+            </div>
+            <div class="tx-row-right">
+              <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
+              {% if t.id %}
+              <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
+                 hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
+              {% endif %}
+            </div>
           </div>
           <div class="tx-meta">
             <span class="tx-pill c-{{ t.color }} bg-{{ t.color }}">{{ t.pill }}</span>
@@ -98,11 +116,6 @@
             <span class="tx-acct-lbl">{{ t.account_name }}</span>
           </div>
         </div>
-        <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
-        {% if t.id %}
-        <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
-           hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
-        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -196,12 +209,20 @@ function _txEffect(r,aid){
 }
 
 function _updateRunningBal(aid){
+  var pin=document.getElementById('stmt-rb-pin');
   if(aid==='all'||acctBalances[aid]===undefined){
     document.querySelectorAll('.ledger-running').forEach(function(e){e.style.display='none';});
     document.querySelectorAll('.ledger-net').forEach(function(e){e.style.display='';});
+    if(pin) pin.style.display='none';
     return;
   }
   var bal=acctBalances[aid];
+  // Show pinpoint at top of Current Statement matching account card balance
+  if(pin){
+    var pinAmt=document.getElementById('stmt-rb-pin-amt');
+    if(pinAmt){pinAmt.textContent=_money(bal);pinAmt.className='mono '+(bal<0?'c-red':'c-green');}
+    pin.style.display='flex';
+  }
   document.querySelectorAll('.ledger-day').forEach(function(d){
     // Skip scheduled/upcoming days — they haven't happened yet
     if(d.dataset.sched==='1'||d.style.display==='none') return;
@@ -210,7 +231,11 @@ function _updateRunningBal(aid){
       if(r.style.display!=='none') dayEffect+=_txEffect(r,aid);
     });
     var run=d.querySelector('.ledger-running'), net=d.querySelector('.ledger-net');
-    if(run){run.textContent=_money(bal);run.className='ledger-running '+(bal<0?'c-red':'c-green');run.style.display='';}
+    if(run){
+      run.innerHTML='<span class="ledger-rb-lbl">RB</span>'+_money(bal);
+      run.className='ledger-running '+(bal<0?'c-red':'c-green');
+      run.style.display='';
+    }
     if(net) net.style.display='none';
     bal-=dayEffect;
   });
@@ -228,20 +253,22 @@ function filterLedger(btn,aid){
     if(ac) ac.classList.add('acct-card-active');
   }
 
-  // Balance banner
+  // Balance banner + statement pinpoint
   var bar=document.getElementById('acct-bal-bar');
-  if(bar){
-    if(aid!=='all'&&acctBalances[aid]!==undefined){
-      var nm=btn?btn.textContent.trim():'';
-      var b=acctBalances[aid];
+  var pin=document.getElementById('stmt-rb-pin');
+  if(aid!=='all'&&acctBalances[aid]!==undefined){
+    var nm=btn?btn.textContent.trim():'';
+    var b=acctBalances[aid];
+    if(bar){
       document.getElementById('acct-bal-name').textContent=nm;
       var amtEl=document.getElementById('acct-bal-amt');
       amtEl.textContent=_money(b);
       amtEl.className='mono '+(b<0?'c-red':'c-green');
       bar.style.display='flex';
-    } else {
-      bar.style.display='none';
     }
+  } else {
+    if(bar) bar.style.display='none';
+    if(pin) pin.style.display='none';
   }
 
   // Show/hide rows; flip transfer/payment display for destination-account view

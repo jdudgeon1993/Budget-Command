@@ -261,8 +261,15 @@ def accounts_view():
             "debtPaymentAccountId": t.get("debtPaymentAccountId", ""),
         }
 
+    _TYPE_ORDER = {"in": 0, "xfr": 1, "out": 2}
+
     def _group(tx_list):
-        rows = sorted([_shape_row(t) for t in tx_list], key=lambda r: r["date"], reverse=True)
+        # Sort newest-first; within same date: income → transfers → expenses
+        rows = sorted(
+            [_shape_row(t) for t in tx_list],
+            key=lambda r: (r["date"], -_TYPE_ORDER.get(r["type"], 2)),
+            reverse=True,
+        )
         groups, cur = [], None
         for r in rows:
             if cur is None or cur["date"] != r["date"]:
