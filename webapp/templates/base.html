@@ -120,11 +120,9 @@ document.addEventListener('htmx:afterSettle',function(e){
   </main>
 
   <div id="mob-rts-strip" class="mob-rts-strip">
-    <span class="mob-strip-amt">{{ shell.rts | money }}</span>
+    <span id="mob-rts-amt" class="mob-strip-amt">{{ shell.rts | money }}</span>
     <span class="mob-strip-spacer"></span>
-    {% if shell.age_of_money is not none %}
-    <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>
-    {% endif %}
+    <span id="mob-aom-badge">{% if shell.age_of_money is not none %}<span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}</span>
     <a class="mob-strip-setup {{ 'active' if p == 'setup' }}" href="{{ url_for('panels.setup') }}" hx-get="{{ url_for('panels.setup') }}" hx-target="#panel" hx-push-url="true" aria-label="Setup">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('setup') }}</svg>
     </a>
@@ -160,6 +158,18 @@ function openAddTxModal(){_restoreAddTx();openModal();}
 function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';_restoreAddTx();},220);}
 document.body.addEventListener('closeModal',closeModal);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
+function updateTxFields(t){
+  document.querySelectorAll('.tx-type').forEach(function(el){el.classList.remove('on');});
+  var lbl=document.querySelector('.tx-type input[value="'+t+'"]');
+  if(lbl)lbl.closest('.tx-type').classList.add('on');
+  var toAcct=document.getElementById('tf-toAcct');
+  var bucket=document.getElementById('tf-bucket');
+  var incType=document.getElementById('tf-incomeType');
+  if(toAcct)toAcct.style.display=(t==='xfr')?'':'none';
+  if(bucket)bucket.style.display=(t==='out')?'':'none';
+  if(incType)incType.style.display=(t==='in')?'':'none';
+  document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
+}
 function _syncNav(){
   var path=location.pathname;
   document.querySelectorAll('.nav-item,.mob-tab,.mob-strip-setup').forEach(function(a){

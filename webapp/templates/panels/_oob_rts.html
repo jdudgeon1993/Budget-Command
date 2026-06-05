@@ -3,8 +3,5 @@
   <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
   <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
 </div>
-<div id="mob-rts-strip" class="mob-rts-strip" hx-swap-oob="true">
-  <span class="mob-strip-amt">{{ shell.rts | money }}</span>
-  <span class="mob-strip-spacer"></span>
-  {% if shell.age_of_money is not none %}<span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}
-</div>
+<span id="mob-rts-amt" class="mob-strip-amt" hx-swap-oob="true">{{ shell.rts | money }}</span>
+<span id="mob-aom-badge" hx-swap-oob="true">{% if shell.age_of_money is not none %}<span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}</span>

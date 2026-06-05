@@ -64,14 +64,3 @@
     <button class="toolbar-btn primary" type="submit">Add Transaction</button>
   </div>
 </form>
-<script>
-function updateTxFields(t){
-  document.querySelectorAll('.tx-type').forEach(function(el){el.classList.remove('on');});
-  var lbl=document.querySelector('.tx-type input[value="'+t+'"]');
-  if(lbl)lbl.closest('.tx-type').classList.add('on');
-  document.getElementById('tf-toAcct').style.display=(t==='xfr')?'':'none';
-  document.getElementById('tf-bucket').style.display=(t==='out')?'':'none';
-  document.getElementById('tf-incomeType').style.display=(t==='in')?'':'none';
-  document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
-}
-</script>
