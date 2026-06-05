@@ -468,6 +468,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                                      "amount_fmt": _fmt(bill["amount"])})
             funded_lines.append({"row_type": "bal", "text": _fmt(running_balance), "amount_fmt": ""})
 
+        bal_after_funded = running_balance  # snapshot before unfunded bills
+
         # Process unfunded (red) — deduct from balance
         unfunded_lines: list[dict] = []
         for d in sorted(unfunded_by_day):
@@ -500,6 +502,14 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         period_unfunded  = sum(b["amount"] for d in unfunded_by_day.values() for b in d)
         period_net       = running_balance - period_start_bal
 
+        total_vault_alloc = sum(ae["amount"] for ae in alloc_events if ae["ae_type"] == "vault")
+        total_ext_xfr     = sum(xfr["amount"] for xfr in transfer_events)
+
+        def _bal_color(b: float) -> str:
+            if b < 100:  return "var(--red)"
+            if b < 500:  return "var(--amber)"
+            return "var(--green)"
+
         if is_gap:
             label = "Pre-Paycheck Gap"
         elif is_skipped:
@@ -528,20 +538,27 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             "has_alloc_events":    bool(alloc_events),
             "has_funded":          bool(funded_by_day),
             "has_unfunded":        bool(unfunded_by_day),
-            "start_bal_fmt":       _fmt(period_start_bal),
-            "bal_after_xfr_fmt":   _fmt(bal_after_xfr),
-            "income_total_fmt":    _fmt(period_income),
-            "unfunded_total_fmt":  _fmt(period_unfunded),
-            "net_fmt":             _fmt(abs(period_net)),
-            "net_sign":            "+" if period_net >= 0 else "-",
-            "net_negative":        period_net < 0,
-            "end_bal_fmt":         _fmt(running_balance),
-            "end_bal_negative":    running_balance < 0,
-            "shortfall":           running_balance < 0,
-            "funded_count":        funded_count,
-            "total_count":         total_count,
-            "safe_to_spend_fmt":   "",  # filled below
-            "sts_color":           "",
+            "start_bal_fmt":          _fmt(period_start_bal),
+            "bal_after_xfr_fmt":      _fmt(bal_after_xfr),
+            "income_total_fmt":       _fmt(period_income),
+            "unfunded_total_fmt":     _fmt(period_unfunded),
+            "funded_total_fmt":       _fmt(total_funded),
+            "net_fmt":                _fmt(abs(period_net)),
+            "net_sign":               "+" if period_net >= 0 else "-",
+            "net_negative":           period_net < 0,
+            "end_bal_fmt":            _fmt(running_balance),
+            "end_bal_negative":       running_balance < 0,
+            "end_bal_color":          _bal_color(running_balance),
+            "shortfall":              running_balance < 0,
+            "funded_count":           funded_count,
+            "total_count":            total_count,
+            "vault_alloc_total_fmt":  _fmt(total_vault_alloc),
+            "has_vault_alloc":        total_vault_alloc > 0,
+            "ext_xfr_total_fmt":      _fmt(total_ext_xfr),
+            "bal_after_funded_fmt":   _fmt(bal_after_funded),
+            "bal_after_funded_color": _bal_color(bal_after_funded),
+            "safe_to_spend_fmt":      "",  # filled below
+            "sts_color":              "",
         })
 
     # ── Safe to spend (forward minimum) ──────────────────────────────────────

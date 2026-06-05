@@ -8,18 +8,22 @@
             style="display:contents"
             hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
             hx-trigger="change from:find input[name=alloc]"
-            hx-target="closest .bucket-card" hx-swap="outerHTML">
+            hx-target="closest .bucket-card" hx-swap="outerHTML show:false"
+            onsubmit="return false">
         <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
-               aria-label="Allocation for {{ b.name }}">
+               aria-label="Allocation for {{ b.name }}"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
       </form>
       <span class="num-div">/</span>
       <form method="post" action="{{ url_for('panels.set_budget', bid=b.id) }}"
             style="display:contents"
             hx-post="{{ url_for('panels.set_budget', bid=b.id) }}"
             hx-trigger="change from:find input[name=budget]"
-            hx-target="closest .bucket-card" hx-swap="outerHTML">
+            hx-target="closest .bucket-card" hx-swap="outerHTML show:false"
+            onsubmit="return false">
         <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
-               aria-label="Budget for {{ b.name }}" title="Budget target">
+               aria-label="Budget for {{ b.name }}" title="Budget target"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
       </form>
 
       {# ── Extra numbers: type-aware ── #}

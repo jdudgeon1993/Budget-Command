@@ -70,84 +70,61 @@
     </div>
 
     {% if not p.is_skipped %}
+    <!-- Compact cash-flow table -->
+    <div class="fc-cft">
 
-    <!-- Income -->
-    {% if p.has_income %}
-    <div class="fc-period-section">
-      <div class="fc-section-lbl">Income</div>
+      {% if p.type != 'gap' %}
+      <div class="fc-cft-row fc-cft-start">
+        <span class="fc-cft-lbl">Start</span>
+        <span class="fc-cft-amt c-green">{{ p.start_bal_fmt }}</span>
+      </div>
+
       {% for line in p.income_lines %}
-      <div class="fc-line fc-income">
-        <span class="fc-line-lbl">{{ line.label }}</span>
-        <span class="fc-line-amt c-green">{{ line.amount_fmt }}</span>
+      <div class="fc-cft-row fc-cft-income">
+        <span class="fc-cft-lbl">+ {{ line.label }}</span>
+        <span class="fc-cft-amt c-green">{{ line.amount_fmt }}</span>
       </div>
       {% endfor %}
-    </div>
-    {% endif %}
 
-    <!-- External Transfers -->
-    {% if p.has_transfers %}
-    <div class="fc-period-section">
-      <div class="fc-section-lbl">Transfers Out</div>
-      {% for line in p.transfer_lines %}
-      <div class="fc-line">
-        <span class="fc-line-lbl">{{ line.label }}</span>
-        <span class="fc-line-amt" style="color:var(--amber)">-{{ line.amount_fmt }}</span>
+      {% if p.has_vault_alloc %}
+      <div class="fc-cft-row fc-cft-internal">
+        <span class="fc-cft-lbl">− Internal Alloc</span>
+        <span class="fc-cft-amt" style="color:var(--accent)">{{ p.vault_alloc_total_fmt }}</span>
       </div>
-      {% endfor %}
-    </div>
-    {% endif %}
+      {% endif %}
 
-    <!-- Bucket Allocations -->
-    {% if p.has_alloc_events %}
-    <div class="fc-period-section">
-      <div class="fc-section-lbl">Allocations</div>
-      {% for ae in p.alloc_events %}
-      <div class="fc-line">
-        <span class="fc-line-lbl">{{ ae.name }}{% if ae.ae_type == 'vault' %} <span class="fc-type-badge fc-badge-vault">Vault</span>{% endif %}</span>
-        <span class="fc-line-amt" style="color:var(--accent)">{{ ae.amount | money }}</span>
+      {% if p.has_transfers %}
+      <div class="fc-cft-row fc-cft-external">
+        <span class="fc-cft-lbl">− External Xfr</span>
+        <span class="fc-cft-amt" style="color:var(--amber)">{{ p.ext_xfr_total_fmt }}</span>
       </div>
-      {% endfor %}
-    </div>
-    {% endif %}
+      {% endif %}
 
-    <!-- Funded Bills -->
-    {% if p.has_funded %}
-    <div class="fc-period-section">
-      <div class="fc-section-lbl">Bills Due — Funded ({{ p.funded_count }}/{{ p.total_count }})</div>
-      {% for line in p.funded_lines %}
-        {% if line.row_type == 'date' %}
-        <div class="fc-bill-date-hdr">{{ line.text }}</div>
-        {% elif line.row_type == 'bill' %}
-        <div class="fc-line fc-funded">
-          <span class="fc-line-lbl">{{ line.text }}</span>
-          <span class="fc-line-amt">{{ line.amount_fmt }}</span>
-        </div>
-        {% elif line.row_type == 'bal' %}
-        <div class="fc-bal-after">Balance after: <span class="mono">{{ line.text }}</span></div>
-        {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
+      <div class="fc-cft-row fc-cft-subtotal">
+        <span class="fc-cft-lbl">= Running Balance</span>
+        <span class="fc-cft-amt mono">{{ p.bal_after_xfr_fmt }}</span>
+      </div>
+      {% endif %}{# end not gap #}
 
-    <!-- Unfunded Bills -->
-    {% if p.has_unfunded %}
-    <div class="fc-period-section">
-      <div class="fc-section-lbl" style="color:var(--red)">⚠ Unfunded Bills</div>
-      {% for line in p.unfunded_lines %}
-        {% if line.row_type == 'date' %}
-        <div class="fc-bill-date-hdr" style="color:var(--red)">{{ line.text }}</div>
-        {% elif line.row_type == 'bill' %}
-        <div class="fc-line fc-unfunded">
-          <span class="fc-line-lbl">{{ line.text }}</span>
-          <span class="fc-line-amt">{{ line.amount_fmt }}</span>
-        </div>
-        {% elif line.row_type == 'bal' %}
-        <div class="fc-bal-after" style="color:var(--red)">Balance after: <span class="mono">{{ line.text }}</span></div>
-        {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
+      {% if p.has_funded %}
+      <div class="fc-cft-row fc-cft-funded">
+        <span class="fc-cft-lbl">− Funded Bills <span class="fc-cft-count">({{ p.funded_count }})</span></span>
+        <span class="fc-cft-amt" style="color:var(--green)">{{ p.funded_total_fmt }}</span>
+      </div>
+      <div class="fc-cft-row fc-cft-subtotal">
+        <span class="fc-cft-lbl">= Pre-Funded Balance</span>
+        <span class="fc-cft-amt mono" style="color:{{ p.bal_after_funded_color }}">{{ p.bal_after_funded_fmt }}</span>
+      </div>
+      {% endif %}
 
+      {% if p.has_unfunded %}
+      <div class="fc-cft-row fc-cft-unfunded">
+        <span class="fc-cft-lbl">− Unfunded Bills <span class="fc-cft-count c-red">({{ p.total_count - p.funded_count }})</span></span>
+        <span class="fc-cft-amt c-red">{{ p.unfunded_total_fmt }}</span>
+      </div>
+      {% endif %}
+
+    </div>
     {% endif %}{# end not is_skipped #}
 
     <!-- Period footer: end balance -->
@@ -158,7 +135,7 @@
       </div>
       <div>
         <span class="fc-footer-lbl" style="margin-right:8px;opacity:0.5">End Balance</span>
-        <span class="mono fc-period-sts {{ 'c-red' if p.end_bal_negative else 'c-green' }}">{{ p.end_bal_fmt }}</span>
+        <span class="mono fc-period-sts" style="color:{{ p.end_bal_color }}">{{ p.end_bal_fmt }}</span>
       </div>
     </div>
 

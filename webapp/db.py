@@ -66,13 +66,26 @@ def ensure_schema() -> None:
 
 
 def sign_in(email: str, password: str) -> dict:
-    """Returns {access_token, user_id, user_email} or raises."""
+    """Returns {access_token, refresh_token, expires_at, user_id, user_email} or raises."""
     c = client()
     resp = c.auth.sign_in_with_password({"email": email, "password": password})
     return {
-        "access_token": resp.session.access_token,
-        "user_id": resp.user.id,
-        "user_email": resp.user.email,
+        "access_token":  resp.session.access_token,
+        "refresh_token": resp.session.refresh_token,
+        "expires_at":    resp.session.expires_at,
+        "user_id":       resp.user.id,
+        "user_email":    resp.user.email,
+    }
+
+
+def refresh_session(refresh_token: str) -> dict:
+    """Exchange a refresh token for a new access token. Raises on failure."""
+    c = client()
+    resp = c.auth.refresh_session(refresh_token)
+    return {
+        "access_token":  resp.session.access_token,
+        "refresh_token": resp.session.refresh_token,
+        "expires_at":    resp.session.expires_at,
     }
 
 
