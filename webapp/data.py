@@ -119,6 +119,7 @@ def bucket_rows():
             vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
             over = max(spent - budget, 0) if budget else max(spent - alloc, 0)
             needed = max(budget - alloc, 0)
+            handled = bool((month.get("handledBuckets") or {}).get(bid))
             if over > 0:
                 status, pill = "over", f"Over ${over:,.2f}"
             elif needed > 0:
@@ -127,6 +128,8 @@ def bucket_rows():
                 status, pill = "funded", "Paid"
             else:
                 status, pill = "funded", "Funded"
+            if handled:
+                status, pill = "funded", "✓ Handled"
             cat_alloc += alloc
             cat_budget += budget
             # Current month transactions for inline expand
@@ -158,7 +161,6 @@ def bucket_rows():
                         monthly_needed = round((target_amount - left) / months_left, 2)
                 except Exception:
                     pass
-            handled = bool((month.get("handledBuckets") or {}).get(bid))
             row = {
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left,
