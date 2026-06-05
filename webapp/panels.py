@@ -203,6 +203,7 @@ def bucket_settings(bid):
                 "default_budget": _num("default_budget"),
                 "rollover": f.get("rollover") == "1",
                 "notes": f.get("notes", ""),
+                "debt_account_id": f.get("debtAccountId") or None,
             }
             if btype == "expense":
                 payload.update({

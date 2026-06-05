@@ -158,6 +158,18 @@
     </p>
   </div>
 
+  {% if debt_accounts %}
+  <div class="edit-field">
+    <label>Linked debt account <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0;font-weight:400">(payments to this bucket reduce the debt balance)</span></label>
+    <select name="debtAccountId">
+      <option value="">— None —</option>
+      {% for da in debt_accounts %}
+      <option value="{{ da.id }}" {{ 'selected' if da.id == bucket.debtAccountId }}>{{ da.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
   <div class="edit-field">
     <label>Notes</label>
     <textarea name="notes" rows="2" style="resize:vertical">{{ bucket.notes or '' }}</textarea>

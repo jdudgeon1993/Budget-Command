@@ -41,11 +41,9 @@
   <div style="display:flex;align-items:center;gap:10px">
     <span style="color:var(--text2);font-size:14px;font-family:var(--mono)">+$</span>
     <input id="pt-extra" type="number" min="0" step="10" value="0"
-           style="width:100px;font-family:var(--mono);font-size:18px;font-weight:600;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 10px;color:var(--text);text-align:right"
-           oninput="ptUpdate()">
+           style="width:100px;font-family:var(--mono);font-size:18px;font-weight:600;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 10px;color:var(--text);text-align:right">
     <input id="pt-slider" type="range" min="0" step="10" value="0"
-           style="flex:1;accent-color:var(--accent)"
-           oninput="document.getElementById('pt-extra').value=this.value;ptUpdate()">
+           style="flex:1;accent-color:var(--accent)">
   </div>
 </div>
 
@@ -57,7 +55,7 @@
 
 {# Amortization schedule toggle #}
 <div style="margin-bottom:8px">
-  <button class="wf-btn" type="button" onclick="ptToggleSched()" id="pt-sched-btn">▸ View schedule</button>
+  <button class="wf-btn" type="button" id="pt-sched-btn">▸ View schedule</button>
 </div>
 <div id="pt-sched" style="display:none;overflow-x:auto"></div>
 
@@ -76,13 +74,19 @@ var BAL  = {{ balance | round(2) }};
 var APR  = {{ account.debtAPR }};
 var MPMT = {{ account.debtMinPayment or 0 }};
 
-// Slider max: 2× the payment that would pay off in ~12 months
 var rate = APR/100/12;
 var sliderMax = rate>0
   ? Math.ceil(BAL*rate*(Math.pow(1+rate,12))/(Math.pow(1+rate,12)-1)/10)*10*2
   : Math.ceil(BAL/12/10)*10*2;
 sliderMax = Math.max(sliderMax, 500);
 document.getElementById('pt-slider').max = sliderMax;
+
+document.getElementById('pt-extra').addEventListener('input', function(){ window.ptUpdate(); });
+document.getElementById('pt-slider').addEventListener('input', function(){
+  document.getElementById('pt-extra').value = this.value;
+  window.ptUpdate();
+});
+document.getElementById('pt-sched-btn').addEventListener('click', function(){ window.ptToggleSched(); });
 
 function money(v){
   return '$'+Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
@@ -123,7 +127,7 @@ function scheduleRows(bal,apr,pmt,max_rows){
   return rows;
 }
 
-function ptUpdate(){
+window.ptUpdate = function(){
   var extra=parseFloat(document.getElementById('pt-extra').value)||0;
   var basePmt=MPMT||Math.max(1,BAL*0.01+BAL*rate); // fallback: 1% + interest if no min set
   var extraPmt=basePmt+extra;
@@ -202,7 +206,7 @@ function ptRenderSched(basePmt,extraPmt,extra){
   document.getElementById('pt-sched').innerHTML=html;
 }
 
-function ptToggleSched(){
+window.ptToggleSched = function(){
   var el=document.getElementById('pt-sched');
   var btn=document.getElementById('pt-sched-btn');
   var open=el.style.display!=='none';
@@ -216,9 +220,9 @@ function ptToggleSched(){
     var basePmt=MPMT||Math.max(1,BAL*0.01+BAL*rate);
     ptRenderSched(basePmt,basePmt+extra,extra);
   }
-}
+};
 
-ptUpdate();
+window.ptUpdate();
 })();
 </script>
 {% endif %}
