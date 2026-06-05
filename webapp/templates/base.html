@@ -170,6 +170,21 @@ function updateTxFields(t){
   if(incType)incType.style.display=(t==='in')?'':'none';
   document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
 }
+function updateAcctFields(){
+  var t=document.getElementById('acct-type-sel');
+  var f=document.getElementById('acct-debt-fields');
+  if(t&&f)f.style.display=(t.value==='debt')?'':'none';
+}
+function updateBktFields(){
+  var t=document.getElementById('bkt-type-sel');
+  var ef=document.getElementById('bkt-expense-fields');
+  var sf=document.getElementById('bkt-sinking-fields');
+  var vf=document.getElementById('bkt-vault-fields');
+  if(!t)return;
+  if(ef)ef.style.display=(t.value==='expense'||t.value==='')?'':'none';
+  if(sf)sf.style.display=(t.value==='sinking'||t.value==='goal')?'':'none';
+  if(vf)vf.style.display=(t.value==='vault')?'':'none';
+}
 function _syncNav(){
   var path=location.pathname;
   document.querySelectorAll('.nav-item,.mob-tab,.mob-strip-setup').forEach(function(a){
