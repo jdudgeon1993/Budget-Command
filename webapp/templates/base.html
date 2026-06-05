@@ -121,7 +121,10 @@ document.addEventListener('htmx:afterSettle',function(e){
 
   <div id="mob-rts-strip" class="mob-rts-strip">
     <span class="mob-strip-amt">{{ shell.rts | money }}</span>
-    <span class="mob-strip-lbl">ready to assign{% if shell.age_of_money is not none %} · <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}</span>
+    <span class="mob-strip-spacer"></span>
+    {% if shell.age_of_money is not none %}
+    <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>
+    {% endif %}
     <a class="mob-strip-setup {{ 'active' if p == 'setup' }}" href="{{ url_for('panels.setup') }}" hx-get="{{ url_for('panels.setup') }}" hx-target="#panel" hx-push-url="true" aria-label="Setup">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('setup') }}</svg>
     </a>
