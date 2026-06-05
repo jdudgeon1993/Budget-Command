@@ -158,6 +158,7 @@ def bucket_rows():
                         monthly_needed = round((target_amount - left) / months_left, 2)
                 except Exception:
                     pass
+            handled = bool((month.get("handledBuckets") or {}).get(bid))
             row = {
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left,
@@ -172,6 +173,7 @@ def bucket_rows():
                 "goal_reached": goal_reached,
                 "monthly_needed": monthly_needed,
                 "rollover": b.get("rollover", False),
+                "handled": handled,
                 "txs": bkt_txs,
             }
             rows.append(row)

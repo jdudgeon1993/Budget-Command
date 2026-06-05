@@ -90,6 +90,7 @@ def load_all(uid: str, token: str) -> dict:
     budgets_raw    = eq("bcc_month_budgets")
     rollrel_raw    = eq("bcc_month_rollover_released")
     skipped_raw    = eq("bcc_month_skipped")
+    handled_raw    = eq("bcc_month_handled")
     vaultwd_raw    = eq("bcc_month_vault_withdrawals")
     paychecks_raw  = eq("bcc_paychecks")
     rules_raw      = eq("bcc_allocation_rules")
@@ -158,6 +159,10 @@ def load_all(uid: str, token: str) -> dict:
     for s in skipped_raw:
         skipped_by_mid.setdefault(s["month_id"], {})[s["bucket_id"]] = True
 
+    handled_by_mid: dict[str, dict] = {}
+    for h in handled_raw:
+        handled_by_mid.setdefault(h["month_id"], {})[h["bucket_id"]] = True
+
     vault_by_mid: dict[str, dict] = {}
     for v in vaultwd_raw:
         vault_by_mid.setdefault(v["month_id"], {})[v["bucket_id"]] = float(v.get("amount") or 0)
@@ -169,6 +174,7 @@ def load_all(uid: str, token: str) -> dict:
         "budgets": budget_by_mid.get(m["id"], {}),
         "rolloverReleased": rollrel_by_mid.get(m["id"], {}),
         "skippedBuckets": skipped_by_mid.get(m["id"], {}),
+        "handledBuckets": handled_by_mid.get(m["id"], {}),
         "vaultWithdrawals": vault_by_mid.get(m["id"], {}),
     } for m in months_raw]
 
@@ -255,6 +261,16 @@ def insert_bucket(uid: str, token: str, name: str, cat_id: str, btype: str = "ex
         "default_budget": 0, "sort_order": 999,
     }).execute()
     return bid
+
+
+def toggle_handled(uid: str, token: str, mid: str, bid: str, currently_handled: bool) -> None:
+    """Insert or delete a handled row for (month, bucket)."""
+    tbl = client(token).table("bcc_month_handled")
+    if currently_handled:
+        tbl.delete().eq("user_id", uid).eq("month_id", mid).eq("bucket_id", bid).execute()
+    else:
+        tbl.upsert({"user_id": uid, "month_id": mid, "bucket_id": bid},
+                   on_conflict="user_id,month_id,bucket_id").execute()
 
 
 def upsert_budget(uid: str, token: str, mid: str, bid: str, amount: float) -> None:

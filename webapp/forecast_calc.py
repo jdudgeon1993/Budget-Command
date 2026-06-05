@@ -327,8 +327,9 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             periods_meta.append((pd, pe, False))
 
     # ── Monthly allocation data ───────────────────────────────────────────────
-    monthly_allocs  = {m.get("id", ""): m.get("allocations", {}) for m in months_raw}
-    monthly_budgets = {m.get("id", ""): m.get("budgets", {}) for m in months_raw}
+    monthly_allocs   = {m.get("id", ""): m.get("allocations", {}) for m in months_raw}
+    monthly_budgets  = {m.get("id", ""): m.get("budgets", {}) for m in months_raw}
+    monthly_handled  = {m.get("id", ""): m.get("handledBuckets", {}) for m in months_raw}
     today_mid = _mid(today)
 
     def _effective_bill_amt(b: dict, for_year: int = 0, for_month: int = 0) -> float:
@@ -428,9 +429,12 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         unfunded_by_day: dict[date, list] = {}
 
         def _add_bill(b: dict, bd: date) -> None:
-            if b["id"] in paid_bids and _mid(bd) == today_mid:
+            bill_mid = _mid(bd)
+            if b["id"] in paid_bids and bill_mid == today_mid:
                 return
-            if schedule.get(f"{b['id']}_{_mid(bd)}", "on") == "off":
+            if monthly_handled.get(bill_mid, {}).get(b["id"]):
+                return
+            if schedule.get(f"{b['id']}_{bill_mid}", "on") == "off":
                 return
             if timeline:
                 rule = get_timeline_rule(timeline, b["id"], bd.year, bd.month)
@@ -592,6 +596,7 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
     buckets     = data.get("buckets", [])
     txs         = data.get("txs", [])
     months_raw  = data.get("months", [])
+    handled_by_mid = {m.get("id", ""): m.get("handledBuckets", {}) for m in months_raw}
 
     # Paycheck events by date
     pc_by_date: dict[date, list] = {}
@@ -649,6 +654,8 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
     bill_by_date: dict[date, list] = {}
     for b in dated_bills:
         for bd in _bill_dates(b.get("dueDay"), b.get("payFreq"), today, end):
+            if handled_by_mid.get(_mid(bd), {}).get(b["id"]):
+                continue
             key = (b["id"], _mid(bd))
             occ_count[key] = occ_count.get(key, 0) + 1
             occ = occ_count[key]
@@ -660,6 +667,8 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
             })
     for b in freq_bills:
         for bd in _freq_only_dates(b["payFreq"], today, end):
+            if handled_by_mid.get(_mid(bd), {}).get(b["id"]):
+                continue
             key = (b["id"], _mid(bd))
             occ_count[key] = occ_count.get(key, 0) + 1
             occ = occ_count[key]

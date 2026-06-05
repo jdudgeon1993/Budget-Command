@@ -32,7 +32,7 @@ def sample_data() -> dict:
         "id": mid,
         "allocations": {"b_rent": 1500, "b_util": 200, "b_groc": 350, "b_dining": 100, "b_gas": 150},
         "budgets":     {"b_rent": 1500, "b_util": 300, "b_groc": 400, "b_dining": 100, "b_gas": 200},
-        "rolloverReleased": {}, "skippedBuckets": {}, "vaultWithdrawals": {},
+        "rolloverReleased": {}, "skippedBuckets": {}, "handledBuckets": {}, "vaultWithdrawals": {},
     }]
     # Dates land early in the month so spending counts today regardless of run date.
     d1 = f"{y}-{(m0 + 1):02d}-01"

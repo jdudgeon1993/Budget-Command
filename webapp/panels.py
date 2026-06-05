@@ -375,6 +375,29 @@ def move_bucket(bid, direction):
     return _buckets_response()
 
 
+@bp.route("/buckets/<bid>/handled", methods=["POST"])
+@login_required
+def toggle_handled(bid):
+    mid = D.active_mid()
+    data = D.load_data()
+    month = D.active_month(data)
+    currently = bool((month.get("handledBuckets") or {}).get(bid))
+    if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], mid)
+        DB.toggle_handled(session["user_id"], session["access_token"], mid, bid, currently)
+    # Return updated bucket row fragment
+    bkt = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bkt:
+        return "", 204
+    rows = D.bucket_rows()
+    for grp in rows["groups"]:
+        for b in grp["buckets"]:
+            if b["id"] == bid:
+                b["handled"] = not currently
+                return render_template("panels/_bucket_row.html", b=b)
+    return "", 204
+
+
 # ── Month workflow ────────────────────────────────────────────────────────────
 
 @bp.route("/month/copy", methods=["POST"])

@@ -70,6 +70,17 @@
         </form>
         {% endif %}
       {% endif %}
+      {% if b.due_day or b.pay_freq %}
+      <form method="post" action="{{ url_for('panels.toggle_handled', bid=b.id) }}"
+            style="display:inline"
+            hx-post="{{ url_for('panels.toggle_handled', bid=b.id) }}"
+            hx-target="closest .bucket-card" hx-swap="outerHTML">
+        <button class="handled-btn {{ 'active' if b.handled }}" type="submit"
+                title="{{ 'Mark as not handled' if b.handled else 'Mark as handled — hide from forecast this month' }}">
+          {{ '✓ Handled' if b.handled else 'Handled?' }}
+        </button>
+      </form>
+      {% endif %}
       <button class="bkt-expand-btn" type="button"
               id="exp-{{ b.id }}"
               onclick="toggleBktTxs('{{ b.id }}')"
