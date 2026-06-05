@@ -307,8 +307,15 @@ def setup_view():
     } for r in data.get("allocationRules", [])]
     buckets = [{"id": b["id"], "name": b["name"]}
                for b in data.get("buckets", []) if not b.get("archived")]
+    active_internal = [r for r in rules if r["active"] and r["rule_type"] == "internal"]
+    rules_total_pct   = sum(r["value"] for r in active_internal if r["is_pct"])
+    rules_total_fixed = sum(r["value"] for r in active_internal if not r["is_pct"])
+    paycheck_total = sum(p["amount"] for p in paychecks)
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
-            "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"}}
+            "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"},
+            "rules_total_pct": rules_total_pct,
+            "rules_total_fixed": rules_total_fixed,
+            "paycheck_total": paycheck_total}
 
 
 def income_rules_ctx(amount: float, mid: str) -> dict:
@@ -394,8 +401,16 @@ def reports_view():
     income = F.month_income(mid, txs, accounts)
     totals = {"income": income, "spent": grand_spent, "budget": grand_budget,
               "net": income - grand_spent}
-    snapshot = [{"name": a["name"], "balance": F.acct_balance(a, txs)} for a in accounts]
-    net_worth = sum(s["balance"] for s in snapshot)
+
+    # Debt accounts are liabilities — negate for net worth
+    snapshot = []
+    for a in accounts:
+        bal = F.acct_balance(a, txs)
+        atype = a.get("type", "budget")
+        snapshot.append({"name": a["name"], "type": atype,
+                         "balance": bal,
+                         "net_worth_bal": -bal if atype == "debt" else bal})
+    net_worth = sum(s["net_worth_bal"] for s in snapshot)
 
     return {"bva": bva, "cat_spend": cat_spend, "totals": totals,
             "snapshot": snapshot, "net_worth": net_worth}

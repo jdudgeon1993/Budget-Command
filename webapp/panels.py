@@ -628,14 +628,14 @@ def forecast_whatif():
                            skip_dates_str=",".join(skip_dates))
 
 
+def _setup_panel():
+    return render_panel("panels/setup.html", "setup", **D.setup_view())
+
+
 def _dev_or(fn):
-    """Run a db mutation, or flash a dev-mode note when seeding."""
-    if current_app.config["DEV_SEED"]:
-        flash("Dev mode: change not persisted (no database).", "ok")
-    else:
+    if not current_app.config["DEV_SEED"]:
         fn(session["user_id"], session["access_token"])
-        flash("Saved.", "ok")
-    return redirect(url_for("panels.setup"))
+    return _setup_panel()
 
 
 @bp.route("/setup/paycheck", methods=["POST"])
@@ -654,12 +654,56 @@ def del_paycheck(pid):
     return _dev_or(lambda u, t: DB.delete_paycheck(u, t, pid))
 
 
+@bp.route("/setup/paycheck/<pid>/edit", methods=["POST"])
+@login_required
+def edit_paycheck(pid):
+    f = request.form
+    try:
+        amt = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+    except ValueError:
+        amt = 0.0
+    return _dev_or(lambda u, t: DB.update_paycheck(
+        u, t, pid, f.get("label", "Paycheck"), amt,
+        int(f.get("freq") or 14),
+        f.get("anchor") or D.tx_form_ctx()["today"]))
+
+
 @bp.route("/setup/category", methods=["POST"])
 @login_required
 def add_category():
     f = request.form
     return _dev_or(lambda u, t: DB.insert_category(
         u, t, f.get("name", "Category"), f.get("color") or "#818cf8"))
+
+
+@bp.route("/setup/category/<cid>/edit", methods=["POST"])
+@login_required
+def edit_category(cid):
+    f = request.form
+    return _dev_or(lambda u, t: DB.update_category(
+        u, t, cid, {"name": f.get("name", ""), "color": f.get("color", "#818cf8")}))
+
+
+@bp.route("/setup/category/<cid>/delete", methods=["POST"])
+@login_required
+def del_category(cid):
+    return _dev_or(lambda u, t: DB.update_category(u, t, cid, {"archived": True}))
+
+
+@bp.route("/setup/category/<cid>/move/<direction>", methods=["POST"])
+@login_required
+def move_category(cid, direction):
+    data = D.load_data()
+    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    idx = next((i for i, c in enumerate(cats) if c["id"] == cid), -1)
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if 0 <= idx < len(cats) and 0 <= swap_idx < len(cats):
+        c1, c2 = cats[idx], cats[swap_idx]
+        o1, o2 = c1.get("order", idx), c2.get("order", swap_idx)
+        if not current_app.config["DEV_SEED"]:
+            DB.update_category_order(session["user_id"], session["access_token"], c1["id"], o2)
+            DB.update_category_order(session["user_id"], session["access_token"], c2["id"], o1)
+    return _setup_panel()
 
 
 @bp.route("/setup/rule", methods=["POST"])
@@ -673,53 +717,24 @@ def add_rule():
         u, t, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
 
 
+@bp.route("/setup/rule/<rid>/edit", methods=["POST"])
+@login_required
+def edit_rule(rid):
+    f = request.form
+    try:
+        val = float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
+    except ValueError:
+        val = 0.0
+    vtype = "pct" if f.get("value_type") == "pct" else "fixed"
+    rtype = "external" if f.get("rule_type") == "external" else "internal"
+    return _dev_or(lambda u, t: DB.update_alloc_rule(
+        u, t, rid, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
+
+
 @bp.route("/setup/rule/<rid>/delete", methods=["POST"])
 @login_required
 def del_rule(rid):
     return _dev_or(lambda u, t: DB.delete_alloc_rule(u, t, rid))
-
-
-@bp.route("/setup/paycheck/<pid>/edit", methods=["POST"])
-@login_required
-def edit_paycheck(pid):
-    f = request.form
-    try:
-        amt = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-    except ValueError:
-        amt = 0.0
-    if not current_app.config["DEV_SEED"]:
-        DB.update_paycheck(session["user_id"], session["access_token"],
-                           pid, f.get("label", "Paycheck"), amt,
-                           int(f.get("freq") or 14),
-                           f.get("anchor") or D.tx_form_ctx()["today"])
-        flash("Paycheck updated.", "ok")
-    else:
-        flash("Dev mode: change not persisted.", "ok")
-    return redirect(url_for("panels.setup"))
-
-
-@bp.route("/setup/category/<cid>/edit", methods=["POST"])
-@login_required
-def edit_category(cid):
-    f = request.form
-    if not current_app.config["DEV_SEED"]:
-        DB.update_category(session["user_id"], session["access_token"], cid,
-                           {"name": f.get("name", ""), "color": f.get("color", "#818cf8")})
-        flash("Category updated.", "ok")
-    else:
-        flash("Dev mode: change not persisted.", "ok")
-    return redirect(url_for("panels.setup"))
-
-
-@bp.route("/setup/category/<cid>/delete", methods=["POST"])
-@login_required
-def del_category(cid):
-    if not current_app.config["DEV_SEED"]:
-        DB.update_category(session["user_id"], session["access_token"], cid, {"archived": True})
-        flash("Category archived.", "ok")
-    else:
-        flash("Dev mode: change not persisted.", "ok")
-    return redirect(url_for("panels.setup"))
 
 
 @bp.route("/setup/rule/<rid>/toggle", methods=["POST"])
@@ -727,7 +742,7 @@ def del_category(cid):
 def toggle_rule(rid):
     if not current_app.config["DEV_SEED"]:
         DB.toggle_alloc_rule(session["user_id"], session["access_token"], rid)
-    return redirect(url_for("panels.setup"))
+    return _setup_panel()
 
 
 @bp.route("/transaction/<tid>/apply-rules", methods=["POST"])

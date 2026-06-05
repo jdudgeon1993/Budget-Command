@@ -329,6 +329,15 @@ def insert_alloc_rule(uid: str, token: str, name: str, rule_type: str, value_typ
     return rule_id
 
 
+def update_alloc_rule(uid: str, token: str, rule_id: str, name: str, rule_type: str,
+                      value_type: str, value: float, bucket_id: str) -> None:
+    client(token).table("bcc_allocation_rules").update({
+        "name": name, "rule_type": rule_type,
+        "value_type": value_type, "value": value,
+        "bucket_id": bucket_id or None,
+    }).eq("id", rule_id).eq("user_id", uid).execute()
+
+
 def toggle_alloc_rule(uid: str, token: str, rule_id: str) -> bool:
     res = client(token).table("bcc_allocation_rules").select("active").eq("id", rule_id).eq("user_id", uid).execute()
     if not res.data:

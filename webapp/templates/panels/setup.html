@@ -2,8 +2,13 @@
 {% block panel %}
 <div class="setup-wrap">
 
+  <!-- ── Paychecks ── -->
   <div class="card card-pad setup-card">
-    <div class="card-label">Paychecks</div>
+    <div class="card-label">Paychecks
+      {% if paycheck_total > 0 %}
+      <span style="float:right;color:var(--green);font-family:var(--mono)">{{ paycheck_total | money }}/period</span>
+      {% endif %}
+    </div>
     {% for p in paychecks %}
     <details class="setup-expand-row">
       <summary>
@@ -14,16 +19,18 @@
         <span class="setup-fig c-green">{{ p.amount | money }}</span>
         <span class="setup-edit-toggle">Edit ▾</span>
         <form method="post" action="{{ url_for('panels.del_paycheck', pid=p.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.del_paycheck', pid=p.id) }}" hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return confirm('Delete this paycheck?');event.stopPropagation()">
           <button class="setup-del" type="submit" title="Delete" onclick="event.stopPropagation()">✕</button>
         </form>
       </summary>
-      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_paycheck', pid=p.id) }}">
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_paycheck', pid=p.id) }}"
+            hx-post="{{ url_for('panels.edit_paycheck', pid=p.id) }}" hx-target="#panel" hx-swap="innerHTML">
         <input name="label" value="{{ p.label }}" placeholder="Label" style="flex:1;min-width:100px">
         <input name="amount" value="{{ p.amount }}" placeholder="Amount" inputmode="decimal" style="flex:0 0 90px">
         <select name="freq" style="flex:0 0 120px">
           <option value="14" {{ 'selected' if p.freq == 14 }}>Bi-weekly</option>
-          <option value="7" {{ 'selected' if p.freq == 7 }}>Weekly</option>
+          <option value="7"  {{ 'selected' if p.freq == 7  }}>Weekly</option>
           <option value="15" {{ 'selected' if p.freq == 15 }}>Semi-monthly</option>
           <option value="30" {{ 'selected' if p.freq == 30 }}>Monthly</option>
         </select>
@@ -32,17 +39,22 @@
       </form>
     </details>
     {% else %}<div class="setup-empty">No paychecks yet.</div>{% endfor %}
-    <form class="setup-add" method="post" action="{{ url_for('panels.add_paycheck') }}">
-      <input name="label" placeholder="Label" required>
-      <input name="amount" placeholder="Amount" inputmode="decimal" style="flex:0 0 100px">
+    <form class="setup-add" method="post" action="{{ url_for('panels.add_paycheck') }}"
+          hx-post="{{ url_for('panels.add_paycheck') }}" hx-target="#panel" hx-swap="innerHTML">
+      <input name="label" placeholder="Label" required style="flex:1;min-width:80px">
+      <input name="amount" placeholder="Amount" inputmode="decimal" style="flex:0 0 90px">
       <select name="freq" style="flex:0 0 120px">
-        <option value="14">Bi-weekly</option><option value="7">Weekly</option>
-        <option value="15">Semi-monthly</option><option value="30">Monthly</option>
+        <option value="14">Bi-weekly</option>
+        <option value="7">Weekly</option>
+        <option value="15">Semi-monthly</option>
+        <option value="30">Monthly</option>
       </select>
+      <input name="anchor" type="date" style="flex:0 0 140px" required title="Date of next paycheck">
       <button class="toolbar-btn primary">+ Add</button>
     </form>
   </div>
 
+  <!-- ── Categories ── -->
   <div class="card card-pad setup-card">
     <div class="card-label">Categories</div>
     {% for c in cats %}
@@ -51,79 +63,149 @@
         <div class="cat-dot" style="background:{{ c.color }}"></div>
         <div class="setup-main"><span class="setup-name">{{ c.name }}</span></div>
         <span class="setup-meta">{{ c.count }} bucket{{ '' if c.count == 1 else 's' }}</span>
+        <div class="setup-reorder-btns">
+          <form method="post" action="{{ url_for('panels.move_category', cid=c.id, direction='up') }}" style="display:contents"
+                hx-post="{{ url_for('panels.move_category', cid=c.id, direction='up') }}" hx-target="#panel" hx-swap="innerHTML">
+            <button class="reorder-btn" type="submit" onclick="event.stopPropagation()" title="Move up">▲</button>
+          </form>
+          <form method="post" action="{{ url_for('panels.move_category', cid=c.id, direction='down') }}" style="display:contents"
+                hx-post="{{ url_for('panels.move_category', cid=c.id, direction='down') }}" hx-target="#panel" hx-swap="innerHTML">
+            <button class="reorder-btn" type="submit" onclick="event.stopPropagation()" title="Move down">▼</button>
+          </form>
+        </div>
         <span class="setup-edit-toggle">Edit ▾</span>
         <form method="post" action="{{ url_for('panels.del_category', cid=c.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.del_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return confirm('Archive this category?');event.stopPropagation()">
           <button class="setup-del" type="submit" title="Archive" onclick="event.stopPropagation()">✕</button>
         </form>
       </summary>
-      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_category', cid=c.id) }}">
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_category', cid=c.id) }}"
+            hx-post="{{ url_for('panels.edit_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML">
         <input name="name" value="{{ c.name }}" placeholder="Category name" required style="flex:1">
         <input name="color" type="color" value="{{ c.color }}" style="flex:0 0 48px;padding:4px;height:38px">
         <button class="toolbar-btn primary" type="submit">Save</button>
       </form>
     </details>
     {% else %}<div class="setup-empty">No categories yet.</div>{% endfor %}
-    <form class="setup-add" method="post" action="{{ url_for('panels.add_category') }}">
-      <input name="name" placeholder="Category name" required>
+    <form class="setup-add" method="post" action="{{ url_for('panels.add_category') }}"
+          hx-post="{{ url_for('panels.add_category') }}" hx-target="#panel" hx-swap="innerHTML">
+      <input name="name" placeholder="Category name" required style="flex:1">
       <input name="color" type="color" value="#BF5AF2" style="flex:0 0 48px;padding:4px;height:38px">
       <button class="toolbar-btn primary">+ Add</button>
     </form>
   </div>
 
+  <!-- ── Allocation Rules ── -->
   <div class="card card-pad setup-card">
     <div class="card-label">Allocation Rules</div>
+
     {% for r in rules %}
-    <div class="setup-row">
-      <div class="setup-main">
-        <span class="setup-name">{{ r.name }}</span>
-        <span class="setup-meta">
-          {% if r.rule_type == 'external' %}
-            <span class="meta-badge" style="background:rgba(251,191,36,.12);color:var(--amber)">External</span>
-            transfer out
-          {% else %}
-            → {{ r.bucket if r.bucket != '—' else '(no bucket)' }}
-          {% endif %}
-        </span>
-      </div>
-      <span class="setup-fig">{{ ('%.0f%%'|format(r.value)) if r.is_pct else (r.value | money) }}</span>
-      <form method="post" action="{{ url_for('panels.toggle_rule', rid=r.id) }}" style="display:contents">
-        <button class="setup-toggle-btn {{ 'active' if r.active }}" type="submit"
-                title="{{ 'Active — click to disable' if r.active else 'Disabled — click to enable' }}">
-          {{ '● ON' if r.active else '◎ OFF' }}
-        </button>
+    <details class="setup-expand-row">
+      <summary>
+        <div class="setup-main">
+          <span class="setup-name">{{ r.name }}</span>
+          <span class="setup-meta">
+            {% if r.rule_type == 'external' %}
+              <span class="meta-badge" style="background:rgba(251,191,36,.12);color:var(--amber)">External</span>
+              transfer out
+            {% else %}
+              → {{ r.bucket if r.bucket != '—' else '(no bucket)' }}
+            {% endif %}
+          </span>
+        </div>
+        <span class="setup-fig">{{ ('%.1f%%'|format(r.value)) if r.is_pct else (r.value | money) }}</span>
+        <form method="post" action="{{ url_for('panels.toggle_rule', rid=r.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.toggle_rule', rid=r.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          <button class="setup-toggle-btn {{ 'active' if r.active }}" type="submit"
+                  onclick="event.stopPropagation()"
+                  title="{{ 'Active — click to disable' if r.active else 'Disabled — click to enable' }}">
+            {{ '● ON' if r.active else '◎ OFF' }}
+          </button>
+        </form>
+        <span class="setup-edit-toggle">Edit ▾</span>
+        <form method="post" action="{{ url_for('panels.del_rule', rid=r.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.del_rule', rid=r.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          <button class="setup-del" type="submit" title="Delete"
+                  onclick="event.stopPropagation();return confirm('Delete this rule?')">✕</button>
+        </form>
+      </summary>
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_rule', rid=r.id) }}"
+            hx-post="{{ url_for('panels.edit_rule', rid=r.id) }}" hx-target="#panel" hx-swap="innerHTML">
+        <input name="name" value="{{ r.name }}" placeholder="Rule name" required style="flex:1;min-width:80px">
+        <select name="rule_type" style="flex:0 0 110px" onchange="toggleEditBucket(this)">
+          <option value="internal" {{ 'selected' if r.rule_type == 'internal' }}>Internal</option>
+          <option value="external" {{ 'selected' if r.rule_type == 'external' }}>External</option>
+        </select>
+        <select name="bucketId" style="flex:0 0 140px" {{ 'hidden' if r.rule_type == 'external' }}>
+          <option value="">— Bucket —</option>
+          {% for b in buckets %}
+          <option value="{{ b.id }}" {{ 'selected' if b.id == r.bucket_id }}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+        <input name="value" value="{{ r.value }}" placeholder="Value" inputmode="decimal" style="flex:0 0 80px">
+        <select name="value_type" style="flex:0 0 90px">
+          <option value="fixed" {{ 'selected' if not r.is_pct }}>$ fixed</option>
+          <option value="pct"   {{ 'selected' if r.is_pct }}>% pct</option>
+        </select>
+        <button class="toolbar-btn primary" type="submit">Save</button>
       </form>
-      <form method="post" action="{{ url_for('panels.del_rule', rid=r.id) }}" style="display:contents">
-        <button class="setup-del" type="submit" title="Delete" onclick="return confirm('Delete this rule?')">✕</button>
-      </form>
-    </div>
+    </details>
     {% else %}<div class="setup-empty">No allocation rules yet.</div>{% endfor %}
-    <form class="setup-add" method="post" action="{{ url_for('panels.add_rule') }}">
-      <input name="name" placeholder="Rule name" required>
-      <select name="rule_type" style="flex:0 0 110px" id="rule-type-sel" onchange="toggleBucketSel()">
+
+    <!-- Rules totals summary -->
+    {% if rules %}
+    <div class="rules-totals">
+      <span>Active internal rules commit:
+        {% if rules_total_pct > 0 %}<strong style="color:var(--accent)">{{ '%.1f%%'|format(rules_total_pct) }}</strong>{% endif %}
+        {% if rules_total_pct > 0 and rules_total_fixed > 0 %} + {% endif %}
+        {% if rules_total_fixed > 0 %}<strong style="color:var(--accent)">{{ rules_total_fixed | money }}</strong>{% endif %}
+        {% if rules_total_pct == 0 and rules_total_fixed == 0 %}none{% endif %}
+        of each paycheck
+      </span>
+      {% if rules_total_pct > 100 %}
+      <span style="color:var(--red)">⚠ Over 100% allocated</span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <form class="setup-add" method="post" action="{{ url_for('panels.add_rule') }}"
+          hx-post="{{ url_for('panels.add_rule') }}" hx-target="#panel" hx-swap="innerHTML">
+      <input name="name" placeholder="Rule name" required style="flex:1;min-width:80px">
+      <select name="rule_type" style="flex:0 0 110px" onchange="toggleBucketSel(this)">
         <option value="internal">Internal</option>
         <option value="external">External</option>
       </select>
-      <select name="bucketId" id="rule-bucket-sel" style="flex:0 0 140px">
+      <select name="bucketId" style="flex:0 0 140px">
         <option value="">— Bucket —</option>
         {% for b in buckets %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
       </select>
       <input name="value" placeholder="Value" inputmode="decimal" style="flex:0 0 80px">
-      <select name="value_type" style="flex:0 0 90px"><option value="fixed">$ fixed</option><option value="pct">% pct</option></select>
+      <select name="value_type" style="flex:0 0 90px">
+        <option value="fixed">$ fixed</option>
+        <option value="pct">% pct</option>
+      </select>
       <button class="toolbar-btn primary">+ Add</button>
     </form>
-    <p style="font-size:11px;color:var(--text3);margin:6px 0 0">
+    <p class="setup-help">
       <strong>Internal</strong> rules allocate $ or % of each paycheck to a bucket.
       <strong>External</strong> rules mark money transferred out (shown in forecast).
       Rules fire automatically when a paycheck income transaction is entered.
     </p>
-    <script>
-    function toggleBucketSel(){
-      var ext=document.getElementById('rule-type-sel').value==='external';
-      document.getElementById('rule-bucket-sel').style.display=ext?'none':'';
-    }
-    </script>
   </div>
 
 </div>
+
+<script>
+function toggleBucketSel(sel) {
+  var form = sel.closest('form');
+  var bucketSel = form.querySelector('[name="bucketId"]');
+  if (bucketSel) bucketSel.hidden = sel.value === 'external';
+}
+function toggleEditBucket(sel) {
+  var form = sel.closest('form');
+  var bucketSel = form.querySelector('[name="bucketId"]');
+  if (bucketSel) bucketSel.hidden = sel.value === 'external';
+}
+</script>
 {% endblock %}

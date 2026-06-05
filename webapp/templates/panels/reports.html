@@ -3,10 +3,22 @@
 <div class="panel-grid">
   <div>
     <div class="sum-grid" style="grid-template-columns:repeat(4,1fr)">
-      <div class="sum-card"><div class="sum-label">Income</div><div class="sum-val c-green">{{ totals.income | money }}</div></div>
-      <div class="sum-card"><div class="sum-label">Spent</div><div class="sum-val c-red">{{ totals.spent | money }}</div></div>
-      <div class="sum-card"><div class="sum-label">Budgeted</div><div class="sum-val" style="color:var(--accent)">{{ totals.budget | money }}</div></div>
-      <div class="sum-card"><div class="sum-label">Net</div><div class="sum-val {{ 'c-green' if totals.net >= 0 else 'c-red' }}">{{ totals.net | money }}</div></div>
+      <div class="sum-card">
+        <div class="sum-label">Income</div>
+        <div class="sum-val c-green">{{ totals.income | money }}</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Spent</div>
+        <div class="sum-val c-red">{{ totals.spent | money }}</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Budgeted</div>
+        <div class="sum-val" style="color:var(--accent)">{{ totals.budget | money }}</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">Net</div>
+        <div class="sum-val {{ 'c-green' if totals.net >= 0 else 'c-red' }}">{{ totals.net | money }}</div>
+      </div>
     </div>
 
     <div class="card card-pad">
@@ -17,13 +29,24 @@
           <div class="cat-dot" style="background:{{ cat.color }}"></div>
           <span class="bva-cat-name">{{ cat.name }}</span>
           <span class="bva-cat-fig">{{ cat.spent | money }} / {{ cat.budget | money }}</span>
-          <span class="bva-var {{ 'c-red' if cat.variance < 0 else 'c-green' }}">{{ cat.variance | money }}</span>
+          {% if cat.budget > 0 %}
+          <span class="bva-var {{ 'c-red' if cat.variance < 0 else 'c-green' }}">
+            {{ '+' if cat.variance >= 0 else '' }}{{ cat.variance | money }}
+          </span>
+          {% endif %}
         </div>
         {% for b in cat.buckets %}
         <div class="bva-row">
           <span class="bva-name">{{ b.name }}</span>
-          <div class="bva-track"><div class="bva-fill" style="width:{{ b.pct }}%;background:{{ '#FF453A' if b.variance < 0 else cat.color }}"></div></div>
+          {% if b.budget > 0 %}
+          <div class="bva-track">
+            <div class="bva-fill" style="width:{{ b.pct }}%;background:{{ '#FF453A' if b.variance < 0 else cat.color }}"></div>
+          </div>
           <span class="bva-nums">{{ b.spent | money }} / {{ b.budget | money }}</span>
+          {% else %}
+          <div class="bva-track"><div class="bva-fill" style="width:100%;opacity:0.15;background:{{ cat.color }}"></div></div>
+          <span class="bva-nums" style="color:var(--text3)">{{ b.spent | money }} <span style="font-size:10px">unbudgeted</span></span>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -42,6 +65,7 @@
           <div class="cat-dot" style="background:{{ c.color }}"></div>
           <span class="cat-bar-name">{{ c.name }}</span>
           <span class="cat-bar-pct c-text2">{{ c.spent | money }}</span>
+          <span class="cat-bar-share" style="color:var(--text3);font-size:11px;font-family:var(--mono)">{{ c.pct }}%</span>
         </div>
         <div class="cat-bar-track"><div class="cat-bar-fill" style="width:{{ c.pct }}%;background:{{ c.color }}"></div></div>
       </div>
@@ -52,13 +76,23 @@
       <div class="card-label">Account Snapshot</div>
       {% for s in snapshot %}
       <div class="snap-row">
-        <span class="snap-name">{{ s.name }}</span>
-        <span class="snap-bal {{ 'neg' if s.balance < 0 }}">{{ s.balance | money }}</span>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span class="snap-name">{{ s.name }}</span>
+          {% if s.type == 'debt' %}
+          <span class="meta-badge" style="background:var(--red-dim);color:var(--red);border-color:transparent;font-size:9px">Debt</span>
+          {% elif s.type == 'savings' %}
+          <span class="meta-badge" style="background:var(--green-dim);color:var(--green);border-color:transparent;font-size:9px">Savings</span>
+          {% endif %}
+        </div>
+        <span class="snap-bal {{ 'neg' if s.type == 'debt' }}">
+          {{ s.balance | money }}
+          {% if s.type == 'debt' %}<span style="font-size:10px;color:var(--text3);margin-left:3px">owed</span>{% endif %}
+        </span>
       </div>
       {% endfor %}
       <div class="snap-row snap-total">
         <span class="snap-name">Net Worth</span>
-        <span class="snap-bal">{{ net_worth | money }}</span>
+        <span class="snap-bal {{ 'neg' if net_worth < 0 }}">{{ net_worth | money }}</span>
       </div>
     </div>
   </div>
