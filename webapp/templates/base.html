@@ -110,7 +110,6 @@ document.addEventListener('htmx:afterSettle',function(e){
         <div class="mob-brand-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">{{ icon('buckets') }}</svg></div>
         <span class="mob-brand-name">CURA</span>
       </div>
-      <div class="mob-rts-center"><div class="mob-rts-amt">{{ shell.rts | money }}</div><div class="mob-rts-lbl">ready to assign{% if shell.age_of_money is not none %} · <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}</div></div>
       <div class="mob-month"><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='prev') }}">←</a><div class="mob-month-pill">{{ shell.month_label }}</div><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='next') }}">→</a></div>
     </header>
     <header class="main-header">
@@ -120,16 +119,36 @@ document.addEventListener('htmx:afterSettle',function(e){
     <div id="panel">{% block panel %}{% endblock %}</div>
   </main>
 
-  <nav class="mob-nav">
-    {% for key, label in navitems %}
-    <a class="mob-tab {{ 'active' if p == key }}" href="{{ url_for('panels.' + key) }}"
-       hx-get="{{ url_for('panels.' + key) }}" hx-target="#panel" hx-push-url="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon(key) }}</svg>
-      <span class="mob-tab-lbl">{{ label }}</span>
+  <div id="mob-rts-strip" class="mob-rts-strip">
+    <span class="mob-strip-amt">{{ shell.rts | money }}</span>
+    <span class="mob-strip-lbl">ready to assign{% if shell.age_of_money is not none %} · <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}</span>
+    <a class="mob-strip-setup {{ 'active' if p == 'setup' }}" href="{{ url_for('panels.setup') }}" hx-get="{{ url_for('panels.setup') }}" hx-target="#panel" hx-push-url="true" aria-label="Setup">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('setup') }}</svg>
     </a>
-    {% endfor %}
+  </div>
+  <nav class="mob-nav">
+    <a class="mob-tab {{ 'active' if p == 'buckets' }}" href="{{ url_for('panels.buckets') }}" hx-get="{{ url_for('panels.buckets') }}" hx-target="#panel" hx-push-url="true">
+      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('buckets') }}</svg></div>
+      <span class="mob-tab-lbl">Buckets</span>
+    </a>
+    <a class="mob-tab {{ 'active' if p == 'accounts' }}" href="{{ url_for('panels.accounts') }}" hx-get="{{ url_for('panels.accounts') }}" hx-target="#panel" hx-push-url="true">
+      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('accounts') }}</svg></div>
+      <span class="mob-tab-lbl">Accounts</span>
+    </a>
+    <div class="mob-nav-center">
+      <button class="mob-nav-fab" type="button" onclick="openAddTxModal()" aria-label="Add transaction">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+    <a class="mob-tab {{ 'active' if p == 'insights' }}" href="{{ url_for('panels.insights') }}" hx-get="{{ url_for('panels.insights') }}" hx-target="#panel" hx-push-url="true">
+      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('insights') }}</svg></div>
+      <span class="mob-tab-lbl">Forecast</span>
+    </a>
+    <a class="mob-tab {{ 'active' if p == 'reports' }}" href="{{ url_for('panels.reports') }}" hx-get="{{ url_for('panels.reports') }}" hx-target="#panel" hx-push-url="true">
+      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('reports') }}</svg></div>
+      <span class="mob-tab-lbl">Reports</span>
+    </a>
   </nav>
-  <button class="mob-fab-float" type="button" onclick="openAddTxModal()" aria-label="Add transaction">+</button>
 </div>
 <script>
 function _restoreAddTx(){var t=document.getElementById('add-tx-tpl');if(t)document.getElementById('modal-body').innerHTML=t.innerHTML;}
@@ -140,7 +159,7 @@ document.body.addEventListener('closeModal',closeModal);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 function _syncNav(){
   var path=location.pathname;
-  document.querySelectorAll('.nav-item,.mob-tab').forEach(function(a){
+  document.querySelectorAll('.nav-item,.mob-tab,.mob-strip-setup').forEach(function(a){
     var href=a.getAttribute('href');
     a.classList.toggle('active',!!href&&(path===href||path.startsWith(href+'/')));
   });

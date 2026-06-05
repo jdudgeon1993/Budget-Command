@@ -361,10 +361,6 @@ svg{display:block}
 .tx-field input:focus,.tx-field select:focus{border-color:var(--accent)}
 .tx-actions{display:flex;gap:8px;margin-top:18px}
 .tx-actions .toolbar-btn{flex:1;text-align:center;padding:11px}
-.mob-fab-float{display:none}
-@media(max-width:768px){
-  .mob-fab-float{display:flex;position:fixed;right:16px;bottom:78px;width:54px;height:54px;border-radius:50%;background:var(--accent);align-items:center;justify-content:center;color:#fff;font-size:30px;font-weight:300;box-shadow:0 6px 22px var(--accent-glow);z-index:60;text-decoration:none;border:none;cursor:pointer;line-height:1;padding:0}
-}
 
 /* ── Stub ── */
 .stub{padding:48px 24px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:13px}
@@ -454,31 +450,41 @@ svg{display:block}
 .modal-title{font-size:15px;font-weight:700;color:var(--text1);margin-bottom:16px;padding-right:28px}
 
 /* ── Mobile shell ── */
-.mob-header,.mob-nav{display:none}
+.mob-header,.mob-nav,.mob-rts-strip{display:none}
 @media(max-width:768px){
   .sidebar{display:none}
   .app{flex-direction:column}
-  .main{padding-bottom:66px}
+  .main{padding-bottom:108px}
   .panel-grid{grid-template-columns:1fr;padding:14px}
   .right-sticky{position:static}
   .main-header{display:none}
-  .mob-header{display:flex;height:58px;background:var(--sidebar);align-items:center;padding:0 12px 0 16px;gap:8px;flex-shrink:0;border-bottom:1px solid var(--sidebar-border)}
+  /* Header */
+  .mob-header{display:flex;height:52px;background:var(--sidebar);align-items:center;padding:0 12px 0 16px;justify-content:space-between;flex-shrink:0;border-bottom:1px solid var(--sidebar-border)}
   .mob-brand{display:flex;align-items:center;gap:8px}
   .mob-brand-icon{width:26px;height:26px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center}
   .mob-brand-name{font-size:12px;font-weight:700;letter-spacing:0.14em;color:#fff}
-  .mob-rts-center{flex:1;text-align:center}
-  .mob-rts-amt{font-family:var(--mono);font-size:17px;font-weight:700;color:var(--rts-sidebar);line-height:1}
-  .mob-rts-lbl{font-size:10px;color:rgba(255,255,255,0.28);letter-spacing:0.07em;font-family:var(--mono)}
   .mob-month{display:flex;align-items:center;gap:2px}
   .mob-arr{width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.35);font-size:16px;text-decoration:none}
   .mob-month-pill{font-size:11px;color:rgba(255,255,255,0.45);padding:4px 8px;border-radius:var(--r-sm);background:rgba(255,255,255,0.07);white-space:nowrap;font-family:var(--mono)}
-  .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:66px;background:var(--sidebar);border-top:1px solid var(--sidebar-border);align-items:center;z-index:50}
-  .mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:100%;cursor:pointer;color:rgba(255,255,255,0.28);text-decoration:none;transition:color .15s}
-  .mob-tab:hover{color:rgba(255,255,255,0.55)}
+  /* RTS strip */
+  .mob-rts-strip{display:flex;position:fixed;bottom:62px;left:0;right:0;height:40px;background:var(--sidebar);border-top:1px solid var(--sidebar-border);align-items:center;padding:0 16px;gap:8px;z-index:49}
+  .mob-strip-amt{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--rts-sidebar);white-space:nowrap}
+  .mob-strip-lbl{font-size:10px;color:rgba(255,255,255,0.35);font-family:var(--mono);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mob-strip-setup{display:flex;align-items:center;color:rgba(255,255,255,0.35);text-decoration:none;transition:color .15s;padding:4px}
+  .mob-strip-setup.active,.mob-strip-setup:hover{color:var(--nav-active)}
+  /* Bottom nav */
+  .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:62px;background:var(--sidebar);border-top:1px solid rgba(255,255,255,0.06);align-items:center;z-index:50;overflow:visible}
+  .mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:100%;cursor:pointer;color:rgba(255,255,255,0.3);text-decoration:none;transition:color .15s;padding-top:6px}
+  .mob-tab:hover{color:rgba(255,255,255,0.6)}
   .mob-tab.active{color:var(--nav-active)}
-  .mob-tab svg{width:20px;height:20px}
-  .mob-tab-lbl{font-size:10px;letter-spacing:0.05em;text-transform:uppercase;font-family:var(--mono)}
-  .mob-fab{width:52px;height:52px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:300;color:#fff;flex-shrink:0;margin:0 8px;box-shadow:0 4px 18px var(--accent-glow);text-decoration:none}
+  .mob-tab-icon{width:44px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:13px;transition:background .18s}
+  .mob-tab.active .mob-tab-icon{background:rgba(101,143,255,0.16)}
+  .mob-tab-icon svg{width:20px;height:20px}
+  .mob-tab-lbl{font-size:9px;letter-spacing:0.06em;text-transform:uppercase;font-family:var(--mono)}
+  /* Center FAB slot */
+  .mob-nav-center{flex:1;display:flex;align-items:center;justify-content:center;position:relative;height:100%;overflow:visible}
+  .mob-nav-fab{position:absolute;top:-18px;width:56px;height:56px;border-radius:50%;background:linear-gradient(145deg,var(--accent),color-mix(in srgb,var(--accent) 70%,#7c3aed));box-shadow:0 0 0 4px var(--sidebar),0 8px 28px var(--accent-glow);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:transform .12s,box-shadow .12s;z-index:51}
+  .mob-nav-fab:active{transform:scale(0.91);box-shadow:0 0 0 4px var(--sidebar),0 4px 16px var(--accent-glow)}
 }
 
 /* Ledger toolbar: search + account filter */
@@ -533,7 +539,7 @@ svg{display:block}
 .toast.info .toast-bar{background:var(--accent)}
 .toast.dev{border-left-color:var(--text3)}
 .toast.dev .toast-bar{background:var(--text3)}
-@media(max-width:768px){#toast-stack{bottom:80px;right:12px;left:12px}.toast{min-width:0;max-width:100%}}
+@media(max-width:768px){#toast-stack{bottom:112px;right:12px;left:12px}.toast{min-width:0;max-width:100%}}
 
 /* ── Sidebar total cash + age of money ── */
 .sidebar-total-cash{font-size:11px;color:rgba(255,255,255,0.28);margin-top:5px;font-family:var(--mono);line-height:1.5}
