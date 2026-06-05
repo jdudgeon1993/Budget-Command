@@ -187,6 +187,7 @@ function _updateRunningBal(aid){
 }
 
 function filterLedger(btn,aid){
+  sessionStorage.setItem('_acctFilter', aid);
   document.querySelectorAll('.acct-filter-chip').forEach(function(c){c.classList.remove('active');});
   if(btn) btn.classList.add('active');
 
@@ -261,5 +262,14 @@ function searchTx(q){
   var chip=document.querySelector('.acct-filter-chip.active');
   if(chip) _updateRunningBal(chip.dataset.aid);
 }
+// Restore last-selected account filter across HTMX panel swaps
+(function(){
+  var saved=sessionStorage.getItem('_acctFilter');
+  if(saved&&saved!=='all'){
+    var chip=document.querySelector('.acct-filter-chip[data-aid="'+saved+'"]');
+    if(chip){filterLedger(chip,saved);return;}
+  }
+  _updateRunningBal('all');
+})();
 </script>
 {% endblock %}
