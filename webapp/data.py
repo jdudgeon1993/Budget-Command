@@ -436,12 +436,15 @@ def tx_form_ctx():
     """Selects + defaults for the Add/Edit Transaction form."""
     from datetime import date as _date
     data = load_data()
+    acct_name = {a["id"]: a["name"] for a in data.get("accounts", [])}
     accounts = [{"id": a["id"], "name": a["name"]}
                 for a in data.get("accounts", []) if not a.get("archived")]
     cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
     buckets_by_cat = []
     for c in cats:
-        bkts = [{"id": b["id"], "name": b["name"]}
+        bkts = [{"id": b["id"], "name": b["name"],
+                 "debtAccountId": b.get("debtAccountId", ""),
+                 "debtAccountName": acct_name.get(b.get("debtAccountId", ""), "")}
                 for b in data.get("buckets", [])
                 if b.get("catId") == c["id"] and not b.get("archived")
                 and b.get("type") != "vault"]

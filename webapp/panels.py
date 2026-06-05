@@ -622,22 +622,38 @@ def debt_payment(aid):
         bucket_id = f.get("bucketId") or ""
         if amount > 0 and from_aid and not current_app.config["DEV_SEED"]:
             DB.ensure_month(session["user_id"], session["access_token"], mid)
-            DB.insert_debt_payment(session["user_id"], session["access_token"],
-                                   aid, from_aid, amount, iso, mid,
-                                   account["name"], bucket_id)
-            flash(f"Payment of {amount:,.2f} recorded.", "ok")
+            if bucket_id:
+                # Unified flow: record as a bucket transaction — debt auto-deducts
+                DB.insert_transaction(session["user_id"], session["access_token"], {
+                    "accountId": from_aid, "monthId": mid,
+                    "type": "out", "amount": amount, "date": iso,
+                    "desc": f.get("desc") or f"Payment — {account['name']}",
+                    "bucketId": bucket_id,
+                    "debtPaymentAccountId": aid,
+                })
+            else:
+                # Standalone flow: no bucket, direct debt payment
+                DB.insert_debt_payment(session["user_id"], session["access_token"],
+                                       aid, from_aid, amount, iso, mid,
+                                       account["name"], "")
+            flash(f"Payment of ${amount:,.2f} recorded.", "ok")
         elif current_app.config["DEV_SEED"]:
             flash("Dev mode: payment not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
         return redirect(url_for("panels.accounts"))
     # GET — render payment form
+    linked_buckets = [{"id": b["id"], "name": b["name"]}
+                      for b in data.get("buckets", [])
+                      if b.get("debtAccountId") == aid and not b.get("archived")
+                      and b.get("type") != "vault"]
     from_accounts = [{"id": a["id"], "name": a["name"]}
                      for a in data.get("accounts", [])
                      if a.get("type") != "debt" and not a.get("archived")]
     from datetime import date as _date
     return render_template("panels/_frag_debt_payment.html",
                            account=account, from_accounts=from_accounts,
+                           linked_buckets=linked_buckets,
                            today=_date.today().isoformat())
 
 
@@ -914,6 +930,13 @@ def transaction_edit(tid):
         y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
         mid = D.F.month_id(int(y), int(m) - 1)
         if not current_app.config["DEV_SEED"]:
+            bucket_id = f.get("bucketId") or None
+            debt_pay_aid = None
+            if bucket_id and f.get("type", "out") == "out":
+                _data = D.load_data()
+                _bkt = next((b for b in _data.get("buckets", []) if b["id"] == bucket_id), None)
+                if _bkt and _bkt.get("debtAccountId"):
+                    debt_pay_aid = _bkt["debtAccountId"]
             DB.update_transaction(session["user_id"], session["access_token"], tid, {
                 "account_id": f.get("accountId", ""),
                 "month_id": mid,
@@ -921,10 +944,11 @@ def transaction_edit(tid):
                 "amount": amount,
                 "date": iso,
                 "description": f.get("desc", ""),
-                "bucket_id": f.get("bucketId") or None,
+                "bucket_id": bucket_id,
                 "to_account_id": f.get("toAccountId") or None,
                 "reconciled": f.get("reconciled") == "1",
                 "income_type": f.get("incomeType") or None,
+                "debt_payment_account_id": debt_pay_aid,
             })
             flash("Transaction updated.", "ok")
         else:
@@ -987,7 +1011,7 @@ def transaction_create():
         "toAccountId": f.get("toAccountId") or "",
         "incomeType": f.get("incomeType") or "paycheck",
     }
-    # Block vault buckets from receiving transactions
+    # Validate bucket and auto-link debt account if applicable
     bucket_id = tx.get("bucketId", "")
     if bucket_id:
         _bkt = next((b for b in D.load_data().get("buckets", []) if b["id"] == bucket_id), None)
@@ -998,6 +1022,9 @@ def transaction_create():
                 tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
                 return _panel_close_modal(tmpl, back_panel, **ctx_fn())
             return redirect(url_for("panels." + back_panel))
+        # If this bucket is linked to a debt account, auto-stamp the payment link
+        if _bkt and _bkt.get("debtAccountId") and tx["type"] == "out":
+            tx["debtPaymentAccountId"] = _bkt["debtAccountId"]
 
     back_panel = f.get("back") or "buckets"
     if current_app.config["DEV_SEED"]:
