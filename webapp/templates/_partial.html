@@ -1,5 +1,5 @@
-{# HTMX fragment: panel block + flash messages (shown inside #panel on swaps). #}
+{# HTMX fragment: panel block only. Flash messages become toasts via showToast(). #}
 {% with msgs = get_flashed_messages(with_categories=true) %}
-{% if msgs %}<div class="flash-region">{% for cat, msg in msgs %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}</div>{% endif %}
+{% if msgs %}<script>{% for cat, msg in msgs %}showToast({{ msg | tojson }},{{ cat | tojson }});{% endfor %}</script>{% endif %}
 {% endwith %}
 {% block panel %}{% endblock %}

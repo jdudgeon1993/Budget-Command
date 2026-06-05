@@ -10,6 +10,38 @@
   <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
 </head>
 <body>
+<div id="toast-stack"></div>
+<script>
+function showToast(msg,type,dur){
+  var stack=document.getElementById('toast-stack');
+  if(!stack)return;
+  var el=document.createElement('div');
+  el.className='toast '+(type||'ok');
+  el.style.setProperty('--toast-dur',(dur||4000)+'ms');
+  var safe=String(msg).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});
+  el.innerHTML='<div class="toast-msg">'+safe+'</div><div class="toast-bar"></div>';
+  el.addEventListener('click',function(){_dismissToast(el);});
+  stack.appendChild(el);
+  requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('show');});});
+  el._tt=setTimeout(function(){_dismissToast(el);},dur||4000);
+}
+function _dismissToast(el){
+  if(el._tt)clearTimeout(el._tt);
+  el.classList.add('hiding');el.classList.remove('show');
+  setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},260);
+}
+document.addEventListener('htmx:afterSettle',function(e){
+  var t=document.getElementById('toast-stack');
+  if(!t)return;
+  document.querySelectorAll('[data-toast-msg]').forEach(function(el){
+    showToast(el.dataset.toastMsg,el.dataset.toastType||'ok');
+    el.parentNode&&el.parentNode.removeChild(el);
+  });
+});
+</script>
+{% with msgs = get_flashed_messages(with_categories=true) %}
+{% if msgs %}<script>{% for cat, msg in msgs %}showToast({{ msg | tojson }},{{ cat | tojson }});{% endfor %}</script>{% endif %}
+{% endwith %}
 <div id="nprogress"><div id="nprogress-bar"></div></div>
 <template id="add-tx-tpl">{% with accounts=shell.tx_accounts,buckets_by_cat=shell.tx_buckets_by_cat,today=shell.tx_today,tx_type='out',back=shell.active_panel %}{% include "panels/_frag_add_tx.html" %}{% endwith %}</template>
 <div id="modal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
@@ -41,6 +73,7 @@
       <div class="sidebar-rts-lbl">Ready to assign</div>
       <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
       <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
+      <div class="sidebar-total-cash">Total cash: <span>{{ shell.total_cash | money }}</span></div>
     </div>
     <div class="month-nav">
       <a class="month-arrow" href="{{ url_for('panels.month_nav', direction='prev') }}">←</a>
@@ -79,9 +112,6 @@
       <span class="hdr-panel" id="hdr-panel">{{ p }}</span>
     </header>
 
-    {% with msgs = get_flashed_messages(with_categories=true) %}
-      {% if msgs %}<div class="flash-region">{% for cat, msg in msgs %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}</div>{% endif %}
-    {% endwith %}
     <div id="panel">{% block panel %}{% endblock %}</div>
   </main>
 

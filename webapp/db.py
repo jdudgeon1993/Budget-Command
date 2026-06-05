@@ -288,6 +288,17 @@ def insert_category(uid: str, token: str, name: str, color: str) -> str:
     return cid
 
 
+def upsert_rollover_released(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
+    client(token).table("bcc_month_rollover_released").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+
+
+def delete_rollover_released(uid: str, token: str, mid: str, bid: str) -> None:
+    client(token).table("bcc_month_rollover_released").delete() \
+        .eq("user_id", uid).eq("month_id", mid).eq("bucket_id", bid).execute()
+
+
 def upsert_vault_withdrawal(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
     client(token).table("bcc_month_vault_withdrawals").upsert({
         "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,

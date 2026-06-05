@@ -398,6 +398,62 @@ def toggle_handled(bid):
     return "", 204
 
 
+def _bucket_card_response(bid: str):
+    """Return just the updated bucket card + OOB RTS refresh."""
+    vm = D.bucket_rows()
+    row = color = None
+    for grp in vm["groups"]:
+        for b in grp["buckets"]:
+            if b["id"] == bid:
+                row, color = b, grp["color"]
+    if row is None:
+        return _buckets_response()
+    shell = D.shell_ctx("buckets")
+    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
+            + render_template("panels/_oob_rts.html", shell=shell))
+
+
+@bp.route("/buckets/<bid>/rollover/release", methods=["POST"])
+@login_required
+def rollover_release(bid):
+    """Release full rollover balance back to RTS pool."""
+    data = D.load_data()
+    month = D.active_month(data)
+    months = data.get("months", [])
+    txs = data.get("txs", [])
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket:
+        flash("Bucket not found.", "error")
+        return redirect(url_for("panels.buckets"))
+    raw = D.F.rollover_bal_raw(bucket, month["id"], months, txs)
+    if raw <= 0:
+        flash("No rollover balance to release.", "ok")
+        return _buckets_response()
+    month.setdefault("rolloverReleased", {})[bid] = raw
+    if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], month["id"])
+        DB.upsert_rollover_released(session["user_id"], session["access_token"],
+                                    month["id"], bid, raw)
+    flash(f"Released ${raw:,.2f} rollover to pool.", "ok")
+    return _bucket_card_response(bid)
+
+
+@bp.route("/buckets/<bid>/rollover/undo-release", methods=["POST"])
+@login_required
+def rollover_undo_release(bid):
+    """Undo a rollover release — restores the rollover balance."""
+    data = D.load_data()
+    month = D.active_month(data)
+    rr = month.get("rolloverReleased") or {}
+    if bid in rr:
+        del rr[bid]
+    if not current_app.config["DEV_SEED"]:
+        DB.delete_rollover_released(session["user_id"], session["access_token"],
+                                    month["id"], bid)
+    flash("Rollover release undone.", "ok")
+    return _bucket_card_response(bid)
+
+
 # ── Month workflow ────────────────────────────────────────────────────────────
 
 @bp.route("/month/copy", methods=["POST"])
@@ -783,25 +839,6 @@ def apply_rules(tid):
     return redirect(url_for("panels.buckets"))
 
 
-# ── Forecast builder (iframe with real data) ──────────────────────────────────
-
-@bp.route("/forecast/builder")
-@login_required
-def forecast_builder():
-    import os, json as _json
-    live_data = D.forecast_data_ctx()
-    proto_path = os.path.join(current_app.static_folder, "forecast-proto.html")
-    with open(proto_path, "r") as fh:
-        content = fh.read()
-    injection = f'<script>window.CURA_LIVE = {_json.dumps(live_data)};</script>\n'
-    content = content.replace("</head>", injection + "</head>", 1)
-    return Response(content, content_type="text/html")
-
-
-@bp.route("/api/forecast-data")
-@login_required
-def forecast_data_api():
-    return jsonify(D.forecast_data_ctx())
 
 
 @bp.route("/transaction/<tid>/edit", methods=["GET", "POST"])

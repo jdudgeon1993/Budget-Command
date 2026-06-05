@@ -56,6 +56,7 @@ def shell_ctx(active_panel: str = "") -> dict:
     txs = data.get("txs", [])
 
     rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+    total_cash = F.total_cash(accounts, txs)
     income = F.month_income(mid, txs, accounts)
     allocated = F.total_allocated(month, buckets)
     spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
@@ -77,6 +78,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
         "rts": rts,
+        "total_cash": total_cash,
         "income": income,
         "allocated": allocated,
         "spent": spent,
@@ -116,6 +118,8 @@ def bucket_rows():
             spent = F.b_spent(mid, bid, txs)
             left = F.bucket_available(b, month, months, txs)
             roll_bal = F.rollover_bal(b, month, months, txs)
+            roll_bal_raw = F.rollover_bal_raw(b, month["id"], months, txs)
+            rollover_released = float((month.get("rolloverReleased") or {}).get(bid) or 0)
             vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
             over = max(spent - budget, 0) if budget else max(spent - alloc, 0)
             needed = max(budget - alloc, 0)
@@ -175,6 +179,8 @@ def bucket_rows():
                 "goal_reached": goal_reached,
                 "monthly_needed": monthly_needed,
                 "rollover": b.get("rollover", False),
+                "roll_bal_raw": roll_bal_raw,
+                "rollover_released": rollover_released,
                 "handled": handled,
                 "txs": bkt_txs,
             }
@@ -467,50 +473,6 @@ def forecast_view(n_months: int = 3, income_override: float = 0.0,
         "skipped_pay_dates": skip_list,
         "skip_dates_str": ",".join(str(d) for d in skip_list),
     }
-
-
-def forecast_data_ctx() -> dict:
-    """Real-data seed for the forecast builder (buckets, balances, income)."""
-    data = load_data()
-    mid = active_mid()
-    month = active_month(data)
-    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    txs = data.get("txs", [])
-    paychecks = data.get("paychecks", [])
-
-    # Cash balance: non-debt accounts
-    start_bal = round(sum(
-        F.acct_balance(a, txs)
-        for a in accounts
-        if a.get("type") not in ("debt",)
-    ), 2)
-
-    # Monthly income: normalize each paycheck to per-month
-    freq_factor = {7: 52/12, 14: 26/12, 15: 2.0, 30: 1.0}
-    start_inc = round(sum(
-        float(p.get("amount", 0)) * freq_factor.get(int(p.get("freq") or 14), 26/12)
-        for p in paychecks
-    ), 2)
-
-    pay_freq = "biweekly"
-    if paychecks:
-        freq = int(paychecks[0].get("freq") or 14)
-        pay_freq = {7: "weekly", 14: "biweekly", 15: "semimonthly", 30: "monthly"}.get(freq, "biweekly")
-
-    bkt_rows = []
-    for b in buckets:
-        target = F.b_budget(month, b["id"])
-        if not target:
-            target = float(b.get("defaultBudget") or b.get("default_budget") or 0)
-        bkt_rows.append({
-            "id": b["id"], "name": b["name"], "target": round(target, 2),
-            "due": b.get("dueDay") or b.get("due_day"),
-            "freq": b.get("payFreq") or b.get("pay_freq") or "monthly",
-        })
-
-    return {"startBal": start_bal, "startInc": start_inc,
-            "payFreq": pay_freq, "buckets": bkt_rows}
 
 
 def _date_label(iso: str) -> str:

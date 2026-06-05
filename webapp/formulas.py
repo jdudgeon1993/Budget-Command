@@ -139,6 +139,16 @@ def budget_bal(accounts: list[dict], transactions: list[dict]) -> float:
     )
 
 
+# ── 3.3 Total Cash (budget + savings) ────────────────────────────────────────
+
+def total_cash(accounts: list[dict], transactions: list[dict]) -> float:
+    return sum(
+        acct_balance(a, transactions)
+        for a in accounts
+        if a.get("type") in ("budget", "savings")
+    )
+
+
 # ── 3.4 / 3.5 Allocation and Budget ──────────────────────────────────────────
 
 def b_alloc(month: dict, bucket_id: str) -> float:
