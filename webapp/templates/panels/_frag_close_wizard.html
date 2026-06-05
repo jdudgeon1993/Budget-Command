@@ -1,54 +1,63 @@
-{# End-of-Month Close Wizard — 5 steps, all client-side navigation #}
+{# End-of-Month Close Wizard — always targets the previous calendar month #}
 <style>
 .wiz-step{display:none}
 .wiz-step.active{display:block}
-.wiz-progress{display:flex;gap:0;margin-bottom:20px;border-radius:var(--r-sm);overflow:hidden}
-.wiz-prog-seg{flex:1;height:4px;background:var(--surface2)}
-.wiz-prog-seg.done{background:var(--accent)}
-.wiz-prog-seg.current{background:var(--accent);opacity:.5}
-.wiz-step-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:4px}
-.wiz-step-title{font-size:17px;font-weight:700;margin-bottom:16px}
-.wiz-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}
+.wiz-progress{display:flex;gap:3px;margin-bottom:6px}
+.wiz-prog-seg{flex:1;height:3px;border-radius:2px;background:var(--surface2);transition:background .2s}
+.wiz-prog-seg.done{background:var(--green)}
+.wiz-prog-seg.current{background:var(--accent)}
+.wiz-prog-labels{display:flex;margin-bottom:18px}
+.wiz-prog-lbl{flex:1;font-size:9px;letter-spacing:.07em;text-transform:uppercase;font-family:var(--mono);color:var(--text3);text-align:center}
+.wiz-prog-lbl.done{color:var(--green)}
+.wiz-prog-lbl.current{color:var(--accent)}
+.wiz-step-title{font-size:16px;font-weight:700;margin-bottom:14px}
+.wiz-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px}
 .wiz-table th{color:var(--text3);font-weight:500;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.07em;padding:4px 8px;text-align:left;border-bottom:1px solid var(--border)}
 .wiz-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.04)}
-.wiz-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-.wiz-stat{background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px}
-.wiz-stat-lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:4px}
-.wiz-stat-val{font-size:18px;font-weight:700;font-family:var(--mono)}
-.wiz-check-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
-.wiz-check-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
-.wiz-bucket-over{display:flex;justify-content:space-between;padding:7px 10px;background:var(--red-dim);border-radius:var(--r-sm);margin-bottom:6px;font-size:13px}
-.wiz-nav{display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
-.wiz-counts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.wiz-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.wiz-stat{background:var(--surface2);border-radius:var(--r-sm);padding:11px 13px}
+.wiz-stat-lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:3px}
+.wiz-stat-val{font-size:17px;font-weight:700;font-family:var(--mono)}
+.wiz-acct-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.wiz-action-link{font-size:11px;padding:3px 8px;border-radius:var(--r-sm);border:1px solid var(--border);color:var(--text2);text-decoration:none;cursor:pointer;white-space:nowrap;background:var(--surface)}
+.wiz-action-link:hover{color:var(--text);border-color:var(--accent)}
+.wiz-debt-card{background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:8px}
+.wiz-bucket-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-sm);margin-bottom:5px;font-size:13px}
+.wiz-bucket-row.over{background:var(--red-dim)}
+.wiz-bucket-row.partial{background:var(--amber-dim)}
+.wiz-counts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .wiz-count-pill{padding:5px 14px;border-radius:var(--r-pill);font-size:12px;font-family:var(--mono);font-weight:600}
+.wiz-nav{display:flex;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);align-items:center}
+.wiz-hint{font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5}
 @media print{
-  .modal-overlay,.sidebar,.app-topbar,.wiz-nav,[data-noprint]{display:none!important}
+  .wiz-nav,.wiz-action-link,.wiz-progress,.wiz-prog-labels{display:none!important}
   .wiz-step{display:block!important}
-  .wiz-progress{display:none}
   body{background:#fff;color:#000}
-  .wiz-stat{background:#f5f5f5;color:#000}
-  .wiz-stat-lbl,.wiz-step-label{color:#666}
-  .wiz-table td,.wiz-table th{border-color:#ddd}
+  .wiz-stat,.wiz-debt-card{background:#f5f5f5!important}
+  .wiz-stat-lbl,.wiz-prog-lbl,.wiz-hint{color:#666!important}
 }
 </style>
 
-<div class="modal-title" style="display:flex;align-items:center;justify-content:space-between">
+<div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
   <span>Close {{ month_label }}</span>
-  {% if is_closed %}<span style="font-size:11px;background:var(--green-dim);color:var(--green);border-radius:var(--r-pill);padding:2px 10px;font-family:var(--mono)">✓ Closed</span>{% endif %}
+  {% if is_closed %}
+  <span style="font-size:11px;background:var(--green-dim);color:var(--green);border-radius:var(--r-pill);padding:2px 10px;font-family:var(--mono)">✓ Closed</span>
+  {% endif %}
 </div>
 
-{# Progress bar #}
-<div class="wiz-progress" id="wiz-progress">
-  <div class="wiz-prog-seg current" id="wiz-seg-0"></div>
-  <div class="wiz-prog-seg" id="wiz-seg-1"></div>
-  <div class="wiz-prog-seg" id="wiz-seg-2"></div>
-  <div class="wiz-prog-seg" id="wiz-seg-3"></div>
-  <div class="wiz-prog-seg" id="wiz-seg-4"></div>
+<div class="wiz-progress">
+  {% for i in range(5) %}
+  <div class="wiz-prog-seg" id="wiz-seg-{{ i }}"></div>
+  {% endfor %}
+</div>
+<div class="wiz-prog-labels">
+  {% for lbl in ['Income','Accounts','Debt','Budget','Close'] %}
+  <div class="wiz-prog-lbl" id="wiz-lbl-{{ loop.index0 }}">{{ lbl }}</div>
+  {% endfor %}
 </div>
 
 {# ── Step 1: Income Review ── #}
-<div class="wiz-step active" id="wiz-step-0">
-  <div class="wiz-step-label">Step 1 of 5</div>
+<div class="wiz-step" id="wiz-step-0">
   <div class="wiz-step-title">Income Review</div>
   <div class="wiz-stat-grid">
     <div class="wiz-stat">
@@ -75,73 +84,90 @@
     </tbody>
   </table>
   {% else %}
-  <div class="stub">No income recorded this month.</div>
+  <div class="stub" style="margin-bottom:12px">No income recorded for {{ month_label }}.</div>
   {% endif %}
-  <div class="wiz-check-row">
-    <input type="checkbox" id="chk-income">
-    <label for="chk-income">All income is recorded and correct</label>
-  </div>
+  <div class="wiz-hint">Missing a paycheck or deposit? Add it before closing.</div>
   <div class="wiz-nav">
-    <button class="toolbar-btn" type="button" onclick="closeModal()" data-noprint>Cancel</button>
-    <button class="toolbar-btn primary" style="margin-left:auto" type="button" onclick="wizNext()" data-noprint>Accounts →</button>
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <a class="wiz-action-link" style="margin-left:auto"
+       href="{{ url_for('panels.transaction_create') }}?type=in&back=close-wizard"
+       hx-get="{{ url_for('panels.transaction_create') }}?type=in"
+       hx-target="#modal-body">+ Add Income</a>
+    <button class="toolbar-btn primary" type="button" onclick="wizGo(1)">Accounts →</button>
   </div>
 </div>
 
-{# ── Step 2: Account Reconciliation ── #}
+{# ── Step 2: Account Balances ── #}
 <div class="wiz-step" id="wiz-step-1">
-  <div class="wiz-step-label">Step 2 of 5</div>
   <div class="wiz-step-title">Account Balances</div>
-  <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Compare each balance against your bank statement and check off when confirmed.</p>
+  <div class="wiz-hint">Balances as of {{ eom_date }}. Compare against your bank/app statements and add a correction if needed.</div>
   {% for a in budget_accounts %}
-  <div class="wiz-check-row">
-    <input type="checkbox" id="chk-acct-{{ loop.index }}">
-    <label for="chk-acct-{{ loop.index }}" style="flex:1">{{ a.name }}
-      <span style="color:var(--text3);font-size:11px;margin-left:6px">{{ a.type }}</span>
-    </label>
-    <span class="mono" style="font-weight:700;color:{{ 'var(--green)' if a.balance >= 0 else 'var(--red)' }}">{{ a.balance | money }}</span>
+  <div class="wiz-acct-row">
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:600;font-size:13px">{{ a.name }}</div>
+      <div style="font-size:11px;color:var(--text3)">{{ a.type }}</div>
+    </div>
+    <span class="mono" style="font-weight:700;font-size:15px;color:{{ 'var(--green)' if a.balance >= 0 else 'var(--red)' }}">{{ a.balance | money }}</span>
+    <a class="wiz-action-link"
+       href="{{ url_for('panels.transaction_create') }}?type=adjustment&accountId={{ a.id }}"
+       hx-get="{{ url_for('panels.transaction_create') }}?accountId={{ a.id }}"
+       hx-target="#modal-body">Add Tx</a>
+    <a class="wiz-action-link"
+       href="{{ url_for('panels.account_edit', aid=a.id) }}"
+       hx-get="{{ url_for('panels.account_edit', aid=a.id) }}"
+       hx-target="#modal-body">Edit</a>
   </div>
   {% else %}
-  <div class="stub">No non-debt accounts.</div>
+  <div class="stub">No accounts.</div>
   {% endfor %}
   <div class="wiz-nav">
-    <button class="toolbar-btn" type="button" onclick="wizBack()" data-noprint>← Back</button>
-    <button class="toolbar-btn primary" style="margin-left:auto" type="button" onclick="wizNext()" data-noprint>Debt →</button>
+    <button class="toolbar-btn" type="button" onclick="wizGo(0)">← Back</button>
+    <button class="toolbar-btn primary" style="margin-left:auto" type="button" onclick="wizGo(2)">Debt →</button>
   </div>
 </div>
 
-{# ── Step 3: Debt Reconciliation ── #}
+{# ── Step 3: Debt Accounts ── #}
 <div class="wiz-step" id="wiz-step-2">
-  <div class="wiz-step-label">Step 3 of 5</div>
   <div class="wiz-step-title">Debt Accounts</div>
+  <div class="wiz-hint">Balances as of {{ eom_date }}. Post interest if not yet recorded, then verify against statements.</div>
   {% if debt_accounts %}
-  <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Verify debt balances match your latest statements.</p>
-  {% for a in debt_accounts %}
-  <div style="background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:8px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span style="font-weight:600">{{ a.name }}</span>
-      {% if a.apr %}<span style="font-size:11px;color:var(--red);font-family:var(--mono)">{{ "%.1f"|format(a.apr) }}% APR</span>{% endif %}
-      <span class="mono" style="margin-left:auto;font-weight:700;color:var(--red)">{{ a.balance | money }}</span>
+    {% for a in debt_accounts %}
+    <div class="wiz-debt-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-weight:600;flex:1">{{ a.name }}</span>
+        {% if a.apr %}<span style="font-size:11px;color:var(--red);font-family:var(--mono)">{{ "%.1f"|format(a.apr) }}% APR</span>{% endif %}
+        <span class="mono" style="font-weight:700;color:var(--red)">{{ a.balance | money }}</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        {% if a.min_payment %}<span style="font-size:11px;color:var(--text3)">Min: {{ a.min_payment | money }}/mo</span>{% endif %}
+        {% if a.interest_posted > 0 %}
+        <span style="font-size:11px;color:var(--green);font-family:var(--mono)">✓ Interest posted ({{ a.interest_posted | money }})</span>
+        {% elif a.apr %}
+        <form method="post" action="{{ url_for('panels.post_interest_wizard', aid=a.id) }}"
+              style="display:contents"
+              hx-post="{{ url_for('panels.post_interest_wizard', aid=a.id) }}"
+              hx-target="#modal-body">
+          <button class="wiz-action-link" type="submit" style="color:var(--amber);border-color:rgba(255,159,10,.35)">Post Interest</button>
+        </form>
+        {% endif %}
+        <a class="wiz-action-link" style="margin-left:auto"
+           href="{{ url_for('panels.debt_payment', aid=a.id) }}"
+           hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}"
+           hx-target="#modal-body">Record Payment</a>
+      </div>
     </div>
-    {% if a.min_payment %}<div style="font-size:11px;color:var(--text3)">Min payment: {{ a.min_payment | money }}/mo</div>{% endif %}
-    {% if a.interest_this_month > 0 %}<div style="font-size:11px;color:var(--red);margin-top:2px">Interest posted this month: {{ a.interest_this_month | money }}</div>{% endif %}
-    <div class="wiz-check-row" style="border:none;padding-top:8px;margin-top:4px">
-      <input type="checkbox" id="chk-debt-{{ loop.index }}">
-      <label for="chk-debt-{{ loop.index }}" style="font-size:12px">Balance verified against statement</label>
-    </div>
-  </div>
-  {% endfor %}
+    {% endfor %}
   {% else %}
-  <div class="stub">No debt accounts.</div>
+  <div class="stub" style="margin-bottom:12px">No debt accounts.</div>
   {% endif %}
   <div class="wiz-nav">
-    <button class="toolbar-btn" type="button" onclick="wizBack()" data-noprint>← Back</button>
-    <button class="toolbar-btn primary" style="margin-left:auto" type="button" onclick="wizNext()" data-noprint>Budget →</button>
+    <button class="toolbar-btn" type="button" onclick="wizGo(1)">← Back</button>
+    <button class="toolbar-btn primary" style="margin-left:auto" type="button" onclick="wizGo(3)">Budget →</button>
   </div>
 </div>
 
 {# ── Step 4: Budget Report ── #}
 <div class="wiz-step" id="wiz-step-3">
-  <div class="wiz-step-label">Step 4 of 5</div>
   <div class="wiz-step-title">Budget Report</div>
   <div class="wiz-counts">
     <span class="wiz-count-pill" style="background:var(--green-dim);color:var(--green)">{{ bucket_counts.funded }} Funded</span>
@@ -149,33 +175,54 @@
     <span class="wiz-count-pill" style="background:var(--amber-dim);color:var(--amber)">{{ bucket_counts.partial }} Partial</span>
     {% endif %}
     {% if bucket_counts.over > 0 %}
-    <span class="wiz-count-pill" style="background:var(--red-dim);color:var(--red)">{{ bucket_counts.over }} Over Budget</span>
+    <span class="wiz-count-pill" style="background:var(--red-dim);color:var(--red)">{{ bucket_counts.over }} Over</span>
     {% endif %}
   </div>
-  {% if over_buckets %}
-  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-family:var(--mono);margin-bottom:8px">Over budget</div>
-  {% for b in over_buckets %}
-  <div class="wiz-bucket-over">
+
+  {% if partial_buckets %}
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--amber);font-family:var(--mono);margin-bottom:6px">Underfunded — fill before closing?</div>
+  {% for b in partial_buckets %}
+  <div class="wiz-bucket-row partial">
     <span>{{ b.name }}</span>
-    <span style="font-family:var(--mono)">
-      <span style="color:var(--text3)">{{ b.budget | money }} budget</span>
-      <span style="color:var(--red);margin-left:8px">+{{ b.over | money }} over</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">{{ b.alloc | money }} / {{ b.budget | money }}</span>
+      <form method="post" action="{{ url_for('panels.fill_bucket_wizard', bid=b.id) }}"
+            style="display:contents"
+            hx-post="{{ url_for('panels.fill_bucket_wizard', bid=b.id) }}"
+            hx-target="#modal-body">
+        <button class="wiz-action-link" type="submit" style="color:var(--accent);border-color:rgba(191,90,242,.35)">Fill</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if over_buckets %}
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--red);font-family:var(--mono);margin-bottom:6px;margin-top:10px">Over budget</div>
+  {% for b in over_buckets %}
+  <div class="wiz-bucket-row over">
+    <span>{{ b.name }}</span>
+    <span style="font-family:var(--mono);font-size:12px">
+      <span style="color:var(--text3)">{{ b.budget | money }}</span>
+      <span style="color:var(--red);margin-left:6px">+{{ b.over | money }}</span>
     </span>
   </div>
   {% endfor %}
-  {% else %}
-  <div style="color:var(--green);font-size:13px;padding:8px 0">✓ No buckets are over budget.</div>
   {% endif %}
+
+  {% if not partial_buckets and not over_buckets %}
+  <div style="color:var(--green);font-size:13px;padding:6px 0">✓ All buckets are funded — nothing to fix.</div>
+  {% endif %}
+
   <div class="wiz-nav">
-    <button class="toolbar-btn" type="button" onclick="wizBack()" data-noprint>← Back</button>
-    <button class="toolbar-btn primary" style="margin-left:auto" type="button" onclick="wizNext()" data-noprint>Summary →</button>
+    <button class="toolbar-btn" type="button" onclick="wizGo(2)">← Back</button>
+    <button class="toolbar-btn primary" style="margin-left:auto" type="button" onclick="wizGo(4)">Summary →</button>
   </div>
 </div>
 
-{# ── Step 5: Close ── #}
+{# ── Step 5: Summary & Close ── #}
 <div class="wiz-step" id="wiz-step-4">
-  <div class="wiz-step-label">Step 5 of 5</div>
-  <div class="wiz-step-title">Monthly Summary</div>
+  <div class="wiz-step-title">{{ month_label }} Summary</div>
   <div class="wiz-stat-grid">
     <div class="wiz-stat">
       <div class="wiz-stat-lbl">Income</div>
@@ -191,33 +238,27 @@
     </div>
     <div class="wiz-stat">
       <div class="wiz-stat-lbl">Total Debt</div>
-      <div class="wiz-stat-val" style="color:var(--red)">{{ snapshot.debt_total | money }}</div>
+      <div class="wiz-stat-val" style="color:{{ 'var(--red)' if snapshot.debt_total > 0 else 'var(--green)' }}">{{ snapshot.debt_total | money }}</div>
     </div>
   </div>
   <div class="wiz-stat" style="margin-bottom:16px">
     <div class="wiz-stat-lbl">Net Worth</div>
     <div class="wiz-stat-val" style="font-size:24px;color:{{ 'var(--green)' if snapshot.net_worth >= 0 else 'var(--red)' }}">{{ snapshot.net_worth | money }}</div>
   </div>
-  <div style="font-size:12px;color:var(--text3);margin-bottom:16px">
-    Closing locks this month's snapshot. You can reopen it from the workflow bar if needed.
-  </div>
-  <div class="wiz-nav" data-noprint>
-    <button class="toolbar-btn" type="button" onclick="wizBack()">← Back</button>
-    <button class="toolbar-btn" type="button" onclick="window.print()" style="margin-left:auto">
-      🖨 Print Report
-    </button>
+
+  <div class="wiz-nav">
+    <button class="toolbar-btn" type="button" onclick="wizGo(3)">← Back</button>
+    <button class="toolbar-btn" type="button" onclick="window.print()" style="margin-left:auto">Print</button>
     {% if not is_closed %}
     <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents"
           hx-post="{{ url_for('panels.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
       <button class="toolbar-btn primary" type="submit">✓ Close {{ month_label }}</button>
     </form>
     {% else %}
-    <span style="font-size:12px;color:var(--green);display:flex;align-items:center;gap:6px">
-      ✓ Already closed
-    </span>
+    <span style="font-size:12px;color:var(--green)">✓ Already closed</span>
     <form method="post" action="{{ url_for('panels.month_reopen') }}" style="display:contents"
           hx-post="{{ url_for('panels.month_reopen') }}" hx-target="#panel" hx-swap="innerHTML">
-      <button class="toolbar-btn" type="submit" style="color:var(--amber)">Reopen</button>
+      <button class="toolbar-btn" type="submit">Reopen</button>
     </form>
     {% endif %}
   </div>
@@ -225,20 +266,21 @@
 
 <script>
 (function(){
-var step=0, total=5;
+var LABELS=['Income','Accounts','Debt','Budget','Close'];
 function wizGo(n){
-  document.getElementById('wiz-step-'+step).classList.remove('active');
-  for(var i=0;i<total;i++){
+  for(var i=0;i<5;i++){
+    document.getElementById('wiz-step-'+i).classList.remove('active');
     var seg=document.getElementById('wiz-seg-'+i);
-    if(!seg) continue;
-    seg.className='wiz-prog-seg'+(i<n?' done':i===n?' current':'');
+    var lbl=document.getElementById('wiz-lbl-'+i);
+    if(seg) seg.className='wiz-prog-seg'+(i<n?' done':i===n?' current':'');
+    if(lbl) lbl.className='wiz-prog-lbl'+(i<n?' done':i===n?' current':'');
   }
-  step=n;
-  document.getElementById('wiz-step-'+step).classList.add('active');
-  var modal=document.getElementById('modal-body');
-  if(modal) modal.scrollTop=0;
+  document.getElementById('wiz-step-'+n).classList.add('active');
+  var mb=document.getElementById('modal-body');
+  if(mb) mb.scrollTop=0;
+  window._wizStep=n;
 }
-window.wizNext=function(){ if(step<total-1) wizGo(step+1); };
-window.wizBack=function(){ if(step>0) wizGo(step-1); };
+window.wizGo=wizGo;
+wizGo({{ initial_step | default(0) }});
 })();
 </script>

@@ -512,17 +512,69 @@ def month_copy():
 @bp.route("/month/close-wizard")
 @login_required
 def month_close_wizard():
-    return render_template("panels/_frag_close_wizard.html", **D.close_wizard_ctx())
+    ctx = D.close_wizard_ctx()
+    # Pass the step to return to after an inline action (default 0)
+    ctx["initial_step"] = int(request.args.get("step", 0))
+    return render_template("panels/_frag_close_wizard.html", **ctx)
+
+
+@bp.route("/accounts/<aid>/post-interest-wizard", methods=["POST"])
+@login_required
+def post_interest_wizard(aid):
+    """Post monthly interest and refresh the close wizard, staying on step 3."""
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if account and account.get("type") == "debt" and account.get("debtAPR"):
+        balance = D.F.acct_balance(account, data.get("txs", []))
+        if balance > 0:
+            monthly_interest = round(balance * (account["debtAPR"] / 100.0) / 12.0, 2)
+            from datetime import date as _date
+            today = _date.today().isoformat()
+            y, m, _ = today.split("-")
+            mid = D.F.month_id(int(y), int(m) - 1)
+            if not current_app.config["DEV_SEED"]:
+                DB.ensure_month(session["user_id"], session["access_token"], mid)
+                DB.insert_transaction(session["user_id"], session["access_token"], {
+                    "accountId": aid, "monthId": mid,
+                    "type": "out", "amount": monthly_interest,
+                    "date": today,
+                    "desc": f"Interest Charge — {account['debtAPR']:.2f}% APR",
+                })
+    ctx = D.close_wizard_ctx()
+    ctx["initial_step"] = 2  # return to debt step
+    return render_template("panels/_frag_close_wizard.html", **ctx)
+
+
+@bp.route("/buckets/<bid>/fill-wizard", methods=["POST"])
+@login_required
+def fill_bucket_wizard(bid):
+    """Fill a bucket and refresh the close wizard, staying on step 4."""
+    target_mid = D.F.month_offset(D.F.current_month_id(), -1)
+    data = D.load_data()
+    month = D.active_month(data, target_mid)
+    budget = D.F.b_budget(month, bid)
+    if budget > 0:
+        month.setdefault("allocations", {})[bid] = budget
+        if not current_app.config["DEV_SEED"]:
+            DB.ensure_month(session["user_id"], session["access_token"], target_mid)
+            DB.upsert_alloc(session["user_id"], session["access_token"],
+                            target_mid, bid, budget)
+    ctx = D.close_wizard_ctx()
+    ctx["initial_step"] = 3  # return to budget step
+    return render_template("panels/_frag_close_wizard.html", **ctx)
 
 
 @bp.route("/month/close", methods=["POST"])
 @login_required
 def month_close():
+    # Always close the previous calendar month (the one that ended)
+    target_mid = D.F.month_offset(D.F.current_month_id(), -1)
     data = D.load_data()
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], target_mid)
         DB.close_month(session["user_id"], session["access_token"],
-                       D.active_mid(), data.get("accounts", []), data.get("txs", []))
-        flash("Month closed.", "ok")
+                       target_mid, data.get("accounts", []), data.get("txs", []))
+        flash(f"{D.month_label(target_mid)} closed.", "ok")
     else:
         flash("Dev mode: close not persisted.", "ok")
     return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
@@ -531,12 +583,13 @@ def month_close():
 @bp.route("/month/reopen", methods=["POST"])
 @login_required
 def month_reopen():
+    target_mid = D.F.month_offset(D.F.current_month_id(), -1)
     if not current_app.config["DEV_SEED"]:
-        DB.reopen_month(session["user_id"], session["access_token"], D.active_mid())
-        flash("Month reopened.", "ok")
+        DB.reopen_month(session["user_id"], session["access_token"], target_mid)
+        flash(f"{D.month_label(target_mid)} reopened.", "ok")
     else:
         flash("Dev mode: reopen not persisted.", "ok")
-    return _buckets_response()
+    return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
 
 
 # ── Month navigation ──────────────────────────────────────────────────────────
