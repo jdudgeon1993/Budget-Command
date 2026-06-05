@@ -721,6 +721,18 @@ def post_interest(aid):
     return redirect(url_for("panels.accounts"))
 
 
+@bp.route("/accounts/<aid>/payoff")
+@login_required
+def debt_payoff(aid):
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if not account or account.get("type") != "debt":
+        return redirect(url_for("panels.accounts"))
+    balance = D.F.acct_balance(account, data.get("txs", []))
+    return render_template("panels/_frag_debt_tracker.html",
+                           account=account, balance=balance)
+
+
 @bp.route("/reports")
 @login_required
 def reports():

@@ -165,6 +165,10 @@
              hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}" hx-target="#modal-body"
              title="Record a payment">Pay</a>
           {% if a.debtAPR %}
+          <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--indigo);border-color:rgba(129,140,248,.35)"
+             href="{{ url_for('panels.debt_payoff', aid=a.id) }}"
+             hx-get="{{ url_for('panels.debt_payoff', aid=a.id) }}" hx-target="#modal-body"
+             title="Payoff timeline & what-if calculator">Payoff</a>
           <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--red);border-color:rgba(255,69,58,.35)"
              href="{{ url_for('panels.post_interest', aid=a.id) }}"
              hx-post="{{ url_for('panels.post_interest', aid=a.id) }}" hx-target="#panel" hx-swap="innerHTML"

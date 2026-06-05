@@ -1,0 +1,224 @@
+<div class="modal-title">Payoff Tracker — {{ account.name }}</div>
+
+{% if not account.debtAPR or account.debtAPR <= 0 %}
+<div style="color:var(--text2);font-size:13px;padding:16px 0">
+  No APR set for this account. Add an APR in account settings to use the payoff tracker.
+</div>
+<div class="edit-actions" style="margin-top:16px">
+  <button class="toolbar-btn" type="button" onclick="closeModal()">Close</button>
+</div>
+{% else %}
+
+{# Key stats #}
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+  <div class="rts-kpi">
+    <span class="rts-kpi-lbl">Balance</span>
+    <span class="rts-kpi-val" style="color:var(--red)">{{ balance | money }}</span>
+  </div>
+  <div class="rts-kpi">
+    <span class="rts-kpi-lbl">APR</span>
+    <span class="rts-kpi-val" style="color:var(--amber)">{{ "%.2f"|format(account.debtAPR) }}%</span>
+  </div>
+  {% if account.debtMinPayment %}
+  <div class="rts-kpi">
+    <span class="rts-kpi-lbl">Min Payment</span>
+    <span class="rts-kpi-val">{{ account.debtMinPayment | money }}</span>
+  </div>
+  {% endif %}
+  {% if account.creditLimit %}
+  <div class="rts-kpi">
+    <span class="rts-kpi-lbl">Credit Limit</span>
+    <span class="rts-kpi-val">{{ account.creditLimit | money }}</span>
+  </div>
+  {% endif %}
+</div>
+
+{# Extra payment input #}
+<div style="margin-bottom:20px">
+  <label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);font-family:var(--mono);margin-bottom:8px">
+    Extra monthly payment
+  </label>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="color:var(--text2);font-size:14px;font-family:var(--mono)">+$</span>
+    <input id="pt-extra" type="number" min="0" step="10" value="0"
+           style="width:100px;font-family:var(--mono);font-size:18px;font-weight:600;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 10px;color:var(--text);text-align:right"
+           oninput="ptUpdate()">
+    <input id="pt-slider" type="range" min="0" step="10" value="0"
+           style="flex:1;accent-color:var(--accent)"
+           oninput="document.getElementById('pt-extra').value=this.value;ptUpdate()">
+  </div>
+</div>
+
+{# Comparison cards #}
+<div id="pt-result" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px"></div>
+
+{# Savings banner #}
+<div id="pt-savings" style="display:none;background:var(--green-dim);border:1px solid rgba(48,209,88,.25);border-radius:var(--r-sm);padding:10px 14px;font-size:13px;color:var(--green);margin-bottom:20px"></div>
+
+{# Amortization schedule toggle #}
+<div style="margin-bottom:8px">
+  <button class="wf-btn" type="button" onclick="ptToggleSched()" id="pt-sched-btn">▸ View schedule</button>
+</div>
+<div id="pt-sched" style="display:none;overflow-x:auto"></div>
+
+<div class="edit-actions">
+  <button class="toolbar-btn" type="button" onclick="closeModal()">Close</button>
+  <a class="toolbar-btn primary" style="text-align:center"
+     href="{{ url_for('panels.debt_payment', aid=account.id) }}"
+     hx-get="{{ url_for('panels.debt_payment', aid=account.id) }}" hx-target="#modal-body">
+    Make a Payment →
+  </a>
+</div>
+
+<script>
+(function(){
+var BAL  = {{ balance | round(2) }};
+var APR  = {{ account.debtAPR }};
+var MPMT = {{ account.debtMinPayment or 0 }};
+
+// Slider max: 2× the payment that would pay off in ~12 months
+var rate = APR/100/12;
+var sliderMax = rate>0
+  ? Math.ceil(BAL*rate*(Math.pow(1+rate,12))/(Math.pow(1+rate,12)-1)/10)*10*2
+  : Math.ceil(BAL/12/10)*10*2;
+sliderMax = Math.max(sliderMax, 500);
+document.getElementById('pt-slider').max = sliderMax;
+
+function money(v){
+  return '$'+Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+
+function fmtDate(monthsFromNow){
+  var d=new Date();
+  d.setMonth(d.getMonth()+monthsFromNow);
+  return d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+}
+
+function amortize(bal,apr,pmt){
+  if(bal<=0) return {months:0,interest:0,feasible:true};
+  var r=apr/100/12;
+  if(pmt<=0) return {months:Infinity,interest:Infinity,feasible:false};
+  if(r>0&&pmt<=bal*r) return {months:Infinity,interest:Infinity,feasible:false};
+  var b=bal,interest=0,months=0;
+  while(b>0.005&&months<600){
+    var ic=r>0?b*r:0;
+    interest+=ic;
+    var actual=Math.min(pmt,b+ic);
+    b=b+ic-actual;
+    months++;
+  }
+  return {months:months,interest:Math.max(0,interest),feasible:true};
+}
+
+function scheduleRows(bal,apr,pmt,max_rows){
+  var r=apr/100/12, rows=[], b=bal, month=0;
+  while(b>0.005&&month<max_rows){
+    month++;
+    var ic=r>0?b*r:0;
+    var actual=Math.min(pmt,b+ic);
+    var principal=actual-ic;
+    b=b+ic-actual;
+    rows.push({month:month,payment:actual,principal:principal,interest:ic,balance:Math.max(0,b)});
+  }
+  return rows;
+}
+
+function ptUpdate(){
+  var extra=parseFloat(document.getElementById('pt-extra').value)||0;
+  var basePmt=MPMT||Math.max(1,BAL*0.01+BAL*rate); // fallback: 1% + interest if no min set
+  var extraPmt=basePmt+extra;
+
+  var base=amortize(BAL,APR,basePmt);
+  var with_extra=amortize(BAL,APR,extraPmt);
+
+  var res=document.getElementById('pt-result');
+  var cards='';
+
+  // Base card
+  var bLabel=base.feasible?
+    (base.months>=600?'Never (payment too low)':fmtDate(base.months)+' ('+base.months+' mo)'):
+    '<span style="color:var(--red)">Payment too low</span>';
+  var bInterest=base.feasible&&base.months<600?money(base.interest):'—';
+  cards+='<div class="rts-kpi" style="flex:1;min-width:160px">'
+    +'<span class="rts-kpi-lbl">Min payment '+(MPMT?money(MPMT):'')+'/mo</span>'
+    +'<span class="rts-kpi-val" style="font-size:14px">'+bLabel+'</span>'
+    +'<span style="font-size:11px;color:var(--red);font-family:var(--mono)">Interest: '+bInterest+'</span>'
+    +'</div>';
+
+  // Extra card (only if extra > 0)
+  if(extra>0){
+    var eLabel=with_extra.feasible?
+      (with_extra.months>=600?'Never':fmtDate(with_extra.months)+' ('+with_extra.months+' mo)'):
+      '<span style="color:var(--red)">Payment too low</span>';
+    var eInterest=with_extra.feasible&&with_extra.months<600?money(with_extra.interest):'—';
+    cards+='<div class="rts-kpi" style="flex:1;min-width:160px;border-color:rgba(191,90,242,.35)">'
+      +'<span class="rts-kpi-lbl" style="color:var(--accent)">+'+money(extra)+'/mo extra</span>'
+      +'<span class="rts-kpi-val" style="font-size:14px;color:var(--accent)">'+eLabel+'</span>'
+      +'<span style="font-size:11px;color:var(--green);font-family:var(--mono)">Interest: '+eInterest+'</span>'
+      +'</div>';
+  }
+  res.innerHTML=cards;
+
+  // Savings banner
+  var sav=document.getElementById('pt-savings');
+  if(extra>0&&base.feasible&&with_extra.feasible&&base.months<600&&with_extra.months<600){
+    var monthsSaved=base.months-with_extra.months;
+    var interestSaved=base.interest-with_extra.interest;
+    sav.style.display='';
+    sav.innerHTML='<strong>Payoff '+(monthsSaved>0?monthsSaved+' months sooner':'on time')
+      +'</strong> &nbsp;·&nbsp; Save <strong>'+money(interestSaved)+'</strong> in interest'
+      +' by adding '+money(extra)+'/mo';
+  } else {
+    sav.style.display='none';
+  }
+
+  // Refresh schedule if open
+  if(document.getElementById('pt-sched').style.display!=='none'){
+    ptRenderSched(basePmt,extraPmt,extra);
+  }
+}
+
+function ptRenderSched(basePmt,extraPmt,extra){
+  var rows=scheduleRows(BAL,APR,extraPmt||basePmt,24);
+  var html='<table style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)">'
+    +'<thead><tr style="color:var(--text2)">'
+    +'<th style="padding:4px 6px;text-align:left">Mo</th>'
+    +'<th style="padding:4px 6px;text-align:right">Payment</th>'
+    +'<th style="padding:4px 6px;text-align:right">Principal</th>'
+    +'<th style="padding:4px 6px;text-align:right;color:var(--red)">Interest</th>'
+    +'<th style="padding:4px 6px;text-align:right">Balance</th>'
+    +'</tr></thead><tbody>';
+  rows.forEach(function(r){
+    html+='<tr style="border-top:1px solid var(--border)">'
+      +'<td style="padding:4px 6px;color:var(--text2)">'+r.month+'</td>'
+      +'<td style="padding:4px 6px;text-align:right">'+money(r.payment)+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;color:var(--green)">'+money(r.principal)+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;color:var(--red)">'+money(r.interest)+'</td>'
+      +'<td style="padding:4px 6px;text-align:right">'+money(r.balance)+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  if(rows.length===24) html+='<div style="font-size:11px;color:var(--text3);padding:6px 6px 0">Showing first 24 months…</div>';
+  document.getElementById('pt-sched').innerHTML=html;
+}
+
+function ptToggleSched(){
+  var el=document.getElementById('pt-sched');
+  var btn=document.getElementById('pt-sched-btn');
+  var open=el.style.display!=='none';
+  if(open){
+    el.style.display='none';
+    btn.textContent='▸ View schedule';
+  } else {
+    el.style.display='';
+    btn.textContent='▾ Hide schedule';
+    var extra=parseFloat(document.getElementById('pt-extra').value)||0;
+    var basePmt=MPMT||Math.max(1,BAL*0.01+BAL*rate);
+    ptRenderSched(basePmt,basePmt+extra,extra);
+  }
+}
+
+ptUpdate();
+})();
+</script>
+{% endif %}
