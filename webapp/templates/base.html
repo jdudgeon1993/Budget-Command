@@ -152,7 +152,13 @@ document.addEventListener('htmx:afterSettle',function(e){
   </nav>
 </div>
 <script>
-function _restoreAddTx(){var t=document.getElementById('add-tx-tpl');if(t)document.getElementById('modal-body').innerHTML=t.innerHTML;}
+function _restoreAddTx(){
+  var t=document.getElementById('add-tx-tpl');
+  if(!t)return;
+  var mb=document.getElementById('modal-body');
+  mb.innerHTML=t.innerHTML;
+  if(typeof htmx!=='undefined')htmx.process(mb);
+}
 function openModal(){var m=document.getElementById('modal');m.style.display='flex';requestAnimationFrame(function(){m.classList.add('open');});}
 function openAddTxModal(){_restoreAddTx();openModal();}
 function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';_restoreAddTx();},220);}
