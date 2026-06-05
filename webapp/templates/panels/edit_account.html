@@ -10,13 +10,20 @@
       <label>Account name</label>
       <input type="text" name="name" value="{{ account.name if account else '' }}" placeholder="e.g. Chase Checking" required autofocus>
     </div>
-    <div class="edit-field">
-      <label>Type</label>
-      <select name="type">
-        {% for val, label in [('budget','Checking / Cash'),('savings','Savings'),('debt','Credit / Debt'),('investment','Investment')] %}
-        <option value="{{ val }}" {{ 'selected' if account and account.type == val }}>{{ label }}</option>
-        {% endfor %}
-      </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="edit-field">
+        <label>Type</label>
+        <select name="type" id="acct-type-sel" onchange="updateAcctFields()">
+          {% for val, label in [('budget','Checking / Cash'),('savings','Savings'),('debt','Credit / Debt'),('investment','Investment')] %}
+          <option value="{{ val }}" {{ 'selected' if account and account.type == val }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="edit-field">
+        <label>Color</label>
+        <input type="color" name="color" value="{{ account.color if account else '#818cf8' }}"
+               style="height:40px;padding:4px;background:var(--surface2)">
+      </div>
     </div>
     <div class="edit-field">
       <label>Opening balance</label>
@@ -24,10 +31,42 @@
              value="{{ account.openingBalance if account else '0' }}"
              placeholder="0.00">
     </div>
-    <div class="edit-field">
-      <label>Color</label>
-      <input type="color" name="color" value="{{ account.color if account else '#818cf8' }}"
-             style="height:40px;padding:4px;background:var(--surface2)">
+
+    {# Debt-specific fields #}
+    {% set _is_debt = account and account.type == 'debt' %}
+    <div id="acct-debt-fields" style="{{ '' if _is_debt else 'display:none' }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="edit-field">
+          <label>APR <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(%)</span></label>
+          <input type="text" name="debt_apr" inputmode="decimal"
+                 value="{{ '%.3f'|format(account.debtAPR) if account and account.debtAPR else '' }}"
+                 placeholder="e.g. 24.99">
+        </div>
+        <div class="edit-field">
+          <label>Min payment</label>
+          <input type="text" name="debt_min_payment" inputmode="decimal"
+                 value="{{ account.debtMinPayment or '' }}" placeholder="0.00">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="edit-field">
+          <label>Credit limit</label>
+          <input type="text" name="credit_limit" inputmode="decimal"
+                 value="{{ account.creditLimit or '' }}" placeholder="0.00">
+        </div>
+        <div class="edit-field" style="display:flex;align-items:center;gap:12px">
+          <label style="margin-bottom:0;flex:1">Promo rate?</label>
+          <select name="is_promo" style="width:auto;flex:0 0 auto">
+            <option value="0" {{ 'selected' if not (account and account.isPromo) }}>No</option>
+            <option value="1" {{ 'selected' if account and account.isPromo }}>Yes — promo APR</option>
+          </select>
+        </div>
+      </div>
+      <div class="edit-field">
+        <label>Promo end date</label>
+        <input type="date" name="promo_end_date"
+               value="{{ account.promoEndDate if account and account.promoEndDate else '' }}">
+      </div>
     </div>
 
     <div class="edit-actions">
@@ -35,6 +74,12 @@
       <button class="toolbar-btn primary" type="submit">{{ 'Save Changes' if account else 'Add Account' }}</button>
     </div>
   </form>
+<script>
+function updateAcctFields(){
+  var t=document.getElementById('acct-type-sel').value;
+  document.getElementById('acct-debt-fields').style.display=(t==='debt')?'':'none';
+}
+</script>
 
   {% if account %}
   <form method="post" action="{{ url_for('panels.account_archive', aid=account.id) }}"

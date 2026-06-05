@@ -641,6 +641,41 @@ def debt_payment(aid):
                            today=_date.today().isoformat())
 
 
+@bp.route("/accounts/<aid>/post-interest", methods=["POST"])
+@login_required
+def post_interest(aid):
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if not account or account.get("type") != "debt" or not account.get("debtAPR"):
+        flash("Cannot post interest: account not found or no APR set.", "error")
+        return redirect(url_for("panels.accounts"))
+    balance = D.F.acct_balance(account, data.get("txs", []))
+    if balance <= 0:
+        flash("Balance is zero — no interest to post.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return render_panel("panels/accounts.html", "accounts", **D.accounts_view())
+        return redirect(url_for("panels.accounts"))
+    monthly_interest = round(balance * (account["debtAPR"] / 100.0) / 12.0, 2)
+    from datetime import date as _date
+    today = _date.today().isoformat()
+    y, m, _ = today.split("-")
+    mid = D.F.month_id(int(y), int(m) - 1)
+    if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], mid)
+        DB.insert_transaction(session["user_id"], session["access_token"], {
+            "accountId": aid, "monthId": mid,
+            "type": "out", "amount": monthly_interest,
+            "date": today,
+            "desc": f"Interest Charge — {account['debtAPR']:.2f}% APR",
+        })
+        flash(f"Interest charge of ${monthly_interest:,.2f} posted.", "ok")
+    else:
+        flash(f"Dev mode: would post ${monthly_interest:,.2f} interest.", "ok")
+    if request.headers.get("HX-Request") == "true":
+        return render_panel("panels/accounts.html", "accounts", **D.accounts_view())
+    return redirect(url_for("panels.accounts"))
+
+
 @bp.route("/reports")
 @login_required
 def reports():

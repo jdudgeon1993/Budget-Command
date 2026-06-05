@@ -34,7 +34,7 @@
     {% if scheduled %}
     <div class="statement-label" style="color:var(--amber)">Upcoming</div>
     {% for day in scheduled %}
-    <div class="ledger-day">
+    <div class="ledger-day" data-sched="1">
       <div class="ledger-head">
         <span class="ledger-date" style="color:var(--amber)">{{ day.label }}</span>
         <span class="ledger-net" style="color:var(--amber)">{{ day.net | money }}</span>
@@ -44,6 +44,7 @@
       <div class="tx-row"
            data-aid="{{ t.account_id }}"
            data-to-aid="{{ t.toAccountId or '' }}"
+           data-debt-pay-aid="{{ t.debtPaymentAccountId or '' }}"
            data-type="{{ t.type }}"
            data-signed="{{ t.signed }}"
            data-amt="{{ t.amount }}">
@@ -80,6 +81,7 @@
       <div class="tx-row"
            data-aid="{{ t.account_id }}"
            data-to-aid="{{ t.toAccountId or '' }}"
+           data-debt-pay-aid="{{ t.debtPaymentAccountId or '' }}"
            data-type="{{ t.type }}"
            data-signed="{{ t.signed }}"
            data-amt="{{ t.amount }}">
@@ -117,7 +119,16 @@
            hx-get="{{ url_for('panels.account_new') }}" hx-target="#modal-body"
            style="font-size:12px">+ Add</a>
       </div>
+      {% if not cards %}
+      <div class="stub" style="padding:16px 0">
+        No accounts yet.
+        <a href="{{ url_for('panels.account_new') }}"
+           hx-get="{{ url_for('panels.account_new') }}" hx-target="#modal-body"
+           style="color:var(--accent)">Add your first account →</a>
+      </div>
+      {% endif %}
       {% for a in cards %}
+      {% set utilization = (a.balance / a.creditLimit * 100) if (a.type == 'debt' and a.creditLimit and a.creditLimit > 0) else none %}
       <div class="acct-card" data-aid="{{ a.id }}" onclick="filterLedger(document.querySelector('.acct-filter-chip[data-aid=\'{{ a.id }}\']'),'{{ a.id }}')">
         <div class="acct-dot" style="width:8px;height:8px;border-radius:50%;background:{{ a.color or 'var(--accent)' }};flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
@@ -126,13 +137,28 @@
             {{ a.type }}
             {% if a.type == 'debt' and a.debtAPR %}<span style="color:var(--red);font-size:10px;margin-left:4px">{{ "%.1f"|format(a.debtAPR) }}% APR</span>{% endif %}
           </div>
+          {% if utilization is not none %}
+          <div class="acct-util-bar" title="{{ '%.0f'|format(utilization) }}% of {{ a.creditLimit | money }} limit">
+            <div class="acct-util-fill" style="width:{{ [utilization, 100]|min }}%;background:{{ 'var(--red)' if utilization >= 80 else 'var(--amber)' if utilization >= 50 else 'var(--green)' }}"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px">{{ '%.0f'|format(utilization) }}% of {{ a.creditLimit | money }}</div>
+          {% endif %}
         </div>
         <div class="acct-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</div>
         {% if a.type == 'debt' %}
-        <a class="vault-action-btn" style="font-size:10px;padding:2px 6px"
-           href="{{ url_for('panels.debt_payment', aid=a.id) }}"
-           hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}" hx-target="#modal-body"
-           title="Record a payment" onclick="event.stopPropagation()">Pay</a>
+        <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end" onclick="event.stopPropagation()">
+          <a class="vault-action-btn" style="font-size:10px;padding:2px 6px"
+             href="{{ url_for('panels.debt_payment', aid=a.id) }}"
+             hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}" hx-target="#modal-body"
+             title="Record a payment">Pay</a>
+          {% if a.debtAPR %}
+          <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--red);border-color:rgba(255,69,58,.35)"
+             href="{{ url_for('panels.post_interest', aid=a.id) }}"
+             hx-post="{{ url_for('panels.post_interest', aid=a.id) }}" hx-target="#panel" hx-swap="innerHTML"
+             hx-confirm="Post monthly interest charge for {{ a.name }}?"
+             title="Post monthly interest charge">Interest</a>
+          {% endif %}
+        </div>
         {% endif %}
         <a class="tx-edit-link" href="{{ url_for('panels.account_edit', aid=a.id) }}"
            hx-get="{{ url_for('panels.account_edit', aid=a.id) }}" hx-target="#modal-body"
@@ -162,6 +188,9 @@ function _txEffect(r,aid){
     if(t==='adjustment') return a;
   } else if(r.dataset.toAid===aid&&t==='xfr'){
     return mult*a;
+  } else if(r.dataset.debtPayAid===aid&&t==='out'){
+    // Debt payment reduces what is owed (raw, no mult — matches formulas.py)
+    return -a;
   }
   return 0;
 }
@@ -174,7 +203,8 @@ function _updateRunningBal(aid){
   }
   var bal=acctBalances[aid];
   document.querySelectorAll('.ledger-day').forEach(function(d){
-    if(d.style.display==='none') return;
+    // Skip scheduled/upcoming days — they haven't happened yet
+    if(d.dataset.sched==='1'||d.style.display==='none') return;
     var dayEffect=0;
     d.querySelectorAll('.tx-row').forEach(function(r){
       if(r.style.display!=='none') dayEffect+=_txEffect(r,aid);
@@ -214,15 +244,20 @@ function filterLedger(btn,aid){
     }
   }
 
-  // Show/hide rows; flip transfer display for destination-account view
+  // Show/hide rows; flip transfer/payment display for destination-account view
   document.querySelectorAll('.tx-row[data-aid]').forEach(function(r){
     var fromMatch=r.dataset.aid===aid;
     var toMatch=r.dataset.toAid===aid&&r.dataset.type==='xfr';
-    var show=aid==='all'||fromMatch||toMatch;
+    var debtPayMatch=r.dataset.debtPayAid===aid&&r.dataset.type==='out';
+    var show=aid==='all'||fromMatch||toMatch||debtPayMatch;
     r.style.display=show?'':'none';
     var amtEl=r.querySelector('.tx-amt'), pillEl=r.querySelector('.tx-pill');
     if(show){
-      if(toMatch&&!fromMatch){
+      if(debtPayMatch&&!fromMatch){
+        var a=parseFloat(r.dataset.amt)||0;
+        if(amtEl){amtEl.textContent='-'+_money(a);amtEl.className='tx-amt c-green';}
+        if(pillEl){pillEl.textContent='Payment';pillEl.className='tx-pill c-green bg-green';}
+      } else if(toMatch&&!fromMatch){
         var a=parseFloat(r.dataset.amt)||0;
         if(amtEl){amtEl.textContent='+'+_money(a);amtEl.className='tx-amt c-green';}
         if(pillEl){pillEl.textContent='Transfer In';pillEl.className='tx-pill c-green bg-green';}

@@ -258,6 +258,7 @@ def accounts_view():
             "type": ttype, "amount": amt,
             "bucketId": t.get("bucketId", ""),
             "toAccountId": t.get("toAccountId", ""),
+            "debtPaymentAccountId": t.get("debtPaymentAccountId", ""),
         }
 
     def _group(tx_list):
