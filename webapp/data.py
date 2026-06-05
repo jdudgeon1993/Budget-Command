@@ -74,10 +74,12 @@ def shell_ctx(active_panel: str = "") -> dict:
         if bkts:
             tx_buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
 
+    month_closed = active_month(data).get("closed", False)
     return {
         "active_panel": active_panel,
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
+        "month_closed": month_closed,
         "rts": rts,
         "total_cash": total_cash,
         "age_of_money": aom,
@@ -474,6 +476,96 @@ def tx_by_id(tid: str) -> dict | None:
         if t.get("id") == tid:
             return t
     return None
+
+
+def close_wizard_ctx() -> dict:
+    """All data needed by the End-of-Month Close wizard modal."""
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data)
+    txs = data.get("txs", [])
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    months = data.get("months", [])
+
+    # Step 1 — income
+    income_txs = sorted(
+        [{"date": t.get("date", "")[:10],
+          "desc": t.get("desc") or "Income",
+          "amount": float(t.get("amount") or 0),
+          "acct": next((a["name"] for a in accounts if a["id"] == t.get("accountId")), "")}
+         for t in txs
+         if t.get("monthId") == mid and t.get("type") == "in" and not F.is_scheduled(t)],
+        key=lambda r: r["date"], reverse=True,
+    )
+    income_total = sum(r["amount"] for r in income_txs)
+
+    # Step 2 — non-debt accounts
+    budget_accounts = [{"id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
+                        "balance": F.acct_balance(a, txs)}
+                       for a in accounts if a.get("type") != "debt"]
+
+    # Step 3 — debt accounts
+    debt_accounts = [{"id": a["id"], "name": a["name"],
+                      "balance": F.acct_balance(a, txs),
+                      "apr": a.get("debtAPR"),
+                      "min_payment": a.get("debtMinPayment"),
+                      "interest_this_month": sum(
+                          float(t.get("amount") or 0) for t in txs
+                          if t.get("monthId") == mid and t.get("accountId") == a["id"]
+                          and t.get("type") == "out" and "Interest" in (t.get("desc") or "")
+                      )}
+                     for a in accounts if a.get("type") == "debt"]
+
+    # Step 4 — bucket summary
+    funded = partial = over = 0
+    over_buckets = []
+    for b in buckets:
+        bid = b["id"]
+        alloc = F.b_alloc(month, bid)
+        budget = F.b_budget(month, bid)
+        spent = F.b_spent(mid, bid, txs)
+        if b.get("type") == "vault":
+            funded += 1
+            continue
+        excess = spent - budget if budget else spent - alloc
+        if excess > 0.005:
+            over += 1
+            over_buckets.append({"name": b["name"], "budget": budget,
+                                  "spent": spent, "over": excess})
+        elif max(budget, alloc) > 0 and alloc >= max(budget * 0.99, budget):
+            funded += 1
+        else:
+            partial += 1
+
+    # Step 5 — closing snapshot
+    cash = sum(F.acct_balance(a, txs) for a in accounts if a.get("type") != "debt")
+    debt_total = sum(F.acct_balance(a, txs) for a in accounts if a.get("type") == "debt")
+    spent_total = sum(float(t.get("amount") or 0)
+                      for t in txs if t.get("monthId") == mid
+                      and t.get("type") == "out" and not F.is_scheduled(t))
+
+    return {
+        "month_label": month_label(mid),
+        "mid": mid,
+        "is_closed": month.get("closed", False),
+        # Step 1
+        "income_txs": income_txs, "income_total": income_total,
+        # Step 2
+        "budget_accounts": budget_accounts,
+        # Step 3
+        "debt_accounts": debt_accounts,
+        # Step 4
+        "bucket_counts": {"funded": funded, "partial": partial, "over": over},
+        "over_buckets": over_buckets,
+        # Step 5
+        "snapshot": {
+            "cash": round(cash, 2), "debt_total": round(debt_total, 2),
+            "net_worth": round(cash - debt_total, 2),
+            "income": round(income_total, 2), "spent": round(spent_total, 2),
+        },
+    }
 
 
 def forecast_view(n_months: int = 3, income_override: float = 0.0,

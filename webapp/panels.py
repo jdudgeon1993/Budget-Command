@@ -509,6 +509,12 @@ def month_copy():
     return _buckets_response()
 
 
+@bp.route("/month/close-wizard")
+@login_required
+def month_close_wizard():
+    return render_template("panels/_frag_close_wizard.html", **D.close_wizard_ctx())
+
+
 @bp.route("/month/close", methods=["POST"])
 @login_required
 def month_close():
@@ -519,7 +525,7 @@ def month_close():
         flash("Month closed.", "ok")
     else:
         flash("Dev mode: close not persisted.", "ok")
-    return _buckets_response()
+    return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
 
 
 @bp.route("/month/reopen", methods=["POST"])

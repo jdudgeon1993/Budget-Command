@@ -25,10 +25,11 @@
             hx-post="{{ url_for('panels.month_copy') }}" hx-target="#panel" hx-swap="innerHTML">
         <button class="wf-btn" type="submit">Copy Last Month</button>
       </form>
-      <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents"
-            hx-post="{{ url_for('panels.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
-        <button class="wf-btn" type="submit">Close Month</button>
-      </form>
+      <a class="wf-btn" style="cursor:pointer;text-decoration:none"
+         href="{{ url_for('panels.month_close_wizard') }}"
+         hx-get="{{ url_for('panels.month_close_wizard') }}" hx-target="#modal-body">
+        Close Month{% if shell.month_closed %} ✓{% endif %}
+      </a>
     </div>
 
     <div class="bucket-col-hdr">
