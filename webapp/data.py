@@ -22,17 +22,19 @@ def load_data(full_history: bool = False) -> dict:
     Pass full_history=True for reports that need all-time data.
     """
     cache_key = "data_full" if full_history else "data"
-    if cache_key in g:
-        return g[cache_key]
+    cached = getattr(g, cache_key, None)
+    if cached is not None:
+        return cached
     if current_app.config["DEV_SEED"]:
-        g[cache_key] = sample_data()
+        result = sample_data()
     else:
         tx_months = 0 if full_history else 13
-        g[cache_key] = DB.load_all(
+        result = DB.load_all(
             session.get("user_id", ""), session.get("access_token", ""),
             tx_months=tx_months,
         )
-    return g[cache_key]
+    setattr(g, cache_key, result)
+    return result
 
 
 def active_mid() -> str:
