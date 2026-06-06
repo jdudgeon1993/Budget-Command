@@ -641,6 +641,12 @@ def debt_payment(aid):
                            today=_date.today().isoformat())
 
 
+@bp.route("/accounts/<aid>/payoff", methods=["GET", "POST"])
+@login_required
+def debt_payoff(aid):
+    return debt_payment(aid)
+
+
 @bp.route("/reports")
 @login_required
 def reports():
