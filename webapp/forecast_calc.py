@@ -484,25 +484,23 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         # Process funded (green) — deduct from balance
         funded_lines: list[dict] = []
         for d in sorted(funded_by_day):
-            funded_lines.append({"row_type": "date", "text": _date_label(d), "amount_fmt": ""})
+            funded_lines.append({"row_type": "date", "text": _date_label(d)})
             for bill in funded_by_day[d]:
                 running_balance -= bill["amount"]
                 funded_lines.append({"row_type": "bill", "text": bill["name"],
                                      "amount_fmt": _fmt(bill["amount"])})
-            funded_lines.append({"row_type": "bal", "text": _fmt(running_balance), "amount_fmt": ""})
 
         bal_after_funded = running_balance  # snapshot before unfunded bills
 
         # Process unfunded (red) — deduct from balance
         unfunded_lines: list[dict] = []
         for d in sorted(unfunded_by_day):
-            unfunded_lines.append({"row_type": "date", "text": _date_label(d), "amount_fmt": ""})
+            unfunded_lines.append({"row_type": "date", "text": _date_label(d)})
             for bill in unfunded_by_day[d]:
                 running_balance -= bill["amount"]
                 grand_unfunded  += bill["amount"]
                 unfunded_lines.append({"row_type": "bill", "text": bill["name"],
                                        "amount_fmt": _fmt(bill["amount"])})
-            unfunded_lines.append({"row_type": "bal", "text": _fmt(running_balance), "amount_fmt": ""})
 
         # Build transfer lines with cumulative totals
         xfr_cum = 0.0
@@ -564,6 +562,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             "has_unfunded":        bool(unfunded_by_day),
             "start_bal_fmt":          _fmt(period_start_bal),
             "bal_after_xfr_fmt":      _fmt(bal_after_xfr),
+            "bal_after_xfr_color":    _bal_color(bal_after_xfr),
             "income_total_fmt":       _fmt(period_income),
             "unfunded_total_fmt":     _fmt(period_unfunded),
             "funded_total_fmt":       _fmt(total_funded),
@@ -571,6 +570,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             "net_sign":               "+" if period_net >= 0 else "-",
             "net_negative":           period_net < 0,
             "end_bal_fmt":            _fmt(running_balance),
+            "end_bal_raw":            running_balance,
             "end_bal_negative":       running_balance < 0,
             "end_bal_color":          _bal_color(running_balance),
             "shortfall":              running_balance < 0,
@@ -586,17 +586,10 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         })
 
     # ── Safe to spend (forward minimum) ──────────────────────────────────────
-    def _parse_fmt(s: str) -> float:
-        s = s.strip().lstrip("$").replace(",", "")
-        if s.startswith("-"):
-            return -float(s[1:].lstrip("$").replace(",", ""))
-        return float(s) if s else 0.0
-
-    float_ends  = [_parse_fmt(p["end_bal_fmt"]) for p in period_results]
     running_min = float("inf")
     fwd_mins    = [0.0] * len(period_results)
     for i in range(len(period_results) - 1, -1, -1):
-        running_min = min(running_min, float_ends[i])
+        running_min = min(running_min, period_results[i]["end_bal_raw"])
         fwd_mins[i] = running_min
 
     safe_to_spend = fwd_mins[0] if fwd_mins else start_balance
@@ -720,7 +713,7 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
                 "scheduled":  not _is_paid(b, bd, occ) and _has_scheduled_tx(b, bd),
             })
 
-    all_dates = sorted(set(pc_by_date.keys()) | set(bill_by_date.keys()))
+    all_dates = sorted(set(pc_by_date.keys()) | set(bill_by_date.keys()) | {today})
 
     _blank = {"rt": "", "lbl": "", "amt": "", "td": "", "pa": "", "pd": "", "sch": ""}
 
@@ -913,8 +906,8 @@ def build_balance_svg(periods: list, width: int = 840, height: int = 120) -> str
     area_col  = "rgba(48,209,88,0.10)" if final_v >= 0 else "rgba(255,69,58,0.09)"
 
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'style="overflow:visible;font-family:\'JetBrains Mono\',monospace">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+        f'style="width:100%;height:auto;overflow:visible;font-family:\'JetBrains Mono\',monospace;display:block">'
     ]
 
     # Zero baseline

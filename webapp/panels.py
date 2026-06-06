@@ -917,8 +917,9 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
 @login_required
 def scenario_editor_new():
     data = D.load_data()
+    n_months = _safe_n_months(request.args.get("n_months"))
     ctx = _scenario_editor_ctx(data)
-    return render_template("panels/_frag_scenario_editor.html", **ctx)
+    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, **ctx)
 
 
 @bp.route("/scenarios/<sid>/editor", methods=["GET"])
@@ -927,8 +928,9 @@ def scenario_editor_edit(sid):
     data = D.load_data()
     scenarios = _load_scenarios()
     sc = next((s for s in scenarios if s["id"] == sid), None)
+    n_months = _safe_n_months(request.args.get("n_months"))
     ctx = _scenario_editor_ctx(data, sc)
-    return render_template("panels/_frag_scenario_editor.html", **ctx)
+    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, **ctx)
 
 
 @bp.route("/scenarios", methods=["POST"])
@@ -938,11 +940,12 @@ def scenario_create():
     data = D.load_data()
     allocs = _parse_scenario_form(f, data)
     name = (f.get("name") or "Scenario").strip()[:40]
+    n_months = _safe_n_months(f.get("n_months"))
     if not current_app.config.get("DEV_SEED"):
         sid = DB.save_scenario(session["user_id"], session["access_token"], name, allocs)
     else:
         sid = ""
-    return _fc_frag_response(active_sid=sid)
+    return _fc_frag_response(active_sid=sid, n_months=n_months)
 
 
 @bp.route("/scenarios/<sid>/update", methods=["POST"])
@@ -952,17 +955,27 @@ def scenario_update(sid):
     data = D.load_data()
     allocs = _parse_scenario_form(f, data)
     name = (f.get("name") or "Scenario").strip()[:40]
+    n_months = _safe_n_months(f.get("n_months"))
     if not current_app.config.get("DEV_SEED"):
         DB.update_scenario(session["user_id"], session["access_token"], sid, name, allocs)
-    return _fc_frag_response(active_sid=sid)
+    return _fc_frag_response(active_sid=sid, n_months=n_months)
 
 
 @bp.route("/scenarios/<sid>/delete", methods=["POST"])
 @login_required
 def scenario_delete(sid):
+    f = request.form
+    n_months = _safe_n_months(f.get("n_months"))
     if not current_app.config.get("DEV_SEED"):
         DB.delete_scenario(session["user_id"], session["access_token"], sid)
-    return _fc_frag_response(active_sid="")
+    return _fc_frag_response(active_sid="", n_months=n_months)
+
+
+def _safe_n_months(raw) -> int:
+    try:
+        return max(1, min(12, int(raw or 3)))
+    except (ValueError, TypeError):
+        return 3
 
 
 def _setup_panel():
