@@ -1,0 +1,28 @@
+<div class="modal-title">Post Interest — {{ account.name }}</div>
+{% if account.debtAPR %}
+<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+  <div class="rts-kpi"><span class="rts-kpi-lbl">APR</span><span class="rts-kpi-val">{{ "%.2f"|format(account.debtAPR) }}%</span></div>
+  {% if suggested %}<div class="rts-kpi"><span class="rts-kpi-lbl">Suggested (monthly)</span><span class="rts-kpi-val">{{ suggested | money }}</span></div>{% endif %}
+</div>
+{% endif %}
+<form method="post" action="{{ url_for('panels.post_interest', aid=account.id) }}"
+      hx-post="{{ url_for('panels.post_interest', aid=account.id) }}"
+      hx-target="#panel" hx-swap="innerHTML">
+  <div class="edit-field">
+    <label>Interest amount</label>
+    <input type="text" name="amount" inputmode="decimal"
+           value="{{ suggested or '' }}" placeholder="0.00" required autofocus>
+  </div>
+  <div class="edit-field">
+    <label>Date</label>
+    <input type="date" name="date" value="{{ today }}">
+  </div>
+  <div class="edit-field">
+    <label>Note <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+    <input type="text" name="desc" placeholder="Interest charge" value="Interest charge">
+  </div>
+  <div class="edit-actions">
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Post Interest</button>
+  </div>
+</form>

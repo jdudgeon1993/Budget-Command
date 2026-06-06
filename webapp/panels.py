@@ -647,6 +647,40 @@ def debt_payoff(aid):
     return debt_payment(aid)
 
 
+@bp.route("/accounts/<aid>/interest", methods=["GET", "POST"])
+@login_required
+def post_interest(aid):
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if not account or account.get("type") != "debt":
+        return redirect(url_for("panels.accounts"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            amount = 0.0
+        desc = f.get("desc", "").strip() or "Interest charge"
+        pay_date = f.get("date") or D.tx_form_ctx()["today"]
+        if amount > 0 and not current_app.config["DEV_SEED"]:
+            DB.insert_tx(session["user_id"], session["access_token"], {
+                "accountId": aid, "type": "out", "amount": amount,
+                "desc": desc, "date": pay_date, "monthId": D.active_mid(),
+            })
+        flash("Interest posted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
+        return redirect(url_for("panels.accounts"))
+    # GET — show form
+    balance = abs(D.F.acct_balance(account, data.get("txs", [])))
+    apr = account.get("debtAPR") or 0
+    suggested = round(balance * (apr / 100) / 12, 2) if apr and balance else None
+    from datetime import date as _date
+    return render_template("panels/_frag_post_interest.html",
+                           account=account, suggested=suggested,
+                           today=_date.today().isoformat())
+
+
 @bp.route("/reports")
 @login_required
 def reports():
