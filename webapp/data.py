@@ -46,7 +46,7 @@ def active_month(data: dict, mid: str = None) -> dict:
     for m in data.get("months", []):
         if m["id"] == target:
             return m
-    return {"id": target, "allocations": {}, "budgets": {}}
+    return {"id": target, "allocations": {}, "budgets": {}, "handledBuckets": {}, "rolloverReleased": {}, "skippedBuckets": {}, "vaultWithdrawals": {}}
 
 
 def month_label(mid: str) -> str:

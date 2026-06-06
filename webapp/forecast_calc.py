@@ -534,7 +534,6 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         if is_gap:
             label = "Pre-Paycheck Gap"
         elif is_skipped:
-            pc_labels = list({pc["label"] for pcs in pay_events.get(ps, []) for pc in [pcs]}) or ["Paycheck"]
             pay_labels = list({pc_hit["label"] for pc_hit in pay_events.get(ps, [])}) or ["Paycheck"]
             label = " + ".join(sorted(pay_labels)) + " (Skipped)"
         else:
@@ -749,102 +748,6 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
                              sch="1" if bl["scheduled"] and d >= today else ""))
 
     return rows
-
-
-# ── 6-month What-If chart data ────────────────────────────────────────────────
-
-def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: dict = None,
-                   off_buckets: list = None, income_override: float = 0.0,
-                   schedule: dict = None, due_day_overrides: dict = None,
-                   timeline: dict = None) -> list[dict]:
-    """
-    Returns list of 6 monthly dicts for the What-If bar chart.
-    Each dict: {label, income, bills, surplus, surplus_positive}
-    """
-    today          = date.today()
-    bucket_overrides  = bucket_overrides or {}
-    off_set           = set(off_buckets or [])
-    schedule          = schedule or {}
-    due_day_overrides = due_day_overrides or {}
-    paychecks         = data.get("paychecks", [])
-    buckets           = data.get("buckets", [])
-
-    def _eff_bill(b: dict, for_year: int = 0, for_month: int = 0) -> float:
-        bid  = b["id"]
-        base = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
-        if timeline and for_year and for_month:
-            rule = get_timeline_rule(timeline, bid, for_year, for_month)
-            if rule is not None:
-                if not rule.get("enabled", True):
-                    return 0.0
-                if rule.get("amount") is not None:
-                    return float(rule["amount"])
-        if bid in bucket_overrides:
-            return _apply_expr(base, str(bucket_overrides[bid]))
-        return base
-
-    # Compute natural monthly income for scaling
-    nat_monthly = _natural_monthly_income(paychecks, today) if income_override > 0 else 0.0
-    income_scale = _income_scale(income_override, nat_monthly)
-
-    active_dated  = [b for b in buckets if not b.get("archived") and b["id"] not in off_set
-                     and b.get("dueDay") is not None and _eff_bill(b) > 0]
-    active_freq   = [b for b in buckets if not b.get("archived") and b["id"] not in off_set
-                     and b.get("dueDay") is None
-                     and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
-                     and _eff_bill(b) > 0]
-
-    results = []
-    for i in range(6):
-        m_idx   = (today.month - 1 + i) % 12
-        yr      = today.year + (today.month - 1 + i) // 12
-        cal_m   = m_idx + 1
-        m_start = date(yr, cal_m, 1)
-        m_end   = date(yr, cal_m, _cal.monthrange(yr, cal_m)[1])
-
-        # Monthly income
-        month_income = 0.0
-        for pc in paychecks:
-            anchor = pc.get("anchor_date") or pc.get("anchorDate")
-            if not anchor:
-                continue
-            for _ in _gen_pay_dates(anchor, int(pc.get("freq", 14)), m_start, m_end):
-                month_income += float(pc.get("amount") or 0) * income_scale
-
-        # Monthly bills
-        mid_str = _mid(m_start)
-        month_bills = 0.0
-        for b in active_dated:
-            if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
-                continue
-            if timeline:
-                rule = get_timeline_rule(timeline, b["id"], yr, cal_m)
-                if rule is not None and not rule.get("enabled", True):
-                    continue
-            eff_due = due_day_overrides.get(b["id"]) or b.get("dueDay")
-            dates = _bill_dates(eff_due, b.get("payFreq"), m_start, m_end)
-            month_bills += _eff_bill(b, yr, cal_m) * len(dates)
-        for b in active_freq:
-            if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
-                continue
-            if timeline:
-                rule = get_timeline_rule(timeline, b["id"], yr, cal_m)
-                if rule is not None and not rule.get("enabled", True):
-                    continue
-            dates = _freq_only_dates(b["payFreq"], m_start, m_end)
-            month_bills += _eff_bill(b, yr, cal_m) * len(dates)
-
-        surplus = round(month_income - month_bills, 2)
-        results.append({
-            "label":            m_start.strftime("%b"),
-            "full_label":       m_start.strftime("%B %Y"),
-            "income":           round(month_income, 2),
-            "bills":            round(month_bills, 2),
-            "surplus":          surplus,
-            "surplus_positive": surplus >= 0,
-        })
-
-    return results
 
 
 # ── Balance trajectory SVG ────────────────────────────────────────────────────
