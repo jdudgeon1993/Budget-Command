@@ -1271,13 +1271,13 @@ def transaction_create():
         _bkt = next((b for b in D.load_data().get("buckets", []) if b["id"] == bucket_id), None)
         if _bkt and _bkt.get("type") == "vault":
             flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
-            back_panel = f.get("back") or "buckets"
+            back_panel = f.get("back") or session.get("active_panel", "buckets")
             if request.headers.get("HX-Request") == "true":
                 tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
                 return _panel_close_modal(tmpl, back_panel, **ctx_fn())
             return redirect(url_for("panels." + back_panel))
 
-    back_panel = f.get("back") or "buckets"
+    back_panel = f.get("back") or session.get("active_panel", "buckets")
     if current_app.config["DEV_SEED"]:
         flash("Dev mode: transaction not persisted (no database).", "ok")
     elif amount > 0 and tx["accountId"]:

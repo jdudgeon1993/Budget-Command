@@ -44,7 +44,6 @@ document.addEventListener('htmx:afterSettle',function(e){
 {% if msgs %}<script>{% for cat, msg in msgs %}showToast({{ msg | tojson }},{{ cat | tojson }});{% endfor %}</script>{% endif %}
 {% endwith %}
 <div id="nprogress"><div id="nprogress-bar"></div></div>
-<template id="add-tx-tpl">{% with accounts=shell.tx_accounts,buckets_by_cat=shell.tx_buckets_by_cat,today=shell.tx_today,tx_type='out',back=shell.active_panel %}{% include "panels/_frag_add_tx.html" %}{% endwith %}</template>
 <div id="modal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal()" type="button">✕</button>
@@ -153,16 +152,9 @@ document.addEventListener('htmx:afterSettle',function(e){
   </nav>
 </div>
 <script>
-function _restoreAddTx(){
-  var t=document.getElementById('add-tx-tpl');
-  if(!t)return;
-  var mb=document.getElementById('modal-body');
-  mb.innerHTML=t.innerHTML;
-  if(typeof htmx!=='undefined')htmx.process(mb);
-}
 function openModal(){var m=document.getElementById('modal');m.style.display='flex';requestAnimationFrame(function(){m.classList.add('open');});}
-function openAddTxModal(){_restoreAddTx();openModal();}
-function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';_restoreAddTx();},220);}
+function openAddTxModal(){htmx.ajax('GET',{{ url_for('panels.transaction_new') | tojson }},{target:'#modal-body',swap:'innerHTML'});}
+function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';document.getElementById('modal-body').innerHTML='';},220);}
 document.body.addEventListener('closeModal',closeModal);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 function updateTxFields(t){
