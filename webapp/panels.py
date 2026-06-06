@@ -693,7 +693,8 @@ def forecast_whatif():
     active_sid = (f.get("active_scenario_id") or "").strip()
     data = D.load_data()
     scenarios = _load_scenarios()
-    bucket_overrides, off_buckets, schedule = _scenario_fc_params(scenarios, active_sid, n_months)
+    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+        _scenario_fc_params(scenarios, active_sid, n_months, data)
 
     from . import forecast_calc as FC
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
@@ -701,7 +702,8 @@ def forecast_whatif():
                              no_accrue_dates=no_accrue_dates,
                              bucket_overrides=bucket_overrides,
                              off_buckets=off_buckets,
-                             schedule=schedule)
+                             schedule=schedule,
+                             phantom_monthly=phantom_monthly)
     svg = FC.build_balance_svg(fc["periods"])
     return render_template("panels/_frag_forecast_whatif.html",
                            forecast=fc, balance_svg=svg,
@@ -748,43 +750,61 @@ def _mid_lt(a: str, b: str) -> bool:
     return ya * 12 + ma < yb * 12 + mb
 
 
-def _build_fc_params(allocs: dict, n_months: int = 12):
-    """Translate scenario allocations blob into (bucket_overrides, off_buckets, schedule)."""
+_FREQ_BILL_TYPES = {"weekly", "biweekly", "triweekly", "monthly"}
+
+
+def _build_fc_params(allocs: dict, data: dict, n_months: int = 12):
+    """Translate scenario allocations blob into (bucket_overrides, off_buckets, schedule, phantom_monthly)."""
     bucket_overrides = dict(allocs.get("bucket_overrides") or {})
     off_buckets = list(allocs.get("off_buckets") or [])
+    off_set = set(off_buckets)
     changes = allocs.get("changes") or []
-    if not changes:
-        return bucket_overrides or None, off_buckets or None, None
-    all_mids = _mid_seq(n_months)
     schedule = {}
-    for ch in changes:
-        bid = ch.get("bid", "")
-        from_mid = ch.get("from_mid", "")
-        ctype = ch.get("type", "off")
-        if not bid or not from_mid:
+    if changes:
+        all_mids = _mid_seq(n_months)
+        for ch in changes:
+            bid = ch.get("bid", "")
+            from_mid = ch.get("from_mid", "")
+            ctype = ch.get("type", "off")
+            if not bid or not from_mid:
+                continue
+            if ctype == "off":
+                for mid in all_mids:
+                    if not _mid_lt(mid, from_mid):
+                        schedule[f"{bid}_{mid}"] = "off"
+            elif ctype == "amount":
+                amt = ch.get("amount")
+                if amt is not None:
+                    bucket_overrides[bid] = float(amt)
+                for mid in all_mids:
+                    if _mid_lt(mid, from_mid):
+                        schedule[f"{bid}_{mid}"] = "off"
+    # Buckets with no recurrence that the scenario explicitly enables/overrides
+    phantom_monthly = []
+    for b in data.get("buckets", []):
+        if b.get("archived"):
             continue
-        if ctype == "off":
-            for mid in all_mids:
-                if not _mid_lt(mid, from_mid):
-                    schedule[f"{bid}_{mid}"] = "off"
-        elif ctype == "amount":
-            amt = ch.get("amount")
-            if amt is not None:
-                bucket_overrides[bid] = float(amt)
-            for mid in all_mids:
-                if _mid_lt(mid, from_mid):
-                    schedule[f"{bid}_{mid}"] = "off"
-    return bucket_overrides or None, off_buckets or None, schedule or None
+        bid = b["id"]
+        if bid in off_set:
+            continue
+        if b.get("dueDay") is not None or b.get("payFreq") in _FREQ_BILL_TYPES:
+            continue
+        amt = float(bucket_overrides.get(bid) or b.get("dueAmount") or b.get("defaultBudget") or 0)
+        if amt <= 0:
+            continue
+        phantom_monthly.append({"id": bid, "name": b["name"], "amount": amt})
+    return (bucket_overrides or None, off_buckets or None,
+            schedule or None, phantom_monthly or None)
 
 
-def _scenario_fc_params(scenarios: list, active_sid: str, n_months: int):
-    """Extract (bucket_overrides, off_buckets, schedule) for the active scenario."""
+def _scenario_fc_params(scenarios: list, active_sid: str, n_months: int, data: dict):
+    """Extract (bucket_overrides, off_buckets, schedule, phantom_monthly) for the active scenario."""
     if not active_sid:
-        return None, None, None
+        return None, None, None, None
     sc = next((s for s in scenarios if s["id"] == active_sid), None)
     if not sc:
-        return None, None, None
-    return _build_fc_params(sc.get("allocations") or {}, n_months)
+        return None, None, None, None
+    return _build_fc_params(sc.get("allocations") or {}, data, n_months)
 
 
 def _parse_scenario_form(f, data: dict) -> dict:
@@ -820,17 +840,21 @@ def _parse_scenario_form(f, data: dict) -> dict:
 def _scenario_editor_ctx(data: dict, scenario=None) -> dict:
     """Build template context for the scenario editor modal."""
     from .formulas import current_month_id, parse_month_id, month_id as _mkid
-    from collections import defaultdict
     _MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun",
                     "Jul","Aug","Sep","Oct","Nov","Dec"]
     buckets = [b for b in data.get("buckets", [])
                if not b.get("archived") and b.get("type") != "vault"]
-    cats = {c["id"]: c.get("name", "Other") for c in data.get("categories", [])}
-    by_cat = defaultdict(list)
+    cats_raw = data.get("cats", [])
+    cat_order = {c["id"]: c.get("order", 0) for c in cats_raw}
+    cat_name  = {c["id"]: c.get("name", "Other") for c in cats_raw}
+    by_cat: dict[str, list] = {}
     for b in buckets:
-        cat_name = cats.get(b.get("category_id", ""), "Other")
-        by_cat[cat_name].append(b)
-    buckets_by_cat = [{"cat_name": k, "buckets": v} for k, v in by_cat.items()]
+        cid = b.get("catId", "")
+        by_cat.setdefault(cid, []).append(b)
+    buckets_by_cat = [
+        {"cat_name": cat_name.get(cid, "Other"), "buckets": bkts}
+        for cid, bkts in sorted(by_cat.items(), key=lambda x: cat_order.get(x[0], 999))
+    ]
     allocs = (scenario.get("allocations") or {}) if scenario else {}
     off_bucket_ids = set(allocs.get("off_buckets") or [])
     bucket_overrides = dict(allocs.get("bucket_overrides") or {})
@@ -861,14 +885,16 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
     no_accrue_dates = no_accrue_dates or []
     data = D.load_data()
     scenarios = _load_scenarios()
-    bucket_overrides, off_buckets, schedule = _scenario_fc_params(scenarios, active_sid, n_months)
+    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+        _scenario_fc_params(scenarios, active_sid, n_months, data)
     from . import forecast_calc as FC
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
                              skipped_pay_dates=skip_dates,
                              no_accrue_dates=no_accrue_dates,
                              bucket_overrides=bucket_overrides,
                              off_buckets=off_buckets,
-                             schedule=schedule)
+                             schedule=schedule,
+                             phantom_monthly=phantom_monthly)
     svg = FC.build_balance_svg(fc["periods"])
     fragment = render_template("panels/_frag_forecast_whatif.html",
                                forecast=fc, balance_svg=svg,

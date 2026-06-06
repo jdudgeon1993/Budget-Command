@@ -236,7 +236,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      due_day_overrides: dict = None,
                      timeline: dict = None,
                      skipped_pay_dates: list = None,
-                     no_accrue_dates: list = None) -> dict:
+                     no_accrue_dates: list = None,
+                     phantom_monthly: list = None) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -398,6 +399,18 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     freq_bills  = [b for b in active_buckets if b.get("dueDay") is None
                    and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
                    and _effective_bill_amt(b) > 0]
+    # Scenario-injected buckets with no due date — treated as monthly on the 1st
+    for ph in (phantom_monthly or []):
+        if ph["id"] in off_set:
+            continue
+        amt = float(bucket_overrides.get(ph["id"], ph.get("amount", 0)))
+        if amt <= 0:
+            continue
+        dated_bills.append({
+            "id": ph["id"], "name": ph["name"],
+            "dueDay": 1, "payFreq": "monthly",
+            "dueAmount": amt, "defaultBudget": amt,
+        })
 
     # ── Build periods ─────────────────────────────────────────────────────────
     running_balance = start_balance
