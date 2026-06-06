@@ -609,6 +609,7 @@ def forecast_view(n_months: int = 3, income_override: float = 0.0,
                   active_scenario_id: str = "") -> dict:
     """Full forecast panel data: 60-day timeline + pay-period what-if."""
     from . import forecast_calc as FC
+    from flask import session as _session
     data = load_data()
     skip_list = skipped_pay_dates or []
     no_accrue_list = no_accrue_dates or []
@@ -626,6 +627,15 @@ def forecast_view(n_months: int = 3, income_override: float = 0.0,
             off_buckets = allocs.get("off_buckets") or []
 
     timeline_rows = FC.compute_simple_timeline(data, 60)
+    # Load scenarios for the scenario bar (baseline view has no active scenario)
+    scenarios = []
+    try:
+        uid = _session.get("user_id", "")
+        token = _session.get("access_token", "")
+        if uid and token:
+            scenarios = DB.list_scenarios(uid, token)
+    except Exception:
+        pass
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
                              skipped_pay_dates=skip_list, no_accrue_dates=no_accrue_list,
                              bucket_overrides=bucket_overrides or None,
@@ -642,7 +652,7 @@ def forecast_view(n_months: int = 3, income_override: float = 0.0,
         "no_accrue_dates": no_accrue_list,
         "no_accrue_dates_str": ",".join(str(d) for d in no_accrue_list),
         "scenarios": scenarios,
-        "active_scenario_id": active_scenario_id,
+        "active_scenario_id": "",
     }
 
 

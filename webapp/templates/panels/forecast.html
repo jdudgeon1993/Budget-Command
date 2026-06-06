@@ -98,6 +98,12 @@ function fcSkipToggle(dateStr) {
   toggle.value = '';
 }
 
+function fcSetScenario(sid) {
+  const form = document.getElementById('fc-whatif-form');
+  form.querySelector('[name="active_scenario_id"]').value = sid;
+  htmx.trigger(form, 'submit');
+}
+
 function fcNoAccrueToggle(dateStr) {
   const form = document.getElementById('fc-whatif-form');
   const toggle = form.querySelector('[name="toggle_no_accrue_date"]');

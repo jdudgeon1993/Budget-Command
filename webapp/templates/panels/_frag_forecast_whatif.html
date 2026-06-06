@@ -22,7 +22,7 @@
   <button class="toolbar-btn primary" type="submit">Refresh</button>
 </form>
 
-<!-- Scenario selector -->
+<!-- Scenario bar -->
 <div class="fc-scenario-bar">
   <button class="fc-sc-chip {{ 'active' if not active_scenario_id }}"
           type="button" onclick="fcSetScenario('')">Baseline</button>
@@ -30,16 +30,14 @@
   <button class="fc-sc-chip {{ 'active' if active_scenario_id == sc.id }}"
           type="button" onclick="fcSetScenario('{{ sc.id }}')">
     {{ sc.name }}
-    <a class="fc-sc-edit"
-       hx-get="{{ url_for('panels.scenario_editor_edit', sid=sc.id) }}"
+    <a class="fc-sc-edit" hx-get="{{ url_for('panels.scenario_editor_edit', sid=sc.id) }}"
        hx-target="#modal-body"
-       onclick="event.stopPropagation();return false;">✏</a>
+       onclick="openModal();event.stopPropagation();return false;">✏</a>
   </button>
   {% endfor %}
   {% if scenarios|length < 6 %}
-  <a class="fc-sc-new"
-     hx-get="{{ url_for('panels.scenario_editor_new') }}"
-     hx-target="#modal-body">+ New Scenario</a>
+  <a class="fc-sc-new" hx-get="{{ url_for('panels.scenario_editor_new') }}"
+     hx-target="#modal-body" onclick="openModal()">+ New Scenario</a>
   {% endif %}
 </div>
 
