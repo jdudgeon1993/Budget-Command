@@ -37,6 +37,22 @@ def load_data(full_history: bool = False) -> dict:
     return result
 
 
+def invalidate_cache() -> None:
+    """Drop the request-scoped data cache.
+
+    Call this right after persisting a write to the database — any
+    subsequent load_data() in the same request must re-fetch the
+    canonical state rather than re-serve the pre-write snapshot, or the
+    panel re-rendered for the response will show stale values until the
+    user manually reloads the page.
+    """
+    for key in ("data", "data_full"):
+        try:
+            delattr(g, key)
+        except AttributeError:
+            pass
+
+
 def active_mid() -> str:
     return session.get("active_mid") or F.current_month_id()
 

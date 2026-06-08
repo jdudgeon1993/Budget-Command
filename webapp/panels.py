@@ -58,6 +58,7 @@ def set_alloc(bid):
     if not current_app.config["DEV_SEED"]:
         DB.upsert_alloc(session["user_id"], session["access_token"],
                         D.active_mid(), bid, amount)
+        D.invalidate_cache()
     # No-JS fallback: a plain form submit (Enter) reloads the panel.
     if request.headers.get("HX-Request") != "true":
         return redirect(url_for("panels.buckets"))
@@ -86,6 +87,7 @@ def fill_bucket(bid):
     if not current_app.config["DEV_SEED"]:
         DB.upsert_alloc(session["user_id"], session["access_token"],
                         D.active_mid(), bid, budget)
+        D.invalidate_cache()
     flash(f"Filled.", "ok")
     return _buckets_response()
 
@@ -121,6 +123,8 @@ def distribute_rts():
             if not current_app.config["DEV_SEED"]:
                 DB.upsert_alloc(session["user_id"], session["access_token"],
                                 D.active_mid(), bid, new_alloc)
+        if not current_app.config["DEV_SEED"]:
+            D.invalidate_cache()
     flash("RTS distributed.", "ok")
     return _buckets_response()
 
@@ -194,6 +198,7 @@ def bucket_settings(bid):
                     "contrib_freq": f.get("contrib_freq") or None,
                 })
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
+            D.invalidate_cache()
             flash("Bucket updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
@@ -216,6 +221,7 @@ def bucket_settings(bid):
 def archive_bucket(bid):
     if not current_app.config["DEV_SEED"]:
         DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"archived": True})
+        D.invalidate_cache()
         flash("Bucket archived.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
@@ -248,6 +254,7 @@ def vault_transfer(bid):
             if not current_app.config["DEV_SEED"]:
                 DB.vault_transfer(session["user_id"], session["access_token"],
                                   mid, bid, to_bid, amount, new_from, new_to)
+                D.invalidate_cache()
                 flash(f"Transferred ${amount:,.2f} from vault.", "ok")
             else:
                 flash("Dev mode: transfer not persisted.", "ok")
@@ -297,6 +304,7 @@ def vault_release_to_pool(bid):
                 if reason:
                     DB.log_vault_release(session["user_id"], session["access_token"],
                                          mid, bid, amount, reason, is_planned)
+                D.invalidate_cache()
                 flash(f"Released ${amount:,.2f} from vault to pool.", "ok")
             else:
                 flash("Dev mode: release not persisted.", "ok")
@@ -326,6 +334,7 @@ def set_budget(bid):
     if not current_app.config["DEV_SEED"]:
         DB.upsert_budget(session["user_id"], session["access_token"],
                          D.active_mid(), bid, amount)
+        D.invalidate_cache()
     if request.headers.get("HX-Request") != "true":
         return redirect(url_for("panels.buckets"))
     vm = D.bucket_rows()
@@ -350,6 +359,7 @@ def add_bucket():
     btype = f.get("type", "expense")
     if name and cat_id and not current_app.config["DEV_SEED"]:
         DB.insert_bucket(session["user_id"], session["access_token"], name, cat_id, btype)
+        D.invalidate_cache()
         flash("Bucket added.", "ok")
     elif current_app.config["DEV_SEED"]:
         flash("Dev mode: bucket not persisted.", "ok")
@@ -381,6 +391,7 @@ def move_bucket(bid, direction):
         if not current_app.config["DEV_SEED"]:
             DB.update_bucket_order(session["user_id"], session["access_token"], b1["id"], o2)
             DB.update_bucket_order(session["user_id"], session["access_token"], b2["id"], o1)
+            D.invalidate_cache()
     return _buckets_response()
 
 
@@ -394,6 +405,7 @@ def toggle_handled(bid):
     if not current_app.config["DEV_SEED"]:
         DB.ensure_month(session["user_id"], session["access_token"], mid)
         DB.toggle_handled(session["user_id"], session["access_token"], mid, bid, currently)
+        D.invalidate_cache()
     # Return updated bucket row fragment
     bkt = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bkt:
@@ -443,6 +455,7 @@ def rollover_release(bid):
         DB.ensure_month(session["user_id"], session["access_token"], month["id"])
         DB.upsert_rollover_released(session["user_id"], session["access_token"],
                                     month["id"], bid, raw)
+        D.invalidate_cache()
     flash(f"Released ${raw:,.2f} rollover to pool.", "ok")
     return _bucket_card_response(bid)
 
@@ -459,6 +472,7 @@ def rollover_undo_release(bid):
     if not current_app.config["DEV_SEED"]:
         DB.delete_rollover_released(session["user_id"], session["access_token"],
                                     month["id"], bid)
+        D.invalidate_cache()
     flash("Rollover release undone.", "ok")
     return _bucket_card_response(bid)
 
@@ -474,6 +488,7 @@ def month_copy():
     prev_mid = f"m_{total // 12}_{total % 12}"
     if not current_app.config["DEV_SEED"]:
         DB.copy_month_allocs(session["user_id"], session["access_token"], mid, prev_mid)
+        D.invalidate_cache()
         flash("Allocations copied from last month.", "ok")
     else:
         flash("Dev mode: copy not persisted.", "ok")
@@ -487,6 +502,7 @@ def month_close():
     if not current_app.config["DEV_SEED"]:
         DB.close_month(session["user_id"], session["access_token"],
                        D.active_mid(), data.get("accounts", []), data.get("txs", []))
+        D.invalidate_cache()
         flash("Month closed.", "ok")
     else:
         flash("Dev mode: close not persisted.", "ok")
@@ -498,6 +514,7 @@ def month_close():
 def month_reopen():
     if not current_app.config["DEV_SEED"]:
         DB.reopen_month(session["user_id"], session["access_token"], D.active_mid())
+        D.invalidate_cache()
         flash("Month reopened.", "ok")
     else:
         flash("Dev mode: reopen not persisted.", "ok")
@@ -528,6 +545,7 @@ def account_new():
             DB.insert_account(session["user_id"], session["access_token"],
                               name, f.get("type", "budget"),
                               f.get("color", "#818cf8"), ob)
+            D.invalidate_cache()
             flash("Account added.", "ok")
         elif current_app.config["DEV_SEED"]:
             flash("Dev mode: account not persisted.", "ok")
@@ -578,6 +596,7 @@ def account_edit(aid):
             fields["promo_end_date"] = f.get("promo_end_date") or None
         if not current_app.config["DEV_SEED"]:
             DB.update_account(session["user_id"], session["access_token"], aid, fields)
+            D.invalidate_cache()
             flash("Account updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
@@ -594,6 +613,7 @@ def account_edit(aid):
 def account_archive(aid):
     if not current_app.config["DEV_SEED"]:
         DB.update_account(session["user_id"], session["access_token"], aid, {"archived": True})
+        D.invalidate_cache()
         flash("Account archived.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
@@ -626,6 +646,7 @@ def debt_payment(aid):
             DB.insert_debt_payment(session["user_id"], session["access_token"],
                                    aid, from_aid, amount, iso, mid,
                                    account["name"], bucket_id)
+            D.invalidate_cache()
             flash(f"Payment of {amount:,.2f} recorded.", "ok")
         elif current_app.config["DEV_SEED"]:
             flash("Dev mode: payment not persisted.", "ok")
@@ -668,6 +689,7 @@ def post_interest(aid):
                 "accountId": aid, "type": "out", "amount": amount,
                 "desc": desc, "date": pay_date, "monthId": D.active_mid(),
             })
+            D.invalidate_cache()
         flash("Interest posted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
@@ -1026,6 +1048,7 @@ def _setup_panel():
 def _dev_or(fn):
     if not current_app.config["DEV_SEED"]:
         fn(session["user_id"], session["access_token"])
+        D.invalidate_cache()
     return _setup_panel()
 
 
@@ -1094,6 +1117,7 @@ def move_category(cid, direction):
         if not current_app.config["DEV_SEED"]:
             DB.update_category_order(session["user_id"], session["access_token"], c1["id"], o2)
             DB.update_category_order(session["user_id"], session["access_token"], c2["id"], o1)
+            D.invalidate_cache()
     return _setup_panel()
 
 
@@ -1133,6 +1157,7 @@ def del_rule(rid):
 def toggle_rule(rid):
     if not current_app.config["DEV_SEED"]:
         DB.toggle_alloc_rule(session["user_id"], session["access_token"], rid)
+        D.invalidate_cache()
     return _setup_panel()
 
 
@@ -1168,6 +1193,8 @@ def apply_rules(tid):
             DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, new_alloc)
         applied += 1
 
+    if applied and not current_app.config["DEV_SEED"]:
+        D.invalidate_cache()
     flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
@@ -1205,6 +1232,7 @@ def transaction_edit(tid):
                 "reconciled": f.get("reconciled") == "1",
                 "income_type": f.get("incomeType") or None,
             })
+            D.invalidate_cache()
             flash("Transaction updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
@@ -1227,6 +1255,7 @@ def transaction_delete(tid):
     back_panel = request.form.get("back") or "accounts"
     if not current_app.config["DEV_SEED"]:
         DB.delete_transaction(session["user_id"], session["access_token"], tid)
+        D.invalidate_cache()
         flash("Transaction deleted.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
@@ -1283,6 +1312,7 @@ def transaction_create():
         flash("Dev mode: transaction not persisted (no database).", "ok")
     elif amount > 0 and tx["accountId"]:
         new_tid = DB.insert_transaction(session["user_id"], session["access_token"], tx)
+        D.invalidate_cache()
         flash("Transaction added.", "ok")
         # After a paycheck income, show allocation rules modal if rules exist
         if (tx["type"] == "in" and tx.get("incomeType") == "paycheck"
