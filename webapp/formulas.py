@@ -292,14 +292,22 @@ def bucket_available(
     all_months: list[dict],
     transactions: list[dict],
 ) -> float:
-    """Net spendable balance for this bucket, carried forward automatically.
+    """Net spendable balance for this bucket.
 
-    Every dollar allocated but not spent simply remains available next month
-    — like a real envelope, with no separate "rollover" toggle or release
-    step. Overspending likewise carries forward as a negative balance that
-    next month's allocation must cover first.
+    Vaults and savings goals accumulate contributions across all months —
+    that's their purpose. Expense buckets are current-month only: unspent
+    allocation returns to Ready to Assign rather than silently claiming
+    the cash in future months. A bucket with explicit rollover=True also
+    accumulates (for users who want envelope carry-over on a specific
+    expense category). Overspending on non-accumulating buckets still
+    shows as a negative balance within the month, feeding correctly into
+    the RTS calculation via the cash-conservation identity.
     """
     bid = bucket["id"]
+    btype = bucket.get("type", "expense")
+    accumulates = btype in ("vault", "sinking", "goal") or bucket.get("rollover")
+    if not accumulates:
+        return b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
     carried = sum(
         b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
         for m in months_before(month["id"], all_months)
