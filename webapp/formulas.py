@@ -295,7 +295,11 @@ def ready_to_spend(
     active_buckets = [b for b in buckets if not b.get("archived")]
 
     def _claimed(b: dict) -> float:
-        return max(0.0, bucket_available(b, active_month, all_months, transactions))
+        # Negative balances (overspent envelopes) must count as negative, not
+        # zero — cash conservation requires bb == rts + sum(bucket balances).
+        # Clamping to zero double-penalizes overspending: once via the cash
+        # already being gone, again by refusing to let the deficit offset it.
+        return bucket_available(b, active_month, all_months, transactions)
 
     if status == "past":
         return bb - sum(_claimed(b) for b in active_buckets)
