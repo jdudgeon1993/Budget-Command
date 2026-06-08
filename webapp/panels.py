@@ -1037,12 +1037,21 @@ def move_category(cid, direction):
     return _setup_panel()
 
 
+def _rule_value_type(raw: str | None) -> str:
+    """Normalize the rule form's value_type into one of: pct, fund, fixed."""
+    if raw == "pct":
+        return "pct"
+    if raw == "fund":
+        return "fund"
+    return "fixed"
+
+
 @bp.route("/setup/rule", methods=["POST"])
 @login_required
 def add_rule():
     f = request.form
-    val = float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
-    vtype = "pct" if f.get("value_type") == "pct" else "fixed"
+    vtype = _rule_value_type(f.get("value_type"))
+    val = 0.0 if vtype == "fund" else float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
     rtype = "external" if f.get("rule_type") == "external" else "internal"
     return _dev_or(lambda u, t: DB.insert_alloc_rule(
         u, t, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
@@ -1052,11 +1061,11 @@ def add_rule():
 @login_required
 def edit_rule(rid):
     f = request.form
+    vtype = _rule_value_type(f.get("value_type"))
     try:
-        val = float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
+        val = 0.0 if vtype == "fund" else float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
     except ValueError:
         val = 0.0
-    vtype = "pct" if f.get("value_type") == "pct" else "fixed"
     rtype = "external" if f.get("rule_type") == "external" else "internal"
     return _dev_or(lambda u, t: DB.update_alloc_rule(
         u, t, rid, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
@@ -1091,18 +1100,25 @@ def apply_rules(tid):
     mid = tx.get("monthId") or D.active_mid()
     month = next((m for m in data.get("months", []) if m.get("id") == mid),
                  {"id": mid, "allocations": {}})
-    rules_raw = [r for r in data.get("allocationRules", [])
-                 if r.get("active", True) and r.get("rule_type", "internal") == "internal"]
+    rules_raw = sorted(
+        [r for r in data.get("allocationRules", []) if r.get("active", True)],
+        key=lambda r: r.get("sort_order", 0))
 
     applied = 0
+    remaining = amount
     for r in rules_raw:
-        bid = r.get("bucket_id") or r.get("bucketId") or ""
-        if not bid:
-            continue
         v = float(r.get("value") or 0)
         vtype = r.get("value_type", "fixed")
-        computed = round(amount * v / 100, 2) if vtype == "pct" else v
-        if computed <= 0:
+        if vtype == "fund":
+            computed = round(max(0.0, remaining), 2)
+        else:
+            computed = round(amount * v / 100, 2) if vtype == "pct" else v
+        remaining = round(remaining - computed, 2)
+
+        if r.get("rule_type", "internal") == "external":
+            continue
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        if not bid or computed <= 0:
             continue
         new_alloc = round(D.F.b_alloc(month, bid) + computed, 2)
         if not current_app.config["DEV_SEED"]:

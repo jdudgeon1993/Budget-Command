@@ -365,10 +365,12 @@ def setup_view():
         "bucket": bkt_name.get(r.get("bucket_id") or r.get("bucketId"), "—"),
         "bucket_id": r.get("bucket_id") or r.get("bucketId") or "",
         "value": float(r.get("value") or 0),
+        "value_type": r.get("value_type", "fixed"),
         "is_pct": (r.get("value_type") == "pct" or r.get("type") == "pct"),
+        "is_fund": (r.get("value_type") == "fund"),
         "active": r.get("active", True),
         "rule_type": r.get("rule_type", "internal"),
-    } for r in data.get("allocationRules", [])]
+    } for r in sorted(data.get("allocationRules", []), key=lambda r: r.get("sort_order", 0))]
     buckets = [{"id": b["id"], "name": b["name"]}
                for b in data.get("buckets", []) if not b.get("archived")]
     active_internal = [r for r in rules if r["active"] and r["rule_type"] == "internal"]
@@ -383,25 +385,37 @@ def setup_view():
 
 
 def income_rules_ctx(amount: float, mid: str) -> dict:
-    """Compute what active allocation rules would do for a given income amount."""
+    """Compute what active allocation rules would do for a given income amount.
+
+    Rules fire in order (sort_order). Percentage and fixed-amount rules take
+    their cut from the original paycheck; "fund this bucket" rules have no
+    fixed cut of their own — each one simply claims whatever's left over after
+    every rule before it, like a real envelope catching the remainder.
+    """
     data = load_data()
-    rules_raw = data.get("allocationRules", [])
+    rules_raw = sorted(data.get("allocationRules", []), key=lambda r: r.get("sort_order", 0))
     bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
     month = active_month(data)
 
     internal, external = [], []
+    remaining = amount
     for r in rules_raw:
         if not r.get("active", True):
             continue
         v = float(r.get("value") or 0)
         vtype = r.get("value_type", "fixed")
-        computed = round(amount * v / 100, 2) if vtype == "pct" else v
+        is_fund = (vtype == "fund")
+        if is_fund:
+            computed = round(max(0.0, remaining), 2)
+        else:
+            computed = round(amount * v / 100, 2) if vtype == "pct" else v
+        remaining = round(remaining - computed, 2)
         rtype = r.get("rule_type", "internal")
 
         if rtype == "external":
             external.append({
                 "id": r["id"], "name": r.get("name", "Transfer"),
-                "computed": computed, "value": v, "is_pct": vtype == "pct",
+                "computed": computed, "value": v, "is_pct": vtype == "pct", "is_fund": is_fund,
             })
         else:
             bid = r.get("bucket_id") or r.get("bucketId") or ""
@@ -410,7 +424,7 @@ def income_rules_ctx(amount: float, mid: str) -> dict:
             internal.append({
                 "id": r["id"], "name": r.get("name", "Rule"),
                 "bucket_id": bid, "bucket_name": bkt_name.get(bid, "—"),
-                "computed": computed, "value": v, "is_pct": vtype == "pct",
+                "computed": computed, "value": v, "is_pct": vtype == "pct", "is_fund": is_fund,
                 "current_alloc": F.b_alloc(month, bid),
             })
 
