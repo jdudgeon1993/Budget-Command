@@ -100,6 +100,39 @@
   </div>
   {% endif %}
 
+  {# ── Step 4 — Next month obligations (purple) ────────────────────────── #}
+  <div class="pd-step pd-step-4">
+    <div class="pd-step-lbl">
+      <div class="pd-step-num">4</div>
+      <span class="pd-step-title">Get ahead — {{ next_month_label }}</span>
+      <span class="pd-step-line"></span>
+    </div>
+    <p style="font-size:11px;color:var(--text2);margin:0 0 10px;line-height:1.5">
+      Pre-fund next month's bills now. Money sits longer before it's spent — that's how Age of Money grows.
+      Uncheck Step 3 above to redirect surplus here instead.
+    </p>
+    {% for o in next_obligations %}
+    <label class="suggest-row {{ 'checked' if o.checked else 'unchecked' }}">
+      <input type="checkbox" name="next_ob" value="{{ o.id }}" {{ 'checked' if o.checked }}
+             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-trigger="change" hx-include="#paycheck-distribute-form"
+             hx-target="#modal-body" hx-swap="innerHTML">
+      <div class="suggest-info">
+        <div class="suggest-name">{{ o.name }}</div>
+        <div class="suggest-reason">{{ o.reason }}</div>
+      </div>
+      <div class="suggest-amt">{{ ('+' ~ (o.gap | money)) if o.checked else '—' }}</div>
+    </label>
+    {% else %}
+    <div class="empty-hint">No budget targets set for next month — set budgets in the buckets panel to enable pre-funding.</div>
+    {% endfor %}
+    {% if next_obligations %}
+    <div class="modal-totals" style="margin-top:10px">
+      <div class="total-row"><span>Next month pre-funded</span><b style="color:var(--accent)">{{ total_next | money }}</b></div>
+    </div>
+    {% endif %}
+  </div>
+
   <div class="modal-totals">
     <div class="total-row"><span>Total being distributed</span><b>{{ total_applied | money }}</b></div>
     <div class="total-row {{ 'warn' if remaining_rts > 0.005 }}"><span>Remaining in Ready to Assign</span><b>{{ remaining_rts | money }}</b></div>

@@ -552,11 +552,17 @@ def paycheck_distribute_ctx(
     checked_rule: set | None = None,
     checked_ob: set | None = None,
     checked_fund: set | None = None,
+    checked_next: set | None = None,
 ) -> dict:
-    """Combined paycheck distribution: rules first, then obligations, then catch-alls.
+    """Combined paycheck distribution: rules → obligations → catch-alls → next month.
 
     None for any checked_* means "use smart defaults" (first open).
     An explicit set (even empty) means the user has made their choices.
+
+    Step 4 (next month) inherits this month's budget targets for any bucket
+    that doesn't yet have an explicit next-month budget set. This means pre-
+    funding next month's bills always shows realistic gap amounts even before
+    the user has manually configured a next-month budget.
     """
     data = load_data()
     month = active_month(data, mid)
@@ -632,16 +638,55 @@ def paycheck_distribute_ctx(
         else:
             r["computed"] = 0.0
         r["checked"] = r["id"] in checked_fund
-
     total_fund = round(sum(r["computed"] for r in fund_rules if r["checked"]), 2)
-    total_applied = round(total_rules + total_ob + total_fund, 2)
+
+    # Step 4 — pre-fund next month's obligations with whatever remains after Step 3.
+    # Build next month: use existing DB record if it exists, otherwise synthesise.
+    # Either way, fill in any missing budget targets from this month so the gap
+    # calculation returns realistic amounts even before the user has manually
+    # planned next month.
+    rts_after_fund = round(max(rts_after_ob - total_fund, 0), 2)
+    next_mid = F.month_offset(mid, 1)
+    next_month_raw = next((m for m in months if m["id"] == next_mid), None)
+    this_budgets = dict(month.get("budgets") or {})
+    if next_month_raw:
+        # Merge: prefer next month's explicit budgets, fall back to this month's
+        merged_budgets = {**this_budgets, **(next_month_raw.get("budgets") or {})}
+        next_month = {**next_month_raw, "budgets": merged_budgets}
+    else:
+        next_month = {
+            "id": next_mid, "allocations": {}, "budgets": this_budgets,
+            "handledBuckets": {}, "vaultWithdrawals": {},
+        }
+    next_obligations = F.distribute_obligations(buckets, next_month)
+    for o in next_obligations:
+        o["reason"] = _due_reason(o)
+        o["next_mid"] = next_mid  # carry forward so apply route knows which month
+    all_next_ids = {o["id"] for o in next_obligations}
+    if checked_next is None:
+        checked_next = set()
+        budget_remaining = rts_after_fund
+        for o in next_obligations:
+            if o["gap"] <= budget_remaining + 0.005:
+                checked_next.add(o["id"])
+                budget_remaining = round(budget_remaining - o["gap"], 2)
+    else:
+        checked_next = checked_next & all_next_ids
+    for o in next_obligations:
+        o["checked"] = o["id"] in checked_next
+    total_next = round(sum(o["gap"] for o in next_obligations if o["checked"]), 2)
+
+    total_applied = round(total_rules + total_ob + total_fund + total_next, 2)
 
     return {
-        "rts": rts, "mid": mid, "paycheck_amount": paycheck_amount,
+        "rts": rts, "mid": mid, "next_mid": next_mid,
+        "next_month_label": month_label(next_mid),
+        "paycheck_amount": paycheck_amount,
         "external_rules": external_rules,
         "internal_rules": internal_rules, "total_rules": total_rules,
         "obligations": obligations, "total_ob": total_ob,
         "fund_rules": fund_rules, "total_fund": total_fund,
+        "next_obligations": next_obligations, "total_next": total_next,
         "total_applied": total_applied,
         "remaining_rts": round(max(rts - total_applied, 0), 2),
     }

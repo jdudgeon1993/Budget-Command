@@ -1134,6 +1134,7 @@ def paycheck_distribute_preview(tid):
         checked_rule=set(f.getlist("rule")),
         checked_ob=set(f.getlist("ob")),
         checked_fund=set(f.getlist("fund")),
+        checked_next=set(f.getlist("next_ob")),
     )
     return render_template("panels/_frag_paycheck_distribute.html", tid=tid, **ctx)
 
@@ -1141,7 +1142,7 @@ def paycheck_distribute_preview(tid):
 @bp.route("/transaction/<tid>/paycheck-distribute", methods=["POST"])
 @login_required
 def apply_paycheck_distribute(tid):
-    """Apply the combined paycheck distribution (rules + obligations + catch-alls)."""
+    """Apply the combined paycheck distribution (rules + obligations + catch-alls + next month)."""
     data = D.load_data()
     tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
     if not tx:
@@ -1156,9 +1157,12 @@ def apply_paycheck_distribute(tid):
         checked_rule=set(f.getlist("rule")),
         checked_ob=set(f.getlist("ob")),
         checked_fund=set(f.getlist("fund")),
+        checked_next=set(f.getlist("next_ob")),
     )
     if not current_app.config["DEV_SEED"]:
         month = D.active_month(data, mid)
+        next_mid = ctx["next_mid"]
+        next_month = D.active_month(data, next_mid)
         for r in ctx["internal_rules"]:
             if r["checked"] and r["computed"] > 0:
                 new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
@@ -1171,6 +1175,10 @@ def apply_paycheck_distribute(tid):
             if r["checked"] and r["computed"] > 0:
                 new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
                 DB.upsert_alloc(session["user_id"], session["access_token"], mid, r["bucket_id"], new_alloc)
+        for o in ctx["next_obligations"]:
+            if o["checked"] and o["gap"] > 0:
+                new_alloc = round(D.F.b_alloc(next_month, o["id"]) + o["gap"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], next_mid, o["id"], new_alloc)
         D.invalidate_cache()
     flash(f"Distributed {ctx['total_applied']:,.2f}.", "ok")
     return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
