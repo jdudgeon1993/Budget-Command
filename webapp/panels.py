@@ -364,9 +364,20 @@ def set_budget(bid):
     data = D.load_data()
     month = D.active_month(data)
     month.setdefault("budgets", {})[bid] = amount
+    saving_mid = D.active_mid()
     if not current_app.config["DEV_SEED"]:
         DB.upsert_budget(session["user_id"], session["access_token"],
-                         D.active_mid(), bid, amount)
+                         saving_mid, bid, amount)
+        # Propagate to future months when editing the current calendar month.
+        # Stale DB entries in future months would otherwise surface as wrong
+        # values when those months eventually roll around to become present.
+        # Past months stay locked. Future months being deliberately planned
+        # (i.e. the user is viewing a future tab) are also left alone.
+        if saving_mid == D.F.current_month_id():
+            for m in data.get("months", []):
+                if D.F.month_status(m["id"]) == "future":
+                    DB.upsert_budget(session["user_id"], session["access_token"],
+                                     m["id"], bid, amount)
         D.invalidate_cache()
     if request.headers.get("HX-Request") != "true":
         return redirect(url_for("panels.buckets"))
