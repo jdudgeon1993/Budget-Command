@@ -378,27 +378,39 @@ def ready_to_spend(
     buckets: list[dict],
     transactions: list[dict],
 ) -> float:
-    mid = active_month["id"]
-    status = month_status(mid)
+    """RTS is anchored to today's cash position, not the viewed month.
 
+    bb is always live (all transactions). Claims are always measured from
+    today's calendar month — expense buckets reset monthly, vault/savings
+    buckets accumulate, and future pre-allocations are subtracted regardless
+    of which historical or future month the user is currently browsing.
+
+    This preserves the ZBB identity:  bb == RTS + Σ(bucket claims)
+    consistently across month navigation.
+    """
     bb = budget_bal(accounts, transactions)
     active_buckets = [b for b in buckets if not b.get("archived")]
 
-    def _claimed(b: dict) -> float:
-        # Negative balances (overspent envelopes) must count as negative, not
-        # zero — cash conservation requires bb == rts + sum(bucket balances).
-        # Clamping to zero double-penalizes overspending: once via the cash
-        # already being gone, again by refusing to let the deficit offset it.
-        return bucket_available(b, active_month, all_months, transactions)
+    # Always anchor to today's calendar month, not the viewed month.
+    today_mid = current_month_id()
+    today_month_list = [m for m in all_months if m["id"] == today_mid]
+    # If today's month doesn't exist in the DB yet (no allocations made),
+    # synthesise an empty one so bucket_available still gets a valid dict.
+    today_month = today_month_list[0] if today_month_list else {
+        "id": today_mid, "allocations": {}, "budgets": {}
+    }
 
-    if status == "past":
-        return bb - sum(_claimed(b) for b in active_buckets)
+    # Current claims: vault buckets accumulate through today; expense buckets
+    # only claim today's calendar month net. Negative values (overspent) are
+    # kept — clamping to zero double-penalises overspending.
+    cur_claimed = sum(
+        bucket_available(b, today_month, all_months, transactions)
+        for b in active_buckets
+    )
 
-    # Current or future month — full formula
-    cur_claimed = sum(_claimed(b) for b in active_buckets)
-
-    future_months = months_after(mid, all_months)
-
+    # Future pre-allocations: anything assigned to months after today is already
+    # spoken for, regardless of which month the user is viewing.
+    future_months = months_after(today_mid, all_months)
     future_claimed = sum(
         b_alloc(fm, b["id"])
         for fm in future_months
