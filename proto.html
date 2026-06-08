@@ -325,6 +325,41 @@ body { font-family: var(--sans); background: var(--page-bg); color: var(--text);
 .toolbar-btn.success { border-color:var(--green-dim); color:var(--green); }
 
 /* ══════════════════════════════════════════════════════════
+   BUCKET ROW — collapsed/expanded redesign
+   (bar + figure as headline, everything else in a drawer)
+══════════════════════════════════════════════════════════ */
+.bkt-row { background:var(--surface); border-radius:var(--r-md); box-shadow:var(--shadow-sm); border:1px solid var(--border); border-left:3px solid var(--border); margin-bottom:6px; overflow:hidden; }
+.bkt-row.funded  { border-left-color:var(--green); }
+.bkt-row.over    { border-left-color:var(--red); }
+.bkt-row.partial { border-left-color:var(--amber); }
+.bkt-row-head { display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; user-select:none; }
+.bkt-row-head:hover { background:var(--surface2); }
+.bkt-row-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.bkt-row-top { display:flex; align-items:baseline; gap:8px; }
+.bkt-row-name { font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bkt-row-badges { display:flex; gap:5px; flex-wrap:wrap; }
+.bkt-badge { font-size:9px; font-family:var(--mono); letter-spacing:0.04em; padding:2px 7px; border-radius:var(--r-pill); color:var(--text3); background:var(--surface2); white-space:nowrap; }
+.bkt-bar-track { height:7px; border-radius:var(--r-pill); background:var(--surface2); overflow:hidden; }
+.bkt-bar-fill  { height:100%; border-radius:var(--r-pill); }
+.bkt-row-figure { display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0; text-align:right; }
+.bkt-figure-amt { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--text2); white-space:nowrap; }
+.bkt-figure-status { font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:0.06em; white-space:nowrap; }
+.bkt-figure-status.funded  { color:var(--green); }
+.bkt-figure-status.over    { color:var(--red); }
+.bkt-figure-status.partial { color:var(--amber); }
+.bkt-row-toggle { width:24px; height:24px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:11px; transition:transform 0.18s ease; }
+.bkt-row.open .bkt-row-toggle { transform:rotate(180deg); color:var(--text2); }
+.bkt-drawer { max-height:0; overflow:hidden; transition:max-height 0.22s ease; }
+.bkt-row.open .bkt-drawer { max-height:280px; border-top:1px solid var(--border); }
+.bkt-drawer-inner { padding:14px 16px 16px 16px; display:flex; flex-direction:column; gap:13px; }
+.bkt-drawer-inputs { display:flex; gap:20px; }
+.bkt-drawer-inputs label { display:flex; flex-direction:column; gap:5px; font-size:9px; letter-spacing:0.10em; text-transform:uppercase; color:var(--text3); font-family:var(--mono); }
+.bkt-drawer-inputs input { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-sm); padding:7px 10px; font-family:var(--mono); font-size:13px; color:var(--text); outline:none; width:120px; }
+.bkt-drawer-actions { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+.bkt-drawer-actions .toolbar-btn.on { color:var(--accent); border-color:var(--accent-dim); background:var(--accent-dim); }
+.bkt-drawer-spacer { flex:1; }
+
+/* ══════════════════════════════════════════════════════════
    RIGHT COLUMN WIDGETS
 ══════════════════════════════════════════════════════════ */
 .attention-row { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--r-sm); background:var(--amber-dim); border:1px solid var(--amber-dim); margin-bottom:6px; }
@@ -476,22 +511,106 @@ body { font-family: var(--sans); background: var(--page-bg); color: var(--text);
         <div class="cat-header">
           <div class="cat-dot" style="background:#6366F1"></div>
           <span class="cat-name">Housing</span>
-          <span class="cat-total">$2,100 / $2,100</span>
+          <span class="cat-total">$1,850 / $2,000</span>
         </div>
-        <div class="bucket-card funded">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Rent / Mortgage</div>
-            <div class="bucket-nums"><span class="alloc-val">$1,500</span><span class="num-div">/</span><span class="budget-val">$1,500</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$1,500 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val">$0 left</span></div>
-            <div class="bucket-actions"><span class="status-pill funded">Paid</span><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
+
+        <div class="bkt-row funded">
+          <div class="bkt-row-head" onclick="toggleBkt(this)">
+            <div class="bkt-row-main">
+              <div class="bkt-row-top">
+                <span class="bkt-row-name">Rent / Mortgage</span>
+                <span class="bkt-row-badges"><span class="bkt-badge">Due 1st</span><span class="bkt-badge">Monthly</span></span>
+              </div>
+              <div class="bkt-bar-track"><div class="bkt-bar-fill" style="width:100%;background:var(--green)"></div></div>
+            </div>
+            <div class="bkt-row-figure">
+              <span class="bkt-figure-amt">$1,500 / $1,500</span>
+              <span class="bkt-figure-status funded">PAID</span>
+            </div>
+            <div class="bkt-row-toggle">▾</div>
+          </div>
+          <div class="bkt-drawer">
+            <div class="bkt-drawer-inner">
+              <div class="bkt-drawer-inputs">
+                <label>Allocation <input class="mono" value="$1,500.00"></label>
+                <label>Budget <input class="mono" value="$1,500.00"></label>
+              </div>
+              <div class="bkt-drawer-actions">
+                <button class="toolbar-btn on">✓ Handled</button>
+                <button class="toolbar-btn">☰ Ledger · 1</button>
+                <button class="toolbar-btn">⚙ Settings</button>
+                <span class="bkt-drawer-spacer"></span>
+                <button class="toolbar-btn">▲ Up</button>
+                <button class="toolbar-btn">▼ Down</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="bucket-card partial">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Utilities</div>
-            <div class="bucket-nums"><span class="alloc-val">$200</span><span class="num-div">/</span><span class="budget-val">$300</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$140 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val" style="color:var(--amber)">$60 left</span></div>
-            <div class="bucket-actions"><span class="status-pill partial">−$100</span><button class="fill-btn">Fill</button><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
+
+        <div class="bkt-row partial">
+          <div class="bkt-row-head" onclick="toggleBkt(this)">
+            <div class="bkt-row-main">
+              <div class="bkt-row-top">
+                <span class="bkt-row-name">Renters Insurance</span>
+                <span class="bkt-row-badges"><span class="bkt-badge">Due 15th</span><span class="bkt-badge">Monthly</span></span>
+              </div>
+              <div class="bkt-bar-track"><div class="bkt-bar-fill" style="width:67%;background:var(--amber)"></div></div>
+            </div>
+            <div class="bkt-row-figure">
+              <span class="bkt-figure-amt">$30 / $45</span>
+              <span class="bkt-figure-status partial">−$15 to fill</span>
+            </div>
+            <div class="bkt-row-toggle">▾</div>
+          </div>
+          <div class="bkt-drawer">
+            <div class="bkt-drawer-inner">
+              <div class="bkt-drawer-inputs">
+                <label>Allocation <input class="mono" value="$30.00"></label>
+                <label>Budget <input class="mono" value="$45.00"></label>
+              </div>
+              <div class="bkt-drawer-actions">
+                <button class="fill-btn">Fill</button>
+                <button class="toolbar-btn">Handled?</button>
+                <button class="toolbar-btn">☰ Ledger · 0</button>
+                <button class="toolbar-btn">⚙ Settings</button>
+                <span class="bkt-drawer-spacer"></span>
+                <button class="toolbar-btn">▲ Up</button>
+                <button class="toolbar-btn">▼ Down</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bkt-row over">
+          <div class="bkt-row-head" onclick="toggleBkt(this)">
+            <div class="bkt-row-main">
+              <div class="bkt-row-top">
+                <span class="bkt-row-name">Utilities</span>
+                <span class="bkt-row-badges"><span class="bkt-badge">Due 20th</span></span>
+              </div>
+              <div class="bkt-bar-track"><div class="bkt-bar-fill" style="width:100%;background:var(--red)"></div></div>
+            </div>
+            <div class="bkt-row-figure">
+              <span class="bkt-figure-amt">$320 / $300</span>
+              <span class="bkt-figure-status over">OVER $20</span>
+            </div>
+            <div class="bkt-row-toggle">▾</div>
+          </div>
+          <div class="bkt-drawer">
+            <div class="bkt-drawer-inner">
+              <div class="bkt-drawer-inputs">
+                <label>Allocation <input class="mono" value="$320.00"></label>
+                <label>Budget <input class="mono" value="$300.00"></label>
+              </div>
+              <div class="bkt-drawer-actions">
+                <button class="toolbar-btn">Handled?</button>
+                <button class="toolbar-btn">☰ Ledger · 3</button>
+                <button class="toolbar-btn">⚙ Settings</button>
+                <span class="bkt-drawer-spacer"></span>
+                <button class="toolbar-btn">▲ Up</button>
+                <button class="toolbar-btn">▼ Down</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -500,34 +619,70 @@ body { font-family: var(--sans); background: var(--page-bg); color: var(--text);
           <span class="cat-name">Food &amp; Dining</span>
           <span class="cat-total">$450 / $500</span>
         </div>
-        <div class="bucket-card funded">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Groceries</div>
-            <div class="bucket-nums"><span class="alloc-val">$350</span><span class="num-div">/</span><span class="budget-val">$400</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$280 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val">$70 left</span></div>
-            <div class="bucket-actions"><span class="status-pill funded">Funded</span><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
+
+        <div class="bkt-row funded">
+          <div class="bkt-row-head" onclick="toggleBkt(this)">
+            <div class="bkt-row-main">
+              <div class="bkt-row-top">
+                <span class="bkt-row-name">Groceries</span>
+                <span class="bkt-row-badges"></span>
+              </div>
+              <div class="bkt-bar-track"><div class="bkt-bar-fill" style="width:80%;background:var(--green)"></div></div>
+            </div>
+            <div class="bkt-row-figure">
+              <span class="bkt-figure-amt">$280 / $350</span>
+              <span class="bkt-figure-status funded">$70 left</span>
+            </div>
+            <div class="bkt-row-toggle">▾</div>
           </div>
-        </div>
-        <div class="bucket-card over">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Dining Out</div>
-            <div class="bucket-nums"><span class="alloc-val">$100</span><span class="num-div">/</span><span class="budget-val">$100</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val" style="color:var(--red)">$127 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val neg">−$27 left</span></div>
-            <div class="bucket-actions"><span class="status-pill over">Over $27</span><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
+          <div class="bkt-drawer">
+            <div class="bkt-drawer-inner">
+              <div class="bkt-drawer-inputs">
+                <label>Allocation <input class="mono" value="$350.00"></label>
+                <label>Budget <input class="mono" value="$400.00"></label>
+              </div>
+              <div class="bkt-drawer-actions">
+                <button class="toolbar-btn">Handled?</button>
+                <button class="toolbar-btn">☰ Ledger · 9</button>
+                <button class="toolbar-btn">⚙ Settings</button>
+                <span class="bkt-drawer-spacer"></span>
+                <button class="toolbar-btn">▲ Up</button>
+                <button class="toolbar-btn">▼ Down</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="cat-header">
-          <div class="cat-dot" style="background:#F59E0B"></div>
-          <span class="cat-name">Transport</span>
-          <span class="cat-total">$280 / $350</span>
-        </div>
-        <div class="bucket-card partial">
-          <div class="bucket-main">
-            <div class="reorder"><span>▲</span><span>▼</span></div>
-            <div class="bucket-name">Gas</div>
-            <div class="bucket-nums"><span class="alloc-val">$150</span><span class="num-div">/</span><span class="budget-val">$200</span><span class="num-div" style="padding:0 2px">·</span><span class="spent-val">$95 spent</span><span class="num-div" style="padding:0 2px">·</span><span class="left-val" style="color:var(--amber)">$55 left</span></div>
-            <div class="bucket-actions"><span class="status-pill partial">−$50</span><button class="fill-btn">Fill</button><div class="icon-btn">▾</div><div class="icon-btn">⋯</div></div>
+        <div class="bkt-row over">
+          <div class="bkt-row-head" onclick="toggleBkt(this)">
+            <div class="bkt-row-main">
+              <div class="bkt-row-top">
+                <span class="bkt-row-name">Dining Out</span>
+                <span class="bkt-row-badges"></span>
+              </div>
+              <div class="bkt-bar-track"><div class="bkt-bar-fill" style="width:100%;background:var(--red)"></div></div>
+            </div>
+            <div class="bkt-row-figure">
+              <span class="bkt-figure-amt">$127 / $100</span>
+              <span class="bkt-figure-status over">OVER $27</span>
+            </div>
+            <div class="bkt-row-toggle">▾</div>
+          </div>
+          <div class="bkt-drawer">
+            <div class="bkt-drawer-inner">
+              <div class="bkt-drawer-inputs">
+                <label>Allocation <input class="mono" value="$100.00"></label>
+                <label>Budget <input class="mono" value="$100.00"></label>
+              </div>
+              <div class="bkt-drawer-actions">
+                <button class="toolbar-btn">Handled?</button>
+                <button class="toolbar-btn">☰ Ledger · 6</button>
+                <button class="toolbar-btn">⚙ Settings</button>
+                <span class="bkt-drawer-spacer"></span>
+                <button class="toolbar-btn">▲ Up</button>
+                <button class="toolbar-btn">▼ Down</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -781,6 +936,20 @@ body { font-family: var(--sans); background: var(--page-bg); color: var(--text);
       document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     });
+  });
+
+  function toggleBkt(head) {
+    head.closest('.bkt-row').classList.toggle('open');
+  }
+  // "Handled?" toggle — flips the on/active state in place, no page change
+  document.querySelectorAll('.bkt-drawer-actions .toolbar-btn').forEach(btn => {
+    if (/Handled/.test(btn.textContent)) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const on = btn.classList.toggle('on');
+        btn.textContent = on ? '✓ Handled' : 'Handled?';
+      });
+    }
   });
 </script>
 
