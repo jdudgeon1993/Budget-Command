@@ -99,6 +99,63 @@ def is_scheduled(tx: dict) -> bool:
     return d is not None and d > date.today()
 
 
+# ── Urgency helpers (Distribute ranking) ─────────────────────────────────────
+
+_FREQ_LABELS = {
+    "weekly": "Weekly", "biweekly": "Biweekly",
+    "triweekly": "Triweekly", "monthly": "Monthly",
+}
+
+DEFAULT_URGENCY_HORIZON_DAYS = 21
+
+
+def days_until_due(bucket: dict, today: "date | None" = None) -> int | None:
+    """Days from today until this bucket's next due date, or None if it has none.
+
+    Only `dueDay` (a fixed day-of-month) gives an actual date to count down to.
+    Buckets with just a `payFreq` recur on no particular date — they get no
+    due-date countdown; the urgency scorer falls back to a default horizon.
+    """
+    today = today or date.today()
+    due_day = bucket.get("dueDay")
+    if due_day is None:
+        return None
+    try:
+        due_day = int(due_day)
+    except (ValueError, TypeError):
+        return None
+    if not (1 <= due_day <= 31):
+        return None
+
+    import calendar
+    y, m = today.year, today.month
+    last_day = calendar.monthrange(y, m)[1]
+    candidate = date(y, m, min(due_day, last_day))
+    if candidate < today:
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+        last_day = calendar.monthrange(y, m)[1]
+        candidate = date(y, m, min(due_day, last_day))
+    return (candidate - today).days
+
+
+def freq_label(pay_freq: str | None) -> str:
+    return _FREQ_LABELS.get(pay_freq or "", "")
+
+
+def urgency_score(gap: float, horizon_days: int | None) -> float:
+    """Higher = more urgent. Funding gap weighted by how soon it's needed.
+
+    Recurring spends with no fixed due date use a default horizon — they're
+    not "due" on any particular day, but they do recur reliably and need a
+    home eventually.
+    """
+    horizon = horizon_days if horizon_days and horizon_days > 0 else DEFAULT_URGENCY_HORIZON_DAYS
+    return gap / horizon
+
+
 # ── 3.1 Account Balance ───────────────────────────────────────────────────────
 
 def acct_balance_as_of(account: dict, transactions: list[dict], as_of: "date") -> float:
