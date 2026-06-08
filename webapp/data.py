@@ -88,7 +88,10 @@ def shell_ctx(active_panel: str = "") -> dict:
     income = F.month_income(mid, txs, accounts)
     allocated = F.total_allocated(month, buckets)
     spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
-    pct = min(100, round((allocated / income) * 100)) if income else 0
+    # Denominator is total available to assign (allocated + unassigned), not
+    # just income — in ZBB you also allocate from prior-month carry-forward.
+    _available = allocated + max(rts, 0)
+    pct = min(100, round((allocated / _available) * 100)) if _available > 0 else 0
 
     # Pre-render context for add-transaction modal (so it can be instant, no round-trip)
     tx_accounts = [{"id": a["id"], "name": a["name"]}
