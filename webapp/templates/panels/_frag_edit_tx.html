@@ -1,4 +1,3 @@
-<div class="modal-title">Edit Transaction</div>
 <form class="tx-form" method="post" action="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
       hx-post="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
       hx-target="#panel" hx-swap="innerHTML">
@@ -70,7 +69,7 @@
   </div>
 
   <div class="tx-actions">
-    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn" type="button" onclick="toggleTxEdit('{{ tx.id }}', '{{ url_for('panels.transaction_edit', tid=tx.id) }}')">Cancel</button>
     <button class="toolbar-btn primary" type="submit">Save Changes</button>
   </div>
 </form>

@@ -169,10 +169,35 @@ function updateTxFields(t){
   if(incType)incType.style.display=(t==='in')?'':'none';
   document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
 }
-function updateAcctFields(){
-  var t=document.getElementById('acct-type-sel');
-  var f=document.getElementById('acct-debt-fields');
-  if(t&&f)f.style.display=(t.value==='debt')?'':'none';
+function updateAcctFields(sel){
+  var t=sel||document.getElementById('acct-type-sel');
+  if(!t)return;
+  var root=t.closest('form')||document;
+  var f=root.querySelector('.acct-debt-fields,#acct-debt-fields');
+  if(f)f.style.display=(t.value==='debt')?'':'none';
+}
+function toggleInlineDrawer(elId, url, iconElId){
+  var el=document.getElementById(elId);
+  if(!el)return;
+  var icon=iconElId?document.getElementById(iconElId):null;
+  var open=el.style.display!=='none';
+  if(open){
+    el.style.display='none';
+    if(icon)icon.textContent='▸';
+    return;
+  }
+  el.style.display='block';
+  if(icon)icon.textContent='▾';
+  if(!el.dataset.loaded){
+    el.dataset.loaded='1';
+    htmx.ajax('GET', url, {target:'#'+el.id, swap:'innerHTML'});
+  }
+}
+function toggleTxEdit(id, url){
+  toggleInlineDrawer('tx-edit-'+id, url);
+}
+function toggleAcctSettings(id, url){
+  toggleInlineDrawer('acct-settings-'+id, url);
 }
 function updateBktFields(sel){
   var t=sel||document.getElementById('bkt-type-sel');

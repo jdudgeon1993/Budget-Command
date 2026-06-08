@@ -1,4 +1,3 @@
-<div class="modal-title">{{ 'Edit Account' if account else 'Add Account' }}</div>
 <form class="edit-form" method="post"
       action="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
       hx-post="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
@@ -13,7 +12,7 @@
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="edit-field">
       <label>Type</label>
-      <select name="type" id="acct-type-sel" onchange="updateAcctFields()">
+      <select name="type" onchange="updateAcctFields(this)">
         {% for val, label in [('budget','Checking / Cash'),('savings','Savings'),('debt','Credit / Debt')] %}
         <option value="{{ val }}" {{ 'selected' if account and account.type == val }}>{{ label }}</option>
         {% endfor %}
@@ -33,7 +32,7 @@
 
   {# Debt-specific fields #}
   {% set _is_debt = account and account.type == 'debt' %}
-  <div id="acct-debt-fields" style="{{ '' if _is_debt else 'display:none' }}">
+  <div class="acct-debt-fields" style="{{ '' if _is_debt else 'display:none' }}">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="edit-field">
         <label>APR <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(%)</span></label>
@@ -69,7 +68,11 @@
   </div>
 
   <div class="edit-actions">
+    {% if account %}
+    <button class="toolbar-btn" type="button" onclick="toggleAcctSettings('{{ account.id }}', '{{ url_for('panels.account_edit', aid=account.id) }}')">Cancel</button>
+    {% else %}
     <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    {% endif %}
     <button class="toolbar-btn primary" type="submit">{{ 'Save Changes' if account else 'Add Account' }}</button>
   </div>
 </form>

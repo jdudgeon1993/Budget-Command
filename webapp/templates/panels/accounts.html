@@ -55,8 +55,8 @@
             <div class="tx-row-right">
               <span class="tx-amt" style="color:var(--amber)">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
               {% if t.id %}
-              <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
-                 hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
+              <button class="tx-edit-link" type="button"
+                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('panels.transaction_edit', tid=t.id) }}')">Edit</button>
               {% endif %}
             </div>
           </div>
@@ -67,6 +67,9 @@
           </div>
         </div>
       </div>
+      {% if t.id %}
+      <div class="bucket-txs tx-edit-inline" id="tx-edit-{{ t.id }}" style="display:none"></div>
+      {% endif %}
       {% endfor %}
     </div>
     {% endfor %}
@@ -104,8 +107,8 @@
             <div class="tx-row-right">
               <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
               {% if t.id %}
-              <a class="tx-edit-link" href="{{ url_for('panels.transaction_edit', tid=t.id) }}"
-                 hx-get="{{ url_for('panels.transaction_edit', tid=t.id) }}" hx-target="#modal-body">Edit</a>
+              <button class="tx-edit-link" type="button"
+                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('panels.transaction_edit', tid=t.id) }}')">Edit</button>
               {% endif %}
             </div>
           </div>
@@ -117,6 +120,9 @@
           </div>
         </div>
       </div>
+      {% if t.id %}
+      <div class="bucket-txs tx-edit-inline" id="tx-edit-{{ t.id }}" style="display:none"></div>
+      {% endif %}
       {% endfor %}
     </div>
     {% else %}
@@ -177,10 +183,10 @@
           {% endif %}
         </div>
         {% endif %}
-        <a class="tx-edit-link" href="{{ url_for('panels.account_edit', aid=a.id) }}"
-           hx-get="{{ url_for('panels.account_edit', aid=a.id) }}" hx-target="#modal-body"
-           title="Edit account" onclick="event.stopPropagation()">⚙</a>
+        <button class="tx-edit-link" type="button" title="Edit account"
+                onclick="event.stopPropagation();toggleAcctSettings('{{ a.id }}', '{{ url_for('panels.account_edit', aid=a.id) }}')">⚙</button>
       </div>
+      <div class="bucket-txs acct-settings-inline" id="acct-settings-{{ a.id }}" style="display:none"></div>
       {% endfor %}
     </div>
   </div>
