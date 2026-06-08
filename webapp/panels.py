@@ -1284,9 +1284,11 @@ def transaction_create():
                 and request.headers.get("HX-Request") == "true"):
             rules_ctx = D.income_rules_ctx(amount, mid)
             if rules_ctx["internal_rules"] or rules_ctx["external_rules"]:
-                resp = make_response(render_template(
-                    "panels/_frag_rules_apply.html",
-                    tid=new_tid, back=back_panel, **rules_ctx))
+                shell = D.shell_ctx(back_panel)
+                resp = make_response(
+                    render_template("panels/_frag_rules_apply.html",
+                                    tid=new_tid, back=back_panel, **rules_ctx)
+                    + render_template("panels/_oob_rts.html", shell=shell))
                 resp.headers["HX-Retarget"] = "#modal-body"
                 resp.headers["HX-Reswap"] = "innerHTML"
                 return resp
