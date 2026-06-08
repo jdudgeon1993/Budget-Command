@@ -1,0 +1,136 @@
+{% extends layout %}
+{% block panel %}
+<div class="panel-grid">
+  <div>
+    {# ── Month planning tabs ── #}
+    <div class="month-tabs">
+      {% for tab in month_tabs %}
+      <a class="month-tab {% if tab.mid == view_mid %}active{% elif tab.offset > 0 %}future{% endif %}"
+         href="{{ url_for('panels.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         hx-get="{{ url_for('panels.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         hx-target="#panel" hx-swap="innerHTML">
+        {{ tab.label }}{% if tab.offset > 0 %} <span style="font-size:9px;opacity:.6;vertical-align:middle">▸</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+
+    {% if view_mid != current_mid %}
+    <div style="background:rgba(129,140,248,0.10);border:1px solid rgba(129,140,248,0.25);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--indigo)">
+      Planning allocations for <strong>{{ month_tabs | selectattr('mid','equalto',view_mid) | map(attribute='label') | first | default(view_mid) }}</strong> — spending data not available yet.
+    </div>
+    {% endif %}
+
+    <div class="workflow-bar">
+      <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents"
+            hx-post="{{ url_for('panels.month_copy') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="wf-btn" type="submit">Copy Last Month</button>
+      </form>
+    </div>
+
+    {% for grp in groups %}
+    <div class="cat-header">
+      <div class="cat-dot" style="background:{{ grp.color }}"></div>
+      <span class="cat-name">{{ grp.name }}</span>
+      <span class="cat-total">{{ grp.alloc | money }} / {{ grp.budget | money }}</span>
+    </div>
+    {% for b in grp.buckets %}
+      {% include "panels/_bucket_row.html" %}
+    {% endfor %}
+    {% endfor %}
+
+    <script>
+    function toggleBktRow(id){
+      var row=document.getElementById('bkt-'+id);
+      if(row)row.classList.toggle('open');
+    }
+    function toggleBktTxs(id){
+      var el=document.getElementById('txs-'+id);
+      var icon=document.getElementById('exp-icon-'+id);
+      if(!el)return;
+      var open=el.style.display!=='none';
+      el.style.display=open?'none':'block';
+      if(icon)icon.textContent=open?'▸':'▾';
+    }
+    function toggleBktSettings(id, url){
+      toggleInlineDrawer('bkt-settings-'+id, url, 'settings-icon-'+id);
+    }
+    </script>
+
+    <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}"
+          hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
+      <select name="catId" style="flex:0 0 130px" required>
+        <option value="">— Category —</option>
+        {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+      <input type="text" name="name" placeholder="Bucket name…" required>
+      <select name="type" style="flex:0 0 110px">
+        <option value="expense">Expense</option>
+        <option value="goal">Goal</option>
+        <option value="vault">Vault</option>
+      </select>
+      <button class="toolbar-btn primary" type="submit">+ Add</button>
+    </form>
+  </div>
+
+  <div class="right-sticky">
+    <div class="rts-hero">
+      <div class="rts-hero-lbl">Ready to assign</div>
+      <div class="rts-hero-amt" id="rts-sidebar">{{ shell.rts | money }}</div>
+      <div class="rts-hero-sub">{{ shell.unhomed | money }} still needs a home</div>
+      <div class="rts-progress-track"><div class="rts-progress-fill" style="width:{{ shell.pct }}%"></div></div>
+      <div class="rts-kpis">
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:var(--green)">{{ shell.income | money }}</span></div>
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">{{ shell.allocated | money }}</span></div>
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">{{ shell.spent | money }}</span></div>
+      </div>
+      {% if shell.rts > 0 %}
+      <form method="post" action="{{ url_for('panels.distribute_rts') }}" style="display:contents"
+            hx-post="{{ url_for('panels.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML">
+        {% if view_mid != current_mid %}
+        <input type="hidden" name="m" value="{{ view_mid }}">
+        {% endif %}
+        <button class="rts-distribute-btn" type="submit">DISTRIBUTE RTS →</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if attention %}
+    <div class="card card-pad" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span class="card-label" style="margin-bottom:0">Needs Attention</span>
+        <span style="background:var(--red-dim);color:var(--red);border-radius:var(--r-pill);padding:1px 9px;font-size:12px;font-family:var(--mono);font-weight:700">{{ attention | length }}</span>
+      </div>
+      {% for a in attention %}
+      <div class="attention-row {{ 'over' if a.status == 'over' }}">
+        <div class="attention-name">{{ a.name }}</div>
+        <div class="attention-lbl {{ 'over' if a.status == 'over' }}">{{ a.pill }}</div>
+        {% if a.status == 'partial' and a.budget > 0 %}
+        <form method="post" action="{{ url_for('panels.fill_bucket', bid=a.id) }}" style="display:inline"
+              hx-post="{{ url_for('panels.fill_bucket', bid=a.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if view_mid != current_mid %}
+          <input type="hidden" name="m" value="{{ view_mid }}">
+          {% endif %}
+          <button class="fill-btn" type="submit">Fill</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card card-pad">
+      <div class="card-label">Categories</div>
+      {% for grp in groups %}
+      <div class="cat-bar-row">
+        <div class="cat-bar-hdr">
+          <div class="cat-dot" style="background:{{ grp.color }}"></div>
+          <span class="cat-bar-name">{{ grp.name }}</span>
+          <span class="cat-bar-pct" style="color:{{ 'var(--green)' if grp.pct >= 100 else 'var(--amber)' }}">{{ grp.pct }}%</span>
+        </div>
+        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:{{ grp.pct }}%;background:{{ grp.color }}"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

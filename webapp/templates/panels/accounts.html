@@ -1,0 +1,347 @@
+{% extends layout %}
+{% block panel %}
+<div class="panel-grid">
+  <div>
+    <div class="sum-grid">
+      <div class="sum-card"><div class="sum-label">Income</div><div class="sum-val c-green">{{ summary.income | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Upcoming</div><div class="sum-val" style="color:var(--amber)">{{ summary.scheduled | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Spent</div><div class="sum-val c-red">{{ summary.spent | money }}</div></div>
+      <div class="sum-card"><div class="sum-label">Transferred</div><div class="sum-val c-text2">{{ summary.transferred | money }}</div></div>
+    </div>
+
+    {# ── Search + account filter ── #}
+    <div class="ledger-toolbar">
+      <input class="ledger-search" type="search" placeholder="Search transactions…"
+             oninput="searchTx(this.value)" aria-label="Search transactions">
+      <div class="acct-filter-bar">
+        <button class="acct-filter-chip active" data-aid="all" onclick="filterLedger(this,'all')">All</button>
+        {% for a in cards %}
+        <button class="acct-filter-chip" data-aid="{{ a.id }}" onclick="filterLedger(this,'{{ a.id }}')"
+                style="--chip-color:{{ a.color }}">{{ a.name }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── Per-account balance banner (visible when a single account is filtered) ── #}
+    <div id="acct-bal-bar" class="acct-bal-bar" style="display:none">
+      <span id="acct-bal-name" class="acct-bal-bar-name"></span>
+      <span style="color:var(--text3)">·</span>
+      <span style="color:var(--text3)">Current balance</span>
+      <span id="acct-bal-amt" class="mono" style="margin-left:auto;font-weight:700"></span>
+    </div>
+
+    {# ── Scheduled / upcoming section ── #}
+    {% if scheduled %}
+    <div class="statement-label" style="color:var(--amber)">Upcoming</div>
+    {% for day in scheduled %}
+    <div class="ledger-day" data-sched="1">
+      <div class="ledger-head">
+        <span class="ledger-date" style="color:var(--amber)">{{ day.label }}</span>
+        <span class="ledger-net" style="color:var(--amber)">{{ day.net | money }}</span>
+        <span class="ledger-running" style="display:none"></span>
+      </div>
+      {% for t in day.rows %}
+      <div class="tx-row"
+           data-aid="{{ t.account_id }}"
+           data-to-aid="{{ t.toAccountId or '' }}"
+           data-debt-pay-aid="{{ t.debtPaymentAccountId or '' }}"
+           data-type="{{ t.type }}"
+           data-signed="{{ t.signed }}"
+           data-amt="{{ t.amount }}">
+        <div class="tx-stripe" style="background:var(--amber);width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
+        <div class="tx-body">
+          <div class="tx-row-top">
+            <div class="tx-name">{{ t.desc }}</div>
+            <div class="tx-row-right">
+              <span class="tx-amt" style="color:var(--amber)">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
+              {% if t.id %}
+              <button class="tx-edit-link" type="button"
+                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('panels.transaction_edit', tid=t.id) }}')">Edit</button>
+              {% endif %}
+            </div>
+          </div>
+          <div class="tx-meta">
+            <span class="tx-pill" style="color:var(--amber);background:rgba(251,191,36,.12)">Scheduled</span>
+            {% if t.sub %}<span class="tx-cat">{{ t.sub }}</span>{% endif %}
+            <span class="tx-acct-lbl">{{ t.account_name }}</span>
+          </div>
+        </div>
+      </div>
+      {% if t.id %}
+      <div class="bucket-txs tx-edit-inline" id="tx-edit-{{ t.id }}" style="display:none"></div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# ── Posted transactions ── #}
+    <div class="statement-label">Current Statement</div>
+    {# RB pinpoint — shown when filtering to a single account #}
+    <div id="stmt-rb-pin" class="stmt-rb-pin" style="display:none">
+      <span class="stmt-rb-pin-lbl">Current Balance</span>
+      <span id="stmt-rb-pin-amt" class="mono"></span>
+    </div>
+    {% for day in ledger %}
+    <div class="ledger-day">
+      <div class="ledger-head">
+        <span class="ledger-date">{{ day.label }}</span>
+        <span class="ledger-net {{ 'c-red' if day.net < 0 else 'c-green' }}">{{ day.net | money }}</span>
+        <span class="ledger-running" style="display:none"></span>
+      </div>
+      {% for t in day.rows %}
+      <div class="tx-row"
+           data-aid="{{ t.account_id }}"
+           data-to-aid="{{ t.toAccountId or '' }}"
+           data-debt-pay-aid="{{ t.debtPaymentAccountId or '' }}"
+           data-type="{{ t.type }}"
+           data-signed="{{ t.signed }}"
+           data-amt="{{ t.amount }}">
+        <div class="tx-stripe" style="background:var(--{{ 'green' if t.color=='green' else 'red' if t.color=='red' else 'text2' }});width:3px;align-self:stretch;border-radius:2px;flex-shrink:0"></div>
+        <div class="tx-body">
+          <div class="tx-row-top">
+            <div class="tx-name">
+              {{ t.desc }}
+              {% if t.reconciled %}<span class="tx-recon" title="Reconciled">✓</span>{% endif %}
+            </div>
+            <div class="tx-row-right">
+              <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
+              {% if t.id %}
+              <button class="tx-edit-link" type="button"
+                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('panels.transaction_edit', tid=t.id) }}')">Edit</button>
+              {% endif %}
+            </div>
+          </div>
+          <div class="tx-meta">
+            <span class="tx-pill c-{{ t.color }} bg-{{ t.color }}">{{ t.pill }}</span>
+            {% if t.sub %}<span class="tx-cat">{{ t.sub }}</span>{% endif %}
+            {% if t.income_type and t.type == 'in' %}<span class="tx-cat">{{ t.income_type | capitalize }}</span>{% endif %}
+            <span class="tx-acct-lbl">{{ t.account_name }}</span>
+          </div>
+        </div>
+      </div>
+      {% if t.id %}
+      <div class="bucket-txs tx-edit-inline" id="tx-edit-{{ t.id }}" style="display:none"></div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="stub">No transactions this month.</div>
+    {% endfor %}
+  </div>
+
+  <div class="right-sticky">
+    <div class="card card-pad">
+      <div class="card-label" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Accounts</span>
+        <a class="tx-edit-link" href="{{ url_for('panels.account_new') }}"
+           hx-get="{{ url_for('panels.account_new') }}" hx-target="#modal-body"
+           style="font-size:12px">+ Add</a>
+      </div>
+      {% if not cards %}
+      <div class="stub" style="padding:16px 0">
+        No accounts yet.
+        <a href="{{ url_for('panels.account_new') }}"
+           hx-get="{{ url_for('panels.account_new') }}" hx-target="#modal-body"
+           style="color:var(--accent)">Add your first account →</a>
+      </div>
+      {% endif %}
+      {% for a in cards %}
+      {% set utilization = (a.balance / a.creditLimit * 100) if (a.type == 'debt' and a.creditLimit and a.creditLimit > 0) else none %}
+      <div class="acct-card" data-aid="{{ a.id }}" onclick="filterLedger(document.querySelector('.acct-filter-chip[data-aid=\'{{ a.id }}\']'),'{{ a.id }}')">
+        <div class="acct-dot" style="width:8px;height:8px;border-radius:50%;background:{{ a.color or 'var(--accent)' }};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div class="acct-name">{{ a.name }}</div>
+          <div class="acct-type">
+            {{ a.type }}
+            {% if a.type == 'debt' and a.debtAPR %}<span style="color:var(--red);font-size:10px;margin-left:4px">{{ "%.1f"|format(a.debtAPR) }}% APR</span>{% endif %}
+          </div>
+          {% if utilization is not none %}
+          <div class="acct-util-bar" title="{{ '%.0f'|format(utilization) }}% of {{ a.creditLimit | money }} limit">
+            <div class="acct-util-fill" style="width:{{ [utilization, 100]|min }}%;background:{{ 'var(--red)' if utilization >= 80 else 'var(--amber)' if utilization >= 50 else 'var(--green)' }}"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px">{{ '%.0f'|format(utilization) }}% of {{ a.creditLimit | money }}</div>
+          {% endif %}
+        </div>
+        <div class="acct-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</div>
+        {% if a.type == 'debt' %}
+        <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end" onclick="event.stopPropagation()">
+          <a class="vault-action-btn" style="font-size:10px;padding:2px 6px"
+             href="{{ url_for('panels.debt_payment', aid=a.id) }}"
+             hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}" hx-target="#modal-body"
+             title="Record a payment">Pay</a>
+          {% if a.debtAPR %}
+          <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--indigo);border-color:rgba(129,140,248,.35)"
+             href="{{ url_for('panels.debt_payoff', aid=a.id) }}"
+             hx-get="{{ url_for('panels.debt_payoff', aid=a.id) }}" hx-target="#modal-body"
+             title="Payoff timeline & what-if calculator">Payoff</a>
+          <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--red);border-color:rgba(255,69,58,.35)"
+             href="{{ url_for('panels.post_interest', aid=a.id) }}"
+             hx-post="{{ url_for('panels.post_interest', aid=a.id) }}" hx-target="#panel" hx-swap="innerHTML"
+             hx-confirm="Post monthly interest charge for {{ a.name }}?"
+             title="Post monthly interest charge">Interest</a>
+          {% endif %}
+        </div>
+        {% endif %}
+        <button class="tx-edit-link" type="button" title="Edit account"
+                onclick="event.stopPropagation();toggleAcctSettings('{{ a.id }}', '{{ url_for('panels.account_edit', aid=a.id) }}')">⚙</button>
+      </div>
+      <div class="bucket-txs acct-settings-inline" id="acct-settings-{{ a.id }}" style="display:none"></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+var acctBalances = {{ acct_balances | tojson }};
+var acctTypes    = {{ acct_types | tojson }};
+
+function _money(v){
+  var s='$'+Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return v<0?'-'+s:s;
+}
+
+function _txEffect(r,aid){
+  var mult=acctTypes[aid]==='debt'?-1:1;
+  var t=r.dataset.type, a=parseFloat(r.dataset.amt)||0;
+  if(r.dataset.aid===aid){
+    if(t==='in')  return mult*a;
+    if(t==='out') return -mult*a;
+    if(t==='xfr') return -mult*a;
+    if(t==='adjustment') return a;
+  } else if(r.dataset.toAid===aid&&t==='xfr'){
+    return mult*a;
+  } else if(r.dataset.debtPayAid===aid&&t==='out'){
+    // Debt payment reduces what is owed (raw, no mult — matches formulas.py)
+    return -a;
+  }
+  return 0;
+}
+
+function _updateRunningBal(aid){
+  var pin=document.getElementById('stmt-rb-pin');
+  if(aid==='all'||acctBalances[aid]===undefined){
+    document.querySelectorAll('.ledger-running').forEach(function(e){e.style.display='none';});
+    document.querySelectorAll('.ledger-net').forEach(function(e){e.style.display='';});
+    if(pin) pin.style.display='none';
+    return;
+  }
+  var bal=acctBalances[aid];
+  // Show pinpoint at top of Current Statement matching account card balance
+  if(pin){
+    var pinAmt=document.getElementById('stmt-rb-pin-amt');
+    if(pinAmt){pinAmt.textContent=_money(bal);pinAmt.className='mono '+(bal<0?'c-red':'c-green');}
+    pin.style.display='flex';
+  }
+  document.querySelectorAll('.ledger-day').forEach(function(d){
+    // Skip scheduled/upcoming days — they haven't happened yet
+    if(d.dataset.sched==='1'||d.style.display==='none') return;
+    var dayEffect=0;
+    d.querySelectorAll('.tx-row').forEach(function(r){
+      if(r.style.display!=='none') dayEffect+=_txEffect(r,aid);
+    });
+    var run=d.querySelector('.ledger-running'), net=d.querySelector('.ledger-net');
+    if(run){
+      run.innerHTML='<span class="ledger-rb-lbl">RB</span>'+_money(bal);
+      run.className='ledger-running '+(bal<0?'c-red':'c-green');
+      run.style.display='';
+    }
+    if(net) net.style.display='none';
+    bal-=dayEffect;
+  });
+}
+
+function filterLedger(btn,aid){
+  sessionStorage.setItem('_acctFilter', aid);
+  document.querySelectorAll('.acct-filter-chip').forEach(function(c){c.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+
+  // Highlight account card
+  document.querySelectorAll('.acct-card[data-aid]').forEach(function(c){c.classList.remove('acct-card-active');});
+  if(aid!=='all'){
+    var ac=document.querySelector('.acct-card[data-aid="'+aid+'"]');
+    if(ac) ac.classList.add('acct-card-active');
+  }
+
+  // Balance banner + statement pinpoint
+  var bar=document.getElementById('acct-bal-bar');
+  var pin=document.getElementById('stmt-rb-pin');
+  if(aid!=='all'&&acctBalances[aid]!==undefined){
+    var nm=btn?btn.textContent.trim():'';
+    var b=acctBalances[aid];
+    if(bar){
+      document.getElementById('acct-bal-name').textContent=nm;
+      var amtEl=document.getElementById('acct-bal-amt');
+      amtEl.textContent=_money(b);
+      amtEl.className='mono '+(b<0?'c-red':'c-green');
+      bar.style.display='flex';
+    }
+  } else {
+    if(bar) bar.style.display='none';
+    if(pin) pin.style.display='none';
+  }
+
+  // Show/hide rows; flip transfer/payment display for destination-account view
+  document.querySelectorAll('.tx-row[data-aid]').forEach(function(r){
+    var fromMatch=r.dataset.aid===aid;
+    var toMatch=r.dataset.toAid===aid&&r.dataset.type==='xfr';
+    var debtPayMatch=r.dataset.debtPayAid===aid&&r.dataset.type==='out';
+    var show=aid==='all'||fromMatch||toMatch||debtPayMatch;
+    r.style.display=show?'':'none';
+    var amtEl=r.querySelector('.tx-amt'), pillEl=r.querySelector('.tx-pill');
+    if(show){
+      if(debtPayMatch&&!fromMatch){
+        var a=parseFloat(r.dataset.amt)||0;
+        if(amtEl){amtEl.textContent='-'+_money(a);amtEl.className='tx-amt c-green';}
+        if(pillEl){pillEl.textContent='Payment';pillEl.className='tx-pill c-green bg-green';}
+      } else if(toMatch&&!fromMatch){
+        var a=parseFloat(r.dataset.amt)||0;
+        if(amtEl){amtEl.textContent='+'+_money(a);amtEl.className='tx-amt c-green';}
+        if(pillEl){pillEl.textContent='Transfer In';pillEl.className='tx-pill c-green bg-green';}
+      } else {
+        var s=parseFloat(r.dataset.signed)||0;
+        if(amtEl){
+          amtEl.textContent=(s>0?'+':'')+_money(s);
+          amtEl.className='tx-amt c-'+(r.dataset.type==='in'?'green':r.dataset.type==='xfr'?'text2':'red');
+        }
+        if(pillEl&&r.dataset.type==='xfr'){
+          pillEl.textContent='Transfer';
+          pillEl.className='tx-pill c-text2 bg-text2';
+        }
+      }
+    }
+  });
+
+  // Collapse empty day groups
+  document.querySelectorAll('.ledger-day').forEach(function(d){
+    var vis=d.querySelectorAll('.tx-row:not([style*="display: none"]):not([style*="display:none"])').length;
+    d.style.display=vis?'':'none';
+  });
+
+  _updateRunningBal(aid);
+}
+
+function searchTx(q){
+  q=q.toLowerCase().trim();
+  document.querySelectorAll('.tx-row').forEach(function(r){
+    var txt=(r.querySelector('.tx-name')||r).textContent.toLowerCase();
+    r.style.display=(!q||txt.includes(q))?'':'none';
+  });
+  document.querySelectorAll('.ledger-day').forEach(function(d){
+    var vis=d.querySelectorAll('.tx-row:not([style*="display: none"]):not([style*="display:none"])').length;
+    d.style.display=vis?'':'none';
+  });
+  var chip=document.querySelector('.acct-filter-chip.active');
+  if(chip) _updateRunningBal(chip.dataset.aid);
+}
+// Restore last-selected account filter across HTMX panel swaps
+(function(){
+  var saved=sessionStorage.getItem('_acctFilter');
+  if(saved&&saved!=='all'){
+    var chip=document.querySelector('.acct-filter-chip[data-aid="'+saved+'"]');
+    if(chip){filterLedger(chip,saved);return;}
+  }
+  _updateRunningBal('all');
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,99 @@
+<div class="modal-title">{{ 'Edit: ' + scenario.name if scenario else 'New Scenario' }}</div>
+<form hx-post="{{ url_for('panels.scenario_update', sid=scenario.id) if scenario else url_for('panels.scenario_create') }}"
+      hx-target="#modal-body" hx-swap="innerHTML">
+  <input type="hidden" name="n_months" value="{{ n_months }}">
+  <div class="fc-sc-editor-body">
+    <div class="edit-field">
+      <label class="sf-lbl">Name</label>
+      <input type="text" name="name" value="{{ scenario.name if scenario else '' }}"
+             placeholder="e.g. Pay off car loan" required maxlength="40" style="width:100%">
+    </div>
+
+    <div class="fc-sc-section-lbl">Bucket Adjustments</div>
+    <p class="fc-sc-hint">Toggle buckets on/off, override monthly amounts, and schedule future changes.</p>
+
+    {% for grp in buckets_by_cat %}
+    <div class="fc-sc-cat-hdr">{{ grp.cat_name }}</div>
+    {% for b in grp.buckets %}
+    {% set is_off = b.id in off_bucket_ids %}
+    {% set override_amt = bucket_overrides.get(b.id) %}
+    {% set change = changes_by_bid.get(b.id) %}
+
+    <div class="fc-sc-brow {{ 'fc-sc-brow-off' if is_off }}">
+      <label class="fc-sc-toggle-wrap">
+        <input type="checkbox" name="bucket_on_{{ b.id }}" value="1"
+               {{ '' if is_off else 'checked' }}
+               onchange="this.closest('.fc-sc-brow').classList.toggle('fc-sc-brow-off',!this.checked)">
+        <span class="fc-sc-knob"></span>
+      </label>
+      <span class="fc-sc-bname">{{ b.name }}</span>
+      <input class="fc-sc-amt" type="number" name="bucket_amt_{{ b.id }}"
+             value="{{ override_amt if override_amt is not none else '' }}"
+             placeholder="{{ (b.dueAmount or b.defaultBudget or 0) | int }}" min="0" step="0.01">
+      <button type="button" class="fc-sc-ch-btn {{ 'has-change' if change }}"
+              onclick="fcScToggleChange(this,'{{ b.id }}')" title="Schedule a change">
+        {{ '✕' if change else '↻' }}
+      </button>
+    </div>
+
+    <div class="fc-sc-ch-row" id="fc-ch-{{ b.id }}"
+         style="{{ '' if change else 'display:none' }}">
+      <span class="fc-sc-ch-lbl">From</span>
+      <select name="change_from_{{ b.id }}" class="fc-sc-ch-sel">
+        <option value="">– month –</option>
+        {% for mo in month_options %}
+        <option value="{{ mo.mid }}" {{ 'selected' if change and change.from_mid == mo.mid }}>{{ mo.label }}</option>
+        {% endfor %}
+      </select>
+      <select name="change_type_{{ b.id }}" class="fc-sc-ch-sel"
+              onchange="fcScToggleChAmt(this,'{{ b.id }}')">
+        <option value="off" {{ 'selected' if not change or change.type == 'off' }}>turns off</option>
+        <option value="amount" {{ 'selected' if change and change.type == 'amount' }}>changes to $</option>
+      </select>
+      <input type="number" name="change_amt_{{ b.id }}" id="fc-ch-amt-{{ b.id }}"
+             class="fc-sc-ch-amt"
+             value="{{ change.amount if change and change.get('amount') is not none else '' }}"
+             placeholder="amount" min="0" step="0.01"
+             style="{{ '' if change and change.type == 'amount' else 'display:none' }}">
+    </div>
+    {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div class="edit-actions">
+    {% if scenario %}
+    <button class="toolbar-btn" style="color:var(--red);border-color:rgba(255,69,58,.4)"
+            type="button"
+            hx-post="{{ url_for('panels.scenario_delete', sid=scenario.id) }}"
+            hx-vals='{"n_months": "{{ n_months }}"}'
+            hx-target="#modal-body" hx-swap="innerHTML">Delete</button>
+    {% endif %}
+    <div style="flex:1"></div>
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Save</button>
+  </div>
+</form>
+
+<script>
+function fcScToggleChange(btn, bid) {
+  const row = document.getElementById('fc-ch-' + bid);
+  const visible = row.style.display !== 'none';
+  if (visible) {
+    row.style.display = 'none';
+    btn.textContent = '↻';
+    btn.classList.remove('has-change');
+    row.querySelector('[name="change_from_' + bid + '"]').value = '';
+    row.querySelector('[name="change_type_' + bid + '"]').value = '';
+    const a = document.getElementById('fc-ch-amt-' + bid);
+    if (a) a.value = '';
+  } else {
+    row.style.display = 'flex';
+    btn.textContent = '✕';
+    btn.classList.add('has-change');
+  }
+}
+function fcScToggleChAmt(sel, bid) {
+  const a = document.getElementById('fc-ch-amt-' + bid);
+  if (a) a.style.display = sel.value === 'amount' ? '' : 'none';
+}
+</script>

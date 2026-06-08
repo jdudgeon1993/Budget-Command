@@ -1,0 +1,174 @@
+{# ── Bar/figure + color computed from existing bucket fields (no new backend data) ── #}
+{% if b.btype == 'vault' %}
+  {% set _bar_pct = (([100, ((b.alloc / b.budget * 100) | round | int)] | min) if b.budget > 0 else 100) %}
+  {% set _bar_color = 'var(--indigo)' %}
+{% elif b.btype in ('sinking', 'goal') %}
+  {% if b.target_amount > 0 %}
+    {% set _bar_pct = b.progress_pct %}
+  {% else %}
+    {% set _bar_pct = (([100, ((b.alloc / b.budget * 100) | round | int)] | min) if b.budget > 0 else 100) %}
+  {% endif %}
+  {% set _bar_color = 'var(--green)' %}
+{% else %}
+  {% set _denom = b.budget if b.budget > 0 else b.alloc %}
+  {% set _bar_pct = (([100, ((b.spent / _denom * 100) | round | int)] | min) if _denom > 0 else 0) %}
+  {% set _bar_color = ('var(--red)' if b.status == 'over' else ('var(--amber)' if b.status == 'partial' else 'var(--green)')) %}
+{% endif %}
+
+<div class="bkt-row {{ b.status }}" id="bkt-{{ b.id }}">
+  <div class="bkt-row-head" onclick="toggleBktRow('{{ b.id }}')">
+    <div class="bkt-row-main">
+      <div class="bkt-row-top">
+        <span class="bkt-row-name">{{ b.name }}</span>
+        <span class="bkt-row-badges">
+          {% if b.btype == 'vault' %}
+            {% if b.budget > 0 %}<span class="bkt-badge meta-vault">{{ b.budget | money }}/mo</span>{% endif %}
+          {% elif b.btype in ('sinking', 'goal') %}
+            {% if b.contrib_freq %}<span class="bkt-badge meta-contrib">{{ b.contrib_freq | capitalize }}</span>{% endif %}
+            {% if b.target_date %}<span class="bkt-badge meta-due">Target {{ b.target_date }}</span>{% endif %}
+            {% if b.goal_reached %}<span class="bkt-badge meta-vault" style="color:var(--green)">✓ Goal reached!</span>{% endif %}
+            {% if b.monthly_needed %}<span class="bkt-badge meta-due">need {{ b.monthly_needed | money }}/mo</span>{% endif %}
+          {% elif b.due_day or b.pay_freq %}
+            {% if b.due_day %}
+            {% set _ord = {'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','6':'6th','7':'7th','8':'8th','9':'9th','10':'10th','11':'11th','12':'12th','13':'13th','14':'14th','15':'15th','16':'16th','17':'17th','18':'18th','19':'19th','20':'20th','21':'21st','22':'22nd','23':'23rd','24':'24th','25':'25th','26':'26th','27':'27th','28':'28th','eom':'End of Month'} %}
+            <span class="bkt-badge meta-due">Due {{ _ord.get(b.due_day | string, b.due_day | string) }}</span>
+            {% endif %}
+            {% if b.pay_freq %}
+            {% set _freq_label = {'monthly':'Monthly','biweekly':'Biweekly','weekly':'Weekly','triweekly':'Triweekly'} %}
+            <span class="bkt-badge meta-contrib">{{ _freq_label.get(b.pay_freq, b.pay_freq | capitalize) }}</span>
+            {% endif %}
+          {% endif %}
+        </span>
+      </div>
+      <div class="bkt-bar-track"><div class="bkt-bar-fill" style="width:{{ _bar_pct }}%;background:{{ _bar_color }}"></div></div>
+    </div>
+
+    <div class="bkt-row-figure">
+      {% if b.btype == 'vault' %}
+        <span class="bkt-figure-amt">{{ b.vault_total | money }}</span>
+        <span class="bkt-figure-status">saved</span>
+      {% elif b.btype in ('sinking', 'goal') %}
+        {% if b.target_amount > 0 %}
+        <span class="bkt-figure-amt">{{ b.left | money }} / {{ b.target_amount | money }}</span>
+        <span class="bkt-figure-status {{ 'funded' if b.goal_reached }}">{{ '✓ Goal reached!' if b.goal_reached else (b.progress_pct ~ '% saved') }}</span>
+        {% else %}
+        <span class="bkt-figure-amt">{{ b.left | money }}</span>
+        <span class="bkt-figure-status">saved</span>
+        {% endif %}
+      {% else %}
+        <span class="bkt-figure-amt">{{ b.spent | money }} / {{ b.budget | money }}</span>
+        <span class="bkt-figure-status {{ b.status }}">{{ b.pill }}</span>
+      {% endif %}
+    </div>
+    <div class="bkt-row-toggle">▾</div>
+  </div>
+
+  <div class="bkt-drawer">
+    <div class="bkt-drawer-inner">
+      <div class="bkt-drawer-inputs">
+        <form method="post" action="{{ url_for('panels.set_alloc', bid=b.id) }}"
+              style="display:contents"
+              hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
+              hx-trigger="change from:find input[name=alloc]"
+              hx-target="closest .bkt-row" hx-swap="outerHTML show:false"
+              onsubmit="return false">
+          <label>Allocation
+            <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
+                   aria-label="Allocation for {{ b.name }}"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+          </label>
+        </form>
+        <form method="post" action="{{ url_for('panels.set_budget', bid=b.id) }}"
+              style="display:contents"
+              hx-post="{{ url_for('panels.set_budget', bid=b.id) }}"
+              hx-trigger="change from:find input[name=budget]"
+              hx-target="closest .bkt-row" hx-swap="outerHTML show:false"
+              onsubmit="return false">
+          <label>{{ 'Monthly contribution' if b.btype == 'vault' else 'Budget' }}
+            <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
+                   aria-label="Budget for {{ b.name }}" title="Budget target"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+          </label>
+        </form>
+      </div>
+
+      <div class="bkt-drawer-actions">
+        {% if b.btype == 'vault' %}
+          <a class="vault-action-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
+             hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}"
+             hx-target="#modal-body" title="Transfer to another bucket">⇄ Transfer</a>
+          <a class="vault-action-btn" href="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
+             hx-get="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
+             hx-target="#modal-body" title="Release savings back to pool">↑ Release</a>
+        {% elif b.status == 'partial' and b.budget > 0 %}
+          <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}"
+                style="display:inline"
+                hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}"
+                hx-target="#panel" hx-swap="innerHTML">
+            <button class="fill-btn" type="submit" title="Set allocation to budget">Fill</button>
+          </form>
+        {% endif %}
+
+        {% if b.due_day or b.pay_freq %}
+        <form method="post" action="{{ url_for('panels.toggle_handled', bid=b.id) }}"
+              style="display:inline"
+              hx-post="{{ url_for('panels.toggle_handled', bid=b.id) }}"
+              hx-target="closest .bkt-row" hx-swap="outerHTML">
+          <button class="handled-btn {{ 'active' if b.handled }}" type="submit"
+                  title="{{ 'Mark as not handled' if b.handled else 'Mark as handled — hide from forecast this month' }}">
+            {{ '✓ Handled' if b.handled else 'Handled?' }}
+          </button>
+        </form>
+        {% endif %}
+
+        <button class="toolbar-btn" type="button" id="exp-{{ b.id }}" onclick="toggleBktTxs('{{ b.id }}')"
+                title="{{ b.txs | length }} transaction{{ 's' if b.txs | length != 1 }} this month">
+          <span id="exp-icon-{{ b.id }}">▸</span> Ledger · {{ b.txs | length }}
+        </button>
+        <button class="toolbar-btn" type="button" id="settings-{{ b.id }}"
+                onclick="toggleBktSettings('{{ b.id }}', '{{ url_for('panels.bucket_settings', bid=b.id) }}')"
+                title="Bucket settings">
+          <span id="settings-icon-{{ b.id }}">▸</span> ⚙ Settings
+        </button>
+
+        <span class="bkt-drawer-spacer"></span>
+
+        <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}"
+              style="display:inline"
+              hx-post="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}"
+              hx-target="#panel" hx-swap="innerHTML">
+          <button class="reorder-btn" type="submit" title="Move up">▲ Up</button>
+        </form>
+        <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}"
+              style="display:inline"
+              hx-post="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}"
+              hx-target="#panel" hx-swap="innerHTML">
+          <button class="reorder-btn" type="submit" title="Move down">▼ Down</button>
+        </form>
+      </div>
+
+      {# ── Inline transaction list ── #}
+      <div class="bucket-txs" id="txs-{{ b.id }}" style="display:none">
+        {% if b.txs %}
+        {% for tx in b.txs %}
+        <div class="bkt-tx-row">
+          <span class="bkt-tx-date">{{ tx.date[5:] }}</span>
+          <span class="bkt-tx-desc">{{ tx.desc }}</span>
+          <span class="bkt-tx-amt">{{ tx.amount | money }}</span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="bkt-tx-empty">No transactions this month</div>
+        {% endif %}
+      </div>
+
+      {# ── Inline settings (lazy-loaded on first expand) ── #}
+      <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}" style="display:none"></div>
+    </div>
+  </div>
+
+  {# ── Goal celebration ── #}
+  {% if b.goal_reached and b.btype in ('sinking', 'goal') %}
+  <script>(function(){var k='cura-celebrated-{{ b.id }}';if(!localStorage.getItem(k)){localStorage.setItem(k,'1');showToast('{{ b.name }} goal reached! You saved {{ b.target_amount | money }}', 'success', 6000);}})();</script>
+  {% endif %}
+</div>

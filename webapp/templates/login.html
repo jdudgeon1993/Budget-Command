@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="electric">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cura — {{ 'Sign In' if mode == 'login' else 'Create Account' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="auth-wrap">
+  <form class="auth-card" method="post"
+        action="{{ url_for('auth.login') if mode == 'login' else url_for('auth.signup') }}">
+    <div class="auth-brand">
+      <div class="brand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+      <div class="auth-title">Cura</div>
+    </div>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+    {% endwith %}
+
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" name="email" placeholder="you@example.com" required autofocus>
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="••••••••" required>
+    </div>
+    <button class="auth-btn" type="submit">{{ 'Sign In' if mode == 'login' else 'Create Account' }}</button>
+
+    <div class="auth-alt">
+      {% if mode == 'login' %}
+        New here? <a href="{{ url_for('auth.signup') }}">Create an account</a>
+      {% else %}
+        Have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+</body>
+</html>

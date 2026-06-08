@@ -1,0 +1,59 @@
+{% extends layout %}
+{% block panel %}
+<div class="tx-form-wrap">
+  <form class="tx-form card" method="post" action="{{ url_for('panels.transaction_create') }}">
+    <input type="hidden" name="back" value="{{ back }}">
+    <div class="tx-form-title">Add Transaction</div>
+
+    <div class="tx-type-row">
+      {% for val, label in [('out','Expense'),('in','Income'),('xfr','Transfer')] %}
+      <label class="tx-type {{ 'on' if tx_type == val }}">
+        <input type="radio" name="type" value="{{ val }}" {{ 'checked' if tx_type == val }} hidden>{{ label }}
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="tx-field">
+      <label>Amount</label>
+      <input type="text" name="amount" inputmode="decimal" placeholder="0.00" autofocus>
+    </div>
+    <div class="tx-field">
+      <label>Date</label>
+      <input type="date" name="date" value="{{ today }}">
+    </div>
+    <div class="tx-field">
+      <label>Account</label>
+      <select name="accountId">
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="tx-field">
+      <label>To account <span class="tx-hint">(transfers)</span></label>
+      <select name="toAccountId">
+        <option value="">—</option>
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="tx-field">
+      <label>Bucket <span class="tx-hint">(expenses)</span></label>
+      <select name="bucketId">
+        <option value="">—</option>
+        {% for grp in buckets_by_cat %}
+        <optgroup label="{{ grp.cat }}">
+          {% for b in grp.buckets %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="tx-field">
+      <label>Payee / note</label>
+      <input type="text" name="desc" placeholder="e.g. Whole Foods">
+    </div>
+
+    <div class="tx-actions">
+      <a class="toolbar-btn" href="{{ url_for('panels.' + back) }}">Cancel</a>
+      <button class="toolbar-btn primary" type="submit">Add Transaction</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

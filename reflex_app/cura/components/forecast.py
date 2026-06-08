@@ -1,4 +1,4 @@
-"""Insights panel — Forecast · Timeline · What-If."""
+"""Insights panel — Forecast · Timeline · What-If (timeline grid)."""
 
 import reflex as rx
 from typing import Any
@@ -18,6 +18,21 @@ def _kpi(label: str, value: Any, color: str = TEXT) -> rx.Component:
         rx.text(value, style={"font_size": "15px", "font_weight": "700",
                                "font_family": MONO, "color": color}),
         gap="2px", align_items="flex_start",
+    )
+
+
+def _kpi_chip(label: str, value: Any, color: str = TEXT2) -> rx.Component:
+    """Compact KPI chip for collapsible panel header bars."""
+    return rx.hstack(
+        rx.text(label, style={"font_size": "10px", "color": TEXT3,
+                               "font_family": MONO, "letter_spacing": "0.06em",
+                               "white_space": "nowrap"}),
+        rx.text(value, style={"font_size": "11px", "font_weight": "600",
+                               "font_family": MONO, "color": color,
+                               "white_space": "nowrap"}),
+        gap="4px", align_items="center",
+        style={"background": BG3, "border_radius": "5px", "padding": "2px 8px",
+               "border": f"1px solid {BORDER}", "flex_shrink": "0"},
     )
 
 
@@ -285,7 +300,7 @@ def _period_card(p: dict) -> rx.Component:
         rx.hstack(
             # Left: type badge + title + date range + badges
             rx.hstack(
-                # GAP/PAY badge — shape (text) + color, not color alone
+                # GAP/PAY badge
                 rx.box(
                     rx.cond(p["pt"] == "gap", "– GAP", "▶ PAY"),
                     style={
@@ -302,7 +317,6 @@ def _period_card(p: dict) -> rx.Component:
                     rx.hstack(
                         rx.text(p["lbl"], style={"font_size": "14px", "font_weight": "600",
                                                   "color": TEXT, "line_height": "1.2"}),
-                        # Funded badge — checkmark + text (not just color)
                         rx.cond(
                             (p["tbc"] != "0") & (p["tbc"] != "") & (p["shf"] == ""),
                             rx.box(
@@ -325,7 +339,6 @@ def _period_card(p: dict) -> rx.Component:
                             ),
                             rx.box(),
                         ),
-                        # Shortfall badge — triangle + text
                         rx.cond(
                             p["shf"] == "1",
                             rx.box(
@@ -549,7 +562,7 @@ def _forecast_subpanel() -> rx.Component:
             rx.box(),
         ),
 
-        # Empty state with action
+        # Empty state
         rx.cond(
             AppState.forecast_periods.length() == 0,
             rx.vstack(
@@ -560,8 +573,7 @@ def _forecast_subpanel() -> rx.Component:
                 rx.box(
                     "Go to Setup →",
                     on_click=AppState.set_panel("setup"),
-                    role="button",
-                    tab_index=0,
+                    role="button", tab_index=0,
                     style={
                         "margin_top": "12px", "padding": "8px 20px",
                         "border_radius": "8px", "cursor": "pointer",
@@ -588,13 +600,11 @@ def _tl_row(r: dict) -> rx.Component:
     return rx.match(
         r["rt"],
 
-        # Day header
         ("day", rx.hstack(
             rx.text(r["lbl"], style={
                 "font_size": "12px", "font_weight": "600",
                 "color": rx.cond(r["td"] == "1", ACCENT, TEXT2),
-                "letter_spacing": "0.04em",
-                "flex": "1",
+                "letter_spacing": "0.04em", "flex": "1",
             }),
             rx.cond(
                 r["td"] == "1",
@@ -609,14 +619,12 @@ def _tl_row(r: dict) -> rx.Component:
                    "margin_top": "8px"},
         )),
 
-        # Paycheck event
         ("paycheck", rx.hstack(
             rx.box(style={"width": "10px", "height": "10px", "border_radius": "50%",
                           "background": GREEN, "flex_shrink": "0", "margin_top": "2px"}),
             rx.vstack(
                 rx.text(r["lbl"], style={"font_size": "12px", "color": TEXT, "font_weight": "500"}),
-                rx.text("Paycheck", style={"font_size": "12px", "color": TEXT3,
-                                            "font_family": MONO}),
+                rx.text("Paycheck", style={"font_size": "12px", "color": TEXT3, "font_family": MONO}),
                 gap="1px", align_items="flex_start",
             ),
             rx.spacer(),
@@ -626,10 +634,6 @@ def _tl_row(r: dict) -> rx.Component:
             style={"padding": "8px 0 6px", "border_bottom": f"1px solid {BORDER}33"},
         )),
 
-        # Bill event — three display states:
-        #   pd=="1"  → paid/confirmed: grey dot, strike-through
-        #   sch=="1" → scheduled (future-dated tx exists): amber dot, "Scheduled" label
-        #   else     → upcoming/overdue: red dot (or faded if past)
         ("bill", rx.hstack(
             rx.box(style={
                 "width": "10px", "height": "10px", "border_radius": "50%",
@@ -644,18 +648,15 @@ def _tl_row(r: dict) -> rx.Component:
             rx.vstack(
                 rx.text(r["lbl"], style={
                     "font_size": "12px",
-                    "color": rx.cond(r["pd"] == "1", TEXT3,
-                                     rx.cond(r["sch"] == "1", TEXT, TEXT)),
+                    "color": rx.cond(r["pd"] == "1", TEXT3, TEXT),
                     "font_weight": "500",
                     "text_decoration": rx.cond(r["pd"] == "1", "line-through", "none"),
                 }),
                 rx.text(
                     rx.cond(r["sch"] == "1", "Scheduled",
                             rx.cond(r["pd"] == "1", "Paid", "Bill due")),
-                    style={
-                        "font_size": "11px", "font_family": MONO,
-                        "color": rx.cond(r["sch"] == "1", AMBER, TEXT3),
-                    },
+                    style={"font_size": "11px", "font_family": MONO,
+                           "color": rx.cond(r["sch"] == "1", AMBER, TEXT3)},
                 ),
                 gap="1px", align_items="flex_start",
             ),
@@ -699,17 +700,14 @@ def _timeline_subpanel() -> rx.Component:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  ── WHAT-IF sub-panel ────────────────────────────────────────────────────────
+#  ── WHAT-IF helpers (legacy — kept for month-pill row in bucket editor) ──────
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _month_pill(label: str, key: str, status: str) -> rx.Component:
     return rx.box(
         label,
         on_click=AppState.toggle_wi_month_schedule(key),
-        role="button",
-        tab_index=0,
-        aria_label=rx.cond(status == "off", f"Enable {label}", f"Disable {label}"),
-        aria_pressed=rx.cond(status == "off", "false", "true"),
+        role="button", tab_index=0,
         style={
             "font_size": "11px", "font_family": MONO, "cursor": "pointer",
             "padding": "5px 8px", "border_radius": "4px", "min_height": "28px",
@@ -719,7 +717,6 @@ def _month_pill(label: str, key: str, status: str) -> rx.Component:
             "border": rx.cond(status == "off", f"1px solid {BORDER}", f"1px solid {ACCENT}44"),
             "text_decoration": rx.cond(status == "off", "line-through", "none"),
             "_hover": {"opacity": "0.8"},
-            "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "2px"},
         },
     )
 
@@ -727,8 +724,6 @@ def _month_pill(label: str, key: str, status: str) -> rx.Component:
 def _wi_bucket_row(r: dict) -> rx.Component:
     return rx.match(
         r["rt"],
-
-        # Category header
         ("cat", rx.hstack(
             rx.box(style={"width": "10px", "height": "10px", "border_radius": "50%",
                           "background": r["color"], "flex_shrink": "0"}),
@@ -738,11 +733,8 @@ def _wi_bucket_row(r: dict) -> rx.Component:
             gap="8px", align_items="center",
             style={"padding": "10px 0 4px"},
         )),
-
-        # Bucket row
         ("bkt", rx.vstack(
             rx.hstack(
-                # On/Off toggle
                 rx.box(
                     rx.cond(
                         r["is_off"] == "1",
@@ -752,10 +744,10 @@ def _wi_bucket_row(r: dict) -> rx.Component:
                     on_click=AppState.toggle_wi_bucket_off(r["bid"]),
                     style={"cursor": "pointer", "flex_shrink": "0", "_hover": {"opacity": "0.7"}},
                 ),
-                # Bucket name + due info
                 rx.vstack(
                     rx.text(r["name"], style={
-                        "font_size": "13px", "color": rx.cond(r["is_off"] == "1", TEXT3, TEXT),
+                        "font_size": "13px",
+                        "color": rx.cond(r["is_off"] == "1", TEXT3, TEXT),
                         "text_decoration": rx.cond(r["is_off"] == "1", "line-through", "none"),
                     }),
                     rx.cond(
@@ -766,11 +758,9 @@ def _wi_bucket_row(r: dict) -> rx.Component:
                     ),
                     gap="1px", align_items="flex_start", flex="1",
                 ),
-                # Base amount
                 rx.text(r["base_fmt"], style={"font_size": "11px", "color": TEXT3,
                                                "font_family": MONO, "min_width": "52px",
                                                "text_align": "right"}),
-                # Override input
                 rx.input(
                     placeholder="+50",
                     value=r["override_val"],
@@ -784,7 +774,6 @@ def _wi_bucket_row(r: dict) -> rx.Component:
                         "_focus": {"border_color": ACCENT, "outline": "none"},
                     },
                 ),
-                # Effective amount
                 rx.text(r["eff_fmt"], class_name="wi-col-effective", style={
                     "font_size": "12px", "font_family": MONO, "font_weight": "600",
                     "color": rx.cond(r["is_off"] == "1", TEXT3,
@@ -793,7 +782,6 @@ def _wi_bucket_row(r: dict) -> rx.Component:
                 }),
                 align_items="center", gap="8px", width="100%",
             ),
-            # Month schedule pills + due day override sub-row
             rx.hstack(
                 rx.text("MONTHS:", style={"font_size": "11px", "color": TEXT3,
                                            "font_family": MONO, "letter_spacing": "0.06em",
@@ -826,7 +814,6 @@ def _wi_bucket_row(r: dict) -> rx.Component:
             style={"padding": "6px 0", "border_bottom": f"1px solid {BORDER}33",
                    "opacity": rx.cond(r["is_off"] == "1", "0.5", "1")},
         )),
-
         rx.box(),
     )
 
@@ -859,253 +846,982 @@ def _wi_rule_row(r: dict) -> rx.Component:
     )
 
 
-def _whatif_subpanel() -> rx.Component:
-    return rx.box(
-        # ── Scenario bar ─────────────────────────────────────────────────────
-        rx.hstack(
-            rx.text("What-If Sandbox",
-                    style={"font_size": "13px", "font_weight": "600", "color": TEXT,
-                           "flex": "1"}),
-            rx.cond(
-                AppState.wi_active,
-                rx.hstack(
-                    rx.box(
-                        "SCENARIO ACTIVE",
-                        style={"font_size": "11px", "font_family": MONO, "letter_spacing": "0.1em",
-                               "color": AMBER, "background": f"{AMBER}18",
-                               "border": f"1px solid {AMBER}44",
-                               "border_radius": "6px", "padding": "3px 8px"},
-                    ),
-                    rx.box(
-                        "Reset",
-                        on_click=AppState.reset_whatif,
-                        style={"font_size": "11px", "color": RED, "cursor": "pointer",
-                               "padding": "3px 8px", "border_radius": "6px",
-                               "border": f"1px solid {RED}44", "background": f"{RED}12",
-                               "_hover": {"background": f"{RED}22"}},
-                    ),
-                    gap="8px", align_items="center",
-                ),
-                rx.box(),
-            ),
-            align_items="center", width="100%",
-            style={"margin_bottom": "12px"},
-        ),
+# ─────────────────────────────────────────────────────────────────────────────
+#  ── NEW: Cell popover ────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
-        # ── Saved scenarios ───────────────────────────────────────────────────
-        rx.cond(
-            AppState.wi_scenarios.length() > 0,
+def _pop_month_chip(m: dict) -> rx.Component:
+    """Month selector chip inside the cell popover."""
+    is_sel = AppState.wi_pop_apply_from == m["mkey"]
+    return rx.box(
+        m["label"],
+        on_click=AppState.set_pop_apply_from(m["mkey"]),
+        role="button", tab_index=0,
+        style=rx.cond(
+            is_sel,
+            {"padding": "5px 10px", "border_radius": "6px", "cursor": "pointer",
+             "font_size": "11px", "font_family": MONO,
+             "background": ACCENT, "color": "#fff",
+             "border": f"1px solid {ACCENT}"},
+            {"padding": "5px 10px", "border_radius": "6px", "cursor": "pointer",
+             "font_size": "11px", "font_family": MONO,
+             "background": BG3, "color": TEXT3,
+             "border": f"1px solid {BORDER}",
+             "_hover": {"color": TEXT2, "border_color": BORDER2}},
+        ),
+    )
+
+
+def _pop_rule_row(r: dict) -> rx.Component:
+    """Existing rule row inside the cell popover."""
+    return rx.hstack(
+        rx.vstack(
+            rx.text(
+                rx.cond(r["from_label"] == "Default", "Default", f"From {r['from_label']}"),
+                style={"font_size": "12px", "color": TEXT2, "font_family": MONO},
+            ),
+            rx.hstack(
+                rx.cond(
+                    r["enabled"] == "1",
+                    rx.box("ON", style={"font_size": "10px", "color": GREEN,
+                                         "background": f"{GREEN}18", "border_radius": "4px",
+                                         "padding": "1px 5px", "font_family": MONO}),
+                    rx.box("OFF", style={"font_size": "10px", "color": TEXT3,
+                                          "background": BG3, "border_radius": "4px",
+                                          "padding": "1px 5px", "font_family": MONO}),
+                ),
+                rx.text(r["amount_fmt"],
+                        style={"font_size": "12px", "color": TEXT3, "font_family": MONO}),
+                gap="6px", align_items="center",
+            ),
+            gap="2px", align_items="flex_start", flex="1",
+        ),
+        rx.box(
+            "×",
+            on_click=AppState.del_wi_timeline_rule(AppState.wi_pop_bkt_id, r["idx"]),
+            role="button", tab_index=0,
+            style={"font_size": "16px", "color": TEXT3, "cursor": "pointer",
+                   "padding": "4px 8px", "border_radius": "4px",
+                   "_hover": {"color": RED, "background": f"{RED}12"}},
+        ),
+        align_items="center", gap="8px", width="100%",
+        style={"padding": "6px 8px", "border_radius": "6px",
+               "background": BG3, "margin_bottom": "4px"},
+    )
+
+
+def _cell_popover() -> rx.Component:
+    """Fixed-overlay modal for editing a timeline cell rule."""
+    return rx.cond(
+        AppState.wi_pop_open,
+        rx.box(
+            # Backdrop (click to close)
             rx.box(
-                rx.text("Saved Scenarios",
-                        style={"font_size": "11px", "color": TEXT3, "font_family": MONO,
-                               "letter_spacing": "0.1em", "text_transform": "uppercase",
-                               "margin_bottom": "8px"}),
+                style={
+                    "position": "absolute", "inset": "0",
+                    "cursor": "default",
+                },
+                on_click=AppState.close_cell_pop(False),
+            ),
+            # Modal card
+            rx.box(
+                # Header
                 rx.hstack(
-                    rx.foreach(
-                        AppState.wi_scenarios.to(list[dict[str, Any]]),
-                        lambda sc: rx.hstack(
-                            rx.box(
-                                sc["name"],
-                                on_click=AppState.load_wi_scenario(sc["id"]),
-                                style=rx.cond(
-                                    AppState.wi_active_scenario_id == sc["id"],
-                                    {"padding": "4px 10px", "border_radius": "16px",
-                                     "cursor": "pointer", "font_size": "11px",
-                                     "font_family": MONO, "background": f"{ACCENT}18",
-                                     "color": ACCENT, "border": f"1px solid {ACCENT}44"},
-                                    {"padding": "4px 10px", "border_radius": "16px",
-                                     "cursor": "pointer", "font_size": "11px",
-                                     "font_family": MONO, "background": BG3,
-                                     "color": TEXT2, "border": f"1px solid {BORDER}",
-                                     "_hover": {"border_color": BORDER2}},
-                                ),
-                            ),
-                            rx.box(
-                                "×",
-                                on_click=AppState.delete_wi_scenario(sc["id"]),
-                                style={"font_size": "12px", "color": TEXT3, "cursor": "pointer",
-                                       "padding": "2px 4px", "_hover": {"color": RED}},
-                            ),
-                            gap="2px", align_items="center",
+                    rx.vstack(
+                        rx.text("Schedule Change", style={
+                            "font_size": "14px", "font_weight": "700", "color": TEXT}),
+                        rx.text(AppState.wi_pop_bkt_id, style={
+                            "font_size": "11px", "color": TEXT3, "font_family": MONO}),
+                        gap="2px", align_items="flex_start",
+                    ),
+                    rx.spacer(),
+                    rx.box(
+                        "×",
+                        on_click=AppState.close_cell_pop(False),
+                        role="button", tab_index=0, aria_label="Close",
+                        style={"font_size": "20px", "color": TEXT3, "cursor": "pointer",
+                               "padding": "2px 8px", "_hover": {"color": TEXT}},
+                    ),
+                    width="100%", align_items="flex_start",
+                    style={"margin_bottom": "14px"},
+                ),
+
+                # Existing rules
+                rx.cond(
+                    AppState.wi_pop_rules.length() > 0,
+                    rx.box(
+                        rx.text("CURRENT RULES",
+                                style={"font_size": "10px", "color": TEXT3, "font_family": MONO,
+                                       "letter_spacing": "0.1em", "margin_bottom": "6px"}),
+                        rx.foreach(AppState.wi_pop_rules.to(list[dict[str, Any]]), _pop_rule_row),
+                        style={"margin_bottom": "14px"},
+                    ),
+                    rx.box(),
+                ),
+
+                rx.box(style={"height": "1px", "background": BORDER, "margin_bottom": "14px"}),
+
+                # Apply-from month chips
+                rx.text("APPLY FROM",
+                        style={"font_size": "10px", "color": TEXT3, "font_family": MONO,
+                               "letter_spacing": "0.1em", "margin_bottom": "8px"}),
+                rx.hstack(
+                    rx.box(
+                        "Default",
+                        on_click=AppState.set_pop_apply_from(""),
+                        role="button", tab_index=0,
+                        style=rx.cond(
+                            AppState.wi_pop_apply_from == "",
+                            {"padding": "5px 10px", "border_radius": "6px", "cursor": "pointer",
+                             "font_size": "11px", "font_family": MONO,
+                             "background": ACCENT, "color": "#fff",
+                             "border": f"1px solid {ACCENT}"},
+                            {"padding": "5px 10px", "border_radius": "6px", "cursor": "pointer",
+                             "font_size": "11px", "font_family": MONO,
+                             "background": BG3, "color": TEXT3,
+                             "border": f"1px solid {BORDER}",
+                             "_hover": {"color": TEXT2, "border_color": BORDER2}},
                         ),
                     ),
+                    rx.foreach(AppState.wi_grid_months.to(list[dict[str, Any]]), _pop_month_chip),
                     gap="6px", flex_wrap="wrap",
+                    style={"margin_bottom": "14px"},
                 ),
-                style={"margin_bottom": "14px"},
+
+                # Enable/disable toggle
+                rx.text("STATE",
+                        style={"font_size": "10px", "color": TEXT3, "font_family": MONO,
+                               "letter_spacing": "0.1em", "margin_bottom": "8px"}),
+                rx.hstack(
+                    rx.box(
+                        "Enabled",
+                        on_click=AppState.set_pop_enabled(True),
+                        role="button", tab_index=0,
+                        style=rx.cond(
+                            AppState.wi_pop_enabled,
+                            {"padding": "6px 14px", "border_radius": "6px", "cursor": "pointer",
+                             "font_size": "12px", "font_family": MONO,
+                             "background": f"{GREEN}22", "color": GREEN,
+                             "border": f"1px solid {GREEN}55"},
+                            {"padding": "6px 14px", "border_radius": "6px", "cursor": "pointer",
+                             "font_size": "12px", "font_family": MONO,
+                             "background": BG3, "color": TEXT3,
+                             "border": f"1px solid {BORDER}",
+                             "_hover": {"border_color": BORDER2}},
+                        ),
+                    ),
+                    rx.box(
+                        "Disabled",
+                        on_click=AppState.set_pop_enabled(False),
+                        role="button", tab_index=0,
+                        style=rx.cond(
+                            ~AppState.wi_pop_enabled,
+                            {"padding": "6px 14px", "border_radius": "6px", "cursor": "pointer",
+                             "font_size": "12px", "font_family": MONO,
+                             "background": f"{RED}18", "color": RED,
+                             "border": f"1px solid {RED}44"},
+                            {"padding": "6px 14px", "border_radius": "6px", "cursor": "pointer",
+                             "font_size": "12px", "font_family": MONO,
+                             "background": BG3, "color": TEXT3,
+                             "border": f"1px solid {BORDER}",
+                             "_hover": {"border_color": BORDER2}},
+                        ),
+                    ),
+                    gap="8px",
+                    style={"margin_bottom": "14px"},
+                ),
+
+                # Amount input
+                rx.cond(
+                    AppState.wi_pop_enabled,
+                    rx.box(
+                        rx.text("AMOUNT",
+                                style={"font_size": "10px", "color": TEXT3, "font_family": MONO,
+                                       "letter_spacing": "0.1em", "margin_bottom": "6px"}),
+                        rx.input(
+                            placeholder="e.g. 1800",
+                            value=AppState.wi_pop_amount,
+                            on_change=AppState.set_pop_amount,
+                            style={
+                                "background": BG3, "border": f"1px solid {BORDER}",
+                                "border_radius": "8px", "padding": "10px 12px",
+                                "color": TEXT, "font_family": MONO, "font_size": "14px",
+                                "width": "100%",
+                                "_focus": {"border_color": ACCENT, "outline": "none",
+                                           "box_shadow": f"0 0 0 3px {ACCENT}22"},
+                            },
+                        ),
+                        style={"margin_bottom": "14px"},
+                    ),
+                    rx.box(),
+                ),
+
+                # Apply button
+                rx.box(
+                    "Apply Change",
+                    on_click=AppState.apply_pop_rule,
+                    role="button", tab_index=0,
+                    style={
+                        "width": "100%", "padding": "12px",
+                        "border_radius": "8px", "cursor": "pointer",
+                        "font_size": "13px", "font_weight": "600",
+                        "font_family": MONO, "text_align": "center",
+                        "background": ACCENT, "color": "#fff",
+                        "border": "none",
+                        "box_shadow": f"0 4px 16px rgba(191,90,242,0.30)",
+                        "_hover": {"opacity": "0.9"},
+                        "_active": {"transform": "scale(0.98)"},
+                    },
+                ),
+
+                # Card style
+                style={
+                    "position": "relative", "z_index": "1",
+                    "width": "360px", "max_width": "calc(100vw - 32px)",
+                    "max_height": "90vh", "overflow_y": "auto",
+                    "background": BG2,
+                    "border": f"1px solid {BORDER2}",
+                    "border_radius": "14px",
+                    "padding": "20px",
+                    "box_shadow": "0 24px 64px rgba(0,0,0,0.60)",
+                },
+                on_click=rx.stop_propagation,
+            ),
+            # Backdrop overlay styles
+            style={
+                "position": "fixed", "inset": "0",
+                "background": "rgba(0,0,0,0.68)",
+                "backdrop_filter": "blur(6px)",
+                "-webkit-backdrop_filter": "blur(6px)",
+                "z_index": "400",
+                "display": "flex",
+                "align_items": "center",
+                "justify_content": "center",
+            },
+        ),
+        rx.box(),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ── NEW: Timeline grid ───────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+
+_CELL_STATE_STYLES: dict = {
+    "on":    {"background": "transparent", "border_left": f"3px solid transparent"},
+    "off":   {"background": f"rgba(255,69,58,0.06)", "border_left": f"3px solid rgba(255,69,58,0.4)"},
+    "start": {"background": f"rgba(48,209,88,0.08)", "border_left": f"3px solid rgba(48,209,88,0.5)"},
+    "chg":   {"background": f"rgba(255,159,10,0.08)", "border_left": f"3px solid rgba(255,159,10,0.5)"},
+}
+
+
+def _grid_cell(cell: dict) -> rx.Component:
+    """One cell in the timeline grid — clickable to open the rule popover."""
+    return rx.el.td(
+        rx.text(
+            cell["amount_fmt"],
+            style={
+                "font_size": "12px", "font_family": MONO, "font_weight": "500",
+                "color": rx.cond(
+                    cell["tx_class"] == "off", TEXT3,
+                    rx.cond(cell["tx_class"] == "start", GREEN,
+                            rx.cond(cell["tx_class"] == "chg", AMBER, TEXT2)),
+                ),
+                "text_decoration": rx.cond(cell["tx_class"] == "off", "line-through", "none"),
+            },
+        ),
+        on_click=AppState.open_cell_pop(cell["bid"], cell["mkey"]),
+        style={
+            "min_width": "100px",
+            "max_width": "120px",
+            "height": "38px",
+            "padding": "0 10px",
+            "cursor": "pointer",
+            "text_align": "right",
+            "vertical_align": "middle",
+            "white_space": "nowrap",
+            "border_right": f"1px solid {BORDER}",
+            "background": rx.cond(
+                cell["tx_class"] == "off", "rgba(255,69,58,0.06)",
+                rx.cond(cell["tx_class"] == "start", "rgba(48,209,88,0.08)",
+                        rx.cond(cell["tx_class"] == "chg", "rgba(255,159,10,0.06)",
+                                "transparent")),
+            ),
+            "border_left": rx.cond(
+                cell["tx_class"] == "off", "3px solid rgba(255,69,58,0.4)",
+                rx.cond(cell["tx_class"] == "start", "3px solid rgba(48,209,88,0.5)",
+                        rx.cond(cell["tx_class"] == "chg", "3px solid rgba(255,159,10,0.5)",
+                                "3px solid transparent")),
+            ),
+            "_hover": {"background": "rgba(191,90,242,0.08)"},
+        },
+    )
+
+
+def _grid_row_comp(row: dict) -> rx.Component:
+    """One bucket row in the timeline grid."""
+    return rx.el.tr(
+        # Sticky name cell
+        rx.el.td(
+            rx.hstack(
+                rx.box(style={
+                    "width": "8px", "height": "8px", "border_radius": "50%",
+                    "background": row["cat_color"], "flex_shrink": "0",
+                }),
+                rx.text(row["name"], style={
+                    "font_size": "12px", "color": TEXT, "white_space": "nowrap",
+                    "overflow": "hidden", "text_overflow": "ellipsis",
+                }),
+                gap="6px", align_items="center", width="100%",
+            ),
+            style={
+                "position": "sticky", "left": "0", "z_index": "5",
+                "background": BG, "border_right": f"1px solid {BORDER2}",
+                "min_width": "160px", "max_width": "160px",
+                "padding": "0 10px", "height": "38px",
+                "white_space": "nowrap", "overflow": "hidden",
+                "text_overflow": "ellipsis", "vertical_align": "middle",
+            },
+        ),
+        # Month cells
+        rx.foreach(row["cells"].to(list[dict[str, Any]]), _grid_cell),
+        style={"border_bottom": f"1px solid {BORDER}33",
+               "_hover": {"background": "rgba(255,255,255,0.015)"}},
+    )
+
+
+def _wi_grid_body() -> rx.Component:
+    """Scrollable timeline matrix — buckets × months."""
+    return rx.box(
+        rx.cond(
+            AppState.wi_grid_rows.length() > 0,
+            rx.box(
+                rx.el.table(
+                    # Header
+                    rx.el.thead(
+                        rx.el.tr(
+                            rx.el.th(
+                                "Bucket",
+                                style={
+                                    "position": "sticky", "left": "0", "z_index": "10",
+                                    "background": BG2,
+                                    "font_size": "10px", "font_family": MONO,
+                                    "letter_spacing": "0.1em", "text_transform": "uppercase",
+                                    "color": TEXT3, "font_weight": "600",
+                                    "padding": "8px 10px", "text_align": "left",
+                                    "min_width": "160px", "border_right": f"1px solid {BORDER2}",
+                                    "border_bottom": f"1px solid {BORDER}",
+                                    "white_space": "nowrap",
+                                },
+                            ),
+                            rx.foreach(
+                                AppState.wi_grid_months.to(list[dict[str, Any]]),
+                                lambda m: rx.el.th(
+                                    m["label"],
+                                    style={
+                                        "font_size": "10px", "font_family": MONO,
+                                        "letter_spacing": "0.08em", "text_transform": "uppercase",
+                                        "color": ACCENT, "font_weight": "600",
+                                        "padding": "8px 10px", "text_align": "right",
+                                        "min_width": "100px",
+                                        "border_right": f"1px solid {BORDER}",
+                                        "border_bottom": f"1px solid {BORDER}",
+                                        "white_space": "nowrap",
+                                    },
+                                ),
+                            ),
+                        ),
+                    ),
+                    # Body
+                    rx.el.tbody(
+                        rx.foreach(AppState.wi_grid_rows.to(list[dict[str, Any]]), _grid_row_comp),
+                    ),
+                    style={
+                        "border_collapse": "collapse",
+                        "width": "100%",
+                        "table_layout": "fixed",
+                    },
+                ),
+                style={
+                    "overflow_x": "auto",
+                    "overflow_y": "auto",
+                    "max_height": "320px",
+                    "border": f"1px solid {BORDER}",
+                    "border_radius": "8px",
+                },
+            ),
+            # Empty state
+            rx.box(
+                rx.text("No buckets with budgets configured.",
+                        style={"color": TEXT3, "font_size": "13px"}),
+                rx.box(
+                    "Go to Setup →",
+                    on_click=AppState.set_panel("setup"),
+                    role="button",
+                    style={"margin_top": "10px", "padding": "6px 16px",
+                           "border_radius": "8px", "cursor": "pointer",
+                           "font_size": "12px", "font_family": MONO,
+                           "background": f"{ACCENT}18", "color": ACCENT,
+                           "border": f"1px solid {ACCENT}44",
+                           "_hover": {"background": f"{ACCENT}28"}},
+                ),
+                style={"text_align": "center", "padding": "32px 0"},
+            ),
+        ),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ── NEW: Collapsible panel header ────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _panel_hdr(key: str, icon_paths: str, title: str, kpi_row: rx.Component,
+               is_open: Any) -> rx.Component:
+    """44px collapsible panel header bar."""
+    return rx.hstack(
+        # Collapse arrow
+        rx.html(
+            f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
+            f'stroke="currentColor" stroke-width="2" stroke-linecap="round">'
+            f'<polyline points="6 9 12 15 18 9"/></svg>',
+            style=rx.cond(
+                is_open,
+                {"color": TEXT3, "flex_shrink": "0",
+                 "transition": "transform 0.18s", "transform": "rotate(0deg)"},
+                {"color": TEXT3, "flex_shrink": "0",
+                 "transition": "transform 0.18s", "transform": "rotate(-90deg)"},
+            ),
+        ),
+        # Icon
+        rx.html(
+            f'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
+            f'stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">'
+            f'{icon_paths}</svg>',
+            style={"color": ACCENT, "flex_shrink": "0"},
+        ),
+        # Title
+        rx.text(
+            title,
+            style={"font_size": "12px", "font_weight": "600", "color": TEXT2,
+                   "font_family": MONO, "letter_spacing": "0.06em",
+                   "text_transform": "uppercase", "flex_shrink": "0"},
+        ),
+        # KPI chips
+        kpi_row,
+        rx.spacer(),
+        on_click=AppState.toggle_wi_panel(key),
+        role="button", tab_index=0, aria_expanded=rx.cond(is_open, "true", "false"),
+        width="100%",
+        style={
+            "height": "44px", "min_height": "44px",
+            "align_items": "center",
+            "padding": "0 14px",
+            "cursor": "pointer",
+            "background": BG2,
+            "border_bottom": rx.cond(is_open, f"1px solid {BORDER}", "none"),
+            "gap": "10px",
+            "user_select": "none",
+            "_hover": {"background": BG3},
+            "_focus_visible": {"outline": f"2px solid {ACCENT}", "outline_offset": "-2px"},
+        },
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ── NEW: What-If scenario sidebar ───────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _wi_scenarios_sidebar() -> rx.Component:
+    """Left sidebar — income override, scenario save/load, active state."""
+    return rx.vstack(
+        # Active badge + Reset
+        rx.cond(
+            AppState.wi_active,
+            rx.hstack(
+                rx.box(
+                    "ACTIVE",
+                    style={"font_size": "10px", "font_family": MONO, "letter_spacing": "0.1em",
+                           "color": AMBER, "background": f"{AMBER}18",
+                           "border": f"1px solid {AMBER}44",
+                           "border_radius": "5px", "padding": "2px 7px"},
+                ),
+                rx.spacer(),
+                rx.box(
+                    "Reset",
+                    on_click=AppState.reset_whatif,
+                    role="button", tab_index=0,
+                    style={"font_size": "11px", "color": TEXT3, "cursor": "pointer",
+                           "padding": "3px 8px", "border_radius": "5px",
+                           "border": f"1px solid {BORDER}",
+                           "_hover": {"color": RED, "border_color": f"{RED}44"}},
+                ),
+                width="100%", align_items="center",
+                style={"margin_bottom": "10px"},
             ),
             rx.box(),
         ),
 
-        # ── Save scenario input ───────────────────────────────────────────────
+        # Section: Income
+        rx.text("INCOME", style={"font_size": "10px", "color": TEXT3, "font_family": MONO,
+                                   "letter_spacing": "0.12em", "margin_bottom": "5px"}),
+        rx.input(
+            placeholder="Monthly (e.g. 5000)",
+            value=AppState.wi_income_str,
+            on_change=AppState.set_wi_income,
+            style={"background": BG3, "border": f"1px solid {BORDER}",
+                   "border_radius": "7px", "padding": "8px 10px",
+                   "color": TEXT, "font_family": MONO, "font_size": "12px",
+                   "width": "100%",
+                   "_focus": {"border_color": ACCENT, "outline": "none"}},
+        ),
+
+        # Divider
+        rx.box(style={"height": "1px", "background": BORDER, "margin": "12px 0"}),
+
+        # Section: KPIs
+        rx.text("SUMMARY", style={"font_size": "10px", "color": TEXT3, "font_family": MONO,
+                                    "letter_spacing": "0.12em", "margin_bottom": "8px"}),
+        rx.vstack(
+            rx.hstack(
+                rx.text("Balance", style={"font_size": "11px", "color": TEXT3,
+                                          "font_family": MONO, "flex": "1"}),
+                rx.text(AppState.wi_start_bal, style={"font_size": "12px", "font_weight": "600",
+                                                        "font_family": MONO, "color": TEXT2}),
+                width="100%", justify="between",
+            ),
+            rx.hstack(
+                rx.text("Income", style={"font_size": "11px", "color": TEXT3,
+                                          "font_family": MONO, "flex": "1"}),
+                rx.text(AppState.wi_total_income, style={"font_size": "12px", "font_weight": "600",
+                                                           "font_family": MONO, "color": GREEN}),
+                width="100%", justify="between",
+            ),
+            rx.hstack(
+                rx.text("Unfunded", style={"font_size": "11px", "color": TEXT3,
+                                            "font_family": MONO, "flex": "1"}),
+                rx.text(AppState.wi_total_unfunded, style={"font_size": "12px", "font_weight": "600",
+                                                             "font_family": MONO, "color": RED}),
+                width="100%", justify="between",
+            ),
+            rx.hstack(
+                rx.text("Safe to Spend", style={"font_size": "11px", "color": TEXT3,
+                                                 "font_family": MONO, "flex": "1"}),
+                rx.text(AppState.wi_safe_to_spend, style={"font_size": "12px", "font_weight": "700",
+                                                           "font_family": MONO,
+                                                           "color": AppState.wi_sts_color}),
+                width="100%", justify="between",
+            ),
+            gap="7px", width="100%",
+            style={"background": BG3, "border_radius": "8px", "padding": "10px 12px",
+                   "border": rx.cond(AppState.wi_active,
+                                     f"1px solid {AMBER}33", f"1px solid {BORDER}")},
+        ),
+
+        # Divider
+        rx.box(style={"height": "1px", "background": BORDER, "margin": "12px 0"}),
+
+        # Section: Scenarios
+        rx.text("SCENARIOS", style={"font_size": "10px", "color": TEXT3, "font_family": MONO,
+                                     "letter_spacing": "0.12em", "margin_bottom": "8px"}),
+        rx.cond(
+            AppState.wi_scenarios.length() > 0,
+            rx.vstack(
+                rx.foreach(
+                    AppState.wi_scenarios.to(list[dict[str, Any]]),
+                    lambda sc: rx.hstack(
+                        rx.box(
+                            sc["name"],
+                            on_click=AppState.load_wi_scenario(sc["id"]),
+                            style=rx.cond(
+                                AppState.wi_active_scenario_id == sc["id"],
+                                {"flex": "1", "padding": "5px 8px", "border_radius": "6px",
+                                 "cursor": "pointer", "font_size": "11px", "font_family": MONO,
+                                 "background": f"{ACCENT}18", "color": ACCENT,
+                                 "border": f"1px solid {ACCENT}44",
+                                 "overflow": "hidden", "text_overflow": "ellipsis",
+                                 "white_space": "nowrap"},
+                                {"flex": "1", "padding": "5px 8px", "border_radius": "6px",
+                                 "cursor": "pointer", "font_size": "11px", "font_family": MONO,
+                                 "background": BG3, "color": TEXT2,
+                                 "border": f"1px solid {BORDER}",
+                                 "overflow": "hidden", "text_overflow": "ellipsis",
+                                 "white_space": "nowrap",
+                                 "_hover": {"border_color": BORDER2}},
+                            ),
+                        ),
+                        rx.box(
+                            "×",
+                            on_click=AppState.delete_wi_scenario(sc["id"]),
+                            style={"font_size": "14px", "color": TEXT3, "cursor": "pointer",
+                                   "padding": "2px 5px", "border_radius": "4px",
+                                   "flex_shrink": "0",
+                                   "_hover": {"color": RED}},
+                        ),
+                        gap="4px", align_items="center", width="100%",
+                    ),
+                ),
+                gap="5px", width="100%",
+                style={"margin_bottom": "10px"},
+            ),
+            rx.box(),
+        ),
+
+        # Save input
         rx.cond(
             AppState.wi_active,
-            rx.hstack(
+            rx.vstack(
                 rx.input(
                     placeholder="Name this scenario…",
                     value=AppState.wi_scenario_name,
                     on_change=AppState.set_wi_scenario_name,
                     style={"background": BG3, "border": f"1px solid {BORDER}",
-                           "border_radius": "8px", "padding": "10px 12px",
-                           "color": TEXT, "font_size": "13px", "flex": "1",
-                           "min_height": "44px",
+                           "border_radius": "7px", "padding": "8px 10px",
+                           "color": TEXT, "font_family": MONO, "font_size": "12px",
+                           "width": "100%",
                            "_focus": {"border_color": ACCENT, "outline": "none"}},
                 ),
                 rx.box(
-                    "Save",
+                    "Save Scenario",
                     on_click=AppState.save_wi_scenario,
                     role="button", tab_index=0,
-                    style={"padding": "10px 18px", "border_radius": "8px",
-                           "cursor": "pointer", "font_size": "13px",
-                           "min_height": "44px", "min_width": "64px",
-                           "display": "flex", "align_items": "center", "justify_content": "center",
+                    style={"width": "100%", "padding": "9px",
+                           "border_radius": "7px", "cursor": "pointer",
+                           "font_size": "12px", "font_weight": "600",
+                           "font_family": MONO, "text_align": "center",
                            "background": f"{ACCENT}18", "color": ACCENT,
-                           "border": f"1px solid {ACCENT}44", "flex_shrink": "0",
+                           "border": f"1px solid {ACCENT}44",
                            "_hover": {"background": f"{ACCENT}28"},
-                           "_active": {"transform": "scale(0.97)"}},
+                           "_active": {"transform": "scale(0.98)"}},
                 ),
-                gap="8px", align_items="stretch", width="100%",
-                style={"margin_bottom": "14px"},
+                gap="6px", width="100%",
             ),
             rx.box(),
         ),
 
-        # ── KPI summary bar ───────────────────────────────────────────────────
-        rx.box(
-            rx.hstack(
-                _kpi("Start Balance", AppState.wi_start_bal),
-                rx.box(class_name="kpi-divider", style={"width": "1px", "background": BORDER, "align_self": "stretch"}),
-                _kpi("Total Income", AppState.wi_total_income, GREEN),
-                rx.box(class_name="kpi-divider", style={"width": "1px", "background": BORDER, "align_self": "stretch"}),
-                _kpi("Unfunded", AppState.wi_total_unfunded, RED),
-                rx.box(class_name="kpi-divider", style={"width": "1px", "background": BORDER, "align_self": "stretch"}),
-                _kpi("Safe to Spend", AppState.wi_safe_to_spend, AppState.wi_sts_color),
-                gap="16px", width="100%", flex_wrap="wrap",
-                style={"padding": "14px 16px"},
-            ),
-            style={"background": BG2,
-                   "border": rx.cond(AppState.wi_active,
-                                     f"1px solid {AMBER}44", f"1px solid {BORDER}"),
-                   "border_radius": "10px", "margin_bottom": "14px", "overflow": "hidden"},
-        ),
-
-        # ── 6-month chart ─────────────────────────────────────────────────────
+        # RLS error warning
         rx.cond(
-            AppState.wi_chart_svg != "",
+            AppState.wi_scenarios_rls_error,
             rx.box(
-                rx.text("6-Month Projection",
-                        style={"font_size": "11px", "color": TEXT3, "font_family": MONO,
-                               "letter_spacing": "0.1em", "text_transform": "uppercase",
-                               "margin_bottom": "8px"}),
-                rx.html(AppState.wi_chart_svg),
-                style={"background": BG2, "border": f"1px solid {BORDER}",
-                       "border_radius": "10px", "padding": "14px 16px",
-                       "margin_bottom": "14px", "overflow": "hidden"},
+                rx.text("⚠ DB permissions error.",
+                        style={"font_size": "11px", "color": AMBER, "font_family": MONO}),
+                rx.text("Run schema_migrations.sql in Supabase.",
+                        style={"font_size": "10px", "color": TEXT3}),
+                style={"margin_top": "8px", "padding": "8px 10px",
+                       "background": f"{AMBER}10", "border_radius": "7px",
+                       "border": f"1px solid {AMBER}33"},
             ),
             rx.box(),
         ),
 
-        # ── Income override ───────────────────────────────────────────────────
-        rx.box(
-            rx.text("Income Override",
-                    style={"font_size": "11px", "color": TEXT3, "font_family": MONO,
-                           "letter_spacing": "0.1em", "text_transform": "uppercase",
-                           "margin_bottom": "6px"}),
-            rx.input(
-                placeholder="Monthly income (e.g. 5000)",
-                value=AppState.wi_income_str,
-                on_change=AppState.set_wi_income,
-                style={"background": BG3, "border": f"1px solid {BORDER}",
-                       "border_radius": "8px", "padding": "8px 12px",
-                       "color": TEXT, "font_family": MONO, "font_size": "13px",
-                       "width": "200px",
-                       "_focus": {"border_color": ACCENT, "outline": "none"}},
-            ),
-            style={"margin_bottom": "14px"},
-        ),
-
-        # ── Rules editor ──────────────────────────────────────────────────────
-        rx.cond(
-            AppState.wi_rules_rows.length() > 0,
-            rx.box(
-                rx.text("Allocation Rules",
-                        style={"font_size": "11px", "color": TEXT3, "font_family": MONO,
-                               "letter_spacing": "0.1em", "text_transform": "uppercase",
-                               "margin_bottom": "8px"}),
-                rx.vstack(
-                    rx.foreach(AppState.wi_rules_rows.to(list[dict[str, Any]]), _wi_rule_row),
-                    width="100%", gap="0px",
-                ),
-                rx.text("Enter new value to override (% rules: enter new %, $ rules: enter new $)",
-                        style={"font_size": "11px", "color": TEXT3, "margin_top": "6px"}),
-                style={"background": BG2, "border": f"1px solid {BORDER}",
-                       "border_radius": "10px", "padding": "14px 16px",
-                       "margin_bottom": "14px"},
-            ),
-            rx.box(),
-        ),
-
-        # ── Bucket overrides ──────────────────────────────────────────────────
-        rx.cond(
-            AppState.wi_bucket_rows.length() > 0,
-            rx.box(
-                rx.hstack(
-                    rx.text("Budget Overrides",
-                            style={"font_size": "11px", "color": TEXT3, "font_family": MONO,
-                                   "letter_spacing": "0.1em", "text_transform": "uppercase",
-                                   "flex": "1"}),
-                    rx.text("Base", style={"font_size": "11px", "color": TEXT3,
-                                            "font_family": MONO, "min_width": "60px",
-                                            "text_align": "right"}),
-                    rx.text("Override", class_name="wi-col-override",
-                            style={"font_size": "11px", "color": TEXT3,
-                                   "font_family": MONO, "width": "70px",
-                                   "text_align": "right"}),
-                    rx.text("Effective", class_name="wi-col-effective",
-                            style={"font_size": "11px", "color": TEXT3,
-                                   "font_family": MONO, "min_width": "60px",
-                                   "text_align": "right"}),
-                    gap="8px", align_items="center", width="100%",
-                    style={"margin_bottom": "6px"},
-                ),
-                rx.text("Override syntax: +50 (add), -20 (subtract), *1.1 (multiply), /2 (divide), =200 (set)",
-                        style={"font_size": "11px", "color": TEXT3, "margin_bottom": "8px"}),
-                rx.vstack(
-                    rx.foreach(AppState.wi_bucket_rows.to(list[dict[str, Any]]), _wi_bucket_row),
-                    width="100%", gap="0px",
-                ),
-                style={"background": BG2, "border": f"1px solid {BORDER}",
-                       "border_radius": "10px", "padding": "14px 16px",
-                       "margin_bottom": "14px"},
-            ),
-            rx.vstack(
-                rx.text("No bills configured",
-                        style={"color": TEXT2, "font_size": "15px", "font_weight": "600"}),
-                rx.text("Add buckets with due days in Setup to override amounts here.",
-                        style={"color": TEXT3, "font_size": "13px", "margin_top": "4px"}),
-                rx.box(
-                    "Go to Setup →",
-                    on_click=AppState.set_panel("setup"),
-                    role="button",
-                    tab_index=0,
-                    style={
-                        "margin_top": "12px", "padding": "8px 20px",
-                        "border_radius": "8px", "cursor": "pointer",
-                        "font_size": "13px", "font_family": MONO,
-                        "background": f"{ACCENT}18", "color": ACCENT,
-                        "border": f"1px solid {ACCENT}44",
-                        "_hover": {"background": f"{ACCENT}28"},
-                    },
-                ),
-                align_items="center",
-                style={"text_align": "center", "padding": "40px 0"},
-            ),
-        ),
-
+        gap="0px", width="100%",
+        style={
+            "width": "210px", "min_width": "210px", "flex_shrink": "0",
+            "background": BG2,
+            "border_right": f"1px solid {BORDER}",
+            "padding": "14px 12px",
+            "overflow_y": "auto",
+            "max_height": "calc(100vh - 160px)",
+        },
     )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  ── Main insights panel ──────────────────────────────────────────────────────
+#  ── NEW: What-If three-panel layout ─────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _whatif_subpanel() -> rx.Component:
+    """New three-panel What-If layout: Chart · Timeline Grid · Periods/Intel."""
+    return rx.box(
+        # Main layout: sidebar + panels
+        rx.hstack(
+            # Left sidebar
+            _wi_scenarios_sidebar(),
+
+            # Right: three collapsible panels
+            rx.vstack(
+
+                # ── Panel 1: Balance Chart ───────────────────────────────────
+                rx.box(
+                    _panel_hdr(
+                        "chart",
+                        '<polyline points="3 17 9 11 13 15 21 7"/>',
+                        "Balance Chart",
+                        rx.hstack(
+                            rx.cond(
+                                AppState.wi_shortfall_count > 0,
+                                _kpi_chip("shortfalls", AppState.wi_shortfall_count, RED),
+                                _kpi_chip("safe", AppState.wi_safe_to_spend,
+                                          AppState.wi_sts_color),
+                            ),
+                            gap="6px",
+                        ),
+                        AppState.wi_chart_open,
+                    ),
+                    rx.cond(
+                        AppState.wi_chart_open,
+                        rx.box(
+                            rx.cond(
+                                AppState.wi_balance_svg != "",
+                                rx.box(
+                                    rx.html(AppState.wi_balance_svg),
+                                    style={"padding": "14px 16px", "overflow_x": "auto"},
+                                ),
+                                rx.box(
+                                    rx.text("Run a What-If scenario to see the balance trajectory.",
+                                            style={"color": TEXT3, "font_size": "12px"}),
+                                    style={"padding": "24px", "text_align": "center"},
+                                ),
+                            ),
+                        ),
+                        rx.box(),
+                    ),
+                    style={
+                        "background": BG2, "border": f"1px solid {BORDER}",
+                        "border_radius": "10px", "overflow": "hidden",
+                        "margin_bottom": "8px",
+                    },
+                ),
+
+                # ── Panel 2: Budget Timeline Grid ────────────────────────────
+                rx.box(
+                    _panel_hdr(
+                        "grid",
+                        '<rect x="3" y="3" width="18" height="4" rx="1"/>'
+                        '<rect x="3" y="10" width="12" height="4" rx="1"/>'
+                        '<rect x="3" y="17" width="15" height="4" rx="1"/>',
+                        "Budget Timeline",
+                        rx.hstack(
+                            _kpi_chip("buckets", AppState.wi_grid_rows.length(), TEXT2),
+                            gap="6px",
+                        ),
+                        AppState.wi_grid_open,
+                    ),
+                    rx.cond(
+                        AppState.wi_grid_open,
+                        rx.box(
+                            rx.box(
+                                rx.hstack(
+                                    rx.box(style={"width": "14px", "height": "14px",
+                                                  "background": "rgba(48,209,88,0.2)",
+                                                  "border_left": "3px solid rgba(48,209,88,0.6)",
+                                                  "border_radius": "2px"}),
+                                    rx.text("Start", style={"font_size": "10px", "color": GREEN,
+                                                             "font_family": MONO}),
+                                    rx.box(style={"width": "14px", "height": "14px",
+                                                  "background": "rgba(255,69,58,0.1)",
+                                                  "border_left": "3px solid rgba(255,69,58,0.5)",
+                                                  "border_radius": "2px"}),
+                                    rx.text("Off", style={"font_size": "10px", "color": RED,
+                                                           "font_family": MONO}),
+                                    rx.box(style={"width": "14px", "height": "14px",
+                                                  "background": "rgba(255,159,10,0.1)",
+                                                  "border_left": "3px solid rgba(255,159,10,0.5)",
+                                                  "border_radius": "2px"}),
+                                    rx.text("Changed", style={"font_size": "10px", "color": AMBER,
+                                                               "font_family": MONO}),
+                                    rx.text("Click a cell to schedule changes",
+                                            style={"font_size": "10px", "color": TEXT3,
+                                                   "margin_left": "8px"}),
+                                    gap="5px", align_items="center",
+                                ),
+                                style={"padding": "8px 14px",
+                                       "border_bottom": f"1px solid {BORDER}",
+                                       "background": BG3},
+                            ),
+                            _wi_grid_body(),
+                            style={"padding_bottom": "4px"},
+                        ),
+                        rx.box(),
+                    ),
+                    style={
+                        "background": BG2, "border": f"1px solid {BORDER}",
+                        "border_radius": "10px", "overflow": "hidden",
+                        "margin_bottom": "8px",
+                    },
+                ),
+
+                # ── Panel 3: Periods / Intelligence ──────────────────────────
+                rx.box(
+                    _panel_hdr(
+                        "periods",
+                        '<circle cx="12" cy="12" r="10"/>'
+                        '<polyline points="12 6 12 12 16 14"/>',
+                        "Pay Periods",
+                        rx.hstack(
+                            rx.cond(
+                                AppState.wi_periods.length() > 0,
+                                _kpi_chip("periods", AppState.wi_periods.length(), TEXT2),
+                                rx.box(),
+                            ),
+                            rx.cond(
+                                AppState.wi_shortfall_count > 0,
+                                _kpi_chip("shortfalls", AppState.wi_shortfall_count, RED),
+                                rx.box(),
+                            ),
+                            gap="6px",
+                        ),
+                        AppState.wi_periods_open,
+                    ),
+                    rx.cond(
+                        AppState.wi_periods_open,
+                        rx.box(
+                            # Sub-tab: Periods | Intel
+                            rx.hstack(
+                                rx.box(
+                                    "Periods",
+                                    on_click=AppState.set_wi_rp_tab("periods"),
+                                    role="button", tab_index=0,
+                                    style=rx.cond(
+                                        AppState.wi_rp_tab == "periods",
+                                        {"font_size": "11px", "font_family": MONO,
+                                         "padding": "4px 12px", "border_radius": "14px",
+                                         "cursor": "pointer", "background": f"{ACCENT}20",
+                                         "color": "#D8A4FF", "border": f"1px solid {ACCENT}44"},
+                                        {"font_size": "11px", "font_family": MONO,
+                                         "padding": "4px 12px", "border_radius": "14px",
+                                         "cursor": "pointer", "background": "transparent",
+                                         "color": TEXT3, "border": f"1px solid {BORDER}",
+                                         "_hover": {"color": TEXT2}},
+                                    ),
+                                ),
+                                rx.box(
+                                    "Intelligence",
+                                    on_click=AppState.set_wi_rp_tab("intel"),
+                                    role="button", tab_index=0,
+                                    style=rx.cond(
+                                        AppState.wi_rp_tab == "intel",
+                                        {"font_size": "11px", "font_family": MONO,
+                                         "padding": "4px 12px", "border_radius": "14px",
+                                         "cursor": "pointer", "background": f"{ACCENT}20",
+                                         "color": "#D8A4FF", "border": f"1px solid {ACCENT}44"},
+                                        {"font_size": "11px", "font_family": MONO,
+                                         "padding": "4px 12px", "border_radius": "14px",
+                                         "cursor": "pointer", "background": "transparent",
+                                         "color": TEXT3, "border": f"1px solid {BORDER}",
+                                         "_hover": {"color": TEXT2}},
+                                    ),
+                                ),
+                                gap="6px",
+                                style={"padding": "10px 14px 8px",
+                                       "border_bottom": f"1px solid {BORDER}"},
+                            ),
+                            # Periods tab content
+                            rx.cond(
+                                AppState.wi_rp_tab == "periods",
+                                rx.box(
+                                    rx.cond(
+                                        AppState.wi_periods.length() > 0,
+                                        rx.box(
+                                            rx.foreach(AppState.wi_periods.to(list[dict[str, Any]]),
+                                                       _period_card),
+                                            style={"padding": "12px 4px"},
+                                        ),
+                                        rx.box(
+                                            rx.text("No forecast data. Switch to the What-If grid and "
+                                                    "click Apply to run the forecast.",
+                                                    style={"color": TEXT3, "font_size": "12px",
+                                                           "text_align": "center"}),
+                                            style={"padding": "32px 20px"},
+                                        ),
+                                    ),
+                                ),
+                                # Intelligence tab
+                                rx.vstack(
+                                    # Shortfall alert
+                                    rx.cond(
+                                        AppState.wi_shortfall_count > 0,
+                                        rx.hstack(
+                                            rx.text("⚠",
+                                                    style={"font_size": "18px", "flex_shrink": "0"}),
+                                            rx.vstack(
+                                                rx.text("Balance Shortfall",
+                                                        style={"font_size": "13px",
+                                                               "font_weight": "700",
+                                                               "color": RED}),
+                                                rx.text(
+                                                    AppState.forecast_shortfall_label,
+                                                    style={"font_size": "12px", "color": TEXT3},
+                                                ),
+                                                gap="2px", align_items="flex_start",
+                                            ),
+                                            gap="12px", align_items="flex_start", width="100%",
+                                            style={"background": f"{RED}10",
+                                                   "border": f"1px solid {RED}33",
+                                                   "border_radius": "8px", "padding": "12px 14px"},
+                                        ),
+                                        rx.box(),
+                                    ),
+                                    # Summary cards
+                                    rx.hstack(
+                                        rx.vstack(
+                                            rx.text("Total Income",
+                                                    style={"font_size": "11px", "color": TEXT3,
+                                                           "font_family": MONO}),
+                                            rx.text(AppState.wi_total_income,
+                                                    style={"font_size": "16px", "font_weight": "700",
+                                                           "font_family": MONO, "color": GREEN}),
+                                            gap="3px", align_items="flex_start",
+                                            style={"flex": "1", "background": f"{GREEN}08",
+                                                   "border_radius": "8px", "padding": "12px 14px",
+                                                   "border": f"1px solid {GREEN}22"},
+                                        ),
+                                        rx.vstack(
+                                            rx.text("Total Unfunded",
+                                                    style={"font_size": "11px", "color": TEXT3,
+                                                           "font_family": MONO}),
+                                            rx.text(AppState.wi_total_unfunded,
+                                                    style={"font_size": "16px", "font_weight": "700",
+                                                           "font_family": MONO, "color": RED}),
+                                            gap="3px", align_items="flex_start",
+                                            style={"flex": "1", "background": f"{RED}08",
+                                                   "border_radius": "8px", "padding": "12px 14px",
+                                                   "border": f"1px solid {RED}22"},
+                                        ),
+                                        gap="10px", width="100%",
+                                    ),
+                                    rx.vstack(
+                                        rx.text("Safe to Spend",
+                                                style={"font_size": "11px", "color": TEXT3,
+                                                       "font_family": MONO}),
+                                        rx.text(AppState.wi_safe_to_spend,
+                                                style={"font_size": "22px", "font_weight": "700",
+                                                       "font_family": MONO,
+                                                       "color": AppState.wi_sts_color}),
+                                        gap="4px", align_items="flex_start", width="100%",
+                                        style={"background": BG3, "border_radius": "8px",
+                                               "padding": "14px 16px",
+                                               "border": f"1px solid {BORDER}"},
+                                    ),
+                                    gap="10px", width="100%",
+                                    style={"padding": "14px"},
+                                ),
+                            ),
+                        ),
+                        rx.box(),
+                    ),
+                    style={
+                        "background": BG2, "border": f"1px solid {BORDER}",
+                        "border_radius": "10px", "overflow": "hidden",
+                    },
+                ),
+
+                gap="0px", flex="1",
+                style={"min_width": "0", "overflow_y": "auto"},
+            ),
+
+            gap="0px", align_items="flex_start", width="100%",
+            style={"min_height": "0"},
+        ),
+
+        # Cell popover overlay (fixed, outside scroll container)
+        _cell_popover(),
+
+        style={"position": "relative", "min_height": "0"},
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ── Main entry point ─────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
 
 def forecast_panel() -> rx.Component:

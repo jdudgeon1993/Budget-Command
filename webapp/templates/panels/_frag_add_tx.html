@@ -1,0 +1,82 @@
+<div class="modal-title">Add Transaction</div>
+<form class="tx-form" method="post" action="{{ url_for('panels.transaction_create') }}"
+      hx-post="{{ url_for('panels.transaction_create') }}"
+      hx-target="#panel" hx-swap="innerHTML">
+  <input type="hidden" name="back" value="{{ back }}">
+
+  <div class="tx-type-row">
+    {% for val, label in [('out','Expense'),('in','Income'),('xfr','Transfer')] %}
+    <label class="tx-type {{ 'on' if tx_type == val }}" onclick="updateTxFields('{{ val }}')">
+      <input type="radio" name="type" value="{{ val }}" {{ 'checked' if tx_type == val }} hidden>{{ label }}
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="tx-field">
+    <label>Amount</label>
+    <input type="text" name="amount" inputmode="decimal" placeholder="0.00" autofocus>
+  </div>
+  <div class="tx-field">
+    <label>Date</label>
+    <input type="date" name="date" value="{{ today }}">
+  </div>
+  <div class="tx-field">
+    <label>Account</label>
+    <select name="accountId">
+      {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="tx-field" id="tf-toAcct" style="{{ '' if tx_type == 'xfr' else 'display:none' }}">
+    <label>To account</label>
+    <select name="toAccountId">
+      <option value="">—</option>
+      {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="tx-field" id="tf-bucket" style="{{ '' if tx_type == 'out' else 'display:none' }}">
+    <label>Bucket</label>
+    <select name="bucketId" id="tf-bucket-sel" onchange="updateDebtHint(this)">
+      <option value="">—</option>
+      {% for grp in buckets_by_cat %}
+      <optgroup label="{{ grp.cat }}">
+        {% for b in grp.buckets %}
+        <option value="{{ b.id }}" data-debt-aid="{{ b.debtAccountId }}" data-debt-name="{{ b.debtAccountName }}">{{ b.name }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <div id="tf-debt-hint" style="display:none;font-size:11px;color:var(--green);margin-top:4px">↳ Pays: <span id="tf-debt-hint-name"></span></div>
+  </div>
+  <div class="tx-field" id="tf-incomeType" style="{{ '' if tx_type == 'in' else 'display:none' }}">
+    <label>Income type</label>
+    <select name="incomeType">
+      <option value="paycheck">Paycheck</option>
+      <option value="other">Other income</option>
+    </select>
+  </div>
+  <div class="tx-field">
+    <label>Payee / note</label>
+    <input type="text" name="desc" placeholder="e.g. Whole Foods" list="payee-list" autocomplete="off">
+    <datalist id="payee-list">
+      {% for p in payees %}<option value="{{ p }}">{% endfor %}
+    </datalist>
+  </div>
+
+  <div class="tx-actions">
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Add Transaction</button>
+  </div>
+</form>
+<script>
+function updateDebtHint(sel){
+  var opt=sel.options[sel.selectedIndex];
+  var hint=document.getElementById('tf-debt-hint');
+  var name=document.getElementById('tf-debt-hint-name');
+  if(opt&&opt.dataset.debtAid&&hint&&name){
+    name.textContent=opt.dataset.debtName||opt.dataset.debtAid;
+    hint.style.display='';
+  } else if(hint){
+    hint.style.display='none';
+  }
+}
+</script>

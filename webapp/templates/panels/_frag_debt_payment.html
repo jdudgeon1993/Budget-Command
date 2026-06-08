@@ -1,0 +1,53 @@
+<div class="modal-title">Record Payment — {{ account.name }}</div>
+{% if account.debtAPR or account.creditLimit %}
+<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+  {% if account.creditLimit %}<div class="rts-kpi"><span class="rts-kpi-lbl">Credit limit</span><span class="rts-kpi-val">{{ account.creditLimit | money }}</span></div>{% endif %}
+  {% if account.debtAPR %}<div class="rts-kpi"><span class="rts-kpi-lbl">APR</span><span class="rts-kpi-val">{{ "%.2f"|format(account.debtAPR) }}%</span></div>{% endif %}
+  {% if account.debtMinPayment %}<div class="rts-kpi"><span class="rts-kpi-lbl">Min payment</span><span class="rts-kpi-val">{{ account.debtMinPayment | money }}</span></div>{% endif %}
+</div>
+{% endif %}
+<form method="post" action="{{ url_for('panels.debt_payment', aid=account.id) }}"
+      hx-post="{{ url_for('panels.debt_payment', aid=account.id) }}"
+      hx-target="#panel" hx-swap="innerHTML">
+  <div class="edit-field">
+    <label>Payment amount</label>
+    <input type="text" name="amount" inputmode="decimal"
+           value="{{ account.debtMinPayment or '' }}" placeholder="0.00" required autofocus>
+  </div>
+  <div class="edit-field">
+    <label>Date</label>
+    <input type="date" name="date" value="{{ today }}">
+  </div>
+  <div class="edit-field">
+    <label>Pay from account</label>
+    <select name="from_aid" required>
+      <option value="">— Select account —</option>
+      {% for a in from_accounts %}
+      <option value="{{ a.id }}">{{ a.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if linked_buckets %}
+  <div class="edit-field">
+    <label>Bucket <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional — links payment to a budget bucket)</span></label>
+    <select name="bucketId">
+      <option value="">— No bucket —</option>
+      {% for b in linked_buckets %}
+      <option value="{{ b.id }}">{{ b.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% else %}
+  <div style="font-size:11px;color:var(--text3);padding:6px 0 10px;line-height:1.5">
+    Tip: link a bucket to this account in Setup to track payments against your budget.
+  </div>
+  {% endif %}
+  <div class="edit-field">
+    <label>Note <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+    <input type="text" name="desc" placeholder="e.g. Minimum payment">
+  </div>
+  <div class="edit-actions">
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Record Payment</button>
+  </div>
+</form>

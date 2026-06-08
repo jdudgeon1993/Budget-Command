@@ -53,6 +53,9 @@ CREATE TABLE IF NOT EXISTS bcc_buckets (
     pay_freq        TEXT,                              -- monthly | biweekly | etc.
     debt_account_id TEXT,
     default_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+    target_amount   NUMERIC(12,2),                     -- goal/sinking: savings target
+    target_date     TEXT,                              -- goal/sinking: YYYY-MM deadline
+    contrib_freq    TEXT,                              -- goal/sinking: contribution frequency
     notes           TEXT,
     archived        BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order      INTEGER NOT NULL DEFAULT 0,

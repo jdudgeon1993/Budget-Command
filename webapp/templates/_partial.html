@@ -1,0 +1,6 @@
+{# HTMX fragment: panel block only. Flash messages become toasts via showToast(). #}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+{% if msgs %}<script>{% for cat, msg in msgs %}showToast({{ msg | tojson }},{{ cat | tojson }});{% endfor %}</script>{% endif %}
+{% endwith %}
+{% block panel %}{% endblock %}
+{% include "panels/_oob_rts.html" %}
