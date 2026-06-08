@@ -148,17 +148,35 @@ def bucket_rows(view_mid: str = None):
             spent = F.b_spent(mid, bid, txs)
             left = F.bucket_available(b, month, months, txs)
             vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
-            over = max(spent - budget, 0) if budget else max(spent - alloc, 0)
             needed = max(budget - alloc, 0)
             handled = bool((month.get("handledBuckets") or {}).get(bid))
-            if over > 0:
-                status, pill = "over", f"Over ${over:,.2f}"
-            elif needed > 0:
-                status, pill = "partial", f"−${needed:,.2f}"
-            elif budget and spent >= budget:
-                status, pill = "funded", "Paid"
+
+            # Funded status compares allocation to budget target — "did the
+            # envelope get filled?" — not spending. Spending only flips the
+            # label to its transacted variant (Funded → Paid, Overfunded →
+            # Overspent) once money has actually moved.
+            if budget > 0:
+                over = spent - budget
+                if over > 0.005:
+                    status, pill = "over", f"Overspent ${over:,.2f}"
+                elif alloc > budget + 0.005:
+                    status, pill = "funded", "Overfunded"
+                elif alloc >= budget - 0.005:
+                    status, pill = "funded", ("Paid" if spent >= budget - 0.005 else "Funded")
+                elif alloc <= 0.005:
+                    status, pill = "partial", "Unfunded"
+                else:
+                    status, pill = "partial", f"Funding — ${needed:,.2f} short"
             else:
-                status, pill = "funded", "Funded"
+                # No budget target set — fall back to envelope overspend (spent vs allocation)
+                over = spent - alloc
+                if over > 0.005:
+                    status, pill = "over", f"Over ${over:,.2f}"
+                elif alloc > 0.005:
+                    status, pill = "funded", "Funded"
+                else:
+                    status, pill = "partial", "Unfunded"
+
             if handled:
                 status, pill = "funded", "✓ Handled"
             cat_alloc += alloc
