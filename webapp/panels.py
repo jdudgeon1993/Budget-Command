@@ -133,7 +133,8 @@ def _buckets_response():
 
 
 def _is_modal():
-    return request.headers.get("HX-Target") == "modal-body"
+    target = request.headers.get("HX-Target", "")
+    return target == "modal-body" or target.startswith("bkt-settings-")
 
 
 def _panel_close_modal(panel_tmpl, active_panel, **ctx):

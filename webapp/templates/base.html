@@ -174,12 +174,13 @@ function updateAcctFields(){
   var f=document.getElementById('acct-debt-fields');
   if(t&&f)f.style.display=(t.value==='debt')?'':'none';
 }
-function updateBktFields(){
-  var t=document.getElementById('bkt-type-sel');
-  var ef=document.getElementById('bkt-expense-fields');
-  var sf=document.getElementById('bkt-sinking-fields');
-  var vf=document.getElementById('bkt-vault-fields');
+function updateBktFields(sel){
+  var t=sel||document.getElementById('bkt-type-sel');
   if(!t)return;
+  var root=t.closest('form')||document;
+  var ef=root.querySelector('.bkt-expense-fields,#bkt-expense-fields');
+  var sf=root.querySelector('.bkt-sinking-fields,#bkt-sinking-fields');
+  var vf=root.querySelector('.bkt-vault-fields,#bkt-vault-fields');
   if(ef)ef.style.display=(t.value==='expense'||t.value==='')?'':'none';
   if(sf)sf.style.display=(t.value==='sinking'||t.value==='goal')?'':'none';
   if(vf)vf.style.display=(t.value==='vault')?'':'none';

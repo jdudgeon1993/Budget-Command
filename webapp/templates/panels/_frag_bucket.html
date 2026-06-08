@@ -1,10 +1,9 @@
-<div class="modal-title">{{ bucket.name }}</div>
 <form class="edit-form" method="post"
       action="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
       hx-post="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
       hx-target="#panel" hx-swap="innerHTML"
       style="padding:0;border:none;background:none;box-shadow:none"
-      id="bkt-settings-form">
+      id="bkt-settings-form-{{ bucket.id }}">
 
   <div class="edit-field">
     <label>Name</label>
@@ -13,7 +12,7 @@
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="edit-field">
       <label>Type</label>
-      <select name="type" id="bkt-type-sel" onchange="updateBktFields()">
+      <select name="type" onchange="updateBktFields(this)">
         <option value="expense" {{ 'selected' if bucket.type == 'expense' }}>Expense</option>
         <option value="goal"    {{ 'selected' if bucket.type in ('goal','sinking') }}>Goal</option>
         <option value="vault"   {{ 'selected' if bucket.type == 'vault' }}>Vault</option>
@@ -30,7 +29,7 @@
   </div>
 
   {# ── Expense fields ── #}
-  <div id="bkt-expense-fields" style="{{ 'display:none' if bucket.type not in ('expense','') else '' }}">
+  <div class="bkt-expense-fields" style="{{ 'display:none' if bucket.type not in ('expense','') else '' }}">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="edit-field">
         <label>Default monthly budget</label>
@@ -108,7 +107,7 @@
   </div>
 
   {# ── Sinking Fund / Goal fields ── #}
-  <div id="bkt-sinking-fields" style="{{ '' if bucket.type in ('sinking','goal') else 'display:none' }}">
+  <div class="bkt-sinking-fields" style="{{ '' if bucket.type in ('sinking','goal') else 'display:none' }}">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="edit-field">
         <label>Monthly contribution</label>
@@ -147,7 +146,7 @@
   </div>
 
   {# ── Vault fields ── #}
-  <div id="bkt-vault-fields" style="{{ '' if bucket.type == 'vault' else 'display:none' }}">
+  <div class="bkt-vault-fields" style="{{ '' if bucket.type == 'vault' else 'display:none' }}">
     <div class="edit-field">
       <label>Monthly contribution</label>
       <input type="text" name="default_budget" inputmode="decimal"
@@ -176,7 +175,7 @@
   </div>
 
   <div class="edit-actions">
-    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn" type="button" onclick="toggleBktSettings('{{ bucket.id }}', '{{ url_for('panels.bucket_settings', bid=bucket.id) }}')">Cancel</button>
     <button class="toolbar-btn primary" type="submit">Save Changes</button>
   </div>
 </form>

@@ -147,9 +147,11 @@
                 title="{{ b.txs | length }} transaction{{ 's' if b.txs | length != 1 }} this month">
           <span id="exp-icon-{{ b.id }}">▸</span> Ledger · {{ b.txs | length }}
         </button>
-        <a class="toolbar-btn" href="{{ url_for('panels.bucket_settings', bid=b.id) }}"
-           hx-get="{{ url_for('panels.bucket_settings', bid=b.id) }}" hx-target="#modal-body"
-           title="Bucket settings">⚙ Settings</a>
+        <button class="toolbar-btn" type="button" id="settings-{{ b.id }}"
+                onclick="toggleBktSettings('{{ b.id }}', '{{ url_for('panels.bucket_settings', bid=b.id) }}')"
+                title="Bucket settings">
+          <span id="settings-icon-{{ b.id }}">▸</span> ⚙ Settings
+        </button>
 
         <span class="bkt-drawer-spacer"></span>
 
@@ -181,6 +183,9 @@
         <div class="bkt-tx-empty">No transactions this month</div>
         {% endif %}
       </div>
+
+      {# ── Inline settings (lazy-loaded on first expand) ── #}
+      <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}" style="display:none"></div>
     </div>
   </div>
 
