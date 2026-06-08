@@ -224,12 +224,23 @@ document.addEventListener('htmx:beforeSwap',function(e){
     var m=document.querySelector('.main');
     sessionStorage.setItem('_pScroll',m?m.scrollTop:0);
   }
+  // Checkpoint scroll before modal-body swaps (checkbox live-previews) so the
+  // page doesn't jump to the bottom when the modal content is replaced.
+  if(e.detail.target.id==='modal-body'){
+    window._modalScrollY=window.scrollY;
+    window._modalInnerY=(document.querySelector('.modal-inner')||document.querySelector('.modal-body-inner')||{scrollTop:0}).scrollTop;
+  }
 });
 document.addEventListener('htmx:afterSettle',function(e){
   if(e.detail.target.id==='panel'){
     var y=sessionStorage.getItem('_pScroll');
     var m=document.querySelector('.main');
     if(y&&m){m.scrollTop=parseInt(y);sessionStorage.removeItem('_pScroll');}
+  }
+  // Restore scroll position after modal content rerender
+  if(e.detail.target.id==='modal-body'&&window._modalScrollY!=null){
+    window.scrollTo(0,window._modalScrollY);
+    window._modalScrollY=null;
   }
 });
 document.addEventListener('htmx:afterSwap',function(e){
