@@ -1119,6 +1119,63 @@ def toggle_rule(rid):
     return _setup_panel()
 
 
+@bp.route("/transaction/<tid>/paycheck-distribute/preview", methods=["POST"])
+@login_required
+def paycheck_distribute_preview(tid):
+    """Live recompute when a checkbox changes in the paycheck distribute modal."""
+    tx = next((t for t in D.load_data().get("txs", []) if t.get("id") == tid), None)
+    if not tx:
+        return "", 404
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    f = request.form
+    ctx = D.paycheck_distribute_ctx(
+        amount, mid,
+        checked_rule=set(f.getlist("rule")),
+        checked_ob=set(f.getlist("ob")),
+        checked_fund=set(f.getlist("fund")),
+    )
+    return render_template("panels/_frag_paycheck_distribute.html", tid=tid, **ctx)
+
+
+@bp.route("/transaction/<tid>/paycheck-distribute", methods=["POST"])
+@login_required
+def apply_paycheck_distribute(tid):
+    """Apply the combined paycheck distribution (rules + obligations + catch-alls)."""
+    data = D.load_data()
+    tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
+    if not tx:
+        flash("Transaction not found.", "error")
+        return redirect(url_for("panels.buckets"))
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    f = request.form
+    # Recompute server-side — never trust client-submitted amounts
+    ctx = D.paycheck_distribute_ctx(
+        amount, mid,
+        checked_rule=set(f.getlist("rule")),
+        checked_ob=set(f.getlist("ob")),
+        checked_fund=set(f.getlist("fund")),
+    )
+    if not current_app.config["DEV_SEED"]:
+        month = D.active_month(data, mid)
+        for r in ctx["internal_rules"]:
+            if r["checked"] and r["computed"] > 0:
+                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], mid, r["bucket_id"], new_alloc)
+        for o in ctx["obligations"]:
+            if o["checked"] and o["gap"] > 0:
+                new_alloc = round(D.F.b_alloc(month, o["id"]) + o["gap"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], mid, o["id"], new_alloc)
+        for r in ctx["fund_rules"]:
+            if r["checked"] and r["computed"] > 0:
+                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], mid, r["bucket_id"], new_alloc)
+        D.invalidate_cache()
+    flash(f"Distributed {ctx['total_applied']:,.2f}.", "ok")
+    return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+
+
 @bp.route("/transaction/<tid>/apply-rules", methods=["POST"])
 @login_required
 def apply_rules(tid):
@@ -1279,19 +1336,18 @@ def transaction_create():
         new_tid = DB.insert_transaction(session["user_id"], session["access_token"], tx)
         D.invalidate_cache()
         flash("Transaction added.", "ok")
-        # After a paycheck income, show allocation rules modal if rules exist
+        # After a paycheck, open the combined distribute modal
         if (tx["type"] == "in" and tx.get("incomeType") == "paycheck"
                 and request.headers.get("HX-Request") == "true"):
-            rules_ctx = D.income_rules_ctx(amount, mid)
-            if rules_ctx["internal_rules"] or rules_ctx["external_rules"]:
-                shell = D.shell_ctx(back_panel)
-                resp = make_response(
-                    render_template("panels/_frag_rules_apply.html",
-                                    tid=new_tid, back=back_panel, **rules_ctx)
-                    + render_template("panels/_oob_rts.html", shell=shell))
-                resp.headers["HX-Retarget"] = "#modal-body"
-                resp.headers["HX-Reswap"] = "innerHTML"
-                return resp
+            ctx = D.paycheck_distribute_ctx(amount, mid)
+            shell = D.shell_ctx(back_panel)
+            resp = make_response(
+                render_template("panels/_frag_paycheck_distribute.html",
+                                tid=new_tid, back=back_panel, **ctx)
+                + render_template("panels/_oob_rts.html", shell=shell))
+            resp.headers["HX-Retarget"] = "#modal-body"
+            resp.headers["HX-Reswap"] = "innerHTML"
+            return resp
     else:
         flash("Amount and account are required.", "error")
     if request.headers.get("HX-Request") == "true":

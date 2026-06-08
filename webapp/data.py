@@ -546,6 +546,107 @@ def income_rules_ctx(amount: float, mid: str) -> dict:
     }
 
 
+def paycheck_distribute_ctx(
+    paycheck_amount: float,
+    mid: str,
+    checked_rule: set | None = None,
+    checked_ob: set | None = None,
+    checked_fund: set | None = None,
+) -> dict:
+    """Combined paycheck distribution: rules first, then obligations, then catch-alls.
+
+    None for any checked_* means "use smart defaults" (first open).
+    An explicit set (even empty) means the user has made their choices.
+    """
+    data = load_data()
+    month = active_month(data, mid)
+    months = data.get("months", [])
+    accounts = data.get("accounts", [])
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+    bkt_name = {b["id"]: b["name"] for b in buckets}
+
+    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+
+    # Partition rules into three groups
+    rules_raw = sorted(
+        [r for r in data.get("allocationRules", []) if r.get("active", True)],
+        key=lambda r: r.get("sort_order", 0),
+    )
+    external_rules, internal_rules, fund_rules = [], [], []
+    for r in rules_raw:
+        vtype = r.get("value_type", "fixed")
+        v = float(r.get("value") or 0)
+        is_fund = (vtype == "fund")
+        rtype = r.get("rule_type", "internal")
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        computed = round(paycheck_amount * v / 100, 2) if vtype == "pct" else (v if not is_fund else 0.0)
+        entry = {
+            "id": r["id"], "name": r.get("name", "Rule"),
+            "bucket_id": bid, "bucket_name": bkt_name.get(bid, "—"),
+            "computed": computed, "value": v,
+            "is_pct": vtype == "pct", "is_fund": is_fund,
+        }
+        if rtype == "external":
+            external_rules.append(entry)
+        elif is_fund:
+            fund_rules.append(entry)
+        else:
+            internal_rules.append(entry)
+
+    # Step 1 — internal pct/fixed rules (computed against paycheck amount)
+    all_rule_ids = {r["id"] for r in internal_rules}
+    checked_rule = all_rule_ids if checked_rule is None else (checked_rule & all_rule_ids)
+    for r in internal_rules:
+        r["checked"] = r["id"] in checked_rule
+    total_rules = round(sum(r["computed"] for r in internal_rules if r["checked"]), 2)
+
+    # Step 2 — obligations fill from RTS remaining after rules are claimed
+    rts_after_rules = round(rts - total_rules, 2)
+    obligations = F.distribute_obligations(buckets, month)
+    for o in obligations:
+        o["reason"] = _due_reason(o)
+    all_ob_ids = {o["id"] for o in obligations}
+    if checked_ob is None:
+        checked_ob = set()
+        budget_remaining = max(rts_after_rules, 0)
+        for o in obligations:
+            if o["gap"] <= budget_remaining + 0.005:
+                checked_ob.add(o["id"])
+                budget_remaining = round(budget_remaining - o["gap"], 2)
+    else:
+        checked_ob = checked_ob & all_ob_ids
+    for o in obligations:
+        o["checked"] = o["id"] in checked_ob
+    total_ob = round(sum(o["gap"] for o in obligations if o["checked"]), 2)
+
+    # Step 3 — "fund this bucket" catch-alls absorb whatever's left
+    rts_after_ob = round(max(rts_after_rules - total_ob, 0), 2)
+    all_fund_ids = {r["id"] for r in fund_rules}
+    checked_fund = all_fund_ids if checked_fund is None else (checked_fund & all_fund_ids)
+    fund_remaining = rts_after_ob
+    for r in fund_rules:
+        if r["id"] in checked_fund:
+            r["computed"] = round(fund_remaining, 2)
+            fund_remaining = 0.0
+        else:
+            r["computed"] = 0.0
+        r["checked"] = r["id"] in checked_fund
+
+    total_fund = round(sum(r["computed"] for r in fund_rules if r["checked"]), 2)
+    total_applied = round(total_rules + total_ob + total_fund, 2)
+
+    return {
+        "rts": rts, "mid": mid, "paycheck_amount": paycheck_amount,
+        "external_rules": external_rules,
+        "internal_rules": internal_rules, "total_rules": total_rules,
+        "obligations": obligations, "total_ob": total_ob,
+        "fund_rules": fund_rules, "total_fund": total_fund,
+        "total_applied": total_applied,
+        "remaining_rts": round(max(rts - total_applied, 0), 2),
+    }
+
+
 def reports_view():
     """Budget-vs-Actual + category spending + month totals + account snapshot."""
     data = load_data(full_history=True)
