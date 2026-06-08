@@ -248,6 +248,100 @@ def bucket_rows(view_mid: str = None):
                             for b in buckets if not b.get("archived")]}
 
 
+# ── Distribute modal view-model ───────────────────────────────────────────────
+
+def _due_reason(o: dict) -> str:
+    """Human-readable explanation of why an obligation ranked where it did."""
+    bits = []
+    if o["due_in"] is not None:
+        d = o["due_in"]
+        bits.append(f"Due in {d} day{'' if d == 1 else 's'}" if d > 0 else "Due today")
+    if o["freq"]:
+        bits.append(o["freq"])
+    bits.append(f"${o['gap']:,.2f} short")
+    return " · ".join(bits)
+
+
+def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = None) -> dict:
+    """Ranked funding suggestions for the Distribute modal.
+
+    Step 1 ranks underfunded buckets by urgency (gap weighted by how soon
+    it's due). Step 2 previews what the active internal allocation rules
+    would do with whatever's left over — percentage/fixed rules take their
+    cut, "fund this bucket" rules cascade and catch the remainder, exactly
+    like income_rules_ctx but against leftover RTS instead of a paycheck.
+
+    `checked_ob`/`checked_rule` reflect the user's current checkbox state
+    (None means "default to everything checked" — the initial suggestion).
+    Unchecked items display with their suggested amount but contribute
+    nothing to totals or to the cascade — skipping a rule leaves its share
+    available to the rule below it, exactly like disabling it would.
+    """
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data)
+    months = data.get("months", [])
+    accounts = data.get("accounts", [])
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+    bkt_name = {b["id"]: b["name"] for b in buckets}
+
+    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+
+    obligations = F.distribute_obligations(buckets, month)
+    for o in obligations:
+        o["reason"] = _due_reason(o)
+    all_ob_ids = {o["id"] for o in obligations}
+    checked_ob = all_ob_ids if checked_ob is None else (checked_ob & all_ob_ids)
+    for o in obligations:
+        o["checked"] = o["id"] in checked_ob
+
+    total_gap = round(sum(o["gap"] for o in obligations if o["checked"]), 2)
+    leftover = round(max(rts - total_gap, 0), 2)
+
+    rules_raw = sorted(
+        [r for r in data.get("allocationRules", [])
+         if r.get("active", True) and r.get("rule_type", "internal") == "internal"
+         and (r.get("bucket_id") or r.get("bucketId"))],
+        key=lambda r: r.get("sort_order", 0),
+    )
+    all_rule_ids = {r["id"] for r in rules_raw}
+    checked_rule = all_rule_ids if checked_rule is None else (checked_rule & all_rule_ids)
+
+    rule_suggestions = []
+    remaining = leftover
+    for r in rules_raw:
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        vtype = r.get("value_type", "fixed")
+        v = float(r.get("value") or 0)
+        is_fund = (vtype == "fund")
+        is_checked = r["id"] in checked_rule
+        if is_fund:
+            computed = round(max(0.0, remaining), 2)
+        elif vtype == "pct":
+            computed = round(leftover * v / 100, 2)
+        else:
+            computed = round(min(v, max(0.0, remaining)), 2)
+        if is_checked:
+            remaining = round(remaining - computed, 2)
+        rule_suggestions.append({
+            "id": r["id"], "name": r.get("name", "Rule"),
+            "bucket_id": bid, "bucket_name": bkt_name.get(bid, "—"),
+            "computed": computed, "value": v, "is_pct": vtype == "pct", "is_fund": is_fund,
+            "checked": is_checked,
+        })
+
+    total_applied = total_gap + sum(r["computed"] for r in rule_suggestions if r["checked"])
+    remaining_rts = round(max(rts - total_applied, 0), 2)
+
+    return {
+        "rts": rts, "mid": mid,
+        "obligations": obligations, "total_gap": total_gap, "leftover": leftover,
+        "rule_suggestions": rule_suggestions,
+        "total_applied": round(total_applied, 2), "remaining_rts": remaining_rts,
+    }
+
+
 # ── Accounts panel view-model ─────────────────────────────────────────────────
 
 def accounts_view():

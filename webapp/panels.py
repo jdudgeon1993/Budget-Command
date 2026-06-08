@@ -92,40 +92,73 @@ def fill_bucket(bid):
     return _buckets_response()
 
 
+def _distribute_checks():
+    """Checkbox state from the Distribute form, or None for the un-submitted default."""
+    if "ob" not in request.form and "rule" not in request.form:
+        return None, None
+    return set(request.form.getlist("ob")), set(request.form.getlist("rule"))
+
+
+@bp.route("/buckets/distribute")
+@login_required
+def distribute_modal():
+    """Open the Distribute modal: ranked funding suggestions to review and apply."""
+    ctx = D.distribute_ctx()
+    if _is_modal():
+        resp = make_response(render_template("panels/_frag_distribute.html", **ctx))
+        resp.headers["HX-Retarget"] = "#modal-body"
+        resp.headers["HX-Reswap"] = "innerHTML"
+        return resp
+    return _buckets_response()
+
+
+@bp.route("/buckets/distribute/preview", methods=["POST"])
+@login_required
+def distribute_preview():
+    """Re-render the Distribute modal reflecting the user's current checkbox state."""
+    checked_ob, checked_rule = _distribute_checks()
+    ctx = D.distribute_ctx(checked_ob=checked_ob, checked_rule=checked_rule)
+    resp = make_response(render_template("panels/_frag_distribute.html", **ctx))
+    resp.headers["HX-Retarget"] = "#modal-body"
+    resp.headers["HX-Reswap"] = "innerHTML"
+    return resp
+
+
 @bp.route("/buckets/distribute", methods=["POST"])
 @login_required
 def distribute_rts():
-    """Spread remaining RTS evenly across underfunded buckets."""
+    """Apply the selected obligations and rule suggestions from the Distribute modal.
+
+    Re-derives suggested amounts server-side (never trusts client-submitted
+    dollar figures) and only funds the items the user left checked.
+    """
+    checked_ob, checked_rule = _distribute_checks()
+    ctx = D.distribute_ctx(checked_ob=checked_ob, checked_rule=checked_rule)
     data = D.load_data()
     month = D.active_month(data)
-    months = data.get("months", [])
-    accounts = data.get("accounts", [])
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    txs = data.get("txs", [])
 
-    rts = D.F.ready_to_spend(month, months, accounts, buckets, txs)
-    if rts <= 0:
-        return _buckets_response()
-
-    underfunded = []
-    for b in buckets:
-        alloc = D.F.b_alloc(month, b["id"])
-        budget = D.F.b_budget(month, b["id"])
-        if budget > alloc:
-            underfunded.append((b["id"], budget - alloc))
-
-    if underfunded:
-        per_bucket = min(rts / len(underfunded), max(n for _, n in underfunded))
-        for bid, needed in underfunded:
-            add = min(per_bucket, needed)
-            new_alloc = D.F.b_alloc(month, bid) + add
-            month.setdefault("allocations", {})[bid] = new_alloc
-            if not current_app.config["DEV_SEED"]:
-                DB.upsert_alloc(session["user_id"], session["access_token"],
-                                D.active_mid(), bid, new_alloc)
+    def _bump(bid, add):
+        if add <= 0.005:
+            return
+        new_alloc = round(D.F.b_alloc(month, bid) + add, 2)
+        month.setdefault("allocations", {})[bid] = new_alloc
         if not current_app.config["DEV_SEED"]:
-            D.invalidate_cache()
-    flash("RTS distributed.", "ok")
+            DB.upsert_alloc(session["user_id"], session["access_token"],
+                            D.active_mid(), bid, new_alloc)
+
+    for o in ctx["obligations"]:
+        if o["checked"]:
+            _bump(o["id"], o["gap"])
+
+    for r in ctx["rule_suggestions"]:
+        if r["checked"]:
+            _bump(r["bucket_id"], r["computed"])
+
+    if not current_app.config["DEV_SEED"]:
+        D.invalidate_cache()
+    flash("Distribution applied.", "ok")
+    if request.headers.get("HX-Request") == "true":
+        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
     return _buckets_response()
 
 

@@ -156,6 +156,31 @@ def urgency_score(gap: float, horizon_days: int | None) -> float:
     return gap / horizon
 
 
+def distribute_obligations(buckets: list[dict], month: dict) -> list[dict]:
+    """Underfunded buckets ranked by urgency (funding gap weighted by due date).
+
+    Each entry carries enough to both rank it and explain the ranking:
+    the dollar gap between budget and current allocation, days until its
+    next due date (None for buckets with no fixed due day), and its pay
+    frequency label for display.
+    """
+    obligations = []
+    for b in buckets:
+        budget = b_budget(month, b["id"])
+        alloc = b_alloc(month, b["id"])
+        gap = round(budget - alloc, 2)
+        if gap <= 0.005:
+            continue
+        due_in = days_until_due(b)
+        obligations.append({
+            "id": b["id"], "name": b["name"], "gap": gap,
+            "due_in": due_in, "freq": freq_label(b.get("payFreq")),
+            "score": urgency_score(gap, due_in),
+        })
+    obligations.sort(key=lambda o: o["score"], reverse=True)
+    return obligations
+
+
 # ── 3.1 Account Balance ───────────────────────────────────────────────────────
 
 def acct_balance_as_of(account: dict, transactions: list[dict], as_of: "date") -> float:
