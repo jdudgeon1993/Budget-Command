@@ -295,7 +295,18 @@ def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = Non
     for o in obligations:
         o["reason"] = _due_reason(o)
     all_ob_ids = {o["id"] for o in obligations}
-    checked_ob = all_ob_ids if checked_ob is None else (checked_ob & all_ob_ids)
+    if checked_ob is None:
+        # First open: greedily pre-check from top of urgency list until RTS
+        # is exhausted. Skips items that don't fit but continues checking
+        # smaller items below — gives a realistic, achievable suggestion.
+        checked_ob = set()
+        budget_remaining = rts
+        for o in obligations:
+            if o["gap"] <= budget_remaining + 0.005:
+                checked_ob.add(o["id"])
+                budget_remaining = round(budget_remaining - o["gap"], 2)
+    else:
+        checked_ob = checked_ob & all_ob_ids
     for o in obligations:
         o["checked"] = o["id"] in checked_ob
 
