@@ -27,23 +27,6 @@
       </form>
     </div>
 
-    <div class="bucket-col-hdr">
-      <div class="bch-name"></div>
-      <div class="bch-nums">
-        <span class="bch-alloc">Allocated</span>
-        <span class="bch-sep">/</span>
-        <span class="bch-budget">Budget</span>
-        <span class="bch-extra">
-          {% if view_mid == current_mid %}
-          <span>Spent</span>
-          <span>Left</span>
-          {% else %}
-          <span style="color:var(--text3)">Planned</span>
-          {% endif %}
-        </span>
-      </div>
-    </div>
-
     {% for grp in groups %}
     <div class="cat-header">
       <div class="cat-dot" style="background:{{ grp.color }}"></div>
@@ -56,13 +39,17 @@
     {% endfor %}
 
     <script>
+    function toggleBktRow(id){
+      var row=document.getElementById('bkt-'+id);
+      if(row)row.classList.toggle('open');
+    }
     function toggleBktTxs(id){
       var el=document.getElementById('txs-'+id);
-      var btn=document.getElementById('exp-'+id);
+      var icon=document.getElementById('exp-icon-'+id);
       if(!el)return;
       var open=el.style.display!=='none';
       el.style.display=open?'none':'block';
-      if(btn)btn.textContent=open?'▸':'▾';
+      if(icon)icon.textContent=open?'▸':'▾';
     }
     </script>
 
