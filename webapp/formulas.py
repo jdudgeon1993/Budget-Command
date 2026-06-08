@@ -202,46 +202,6 @@ def total_allocated(month: dict, buckets: list[dict]) -> float:
     )
 
 
-# ── 3.8 Rollover Balance Raw ──────────────────────────────────────────────────
-
-def rollover_bal_raw(
-    bucket: dict,
-    current_month_id: str,
-    all_months: list[dict],
-    transactions: list[dict],
-) -> float:
-    if not bucket.get("rollover"):
-        return 0.0
-
-    prior = months_before(current_month_id, all_months)
-    total = 0.0
-    bid = bucket["id"]
-
-    for m in prior:
-        skipped = (m.get("skippedBuckets") or {}).get(bid)
-        if skipped:
-            continue
-        alloc = b_alloc(m, bid)
-        released = float((m.get("rolloverReleased") or {}).get(bid) or 0)
-        spent = b_spent(m["id"], bid, transactions)
-        total += (alloc - spent) - released
-
-    return total
-
-
-# ── 3.9 Rollover Balance Net ──────────────────────────────────────────────────
-
-def rollover_bal(
-    bucket: dict,
-    month: dict,
-    all_months: list[dict],
-    transactions: list[dict],
-) -> float:
-    raw = rollover_bal_raw(bucket, month["id"], all_months, transactions)
-    released = float((month.get("rolloverReleased") or {}).get(bucket["id"]) or 0)
-    return raw - released
-
-
 # ── 3.10 Bucket Available ─────────────────────────────────────────────────────
 
 def bucket_available(
@@ -250,10 +210,19 @@ def bucket_available(
     all_months: list[dict],
     transactions: list[dict],
 ) -> float:
-    alloc = b_alloc(month, bucket["id"])
-    roll = rollover_bal(bucket, month, all_months, transactions)
-    spent = b_spent(month["id"], bucket["id"], transactions)
-    return (alloc + roll) - spent
+    """Net spendable balance for this bucket, carried forward automatically.
+
+    Every dollar allocated but not spent simply remains available next month
+    — like a real envelope, with no separate "rollover" toggle or release
+    step. Overspending likewise carries forward as a negative balance that
+    next month's allocation must cover first.
+    """
+    bid = bucket["id"]
+    carried = sum(
+        b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
+        for m in months_before(month["id"], all_months)
+    )
+    return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
 
 
 # ── 3.12 Vault Accumulated ────────────────────────────────────────────────────
@@ -342,9 +311,4 @@ def ready_to_spend(
         for b in active_buckets
     )
 
-    future_released = sum(
-        sum(float(v) for v in (fm.get("rolloverReleased") or {}).values())
-        for fm in future_months
-    )
-
-    return bb - cur_claimed - future_claimed + future_released
+    return bb - cur_claimed - future_claimed

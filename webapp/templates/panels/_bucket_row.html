@@ -109,28 +109,6 @@
           </form>
         {% endif %}
 
-        {% if b.rollover and b.roll_bal_raw > 0.01 and not b.rollover_released %}
-        <form method="post" action="{{ url_for('panels.rollover_release', bid=b.id) }}"
-              style="display:inline"
-              hx-post="{{ url_for('panels.rollover_release', bid=b.id) }}"
-              hx-target="closest .bkt-row" hx-swap="outerHTML">
-          <button class="rollover-release-btn" type="submit"
-                  title="Release rollover balance back to the RTS pool"
-                  onclick="return confirm('Release {{ b.roll_bal_raw | money }} rollover back to pool?')">
-            ↑ {{ b.roll_bal_raw | money }}
-          </button>
-        </form>
-        {% elif b.rollover and b.rollover_released > 0.01 %}
-        <form method="post" action="{{ url_for('panels.rollover_undo_release', bid=b.id) }}"
-              style="display:inline"
-              hx-post="{{ url_for('panels.rollover_undo_release', bid=b.id) }}"
-              hx-target="closest .bkt-row" hx-swap="outerHTML">
-          <button class="rollover-release-btn undo" type="submit" title="Undo rollover release">
-            ↩ Undo
-          </button>
-        </form>
-        {% endif %}
-
         {% if b.due_day or b.pay_freq %}
         <form method="post" action="{{ url_for('panels.toggle_handled', bid=b.id) }}"
               style="display:inline"

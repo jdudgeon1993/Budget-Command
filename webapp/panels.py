@@ -182,7 +182,6 @@ def bucket_settings(bid):
                 "cat_id": f.get("catId", bucket.get("catId", "")),
                 "type": btype,
                 "default_budget": _num("default_budget"),
-                "rollover": f.get("rollover") == "1",
                 "notes": f.get("notes", ""),
             }
             if btype == "expense":
@@ -420,64 +419,6 @@ def toggle_handled(bid):
     return "", 204
 
 
-def _bucket_card_response(bid: str):
-    """Return just the updated bucket card + OOB RTS refresh."""
-    vm = D.bucket_rows()
-    row = color = None
-    for grp in vm["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                row, color = b, grp["color"]
-    if row is None:
-        return _buckets_response()
-    shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
-            + render_template("panels/_oob_rts.html", shell=shell))
-
-
-@bp.route("/buckets/<bid>/rollover/release", methods=["POST"])
-@login_required
-def rollover_release(bid):
-    """Release full rollover balance back to RTS pool."""
-    data = D.load_data()
-    month = D.active_month(data)
-    months = data.get("months", [])
-    txs = data.get("txs", [])
-    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
-    if not bucket:
-        flash("Bucket not found.", "error")
-        return redirect(url_for("panels.buckets"))
-    raw = D.F.rollover_bal_raw(bucket, month["id"], months, txs)
-    if raw <= 0:
-        flash("No rollover balance to release.", "ok")
-        return _buckets_response()
-    month.setdefault("rolloverReleased", {})[bid] = raw
-    if not current_app.config["DEV_SEED"]:
-        DB.ensure_month(session["user_id"], session["access_token"], month["id"])
-        DB.upsert_rollover_released(session["user_id"], session["access_token"],
-                                    month["id"], bid, raw)
-        D.invalidate_cache()
-    flash(f"Released ${raw:,.2f} rollover to pool.", "ok")
-    return _bucket_card_response(bid)
-
-
-@bp.route("/buckets/<bid>/rollover/undo-release", methods=["POST"])
-@login_required
-def rollover_undo_release(bid):
-    """Undo a rollover release — restores the rollover balance."""
-    data = D.load_data()
-    month = D.active_month(data)
-    rr = month.get("rolloverReleased") or {}
-    if bid in rr:
-        del rr[bid]
-    if not current_app.config["DEV_SEED"]:
-        DB.delete_rollover_released(session["user_id"], session["access_token"],
-                                    month["id"], bid)
-        D.invalidate_cache()
-    flash("Rollover release undone.", "ok")
-    return _bucket_card_response(bid)
-
-
 # ── Month workflow ────────────────────────────────────────────────────────────
 
 @bp.route("/month/copy", methods=["POST"])
@@ -493,32 +434,6 @@ def month_copy():
         flash("Allocations copied from last month.", "ok")
     else:
         flash("Dev mode: copy not persisted.", "ok")
-    return _buckets_response()
-
-
-@bp.route("/month/close", methods=["POST"])
-@login_required
-def month_close():
-    data = D.load_data()
-    if not current_app.config["DEV_SEED"]:
-        DB.close_month(session["user_id"], session["access_token"],
-                       D.active_mid(), data.get("accounts", []), data.get("txs", []))
-        D.invalidate_cache()
-        flash("Month closed.", "ok")
-    else:
-        flash("Dev mode: close not persisted.", "ok")
-    return _buckets_response()
-
-
-@bp.route("/month/reopen", methods=["POST"])
-@login_required
-def month_reopen():
-    if not current_app.config["DEV_SEED"]:
-        DB.reopen_month(session["user_id"], session["access_token"], D.active_mid())
-        D.invalidate_cache()
-        flash("Month reopened.", "ok")
-    else:
-        flash("Dev mode: reopen not persisted.", "ok")
     return _buckets_response()
 
 

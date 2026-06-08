@@ -139,8 +139,6 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         threading.Thread(target=fetch, args=("months_raw",    "bcc_months")),
         threading.Thread(target=fetch, args=("allocs_raw",    "bcc_month_allocations")),
         threading.Thread(target=fetch, args=("budgets_raw",   "bcc_month_budgets")),
-        threading.Thread(target=fetch, args=("rollrel_raw",   "bcc_month_rollover_released")),
-        threading.Thread(target=fetch, args=("skipped_raw",   "bcc_month_skipped")),
         threading.Thread(target=fetch, args=("handled_raw",   "bcc_month_handled")),
         threading.Thread(target=fetch, args=("vaultwd_raw",   "bcc_month_vault_withdrawals")),
         threading.Thread(target=fetch, args=("paychecks_raw", "bcc_paychecks")),
@@ -159,8 +157,6 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
     months_raw    = results.get("months_raw", [])
     allocs_raw    = results.get("allocs_raw", [])
     budgets_raw   = results.get("budgets_raw", [])
-    rollrel_raw   = results.get("rollrel_raw", [])
-    skipped_raw   = results.get("skipped_raw", [])
     handled_raw   = results.get("handled_raw", [])
     vaultwd_raw   = results.get("vaultwd_raw", [])
     paychecks_raw = results.get("paychecks_raw", [])
@@ -187,7 +183,7 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
     buckets = [{
         "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
         "catId": b.get("cat_id", ""),
-        "rollover": b.get("rollover", False), "archived": b.get("archived", False),
+        "archived": b.get("archived", False),
         "openingBalance": float(b.get("opening_balance") or 0),
         "defaultBudget": float(b.get("default_budget") or 0),
         "dueDay": b.get("due_day"), "payFreq": b.get("pay_freq"),
@@ -222,14 +218,6 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
     for b in budgets_raw:
         budget_by_mid.setdefault(b["month_id"], {})[b["bucket_id"]] = float(b.get("amount") or 0)
 
-    rollrel_by_mid: dict[str, dict] = {}
-    for r in rollrel_raw:
-        rollrel_by_mid.setdefault(r["month_id"], {})[r["bucket_id"]] = float(r.get("amount") or 0)
-
-    skipped_by_mid: dict[str, dict] = {}
-    for s in skipped_raw:
-        skipped_by_mid.setdefault(s["month_id"], {})[s["bucket_id"]] = True
-
     handled_by_mid: dict[str, dict] = {}
     for h in handled_raw:
         handled_by_mid.setdefault(h["month_id"], {})[h["bucket_id"]] = True
@@ -239,12 +227,9 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         vault_by_mid.setdefault(v["month_id"], {})[v["bucket_id"]] = float(v.get("amount") or 0)
 
     months = [{
-        "id": m["id"], "closed": bool(m.get("closed")),
-        "closing_snapshot": m.get("closing_snapshot") or {},
+        "id": m["id"],
         "allocations": alloc_by_mid.get(m["id"], {}),
         "budgets": budget_by_mid.get(m["id"], {}),
-        "rolloverReleased": rollrel_by_mid.get(m["id"], {}),
-        "skippedBuckets": skipped_by_mid.get(m["id"], {}),
         "handledBuckets": handled_by_mid.get(m["id"], {}),
         "vaultWithdrawals": vault_by_mid.get(m["id"], {}),
     } for m in months_raw]
@@ -303,7 +288,7 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
     """Patch one or more columns on a bucket row."""
     col_map = {
         "name": "name", "type": "type", "cat_id": "cat_id",
-        "rollover": "rollover", "archived": "archived",
+        "archived": "archived",
         "default_budget": "default_budget",
         "due_day": "due_day", "due_amount": "due_amount",
         "pay_freq": "pay_freq",
@@ -328,7 +313,7 @@ def insert_bucket(uid: str, token: str, name: str, cat_id: str, btype: str = "ex
     client(token).table("bcc_buckets").insert({
         "id": bid, "user_id": uid, "name": name,
         "cat_id": cat_id, "type": btype,
-        "rollover": False, "archived": False,
+        "archived": False,
         "default_budget": 0, "sort_order": 999,
     }).execute()
     return bid
@@ -357,17 +342,6 @@ def insert_category(uid: str, token: str, name: str, color: str) -> str:
         "color": color, "sort_order": 999,
     }).execute()
     return cid
-
-
-def upsert_rollover_released(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
-    client(token).table("bcc_month_rollover_released").upsert({
-        "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
-    }, on_conflict="user_id,month_id,bucket_id").execute()
-
-
-def delete_rollover_released(uid: str, token: str, mid: str, bid: str) -> None:
-    client(token).table("bcc_month_rollover_released").delete() \
-        .eq("user_id", uid).eq("month_id", mid).eq("bucket_id", bid).execute()
 
 
 def upsert_vault_withdrawal(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
@@ -632,29 +606,6 @@ def copy_month_allocs(uid: str, token: str, dst_mid: str, src_mid: str) -> None:
     ]
     if rows:
         db.table("bcc_month_allocations").insert(rows).execute()
-
-
-def close_month(uid: str, token: str, mid: str, accounts: list, txs: list) -> None:
-    from datetime import date as _date
-    from .formulas import acct_balance as _bal, is_scheduled as _sched
-    cash = sum(_bal(a, txs) for a in accounts if a.get("type") != "debt" and not a.get("archived"))
-    debt = sum(_bal(a, txs) for a in accounts if a.get("type") == "debt" and not a.get("archived"))
-    income = sum(float(t.get("amount", 0)) for t in txs
-                 if t.get("monthId") == mid and t.get("type") == "in" and not _sched(t))
-    spent  = sum(float(t.get("amount", 0)) for t in txs
-                 if t.get("monthId") == mid and t.get("type") == "out" and not _sched(t))
-    snapshot = {"date": str(_date.today()), "cash": round(cash, 2),
-                "net_worth": round(cash - debt, 2), "debt_total": round(debt, 2),
-                "income": round(income, 2), "spent": round(spent, 2)}
-    client(token).table("bcc_months").update({
-        "closed": True, "closing_snapshot": snapshot,
-        "closing_date": str(_date.today()),
-    }).eq("id", mid).eq("user_id", uid).execute()
-
-
-def reopen_month(uid: str, token: str, mid: str) -> None:
-    client(token).table("bcc_months").update({"closed": False}) \
-        .eq("id", mid).eq("user_id", uid).execute()
 
 
 # ── Payees ────────────────────────────────────────────────────────────────────

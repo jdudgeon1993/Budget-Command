@@ -62,7 +62,7 @@ def active_month(data: dict, mid: str = None) -> dict:
     for m in data.get("months", []):
         if m["id"] == target:
             return m
-    return {"id": target, "allocations": {}, "budgets": {}, "handledBuckets": {}, "rolloverReleased": {}, "skippedBuckets": {}, "vaultWithdrawals": {}}
+    return {"id": target, "allocations": {}, "budgets": {}, "handledBuckets": {}, "vaultWithdrawals": {}}
 
 
 def month_label(mid: str) -> str:
@@ -101,12 +101,10 @@ def shell_ctx(active_panel: str = "") -> dict:
         if bkts:
             tx_buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
 
-    month_closed = active_month(data).get("closed", False)
     return {
         "active_panel": active_panel,
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
-        "month_closed": month_closed,
         "rts": rts,
         "total_cash": total_cash,
         "age_of_money": aom,
@@ -149,9 +147,6 @@ def bucket_rows(view_mid: str = None):
             budget = F.b_budget(month, bid)
             spent = F.b_spent(mid, bid, txs)
             left = F.bucket_available(b, month, months, txs)
-            roll_bal = F.rollover_bal(b, month, months, txs)
-            roll_bal_raw = F.rollover_bal_raw(b, month["id"], months, txs)
-            rollover_released = float((month.get("rolloverReleased") or {}).get(bid) or 0)
             vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
             over = max(spent - budget, 0) if budget else max(spent - alloc, 0)
             needed = max(budget - alloc, 0)
@@ -210,9 +205,6 @@ def bucket_rows(view_mid: str = None):
                 "progress_pct": progress_pct,
                 "goal_reached": goal_reached,
                 "monthly_needed": monthly_needed,
-                "rollover": b.get("rollover", False),
-                "roll_bal_raw": roll_bal_raw,
-                "rollover_released": rollover_released,
                 "handled": handled,
                 "txs": bkt_txs,
             }
@@ -503,121 +495,6 @@ def tx_by_id(tid: str) -> dict | None:
         if t.get("id") == tid:
             return t
     return None
-
-
-def close_wizard_ctx() -> dict:
-    """All data needed by the End-of-Month Close wizard modal.
-
-    Always targets the previous calendar month — you close the month that ended,
-    not the one you're currently budgeting.
-    """
-    import calendar as _cal
-    from datetime import date as _date
-    data = load_data()
-    txs = data.get("txs", [])
-    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-
-    # Always close the previous calendar month
-    target_mid = F.month_offset(F.current_month_id(), -1)
-    month = active_month(data, target_mid)
-
-    # Last calendar day of the target month — used for end-of-month balances
-    y, m0 = F.parse_month_id(target_mid)
-    cal_month = m0 + 1  # 0-indexed → 1-indexed
-    eom_date = _date(y, cal_month, _cal.monthrange(y, cal_month)[1])
-
-    # Transactions that belong to the target month (posted only)
-    month_txs = [t for t in txs
-                 if t.get("monthId") == target_mid and not F.is_scheduled(t)]
-
-    # Step 1 — income
-    income_txs = sorted(
-        [{"date": t.get("date", "")[:10],
-          "desc": t.get("desc") or "Income",
-          "amount": float(t.get("amount") or 0),
-          "acct": next((a["name"] for a in accounts if a["id"] == t.get("accountId")), "")}
-         for t in month_txs if t.get("type") == "in"],
-        key=lambda r: r["date"], reverse=True,
-    )
-    income_total = sum(r["amount"] for r in income_txs)
-
-    # Step 2 — non-debt accounts, balance as of EOM
-    budget_accounts = [
-        {"id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
-         "balance": F.acct_balance_as_of(a, txs, eom_date)}
-        for a in accounts if a.get("type") != "debt"
-    ]
-
-    # Step 3 — debt accounts, balance as of EOM
-    debt_accounts = [
-        {"id": a["id"], "name": a["name"],
-         "balance": F.acct_balance_as_of(a, txs, eom_date),
-         "apr": a.get("debtAPR"),
-         "min_payment": a.get("debtMinPayment"),
-         "interest_posted": sum(
-             float(t.get("amount") or 0) for t in month_txs
-             if t.get("accountId") == a["id"] and t.get("type") == "out"
-             and "Interest" in (t.get("desc") or "")
-         )}
-        for a in accounts if a.get("type") == "debt"
-    ]
-
-    # Step 4 — bucket summary for the target month
-    funded = partial = over = 0
-    over_buckets = []
-    partial_buckets = []
-    for b in buckets:
-        bid = b["id"]
-        alloc = F.b_alloc(month, bid)
-        budget = F.b_budget(month, bid)
-        spent = F.b_spent(target_mid, bid, txs)
-        if b.get("type") == "vault":
-            funded += 1
-            continue
-        excess = spent - budget if budget else spent - alloc
-        if excess > 0.005:
-            over += 1
-            over_buckets.append({"id": bid, "name": b["name"], "budget": budget,
-                                  "spent": spent, "over": excess})
-        elif alloc < (budget * 0.99 if budget else 0.01):
-            partial += 1
-            partial_buckets.append({"id": bid, "name": b["name"],
-                                     "budget": budget, "alloc": alloc,
-                                     "needed": round(budget - alloc, 2)})
-        else:
-            funded += 1
-
-    # Step 5 — closing snapshot using EOM balances
-    cash = sum(F.acct_balance_as_of(a, txs, eom_date)
-               for a in accounts if a.get("type") != "debt")
-    debt_total = sum(F.acct_balance_as_of(a, txs, eom_date)
-                     for a in accounts if a.get("type") == "debt")
-    spent_total = sum(float(t.get("amount") or 0)
-                      for t in month_txs if t.get("type") == "out")
-
-    return {
-        "month_label": month_label(target_mid),
-        "target_mid": target_mid,
-        "eom_date": eom_date.isoformat(),
-        "is_closed": month.get("closed", False),
-        # Step 1
-        "income_txs": income_txs, "income_total": income_total,
-        # Step 2
-        "budget_accounts": budget_accounts,
-        # Step 3
-        "debt_accounts": debt_accounts,
-        # Step 4
-        "bucket_counts": {"funded": funded, "partial": partial, "over": over},
-        "over_buckets": over_buckets,
-        "partial_buckets": partial_buckets,
-        # Step 5
-        "snapshot": {
-            "cash": round(cash, 2), "debt_total": round(debt_total, 2),
-            "net_worth": round(cash - debt_total, 2),
-            "income": round(income_total, 2), "spent": round(spent_total, 2),
-        },
-    }
 
 
 def forecast_view(n_months: int = 3, income_override: float = 0.0,

@@ -91,13 +91,6 @@
       </div>
     </div>
     <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-      <label style="margin-bottom:0;flex:1">Rollover unspent balance</label>
-      <select name="rollover" style="width:auto;flex:0 0 auto">
-        <option value="1" {{ 'selected' if bucket.rollover }}>Yes — roll over</option>
-        <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
-      </select>
-    </div>
-    <div class="edit-field" style="display:flex;align-items:center;gap:12px">
       <label style="margin-bottom:0;flex:1">Recurring bill</label>
       <select name="recurring" style="width:auto;flex:0 0 auto">
         <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
@@ -135,13 +128,6 @@
         <input type="month" name="target_date"
                value="{{ bucket.targetDate or '' }}" placeholder="YYYY-MM">
       </div>
-    </div>
-    <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-      <label style="margin-bottom:0;flex:1">Roll over balance (accumulate)</label>
-      <select name="rollover" style="width:auto;flex:0 0 auto">
-        <option value="1" {{ 'selected' if bucket.rollover }}>Yes — accumulate</option>
-        <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
-      </select>
     </div>
   </div>
 

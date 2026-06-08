@@ -6,7 +6,7 @@ Ported from app/app.py forecast endpoint.
 import calendar as _cal
 from datetime import date, timedelta
 from .formulas import (acct_balance as _acct_balance, is_scheduled as _is_scheduled,
-                       b_alloc, b_spent, rollover_bal_raw)
+                       b_alloc, b_spent, bucket_available)
 
 
 # ── Timeline helpers ──────────────────────────────────────────────────────────
@@ -364,12 +364,12 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         target  = budget if budget > 0 else bill_a
         if target <= 0:
             return alloc > 0
-        # For current month include rollover — a bucket funded by carryover is not unfunded
+        # Carryforward is always-on — a bucket funded by its rolled-over balance is not unfunded
         if mid_ == today_mid:
             bucket_obj = next((b for b in buckets if b["id"] == bid), None)
-            if bucket_obj and bucket_obj.get("rollover"):
-                roll = rollover_bal_raw(bucket_obj, mid_, months_raw, txs)
-                avail = alloc + roll - b_spent(mid_, bid, txs)
+            month_obj = next((m for m in months_raw if m.get("id") == mid_), None)
+            if bucket_obj and month_obj:
+                avail = bucket_available(bucket_obj, month_obj, months_raw, txs)
                 return avail >= target * 0.99
         return alloc >= target * 0.99
 
