@@ -36,30 +36,98 @@
     .sp-root.signup .sp-form-login{opacity:0;pointer-events:none}
 
     /* ── Hero content ── */
-    .sp-hero-inner{position:relative;z-index:1;max-width:320px}
-    .sp-hero-brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:48px}
+    .sp-hero-inner{position:relative;z-index:1;max-width:320px;width:100%}
+    .sp-hero-brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:28px}
     .sp-hero-icon{width:44px;height:44px;background:var(--accent);border-radius:10px;
       display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(191,90,242,.5)}
     .sp-hero-name{font-size:20px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fff}
-    .sp-hero-hl{font-size:38px;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-bottom:14px}
-    .sp-hero-sub{font-size:14px;color:rgba(255,255,255,.42);line-height:1.65;margin-bottom:40px}
-
-    /* Steps */
-    .sp-steps{display:flex;flex-direction:column;gap:20px;text-align:left;margin-bottom:44px}
-    .sp-step{display:flex;align-items:flex-start;gap:14px}
-    .sp-step-dot{width:28px;height:28px;border-radius:var(--r-sm);background:rgba(191,90,242,.14);
-      border:1px solid rgba(191,90,242,.25);display:flex;align-items:center;justify-content:center;
-      flex-shrink:0;color:var(--accent);margin-top:1px}
-    .sp-step-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
-    .sp-step-desc{font-size:12px;color:rgba(255,255,255,.35);line-height:1.5}
+    .sp-hero-hl{font-size:34px;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-bottom:8px}
+    .sp-hero-sub{font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;margin-bottom:20px}
 
     /* Switch button on hero */
-    .sp-hero-switch{display:flex;flex-direction:column;align-items:center;gap:10px}
+    .sp-hero-switch{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:20px}
     .sp-hero-hint{font-size:13px;color:rgba(255,255,255,.38)}
     .sp-switch-btn{padding:11px 32px;border-radius:var(--r-pill);border:1.5px solid rgba(255,255,255,.25);
       background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer;
       letter-spacing:.04em;transition:background .2s,border-color .2s;font-family:var(--sans)}
     .sp-switch-btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5)}
+
+    /* ── Demo preview ── */
+    .demo-preview{width:100%;margin-bottom:4px}
+    .demo-win{
+      background:rgba(8,5,18,.75);
+      border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;
+      overflow:hidden;
+      position:relative;
+    }
+    .demo-win-hdr{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:7px 11px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+    }
+    .demo-hdr-label{font-size:10px;color:rgba(255,255,255,.45);font-weight:600;letter-spacing:.07em;text-transform:uppercase}
+    .demo-rts-chip{
+      background:rgba(191,90,242,.14);color:rgba(191,90,242,.85);
+      border:1px solid rgba(191,90,242,.2);border-radius:20px;
+      padding:2px 8px;font-size:10px;font-weight:700;
+    }
+    .demo-bkt-row{
+      display:flex;align-items:center;gap:7px;
+      padding:6px 11px;
+      border-bottom:1px solid rgba(255,255,255,.04);
+    }
+    .demo-bkt-name{font-size:11px;color:rgba(255,255,255,.65);width:70px;flex-shrink:0}
+    .demo-bar-track{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+    .demo-bar{height:100%;border-radius:2px;background:rgba(191,90,242,.75);
+      transition:width .65s cubic-bezier(.4,0,.2,1),background .4s}
+    .demo-bar.green{background:#22c55e}
+    .demo-bkt-amt{font-size:10px;width:66px;text-align:right;flex-shrink:0;
+      font-family:'JetBrains Mono',monospace;transition:color .3s}
+    .demo-bkt-amt.neutral{color:rgba(255,255,255,.38)}
+    .demo-bkt-amt.amber{color:#fbbf24}
+    .demo-bkt-amt.green{color:#22c55e}
+    .demo-gp-wrap{padding:9px 11px 10px}
+    .demo-gp-btn{
+      display:inline-flex;align-items:center;gap:5px;
+      background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.28);
+      color:rgba(191,90,242,.85);border-radius:6px;
+      padding:6px 11px;font-size:11px;font-weight:700;
+      cursor:default;font-family:var(--sans);
+      transition:background .15s,border-color .15s,box-shadow .15s,transform .1s;
+    }
+    .demo-gp-btn.pulse{
+      background:rgba(191,90,242,.25);border-color:rgba(191,90,242,.55);
+      box-shadow:0 0 14px rgba(191,90,242,.35);
+    }
+    .demo-gp-btn.click{transform:scale(.95);background:rgba(191,90,242,.35)}
+
+    /* ── Distribute modal inside demo ── */
+    .demo-modal{
+      position:absolute;bottom:0;left:0;right:0;
+      background:rgba(22,8,38,.97);
+      border-top:1px solid rgba(191,90,242,.25);
+      padding:11px 12px 12px;
+      transform:translateY(102%);
+      transition:transform .32s cubic-bezier(.32,.72,0,1);
+      border-radius:0 0 10px 10px;
+    }
+    .demo-modal.show{transform:translateY(0)}
+    .demo-modal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+    .demo-modal-title{font-size:11px;font-weight:700;color:#fff;letter-spacing:.03em}
+    .demo-modal-chip{
+      background:rgba(129,140,248,.14);color:rgba(129,140,248,.85);
+      border:1px solid rgba(129,140,248,.2);
+      border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;
+    }
+    .demo-modal-row{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:4px 0;font-size:11px;color:rgba(255,255,255,.45);
+      opacity:0;transform:translateX(-6px);
+      transition:opacity .22s,transform .22s;
+    }
+    .demo-modal-row.show{opacity:1;transform:translateX(0)}
+    .demo-modal-plus{color:#22c55e;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:10px}
 
     /* ── Form side ── */
     .sp-form-title{font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.01em}
@@ -68,16 +136,26 @@
     .sp-flash.error{background:var(--red-dim);color:var(--red)}
     .sp-flash.ok{background:var(--green-dim);color:var(--green)}
 
+    /* ── Signup steps ── */
+    .sp-steps{display:flex;flex-direction:column;gap:18px;text-align:left;margin-bottom:24px}
+    .sp-step{display:flex;align-items:flex-start;gap:13px}
+    .sp-step-dot{width:26px;height:26px;border-radius:var(--r-sm);background:rgba(191,90,242,.14);
+      border:1px solid rgba(191,90,242,.25);display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;color:var(--accent);margin-top:1px}
+    .sp-step-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+    .sp-step-desc{font-size:11px;color:rgba(255,255,255,.33);line-height:1.5}
+
     /* ── Mobile fallback ── */
     @media(max-width:700px){
       html,body{overflow:auto;height:auto}
       .sp-root{height:auto;min-height:100vh;flex-direction:column;overflow:visible}
-      .sp-hero{position:static;width:100%;height:auto;padding:40px 28px 36px;order:-1;transform:none!important}
-      .sp-hero-brand{margin-bottom:28px}
-      .sp-hero-hl{font-size:30px;margin-bottom:10px}
+      .sp-hero{position:static;width:100%;height:auto;padding:36px 24px 28px;order:-1;transform:none!important}
+      .sp-hero-brand{margin-bottom:18px}
+      .sp-hero-hl{font-size:26px;margin-bottom:6px}
+      .demo-preview{display:none}
       .sp-steps{display:none}
       .sp-hero-switch{display:none}
-      .sp-form{position:static;width:100%;height:auto;padding:32px 28px 48px;opacity:1!important;pointer-events:auto!important}
+      .sp-form{position:static;width:100%;height:auto;padding:28px 24px 60px;opacity:1!important;pointer-events:auto!important}
       .sp-form-login,.sp-form-signup{display:none}
       .sp-form.mobile-active{display:flex}
       .mob-tab-row{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;background:var(--surface);margin-bottom:22px}
@@ -152,24 +230,63 @@
         <span class="sp-hero-name">Cura</span>
       </div>
 
-      {# Login-mode hero content #}
+      {# Login-mode hero content — animated product demo #}
       <div id="hero-login-content">
         <div class="sp-hero-hl">Every dollar<br>has a job.</div>
         <div class="sp-hero-sub">Zero-based budgeting built around your paycheck — not spreadsheets, not guesswork.</div>
-        <div class="sp-steps">
-          <div class="sp-step">
-            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
-            <div><div class="sp-step-title">Build your buckets</div><div class="sp-step-desc">Categories + target amounts, set once. Carried forward every month.</div></div>
-          </div>
-          <div class="sp-step">
-            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-            <div><div class="sp-step-title">Distribute your paycheck</div><div class="sp-step-desc">One modal. Rules → bills → savings. Every dollar placed in seconds.</div></div>
-          </div>
-          <div class="sp-step">
-            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
-            <div><div class="sp-step-title">Grow your Age of Money</div><div class="sp-step-desc">The longer dollars sit before being spent, the more cushion you build.</div></div>
+
+        {# ── Mini app demo ── #}
+        <div class="demo-preview">
+          <div class="demo-win" id="demo-win">
+            <div class="demo-win-hdr">
+              <span class="demo-hdr-label">June 2026</span>
+              <span class="demo-rts-chip">Ready: <span id="demo-rts">$1,240</span></span>
+            </div>
+            <div class="demo-bkt-row">
+              <span class="demo-bkt-name">Rent</span>
+              <div class="demo-bar-track"><div class="demo-bar green" id="db-rent" style="width:100%"></div></div>
+              <span class="demo-bkt-amt green" id="da-rent">$2,431 ✓</span>
+            </div>
+            <div class="demo-bkt-row">
+              <span class="demo-bkt-name">Groceries</span>
+              <div class="demo-bar-track"><div class="demo-bar" id="db-groc" style="width:45%"></div></div>
+              <span class="demo-bkt-amt amber" id="da-groc">$180 / $400</span>
+            </div>
+            <div class="demo-bkt-row">
+              <span class="demo-bkt-name">Emergency</span>
+              <div class="demo-bar-track"><div class="demo-bar" id="db-emer" style="width:0%"></div></div>
+              <span class="demo-bkt-amt amber" id="da-emer">$0 / $500</span>
+            </div>
+            <div class="demo-bkt-row" style="border-bottom:none">
+              <span class="demo-bkt-name">Dining Out</span>
+              <div class="demo-bar-track"><div class="demo-bar" id="db-dine" style="width:0%"></div></div>
+              <span class="demo-bkt-amt amber" id="da-dine">$0 / $200</span>
+            </div>
+            <div class="demo-gp-wrap">
+              <div class="demo-gp-btn" id="demo-gp">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Get Paid $3,200
+              </div>
+            </div>
+            {# Distribute modal slides up from bottom #}
+            <div class="demo-modal" id="demo-modal">
+              <div class="demo-modal-top">
+                <span class="demo-modal-title">Distribute Paycheck</span>
+                <span class="demo-modal-chip">$3,200</span>
+              </div>
+              <div class="demo-modal-row" id="dmr-1">
+                <span>→ Groceries</span><span class="demo-modal-plus">+$220</span>
+              </div>
+              <div class="demo-modal-row" id="dmr-2">
+                <span>→ Emergency Fund</span><span class="demo-modal-plus">+$500</span>
+              </div>
+              <div class="demo-modal-row" id="dmr-3">
+                <span>→ Dining Out</span><span class="demo-modal-plus">+$200</span>
+              </div>
+            </div>
           </div>
         </div>
+
         <div class="sp-hero-switch">
           <span class="sp-hero-hint">Don't have an account?</span>
           <button class="sp-switch-btn" onclick="setMode('signup')">Create Account</button>
@@ -250,9 +367,102 @@ function mobSwitch(mode) {
 (function(){
   var init = '{{ mode }}';
   var isMob = window.matchMedia('(max-width:700px)').matches;
-  if (isMob) {
-    mobSwitch(init);
+  if (isMob) { mobSwitch(init); }
+})();
+
+// ── Demo animation ──
+(function() {
+  function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  async function demoLoop() {
+    var gpBtn  = document.getElementById('demo-gp');
+    var modal  = document.getElementById('demo-modal');
+    var dbGroc = document.getElementById('db-groc');
+    var dbEmer = document.getElementById('db-emer');
+    var dbDine = document.getElementById('db-dine');
+    var daGroc = document.getElementById('da-groc');
+    var daEmer = document.getElementById('da-emer');
+    var daDine = document.getElementById('da-dine');
+    var dmr1   = document.getElementById('dmr-1');
+    var dmr2   = document.getElementById('dmr-2');
+    var dmr3   = document.getElementById('dmr-3');
+    var rtsEl  = document.getElementById('demo-rts');
+    if (!gpBtn) return;
+
+    // Reset helper — no animation when snapping back
+    function resetBars() {
+      [dbGroc, dbEmer, dbDine].forEach(function(b) {
+        b.style.transition = 'none';
+        b.classList.remove('green');
+      });
+      dbGroc.style.width = '45%';
+      dbEmer.style.width = '0%';
+      dbDine.style.width = '0%';
+      daGroc.textContent = '$180 / $400'; daGroc.className = 'demo-bkt-amt amber';
+      daEmer.textContent = '$0 / $500';   daEmer.className = 'demo-bkt-amt amber';
+      daDine.textContent = '$0 / $200';   daDine.className = 'demo-bkt-amt amber';
+      dmr1.classList.remove('show');
+      dmr2.classList.remove('show');
+      dmr3.classList.remove('show');
+      if (rtsEl) rtsEl.textContent = '$1,240';
+    }
+
+    function restoreTransitions() {
+      [dbGroc, dbEmer, dbDine].forEach(function(b){
+        b.style.transition = 'width .65s cubic-bezier(.4,0,.2,1), background .4s';
+      });
+    }
+
+    await sleep(1000);
+
+    while (true) {
+      // Phase 1 — pulse the Get Paid button
+      await sleep(1400);
+      gpBtn.classList.add('pulse');
+      await sleep(650);
+      gpBtn.classList.remove('pulse');
+      gpBtn.classList.add('click');
+      await sleep(160);
+      gpBtn.classList.remove('click');
+
+      // Phase 2 — distribute modal slides up
+      await sleep(140);
+      modal.classList.add('show');
+      await sleep(480);
+      dmr1.classList.add('show');
+      await sleep(320);
+      dmr2.classList.add('show');
+      await sleep(320);
+      dmr3.classList.add('show');
+      await sleep(1100);
+
+      // Phase 3 — close modal, fill bars
+      modal.classList.remove('show');
+      await sleep(350);
+
+      restoreTransitions();
+      if (rtsEl) rtsEl.textContent = '$280';
+
+      dbGroc.style.width = '100%'; dbGroc.classList.add('green');
+      daGroc.textContent = '$400 ✓'; daGroc.className = 'demo-bkt-amt green';
+      await sleep(480);
+
+      dbEmer.style.width = '100%'; dbEmer.classList.add('green');
+      daEmer.textContent = '$500 ✓'; daEmer.className = 'demo-bkt-amt green';
+      await sleep(480);
+
+      dbDine.style.width = '100%'; dbDine.classList.add('green');
+      daDine.textContent = '$200 ✓'; daDine.className = 'demo-bkt-amt green';
+      await sleep(1800);
+
+      // Reset
+      resetBars();
+      await sleep(60);
+      restoreTransitions();
+    }
   }
+
+  setTimeout(demoLoop, 600);
 })();
 </script>
 </body>
