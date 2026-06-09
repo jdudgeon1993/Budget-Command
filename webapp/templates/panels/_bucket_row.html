@@ -136,9 +136,24 @@
               hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
           <label>Allocation
-            <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
-                   aria-label="Allocation for {{ b.name }}"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+            <div class="fx-wrap">
+              <input class="alloc-input mono" name="alloc" id="alloc-{{ b.id }}" value="{{ b.alloc | money }}"
+                     aria-label="Allocation for {{ b.name }}"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+              <button type="button" class="fx-btn" onclick="fxOpen('alloc-{{ b.id }}','fx-pop-alloc-{{ b.id }}')" title="Calculator">fx</button>
+              <div class="fx-popover" id="fx-pop-alloc-{{ b.id }}">
+                <div class="fx-popover-lbl">Expression (e.g. +15, *1.15, 45+20)</div>
+                <div class="fx-popover-row">
+                  <input class="fx-expr-input" type="text" placeholder="+0"
+                         onkeydown="if(event.key==='Enter'){fxApply('alloc-{{ b.id }}','fx-pop-alloc-{{ b.id }}',this.value);event.preventDefault();}"
+                         oninput="document.getElementById('fx-err-alloc-{{ b.id }}').style.display='none'">
+                  <button type="button" class="fx-apply-btn"
+                          onclick="fxApply('alloc-{{ b.id }}','fx-pop-alloc-{{ b.id }}',this.previousElementSibling.value)">→</button>
+                </div>
+                <div class="fx-error" id="fx-err-alloc-{{ b.id }}">Invalid expression</div>
+                <div class="fx-hint">Uses current value as base</div>
+              </div>
+            </div>
           </label>
         </form>
         <form method="post" action="{{ url_for('panels.set_budget', bid=b.id) }}"
@@ -148,9 +163,24 @@
               hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
           <label>{{ 'Monthly contrib' if b.btype == 'vault' else 'Budget' }}
-            <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
-                   aria-label="Budget for {{ b.name }}"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+            <div class="fx-wrap">
+              <input class="budget-input mono" name="budget" id="budget-{{ b.id }}" value="{{ b.budget | money }}"
+                     aria-label="Budget for {{ b.name }}"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+              <button type="button" class="fx-btn" onclick="fxOpen('budget-{{ b.id }}','fx-pop-budget-{{ b.id }}')" title="Calculator">fx</button>
+              <div class="fx-popover" id="fx-pop-budget-{{ b.id }}">
+                <div class="fx-popover-lbl">Expression (e.g. +15, *1.15, 45+20)</div>
+                <div class="fx-popover-row">
+                  <input class="fx-expr-input" type="text" placeholder="+0"
+                         onkeydown="if(event.key==='Enter'){fxApply('budget-{{ b.id }}','fx-pop-budget-{{ b.id }}',this.value);event.preventDefault();}"
+                         oninput="document.getElementById('fx-err-budget-{{ b.id }}').style.display='none'">
+                  <button type="button" class="fx-apply-btn"
+                          onclick="fxApply('budget-{{ b.id }}','fx-pop-budget-{{ b.id }}',this.previousElementSibling.value)">→</button>
+                </div>
+                <div class="fx-error" id="fx-err-budget-{{ b.id }}">Invalid expression</div>
+                <div class="fx-hint">Uses current value as base</div>
+              </div>
+            </div>
           </label>
         </form>
       </div>

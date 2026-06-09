@@ -275,14 +275,21 @@
         <div class="rpt-trend-legend-item"><div class="rpt-legend-dot" style="background:var(--indigo)"></div>Income</div>
         <div class="rpt-trend-legend-item"><div class="rpt-legend-dot" style="background:var(--accent)"></div>Expenses</div>
       </div>
-      <div class="rpt-trend-bars">
+      <div class="rpt-trend-bars" id="rpt-trend-bars">
         {% for t in trend_12mo %}
-        <div class="rpt-trend-col">
-          <div class="rpt-trend-bar income" style="height:{{ (t.income_pct * 0.9) | round | int }}px" title="{{ t.label }}: {{ t.income | money }}"></div>
-          <div class="rpt-trend-bar expense" style="height:{{ (t.spent_pct * 0.9) | round | int }}px" title="{{ t.label }}: {{ t.spent | money }}"></div>
+        <div class="rpt-trend-col"
+             data-month="{{ t.label }}"
+             data-income="{{ t.income | money }}"
+             data-expense="{{ t.spent | money }}"
+             data-net="{{ t.net | money }}"
+             onmouseenter="rptShowTip(event,this)"
+             onmouseleave="rptHideTip()">
+          <div class="rpt-trend-bar income" style="height:{{ (t.income_pct * 0.9) | round | int }}px"></div>
+          <div class="rpt-trend-bar expense" style="height:{{ (t.spent_pct * 0.9) | round | int }}px"></div>
         </div>
         {% endfor %}
       </div>
+      <div id="rpt-tip" class="rpt-tip" style="display:none"></div>
       <div class="rpt-trend-xlabels">
         {% for t in trend_12mo %}
         <div class="rpt-trend-xlabel {{ 'rpt-xlabel-cur' if loop.last }}">{{ t.label }}</div>
@@ -318,9 +325,14 @@
           <path d="M {{ pts | join(' L ') }} L {{ (trend_12mo | length - 1) * 50 }},44 L 0,44 Z"
                 fill="url(#sparkGrad)" stroke="none"/>
           <path d="M {{ pts | join(' L ') }}" fill="none" stroke="#30d158" stroke-width="1.5" stroke-linejoin="round"/>
-          <circle cx="{{ (trend_12mo | length - 1) * 50 }}"
-                  cy="{{ 44 - ((trend_12mo[-1].net - spark_min) / spark_range * 40) | round | int }}"
-                  r="3" fill="#30d158"/>
+          {% for t in trend_12mo %}
+            {% set x = loop.index0 * 50 %}
+            {% set y = 44 - ((t.net - spark_min) / spark_range * 40) | round | int %}
+          <circle cx="{{ x }}" cy="{{ y }}" r="{{ '4' if loop.last else '3' }}"
+                  fill="#30d158" opacity="{{ '1' if loop.last else '0.6' }}">
+            <title>{{ t.label }}: {{ t.net | money }} net</title>
+          </circle>
+          {% endfor %}
         </svg>
         <div class="rpt-trend-xlabels" style="margin-top:2px">
           {% for t in trend_12mo %}
@@ -414,7 +426,9 @@
           <path d="M {{ nw_pts | join(' L ') }}" fill="none" stroke="#30d158" stroke-width="2" stroke-linejoin="round"/>
           {% for t in nw_trend %}
           <circle cx="{{ loop.index0 * 100 }}" cy="{{ 50 - (t.pct * 0.46) | round | int }}"
-                  r="{{ '4' if loop.last else '3' }}" fill="#30d158" opacity="{{ '1' if loop.last else '0.6' }}"/>
+                  r="{{ '4' if loop.last else '3' }}" fill="#30d158" opacity="{{ '1' if loop.last else '0.6' }}">
+            <title>{{ t.label }}: {{ t.net_worth | money }}</title>
+          </circle>
           {% endfor %}
         </svg>
         <div class="rpt-trend-xlabels" style="margin-top:4px">
@@ -458,16 +472,15 @@
       <span class="rpt-card-icon">🏅</span>
       <span class="rpt-card-title">ZBB Discipline</span>
       {% set _ah = heatmap | rejectattr('status','eq','empty') | list %}
-      {% set _as = (_ah | selectattr('status','eq','full') | list | length / [_ah | length, 1] | max * 100) | round | int %}
-      <span class="rpt-card-summary">{{ _as }}% score</span>
+      {% set _as = (_ah | sum(attribute='alloc_rate') / [_ah | length, 1] | max) | round | int %}
+      <span class="rpt-card-summary">{{ _as }}% avg allocation</span>
       <span class="rpt-arrow" id="rpt-arr-disc">▾</span>
     </div>
     <div class="rpt-card-body" id="rpt-body-disc">
 
       {% set active_heatmap = heatmap | rejectattr('status','eq','empty') | list %}
-      {% set active_full = active_heatmap | selectattr('status','eq','full') | list | length %}
       {% set active_total = active_heatmap | length %}
-      {% set active_score = (active_full / active_total * 100) | round | int if active_total > 0 else 0 %}
+      {% set active_score = (active_heatmap | sum(attribute='alloc_rate') / [active_total, 1] | max) | round | int %}
 
       <div class="rpt-disc-score-wrap">
         <div class="rpt-score-ring">
@@ -490,7 +503,7 @@
           </div>
           <div class="rpt-score-sub">
             {% if active_total > 0 %}
-              Fully allocated {{ active_full }} of {{ active_total }} active month{{ 's' if active_total != 1 }}.
+              Avg {{ active_score }}% of income allocated across {{ active_total }} active month{{ 's' if active_total != 1 }}.
             {% else %}
               Add income transactions to track your ZBB discipline.
             {% endif %}
@@ -503,7 +516,7 @@
       <div class="rpt-heatmap">
         {% for h in heatmap %}
         <div class="rpt-hm-cell {{ h.status }}"
-             title="{{ h.label }}: {{ 'No data' if h.status == 'empty' else ('Fully allocated' if h.status == 'full' else ('Deficit' if h.status == 'deficit' else 'Partially allocated')) }}">
+             title="{{ h.label }}: {{ 'No data' if h.status == 'empty' else (h.alloc_rate ~ '% allocated' + (' ✓' if h.status == 'full' else (' ⚠ deficit' if h.status == 'deficit' else ''))) }}">
           <div class="rpt-hm-icon">
             {% if h.status == 'full' %}✓
             {% elif h.status == 'deficit' %}!
@@ -515,7 +528,7 @@
         {% endfor %}
       </div>
       <div class="rpt-hm-legend">
-        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot full"></div>Fully allocated</div>
+        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot full"></div>90%+ allocated</div>
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot partial"></div>Partially allocated</div>
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot deficit"></div>Went negative</div>
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot empty"></div>No data</div>
@@ -551,6 +564,33 @@ function rptBva(view, btn) {
   document.querySelectorAll('.rpt-tab').forEach(el => el.classList.remove('active'));
   document.getElementById('rpt-bva-' + view).classList.add('active');
   btn.classList.add('active');
+}
+
+const _rptTip = document.getElementById('rpt-tip');
+function rptShowTip(e, col) {
+  const m = col.dataset.month, inc = col.dataset.income,
+        exp = col.dataset.expense, net = col.dataset.net;
+  _rptTip.innerHTML =
+    '<div class="rpt-tip-mo">' + m + '</div>' +
+    '<div class="rpt-tip-row"><span style="color:var(--indigo)">▲</span> ' + inc + '</div>' +
+    '<div class="rpt-tip-row"><span style="color:var(--accent)">▼</span> ' + exp + '</div>' +
+    '<div class="rpt-tip-row rpt-tip-net">Net ' + net + '</div>';
+  _rptTip.style.display = 'block';
+  _moveTip(e);
+  col.addEventListener('mousemove', _moveTip);
+}
+function _moveTip(e) {
+  const bars = document.getElementById('rpt-trend-bars');
+  const r = bars.getBoundingClientRect();
+  let left = e.clientX - r.left + 12;
+  const tw = _rptTip.offsetWidth || 120;
+  if (left + tw > r.width) left = e.clientX - r.left - tw - 8;
+  _rptTip.style.left = left + 'px';
+  _rptTip.style.top  = (e.clientY - r.top - 10) + 'px';
+}
+function rptHideTip() {
+  _rptTip.style.display = 'none';
+  document.querySelectorAll('.rpt-trend-col').forEach(c => c.removeEventListener('mousemove', _moveTip));
 }
 </script>
 {% endblock %}

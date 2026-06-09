@@ -261,6 +261,45 @@ document.addEventListener('htmx:afterRequest',function(){
   var p=document.getElementById('panel');
   if(p)p.classList.remove('panel-loading');
 });
+// Close fx popovers when clicking outside
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.fx-wrap')){
+    document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
+  }
+});
+function fxOpen(inputId, popId){
+  var pop=document.getElementById(popId);
+  if(!pop)return;
+  var wasOpen=pop.classList.contains('open');
+  document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
+  if(!wasOpen){
+    pop.classList.add('open');
+    var expr=pop.querySelector('.fx-expr-input');
+    if(expr){expr.value='';expr.focus();}
+  }
+}
+function fxApply(inputId, popId, expr){
+  var input=document.getElementById(inputId);
+  var errEl=document.getElementById(popId.replace('fx-pop-','fx-err-'));
+  if(!input||!expr||!expr.trim())return;
+  // Strip currency symbols and parse current value
+  var cur=parseFloat(String(input.value).replace(/[^0-9.\-]/g,''))||0;
+  // Build safe expression: only allow digits, operators, dot, parens, spaces
+  var safe=expr.replace(/[^0-9+\-*/.()\s]/g,'');
+  // If expression starts with operator, prepend current value
+  if(/^[+\-*/]/.test(safe.trim()))safe=cur+safe;
+  var result;
+  try{result=Function('"use strict";return('+safe+')')();}catch(err){result=NaN;}
+  if(typeof result!=='number'||!isFinite(result)||result<0){
+    if(errEl){errEl.textContent='Invalid expression';errEl.style.display='block';}
+    return;
+  }
+  result=Math.round(result*100)/100;
+  input.value=result.toFixed(2);
+  document.getElementById(popId).classList.remove('open');
+  // Trigger HTMX change
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+}
 </script>
 </body>
 </html>

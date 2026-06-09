@@ -953,20 +953,23 @@ def reports_view(view_mid: str = None):
         m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets)
         rts_m = m_income - m_alloc
         if m_income > 0:
+            alloc_rate = min(m_alloc / m_income, 1.0)
             if rts_m < -0.005:
                 status = "deficit"
                 neg_rts_months.append(month_label(m_id))
-            elif rts_m <= m_income * 0.02:
+            elif alloc_rate >= 0.90:
                 status = "full"
             else:
                 status = "partial"
         else:
+            alloc_rate = 0.0
             status = "empty"
         heatmap.append({"mid": m_id, "label": month_label(m_id)[:3],
-                        "status": status, "rts": round(rts_m, 2)})
+                        "status": status, "rts": round(rts_m, 2),
+                        "alloc_rate": round(alloc_rate * 100)})
 
-    full_months = sum(1 for h in heatmap if h["status"] == "full")
-    disc_score = round(full_months / 12 * 100)
+    active_hm = [h for h in heatmap if h["status"] != "empty"]
+    disc_score = round(sum(h["alloc_rate"] for h in active_hm) / max(len(active_hm), 1))
     avg_surplus = round(
         sum(h["rts"] for h in heatmap if h["rts"] > 0) /
         max(sum(1 for h in heatmap if h["rts"] > 0), 1), 2
