@@ -133,7 +133,7 @@
               style="display:contents"
               hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
               hx-trigger="change from:find input[name=alloc]"
-              hx-target="closest .vg-row" hx-swap="outerHTML show:false"
+              hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
           <label>Allocation
             <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
@@ -145,7 +145,7 @@
               style="display:contents"
               hx-post="{{ url_for('panels.set_budget', bid=b.id) }}"
               hx-trigger="change from:find input[name=budget]"
-              hx-target="closest .vg-row" hx-swap="outerHTML show:false"
+              hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
           <label>{{ 'Monthly contrib' if b.btype == 'vault' else 'Budget' }}
             <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
@@ -169,7 +169,7 @@
         <form method="post" action="{{ url_for('panels.toggle_handled', bid=b.id) }}"
               style="display:inline"
               hx-post="{{ url_for('panels.toggle_handled', bid=b.id) }}"
-              hx-target="closest .vg-row" hx-swap="outerHTML">
+              hx-target="#panel" hx-swap="innerHTML">
           <button class="handled-btn {{ 'active' if b.handled }}" type="submit">
             {{ '✓ Handled' if b.handled else 'Handled?' }}
           </button>

@@ -60,19 +60,7 @@ def set_alloc(bid):
         DB.upsert_alloc(session["user_id"], session["access_token"],
                         D.active_mid(), bid, amount)
         D.invalidate_cache()
-    # No-JS fallback: a plain form submit (Enter) reloads the panel.
-    if request.headers.get("HX-Request") != "true":
-        return redirect(url_for("panels.buckets"))
-    # HTMX: swap just the row + out-of-band Ready-to-Assign.
-    vm = D.bucket_rows()
-    row = color = None
-    for grp in vm["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                row, color = b, grp["color"]
-    shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
-            + render_template("panels/_oob_rts.html", shell=shell))
+    return _buckets_response()
 
 
 # ── Bucket fill / distribute ─────────────────────────────────────────────────
@@ -375,17 +363,7 @@ def set_budget(bid):
                     DB.upsert_budget(session["user_id"], session["access_token"],
                                      m["id"], bid, amount)
         D.invalidate_cache()
-    if request.headers.get("HX-Request") != "true":
-        return redirect(url_for("panels.buckets"))
-    vm = D.bucket_rows()
-    row = color = None
-    for grp in vm["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                row, color = b, grp["color"]
-    shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
-            + render_template("panels/_oob_rts.html", shell=shell))
+    return _buckets_response()
 
 
 # ── Add bucket ────────────────────────────────────────────────────────────────
@@ -446,17 +424,7 @@ def toggle_handled(bid):
         DB.ensure_month(session["user_id"], session["access_token"], mid)
         DB.toggle_handled(session["user_id"], session["access_token"], mid, bid, currently)
         D.invalidate_cache()
-    # Return updated bucket row fragment
-    bkt = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
-    if not bkt:
-        return "", 204
-    rows = D.bucket_rows()
-    for grp in rows["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                b["handled"] = not currently
-                return render_template("panels/_bucket_row.html", b=b)
-    return "", 204
+    return _buckets_response()
 
 
 # ── Month workflow ────────────────────────────────────────────────────────────
