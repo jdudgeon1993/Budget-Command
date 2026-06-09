@@ -174,6 +174,19 @@
     .demo-legend-dot.saved{background:rgba(34,197,94,.7)}
     .demo-legend-dot.forecast{border:1.5px dashed rgba(255,255,255,.3);background:none;width:9px;height:9px}
 
+    /* ── Act 5: Feature grid ── */
+    .demo-feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:7px 10px}
+    .demo-feat{
+      display:flex;align-items:center;gap:6px;
+      padding:5px 8px;border-radius:6px;
+      background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+      font-size:10px;color:rgba(255,255,255,.55);font-weight:500;
+      opacity:0;transform:translateY(5px);
+      transition:opacity .22s,transform .22s;
+    }
+    .demo-feat.show{opacity:1;transform:translateY(0)}
+    .demo-feat svg{color:rgba(191,90,242,.7);flex-shrink:0}
+
     /* Navigation dots */
     .demo-dots{display:flex;gap:5px;justify-content:center;margin-top:7px}
     .demo-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.18);
@@ -421,12 +434,55 @@
               </div>
             </div>
 
+            {# Act 5: Feature highlights #}
+            <div class="demo-act" id="dact-5">
+              <div class="demo-hdr">
+                <span class="demo-hdr-lbl">Everything included</span>
+                <span class="demo-chip demo-chip-indigo">Free</span>
+              </div>
+              <div class="demo-feature-grid">
+                <div class="demo-feat" id="df-1">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                  Multiple accounts
+                </div>
+                <div class="demo-feat" id="df-2">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Savings vaults
+                </div>
+                <div class="demo-feat" id="df-3">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                  Custom categories
+                </div>
+                <div class="demo-feat" id="df-4">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  Age of Money
+                </div>
+                <div class="demo-feat" id="df-5">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  Overspend alerts
+                </div>
+                <div class="demo-feat" id="df-6">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Month history
+                </div>
+                <div class="demo-feat" id="df-7">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  Paycheck rules
+                </div>
+                <div class="demo-feat" id="df-8">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                  Spending forecast
+                </div>
+              </div>
+            </div>
+
           </div>
           <div class="demo-dots">
             <div class="demo-dot active" id="ddot-0" onclick="jumpAct(0)"></div>
             <div class="demo-dot" id="ddot-1" onclick="jumpAct(1)"></div>
             <div class="demo-dot" id="ddot-2" onclick="jumpAct(2)"></div>
             <div class="demo-dot" id="ddot-3" onclick="jumpAct(3)"></div>
+            <div class="demo-dot" id="ddot-4" onclick="jumpAct(4)"></div>
           </div>
         </div>
 
@@ -512,7 +568,7 @@ function mobSwitch(m) {
   window.jumpAct = function(n){ jumpTarget = n; };
 
   function setDot(n){
-    for(var i=0;i<4;i++){
+    for(var i=0;i<5;i++){
       var d=document.getElementById('ddot-'+i);
       if(d) d.classList.toggle('active', i===n);
     }
@@ -701,8 +757,24 @@ function mobSwitch(m) {
     await sleep(2800);
   }
 
+  // ── Act 5: Feature highlights ──
+  async function act5(){
+    var items = [];
+    for(var i=1;i<=8;i++){
+      var el=document.getElementById('df-'+i);
+      if(el){ el.classList.remove('show'); items.push(el); }
+    }
+    await sleep(350);
+    for(var j=0;j<items.length;j++){
+      if(jumpTarget!==null) return;
+      items[j].classList.add('show');
+      await sleep(210);
+    }
+    await sleep(2800);
+  }
+
   async function runTour(){
-    var acts = [act1, act2, act3, act4];
+    var acts = [act1, act2, act3, act4, act5];
     while(running){
       if(jumpTarget !== null){
         var jt = jumpTarget; jumpTarget = null;
@@ -711,7 +783,7 @@ function mobSwitch(m) {
       }
       await acts[currentAct]();
       if(!running) break;
-      var next = (currentAct + 1) % 4;
+      var next = (currentAct + 1) % 5;
       if(jumpTarget === null){
         await fadeAct(currentAct, next);
         currentAct = next;
