@@ -1407,20 +1407,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
   padding:11px 16px 12px;
   border-bottom:1px solid var(--border2);
   transition:background .15s;
-  position:relative;
 }
 .vg-row:last-child{border-bottom:none}
 .vg-row:hover{background:rgba(255,255,255,.025)}
 
-/* Status accent: 3px left rail */
-.vg-row::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0;
-}
-.vg-row.status-partial::before{background:var(--g-orange)}
-.vg-row.status-over::before{background:var(--g-red)}
-.vg-row.status-funded::before{background:var(--g-green)}
-.vg-row.status-vault::before{background:var(--g-purple)}
-.vg-row.status-paid::before{background:var(--g-grey)}
+/* No left rail — color is carried by the bar + background tint */
 
 /* Attention tint on actionable rows */
 .vg-row.status-partial{background:rgba(255,159,10,.03)}
@@ -1486,11 +1477,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
 /* ── Progress bar (disappears for paid) ── */
 .vg-bar-wrap{display:flex;align-items:center;gap:8px}
 .vg-bar-track{
-  flex:1;height:8px;
+  flex:1;height:5px;
   background:rgba(255,255,255,.06);
-  border-radius:4px;overflow:hidden;
+  border-radius:3px;overflow:hidden;
 }
-.vg-bar-fill{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.25,.46,.45,.94)}
+.vg-bar-fill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.25,.46,.45,.94)}
 
 .vg-bar-fill.partial{
   background:linear-gradient(90deg,rgba(255,159,10,.6),var(--g-orange));
