@@ -63,3 +63,6 @@ CREATE TABLE IF NOT EXISTS bcc_vault_release_log (
 ALTER TABLE bcc_vault_release_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY bcc_vault_release_log_user_policy ON bcc_vault_release_log
     FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- Flex bucket flag: expense buckets with reactive/variable spending (no fixed target)
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS flex BOOLEAN NOT NULL DEFAULT FALSE;

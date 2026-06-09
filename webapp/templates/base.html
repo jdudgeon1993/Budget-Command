@@ -273,7 +273,23 @@ function fxOpen(inputId, popId){
   var wasOpen=pop.classList.contains('open');
   document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
   if(!wasOpen){
+    // Show first (display:block) so we can measure dimensions
     pop.classList.add('open');
+    // Find the fx button (sibling before the popover)
+    var btn=document.querySelector('[onclick*="'+popId+'"]');
+    if(btn){
+      var r=btn.getBoundingClientRect();
+      var pw=pop.offsetWidth||190;
+      var ph=pop.offsetHeight||100;
+      var top=r.top-ph-6;
+      var left=r.left;
+      // Flip below if not enough space above
+      if(top<8)top=r.bottom+6;
+      // Keep within right edge
+      if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+      pop.style.top=Math.max(8,top)+'px';
+      pop.style.left=Math.max(8,left)+'px';
+    }
     var expr=pop.querySelector('.fx-expr-input');
     if(expr){expr.value='';expr.focus();}
   }
