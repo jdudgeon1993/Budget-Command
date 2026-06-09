@@ -7,132 +7,253 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <style>
+    /* ── Sliding-panel login ── */
+    html,body{height:100%;overflow:hidden}
+    .sp-root{position:relative;width:100%;height:100vh;overflow:hidden;display:flex;background:var(--bg)}
+
+    /* ── Form slots — left and right halves ── */
+    .sp-form{position:absolute;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;padding:48px 44px;z-index:1;transition:opacity .25s .15s}
+    .sp-form-login{left:0}
+    .sp-form-signup{right:0}
+    .sp-form-inner{width:100%;max-width:340px}
+
+    /* ── Sliding hero panel ── */
+    .sp-hero{position:absolute;top:0;right:0;width:50%;height:100%;z-index:10;
+      background:linear-gradient(145deg,#1A002E 0%,#2E004A 40%,#0C001A 100%);
+      transition:transform .65s cubic-bezier(.76,0,.24,1);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:56px 44px;text-align:center;overflow:hidden}
+    .sp-hero::before{content:'';position:absolute;top:-120px;left:-120px;width:480px;height:480px;
+      border-radius:50%;background:radial-gradient(circle,rgba(191,90,242,.28) 0%,transparent 65%);pointer-events:none}
+    .sp-hero::after{content:'';position:absolute;bottom:-80px;right:-80px;width:320px;height:320px;
+      border-radius:50%;background:radial-gradient(circle,rgba(129,140,248,.18) 0%,transparent 65%);pointer-events:none}
+
+    /* Signup mode: hero slides to the left */
+    .sp-root.signup .sp-hero{transform:translateX(-100%)}
+    /* Fade the covered form while hero is over it */
+    .sp-root:not(.signup) .sp-form-signup{opacity:0;pointer-events:none}
+    .sp-root.signup .sp-form-login{opacity:0;pointer-events:none}
+
+    /* ── Hero content ── */
+    .sp-hero-inner{position:relative;z-index:1;max-width:320px}
+    .sp-hero-brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:48px}
+    .sp-hero-icon{width:44px;height:44px;background:var(--accent);border-radius:10px;
+      display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(191,90,242,.5)}
+    .sp-hero-name{font-size:20px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fff}
+    .sp-hero-hl{font-size:38px;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-bottom:14px}
+    .sp-hero-sub{font-size:14px;color:rgba(255,255,255,.42);line-height:1.65;margin-bottom:40px}
+
+    /* Steps */
+    .sp-steps{display:flex;flex-direction:column;gap:20px;text-align:left;margin-bottom:44px}
+    .sp-step{display:flex;align-items:flex-start;gap:14px}
+    .sp-step-dot{width:28px;height:28px;border-radius:var(--r-sm);background:rgba(191,90,242,.14);
+      border:1px solid rgba(191,90,242,.25);display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;color:var(--accent);margin-top:1px}
+    .sp-step-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
+    .sp-step-desc{font-size:12px;color:rgba(255,255,255,.35);line-height:1.5}
+
+    /* Switch button on hero */
+    .sp-hero-switch{display:flex;flex-direction:column;align-items:center;gap:10px}
+    .sp-hero-hint{font-size:13px;color:rgba(255,255,255,.38)}
+    .sp-switch-btn{padding:11px 32px;border-radius:var(--r-pill);border:1.5px solid rgba(255,255,255,.25);
+      background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+      letter-spacing:.04em;transition:background .2s,border-color .2s;font-family:var(--sans)}
+    .sp-switch-btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5)}
+
+    /* ── Form side ── */
+    .sp-form-title{font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.01em}
+    .sp-form-sub{font-size:13px;color:var(--text3);margin-bottom:28px;line-height:1.5}
+    .sp-flash{padding:10px 14px;border-radius:var(--r-sm);font-size:13px;margin-bottom:16px}
+    .sp-flash.error{background:var(--red-dim);color:var(--red)}
+    .sp-flash.ok{background:var(--green-dim);color:var(--green)}
+
+    /* ── Mobile fallback ── */
+    @media(max-width:700px){
+      html,body{overflow:auto;height:auto}
+      .sp-root{height:auto;min-height:100vh;flex-direction:column;overflow:visible}
+      .sp-hero{position:static;width:100%;height:auto;padding:40px 28px 36px;order:-1;transform:none!important}
+      .sp-hero-brand{margin-bottom:28px}
+      .sp-hero-hl{font-size:30px;margin-bottom:10px}
+      .sp-steps{display:none}
+      .sp-hero-switch{display:none}
+      .sp-form{position:static;width:100%;height:auto;padding:32px 28px 48px;opacity:1!important;pointer-events:auto!important}
+      .sp-form-login,.sp-form-signup{display:none}
+      .sp-form.mobile-active{display:flex}
+      .mob-tab-row{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;background:var(--surface);margin-bottom:22px}
+      .mob-tab{flex:1;text-align:center;padding:8px;border-radius:4px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:none;font-family:var(--sans)}
+      .mob-tab.active{background:var(--accent);color:#fff;font-weight:700}
+    }
+    @media(min-width:701px){.mob-tab-row{display:none}}
+  </style>
 </head>
 <body>
-<div class="lp-wrap">
+<div class="sp-root {{ 'signup' if mode == 'signup' }}" id="sp">
 
-  {# ── Left: branding + how-to ── #}
-  <div class="lp-left">
-    <div class="lp-left-inner">
-      <div class="lp-brand">
-        <div class="lp-brand-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+  {# ── Login form (left slot) ── #}
+  <div class="sp-form sp-form-login" id="sp-login-form">
+    <div class="sp-form-inner">
+      <div class="sp-form-title">Welcome back</div>
+      <div class="sp-form-sub">Sign in to your Cura account.</div>
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% if mode == 'login' %}{% for cat, msg in msgs %}<div class="sp-flash {{ cat }}">{{ msg }}</div>{% endfor %}{% endif %}
+      {% endwith %}
+      <form method="post" action="{{ url_for('auth.login') }}">
+        <div class="auth-field"><label>Email</label>
+          <input type="email" name="email" placeholder="you@example.com" required {% if mode == 'login' %}autofocus{% endif %}>
+        </div>
+        <div class="auth-field"><label>Password</label>
+          <input type="password" name="password" placeholder="••••••••" required>
+        </div>
+        <button class="auth-btn" type="submit">Sign In</button>
+      </form>
+      <div style="text-align:center;margin-top:18px;font-size:12px;color:var(--text3)">
+        No account? <button class="sp-inline-link" onclick="setMode('signup')">Create one free →</button>
+      </div>
+    </div>
+  </div>
+
+  {# ── Signup form (right slot) ── #}
+  <div class="sp-form sp-form-signup" id="sp-signup-form">
+    <div class="sp-form-inner">
+      <div class="sp-form-title">Create account</div>
+      <div class="sp-form-sub">Free forever. No credit card needed.</div>
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% if mode == 'signup' %}{% for cat, msg in msgs %}<div class="sp-flash {{ cat }}">{{ msg }}</div>{% endfor %}{% endif %}
+      {% endwith %}
+      <form method="post" action="{{ url_for('auth.signup') }}">
+        <div class="auth-field"><label>Email</label>
+          <input type="email" name="email" placeholder="you@example.com" required {% if mode == 'signup' %}autofocus{% endif %}>
+        </div>
+        <div class="auth-field"><label>Password</label>
+          <input type="password" name="password" placeholder="Min 6 characters" required minlength="6">
+        </div>
+        <div class="auth-field"><label>Confirm Password</label>
+          <input type="password" name="confirm_password" placeholder="••••••••" required minlength="6">
+        </div>
+        <button class="auth-btn" type="submit" style="background:var(--indigo);box-shadow:0 4px 16px rgba(129,140,248,.35)">Create My Account</button>
+      </form>
+      <div style="text-align:center;margin-top:18px;font-size:12px;color:var(--text3)">
+        Already have an account? <button class="sp-inline-link" onclick="setMode('login')">Sign in →</button>
+      </div>
+    </div>
+  </div>
+
+  {# ── Sliding hero panel ── #}
+  <div class="sp-hero" id="sp-hero">
+    <div class="sp-hero-inner">
+      <div class="sp-hero-brand">
+        <div class="sp-hero-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
           </svg>
         </div>
-        <span class="lp-brand-name">Cura</span>
+        <span class="sp-hero-name">Cura</span>
       </div>
 
-      <div class="lp-headline">Every dollar<br>has a job.</div>
-      <div class="lp-sub">Zero-based budgeting built around how you actually get paid — not spreadsheets, not guesswork.</div>
-
-      <div class="lp-steps">
-        <div class="lp-step">
-          <div class="lp-step-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
+      {# Login-mode hero content #}
+      <div id="hero-login-content">
+        <div class="sp-hero-hl">Every dollar<br>has a job.</div>
+        <div class="sp-hero-sub">Zero-based budgeting built around your paycheck — not spreadsheets, not guesswork.</div>
+        <div class="sp-steps">
+          <div class="sp-step">
+            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+            <div><div class="sp-step-title">Build your buckets</div><div class="sp-step-desc">Categories + target amounts, set once. Carried forward every month.</div></div>
           </div>
-          <div>
-            <div class="lp-step-title">Build your buckets</div>
-            <div class="lp-step-desc">Set up categories and target amounts once. Cura remembers them every month.</div>
+          <div class="sp-step">
+            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+            <div><div class="sp-step-title">Distribute your paycheck</div><div class="sp-step-desc">One modal. Rules → bills → savings. Every dollar placed in seconds.</div></div>
           </div>
-        </div>
-
-        <div class="lp-step">
-          <div class="lp-step-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
-          </div>
-          <div>
-            <div class="lp-step-title">Get paid — distribute instantly</div>
-            <div class="lp-step-desc">One modal routes your paycheck: rules first, then bills, then savings. Done in seconds.</div>
+          <div class="sp-step">
+            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+            <div><div class="sp-step-title">Grow your Age of Money</div><div class="sp-step-desc">The longer dollars sit before being spent, the more cushion you build.</div></div>
           </div>
         </div>
+        <div class="sp-hero-switch">
+          <span class="sp-hero-hint">Don't have an account?</span>
+          <button class="sp-switch-btn" onclick="setMode('signup')">Create Account</button>
+        </div>
+      </div>
 
-        <div class="lp-step">
-          <div class="lp-step-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-            </svg>
+      {# Signup-mode hero content #}
+      <div id="hero-signup-content" style="display:none">
+        <div class="sp-hero-hl">Start budgeting<br>your way.</div>
+        <div class="sp-hero-sub">Join Cura and put every dollar to work. Free, private, built for real paychecks.</div>
+        <div class="sp-steps">
+          <div class="sp-step">
+            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div><div class="sp-step-title">Free forever</div><div class="sp-step-desc">No credit card. No trial period. No catch.</div></div>
           </div>
-          <div>
-            <div class="lp-step-title">Spend with confidence</div>
-            <div class="lp-step-desc">Transactions flow into buckets in real time. You always know exactly where you stand.</div>
+          <div class="sp-step">
+            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <div><div class="sp-step-title">Your data, private</div><div class="sp-step-desc">Everything stays in your account. We don't sell data or show ads.</div></div>
+          </div>
+          <div class="sp-step">
+            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div><div class="sp-step-title">Up and running in minutes</div><div class="sp-step-desc">Add your accounts, build a few buckets, get paid — you're budgeting.</div></div>
           </div>
         </div>
-
-        <div class="lp-step">
-          <div class="lp-step-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-            </svg>
-          </div>
-          <div>
-            <div class="lp-step-title">Grow your Age of Money</div>
-            <div class="lp-step-desc">The longer dollars sit before being spent, the more cushion you build. That's the goal.</div>
-          </div>
+        <div class="sp-hero-switch">
+          <span class="sp-hero-hint">Already have an account?</span>
+          <button class="sp-switch-btn" onclick="setMode('login')">Sign In</button>
         </div>
       </div>
     </div>
   </div>
 
-  {# ── Right: auth form ── #}
-  <div class="lp-right">
-    <div class="lp-form-wrap">
-
-      {# Tab toggle #}
-      <div class="lp-tabs">
-        <a class="lp-tab {{ 'active' if mode == 'login' }}" href="{{ url_for('auth.login') }}">Sign In</a>
-        <a class="lp-tab {{ 'active' if mode == 'signup' }}" href="{{ url_for('auth.signup') }}">Create Account</a>
-      </div>
-
-      {% with msgs = get_flashed_messages(with_categories=true) %}
-        {% for cat, msg in msgs %}<div class="flash {{ cat }}" style="margin-bottom:14px;padding:10px 14px;border-radius:var(--r-sm);font-size:13px;background:var(--red-dim);color:var(--red)">{{ msg }}</div>{% endfor %}
-      {% endwith %}
-
-      {% if mode == 'signup' %}
-      <div class="lp-signup-nudge">
-        Free to use. No credit card. Your data stays yours.
-      </div>
-      {% endif %}
-
-      <form method="post"
-            action="{{ url_for('auth.login') if mode == 'login' else url_for('auth.signup') }}">
-        <div class="auth-field">
-          <label>Email</label>
-          <input type="email" name="email" placeholder="you@example.com" required autofocus>
-        </div>
-        <div class="auth-field">
-          <label>Password</label>
-          <input type="password" name="password" placeholder="••••••••" required
-                 {% if mode == 'signup' %}minlength="6"{% endif %}>
-        </div>
-        {% if mode == 'signup' %}
-        <div class="auth-field">
-          <label>Confirm Password</label>
-          <input type="password" name="confirm_password" placeholder="••••••••" required minlength="6">
-        </div>
-        {% endif %}
-        <button class="auth-btn" type="submit" style="margin-top:10px">
-          {{ 'Sign In' if mode == 'login' else 'Create My Account' }}
-        </button>
-      </form>
-
-      {% if mode == 'login' %}
-      <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text3)">
-        New to Cura? <a href="{{ url_for('auth.signup') }}" style="color:var(--accent);text-decoration:none;font-weight:600">Create a free account →</a>
-      </div>
-      {% endif %}
-
-    </div>
+  {# ── Mobile tab row (only shown on small screens) ── #}
+  <div class="mob-tab-row" style="position:fixed;bottom:0;left:0;right:0;z-index:20;margin:0;border-radius:0;padding:8px 16px 16px;background:var(--bg);border-top:1px solid var(--border)">
+    <button class="mob-tab {{ 'active' if mode == 'login' }}" onclick="mobSwitch('login')">Sign In</button>
+    <button class="mob-tab {{ 'active' if mode == 'signup' }}" onclick="mobSwitch('signup')">Create Account</button>
   </div>
 
 </div>
+
+<style>
+.sp-inline-link{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;font-weight:600;padding:0;font-family:var(--sans)}
+.sp-inline-link:hover{text-decoration:underline}
+</style>
+
+<script>
+function setMode(mode) {
+  var root = document.getElementById('sp');
+  var heroLogin = document.getElementById('hero-login-content');
+  var heroSignup = document.getElementById('hero-signup-content');
+  if (mode === 'signup') {
+    root.classList.add('signup');
+    heroLogin.style.display = 'none';
+    heroSignup.style.display = '';
+    var inp = document.querySelector('#sp-signup-form input[type=email]');
+    if (inp) setTimeout(function(){ inp.focus(); }, 680);
+  } else {
+    root.classList.remove('signup');
+    heroLogin.style.display = '';
+    heroSignup.style.display = 'none';
+    var inp2 = document.querySelector('#sp-login-form input[type=email]');
+    if (inp2) setTimeout(function(){ inp2.focus(); }, 680);
+  }
+}
+function mobSwitch(mode) {
+  var lf = document.querySelector('.sp-form-login');
+  var sf = document.querySelector('.sp-form-signup');
+  document.querySelectorAll('.mob-tab').forEach(function(t){ t.classList.remove('active'); });
+  if (mode === 'signup') {
+    lf.classList.remove('mobile-active'); sf.classList.add('mobile-active');
+    document.querySelectorAll('.mob-tab')[1].classList.add('active');
+  } else {
+    sf.classList.remove('mobile-active'); lf.classList.add('mobile-active');
+    document.querySelectorAll('.mob-tab')[0].classList.add('active');
+  }
+}
+// Init mobile active form
+(function(){
+  var init = '{{ mode }}';
+  var isMob = window.matchMedia('(max-width:700px)').matches;
+  if (isMob) {
+    mobSwitch(init);
+  }
+})();
+</script>
 </body>
 </html>
