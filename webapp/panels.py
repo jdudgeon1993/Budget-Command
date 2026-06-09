@@ -461,6 +461,27 @@ def toggle_handled(bid):
 
 # ── Month workflow ────────────────────────────────────────────────────────────
 
+@bp.route("/month/close", methods=["POST"])
+@login_required
+def month_close():
+    data = D.load_data()
+    if not current_app.config["DEV_SEED"]:
+        DB.close_month(session["user_id"], session["access_token"],
+                       D.active_mid(), data.get("accounts", []), data.get("txs", []))
+        D.invalidate_cache()
+        flash("Month closed.", "ok")
+    return _buckets_response()
+
+
+@bp.route("/month/reopen", methods=["POST"])
+@login_required
+def month_reopen():
+    if not current_app.config["DEV_SEED"]:
+        DB.reopen_month(session["user_id"], session["access_token"], D.active_mid())
+        D.invalidate_cache()
+        flash("Month reopened.", "ok")
+    return _buckets_response()
+
 
 # ── Month navigation ──────────────────────────────────────────────────────────
 
