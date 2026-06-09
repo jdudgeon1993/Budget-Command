@@ -215,6 +215,7 @@ def bucket_settings(bid):
                     "due_amount": _num("due_amount"),
                     "pay_freq": f.get("pay_freq") or None,
                     "recurring": f.get("recurring") == "1",
+                    "flex": f.get("flex") == "1",
                 })
             elif btype in ("goal", "sinking"):
                 payload.update({

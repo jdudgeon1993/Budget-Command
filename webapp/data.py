@@ -185,11 +185,17 @@ def bucket_rows(view_mid: str = None):
             needed = max(budget - alloc, 0)
             handled = bool((month.get("handledBuckets") or {}).get(bid))
 
-            # Funded status compares allocation to budget target — "did the
-            # envelope get filled?" — not spending. Spending only flips the
-            # label to its transacted variant (Funded → Paid, Overfunded →
-            # Overspent) once money has actually moved.
-            if budget > 0:
+            is_flex = b.get("flex", False) and b.get("type", "expense") == "expense"
+
+            if is_flex:
+                uncovered = spent - alloc
+                if uncovered > 0.005:
+                    status, pill = "partial", f"Cover ${uncovered:,.2f}"
+                elif spent > 0.005:
+                    status, pill = "funded", f"${spent:,.2f} spent"
+                else:
+                    status, pill = "funded", "Open"
+            elif budget > 0:
                 over = spent - budget
                 if over > 0.005:
                     status, pill = "over", f"Overspent ${over:,.2f}"
@@ -202,14 +208,14 @@ def bucket_rows(view_mid: str = None):
                 else:
                     status, pill = "partial", f"Funding — ${needed:,.2f} short"
             else:
-                # No budget target set — fall back to envelope overspend (spent vs allocation)
+                # No budget target — envelope vs spending
                 over = spent - alloc
                 if over > 0.005:
-                    status, pill = "over", f"Over ${over:,.2f}"
+                    status, pill = "partial", f"Cover ${over:,.2f}"
                 elif alloc > 0.005:
                     status, pill = "funded", "Funded"
                 else:
-                    status, pill = "partial", "Unfunded"
+                    status, pill = "funded", "Open"
 
             if handled:
                 status, pill = "funded", "✓ Handled"
@@ -257,6 +263,7 @@ def bucket_rows(view_mid: str = None):
                 "progress_pct": progress_pct,
                 "goal_reached": goal_reached,
                 "monthly_needed": monthly_needed,
+                "flex": is_flex, "uncovered": round(max(spent - alloc, 0), 2) if is_flex else 0.0,
                 "handled": handled,
                 "txs": bkt_txs,
             }
@@ -805,7 +812,8 @@ def reports_view(view_mid: str = None):
     fixed_spent = sum(
         F.b_spent(mid, b["id"], txs)
         for b in buckets
-        if b.get("recurring") or b.get("dueDay")
+        if not b.get("flex") and b.get("type", "expense") == "expense"
+           and (b.get("recurring") or b.get("dueDay") or (b.get("defaultBudget") or 0) > 0)
     )
     variable_spent = max(0.0, grand_spent - fixed_spent)
     fv_denom = (fixed_spent + variable_spent) or 1

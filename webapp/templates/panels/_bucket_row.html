@@ -10,6 +10,10 @@
   {% set display_status = 'vault' %}
   {% set bar_pct = 100 %}
   {% set bar_cls = 'vault' %}
+{% elif b.flex %}
+  {% set display_status = b.status %}
+  {% set bar_pct = 0 %}
+  {% set bar_cls = b.status %}
 {% elif b.status == 'funded' and b.pill == 'Paid' %}
   {% set display_status = 'paid' %}
   {% set bar_pct = 0 %}
@@ -61,6 +65,7 @@
       {{ b.name }}
       {% if b.btype == 'vault' %}<span class="vg-type-tag vault">Vault</span>{% endif %}
       {% if b.btype in ('sinking','goal') %}<span class="vg-type-tag goal">Goal</span>{% endif %}
+      {% if b.flex %}<span class="vg-type-tag flex">Flex</span>{% endif %}
     </span>
 
     <span class="vg-badge {{ display_status }}">{{ b.pill }}</span>
@@ -78,6 +83,12 @@
               hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
           {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <button class="vg-fill-btn" type="submit">Fill {{ b.needed | money }}</button>
+        </form>
+      {% elif b.flex and display_status == 'partial' %}
+        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+          <button class="vg-fill-btn" type="submit">Cover {{ b.uncovered | money }}</button>
         </form>
       {% elif display_status == 'vault' %}
         <a class="vg-act-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
@@ -101,7 +112,10 @@
     </div>
   {% else %}
     <div class="vg-row-amts">
-      {% if b.btype == 'vault' %}
+      {% if b.flex %}
+        <span class="vg-alloc {{ display_status }}">{{ b.spent | money }}</span>
+        <span class="vg-budget-lbl">spent</span>
+      {% elif b.btype == 'vault' %}
         <span class="vg-alloc vault">{{ b.vault_total | money }}</span>
         <span class="vg-budget-lbl">saved</span>
       {% elif b.btype in ('sinking','goal') and b.target_amount > 0 %}
