@@ -1538,6 +1538,27 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
 .vg-type-tag.vault{background:var(--g-purple-dim);color:var(--g-purple)}
 .vg-type-tag.goal{background:rgba(48,209,88,.08);color:rgba(48,209,88,.7)}
 
+/* ── Tier separators (auto-sort labels between status groups) ── */
+.vg-tier-sep{
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  font-family:var(--mono);font-weight:700;
+  padding:5px 16px 4px;
+  display:flex;align-items:center;gap:8px;
+}
+.vg-tier-sep::after{
+  content:'';flex:1;height:1px;
+}
+.vg-tier-sep.over{color:var(--g-red);background:rgba(255,69,58,.04)}
+.vg-tier-sep.over::after{background:rgba(255,69,58,.15)}
+.vg-tier-sep.partial{color:var(--g-orange);background:rgba(255,159,10,.04)}
+.vg-tier-sep.partial::after{background:rgba(255,159,10,.15)}
+.vg-tier-sep.funded{color:var(--g-green);background:rgba(48,209,88,.03)}
+.vg-tier-sep.funded::after{background:rgba(48,209,88,.12)}
+.vg-tier-sep.empty{color:var(--text3);background:rgba(255,255,255,.02)}
+.vg-tier-sep.empty::after{background:rgba(255,255,255,.07)}
+.vg-tier-sep.paid{color:rgba(255,255,255,.2);background:rgba(255,255,255,.015)}
+.vg-tier-sep.paid::after{background:rgba(255,255,255,.06)}
+
 /* ── Empty state bucket (0 allocated) ── */
 .vg-row.status-empty::before{background:rgba(255,255,255,.12)}
 .vg-row.status-empty{background:rgba(255,255,255,.01)}
@@ -1574,46 +1595,186 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
 </style>
 
 <!-- ══════ VARIANT G — Status-Saturated ══════ -->
+<!--
+  Auto-sort tier order within every category:
+  1. Over   → red    — bleeding money, act now
+  2. Funding → orange — partially filled, needs more
+  3. Funded  → green  — done, no action
+  4. Not started → grey — unbudgeted, hasn't been touched
+  5. Paid   → grey stamp — spent & closed, bar gone
+
+  Categories still drag-reorderable at the outer level.
+-->
 <div class="panel-wrap" id="panel-g">
   <div class="panel-grid">
     <div>
       <!-- Workflow bar -->
       <div class="wf-bar">
         <button class="wf-btn">+ Add Category</button>
-        <button class="wf-btn">⇅ Reorder</button>
-        <span class="wf-closed">3 bills due this week</span>
+        <button class="wf-btn">⇅ Categories</button>
+        <span class="wf-closed">1 over budget · 2 need funding</span>
       </div>
 
-      <!-- ══ HOUSING — all funded/paid, collapsed feel ══ -->
+      <!-- ══ FOOD & DINING — has over + partial, shows urgency ══ -->
+      <div class="vg-cat">
+        <div class="vg-cat-hdr">
+          <div class="vg-cat-swatch" style="background:var(--cat-food)"></div>
+          <span class="vg-cat-name">Food &amp; Dining</span>
+          <div class="vg-cat-summary">
+            <span class="vg-cat-amt">$427 / $600</span>
+            <span class="vg-cat-pct-pill partial">71%</span>
+          </div>
+          <span class="vg-cat-chevron">▾</span>
+        </div>
+        <div class="vg-cat-bar"><div class="vg-cat-bar-fill over" style="width:71%"></div></div>
+
+        <!-- TIER 1: OVER -->
+        <div class="vg-tier-sep over">Over budget</div>
+        <div class="vg-row status-over">
+          <div class="vg-row-top">
+            <span class="vg-bkt-name">Eating Out</span>
+            <span class="vg-badge over">−$47 over</span>
+            <div class="vg-row-actions">
+              <button class="vg-fill-btn" style="background:var(--g-red-dim);color:var(--g-red);border-color:rgba(255,69,58,.3)">Move $47 →</button>
+              <button class="vg-act">⚙</button>
+            </div>
+          </div>
+          <div class="vg-row-amts">
+            <span class="vg-alloc over">$247.00</span>
+            <span class="vg-budget">/ $200.00 budget</span>
+          </div>
+          <div class="vg-bar-wrap">
+            <div class="vg-bar-track"><div class="vg-bar-fill over" style="width:100%"></div></div>
+            <span class="vg-bar-pct over">123%</span>
+          </div>
+        </div>
+
+        <!-- TIER 2: FUNDING -->
+        <div class="vg-tier-sep partial">Funding</div>
+        <div class="vg-row status-partial">
+          <div class="vg-row-top">
+            <span class="vg-bkt-name">Groceries</span>
+            <span class="vg-badge partial">45% funded</span>
+            <div class="vg-row-actions">
+              <button class="vg-fill-btn">Fill $220</button>
+              <button class="vg-act">⚙</button>
+            </div>
+          </div>
+          <div class="vg-row-amts">
+            <span class="vg-alloc partial">$180.00</span>
+            <span class="vg-budget">/ $400.00 budget</span>
+            <span class="vg-shortfall partial">−$220 needed</span>
+          </div>
+          <div class="vg-bar-wrap">
+            <div class="vg-bar-track"><div class="vg-bar-fill partial" style="width:45%"></div></div>
+            <span class="vg-bar-pct partial">45%</span>
+          </div>
+        </div>
+
+        <div class="vg-add-strip">
+          <input class="vg-add-input" placeholder="+ New bucket in Food &amp; Dining…">
+          <button class="vg-add-btn">Add</button>
+        </div>
+      </div>
+
+      <!-- ══ SAVINGS — partial goal on top, vault funded, empty below ══ -->
+      <div class="vg-cat">
+        <div class="vg-cat-hdr">
+          <div class="vg-cat-swatch" style="background:var(--cat-savings)"></div>
+          <span class="vg-cat-name">Savings</span>
+          <div class="vg-cat-summary">
+            <span class="vg-cat-amt">$6,420 / $8,500</span>
+            <span class="vg-cat-pct-pill partial">76%</span>
+          </div>
+          <span class="vg-cat-chevron">▾</span>
+        </div>
+        <div class="vg-cat-bar"><div class="vg-cat-bar-fill vault" style="width:76%"></div></div>
+
+        <!-- TIER 2: FUNDING -->
+        <div class="vg-tier-sep partial">Funding</div>
+        <div class="vg-row status-partial">
+          <div class="vg-row-top">
+            <span class="vg-bkt-name">Vacation <span class="vg-type-tag goal">Goal</span></span>
+            <span class="vg-badge partial">67% there</span>
+            <div class="vg-row-actions">
+              <button class="vg-fill-btn">Fill $500</button>
+              <button class="vg-act">⚙</button>
+            </div>
+          </div>
+          <div class="vg-row-amts">
+            <span class="vg-alloc partial">$1,000.00</span>
+            <span class="vg-budget">/ $1,500 goal</span>
+            <span class="vg-shortfall partial">−$500 to go</span>
+          </div>
+          <div class="vg-bar-wrap">
+            <div class="vg-bar-track"><div class="vg-bar-fill partial" style="width:67%"></div></div>
+            <span class="vg-bar-pct partial">67%</span>
+          </div>
+        </div>
+
+        <!-- TIER 3: FUNDED (vault = always funded) -->
+        <div class="vg-tier-sep funded">Funded</div>
+        <div class="vg-row status-vault">
+          <div class="vg-row-top">
+            <span class="vg-bkt-name">Emergency Fund <span class="vg-type-tag vault">Vault</span></span>
+            <span class="vg-badge vault">$5,420 saved</span>
+            <div class="vg-row-actions">
+              <button class="vg-fill-btn" style="background:var(--g-purple-dim);color:var(--g-purple);border-color:rgba(191,90,242,.3)">+ Add</button>
+              <button class="vg-act">⚙</button>
+            </div>
+          </div>
+          <div class="vg-row-amts">
+            <span class="vg-alloc vault">$5,420.00</span>
+            <span class="vg-budget">no cap</span>
+          </div>
+          <div class="vg-bar-wrap">
+            <div class="vg-bar-track"><div class="vg-bar-fill vault" style="width:100%"></div></div>
+            <span class="vg-bar-pct vault">∞</span>
+          </div>
+        </div>
+
+        <!-- TIER 4: NOT STARTED -->
+        <div class="vg-tier-sep empty">Not started</div>
+        <div class="vg-row status-empty">
+          <div class="vg-row-top">
+            <span class="vg-bkt-name">New Car <span class="vg-type-tag goal">Goal</span></span>
+            <span class="vg-badge empty">$0 / $12,000</span>
+            <div class="vg-row-actions">
+              <button class="vg-fill-btn">Start →</button>
+              <button class="vg-act">⚙</button>
+            </div>
+          </div>
+          <div class="vg-row-amts">
+            <span class="vg-alloc empty">$0.00</span>
+            <span class="vg-budget">/ $12,000 goal</span>
+          </div>
+          <div class="vg-bar-wrap">
+            <div class="vg-bar-track"><div class="vg-bar-fill empty" style="width:0%"></div></div>
+            <span class="vg-bar-pct empty">0%</span>
+          </div>
+        </div>
+
+        <div class="vg-add-strip">
+          <input class="vg-add-input" placeholder="+ New bucket in Savings…">
+          <button class="vg-add-btn">Add</button>
+        </div>
+      </div>
+
+      <!-- ══ HOUSING — funded + paid at bottom ══ -->
       <div class="vg-cat">
         <div class="vg-cat-hdr">
           <div class="vg-cat-swatch" style="background:var(--cat-housing)"></div>
           <span class="vg-cat-name">Housing</span>
           <div class="vg-cat-summary">
-            <span class="vg-cat-amt" style="font-family:var(--mono)">$2,545 / $2,545</span>
-            <span class="vg-cat-pct-pill full">100%</span>
+            <span class="vg-cat-amt">$114 / $2,545</span>
+            <span class="vg-cat-pct-pill full">100% · 1 paid</span>
           </div>
           <span class="vg-cat-chevron">▾</span>
         </div>
         <div class="vg-cat-bar"><div class="vg-cat-bar-fill full" style="width:100%"></div></div>
 
-        <!-- PAID bucket: Rent -->
-        <div class="vg-row status-paid">
-          <div class="vg-row-top">
-            <span class="vg-bkt-name">Rent</span>
-            <span class="vg-badge paid">Paid</span>
-            <div class="vg-row-actions">
-              <button class="vg-act">⚙</button>
-            </div>
-          </div>
-          <div class="vg-paid-stamp">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.5" stroke="currentColor" stroke-opacity=".4"/><path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <div class="vg-paid-line"></div>
-            <span class="vg-paid-date">Paid Jun 1 · $2,431</span>
-          </div>
-        </div>
-
-        <!-- FUNDED bucket: Internet -->
+        <!-- TIER 3: FUNDED -->
+        <div class="vg-tier-sep funded">Funded</div>
         <div class="vg-row status-funded">
           <div class="vg-row-top">
             <span class="vg-bkt-name">Internet</span>
@@ -1632,8 +1793,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
             <span class="vg-bar-pct funded">100%</span>
           </div>
         </div>
-
-        <!-- FUNDED bucket: Renter's Insurance -->
         <div class="vg-row status-funded">
           <div class="vg-row-top">
             <span class="vg-bkt-name">Renter's Insurance</span>
@@ -1653,178 +1812,44 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
           </div>
         </div>
 
+        <!-- TIER 5: PAID — sinks to bottom, minimal footprint -->
+        <div class="vg-tier-sep paid">Paid</div>
+        <div class="vg-row status-paid">
+          <div class="vg-row-top">
+            <span class="vg-bkt-name">Rent</span>
+            <span class="vg-badge paid">Paid</span>
+            <div class="vg-row-actions">
+              <button class="vg-act">⚙</button>
+            </div>
+          </div>
+          <div class="vg-paid-stamp">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.5" stroke="currentColor" stroke-opacity=".4"/><path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="vg-paid-line"></div>
+            <span class="vg-paid-date">Paid Jun 1 · $2,431</span>
+          </div>
+        </div>
+
         <div class="vg-add-strip">
           <input class="vg-add-input" placeholder="+ New bucket in Housing…">
           <button class="vg-add-btn">Add</button>
         </div>
       </div>
 
-      <!-- ══ FOOD & DINING — needs action first ══ -->
-      <div class="vg-cat">
-        <div class="vg-cat-hdr">
-          <div class="vg-cat-swatch" style="background:var(--cat-food)"></div>
-          <span class="vg-cat-name">Food &amp; Dining</span>
-          <div class="vg-cat-summary">
-            <span class="vg-cat-amt">$180 / $600</span>
-            <span class="vg-cat-pct-pill partial">30%</span>
-          </div>
-          <span class="vg-cat-chevron">▾</span>
-        </div>
-        <div class="vg-cat-bar"><div class="vg-cat-bar-fill partial" style="width:30%"></div></div>
-
-        <!-- Section label: Needs action -->
-        <div class="vg-section-lbl">⚡ Needs Action</div>
-
-        <!-- OVER BUDGET bucket: Eating Out -->
-        <div class="vg-row status-over">
-          <div class="vg-row-top">
-            <span class="vg-bkt-name">Eating Out</span>
-            <span class="vg-badge over">Over $47</span>
-            <div class="vg-row-actions">
-              <button class="vg-fill-btn" style="background:var(--g-red-dim);color:var(--g-red);border-color:rgba(255,69,58,.3)">Move $47 →</button>
-              <button class="vg-act">⚙</button>
-            </div>
-          </div>
-          <div class="vg-row-amts">
-            <span class="vg-alloc over">$247.00</span>
-            <span class="vg-budget">/ $200.00</span>
-            <span class="vg-shortfall over">−$47 over</span>
-          </div>
-          <div class="vg-bar-wrap">
-            <div class="vg-bar-track"><div class="vg-bar-fill over" style="width:100%"></div></div>
-            <span class="vg-bar-pct over">123%</span>
-          </div>
-        </div>
-
-        <!-- PARTIAL bucket: Groceries -->
-        <div class="vg-row status-partial">
-          <div class="vg-row-top">
-            <span class="vg-bkt-name">Groceries</span>
-            <span class="vg-badge partial">Partial</span>
-            <div class="vg-row-actions">
-              <button class="vg-fill-btn">Fill $220</button>
-              <button class="vg-act">▸</button>
-              <button class="vg-act">⚙</button>
-            </div>
-          </div>
-          <div class="vg-row-amts">
-            <span class="vg-alloc partial">$180.00</span>
-            <span class="vg-budget">/ $400.00</span>
-            <span class="vg-shortfall partial">−$220 needed</span>
-          </div>
-          <div class="vg-bar-wrap">
-            <div class="vg-bar-track"><div class="vg-bar-fill partial" style="width:45%"></div></div>
-            <span class="vg-bar-pct partial">45%</span>
-          </div>
-        </div>
-
-        <div class="vg-add-strip">
-          <input class="vg-add-input" placeholder="+ New bucket in Food &amp; Dining…">
-          <button class="vg-add-btn">Add</button>
-        </div>
-      </div>
-
-      <!-- ══ SAVINGS — vault + goal ══ -->
-      <div class="vg-cat">
-        <div class="vg-cat-hdr">
-          <div class="vg-cat-swatch" style="background:var(--cat-savings)"></div>
-          <span class="vg-cat-name">Savings</span>
-          <div class="vg-cat-summary">
-            <span class="vg-cat-amt">$6,420 / $8,000</span>
-            <span class="vg-cat-pct-pill partial">80%</span>
-          </div>
-          <span class="vg-cat-chevron">▾</span>
-        </div>
-        <div class="vg-cat-bar"><div class="vg-cat-bar-fill vault" style="width:80%"></div></div>
-
-        <!-- VAULT bucket: Emergency Fund -->
-        <div class="vg-row status-vault">
-          <div class="vg-row-top">
-            <span class="vg-bkt-name">
-              Emergency Fund
-              <span class="vg-type-tag vault">Vault</span>
-            </span>
-            <span class="vg-badge vault">$5,420 saved</span>
-            <div class="vg-row-actions">
-              <button class="vg-fill-btn" style="background:var(--g-purple-dim);color:var(--g-purple);border-color:rgba(191,90,242,.3)">+ Add</button>
-              <button class="vg-act">⚙</button>
-            </div>
-          </div>
-          <div class="vg-row-amts">
-            <span class="vg-alloc vault">$5,420.00</span>
-            <span class="vg-budget">no cap</span>
-          </div>
-          <div class="vg-bar-wrap">
-            <div class="vg-bar-track"><div class="vg-bar-fill vault" style="width:100%"></div></div>
-            <span class="vg-bar-pct vault">∞</span>
-          </div>
-        </div>
-
-        <!-- GOAL bucket: Vacation — partial -->
-        <div class="vg-row status-partial">
-          <div class="vg-row-top">
-            <span class="vg-bkt-name">
-              Vacation
-              <span class="vg-type-tag goal">Goal</span>
-            </span>
-            <span class="vg-badge partial">67% there</span>
-            <div class="vg-row-actions">
-              <button class="vg-fill-btn">Fill $820</button>
-              <button class="vg-act">⚙</button>
-            </div>
-          </div>
-          <div class="vg-row-amts">
-            <span class="vg-alloc partial">$1,000.00</span>
-            <span class="vg-budget">/ $1,500 goal</span>
-            <span class="vg-shortfall partial">−$500 to go</span>
-          </div>
-          <div class="vg-bar-wrap">
-            <div class="vg-bar-track"><div class="vg-bar-fill partial" style="width:67%"></div></div>
-            <span class="vg-bar-pct partial">67%</span>
-          </div>
-        </div>
-
-        <!-- EMPTY bucket (unstarted) -->
-        <div class="vg-row status-empty">
-          <div class="vg-row-top">
-            <span class="vg-bkt-name">New Car</span>
-            <span class="vg-badge empty">Not started</span>
-            <div class="vg-row-actions">
-              <button class="vg-fill-btn">Start →</button>
-              <button class="vg-act">⚙</button>
-            </div>
-          </div>
-          <div class="vg-row-amts">
-            <span class="vg-alloc empty">$0.00</span>
-            <span class="vg-budget">/ $12,000 goal</span>
-            <span class="vg-shortfall partial">−$12,000 to go</span>
-          </div>
-          <div class="vg-bar-wrap">
-            <div class="vg-bar-track"><div class="vg-bar-fill empty" style="width:0%"></div></div>
-            <span class="vg-bar-pct empty">0%</span>
-          </div>
-        </div>
-
-        <div class="vg-add-strip">
-          <input class="vg-add-input" placeholder="+ New bucket in Savings…">
-          <button class="vg-add-btn">Add</button>
-        </div>
-      </div>
-
-      <!-- ══ PERSONAL (no action needed) ══ -->
+      <!-- ══ PERSONAL — funded on top, paid sinks to bottom ══ -->
       <div class="vg-cat">
         <div class="vg-cat-hdr">
           <div class="vg-cat-swatch" style="background:var(--cat-personal)"></div>
           <span class="vg-cat-name">Personal</span>
           <div class="vg-cat-summary">
-            <span class="vg-cat-amt">$350 / $350</span>
-            <span class="vg-cat-pct-pill full">100%</span>
+            <span class="vg-cat-amt">$300 / $300</span>
+            <span class="vg-cat-pct-pill full">100% · 1 paid</span>
           </div>
           <span class="vg-cat-chevron">▾</span>
         </div>
         <div class="vg-cat-bar"><div class="vg-cat-bar-fill full" style="width:100%"></div></div>
 
-        <!-- FUNDED: Clothing -->
+        <!-- TIER 3: FUNDED -->
+        <div class="vg-tier-sep funded">Funded</div>
         <div class="vg-row status-funded">
           <div class="vg-row-top">
             <span class="vg-bkt-name">Clothing</span>
@@ -1843,24 +1868,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
             <span class="vg-bar-pct funded">100%</span>
           </div>
         </div>
-
-        <!-- PAID: Gym membership -->
-        <div class="vg-row status-paid">
-          <div class="vg-row-top">
-            <span class="vg-bkt-name">Gym</span>
-            <span class="vg-badge paid">Paid</span>
-            <div class="vg-row-actions">
-              <button class="vg-act">⚙</button>
-            </div>
-          </div>
-          <div class="vg-paid-stamp">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.5" stroke="currentColor" stroke-opacity=".4"/><path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <div class="vg-paid-line"></div>
-            <span class="vg-paid-date">Paid Jun 3 · $50</span>
-          </div>
-        </div>
-
-        <!-- FUNDED: Fun Money -->
         <div class="vg-row status-funded">
           <div class="vg-row-top">
             <span class="vg-bkt-name">Fun Money</span>
@@ -1877,6 +1884,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
           <div class="vg-bar-wrap">
             <div class="vg-bar-track"><div class="vg-bar-fill funded" style="width:100%"></div></div>
             <span class="vg-bar-pct funded">100%</span>
+          </div>
+        </div>
+
+        <!-- TIER 5: PAID — sinks to bottom -->
+        <div class="vg-tier-sep paid">Paid</div>
+        <div class="vg-row status-paid">
+          <div class="vg-row-top">
+            <span class="vg-bkt-name">Gym</span>
+            <span class="vg-badge paid">Paid</span>
+            <div class="vg-row-actions">
+              <button class="vg-act">⚙</button>
+            </div>
+          </div>
+          <div class="vg-paid-stamp">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.5" stroke="currentColor" stroke-opacity=".4"/><path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="vg-paid-line"></div>
+            <span class="vg-paid-date">Paid Jun 3 · $50</span>
           </div>
         </div>
 
