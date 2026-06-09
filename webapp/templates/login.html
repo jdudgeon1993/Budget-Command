@@ -3,42 +3,136 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Cura — {{ 'Sign In' if mode == 'login' else 'Create Account' }}</title>
+  <title>Cura — Personal Finance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
 <body>
-<div class="auth-wrap">
-  <form class="auth-card" method="post"
-        action="{{ url_for('auth.login') if mode == 'login' else url_for('auth.signup') }}">
-    <div class="auth-brand">
-      <div class="brand-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-      <div class="auth-title">Cura</div>
-    </div>
+<div class="lp-wrap">
 
-    {% with msgs = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in msgs %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
-    {% endwith %}
+  {# ── Left: branding + how-to ── #}
+  <div class="lp-left">
+    <div class="lp-left-inner">
+      <div class="lp-brand">
+        <div class="lp-brand-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+        </div>
+        <span class="lp-brand-name">Cura</span>
+      </div>
 
-    <div class="auth-field">
-      <label>Email</label>
-      <input type="email" name="email" placeholder="you@example.com" required autofocus>
-    </div>
-    <div class="auth-field">
-      <label>Password</label>
-      <input type="password" name="password" placeholder="••••••••" required>
-    </div>
-    <button class="auth-btn" type="submit">{{ 'Sign In' if mode == 'login' else 'Create Account' }}</button>
+      <div class="lp-headline">Every dollar<br>has a job.</div>
+      <div class="lp-sub">Zero-based budgeting built around how you actually get paid — not spreadsheets, not guesswork.</div>
 
-    <div class="auth-alt">
-      {% if mode == 'login' %}
-        New here? <a href="{{ url_for('auth.signup') }}">Create an account</a>
-      {% else %}
-        Have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+      <div class="lp-steps">
+        <div class="lp-step">
+          <div class="lp-step-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </div>
+          <div>
+            <div class="lp-step-title">Build your buckets</div>
+            <div class="lp-step-desc">Set up categories and target amounts once. Cura remembers them every month.</div>
+          </div>
+        </div>
+
+        <div class="lp-step">
+          <div class="lp-step-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div>
+            <div class="lp-step-title">Get paid — distribute instantly</div>
+            <div class="lp-step-desc">One modal routes your paycheck: rules first, then bills, then savings. Done in seconds.</div>
+          </div>
+        </div>
+
+        <div class="lp-step">
+          <div class="lp-step-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div>
+            <div class="lp-step-title">Spend with confidence</div>
+            <div class="lp-step-desc">Transactions flow into buckets in real time. You always know exactly where you stand.</div>
+          </div>
+        </div>
+
+        <div class="lp-step">
+          <div class="lp-step-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+            </svg>
+          </div>
+          <div>
+            <div class="lp-step-title">Grow your Age of Money</div>
+            <div class="lp-step-desc">The longer dollars sit before being spent, the more cushion you build. That's the goal.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Right: auth form ── #}
+  <div class="lp-right">
+    <div class="lp-form-wrap">
+
+      {# Tab toggle #}
+      <div class="lp-tabs">
+        <a class="lp-tab {{ 'active' if mode == 'login' }}" href="{{ url_for('auth.login') }}">Sign In</a>
+        <a class="lp-tab {{ 'active' if mode == 'signup' }}" href="{{ url_for('auth.signup') }}">Create Account</a>
+      </div>
+
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in msgs %}<div class="flash {{ cat }}" style="margin-bottom:14px;padding:10px 14px;border-radius:var(--r-sm);font-size:13px;background:var(--red-dim);color:var(--red)">{{ msg }}</div>{% endfor %}
+      {% endwith %}
+
+      {% if mode == 'signup' %}
+      <div class="lp-signup-nudge">
+        Free to use. No credit card. Your data stays yours.
+      </div>
       {% endif %}
+
+      <form method="post"
+            action="{{ url_for('auth.login') if mode == 'login' else url_for('auth.signup') }}">
+        <div class="auth-field">
+          <label>Email</label>
+          <input type="email" name="email" placeholder="you@example.com" required autofocus>
+        </div>
+        <div class="auth-field">
+          <label>Password</label>
+          <input type="password" name="password" placeholder="••••••••" required
+                 {% if mode == 'signup' %}minlength="6"{% endif %}>
+        </div>
+        {% if mode == 'signup' %}
+        <div class="auth-field">
+          <label>Confirm Password</label>
+          <input type="password" name="confirm_password" placeholder="••••••••" required minlength="6">
+        </div>
+        {% endif %}
+        <button class="auth-btn" type="submit" style="margin-top:10px">
+          {{ 'Sign In' if mode == 'login' else 'Create My Account' }}
+        </button>
+      </form>
+
+      {% if mode == 'login' %}
+      <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text3)">
+        New to Cura? <a href="{{ url_for('auth.signup') }}" style="color:var(--accent);text-decoration:none;font-weight:600">Create a free account →</a>
+      </div>
+      {% endif %}
+
     </div>
-  </form>
+  </div>
+
 </div>
 </body>
 </html>
