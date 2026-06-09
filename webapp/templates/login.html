@@ -8,126 +8,177 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <style>
-    /* ── Sliding-panel login ── */
     html,body{height:100%;overflow:hidden}
     .sp-root{position:relative;width:100%;height:100vh;overflow:hidden;display:flex;background:var(--bg)}
 
-    /* ── Form slots — left and right halves ── */
+    /* Form slots */
     .sp-form{position:absolute;top:0;width:50%;height:100%;display:flex;align-items:center;justify-content:center;padding:48px 44px;z-index:1;transition:opacity .25s .15s}
     .sp-form-login{left:0}
     .sp-form-signup{right:0}
     .sp-form-inner{width:100%;max-width:340px}
 
-    /* ── Sliding hero panel ── */
+    /* Hero panel */
     .sp-hero{position:absolute;top:0;right:0;width:50%;height:100%;z-index:10;
       background:linear-gradient(145deg,#1A002E 0%,#2E004A 40%,#0C001A 100%);
       transition:transform .65s cubic-bezier(.76,0,.24,1);
       display:flex;flex-direction:column;align-items:center;justify-content:center;
-      padding:56px 44px;text-align:center;overflow:hidden}
+      padding:48px 40px;text-align:center;overflow:hidden}
     .sp-hero::before{content:'';position:absolute;top:-120px;left:-120px;width:480px;height:480px;
       border-radius:50%;background:radial-gradient(circle,rgba(191,90,242,.28) 0%,transparent 65%);pointer-events:none}
     .sp-hero::after{content:'';position:absolute;bottom:-80px;right:-80px;width:320px;height:320px;
       border-radius:50%;background:radial-gradient(circle,rgba(129,140,248,.18) 0%,transparent 65%);pointer-events:none}
 
-    /* Signup mode: hero slides to the left */
     .sp-root.signup .sp-hero{transform:translateX(-100%)}
-    /* Fade the covered form while hero is over it */
     .sp-root:not(.signup) .sp-form-signup{opacity:0;pointer-events:none}
     .sp-root.signup .sp-form-login{opacity:0;pointer-events:none}
 
-    /* ── Hero content ── */
+    /* Hero inner */
     .sp-hero-inner{position:relative;z-index:1;max-width:320px;width:100%}
-    .sp-hero-brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:28px}
-    .sp-hero-icon{width:44px;height:44px;background:var(--accent);border-radius:10px;
+    .sp-hero-brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:22px}
+    .sp-hero-icon{width:40px;height:40px;background:var(--accent);border-radius:10px;
       display:flex;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(191,90,242,.5)}
-    .sp-hero-name{font-size:20px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fff}
-    .sp-hero-hl{font-size:34px;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-bottom:8px}
-    .sp-hero-sub{font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;margin-bottom:20px}
+    .sp-hero-name{font-size:19px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fff}
+    .sp-hero-hl{font-size:30px;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:#fff;margin-bottom:7px}
+    .sp-hero-sub{font-size:12px;color:rgba(255,255,255,.38);line-height:1.6;margin-bottom:16px}
 
-    /* Switch button on hero */
-    .sp-hero-switch{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:20px}
-    .sp-hero-hint{font-size:13px;color:rgba(255,255,255,.38)}
-    .sp-switch-btn{padding:11px 32px;border-radius:var(--r-pill);border:1.5px solid rgba(255,255,255,.25);
-      background:transparent;color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+    /* Switch */
+    .sp-hero-switch{display:flex;flex-direction:column;align-items:center;gap:9px;margin-top:14px}
+    .sp-hero-hint{font-size:12px;color:rgba(255,255,255,.35)}
+    .sp-switch-btn{padding:10px 28px;border-radius:var(--r-pill);border:1.5px solid rgba(255,255,255,.22);
+      background:transparent;color:#fff;font-size:12px;font-weight:600;cursor:pointer;
       letter-spacing:.04em;transition:background .2s,border-color .2s;font-family:var(--sans)}
-    .sp-switch-btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5)}
+    .sp-switch-btn:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.45)}
 
-    /* ── Demo preview ── */
-    .demo-preview{width:100%;margin-bottom:4px}
+    /* ── Demo window ── */
+    .demo-preview{width:100%;margin-bottom:2px}
     .demo-win{
-      background:rgba(8,5,18,.75);
+      background:rgba(8,5,18,.8);
       border:1px solid rgba(255,255,255,.1);
       border-radius:10px;
-      overflow:hidden;
       position:relative;
+      height:194px;
+      overflow:hidden;
     }
-    .demo-win-hdr{
+
+    /* Acts — stack absolutely, fade in/out */
+    .demo-act{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .38s}
+    .demo-act.active{opacity:1;pointer-events:auto}
+
+    /* Shared header */
+    .demo-hdr{
       display:flex;justify-content:space-between;align-items:center;
-      padding:7px 11px;
-      border-bottom:1px solid rgba(255,255,255,.07);
+      padding:7px 11px;border-bottom:1px solid rgba(255,255,255,.07);
     }
-    .demo-hdr-label{font-size:10px;color:rgba(255,255,255,.45);font-weight:600;letter-spacing:.07em;text-transform:uppercase}
-    .demo-rts-chip{
-      background:rgba(191,90,242,.14);color:rgba(191,90,242,.85);
-      border:1px solid rgba(191,90,242,.2);border-radius:20px;
-      padding:2px 8px;font-size:10px;font-weight:700;
-    }
-    .demo-bkt-row{
-      display:flex;align-items:center;gap:7px;
-      padding:6px 11px;
-      border-bottom:1px solid rgba(255,255,255,.04);
-    }
-    .demo-bkt-name{font-size:11px;color:rgba(255,255,255,.65);width:70px;flex-shrink:0}
+    .demo-hdr-lbl{font-size:10px;color:rgba(255,255,255,.42);font-weight:600;letter-spacing:.07em;text-transform:uppercase}
+    .demo-chip{border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700}
+    .demo-chip-purple{background:rgba(191,90,242,.14);color:rgba(191,90,242,.85);border:1px solid rgba(191,90,242,.2)}
+    .demo-chip-indigo{background:rgba(129,140,248,.14);color:rgba(129,140,248,.85);border:1px solid rgba(129,140,248,.2)}
+    .demo-chip-green{background:rgba(34,197,94,.14);color:#22c55e;border:1px solid rgba(34,197,94,.2)}
+
+    /* Bucket rows */
+    .demo-bkt{display:flex;align-items:center;gap:7px;padding:5px 11px;border-bottom:1px solid rgba(255,255,255,.04)}
+    .demo-bkt-name{font-size:10.5px;color:rgba(255,255,255,.6);width:62px;flex-shrink:0;
+      display:flex;align-items:center;gap:3px}
     .demo-bar-track{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
     .demo-bar{height:100%;border-radius:2px;background:rgba(191,90,242,.75);
-      transition:width .65s cubic-bezier(.4,0,.2,1),background .4s}
+      transition:width .65s cubic-bezier(.4,0,.2,1),background .35s}
     .demo-bar.green{background:#22c55e}
-    .demo-bkt-amt{font-size:10px;width:66px;text-align:right;flex-shrink:0;
+    .demo-bkt-amt{font-size:9.5px;width:64px;text-align:right;flex-shrink:0;
       font-family:'JetBrains Mono',monospace;transition:color .3s}
-    .demo-bkt-amt.neutral{color:rgba(255,255,255,.38)}
+    .demo-bkt-amt.neutral{color:rgba(255,255,255,.35)}
     .demo-bkt-amt.amber{color:#fbbf24}
     .demo-bkt-amt.green{color:#22c55e}
-    .demo-gp-wrap{padding:9px 11px 10px}
+
+    /* Get Paid button */
+    .demo-gp-wrap{padding:8px 11px 9px}
     .demo-gp-btn{
       display:inline-flex;align-items:center;gap:5px;
       background:rgba(191,90,242,.12);border:1px solid rgba(191,90,242,.28);
       color:rgba(191,90,242,.85);border-radius:6px;
-      padding:6px 11px;font-size:11px;font-weight:700;
-      cursor:default;font-family:var(--sans);
-      transition:background .15s,border-color .15s,box-shadow .15s,transform .1s;
+      padding:5px 10px;font-size:10.5px;font-weight:700;cursor:default;
+      font-family:var(--sans);transition:background .15s,border-color .15s,box-shadow .15s,transform .1s;
     }
-    .demo-gp-btn.pulse{
-      background:rgba(191,90,242,.25);border-color:rgba(191,90,242,.55);
-      box-shadow:0 0 14px rgba(191,90,242,.35);
-    }
+    .demo-gp-btn.pulse{background:rgba(191,90,242,.25);border-color:rgba(191,90,242,.55);box-shadow:0 0 14px rgba(191,90,242,.35)}
     .demo-gp-btn.click{transform:scale(.95);background:rgba(191,90,242,.35)}
 
-    /* ── Distribute modal inside demo ── */
-    .demo-modal{
-      position:absolute;bottom:0;left:0;right:0;
-      background:rgba(22,8,38,.97);
-      border-top:1px solid rgba(191,90,242,.25);
-      padding:11px 12px 12px;
-      transform:translateY(102%);
-      transition:transform .32s cubic-bezier(.32,.72,0,1);
-      border-radius:0 0 10px 10px;
-    }
-    .demo-modal.show{transform:translateY(0)}
-    .demo-modal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
-    .demo-modal-title{font-size:11px;font-weight:700;color:#fff;letter-spacing:.03em}
-    .demo-modal-chip{
-      background:rgba(129,140,248,.14);color:rgba(129,140,248,.85);
-      border:1px solid rgba(129,140,248,.2);
-      border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;
-    }
-    .demo-modal-row{
-      display:flex;justify-content:space-between;align-items:center;
-      padding:4px 0;font-size:11px;color:rgba(255,255,255,.45);
+    /* ── Act 2: Distribute ── */
+    .demo-dist-section{padding:5px 11px 3px}
+    .demo-dist-label{font-size:9px;color:rgba(255,255,255,.28);font-weight:700;
+      text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+    .demo-dist-row{
+      display:flex;align-items:center;padding:3.5px 0;font-size:10.5px;
+      color:rgba(255,255,255,.55);
       opacity:0;transform:translateX(-6px);
       transition:opacity .22s,transform .22s;
     }
-    .demo-modal-row.show{opacity:1;transform:translateX(0)}
-    .demo-modal-plus{color:#22c55e;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:10px}
+    .demo-dist-row.show{opacity:1;transform:translateX(0)}
+    .demo-dist-tag{font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;margin:0 6px;
+      background:rgba(191,90,242,.14);color:rgba(191,90,242,.8);border:1px solid rgba(191,90,242,.2)}
+    .demo-dist-amt{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.65);
+      transition:opacity .2s;font-weight:600}
+    .demo-dist-check{color:#22c55e;margin-left:5px;font-size:11px;
+      opacity:0;transition:opacity .2s}
+    .demo-dist-check.show{opacity:1}
+    .demo-dist-divider{height:1px;background:rgba(255,255,255,.06);margin:4px 11px}
+    .demo-dist-remaining{
+      font-size:9px;color:rgba(255,255,255,.28);font-weight:700;
+      text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;
+      display:flex;align-items:center;gap:5px;
+    }
+    .demo-dist-remaining-val{color:rgba(191,90,242,.85);font-weight:700;font-size:10px;text-transform:none;letter-spacing:0}
+    .demo-dist-done{
+      margin:6px 11px 0;padding:5px 10px;border-radius:6px;
+      background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);
+      display:flex;align-items:center;gap:6px;
+      font-size:10px;color:#22c55e;font-weight:600;
+      opacity:0;transition:opacity .3s;
+    }
+    .demo-dist-done.show{opacity:1}
+
+    /* ── Act 3: Transactions ── */
+    .demo-tx{
+      display:flex;align-items:center;gap:6px;padding:5px 11px;
+      border-bottom:1px solid rgba(255,255,255,.04);
+      transition:opacity .22s,transform .22s,background .3s;
+    }
+    .demo-tx.incoming{opacity:0;transform:translateX(14px)}
+    .demo-tx.incoming.show{opacity:1;transform:translateX(0)}
+    .demo-tx.highlight{background:rgba(191,90,242,.07)}
+    .demo-tx-name{font-size:10.5px;color:rgba(255,255,255,.65);flex:1}
+    .demo-tx-cat{font-size:9px;color:rgba(255,255,255,.28);background:rgba(255,255,255,.06);
+      border-radius:3px;padding:1px 5px}
+    .demo-tx-amt{font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:600;
+      color:#f87171;flex-shrink:0}
+    .demo-tx-note{padding:3px 11px 5px;font-size:9.5px;color:rgba(255,255,255,.25);
+      opacity:0;transition:opacity .25s}
+    .demo-tx-note.show{opacity:1}
+    .demo-tx-bkt-section{border-top:1px solid rgba(255,255,255,.06);margin-top:2px}
+
+    /* ── Act 4: Reports ── */
+    .demo-chart-wrap{padding:8px 11px 6px;height:calc(100% - 30px);display:flex;flex-direction:column}
+    .demo-chart-months{display:flex;gap:0;flex:1;align-items:flex-end;justify-content:space-around;padding:0 4px}
+    .demo-month-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+    .demo-month-bars{display:flex;gap:3px;align-items:flex-end;height:80px}
+    .demo-mbar{width:14px;border-radius:3px 3px 0 0;transition:height .6s cubic-bezier(.4,0,.2,1)}
+    .demo-mbar.spent{background:rgba(191,90,242,.75)}
+    .demo-mbar.saved{background:rgba(34,197,94,.7)}
+    .demo-mbar.forecast{background:transparent;border:1.5px dashed rgba(255,255,255,.25);border-bottom:none}
+    .demo-mbar.forecast-saved{background:transparent;border:1.5px dashed rgba(34,197,94,.3);border-bottom:none}
+    .demo-month-lbl{font-size:9px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.04em}
+    .demo-month-lbl.forecast{color:rgba(255,255,255,.2);font-style:italic}
+    .demo-month-amt{font-size:8.5px;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,.3);margin-top:1px}
+    .demo-chart-legend{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:7px;flex-shrink:0}
+    .demo-legend-item{display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(255,255,255,.35)}
+    .demo-legend-dot{width:7px;height:7px;border-radius:2px}
+    .demo-legend-dot.spent{background:rgba(191,90,242,.75)}
+    .demo-legend-dot.saved{background:rgba(34,197,94,.7)}
+    .demo-legend-dot.forecast{border:1.5px dashed rgba(255,255,255,.3);background:none;width:9px;height:9px}
+
+    /* Navigation dots */
+    .demo-dots{display:flex;gap:5px;justify-content:center;margin-top:7px}
+    .demo-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.18);
+      cursor:pointer;transition:background .2s,transform .2s}
+    .demo-dot.active{background:rgba(191,90,242,.85);transform:scale(1.35)}
 
     /* ── Form side ── */
     .sp-form-title{font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.01em}
@@ -136,29 +187,29 @@
     .sp-flash.error{background:var(--red-dim);color:var(--red)}
     .sp-flash.ok{background:var(--green-dim);color:var(--green)}
 
-    /* ── Signup steps ── */
-    .sp-steps{display:flex;flex-direction:column;gap:18px;text-align:left;margin-bottom:24px}
-    .sp-step{display:flex;align-items:flex-start;gap:13px}
-    .sp-step-dot{width:26px;height:26px;border-radius:var(--r-sm);background:rgba(191,90,242,.14);
+    /* Signup steps */
+    .sp-steps{display:flex;flex-direction:column;gap:17px;text-align:left;margin-bottom:20px}
+    .sp-step{display:flex;align-items:flex-start;gap:12px}
+    .sp-step-dot{width:25px;height:25px;border-radius:var(--r-sm);background:rgba(191,90,242,.14);
       border:1px solid rgba(191,90,242,.25);display:flex;align-items:center;justify-content:center;
       flex-shrink:0;color:var(--accent);margin-top:1px}
-    .sp-step-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:2px}
-    .sp-step-desc{font-size:11px;color:rgba(255,255,255,.33);line-height:1.5}
+    .sp-step-title{font-size:12px;font-weight:600;color:#fff;margin-bottom:2px}
+    .sp-step-desc{font-size:11px;color:rgba(255,255,255,.3);line-height:1.5}
 
-    /* ── Mobile fallback ── */
+    /* Mobile */
     @media(max-width:700px){
       html,body{overflow:auto;height:auto}
       .sp-root{height:auto;min-height:100vh;flex-direction:column;overflow:visible}
-      .sp-hero{position:static;width:100%;height:auto;padding:36px 24px 28px;order:-1;transform:none!important}
-      .sp-hero-brand{margin-bottom:18px}
-      .sp-hero-hl{font-size:26px;margin-bottom:6px}
+      .sp-hero{position:static;width:100%;height:auto;padding:32px 22px 26px;order:-1;transform:none!important}
+      .sp-hero-brand{margin-bottom:16px}
+      .sp-hero-hl{font-size:24px;margin-bottom:5px}
       .demo-preview{display:none}
       .sp-steps{display:none}
       .sp-hero-switch{display:none}
-      .sp-form{position:static;width:100%;height:auto;padding:28px 24px 60px;opacity:1!important;pointer-events:auto!important}
+      .sp-form{position:static;width:100%;height:auto;padding:26px 22px 60px;opacity:1!important;pointer-events:auto!important}
       .sp-form-login,.sp-form-signup{display:none}
       .sp-form.mobile-active{display:flex}
-      .mob-tab-row{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;background:var(--surface);margin-bottom:22px}
+      .mob-tab-row{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;background:var(--surface);margin-bottom:20px}
       .mob-tab{flex:1;text-align:center;padding:8px;border-radius:4px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:none;font-family:var(--sans)}
       .mob-tab.active{background:var(--accent);color:#fff;font-weight:700}
     }
@@ -168,7 +219,7 @@
 <body>
 <div class="sp-root {{ 'signup' if mode == 'signup' }}" id="sp">
 
-  {# ── Login form (left slot) ── #}
+  {# ── Login form ── #}
   <div class="sp-form sp-form-login" id="sp-login-form">
     <div class="sp-form-inner">
       <div class="sp-form-title">Welcome back</div>
@@ -191,7 +242,7 @@
     </div>
   </div>
 
-  {# ── Signup form (right slot) ── #}
+  {# ── Signup form ── #}
   <div class="sp-form sp-form-signup" id="sp-signup-form">
     <div class="sp-form-inner">
       <div class="sp-form-title">Create account</div>
@@ -217,12 +268,12 @@
     </div>
   </div>
 
-  {# ── Sliding hero panel ── #}
+  {# ── Hero panel ── #}
   <div class="sp-hero" id="sp-hero">
     <div class="sp-hero-inner">
       <div class="sp-hero-brand">
         <div class="sp-hero-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
             <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
             <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
           </svg>
@@ -230,60 +281,151 @@
         <span class="sp-hero-name">Cura</span>
       </div>
 
-      {# Login-mode hero content — animated product demo #}
+      {# Login hero — animated tour #}
       <div id="hero-login-content">
         <div class="sp-hero-hl">Every dollar<br>has a job.</div>
-        <div class="sp-hero-sub">Zero-based budgeting built around your paycheck — not spreadsheets, not guesswork.</div>
+        <div class="sp-hero-sub">Zero-based budgeting built around your paycheck.</div>
 
-        {# ── Mini app demo ── #}
         <div class="demo-preview">
-          <div class="demo-win" id="demo-win">
-            <div class="demo-win-hdr">
-              <span class="demo-hdr-label">June 2026</span>
-              <span class="demo-rts-chip">Ready: <span id="demo-rts">$1,240</span></span>
-            </div>
-            <div class="demo-bkt-row">
-              <span class="demo-bkt-name">Rent</span>
-              <div class="demo-bar-track"><div class="demo-bar green" id="db-rent" style="width:100%"></div></div>
-              <span class="demo-bkt-amt green" id="da-rent">$2,431 ✓</span>
-            </div>
-            <div class="demo-bkt-row">
-              <span class="demo-bkt-name">Groceries</span>
-              <div class="demo-bar-track"><div class="demo-bar" id="db-groc" style="width:45%"></div></div>
-              <span class="demo-bkt-amt amber" id="da-groc">$180 / $400</span>
-            </div>
-            <div class="demo-bkt-row">
-              <span class="demo-bkt-name">Emergency</span>
-              <div class="demo-bar-track"><div class="demo-bar" id="db-emer" style="width:0%"></div></div>
-              <span class="demo-bkt-amt amber" id="da-emer">$0 / $500</span>
-            </div>
-            <div class="demo-bkt-row" style="border-bottom:none">
-              <span class="demo-bkt-name">Dining Out</span>
-              <div class="demo-bar-track"><div class="demo-bar" id="db-dine" style="width:0%"></div></div>
-              <span class="demo-bkt-amt amber" id="da-dine">$0 / $200</span>
-            </div>
-            <div class="demo-gp-wrap">
-              <div class="demo-gp-btn" id="demo-gp">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                Get Paid $3,200
+          <div class="demo-win">
+
+            {# Act 1: Budget overview #}
+            <div class="demo-act active" id="dact-1">
+              <div class="demo-hdr">
+                <span class="demo-hdr-lbl">June 2026</span>
+                <span class="demo-chip demo-chip-purple">RTS $3,200</span>
+              </div>
+              <div class="demo-bkt" id="a1-rent-row">
+                <span class="demo-bkt-name">Rent</span>
+                <div class="demo-bar-track"><div class="demo-bar" id="a1b-rent" style="width:0%"></div></div>
+                <span class="demo-bkt-amt amber" id="a1l-rent">$0 / $2,431</span>
+              </div>
+              <div class="demo-bkt">
+                <span class="demo-bkt-name">Groceries</span>
+                <div class="demo-bar-track"><div class="demo-bar" id="a1b-groc" style="width:0%"></div></div>
+                <span class="demo-bkt-amt amber" id="a1l-groc">$0 / $400</span>
+              </div>
+              <div class="demo-bkt">
+                <span class="demo-bkt-name">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="rgba(191,90,242,.55)" stroke="none"><path d="M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z"/><path d="M7 11V7a5 5 0 0 1 9.9-1" stroke="rgba(191,90,242,.55)" stroke-width="2" fill="none"/></svg>
+                  Emerg.
+                </span>
+                <div class="demo-bar-track"><div class="demo-bar green" id="a1b-vault" style="width:24%"></div></div>
+                <span class="demo-bkt-amt neutral" id="a1l-vault">$1,200 saved</span>
+              </div>
+              <div class="demo-bkt" style="border-bottom:none">
+                <span class="demo-bkt-name">Dining Out</span>
+                <div class="demo-bar-track"><div class="demo-bar" id="a1b-dine" style="width:0%"></div></div>
+                <span class="demo-bkt-amt amber" id="a1l-dine">$0 / $200</span>
+              </div>
+              <div class="demo-gp-wrap">
+                <div class="demo-gp-btn" id="demo-gp">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  Get Paid $3,200
+                </div>
               </div>
             </div>
-            {# Distribute modal slides up from bottom #}
-            <div class="demo-modal" id="demo-modal">
-              <div class="demo-modal-top">
-                <span class="demo-modal-title">Distribute Paycheck</span>
-                <span class="demo-modal-chip">$3,200</span>
+
+            {# Act 2: Distribute paycheck #}
+            <div class="demo-act" id="dact-2">
+              <div class="demo-hdr">
+                <span class="demo-hdr-lbl">Distribute Paycheck</span>
+                <span class="demo-chip demo-chip-indigo">$3,200</span>
               </div>
-              <div class="demo-modal-row" id="dmr-1">
-                <span>→ Groceries</span><span class="demo-modal-plus">+$220</span>
+              <div class="demo-dist-section">
+                <div class="demo-dist-label">Auto-Rules</div>
+                <div class="demo-dist-row" id="a2-r1">
+                  <span>Rent</span>
+                  <span class="demo-dist-tag">auto</span>
+                  <span class="demo-dist-amt" id="a2-r1-amt">$2,431</span>
+                  <span class="demo-dist-check" id="a2-r1-ck">✓</span>
+                </div>
+                <div class="demo-dist-row" id="a2-r2">
+                  <span>Emergency Vault</span>
+                  <span class="demo-dist-tag">10%</span>
+                  <span class="demo-dist-amt" id="a2-r2-amt">$320</span>
+                  <span class="demo-dist-check" id="a2-r2-ck">✓</span>
+                </div>
               </div>
-              <div class="demo-modal-row" id="dmr-2">
-                <span>→ Emergency Fund</span><span class="demo-modal-plus">+$500</span>
+              <div class="demo-dist-divider"></div>
+              <div class="demo-dist-section">
+                <div class="demo-dist-remaining">
+                  Remaining <span class="demo-dist-remaining-val" id="a2-rem">$449</span>
+                </div>
+                <div class="demo-dist-row" id="a2-m1">
+                  <span>Groceries</span>
+                  <span class="demo-dist-amt" id="a2-m1-amt">$400</span>
+                  <span class="demo-dist-check" id="a2-m1-ck">✓</span>
+                </div>
+                <div class="demo-dist-row" id="a2-m2">
+                  <span>Dining Out</span>
+                  <span class="demo-dist-amt" id="a2-m2-amt">$200</span>
+                  <span class="demo-dist-check" id="a2-m2-ck">✓</span>
+                </div>
               </div>
-              <div class="demo-modal-row" id="dmr-3">
-                <span>→ Dining Out</span><span class="demo-modal-plus">+$200</span>
+              <div class="demo-dist-done" id="a2-done">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                Fully funded — $0 remaining
               </div>
             </div>
+
+            {# Act 3: Transaction hits bucket #}
+            <div class="demo-act" id="dact-3">
+              <div class="demo-hdr">
+                <span class="demo-hdr-lbl">Transactions</span>
+                <span class="demo-hdr-lbl" style="color:rgba(129,140,248,.6)">June 14</span>
+              </div>
+              <div class="demo-tx">
+                <span class="demo-tx-name">Whole Foods</span>
+                <span class="demo-tx-cat">Groceries</span>
+                <span class="demo-tx-amt">-$62.40</span>
+              </div>
+              <div class="demo-tx">
+                <span class="demo-tx-name">Netflix</span>
+                <span class="demo-tx-cat">Subscriptions</span>
+                <span class="demo-tx-amt">-$17.99</span>
+              </div>
+              <div class="demo-tx incoming" id="a3-new-tx">
+                <span class="demo-tx-name">Chipotle</span>
+                <span class="demo-tx-cat">Dining Out</span>
+                <span class="demo-tx-amt">-$14.50</span>
+              </div>
+              <div class="demo-tx-note" id="a3-note">
+                ↳ Dining Out: <strong style="color:rgba(191,90,242,.8)">$200 → $185.50</strong> remaining
+              </div>
+              <div class="demo-tx-bkt-section">
+                <div class="demo-bkt" style="border-bottom:none;padding:5px 11px 4px">
+                  <span class="demo-bkt-name">Dining Out</span>
+                  <div class="demo-bar-track"><div class="demo-bar green" id="a3-dine-bar" style="width:100%"></div></div>
+                  <span class="demo-bkt-amt green" id="a3-dine-lbl">$185.50</span>
+                </div>
+              </div>
+            </div>
+
+            {# Act 4: Reports + Forecast #}
+            <div class="demo-act" id="dact-4">
+              <div class="demo-hdr">
+                <span class="demo-hdr-lbl">Monthly Reports</span>
+                <span class="demo-chip demo-chip-green">On track</span>
+              </div>
+              <div class="demo-chart-wrap">
+                <div class="demo-chart-months" id="demo-chart">
+                  <!-- Injected by JS -->
+                </div>
+                <div class="demo-chart-legend">
+                  <div class="demo-legend-item"><div class="demo-legend-dot spent"></div>Spent</div>
+                  <div class="demo-legend-item"><div class="demo-legend-dot saved"></div>Saved</div>
+                  <div class="demo-legend-item"><div class="demo-legend-dot forecast"></div>Forecast</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="demo-dots">
+            <div class="demo-dot active" id="ddot-0" onclick="jumpAct(0)"></div>
+            <div class="demo-dot" id="ddot-1" onclick="jumpAct(1)"></div>
+            <div class="demo-dot" id="ddot-2" onclick="jumpAct(2)"></div>
+            <div class="demo-dot" id="ddot-3" onclick="jumpAct(3)"></div>
           </div>
         </div>
 
@@ -293,22 +435,22 @@
         </div>
       </div>
 
-      {# Signup-mode hero content #}
+      {# Signup hero #}
       <div id="hero-signup-content" style="display:none">
         <div class="sp-hero-hl">Start budgeting<br>your way.</div>
         <div class="sp-hero-sub">Join Cura and put every dollar to work. Free, private, built for real paychecks.</div>
         <div class="sp-steps">
           <div class="sp-step">
-            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-            <div><div class="sp-step-title">Free forever</div><div class="sp-step-desc">No credit card. No trial period. No catch.</div></div>
+            <div class="sp-step-dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div><div class="sp-step-title">Free forever</div><div class="sp-step-desc">No credit card. No trial. No catch.</div></div>
           </div>
           <div class="sp-step">
-            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-            <div><div class="sp-step-title">Your data, private</div><div class="sp-step-desc">Everything stays in your account. We don't sell data or show ads.</div></div>
+            <div class="sp-step-dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <div><div class="sp-step-title">Your data, private</div><div class="sp-step-desc">Stays in your account. No ads, no data selling.</div></div>
           </div>
           <div class="sp-step">
-            <div class="sp-step-dot"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-            <div><div class="sp-step-title">Up and running in minutes</div><div class="sp-step-desc">Add your accounts, build a few buckets, get paid — you're budgeting.</div></div>
+            <div class="sp-step-dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div><div class="sp-step-title">Running in minutes</div><div class="sp-step-desc">Add accounts, build buckets, get paid — done.</div></div>
           </div>
         </div>
         <div class="sp-hero-switch">
@@ -319,7 +461,7 @@
     </div>
   </div>
 
-  {# ── Mobile tab row (only shown on small screens) ── #}
+  {# Mobile tabs #}
   <div class="mob-tab-row" style="position:fixed;bottom:0;left:0;right:0;z-index:20;margin:0;border-radius:0;padding:8px 16px 16px;background:var(--bg);border-top:1px solid var(--border)">
     <button class="mob-tab {{ 'active' if mode == 'login' }}" onclick="mobSwitch('login')">Sign In</button>
     <button class="mob-tab {{ 'active' if mode == 'signup' }}" onclick="mobSwitch('signup')">Create Account</button>
@@ -333,136 +475,250 @@
 </style>
 
 <script>
-function setMode(mode) {
-  var root = document.getElementById('sp');
-  var heroLogin = document.getElementById('hero-login-content');
-  var heroSignup = document.getElementById('hero-signup-content');
-  if (mode === 'signup') {
-    root.classList.add('signup');
-    heroLogin.style.display = 'none';
-    heroSignup.style.display = '';
-    var inp = document.querySelector('#sp-signup-form input[type=email]');
-    if (inp) setTimeout(function(){ inp.focus(); }, 680);
-  } else {
-    root.classList.remove('signup');
-    heroLogin.style.display = '';
-    heroSignup.style.display = 'none';
-    var inp2 = document.querySelector('#sp-login-form input[type=email]');
-    if (inp2) setTimeout(function(){ inp2.focus(); }, 680);
+function setMode(m) {
+  var root=document.getElementById('sp');
+  var hl=document.getElementById('hero-login-content');
+  var hs=document.getElementById('hero-signup-content');
+  if(m==='signup'){
+    root.classList.add('signup'); hl.style.display='none'; hs.style.display='';
+    var i=document.querySelector('#sp-signup-form input[type=email]');
+    if(i)setTimeout(function(){i.focus();},680);
+  }else{
+    root.classList.remove('signup'); hl.style.display=''; hs.style.display='none';
+    var i2=document.querySelector('#sp-login-form input[type=email]');
+    if(i2)setTimeout(function(){i2.focus();},680);
   }
 }
-function mobSwitch(mode) {
-  var lf = document.querySelector('.sp-form-login');
-  var sf = document.querySelector('.sp-form-signup');
-  document.querySelectorAll('.mob-tab').forEach(function(t){ t.classList.remove('active'); });
-  if (mode === 'signup') {
-    lf.classList.remove('mobile-active'); sf.classList.add('mobile-active');
-    document.querySelectorAll('.mob-tab')[1].classList.add('active');
-  } else {
-    sf.classList.remove('mobile-active'); lf.classList.add('mobile-active');
-    document.querySelectorAll('.mob-tab')[0].classList.add('active');
-  }
+function mobSwitch(m) {
+  var lf=document.querySelector('.sp-form-login');
+  var sf=document.querySelector('.sp-form-signup');
+  document.querySelectorAll('.mob-tab').forEach(function(t){t.classList.remove('active');});
+  if(m==='signup'){lf.classList.remove('mobile-active');sf.classList.add('mobile-active');document.querySelectorAll('.mob-tab')[1].classList.add('active');}
+  else{sf.classList.remove('mobile-active');lf.classList.add('mobile-active');document.querySelectorAll('.mob-tab')[0].classList.add('active');}
 }
-// Init mobile active form
 (function(){
-  var init = '{{ mode }}';
-  var isMob = window.matchMedia('(max-width:700px)').matches;
-  if (isMob) { mobSwitch(init); }
+  var init='{{ mode }}';
+  if(window.matchMedia('(max-width:700px)').matches) mobSwitch(init);
 })();
 
-// ── Demo animation ──
-(function() {
-  function sleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
+// ── Demo tour ──
+(function(){
+  var sleep = function(ms){ return new Promise(function(r){setTimeout(r,ms);}); };
+  var currentAct = 0;
+  var jumpTarget = null;
+  var running = true;
 
-  async function demoLoop() {
-    var gpBtn  = document.getElementById('demo-gp');
-    var modal  = document.getElementById('demo-modal');
-    var dbGroc = document.getElementById('db-groc');
-    var dbEmer = document.getElementById('db-emer');
-    var dbDine = document.getElementById('db-dine');
-    var daGroc = document.getElementById('da-groc');
-    var daEmer = document.getElementById('da-emer');
-    var daDine = document.getElementById('da-dine');
-    var dmr1   = document.getElementById('dmr-1');
-    var dmr2   = document.getElementById('dmr-2');
-    var dmr3   = document.getElementById('dmr-3');
-    var rtsEl  = document.getElementById('demo-rts');
-    if (!gpBtn) return;
+  window.jumpAct = function(n){ jumpTarget = n; };
 
-    // Reset helper — no animation when snapping back
-    function resetBars() {
-      [dbGroc, dbEmer, dbDine].forEach(function(b) {
-        b.style.transition = 'none';
-        b.classList.remove('green');
-      });
-      dbGroc.style.width = '45%';
-      dbEmer.style.width = '0%';
-      dbDine.style.width = '0%';
-      daGroc.textContent = '$180 / $400'; daGroc.className = 'demo-bkt-amt amber';
-      daEmer.textContent = '$0 / $500';   daEmer.className = 'demo-bkt-amt amber';
-      daDine.textContent = '$0 / $200';   daDine.className = 'demo-bkt-amt amber';
-      dmr1.classList.remove('show');
-      dmr2.classList.remove('show');
-      dmr3.classList.remove('show');
-      if (rtsEl) rtsEl.textContent = '$1,240';
-    }
-
-    function restoreTransitions() {
-      [dbGroc, dbEmer, dbDine].forEach(function(b){
-        b.style.transition = 'width .65s cubic-bezier(.4,0,.2,1), background .4s';
-      });
-    }
-
-    await sleep(1000);
-
-    while (true) {
-      // Phase 1 — pulse the Get Paid button
-      await sleep(1400);
-      gpBtn.classList.add('pulse');
-      await sleep(650);
-      gpBtn.classList.remove('pulse');
-      gpBtn.classList.add('click');
-      await sleep(160);
-      gpBtn.classList.remove('click');
-
-      // Phase 2 — distribute modal slides up
-      await sleep(140);
-      modal.classList.add('show');
-      await sleep(480);
-      dmr1.classList.add('show');
-      await sleep(320);
-      dmr2.classList.add('show');
-      await sleep(320);
-      dmr3.classList.add('show');
-      await sleep(1100);
-
-      // Phase 3 — close modal, fill bars
-      modal.classList.remove('show');
-      await sleep(350);
-
-      restoreTransitions();
-      if (rtsEl) rtsEl.textContent = '$280';
-
-      dbGroc.style.width = '100%'; dbGroc.classList.add('green');
-      daGroc.textContent = '$400 ✓'; daGroc.className = 'demo-bkt-amt green';
-      await sleep(480);
-
-      dbEmer.style.width = '100%'; dbEmer.classList.add('green');
-      daEmer.textContent = '$500 ✓'; daEmer.className = 'demo-bkt-amt green';
-      await sleep(480);
-
-      dbDine.style.width = '100%'; dbDine.classList.add('green');
-      daDine.textContent = '$200 ✓'; daDine.className = 'demo-bkt-amt green';
-      await sleep(1800);
-
-      // Reset
-      resetBars();
-      await sleep(60);
-      restoreTransitions();
+  function setDot(n){
+    for(var i=0;i<4;i++){
+      var d=document.getElementById('ddot-'+i);
+      if(d) d.classList.toggle('active', i===n);
     }
   }
 
-  setTimeout(demoLoop, 600);
+  async function fadeAct(fromN, toN){
+    var from = document.getElementById('dact-'+(fromN+1));
+    var to   = document.getElementById('dact-'+(toN+1));
+    if(from){ from.style.opacity='0'; from.style.pointerEvents='none'; from.classList.remove('active'); }
+    if(to)  { to.classList.add('active'); to.style.opacity='1'; to.style.pointerEvents='auto'; }
+    setDot(toN);
+    await sleep(420);
+  }
+
+  // ── Act 1: Budget overview ──
+  async function act1(){
+    // already shown, just pulse the get paid button
+    var btn = document.getElementById('demo-gp');
+    await sleep(1600);
+    if(jumpTarget!==null) return;
+    btn.classList.add('pulse');
+    await sleep(700);
+    btn.classList.remove('pulse');
+    await sleep(200);
+    if(jumpTarget!==null) return;
+    btn.classList.add('pulse');
+    await sleep(700);
+    btn.classList.remove('pulse');
+    btn.classList.add('click');
+    await sleep(160);
+    btn.classList.remove('click');
+    await sleep(400);
+  }
+
+  // ── Act 2: Distribute ──
+  async function act2(){
+    var rows = ['a2-r1','a2-r2','a2-m1','a2-m2'];
+    var cks  = ['a2-r1-ck','a2-r2-ck','a2-m1-ck','a2-m2-ck'];
+    var rem  = document.getElementById('a2-rem');
+    var done = document.getElementById('a2-done');
+    // reset
+    rows.forEach(function(id){ var el=document.getElementById(id); if(el){el.classList.remove('show');} });
+    cks.forEach(function(id){ var el=document.getElementById(id); if(el){el.classList.remove('show');} });
+    if(done) done.classList.remove('show');
+    if(rem) rem.textContent='$449';
+
+    await sleep(500);
+    if(jumpTarget!==null) return;
+
+    // auto-rule 1
+    var r1=document.getElementById('a2-r1'); if(r1) r1.classList.add('show');
+    await sleep(550);
+    var c1=document.getElementById('a2-r1-ck'); if(c1) c1.classList.add('show');
+    await sleep(480);
+    if(jumpTarget!==null) return;
+
+    // auto-rule 2
+    var r2=document.getElementById('a2-r2'); if(r2) r2.classList.add('show');
+    await sleep(550);
+    var c2=document.getElementById('a2-r2-ck'); if(c2) c2.classList.add('show');
+    if(rem) rem.textContent='$449';
+    await sleep(600);
+    if(jumpTarget!==null) return;
+
+    // manual: groceries
+    var m1=document.getElementById('a2-m1'); if(m1) m1.classList.add('show');
+    await sleep(500);
+    var mc1=document.getElementById('a2-m1-ck'); if(mc1) mc1.classList.add('show');
+    if(rem) rem.textContent='$49';
+    await sleep(480);
+    if(jumpTarget!==null) return;
+
+    // manual: dining out
+    var m2=document.getElementById('a2-m2'); if(m2) m2.classList.add('show');
+    await sleep(500);
+    var mc2=document.getElementById('a2-m2-ck'); if(mc2) mc2.classList.add('show');
+    if(rem) rem.textContent='$0';
+    await sleep(500);
+    if(jumpTarget!==null) return;
+
+    // all done
+    if(done) done.classList.add('show');
+    await sleep(1800);
+  }
+
+  // ── Act 3: Transaction ──
+  async function act3(){
+    var newTx   = document.getElementById('a3-new-tx');
+    var note    = document.getElementById('a3-note');
+    var dineBar = document.getElementById('a3-dine-bar');
+    var dineLbl = document.getElementById('a3-dine-lbl');
+    // reset
+    if(newTx){ newTx.classList.remove('show','highlight'); }
+    if(note)  note.classList.remove('show');
+    if(dineBar){ dineBar.style.transition='none'; dineBar.style.width='100%'; dineBar.classList.add('green'); }
+    if(dineLbl){ dineLbl.textContent='$200.00'; dineLbl.className='demo-bkt-amt green'; }
+
+    await sleep(900);
+    if(jumpTarget!==null) return;
+
+    // transaction slides in
+    if(newTx) newTx.classList.add('show');
+    await sleep(600);
+    if(jumpTarget!==null) return;
+
+    // highlight it
+    if(newTx) newTx.classList.add('highlight');
+    await sleep(500);
+
+    // bucket ticks down
+    if(dineBar){
+      dineBar.style.transition='width .7s cubic-bezier(.4,0,.2,1)';
+      dineBar.style.width='92.75%';
+    }
+    if(dineLbl){ dineLbl.textContent='$185.50'; }
+    if(note) note.classList.add('show');
+    await sleep(2400);
+  }
+
+  // ── Act 4: Reports ──
+  async function act4(){
+    var container = document.getElementById('demo-chart');
+    if(!container) return;
+
+    // Chart data: [label, spentPx, savedPx, isForecast]
+    // max bar height = 78px, income=$3600
+    var months = [
+      {lbl:'Apr', spent:3180, saved:420, income:3600},
+      {lbl:'May', spent:3050, saved:620, income:3600},
+      {lbl:'Jun', spent:2840, saved:760, income:3600},
+      {lbl:'Jul', spent:2910, saved:690, income:3600, forecast:true},
+    ];
+    var maxIncome = 3600;
+    var maxH = 72;
+
+    container.innerHTML = '';
+    months.forEach(function(m){
+      var spentH  = Math.round(m.spent  / maxIncome * maxH);
+      var savedH  = Math.round(m.saved  / maxIncome * maxH);
+      var fc = m.forecast || false;
+
+      var col = document.createElement('div');
+      col.className = 'demo-month-col';
+
+      var bars = document.createElement('div');
+      bars.className = 'demo-month-bars';
+
+      var bSpent = document.createElement('div');
+      bSpent.className = 'demo-mbar ' + (fc ? 'forecast' : 'spent');
+      bSpent.style.height = '0px';
+      bSpent.dataset.target = spentH + 'px';
+
+      var bSaved = document.createElement('div');
+      bSaved.className = 'demo-mbar ' + (fc ? 'forecast-saved' : 'saved');
+      bSaved.style.height = '0px';
+      bSaved.dataset.target = savedH + 'px';
+
+      bars.appendChild(bSpent);
+      bars.appendChild(bSaved);
+
+      var lbl = document.createElement('div');
+      lbl.className = 'demo-month-lbl' + (fc ? ' forecast' : '');
+      lbl.textContent = fc ? m.lbl+'*' : m.lbl;
+
+      var amt = document.createElement('div');
+      amt.className = 'demo-month-amt';
+      amt.textContent = fc ? '~$'+(m.spent/1000).toFixed(1)+'k' : '$'+(m.spent/1000).toFixed(1)+'k';
+
+      col.appendChild(bars);
+      col.appendChild(lbl);
+      col.appendChild(amt);
+      container.appendChild(col);
+    });
+
+    await sleep(400);
+    if(jumpTarget!==null) return;
+
+    // Animate bars up sequentially
+    var allBars = container.querySelectorAll('.demo-mbar');
+    for(var i=0; i<allBars.length; i++){
+      var b = allBars[i];
+      b.style.transition = 'height .5s cubic-bezier(.4,0,.2,1)';
+      b.style.height = b.dataset.target;
+      if(i % 2 === 1) await sleep(280); // pause after each month pair
+    }
+    await sleep(2800);
+  }
+
+  async function runTour(){
+    var acts = [act1, act2, act3, act4];
+    while(running){
+      if(jumpTarget !== null){
+        var jt = jumpTarget; jumpTarget = null;
+        await fadeAct(currentAct, jt);
+        currentAct = jt;
+      }
+      await acts[currentAct]();
+      if(!running) break;
+      var next = (currentAct + 1) % 4;
+      if(jumpTarget === null){
+        await fadeAct(currentAct, next);
+        currentAct = next;
+      }
+    }
+  }
+
+  setTimeout(runTour, 800);
 })();
 </script>
 </body>
