@@ -41,7 +41,8 @@ def dashboard():
 @bp.route("/buckets")
 @login_required
 def buckets():
-    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
+    view_mid = request.args.get("m") or None
+    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
 @bp.route("/buckets/<bid>/alloc", methods=["POST"])
@@ -1376,6 +1377,14 @@ def month_nav(direction):
     y, m0 = D.F.parse_month_id(D.active_mid())
     total = y * 12 + m0 + (1 if direction == "next" else -1)
     session["active_mid"] = f"m_{total // 12}_{total % 12}"
+    return redirect(url_for("panels." + session.get("active_panel", "buckets")))
+
+
+@bp.route("/month/today")
+@login_required
+def month_today():
+    """Jump the active month back to today's calendar month."""
+    session["active_mid"] = D.F.current_month_id()
     return redirect(url_for("panels." + session.get("active_panel", "buckets")))
 
 

@@ -14,6 +14,15 @@
       {% endfor %}
     </div>
 
+    {% if shell.is_past_month %}
+    <div class="month-banner past-month-banner">
+      <span>You're viewing a past month — changes here won't affect your current budget.</span>
+      <a class="month-banner-cta" href="{{ url_for('panels.month_today') }}">
+        Go to {{ shell.today_month_label }} →
+      </a>
+    </div>
+    {% endif %}
+
     {% if view_mid != current_mid %}
     <div style="background:rgba(129,140,248,0.10);border:1px solid rgba(129,140,248,0.25);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--indigo)">
       Planning allocations for <strong>{{ month_tabs | selectattr('mid','equalto',view_mid) | map(attribute='label') | first | default(view_mid) }}</strong> — spending data not available yet.
@@ -21,10 +30,24 @@
     {% endif %}
 
     <div class="workflow-bar">
+      {% if not shell.month_closed %}
       <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents"
             hx-post="{{ url_for('panels.month_copy') }}" hx-target="#panel" hx-swap="innerHTML">
         <button class="wf-btn" type="submit">Copy Last Month</button>
       </form>
+      {% endif %}
+      {% if shell.month_closed %}
+      <span class="wf-closed-badge">🔒 Closed</span>
+      <form method="post" action="{{ url_for('panels.month_reopen') }}" style="display:contents"
+            hx-post="{{ url_for('panels.month_reopen') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="wf-btn" type="submit">Reopen</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents"
+            hx-post="{{ url_for('panels.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="wf-btn" type="submit">Close Month</button>
+      </form>
+      {% endif %}
     </div>
 
     {% for grp in groups %}

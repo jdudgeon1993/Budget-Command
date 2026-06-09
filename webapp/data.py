@@ -82,9 +82,17 @@ def shell_ctx(active_panel: str = "") -> dict:
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     txs = data.get("txs", [])
 
-    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+    # RTS is always anchored to today's calendar month so it stays consistent
+    # regardless of which month the user is browsing. Viewing July does not
+    # suddenly inflate RTS by dropping June's claims from the calculation.
+    today_mid = F.current_month_id()
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    rts = F.ready_to_spend(today_month, months, accounts, buckets, txs)
+
     total_cash = F.total_cash(accounts, txs)
     aom = F.age_of_money(accounts, txs)
+    # Income/allocated/spent are scoped to the VIEWED month for context
     income = F.month_income(mid, txs, accounts)
     allocated = F.total_allocated(month, buckets)
     spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
@@ -92,6 +100,10 @@ def shell_ctx(active_panel: str = "") -> dict:
     # just income — in ZBB you also allocate from prior-month carry-forward.
     _available = allocated + max(rts, 0)
     pct = min(100, round((allocated / _available) * 100)) if _available > 0 else 0
+
+    month_closed = bool(month.get("closed"))
+    is_past_month = F.month_status(mid) == "past"
+    today_month_label = month_label(today_mid)
 
     # Pre-render context for add-transaction modal (so it can be instant, no round-trip)
     tx_accounts = [{"id": a["id"], "name": a["name"]}
@@ -108,6 +120,9 @@ def shell_ctx(active_panel: str = "") -> dict:
         "active_panel": active_panel,
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
+        "today_month_label": today_month_label,
+        "is_past_month": is_past_month,
+        "month_closed": month_closed,
         "rts": rts,
         "total_cash": total_cash,
         "age_of_money": aom,
