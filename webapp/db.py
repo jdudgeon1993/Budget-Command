@@ -587,25 +587,6 @@ def update_category_order(uid: str, token: str, cid: str, sort_order: int) -> No
 
 # ── Month workflow ────────────────────────────────────────────────────────────
 
-def copy_month_allocs(uid: str, token: str, dst_mid: str, src_mid: str) -> None:
-    """Copy allocation rows from src_mid → dst_mid, skipping already-set buckets."""
-    db = client(token)
-    src = db.table("bcc_month_allocations").select("*") \
-        .eq("user_id", uid).eq("month_id", src_mid).execute().data or []
-    if not src:
-        return
-    existing_bids = {
-        r["bucket_id"] for r in
-        (db.table("bcc_month_allocations").select("bucket_id")
-           .eq("user_id", uid).eq("month_id", dst_mid).execute().data or [])
-    }
-    rows = [
-        {"user_id": uid, "month_id": dst_mid,
-         "bucket_id": r["bucket_id"], "amount": r["amount"]}
-        for r in src if r["bucket_id"] not in existing_bids
-    ]
-    if rows:
-        db.table("bcc_month_allocations").insert(rows).execute()
 
 
 # ── Payees ────────────────────────────────────────────────────────────────────

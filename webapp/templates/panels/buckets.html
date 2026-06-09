@@ -30,12 +30,6 @@
     {% endif %}
 
     <div class="workflow-bar">
-      {% if not shell.month_closed %}
-      <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents"
-            hx-post="{{ url_for('panels.month_copy') }}" hx-target="#panel" hx-swap="innerHTML">
-        <button class="wf-btn" type="submit">Copy Last Month</button>
-      </form>
-      {% endif %}
       {% if shell.month_closed %}
       <span class="wf-closed-badge">🔒 Closed</span>
       <form method="post" action="{{ url_for('panels.month_reopen') }}" style="display:contents"

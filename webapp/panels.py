@@ -461,21 +461,6 @@ def toggle_handled(bid):
 
 # ── Month workflow ────────────────────────────────────────────────────────────
 
-@bp.route("/month/copy", methods=["POST"])
-@login_required
-def month_copy():
-    mid = D.active_mid()
-    y, m0 = D.F.parse_month_id(mid)
-    total = y * 12 + m0 - 1
-    prev_mid = f"m_{total // 12}_{total % 12}"
-    if not current_app.config["DEV_SEED"]:
-        DB.copy_month_allocs(session["user_id"], session["access_token"], mid, prev_mid)
-        D.invalidate_cache()
-        flash("Allocations copied from last month.", "ok")
-    else:
-        flash("Dev mode: copy not persisted.", "ok")
-    return _buckets_response()
-
 
 # ── Month navigation ──────────────────────────────────────────────────────────
 
