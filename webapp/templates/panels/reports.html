@@ -278,8 +278,8 @@
       <div class="rpt-trend-bars">
         {% for t in trend_12mo %}
         <div class="rpt-trend-col">
-          <div class="rpt-trend-bar income" style="height:{{ t.income_pct }}%" title="{{ t.label }}: {{ t.income | money }}"></div>
-          <div class="rpt-trend-bar expense" style="height:{{ t.spent_pct }}%" title="{{ t.label }}: {{ t.spent | money }}"></div>
+          <div class="rpt-trend-bar income" style="height:{{ (t.income_pct * 0.9) | round | int }}px" title="{{ t.label }}: {{ t.income | money }}"></div>
+          <div class="rpt-trend-bar expense" style="height:{{ (t.spent_pct * 0.9) | round | int }}px" title="{{ t.label }}: {{ t.spent | money }}"></div>
         </div>
         {% endfor %}
       </div>
@@ -457,10 +457,17 @@
     <div class="rpt-card-hd" onclick="rptToggle('disc')">
       <span class="rpt-card-icon">🏅</span>
       <span class="rpt-card-title">ZBB Discipline</span>
-      <span class="rpt-card-summary">{{ disc_score }}% score</span>
+      {% set _ah = heatmap | rejectattr('status','eq','empty') | list %}
+      {% set _as = (_ah | selectattr('status','eq','full') | list | length / [_ah | length, 1] | max * 100) | round | int %}
+      <span class="rpt-card-summary">{{ _as }}% score</span>
       <span class="rpt-arrow" id="rpt-arr-disc">▾</span>
     </div>
     <div class="rpt-card-body" id="rpt-body-disc">
+
+      {% set active_heatmap = heatmap | rejectattr('status','eq','empty') | list %}
+      {% set active_full = active_heatmap | selectattr('status','eq','full') | list | length %}
+      {% set active_total = active_heatmap | length %}
+      {% set active_score = (active_full / active_total * 100) | round | int if active_total > 0 else 0 %}
 
       <div class="rpt-disc-score-wrap">
         <div class="rpt-score-ring">
@@ -468,21 +475,25 @@
             <circle cx="38" cy="38" r="32" fill="none" stroke="rgba(191,90,242,.15)" stroke-width="6"/>
             {% set circ = 201.06 %}
             <circle cx="38" cy="38" r="32" fill="none" stroke="var(--accent)" stroke-width="6"
-                    stroke-dasharray="{{ (disc_score / 100 * circ) | round(1) }} {{ circ }}"
+                    stroke-dasharray="{{ (active_score / 100 * circ) | round(1) }} {{ circ }}"
                     stroke-linecap="round" transform="rotate(-90 38 38)"/>
           </svg>
-          <div class="rpt-score-val">{{ disc_score }}</div>
+          <div class="rpt-score-val">{{ active_score }}</div>
         </div>
         <div>
           <div class="rpt-score-title">
-            {% if disc_score >= 90 %}Excellent ZBB Discipline
-            {% elif disc_score >= 75 %}Good ZBB Discipline
-            {% elif disc_score >= 50 %}Room to Improve
+            {% if active_total == 0 %}No Data Yet
+            {% elif active_score >= 90 %}Excellent ZBB Discipline
+            {% elif active_score >= 75 %}Good ZBB Discipline
+            {% elif active_score >= 50 %}Room to Improve
             {% else %}Needs Attention{% endif %}
           </div>
           <div class="rpt-score-sub">
-            Fully allocated {{ heatmap | selectattr('status','eq','full') | list | length }}
-            of the last 12 months.
+            {% if active_total > 0 %}
+              Fully allocated {{ active_full }} of {{ active_total }} active month{{ 's' if active_total != 1 }}.
+            {% else %}
+              Add income transactions to track your ZBB discipline.
+            {% endif %}
           </div>
         </div>
       </div>
@@ -491,8 +502,14 @@
       <div class="rpt-section-lbl">Allocation Heatmap — Last 12 Months</div>
       <div class="rpt-heatmap">
         {% for h in heatmap %}
-        <div class="rpt-hm-cell {{ h.status }}" title="{{ h.label }}: {{ 'Fully allocated' if h.status == 'full' else ('Deficit' if h.status == 'deficit' else 'Partially allocated') }}">
-          <div class="rpt-hm-icon">{{ '✓' if h.status == 'full' else ('!' if h.status == 'deficit' else '~') }}</div>
+        <div class="rpt-hm-cell {{ h.status }}"
+             title="{{ h.label }}: {{ 'No data' if h.status == 'empty' else ('Fully allocated' if h.status == 'full' else ('Deficit' if h.status == 'deficit' else 'Partially allocated')) }}">
+          <div class="rpt-hm-icon">
+            {% if h.status == 'full' %}✓
+            {% elif h.status == 'deficit' %}!
+            {% elif h.status == 'partial' %}~
+            {% else %}·{% endif %}
+          </div>
           <div class="rpt-hm-mo">{{ h.label }}</div>
         </div>
         {% endfor %}
@@ -501,6 +518,7 @@
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot full"></div>Fully allocated</div>
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot partial"></div>Partially allocated</div>
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot deficit"></div>Went negative</div>
+        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot empty"></div>No data</div>
       </div>
 
       <div class="rpt-disc-stats">
