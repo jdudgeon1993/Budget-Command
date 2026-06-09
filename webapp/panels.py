@@ -68,16 +68,19 @@ def set_alloc(bid):
 @bp.route("/buckets/<bid>/fill", methods=["POST"])
 @login_required
 def fill_bucket(bid):
-    """Set allocation = budget for this bucket."""
+    """Set allocation = max(budget, spent) — fills to target or covers actual spend."""
     data = D.load_data()
+    mid = D.active_mid()
     month = D.active_month(data)
     budget = D.F.b_budget(month, bid)
-    month.setdefault("allocations", {})[bid] = budget
+    spent  = D.F.b_spent(mid, bid, data.get("txs", []))
+    new_alloc = max(budget, spent)
+    month.setdefault("allocations", {})[bid] = new_alloc
     if not current_app.config["DEV_SEED"]:
         DB.upsert_alloc(session["user_id"], session["access_token"],
-                        D.active_mid(), bid, budget)
+                        mid, bid, new_alloc)
         D.invalidate_cache()
-    flash(f"Filled.", "ok")
+    flash("Covered." if spent > budget else "Filled.", "ok")
     return _buckets_response()
 
 

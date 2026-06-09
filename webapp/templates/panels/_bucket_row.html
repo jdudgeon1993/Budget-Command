@@ -71,7 +71,7 @@
         <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
               hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
           {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
-          <button class="vg-fill-btn over" type="submit">Move {{ (b.spent - b.budget) | money }} →</button>
+          <button class="vg-fill-btn over" type="submit">Cover {{ [0, (b.spent - b.alloc)] | max | money }}</button>
         </form>
       {% elif display_status == 'partial' and b.budget > 0 %}
         <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
