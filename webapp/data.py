@@ -135,14 +135,18 @@ def bucket_rows(view_mid: str = None):
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
 
-    # Future months inherit current month's budget targets so updates propagate
-    # forward automatically. Current month is the source of truth for "what
-    # this bill costs now." Past months are historical — never touched.
+    # Future months inherit today's budget targets so target changes propagate forward.
+    # Uses F.current_month_id() (today's calendar month) — NOT active_mid() which
+    # returns the session's viewed month and equals the future month during navigation.
     if F.month_status(mid) == "future":
-        current_month = active_month(data, current_mid)
+        today_mid = F.current_month_id()
+        today_month = next(
+            (m for m in months if m["id"] == today_mid),
+            {"id": today_mid, "allocations": {}, "budgets": {}},
+        )
         merged_budgets = {
-            **(month.get("budgets") or {}),
-            **(current_month.get("budgets") or {}),  # current month wins
+            **(today_month.get("budgets") or {}),
+            **(month.get("budgets") or {}),  # explicit future overrides win
         }
         month = {**month, "budgets": merged_budgets}
 
