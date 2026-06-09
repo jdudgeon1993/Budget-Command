@@ -640,7 +640,8 @@ def post_interest(aid):
 @bp.route("/reports")
 @login_required
 def reports():
-    return render_panel("panels/reports.html", "reports", **D.reports_view())
+    view_mid = request.args.get("m") or None
+    return render_panel("panels/reports.html", "reports", **D.reports_view(view_mid=view_mid))
 
 
 @bp.route("/setup")

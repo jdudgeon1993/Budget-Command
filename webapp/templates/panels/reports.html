@@ -1,100 +1,538 @@
 {% extends layout %}
 {% block panel %}
-<div class="panel-grid">
-  <div>
-    <div class="sum-grid" style="grid-template-columns:repeat(4,1fr)">
-      <div class="sum-card">
-        <div class="sum-label">Income</div>
-        <div class="sum-val c-green">{{ totals.income | money }}</div>
+<div class="rpt-page">
+
+  {# ── Month selector ── #}
+  <div class="rpt-header">
+    <div class="rpt-title">Reports</div>
+    <select class="rpt-month-select"
+            onchange="htmx.ajax('GET','{{ url_for('panels.reports') }}?m='+this.value,{target:'#panel',swap:'innerHTML'})">
+      {% for mo in available_months %}
+      <option value="{{ mo.mid }}" {{ 'selected' if mo.mid == view_mid }}>{{ mo.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  {# ══ CARD 1 — Month Performance (open by default) ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('perf')">
+      <span class="rpt-card-icon">📊</span>
+      <span class="rpt-card-title">Month Performance</span>
+      <span class="rpt-card-summary">{{ available_months[0].label if available_months else '' }}</span>
+      <span class="rpt-arrow open" id="rpt-arr-perf">▾</span>
+    </div>
+    <div class="rpt-card-body open" id="rpt-body-perf">
+
+      <div class="rpt-kpi-grid">
+        <div class="rpt-kpi">
+          <div class="rpt-kpi-lbl">Income</div>
+          <div class="rpt-kpi-val" style="color:var(--green)">{{ totals.income | money }}</div>
+        </div>
+        <div class="rpt-kpi">
+          <div class="rpt-kpi-lbl">Spent</div>
+          <div class="rpt-kpi-val" style="color:var(--red)">{{ totals.spent | money }}</div>
+        </div>
+        <div class="rpt-kpi">
+          <div class="rpt-kpi-lbl">Budgeted</div>
+          <div class="rpt-kpi-val" style="color:var(--accent)">{{ totals.budget | money }}</div>
+        </div>
+        <div class="rpt-kpi">
+          <div class="rpt-kpi-lbl">Net Saved</div>
+          <div class="rpt-kpi-val {{ 'c-green' if totals.net >= 0 else 'c-red' }}">{{ totals.net | money }}</div>
+        </div>
       </div>
-      <div class="sum-card">
-        <div class="sum-label">Spent</div>
-        <div class="sum-val c-red">{{ totals.spent | money }}</div>
+
+      <div class="rpt-stat-row">
+        <div class="rpt-stat-pill">
+          <div class="rpt-stat-lbl">Funding Rate</div>
+          <div class="rpt-stat-val">{{ funding_rate.pct }}%</div>
+          <div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ funding_rate.pct }}%;background:var(--green)"></div></div>
+          <div class="rpt-stat-sub">{{ funding_rate.funded }} of {{ funding_rate.total }} buckets funded</div>
+        </div>
+        <div class="rpt-stat-pill">
+          <div class="rpt-stat-lbl">Allocation Rate</div>
+          <div class="rpt-stat-val">{{ allocation_rate.pct }}%</div>
+          <div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ allocation_rate.pct }}%;background:var(--indigo)"></div></div>
+          <div class="rpt-stat-sub">{{ allocation_rate.allocated | money }} of {{ allocation_rate.income | money }} assigned</div>
+        </div>
+        <div class="rpt-stat-pill">
+          <div class="rpt-stat-lbl">Ready to Assign</div>
+          <div class="rpt-stat-val {{ 'c-red' if allocation_rate.rts < 0 else ('c-green' if allocation_rate.rts == 0 else 'c-amber') }}">{{ allocation_rate.rts | money }}</div>
+          <div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ [100 - allocation_rate.pct, 0] | max }}%;background:var(--amber)"></div></div>
+          <div class="rpt-stat-sub">{{ 100 - allocation_rate.pct }}% unassigned</div>
+        </div>
       </div>
-      <div class="sum-card">
-        <div class="sum-label">Budgeted</div>
-        <div class="sum-val" style="color:var(--accent)">{{ totals.budget | money }}</div>
+
+    </div>
+  </div>
+
+  {# ══ CARD 2 — Budget vs Actual ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('bva')">
+      <span class="rpt-card-icon">⚖️</span>
+      <span class="rpt-card-title">Budget vs Actual</span>
+      <span class="rpt-card-summary">
+        {% set over_cats = bva | selectattr('variance','lt',0) | list | length %}
+        {{ over_cats }} categor{{ 'y' if over_cats == 1 else 'ies' }} over budget
+      </span>
+      <span class="rpt-arrow" id="rpt-arr-bva">▾</span>
+    </div>
+    <div class="rpt-card-body" id="rpt-body-bva">
+
+      <div class="rpt-tab-row">
+        <button class="rpt-tab active" onclick="rptBva('1mo',this)">This Month</button>
+        <button class="rpt-tab" onclick="rptBva('3mo',this)">3 Months</button>
+        <button class="rpt-tab" onclick="rptBva('6mo',this)">6 Months</button>
       </div>
-      <div class="sum-card">
-        <div class="sum-label">Net</div>
-        <div class="sum-val {{ 'c-green' if totals.net >= 0 else 'c-red' }}">{{ totals.net | money }}</div>
+
+      {# Single month #}
+      <div class="rpt-bva-view active" id="rpt-bva-1mo">
+        <div class="rpt-tbl-wrap">
+          <table class="rpt-tbl">
+            <thead><tr>
+              <th>Category</th><th>Budget</th><th>Spent</th><th>Variance</th><th></th>
+            </tr></thead>
+            <tbody>
+            {% for cat in bva %}
+              <tr class="rpt-cat-row">
+                <td><span class="rpt-cat-dot" style="background:{{ cat.color }}"></span>{{ cat.name }}</td>
+                <td>{{ cat.budget | money }}</td>
+                <td>{{ cat.spent | money }}</td>
+                <td class="{{ 'rpt-pos' if cat.variance >= 0 else 'rpt-neg' }}">
+                  {{ '+' if cat.variance >= 0 else '' }}{{ cat.variance | money }}
+                </td>
+                <td>
+                  <div class="rpt-bar-wrap">
+                    <div class="rpt-bar-track">
+                      <div class="rpt-bar-fill {{ 'over' if cat.variance < 0 }}"
+                           style="width:{{ [100, ((cat.spent / cat.budget * 100) | round | int)] | min if cat.budget > 0 else 0 }}%;
+                                  background:{{ cat.color if cat.variance >= 0 else 'var(--red)' }}"></div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% for b in cat.buckets %}
+              <tr class="rpt-bkt-row">
+                <td>{{ b.name }}</td>
+                <td>{{ b.budget | money }}</td>
+                <td>{{ b.spent | money }}</td>
+                <td class="{{ 'rpt-pos' if b.variance >= 0 else 'rpt-neg' }}">
+                  {{ '+' if b.variance >= 0 else '' }}{{ b.variance | money }}
+                </td>
+                <td>
+                  {% if b.budget > 0 %}
+                  <div class="rpt-bar-wrap">
+                    <div class="rpt-bar-track">
+                      <div class="rpt-bar-fill {{ 'over' if b.variance < 0 }}"
+                           style="width:{{ b.pct }}%;background:{{ cat.color if b.variance >= 0 else 'var(--red)' }}"></div>
+                    </div>
+                    <span class="rpt-bar-pct">{{ b.pct }}%</span>
+                  </div>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="5" class="rpt-empty">No budget data this month.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {# 3-month #}
+      <div class="rpt-bva-view" id="rpt-bva-3mo">
+        <div class="rpt-tbl-wrap">
+          <table class="rpt-tbl">
+            <thead><tr>
+              <th>Category</th>
+              {% for lbl in bva_3mo.labels %}<th>{{ lbl }}</th>{% endfor %}
+            </tr></thead>
+            <tbody>
+            {% for row in bva_3mo.rows %}
+            <tr class="rpt-cat-row">
+              <td><span class="rpt-cat-dot" style="background:{{ row.color }}"></span>{{ row.name }}</td>
+              {% for m in row.months %}
+              <td class="{{ 'rpt-pos' if m.variance >= 0 else 'rpt-neg' }}">
+                {{ '+' if m.variance >= 0 else '' }}{{ m.variance | money }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="rpt-tbl-note">Positive = under budget · Negative = over budget</p>
+      </div>
+
+      {# 6-month #}
+      <div class="rpt-bva-view" id="rpt-bva-6mo">
+        <div class="rpt-tbl-wrap">
+          <table class="rpt-tbl">
+            <thead><tr>
+              <th>Category</th>
+              {% for lbl in bva_6mo.labels %}<th>{{ lbl }}</th>{% endfor %}
+            </tr></thead>
+            <tbody>
+            {% for row in bva_6mo.rows %}
+            <tr class="rpt-cat-row">
+              <td><span class="rpt-cat-dot" style="background:{{ row.color }}"></span>{{ row.name }}</td>
+              {% for m in row.months %}
+              <td class="{{ 'rpt-pos' if m.variance >= 0 else 'rpt-neg' }}">
+                {{ '+' if m.variance >= 0 else '' }}{{ m.variance | money }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="rpt-tbl-note">Positive = under budget · Negative = over budget</p>
+      </div>
+
+    </div>
+  </div>
+
+  {# ══ CARD 3 — Spending Analysis ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('spend')">
+      <span class="rpt-card-icon">💸</span>
+      <span class="rpt-card-title">Spending Analysis</span>
+      <span class="rpt-card-summary">{{ totals.spent | money }} total</span>
+      <span class="rpt-arrow" id="rpt-arr-spend">▾</span>
+    </div>
+    <div class="rpt-card-body" id="rpt-body-spend">
+      <div class="rpt-spend-grid">
+
+        {# By category #}
+        <div class="rpt-spend-block">
+          <div class="rpt-sb-title">By Category</div>
+          {% for c in cat_spend %}
+          <div class="rpt-catbar-row">
+            <div class="rpt-catbar-name">{{ c.name }}</div>
+            <div class="rpt-catbar-track"><div class="rpt-catbar-fill" style="width:{{ c.pct }}%;background:{{ c.color }}"></div></div>
+            <div class="rpt-catbar-amt">{{ c.spent | money }}</div>
+          </div>
+          {% else %}<div class="rpt-empty">No spending yet.</div>{% endfor %}
+        </div>
+
+        {# Fixed vs variable #}
+        <div class="rpt-spend-block">
+          <div class="rpt-sb-title">Fixed vs Variable</div>
+          {% set fv = fixed_vs_variable %}
+          <div class="rpt-fv-bar">
+            <div class="rpt-fv-fixed" style="width:{{ fv.fixed_pct }}%"></div>
+            <div class="rpt-fv-var" style="width:{{ fv.variable_pct }}%"></div>
+          </div>
+          <div class="rpt-fv-legend">
+            <div class="rpt-fv-item"><div class="rpt-fv-dot" style="background:var(--indigo)"></div>Fixed <span class="mono rpt-fv-amt">{{ fv.fixed | money }}</span></div>
+            <div class="rpt-fv-item"><div class="rpt-fv-dot" style="background:var(--accent)"></div>Variable <span class="mono rpt-fv-amt">{{ fv.variable | money }}</span></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">{{ fv.fixed_pct }}% committed · {{ fv.variable_pct }}% discretionary</div>
+        </div>
+
+        {# Top merchants #}
+        <div class="rpt-spend-block">
+          <div class="rpt-sb-title">Top Merchants</div>
+          {% for m in top_merchants %}
+          <div class="rpt-merchant-row">
+            <span class="rpt-merchant-rank">#{{ loop.index }}</span>
+            <span class="rpt-merchant-name">{{ m.name }}</span>
+            <span class="mono rpt-merchant-amt">{{ m.amount | money }}</span>
+          </div>
+          {% else %}<div class="rpt-empty">No transactions this month.</div>{% endfor %}
+        </div>
+
+        {# Top transactions #}
+        <div class="rpt-spend-block">
+          <div class="rpt-sb-title">Largest Transactions</div>
+          {% for t in top_txs %}
+          <div class="rpt-tx-row">
+            <span class="rpt-tx-date">{{ t.date }}</span>
+            <span class="rpt-tx-desc">{{ t.desc }}</span>
+            {% if t.bucket %}<span class="rpt-tx-cat">{{ t.bucket }}</span>{% endif %}
+            <span class="mono rpt-tx-amt">{{ t.amount | money }}</span>
+          </div>
+          {% else %}<div class="rpt-empty">No transactions this month.</div>{% endfor %}
+        </div>
+
       </div>
     </div>
+  </div>
 
-    <div class="card card-pad">
-      <div class="card-label">Budget vs Actual</div>
-      {% for cat in bva %}
-      <div class="bva-cat">
-        <div class="bva-cat-hd">
-          <div class="cat-dot" style="background:{{ cat.color }}"></div>
-          <span class="bva-cat-name">{{ cat.name }}</span>
-          <span class="bva-cat-fig">{{ cat.spent | money }} / {{ cat.budget | money }}</span>
-          {% if cat.budget > 0 %}
-          <span class="bva-var {{ 'c-red' if cat.variance < 0 else 'c-green' }}">
-            {{ '+' if cat.variance >= 0 else '' }}{{ cat.variance | money }}
-          </span>
-          {% endif %}
+  {# ══ CARD 4 — Trends ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('trends')">
+      <span class="rpt-card-icon">📈</span>
+      <span class="rpt-card-title">Trends</span>
+      <span class="rpt-card-summary">12-month view</span>
+      <span class="rpt-arrow" id="rpt-arr-trends">▾</span>
+    </div>
+    <div class="rpt-card-body" id="rpt-body-trends">
+
+      {# 12-month income/expense bars #}
+      <div class="rpt-trend-legend">
+        <div class="rpt-trend-legend-item"><div class="rpt-legend-dot" style="background:var(--indigo)"></div>Income</div>
+        <div class="rpt-trend-legend-item"><div class="rpt-legend-dot" style="background:var(--accent)"></div>Expenses</div>
+      </div>
+      <div class="rpt-trend-bars">
+        {% for t in trend_12mo %}
+        <div class="rpt-trend-col">
+          <div class="rpt-trend-bar income" style="height:{{ t.income_pct }}%" title="{{ t.label }}: {{ t.income | money }}"></div>
+          <div class="rpt-trend-bar expense" style="height:{{ t.spent_pct }}%" title="{{ t.label }}: {{ t.spent | money }}"></div>
         </div>
-        {% for b in cat.buckets %}
-        <div class="bva-row">
-          <span class="bva-name">{{ b.name }}</span>
-          {% if b.budget > 0 %}
-          <div class="bva-track">
-            <div class="bva-fill" style="width:{{ b.pct }}%;background:{{ '#FF453A' if b.variance < 0 else cat.color }}"></div>
+        {% endfor %}
+      </div>
+      <div class="rpt-trend-xlabels">
+        {% for t in trend_12mo %}
+        <div class="rpt-trend-xlabel {{ 'rpt-xlabel-cur' if loop.last }}">{{ t.label }}</div>
+        {% endfor %}
+      </div>
+
+      {# Net savings sparkline #}
+      <div class="rpt-spark-block">
+        <div class="rpt-spark-hd">
+          <div class="rpt-spark-title">Net Saved per Month</div>
+          <div>
+            <div class="mono rpt-spark-val c-green">{{ totals.net | money }}</div>
+            <div style="font-size:11px;color:var(--text3)">this month</div>
           </div>
-          <span class="bva-nums">{{ b.spent | money }} / {{ b.budget | money }}</span>
-          {% else %}
-          <div class="bva-track"><div class="bva-fill" style="width:100%;opacity:0.15;background:{{ cat.color }}"></div></div>
-          <span class="bva-nums" style="color:var(--text3)">{{ b.spent | money }} <span style="font-size:10px">unbudgeted</span></span>
+        </div>
+        {% set spark_vals = trend_12mo | map(attribute='net') | list %}
+        {% set spark_min = spark_vals | min %}
+        {% set spark_max = spark_vals | max %}
+        {% set spark_range = [spark_max - spark_min, 1] | max %}
+        <svg width="100%" height="44" viewBox="0 0 {{ trend_12mo | length * 50 }} 44" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#30d158" stop-opacity=".25"/>
+              <stop offset="100%" stop-color="#30d158" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          {% set pts = [] %}
+          {% for t in trend_12mo %}
+            {% set x = loop.index0 * 50 %}
+            {% set y = 44 - ((t.net - spark_min) / spark_range * 40) | round | int %}
+            {% if pts.append(x ~ ',' ~ y) %}{% endif %}
+          {% endfor %}
+          <path d="M {{ pts | join(' L ') }} L {{ (trend_12mo | length - 1) * 50 }},44 L 0,44 Z"
+                fill="url(#sparkGrad)" stroke="none"/>
+          <path d="M {{ pts | join(' L ') }}" fill="none" stroke="#30d158" stroke-width="1.5" stroke-linejoin="round"/>
+          <circle cx="{{ (trend_12mo | length - 1) * 50 }}"
+                  cy="{{ 44 - ((trend_12mo[-1].net - spark_min) / spark_range * 40) | round | int }}"
+                  r="3" fill="#30d158"/>
+        </svg>
+        <div class="rpt-trend-xlabels" style="margin-top:2px">
+          {% for t in trend_12mo %}
+          <div class="rpt-trend-xlabel {{ 'rpt-xlabel-cur' if loop.last }}">{{ t.label }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Over-budget frequency #}
+      {% if over_freq %}
+      <div class="rpt-section-lbl">Over-Budget Frequency — Last 6 Months</div>
+      {% for row in over_freq %}
+      <div class="rpt-freq-row">
+        <span class="rpt-freq-name">{{ row.name }}</span>
+        <div class="rpt-freq-dots">
+          {% for hit in row.dots %}
+          <div class="rpt-freq-dot {{ 'hit' if hit else 'miss' }}"></div>
+          {% endfor %}
+        </div>
+        <span class="rpt-freq-count">{{ row.count }}/{{ row.total }}</span>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+    </div>
+  </div>
+
+  {# ══ CARD 5 — Goals & Net Worth ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('goals')">
+      <span class="rpt-card-icon">🎯</span>
+      <span class="rpt-card-title">Goals & Net Worth</span>
+      <span class="rpt-card-summary">{{ goals | length }} goal{{ 's' if goals | length != 1 }} · NW {{ net_worth | money }}</span>
+      <span class="rpt-arrow" id="rpt-arr-goals">▾</span>
+    </div>
+    <div class="rpt-card-body" id="rpt-body-goals">
+
+      {% if goals %}
+      <div class="rpt-section-lbl" style="margin-top:14px;margin-bottom:8px">Active Goals</div>
+      <div class="rpt-goals-grid">
+        {% for g in goals %}
+        <div class="rpt-goal-card">
+          <div class="rpt-goal-name">{{ g.name }}</div>
+          <div class="rpt-goal-sub">
+            {{ g.monthly_contrib | money }}/mo
+            {% if g.target_date %} · {{ g.target_date }}{% endif %}
+          </div>
+          <div class="rpt-goal-bar-track"><div class="rpt-goal-bar-fill" style="width:{{ g.pct }}%"></div></div>
+          <div class="rpt-goal-meta">
+            <span>{{ g.saved | money }} saved</span>
+            <span>{{ g.pct }}%</span>
+          </div>
+          {% if g.months_left is not none %}
+          <div class="rpt-goal-eta">~{{ g.months_left }} month{{ 's' if g.months_left != 1 }} at current pace</div>
           {% endif %}
         </div>
         {% endfor %}
       </div>
-      {% else %}
-      <div class="stub">No budget data this month.</div>
-      {% endfor %}
+      {% endif %}
+
+      {# Net worth trend #}
+      <div class="rpt-section-lbl">Net Worth Trend</div>
+      <div class="rpt-nw-block">
+        <div class="rpt-nw-hd">
+          <div>
+            <div class="rpt-nw-title">Current Net Worth</div>
+            <div class="mono rpt-nw-val {{ 'c-green' if net_worth >= 0 else 'c-red' }}">{{ net_worth | money }}</div>
+            {% set nw_delta = nw_trend[-1].net_worth - nw_trend[-2].net_worth if nw_trend | length >= 2 else 0 %}
+            <div class="rpt-nw-delta {{ 'c-green' if nw_delta >= 0 else 'c-red' }}">
+              {{ '↑' if nw_delta >= 0 else '↓' }} {{ nw_delta | abs | money }} vs last month
+            </div>
+          </div>
+        </div>
+        {# SVG line chart #}
+        {% if nw_trend %}
+        <svg width="100%" height="50" viewBox="0 0 {{ (nw_trend | length - 1) * 100 + 1 }} 50" preserveAspectRatio="none" style="margin-top:8px">
+          <defs>
+            <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#30d158" stop-opacity=".2"/>
+              <stop offset="100%" stop-color="#30d158" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          {% set nw_pts = [] %}
+          {% for t in nw_trend %}
+            {% set x = loop.index0 * 100 %}
+            {% set y = 50 - (t.pct * 0.46) | round | int %}
+            {% if nw_pts.append(x ~ ',' ~ y) %}{% endif %}
+          {% endfor %}
+          <path d="M {{ nw_pts | join(' L ') }} L {{ (nw_trend | length - 1) * 100 }},50 L 0,50 Z"
+                fill="url(#nwGrad)" stroke="none"/>
+          <path d="M {{ nw_pts | join(' L ') }}" fill="none" stroke="#30d158" stroke-width="2" stroke-linejoin="round"/>
+          {% for t in nw_trend %}
+          <circle cx="{{ loop.index0 * 100 }}" cy="{{ 50 - (t.pct * 0.46) | round | int }}"
+                  r="{{ '4' if loop.last else '3' }}" fill="#30d158" opacity="{{ '1' if loop.last else '0.6' }}"/>
+          {% endfor %}
+        </svg>
+        <div class="rpt-trend-xlabels" style="margin-top:4px">
+          {% for t in nw_trend %}
+          <div class="rpt-trend-xlabel {{ 'rpt-xlabel-cur' if loop.last }}">{{ t.label }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      {# Debt accounts #}
+      {% if debt_accounts %}
+      <div class="rpt-section-lbl">Debt Accounts</div>
+      <div class="rpt-debt-block">
+        {% for d in debt_accounts %}
+        <div class="rpt-debt-row">
+          <span class="rpt-debt-name">{{ d.name }}</span>
+          <div>
+            <div class="mono rpt-debt-bal">{{ d.balance | money }}</div>
+            {% if d.delta != 0 %}
+            <div class="rpt-debt-delta {{ 'c-green' if d.delta > 0 else 'c-red' }}">
+              {{ '↓' if d.delta > 0 else '↑' }} {{ d.delta | abs | money }} vs last month
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        <div class="rpt-debt-total">
+          <span style="color:var(--text2)">Total debt</span>
+          <span class="mono c-red" style="font-weight:700">{{ debt_accounts | sum(attribute='balance') | money }}</span>
+        </div>
+      </div>
+      {% endif %}
+
     </div>
   </div>
 
-  <div class="right-sticky">
-    <div class="card card-pad" style="margin-bottom:12px">
-      <div class="card-label">Spending by Category</div>
-      {% for c in cat_spend %}
-      <div class="cat-bar-row">
-        <div class="cat-bar-hdr">
-          <div class="cat-dot" style="background:{{ c.color }}"></div>
-          <span class="cat-bar-name">{{ c.name }}</span>
-          <span class="cat-bar-pct c-text2">{{ c.spent | money }}</span>
-          <span class="cat-bar-share" style="color:var(--text3);font-size:11px;font-family:var(--mono)">{{ c.pct }}%</span>
-        </div>
-        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:{{ c.pct }}%;background:{{ c.color }}"></div></div>
-      </div>
-      {% else %}<div class="stub">No spending yet.</div>{% endfor %}
+  {# ══ CARD 6 — ZBB Discipline ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('disc')">
+      <span class="rpt-card-icon">🏅</span>
+      <span class="rpt-card-title">ZBB Discipline</span>
+      <span class="rpt-card-summary">{{ disc_score }}% score</span>
+      <span class="rpt-arrow" id="rpt-arr-disc">▾</span>
     </div>
+    <div class="rpt-card-body" id="rpt-body-disc">
 
-    <div class="card card-pad">
-      <div class="card-label">Account Snapshot</div>
-      {% for s in snapshot %}
-      <div class="snap-row">
-        <div style="display:flex;align-items:center;gap:7px">
-          <span class="snap-name">{{ s.name }}</span>
-          {% if s.type == 'debt' %}
-          <span class="meta-badge" style="background:var(--red-dim);color:var(--red);border-color:transparent;font-size:9px">Debt</span>
-          {% elif s.type == 'savings' %}
-          <span class="meta-badge" style="background:var(--green-dim);color:var(--green);border-color:transparent;font-size:9px">Savings</span>
-          {% endif %}
+      <div class="rpt-disc-score-wrap">
+        <div class="rpt-score-ring">
+          <svg width="76" height="76" viewBox="0 0 76 76">
+            <circle cx="38" cy="38" r="32" fill="none" stroke="rgba(191,90,242,.15)" stroke-width="6"/>
+            {% set circ = 201.06 %}
+            <circle cx="38" cy="38" r="32" fill="none" stroke="var(--accent)" stroke-width="6"
+                    stroke-dasharray="{{ (disc_score / 100 * circ) | round(1) }} {{ circ }}"
+                    stroke-linecap="round" transform="rotate(-90 38 38)"/>
+          </svg>
+          <div class="rpt-score-val">{{ disc_score }}</div>
         </div>
-        <span class="snap-bal {{ 'neg' if s.type == 'debt' }}">
-          {{ s.balance | money }}
-          {% if s.type == 'debt' %}<span style="font-size:10px;color:var(--text3);margin-left:3px">owed</span>{% endif %}
-        </span>
+        <div>
+          <div class="rpt-score-title">
+            {% if disc_score >= 90 %}Excellent ZBB Discipline
+            {% elif disc_score >= 75 %}Good ZBB Discipline
+            {% elif disc_score >= 50 %}Room to Improve
+            {% else %}Needs Attention{% endif %}
+          </div>
+          <div class="rpt-score-sub">
+            Fully allocated {{ heatmap | selectattr('status','eq','full') | list | length }}
+            of the last 12 months.
+          </div>
+        </div>
       </div>
-      {% endfor %}
-      <div class="snap-row snap-total">
-        <span class="snap-name">Net Worth</span>
-        <span class="snap-bal {{ 'neg' if net_worth < 0 }}">{{ net_worth | money }}</span>
+
+      {# Heatmap #}
+      <div class="rpt-section-lbl">Allocation Heatmap — Last 12 Months</div>
+      <div class="rpt-heatmap">
+        {% for h in heatmap %}
+        <div class="rpt-hm-cell {{ h.status }}" title="{{ h.label }}: {{ 'Fully allocated' if h.status == 'full' else ('Deficit' if h.status == 'deficit' else 'Partially allocated') }}">
+          <div class="rpt-hm-icon">{{ '✓' if h.status == 'full' else ('!' if h.status == 'deficit' else '~') }}</div>
+          <div class="rpt-hm-mo">{{ h.label }}</div>
+        </div>
+        {% endfor %}
       </div>
+      <div class="rpt-hm-legend">
+        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot full"></div>Fully allocated</div>
+        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot partial"></div>Partially allocated</div>
+        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot deficit"></div>Went negative</div>
+      </div>
+
+      <div class="rpt-disc-stats">
+        <div class="rpt-disc-stat">
+          <div class="rpt-disc-stat-lbl">Avg Monthly Surplus</div>
+          <div class="mono rpt-disc-stat-val c-green">{{ avg_surplus | money }}</div>
+          <div class="rpt-disc-stat-sub">unassigned at month end</div>
+        </div>
+        <div class="rpt-disc-stat">
+          <div class="rpt-disc-stat-lbl">Negative RTS Months</div>
+          <div class="mono rpt-disc-stat-val {{ 'c-red' if neg_rts_months else 'c-green' }}">{{ neg_rts_months | length }}</div>
+          <div class="rpt-disc-stat-sub">{{ neg_rts_months | join(', ') if neg_rts_months else 'None — great!' }}</div>
+        </div>
+      </div>
+
     </div>
   </div>
+
 </div>
+
+<script>
+function rptToggle(id) {
+  const body = document.getElementById('rpt-body-' + id);
+  const arr  = document.getElementById('rpt-arr-' + id);
+  const open = body.classList.toggle('open');
+  arr.classList.toggle('open', open);
+}
+function rptBva(view, btn) {
+  document.querySelectorAll('.rpt-bva-view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.rpt-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('rpt-bva-' + view).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
 {% endblock %}
