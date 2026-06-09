@@ -89,6 +89,7 @@ def login():
     if request.method == "POST":
         try:
             res = DB.sign_in(request.form["email"], request.form["password"])
+            session.permanent        = bool(request.form.get("remember_me"))
             session["access_token"]  = res["access_token"]
             session["refresh_token"] = res["refresh_token"]
             session["expires_at"]    = res["expires_at"]
