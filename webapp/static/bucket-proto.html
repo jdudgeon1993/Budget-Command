@@ -233,6 +233,162 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
 /* Vault accent in C */
 .vc-vault-note{font-size:10px;font-family:var(--mono);color:var(--text3);padding-top:3px}
 
+
+/* ══════════════════════════════════════════════
+   VARIANT D — Progress-forward
+   Bar is the hero. 10px thick, full-width.
+   Name + amounts above. Status lives in bar color.
+   No pills needed — the bar says everything.
+══════════════════════════════════════════════ */
+.vd-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+  margin-bottom:16px;
+}
+.vd-card-hdr{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px 10px;
+  border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+}
+.vd-cat-swatch{width:10px;height:10px;border-radius:3px;background:var(--c);flex-shrink:0;box-shadow:0 0 8px var(--c)}
+.vd-cat-name{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);color:var(--text);flex:1}
+.vd-cat-amt{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.vd-cat-badge{font-size:10px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:var(--r-pill);margin-left:6px}
+.vd-cat-badge.full{background:var(--green-dim);color:var(--green)}
+.vd-cat-badge.part{background:var(--amber-dim);color:var(--amber)}
+
+.vd-row{padding:11px 16px 12px;border-top:1px solid var(--border2)}
+.vd-row-top{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+.vd-bkt-name{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.vd-amounts{display:flex;align-items:baseline;gap:4px;flex-shrink:0}
+.vd-alloc{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--alloc)}
+.vd-sep{font-size:12px;color:var(--text3)}
+.vd-budget{font-family:var(--mono);font-size:12px;color:var(--text3)}
+.vd-extra{font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:4px}
+
+.vd-bar-row{display:flex;align-items:center;gap:10px}
+.vd-bar-track{flex:1;height:10px;background:rgba(255,255,255,.07);border-radius:5px;overflow:hidden}
+.vd-bar-fill{height:100%;border-radius:5px;transition:width .4s}
+.vd-bar-fill.funded{background:var(--green);box-shadow:0 0 8px rgba(48,209,88,.4)}
+.vd-bar-fill.partial{background:var(--amber)}
+.vd-bar-fill.unfunded{background:rgba(255,255,255,.1)}
+.vd-bar-fill.vault{background:var(--indigo)}
+.vd-bar-pct{font-family:var(--mono);font-size:10px;font-weight:600;min-width:30px;text-align:right;flex-shrink:0}
+.vd-bar-pct.funded{color:var(--green)}
+.vd-bar-pct.partial{color:var(--amber)}
+.vd-bar-pct.unfunded{color:var(--text3)}
+.vd-bar-actions{display:flex;gap:3px;margin-left:4px}
+
+/* ══════════════════════════════════════════════
+   VARIANT E — Attention-first
+   Same category card shell, but inside:
+   unfunded/partial bucket rows have a tinted bg
+   and a prominent CTA. Funded rows fade to bottom.
+══════════════════════════════════════════════ */
+.ve-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+  margin-bottom:16px;
+  border-top:3px solid var(--c);
+}
+.ve-card-hdr{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px;
+}
+.ve-cat-dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex-shrink:0}
+.ve-cat-name{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);color:var(--text);flex:1}
+.ve-cat-totals{font-family:var(--mono);font-size:11px;color:var(--text2)}
+.ve-cat-pct{font-size:10px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:var(--r-pill);margin-left:6px}
+.ve-cat-pct.full{background:var(--green-dim);color:var(--green)}
+.ve-cat-pct.part{background:var(--amber-dim);color:var(--amber)}
+
+/* Zone labels */
+.ve-zone-lbl{
+  font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+  font-family:var(--mono);padding:4px 16px;color:var(--text3);
+  background:rgba(255,255,255,.02);border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);
+}
+.ve-zone-lbl.needs{color:var(--amber);background:rgba(255,159,10,.04)}
+
+/* Needs-attention rows: tinted background, fill CTA large */
+.ve-row{
+  display:grid;
+  grid-template-columns:minmax(90px,1fr) 170px auto;
+  align-items:center;gap:10px;
+  padding:10px 16px;
+  border-top:1px solid var(--border2);
+  transition:background .12s;
+}
+.ve-row.needs-row{background:rgba(255,159,10,.04)}
+.ve-row.needs-row:hover{background:rgba(255,159,10,.07)}
+.ve-row.funded-row{opacity:.65}
+.ve-row.funded-row:hover{opacity:1;background:rgba(255,255,255,.02)}
+.ve-bkt-name{font-size:13px;font-weight:600;color:var(--text)}
+.ve-bkt-name.funded{color:var(--text2)}
+.ve-nums{display:flex;align-items:baseline;gap:4px}
+.ve-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.ve-fill-btn{padding:4px 12px;border-radius:var(--r-pill);font-size:11px;font-weight:700;font-family:var(--mono);border:1px solid var(--amber);background:var(--amber-dim);color:var(--amber);cursor:pointer}
+.ve-check{color:var(--green);font-size:13px}
+
+/* ══════════════════════════════════════════════
+   VARIANT F — Tile grid
+   Buckets become small tiles inside the category
+   card — 2 columns on desktop. Name, bold bar,
+   amounts. No rows at all. Dashboard feel.
+══════════════════════════════════════════════ */
+.vf-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+  margin-bottom:16px;
+}
+.vf-card-hdr{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px 10px;
+  border-bottom:1px solid var(--border);
+}
+.vf-cat-swatch{width:28px;height:6px;border-radius:3px;background:var(--c);flex-shrink:0}
+.vf-cat-name{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);color:var(--text);flex:1}
+.vf-cat-totals{font-family:var(--mono);font-size:11px;color:var(--text2)}
+.vf-cat-pct{font-size:10px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:var(--r-pill);margin-left:6px}
+.vf-cat-pct.full{background:var(--green-dim);color:var(--green)}
+.vf-cat-pct.part{background:var(--amber-dim);color:var(--amber)}
+
+.vf-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+.vf-tile{
+  background:var(--bg);
+  padding:13px 16px 12px;
+  transition:background .12s;
+}
+.vf-tile:hover{background:var(--surface2)}
+.vf-tile-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px;gap:8px}
+.vf-tile-name{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
+.vf-tile-badge{font-size:9px;font-family:var(--mono);padding:1px 6px;border-radius:3px;flex-shrink:0;margin-top:1px}
+.vf-tile-badge.vault{background:rgba(129,140,248,.12);color:var(--indigo);border:1px solid rgba(129,140,248,.2)}
+.vf-tile-badge.goal{background:rgba(48,209,88,.1);color:var(--green);border:1px solid rgba(48,209,88,.2)}
+.vf-bar-wrap{margin-bottom:9px}
+.vf-bar-track{height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
+.vf-bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.vf-bar-fill.funded{background:var(--green);box-shadow:0 0 6px rgba(48,209,88,.3)}
+.vf-bar-fill.partial{background:var(--amber)}
+.vf-bar-fill.unfunded{background:rgba(255,255,255,.08)}
+.vf-bar-fill.vault{background:var(--indigo)}
+.vf-tile-bottom{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.vf-alloc{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--alloc)}
+.vf-budget{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.vf-tile-actions{display:flex;gap:2px;align-items:center}
+.vf-fill-btn{padding:3px 9px;border-radius:var(--r-pill);font-size:10px;font-weight:700;font-family:var(--mono);border:1px solid var(--amber);background:var(--amber-dim);color:var(--amber);cursor:pointer}
+.vf-saved{font-family:var(--mono);font-size:10px;color:var(--indigo)}
+
   </style>
 </head>
 <body>
@@ -250,6 +406,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
     </button>
     <button class="var-tab" data-panel="c">
       C — Two-line Rows <span class="var-label">Mobile-friendly</span>
+    </button>
+    <button class="var-tab" data-panel="d">
+      D — Big Bar <span class="var-label">Progress-forward</span>
+    </button>
+    <button class="var-tab" data-panel="e">
+      E — Attention First <span class="var-label">Action-oriented</span>
+    </button>
+    <button class="var-tab" data-panel="f">
+      F — Tile Grid <span class="var-label">Dashboard feel</span>
     </button>
   </div>
 </div>
@@ -802,6 +967,373 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font
       <div class="rts-sidebar">
         <div class="rts-lbl">Ready to assign</div>
         <div class="rts-amt">$1,240</div>
+        <div class="rts-sub">$420 still needs a home</div>
+        <div class="rts-track"><div class="rts-fill" style="width:74%"></div></div>
+        <div class="rts-kpis">
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:var(--green)">$3,200</span></div>
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">$1,960</span></div>
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">$892</span></div>
+        </div>
+        <button class="rts-dist-btn">DISTRIBUTE RTS →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ VARIANT D — Big Bar ══════ -->
+<div class="panel-wrap" id="panel-d">
+  <div class="panel-grid">
+    <div>
+      <div class="wf-bar"><button class="wf-btn">Close Month</button></div>
+
+      <!-- Housing -->
+      <div class="vd-card" style="--c:var(--cat-housing)">
+        <div class="vd-card-hdr">
+          <div class="vd-cat-swatch"></div>
+          <span class="vd-cat-name">Housing</span>
+          <span class="vd-cat-amt">$2,545 / $2,545</span>
+          <span class="vd-cat-badge full">100%</span>
+        </div>
+        <div class="vd-row">
+          <div class="vd-row-top">
+            <span class="vd-bkt-name">Rent</span>
+            <div class="vd-amounts"><input class="alloc-in" value="$2,431.00" style="width:80px"><span class="vd-sep">/</span><input class="budget-in" value="$2,431.00" style="width:74px"></div>
+          </div>
+          <div class="vd-bar-row">
+            <div class="vd-bar-track"><div class="vd-bar-fill funded" style="width:100%"></div></div>
+            <span class="vd-bar-pct funded">100%</span>
+            <div class="vd-bar-actions"><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+          </div>
+        </div>
+        <div class="vd-row">
+          <div class="vd-row-top">
+            <span class="vd-bkt-name">Internet</span>
+            <div class="vd-amounts"><input class="alloc-in" value="$89.00" style="width:80px"><span class="vd-sep">/</span><input class="budget-in" value="$89.00" style="width:74px"></div>
+          </div>
+          <div class="vd-bar-row">
+            <div class="vd-bar-track"><div class="vd-bar-fill funded" style="width:100%"></div></div>
+            <span class="vd-bar-pct funded">100%</span>
+            <div class="vd-bar-actions"><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+          </div>
+        </div>
+        <div class="vd-row">
+          <div class="vd-row-top">
+            <span class="vd-bkt-name">Renter's Insurance</span>
+            <div class="vd-amounts"><input class="alloc-in" value="$25.00" style="width:80px"><span class="vd-sep">/</span><input class="budget-in" value="$25.00" style="width:74px"></div>
+          </div>
+          <div class="vd-bar-row">
+            <div class="vd-bar-track"><div class="vd-bar-fill funded" style="width:100%"></div></div>
+            <span class="vd-bar-pct funded">100%</span>
+            <div class="vd-bar-actions"><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Food -->
+      <div class="vd-card" style="--c:var(--cat-food)">
+        <div class="vd-card-hdr">
+          <div class="vd-cat-swatch"></div>
+          <span class="vd-cat-name">Food &amp; Dining</span>
+          <span class="vd-cat-amt">$180 / $600</span>
+          <span class="vd-cat-badge part">30%</span>
+        </div>
+        <div class="vd-row">
+          <div class="vd-row-top">
+            <span class="vd-bkt-name">Groceries</span>
+            <div class="vd-amounts"><input class="alloc-in" value="$180.00" style="width:80px"><span class="vd-sep">/</span><input class="budget-in" value="$400.00" style="width:74px"></div>
+          </div>
+          <div class="vd-bar-row">
+            <div class="vd-bar-track"><div class="vd-bar-fill partial" style="width:45%"></div></div>
+            <span class="vd-bar-pct partial">45%</span>
+            <div class="vd-bar-actions"><button class="fill-btn">Fill</button><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+          </div>
+        </div>
+        <div class="vd-row">
+          <div class="vd-row-top">
+            <span class="vd-bkt-name">Dining Out</span>
+            <div class="vd-amounts"><input class="alloc-in" value="$0.00" style="width:80px"><span class="vd-sep">/</span><input class="budget-in" value="$200.00" style="width:74px"></div>
+          </div>
+          <div class="vd-bar-row">
+            <div class="vd-bar-track"><div class="vd-bar-fill unfunded" style="width:0%"></div></div>
+            <span class="vd-bar-pct unfunded">0%</span>
+            <div class="vd-bar-actions"><button class="fill-btn">Fill</button><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Savings -->
+      <div class="vd-card" style="--c:var(--cat-savings)">
+        <div class="vd-card-hdr">
+          <div class="vd-cat-swatch"></div>
+          <span class="vd-cat-name">Savings</span>
+          <span class="vd-cat-amt">$770 / $820</span>
+          <span class="vd-cat-badge full">94%</span>
+        </div>
+        <div class="vd-row">
+          <div class="vd-row-top">
+            <span class="vd-bkt-name">Emergency Vault</span>
+            <div class="vd-amounts"><input class="alloc-in" value="$320.00" style="width:80px"><span class="vd-sep">/</span><input class="budget-in" value="$320.00" style="width:74px"><span class="vd-extra">· $1,200 saved</span></div>
+          </div>
+          <div class="vd-bar-row">
+            <div class="vd-bar-track"><div class="vd-bar-fill vault" style="width:100%"></div></div>
+            <span class="vd-bar-pct" style="color:var(--indigo)">100%</span>
+            <div class="vd-bar-actions"><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+          </div>
+        </div>
+        <div class="vd-row">
+          <div class="vd-row-top">
+            <span class="vd-bkt-name">Vacation Fund</span>
+            <div class="vd-amounts"><input class="alloc-in" value="$450.00" style="width:80px"><span class="vd-sep">/</span><input class="budget-in" value="$2,000.00" style="width:74px"><span class="vd-extra">· need $155/mo</span></div>
+          </div>
+          <div class="vd-bar-row">
+            <div class="vd-bar-track"><div class="vd-bar-fill partial" style="width:22.5%"></div></div>
+            <span class="vd-bar-pct partial">22%</span>
+            <div class="vd-bar-actions"><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-strip">
+        <select><option>— Category —</option><option>Housing</option><option>Food &amp; Dining</option><option>Savings</option></select>
+        <input type="text" placeholder="Bucket name…">
+        <select><option>Expense</option><option>Goal</option><option>Vault</option></select>
+        <button>+ Add</button>
+      </div>
+    </div>
+    <div>
+      <div class="rts-sidebar">
+        <div class="rts-lbl">Ready to assign</div><div class="rts-amt">$1,240</div>
+        <div class="rts-sub">$420 still needs a home</div>
+        <div class="rts-track"><div class="rts-fill" style="width:74%"></div></div>
+        <div class="rts-kpis">
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:var(--green)">$3,200</span></div>
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">$1,960</span></div>
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">$892</span></div>
+        </div>
+        <button class="rts-dist-btn">DISTRIBUTE RTS →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ VARIANT E — Attention First ══════ -->
+<div class="panel-wrap" id="panel-e">
+  <div class="panel-grid">
+    <div>
+      <div class="wf-bar"><button class="wf-btn">Close Month</button></div>
+
+      <!-- Housing — all funded, no "needs" zone -->
+      <div class="ve-card" style="--c:var(--cat-housing)">
+        <div class="ve-card-hdr">
+          <div class="ve-cat-dot"></div>
+          <span class="ve-cat-name">Housing</span>
+          <span class="ve-cat-totals">$2,545 / $2,545</span>
+          <span class="ve-cat-pct full">✓ Funded</span>
+        </div>
+        <div class="ve-row funded-row">
+          <span class="ve-bkt-name funded">Rent</span>
+          <div class="ve-nums"><input class="alloc-in" value="$2,431.00"><span class="num-sep">/</span><input class="budget-in" value="$2,431.00"></div>
+          <div class="ve-actions"><span class="ve-check">✓</span><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+        </div>
+        <div class="ve-row funded-row">
+          <span class="ve-bkt-name funded">Internet</span>
+          <div class="ve-nums"><input class="alloc-in" value="$89.00"><span class="num-sep">/</span><input class="budget-in" value="$89.00"></div>
+          <div class="ve-actions"><span class="ve-check">✓</span><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+        </div>
+        <div class="ve-row funded-row">
+          <span class="ve-bkt-name funded">Renter's Insurance</span>
+          <div class="ve-nums"><input class="alloc-in" value="$25.00"><span class="num-sep">/</span><input class="budget-in" value="$25.00"></div>
+          <div class="ve-actions"><span class="ve-check">✓</span><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+        </div>
+      </div>
+
+      <!-- Food — mixed, needs zone at top -->
+      <div class="ve-card" style="--c:var(--cat-food)">
+        <div class="ve-card-hdr">
+          <div class="ve-cat-dot"></div>
+          <span class="ve-cat-name">Food &amp; Dining</span>
+          <span class="ve-cat-totals">$180 / $600</span>
+          <span class="ve-cat-pct part">30%</span>
+        </div>
+        <div class="ve-zone-lbl needs">Needs funding</div>
+        <div class="ve-row needs-row">
+          <span class="ve-bkt-name">Groceries</span>
+          <div class="ve-nums"><input class="alloc-in" value="$180.00"><span class="num-sep">/</span><input class="budget-in" value="$400.00"><span style="font-family:var(--mono);font-size:11px;color:var(--amber);margin-left:8px">$220 short</span></div>
+          <div class="ve-actions"><button class="ve-fill-btn">Fill $220</button><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+        </div>
+        <div class="ve-row needs-row">
+          <span class="ve-bkt-name">Dining Out</span>
+          <div class="ve-nums"><input class="alloc-in" value="$0.00"><span class="num-sep">/</span><input class="budget-in" value="$200.00"><span style="font-family:var(--mono);font-size:11px;color:var(--amber);margin-left:8px">$200 short</span></div>
+          <div class="ve-actions"><button class="ve-fill-btn">Fill $200</button><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+        </div>
+      </div>
+
+      <!-- Savings — mostly funded -->
+      <div class="ve-card" style="--c:var(--cat-savings)">
+        <div class="ve-card-hdr">
+          <div class="ve-cat-dot"></div>
+          <span class="ve-cat-name">Savings</span>
+          <span class="ve-cat-totals">$770 / $820</span>
+          <span class="ve-cat-pct full">94%</span>
+        </div>
+        <div class="ve-zone-lbl needs">Needs funding</div>
+        <div class="ve-row needs-row">
+          <span class="ve-bkt-name">Vacation Fund</span>
+          <div class="ve-nums"><input class="alloc-in" value="$450.00"><span class="num-sep">/</span><input class="budget-in" value="$2,000.00"><span style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:8px">22% — goal</span></div>
+          <div class="ve-actions"><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+        </div>
+        <div class="ve-zone-lbl" style="margin-top:0">Funded</div>
+        <div class="ve-row funded-row">
+          <span class="ve-bkt-name funded">Emergency Vault</span>
+          <div class="ve-nums"><input class="alloc-in" value="$320.00"><span class="num-sep">/</span><input class="budget-in" value="$320.00"><span style="font-family:var(--mono);font-size:11px;color:var(--indigo);margin-left:8px">$1,200 saved</span></div>
+          <div class="ve-actions"><span class="ve-check">✓</span><button class="act-btn">▸</button><button class="act-btn">⚙</button></div>
+        </div>
+      </div>
+
+      <div class="add-strip">
+        <select><option>— Category —</option><option>Housing</option><option>Food &amp; Dining</option><option>Savings</option></select>
+        <input type="text" placeholder="Bucket name…">
+        <select><option>Expense</option><option>Goal</option><option>Vault</option></select>
+        <button>+ Add</button>
+      </div>
+    </div>
+    <div>
+      <div class="rts-sidebar">
+        <div class="rts-lbl">Ready to assign</div><div class="rts-amt">$1,240</div>
+        <div class="rts-sub">$420 still needs a home</div>
+        <div class="rts-track"><div class="rts-fill" style="width:74%"></div></div>
+        <div class="rts-kpis">
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:var(--green)">$3,200</span></div>
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">$1,960</span></div>
+          <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">$892</span></div>
+        </div>
+        <button class="rts-dist-btn">DISTRIBUTE RTS →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ VARIANT F — Tile Grid ══════ -->
+<div class="panel-wrap" id="panel-f">
+  <div class="panel-grid">
+    <div>
+      <div class="wf-bar"><button class="wf-btn">Close Month</button></div>
+
+      <!-- Housing -->
+      <div class="vf-card" style="--c:var(--cat-housing)">
+        <div class="vf-card-hdr">
+          <div class="vf-cat-swatch"></div>
+          <span class="vf-cat-name">Housing</span>
+          <span class="vf-cat-totals">$2,545 / $2,545</span>
+          <span class="vf-cat-pct full">100%</span>
+        </div>
+        <div class="vf-grid">
+          <div class="vf-tile">
+            <div class="vf-tile-top"><span class="vf-tile-name">Rent</span></div>
+            <div class="vf-bar-wrap"><div class="vf-bar-track"><div class="vf-bar-fill funded" style="width:100%"></div></div></div>
+            <div class="vf-tile-bottom">
+              <span class="vf-alloc">$2,431</span>
+              <span class="vf-budget">/ $2,431</span>
+              <div class="vf-tile-actions"><button class="act-btn">⚙</button></div>
+            </div>
+          </div>
+          <div class="vf-tile">
+            <div class="vf-tile-top"><span class="vf-tile-name">Internet</span></div>
+            <div class="vf-bar-wrap"><div class="vf-bar-track"><div class="vf-bar-fill funded" style="width:100%"></div></div></div>
+            <div class="vf-tile-bottom">
+              <span class="vf-alloc">$89</span>
+              <span class="vf-budget">/ $89</span>
+              <div class="vf-tile-actions"><button class="act-btn">⚙</button></div>
+            </div>
+          </div>
+          <div class="vf-tile" style="grid-column:span 2">
+            <div class="vf-tile-top"><span class="vf-tile-name">Renter's Insurance</span></div>
+            <div class="vf-bar-wrap"><div class="vf-bar-track"><div class="vf-bar-fill funded" style="width:100%"></div></div></div>
+            <div class="vf-tile-bottom">
+              <span class="vf-alloc">$25</span>
+              <span class="vf-budget">/ $25</span>
+              <div class="vf-tile-actions"><button class="act-btn">⚙</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Food -->
+      <div class="vf-card" style="--c:var(--cat-food)">
+        <div class="vf-card-hdr">
+          <div class="vf-cat-swatch"></div>
+          <span class="vf-cat-name">Food &amp; Dining</span>
+          <span class="vf-cat-totals">$180 / $600</span>
+          <span class="vf-cat-pct part">30%</span>
+        </div>
+        <div class="vf-grid">
+          <div class="vf-tile">
+            <div class="vf-tile-top"><span class="vf-tile-name">Groceries</span></div>
+            <div class="vf-bar-wrap"><div class="vf-bar-track"><div class="vf-bar-fill partial" style="width:45%"></div></div></div>
+            <div class="vf-tile-bottom">
+              <span class="vf-alloc" style="color:var(--amber)">$180</span>
+              <span class="vf-budget">/ $400</span>
+              <div class="vf-tile-actions"><button class="vf-fill-btn">Fill</button><button class="act-btn">⚙</button></div>
+            </div>
+          </div>
+          <div class="vf-tile">
+            <div class="vf-tile-top"><span class="vf-tile-name">Dining Out</span></div>
+            <div class="vf-bar-wrap"><div class="vf-bar-track"><div class="vf-bar-fill unfunded" style="width:0%"></div></div></div>
+            <div class="vf-tile-bottom">
+              <span class="vf-alloc" style="color:var(--text3)">$0</span>
+              <span class="vf-budget">/ $200</span>
+              <div class="vf-tile-actions"><button class="vf-fill-btn">Fill</button><button class="act-btn">⚙</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Savings -->
+      <div class="vf-card" style="--c:var(--cat-savings)">
+        <div class="vf-card-hdr">
+          <div class="vf-cat-swatch"></div>
+          <span class="vf-cat-name">Savings</span>
+          <span class="vf-cat-totals">$770 / $820</span>
+          <span class="vf-cat-pct full">94%</span>
+        </div>
+        <div class="vf-grid">
+          <div class="vf-tile">
+            <div class="vf-tile-top">
+              <span class="vf-tile-name">Emergency Vault</span>
+              <span class="vf-tile-badge vault">vault</span>
+            </div>
+            <div class="vf-bar-wrap"><div class="vf-bar-track"><div class="vf-bar-fill vault" style="width:100%"></div></div></div>
+            <div class="vf-tile-bottom">
+              <span class="vf-alloc" style="color:var(--indigo)">$320</span>
+              <span class="vf-saved">$1,200 saved</span>
+              <div class="vf-tile-actions"><button class="act-btn">⚙</button></div>
+            </div>
+          </div>
+          <div class="vf-tile">
+            <div class="vf-tile-top">
+              <span class="vf-tile-name">Vacation Fund</span>
+              <span class="vf-tile-badge goal">goal</span>
+            </div>
+            <div class="vf-bar-wrap"><div class="vf-bar-track"><div class="vf-bar-fill partial" style="width:22.5%"></div></div></div>
+            <div class="vf-tile-bottom">
+              <span class="vf-alloc" style="color:var(--amber)">$450</span>
+              <span class="vf-budget">/ $2,000</span>
+              <div class="vf-tile-actions"><button class="act-btn">⚙</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-strip">
+        <select><option>— Category —</option><option>Housing</option><option>Food &amp; Dining</option><option>Savings</option></select>
+        <input type="text" placeholder="Bucket name…">
+        <select><option>Expense</option><option>Goal</option><option>Vault</option></select>
+        <button>+ Add</button>
+      </div>
+    </div>
+    <div>
+      <div class="rts-sidebar">
+        <div class="rts-lbl">Ready to assign</div><div class="rts-amt">$1,240</div>
         <div class="rts-sub">$420 still needs a home</div>
         <div class="rts-track"><div class="rts-fill" style="width:74%"></div></div>
         <div class="rts-kpis">
