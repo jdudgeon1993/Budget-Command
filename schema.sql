@@ -1,6 +1,9 @@
 -- Cura — Budget Command Center
 -- Full relational schema. All tables prefixed bcc_, RLS enforced via user_id = auth.uid()
--- Run this on a fresh Supabase project. For existing projects use schema_migrations.sql.
+-- Single source of truth — run the whole file on a fresh Supabase project.
+-- For an existing project, every statement is idempotent (CREATE/ADD ... IF NOT EXISTS),
+-- so re-running this file brings it up to date.
+
 
 -- ─── ACCOUNTS ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS bcc_accounts (
@@ -220,6 +223,22 @@ CREATE TABLE IF NOT EXISTS bcc_vault_transfers (
 
 ALTER TABLE bcc_vault_transfers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY bcc_vault_transfers_user_policy ON bcc_vault_transfers
+    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- ─── VAULT RELEASE LOG ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS bcc_vault_release_log (
+    id          TEXT PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    month_id    TEXT NOT NULL,
+    bucket_id   TEXT NOT NULL,
+    amount      NUMERIC(12,2) NOT NULL,
+    reason      TEXT,
+    is_planned  BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE bcc_vault_release_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY bcc_vault_release_log_user_policy ON bcc_vault_release_log
     FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- ─── SCENARIOS (What If) ─────────────────────────────────────────────────────
