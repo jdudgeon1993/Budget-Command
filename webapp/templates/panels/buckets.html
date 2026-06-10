@@ -172,12 +172,13 @@
       }
     }
     function toggleBktSettings(id, url){
+      var el=document.getElementById('bkt-settings-'+id);
       toggleInlineDrawer('bkt-settings-'+id, url, 'settings-icon-'+id);
-      var row=document.getElementById('bkt-'+id);
-      var drawer=document.getElementById('vg-drawer-'+id);
-      if(row&&row.classList.contains('open')&&drawer){
-        setTimeout(function(){drawer.style.maxHeight=(drawer.scrollHeight+300)+'px';},100);
+      if(el&&!el._vgRecalcBound){
+        el._vgRecalcBound=true;
+        el.addEventListener('htmx:afterSwap',function(){_recalcVgDrawer(id);});
       }
+      _recalcVgDrawer(id);
     }
     </script>
 

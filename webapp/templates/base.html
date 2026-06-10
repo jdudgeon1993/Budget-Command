@@ -209,6 +209,16 @@ function updateBktFields(sel){
   if(ef)ef.style.display=(t.value==='expense'||t.value==='')?'':'none';
   if(sf)sf.style.display=(t.value==='sinking'||t.value==='goal')?'':'none';
   if(vf)vf.style.display=(t.value==='vault')?'':'none';
+  if(root.id&&root.id.indexOf('bkt-settings-form-')===0){
+    _recalcVgDrawer(root.id.slice('bkt-settings-form-'.length));
+  }
+}
+function _recalcVgDrawer(id){
+  var row=document.getElementById('bkt-'+id);
+  var drawer=document.getElementById('vg-drawer-'+id);
+  if(row&&row.classList.contains('open')&&drawer){
+    drawer.style.maxHeight=(drawer.scrollHeight+50)+'px';
+  }
 }
 function _syncNav(){
   var path=location.pathname;
