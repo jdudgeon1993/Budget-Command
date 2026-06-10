@@ -14,6 +14,15 @@
       {% endfor %}
     </div>
 
+    {% if shell.is_past_month %}
+    <div class="month-banner past-month-banner">
+      <span>You're viewing a past month — changes here won't affect your current budget.</span>
+      <a class="month-banner-cta" href="{{ url_for('panels.month_today') }}">
+        Go to {{ shell.today_month_label }} →
+      </a>
+    </div>
+    {% endif %}
+
     {% if view_mid != current_mid %}
     <div style="background:rgba(129,140,248,0.10);border:1px solid rgba(129,140,248,0.25);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--indigo)">
       Planning allocations for <strong>{{ month_tabs | selectattr('mid','equalto',view_mid) | map(attribute='label') | first | default(view_mid) }}</strong> — spending data not available yet.
@@ -21,27 +30,133 @@
     {% endif %}
 
     <div class="workflow-bar">
-      <form method="post" action="{{ url_for('panels.month_copy') }}" style="display:contents"
-            hx-post="{{ url_for('panels.month_copy') }}" hx-target="#panel" hx-swap="innerHTML">
-        <button class="wf-btn" type="submit">Copy Last Month</button>
+      {% if shell.month_closed %}
+      <span class="wf-closed-badge">🔒 Closed</span>
+      <form method="post" action="{{ url_for('panels.month_reopen') }}" style="display:contents"
+            hx-post="{{ url_for('panels.month_reopen') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="wf-btn" type="submit">Reopen</button>
       </form>
+      {% else %}
+      <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents"
+            hx-post="{{ url_for('panels.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="wf-btn" type="submit">Close Month</button>
+      </form>
+      {% endif %}
     </div>
 
+    {# ── Category cards ── #}
     {% for grp in groups %}
-    <div class="cat-header">
-      <div class="cat-dot" style="background:{{ grp.color }}"></div>
-      <span class="cat-name">{{ grp.name }}</span>
-      <span class="cat-total">{{ grp.alloc | money }} / {{ grp.budget | money }}</span>
-    </div>
+    {# Sort buckets into status tiers: over → funding → funded → vault → empty → paid #}
+    {% set tier_over    = [] %}
+    {% set tier_partial = [] %}
+    {% set tier_funded  = [] %}
+    {% set tier_vault   = [] %}
+    {% set tier_empty   = [] %}
+    {% set tier_paid    = [] %}
     {% for b in grp.buckets %}
-      {% include "panels/_bucket_row.html" %}
+      {% if b.btype == 'vault' %}
+        {% if tier_vault.append(b) %}{% endif %}
+      {% elif b.status == 'over' %}
+        {% if tier_over.append(b) %}{% endif %}
+      {% elif b.status == 'funded' and b.pill == 'Paid' %}
+        {% if tier_paid.append(b) %}{% endif %}
+      {% elif b.status == 'funded' %}
+        {% if tier_funded.append(b) %}{% endif %}
+      {% elif b.alloc <= 0.005 %}
+        {% if tier_empty.append(b) %}{% endif %}
+      {% else %}
+        {% if tier_partial.append(b) %}{% endif %}
+      {% endif %}
     {% endfor %}
+
+    {# Category bar fill class #}
+    {% if grp.pct >= 100 %}{% set cat_bar_cls = 'full' %}
+    {% elif grp.pct > 0 %}{% set cat_bar_cls = 'partial' %}
+    {% else %}{% set cat_bar_cls = 'empty' %}{% endif %}
+
+    <div class="vg-cat" id="cat-{{ grp.id }}">
+      {# Card header #}
+      <div class="vg-cat-hdr" onclick="this.closest('.vg-cat').classList.toggle('collapsed')">
+        <div class="vg-cat-swatch" style="background:{{ grp.color }}"></div>
+        <span class="vg-cat-name">{{ grp.name }}</span>
+        <span class="vg-cat-amt">{{ grp.alloc | money }} / {{ grp.budget | money }}</span>
+        <span class="vg-cat-pct-pill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}">{{ grp.pct }}%</span>
+        <span class="vg-cat-chevron">▾</span>
+      </div>
+      <div class="vg-cat-bar">
+        <div class="vg-cat-bar-fill {{ cat_bar_cls }}" style="width:{{ [grp.pct, 100] | min }}%"></div>
+      </div>
+
+      {# Tier: Over #}
+      {% if tier_over %}
+      <div class="vg-tier-sep over">Over budget</div>
+      {% for b in tier_over %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      {% endif %}
+
+      {# Tier: Funding (partial, has some allocation) #}
+      {% if tier_partial %}
+      <div class="vg-tier-sep partial">Funding</div>
+      {% for b in tier_partial %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      {% endif %}
+
+      {# Tier: Funded #}
+      {% if tier_funded %}
+      <div class="vg-tier-sep funded">Funded</div>
+      {% for b in tier_funded %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      {% endif %}
+
+      {# Tier: Vault #}
+      {% if tier_vault %}
+      <div class="vg-tier-sep vault">Vault</div>
+      {% for b in tier_vault %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      {% endif %}
+
+      {# Tier: Not started (zero alloc) #}
+      {% if tier_empty %}
+      <div class="vg-tier-sep empty">Not started</div>
+      {% for b in tier_empty %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      {% endif %}
+
+      {# Tier: Paid (sinks to bottom) #}
+      {% if tier_paid %}
+      <div class="vg-tier-sep paid">Paid</div>
+      {% for b in tier_paid %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      {% endif %}
+
+      {# Per-category add strip #}
+      <div class="vg-add-strip">
+        <input type="text" id="new-bkt-name-{{ grp.id }}" placeholder="+ New bucket in {{ grp.name }}…">
+        <select id="new-bkt-type-{{ grp.id }}">
+          <option value="expense">Expense</option>
+          <option value="goal">Goal</option>
+          <option value="vault">Vault</option>
+        </select>
+        <form method="post" action="{{ url_for('panels.add_bucket') }}" style="display:contents"
+              hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML"
+              onsubmit="
+                var n=document.getElementById('new-bkt-name-{{ grp.id }}');
+                var t=document.getElementById('new-bkt-type-{{ grp.id }}');
+                this.querySelector('[name=name]').value=n.value;
+                this.querySelector('[name=type]').value=t.value;
+              ">
+          <input type="hidden" name="catId" value="{{ grp.id }}">
+          <input type="hidden" name="name" value="">
+          <input type="hidden" name="type" value="expense">
+          <button class="vg-add-strip button" type="submit" style="font-size:11px;font-family:var(--mono);font-weight:700;padding:5px 12px;border-radius:var(--r-sm);background:rgba(191,90,242,.10);color:var(--accent);border:1px solid rgba(191,90,242,.3);cursor:pointer">Add</button>
+        </form>
+      </div>
+    </div>
     {% endfor %}
 
     <script>
     function toggleBktRow(id){
       var row=document.getElementById('bkt-'+id);
-      if(row)row.classList.toggle('open');
+      if(!row)return;
+      var open=row.classList.toggle('open');
+      var drawer=document.getElementById('vg-drawer-'+id);
+      if(drawer){drawer.style.maxHeight=open?(drawer.scrollHeight+200)+'px':'0';}
+      var btn=row.querySelector('.vg-expand-btn');
+      if(btn)btn.textContent=open?'▴':'▾';
     }
     function toggleBktTxs(id){
       var el=document.getElementById('txs-'+id);
@@ -50,12 +165,23 @@
       var open=el.style.display!=='none';
       el.style.display=open?'none':'block';
       if(icon)icon.textContent=open?'▸':'▾';
+      var row=document.getElementById('bkt-'+id);
+      var drawer=document.getElementById('vg-drawer-'+id);
+      if(row&&row.classList.contains('open')&&drawer){
+        drawer.style.maxHeight=(drawer.scrollHeight+300)+'px';
+      }
     }
     function toggleBktSettings(id, url){
       toggleInlineDrawer('bkt-settings-'+id, url, 'settings-icon-'+id);
+      var row=document.getElementById('bkt-'+id);
+      var drawer=document.getElementById('vg-drawer-'+id);
+      if(row&&row.classList.contains('open')&&drawer){
+        setTimeout(function(){drawer.style.maxHeight=(drawer.scrollHeight+300)+'px';},100);
+      }
     }
     </script>
 
+    {# Global add strip (fallback / add to any category) #}
     <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}"
           hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
       <select name="catId" style="flex:0 0 130px" required>
@@ -73,6 +199,7 @@
   </div>
 
   <div class="right-sticky">
+    {# RTS hero #}
     <div class="rts-hero">
       <div class="rts-hero-lbl">Ready to assign</div>
       <div class="rts-hero-amt" id="rts-sidebar">{{ shell.rts | money }}</div>
@@ -84,41 +211,41 @@
         <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">{{ shell.spent | money }}</span></div>
       </div>
       {% if shell.rts > 0 %}
-      <form method="post" action="{{ url_for('panels.distribute_rts') }}" style="display:contents"
-            hx-post="{{ url_for('panels.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML">
-        {% if view_mid != current_mid %}
-        <input type="hidden" name="m" value="{{ view_mid }}">
-        {% endif %}
-        <button class="rts-distribute-btn" type="submit">DISTRIBUTE RTS →</button>
-      </form>
+      <button class="rts-distribute-btn" type="button"
+              hx-get="{{ url_for('panels.distribute_modal') }}" hx-target="#modal-body" hx-swap="innerHTML"
+              onclick="openModal()">DISTRIBUTE RTS →</button>
       {% endif %}
     </div>
 
-    {% if attention %}
-    <div class="card card-pad" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <span class="card-label" style="margin-bottom:0">Needs Attention</span>
-        <span style="background:var(--red-dim);color:var(--red);border-radius:var(--r-pill);padding:1px 9px;font-size:12px;font-family:var(--mono);font-weight:700">{{ attention | length }}</span>
+    {# Status legend #}
+    <div class="status-legend">
+      <div class="status-legend-title">Status</div>
+      <div class="status-legend-rows">
+        <div class="status-legend-row">
+          <div class="status-legend-dot" style="background:var(--red)"></div>
+          <span>Red — <strong style="color:var(--red)">Over Budget</strong></span>
+        </div>
+        <div class="status-legend-row">
+          <div class="status-legend-dot" style="background:var(--amber)"></div>
+          <span>Orange — <strong style="color:var(--amber)">Funding</strong></span>
+        </div>
+        <div class="status-legend-row">
+          <div class="status-legend-dot" style="background:var(--green)"></div>
+          <span>Green — <strong style="color:var(--green)">Funded</strong></span>
+        </div>
+        <div class="status-legend-row">
+          <div class="status-legend-dot" style="background:var(--accent)"></div>
+          <span>Purple — <strong style="color:var(--accent)">Vault</strong></span>
+        </div>
+        <div class="status-legend-row">
+          <div class="status-legend-dot" style="background:rgba(255,255,255,.3)"></div>
+          <span>Grey — <strong style="color:rgba(255,255,255,.4)">Paid ✓</strong></span>
+        </div>
       </div>
-      {% for a in attention %}
-      <div class="attention-row {{ 'over' if a.status == 'over' }}">
-        <div class="attention-name">{{ a.name }}</div>
-        <div class="attention-lbl {{ 'over' if a.status == 'over' }}">{{ a.pill }}</div>
-        {% if a.status == 'partial' and a.budget > 0 %}
-        <form method="post" action="{{ url_for('panels.fill_bucket', bid=a.id) }}" style="display:inline"
-              hx-post="{{ url_for('panels.fill_bucket', bid=a.id) }}" hx-target="#panel" hx-swap="innerHTML">
-          {% if view_mid != current_mid %}
-          <input type="hidden" name="m" value="{{ view_mid }}">
-          {% endif %}
-          <button class="fill-btn" type="submit">Fill</button>
-        </form>
-        {% endif %}
-      </div>
-      {% endfor %}
     </div>
-    {% endif %}
 
-    <div class="card card-pad">
+    {# Category summary bars #}
+    <div class="card card-pad" style="margin-top:12px">
       <div class="card-label">Categories</div>
       {% for grp in groups %}
       <div class="cat-bar-row">

@@ -82,13 +82,28 @@ def shell_ctx(active_panel: str = "") -> dict:
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     txs = data.get("txs", [])
 
-    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+    # RTS is always anchored to today's calendar month so it stays consistent
+    # regardless of which month the user is browsing. Viewing July does not
+    # suddenly inflate RTS by dropping June's claims from the calculation.
+    today_mid = F.current_month_id()
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    rts = F.ready_to_spend(today_month, months, accounts, buckets, txs)
+
     total_cash = F.total_cash(accounts, txs)
     aom = F.age_of_money(accounts, txs)
+    # Income/allocated/spent are scoped to the VIEWED month for context
     income = F.month_income(mid, txs, accounts)
     allocated = F.total_allocated(month, buckets)
     spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
-    pct = min(100, round((allocated / income) * 100)) if income else 0
+    # Denominator is total available to assign (allocated + unassigned), not
+    # just income — in ZBB you also allocate from prior-month carry-forward.
+    _available = allocated + max(rts, 0)
+    pct = min(100, round((allocated / _available) * 100)) if _available > 0 else 0
+
+    month_closed = bool(month.get("closed"))
+    is_past_month = F.month_status(mid) == "past"
+    today_month_label = month_label(today_mid)
 
     # Pre-render context for add-transaction modal (so it can be instant, no round-trip)
     tx_accounts = [{"id": a["id"], "name": a["name"]}
@@ -105,6 +120,9 @@ def shell_ctx(active_panel: str = "") -> dict:
         "active_panel": active_panel,
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
+        "today_month_label": today_month_label,
+        "is_past_month": is_past_month,
+        "month_closed": month_closed,
         "rts": rts,
         "total_cash": total_cash,
         "age_of_money": aom,
@@ -132,6 +150,22 @@ def bucket_rows(view_mid: str = None):
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
 
+    # Future months always show today's budget targets. Today is the source of
+    # truth for what each bucket costs — stale DB entries in future months are
+    # ignored at render time so any target change is immediately visible across
+    # all forward months without requiring a DB sweep.
+    if F.month_status(mid) == "future":
+        today_mid = F.current_month_id()
+        today_month = next(
+            (m for m in months if m["id"] == today_mid),
+            {"id": today_mid, "allocations": {}, "budgets": {}},
+        )
+        merged_budgets = {
+            **(month.get("budgets") or {}),    # future month base (new buckets only)
+            **(today_month.get("budgets") or {}),  # today always overrides
+        }
+        month = {**month, "budgets": merged_budgets}
+
     groups = []
     attention = []
     for cat in cats:
@@ -151,11 +185,17 @@ def bucket_rows(view_mid: str = None):
             needed = max(budget - alloc, 0)
             handled = bool((month.get("handledBuckets") or {}).get(bid))
 
-            # Funded status compares allocation to budget target — "did the
-            # envelope get filled?" — not spending. Spending only flips the
-            # label to its transacted variant (Funded → Paid, Overfunded →
-            # Overspent) once money has actually moved.
-            if budget > 0:
+            is_flex = b.get("flex", False) and b.get("type", "expense") == "expense"
+
+            if is_flex:
+                uncovered = spent - alloc
+                if uncovered > 0.005:
+                    status, pill = "partial", f"Cover ${uncovered:,.2f}"
+                elif spent > 0.005:
+                    status, pill = "funded", f"${spent:,.2f} spent"
+                else:
+                    status, pill = "funded", "Open"
+            elif budget > 0:
                 over = spent - budget
                 if over > 0.005:
                     status, pill = "over", f"Overspent ${over:,.2f}"
@@ -168,14 +208,14 @@ def bucket_rows(view_mid: str = None):
                 else:
                     status, pill = "partial", f"Funding — ${needed:,.2f} short"
             else:
-                # No budget target set — fall back to envelope overspend (spent vs allocation)
+                # No budget target — envelope vs spending
                 over = spent - alloc
                 if over > 0.005:
-                    status, pill = "over", f"Over ${over:,.2f}"
+                    status, pill = "partial", f"Cover ${over:,.2f}"
                 elif alloc > 0.005:
                     status, pill = "funded", "Funded"
                 else:
-                    status, pill = "partial", "Unfunded"
+                    status, pill = "funded", "Open"
 
             if handled:
                 status, pill = "funded", "✓ Handled"
@@ -223,6 +263,7 @@ def bucket_rows(view_mid: str = None):
                 "progress_pct": progress_pct,
                 "goal_reached": goal_reached,
                 "monthly_needed": monthly_needed,
+                "flex": is_flex, "uncovered": round(max(spent - alloc, 0), 2) if is_flex else 0.0,
                 "handled": handled,
                 "txs": bkt_txs,
             }
@@ -246,6 +287,111 @@ def bucket_rows(view_mid: str = None):
             "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
             "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
                             for b in buckets if not b.get("archived")]}
+
+
+# ── Distribute modal view-model ───────────────────────────────────────────────
+
+def _due_reason(o: dict) -> str:
+    """Human-readable explanation of why an obligation ranked where it did."""
+    bits = []
+    if o["due_in"] is not None:
+        d = o["due_in"]
+        bits.append(f"Due in {d} day{'' if d == 1 else 's'}" if d > 0 else "Due today")
+    if o["freq"]:
+        bits.append(o["freq"])
+    bits.append(f"${o['gap']:,.2f} short")
+    return " · ".join(bits)
+
+
+def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = None) -> dict:
+    """Ranked funding suggestions for the Distribute modal.
+
+    Step 1 ranks underfunded buckets by urgency (gap weighted by how soon
+    it's due). Step 2 previews what the active internal allocation rules
+    would do with whatever's left over — percentage/fixed rules take their
+    cut, "fund this bucket" rules cascade and catch the remainder, exactly
+    like income_rules_ctx but against leftover RTS instead of a paycheck.
+
+    `checked_ob`/`checked_rule` reflect the user's current checkbox state
+    (None means "default to everything checked" — the initial suggestion).
+    Unchecked items display with their suggested amount but contribute
+    nothing to totals or to the cascade — skipping a rule leaves its share
+    available to the rule below it, exactly like disabling it would.
+    """
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data)
+    months = data.get("months", [])
+    accounts = data.get("accounts", [])
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+    bkt_name = {b["id"]: b["name"] for b in buckets}
+
+    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+
+    obligations = F.distribute_obligations(buckets, month)
+    for o in obligations:
+        o["reason"] = _due_reason(o)
+    all_ob_ids = {o["id"] for o in obligations}
+    if checked_ob is None:
+        # First open: greedily pre-check from top of urgency list until RTS
+        # is exhausted. Skips items that don't fit but continues checking
+        # smaller items below — gives a realistic, achievable suggestion.
+        checked_ob = set()
+        budget_remaining = rts
+        for o in obligations:
+            if o["gap"] <= budget_remaining + 0.005:
+                checked_ob.add(o["id"])
+                budget_remaining = round(budget_remaining - o["gap"], 2)
+    else:
+        checked_ob = checked_ob & all_ob_ids
+    for o in obligations:
+        o["checked"] = o["id"] in checked_ob
+
+    total_gap = round(sum(o["gap"] for o in obligations if o["checked"]), 2)
+    leftover = round(max(rts - total_gap, 0), 2)
+
+    rules_raw = sorted(
+        [r for r in data.get("allocationRules", [])
+         if r.get("active", True) and r.get("rule_type", "internal") == "internal"
+         and (r.get("bucket_id") or r.get("bucketId"))],
+        key=lambda r: r.get("sort_order", 0),
+    )
+    all_rule_ids = {r["id"] for r in rules_raw}
+    checked_rule = all_rule_ids if checked_rule is None else (checked_rule & all_rule_ids)
+
+    rule_suggestions = []
+    remaining = leftover
+    for r in rules_raw:
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        vtype = r.get("value_type", "fixed")
+        v = float(r.get("value") or 0)
+        is_fund = (vtype == "fund")
+        is_checked = r["id"] in checked_rule
+        if is_fund:
+            computed = round(max(0.0, remaining), 2)
+        elif vtype == "pct":
+            computed = round(leftover * v / 100, 2)
+        else:
+            computed = round(min(v, max(0.0, remaining)), 2)
+        if is_checked:
+            remaining = round(remaining - computed, 2)
+        rule_suggestions.append({
+            "id": r["id"], "name": r.get("name", "Rule"),
+            "bucket_id": bid, "bucket_name": bkt_name.get(bid, "—"),
+            "computed": computed, "value": v, "is_pct": vtype == "pct", "is_fund": is_fund,
+            "checked": is_checked,
+        })
+
+    total_applied = total_gap + sum(r["computed"] for r in rule_suggestions if r["checked"])
+    remaining_rts = round(max(rts - total_applied, 0), 2)
+
+    return {
+        "rts": rts, "mid": mid,
+        "obligations": obligations, "total_gap": total_gap, "leftover": leftover,
+        "rule_suggestions": rule_suggestions,
+        "total_applied": round(total_applied, 2), "remaining_rts": remaining_rts,
+    }
 
 
 # ── Accounts panel view-model ─────────────────────────────────────────────────
@@ -438,16 +584,173 @@ def income_rules_ctx(amount: float, mid: str) -> dict:
     }
 
 
-def reports_view():
-    """Budget-vs-Actual + category spending + month totals + account snapshot."""
-    data = load_data(full_history=True)
-    mid = active_mid()
-    month = active_month(data)
+def paycheck_distribute_ctx(
+    paycheck_amount: float,
+    mid: str,
+    checked_rule: set | None = None,
+    checked_ob: set | None = None,
+    checked_fund: set | None = None,
+    checked_next: set | None = None,
+) -> dict:
+    """Combined paycheck distribution: rules → obligations → catch-alls → next month.
+
+    None for any checked_* means "use smart defaults" (first open).
+    An explicit set (even empty) means the user has made their choices.
+
+    Step 4 (next month) inherits this month's budget targets for any bucket
+    that doesn't yet have an explicit next-month budget set. This means pre-
+    funding next month's bills always shows realistic gap amounts even before
+    the user has manually configured a next-month budget.
+    """
+    data = load_data()
+    month = active_month(data, mid)
+    months = data.get("months", [])
+    accounts = data.get("accounts", [])
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     txs = data.get("txs", [])
+    bkt_name = {b["id"]: b["name"] for b in buckets}
+
+    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+
+    # Partition rules into three groups
+    rules_raw = sorted(
+        [r for r in data.get("allocationRules", []) if r.get("active", True)],
+        key=lambda r: r.get("sort_order", 0),
+    )
+    external_rules, internal_rules, fund_rules = [], [], []
+    for r in rules_raw:
+        vtype = r.get("value_type", "fixed")
+        v = float(r.get("value") or 0)
+        is_fund = (vtype == "fund")
+        rtype = r.get("rule_type", "internal")
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        computed = round(paycheck_amount * v / 100, 2) if vtype == "pct" else (v if not is_fund else 0.0)
+        entry = {
+            "id": r["id"], "name": r.get("name", "Rule"),
+            "bucket_id": bid, "bucket_name": bkt_name.get(bid, "—"),
+            "computed": computed, "value": v,
+            "is_pct": vtype == "pct", "is_fund": is_fund,
+        }
+        if rtype == "external":
+            external_rules.append(entry)
+        elif is_fund:
+            fund_rules.append(entry)
+        else:
+            internal_rules.append(entry)
+
+    # Step 1 — internal pct/fixed rules (computed against paycheck amount)
+    all_rule_ids = {r["id"] for r in internal_rules}
+    checked_rule = all_rule_ids if checked_rule is None else (checked_rule & all_rule_ids)
+    for r in internal_rules:
+        r["checked"] = r["id"] in checked_rule
+    total_rules = round(sum(r["computed"] for r in internal_rules if r["checked"]), 2)
+
+    # Step 2 — obligations fill from RTS remaining after rules are claimed
+    rts_after_rules = round(rts - total_rules, 2)
+    obligations = F.distribute_obligations(buckets, month)
+    for o in obligations:
+        o["reason"] = _due_reason(o)
+    all_ob_ids = {o["id"] for o in obligations}
+    if checked_ob is None:
+        checked_ob = set()
+        budget_remaining = max(rts_after_rules, 0)
+        for o in obligations:
+            if o["gap"] <= budget_remaining + 0.005:
+                checked_ob.add(o["id"])
+                budget_remaining = round(budget_remaining - o["gap"], 2)
+    else:
+        checked_ob = checked_ob & all_ob_ids
+    for o in obligations:
+        o["checked"] = o["id"] in checked_ob
+    total_ob = round(sum(o["gap"] for o in obligations if o["checked"]), 2)
+
+    # Step 3 — "fund this bucket" catch-alls absorb whatever's left
+    rts_after_ob = round(max(rts_after_rules - total_ob, 0), 2)
+    all_fund_ids = {r["id"] for r in fund_rules}
+    checked_fund = all_fund_ids if checked_fund is None else (checked_fund & all_fund_ids)
+    fund_remaining = rts_after_ob
+    for r in fund_rules:
+        if r["id"] in checked_fund:
+            r["computed"] = round(fund_remaining, 2)
+            fund_remaining = 0.0
+        else:
+            r["computed"] = 0.0
+        r["checked"] = r["id"] in checked_fund
+    total_fund = round(sum(r["computed"] for r in fund_rules if r["checked"]), 2)
+
+    # Step 4 — pre-fund next month's obligations with whatever remains after Step 3.
+    # Build next month: use existing DB record if it exists, otherwise synthesise.
+    # Either way, fill in any missing budget targets from this month so the gap
+    # calculation returns realistic amounts even before the user has manually
+    # planned next month.
+    rts_after_fund = round(max(rts_after_ob - total_fund, 0), 2)
+    next_mid = F.month_offset(mid, 1)
+    next_month_raw = next((m for m in months if m["id"] == next_mid), None)
+    this_budgets = dict(month.get("budgets") or {})
+    if next_month_raw:
+        # Merge: prefer next month's explicit budgets, fall back to this month's
+        merged_budgets = {**this_budgets, **(next_month_raw.get("budgets") or {})}
+        next_month = {**next_month_raw, "budgets": merged_budgets}
+    else:
+        next_month = {
+            "id": next_mid, "allocations": {}, "budgets": this_budgets,
+            "handledBuckets": {}, "vaultWithdrawals": {},
+        }
+    next_obligations = F.distribute_obligations(buckets, next_month)
+    for o in next_obligations:
+        o["reason"] = _due_reason(o)
+        o["next_mid"] = next_mid  # carry forward so apply route knows which month
+    all_next_ids = {o["id"] for o in next_obligations}
+    if checked_next is None:
+        checked_next = set()
+        budget_remaining = rts_after_fund
+        for o in next_obligations:
+            if o["gap"] <= budget_remaining + 0.005:
+                checked_next.add(o["id"])
+                budget_remaining = round(budget_remaining - o["gap"], 2)
+    else:
+        checked_next = checked_next & all_next_ids
+    for o in next_obligations:
+        o["checked"] = o["id"] in checked_next
+    total_next = round(sum(o["gap"] for o in next_obligations if o["checked"]), 2)
+
+    total_applied = round(total_rules + total_ob + total_fund + total_next, 2)
+
+    return {
+        "rts": rts, "mid": mid, "next_mid": next_mid,
+        "next_month_label": month_label(next_mid),
+        "paycheck_amount": paycheck_amount,
+        "external_rules": external_rules,
+        "internal_rules": internal_rules, "total_rules": total_rules,
+        "obligations": obligations, "total_ob": total_ob,
+        "fund_rules": fund_rules, "total_fund": total_fund,
+        "next_obligations": next_obligations, "total_next": total_next,
+        "total_applied": total_applied,
+        "remaining_rts": round(max(rts - total_applied, 0), 2),
+    }
+
+
+def reports_view(view_mid: str = None):
+    """Full reports data — BvA, trends, spending analysis, goals, discipline."""
+    from collections import defaultdict
+    from datetime import date as _date
+    import calendar as _cal
+
+    data = load_data(full_history=True)
+    mid = view_mid or active_mid()
+    month = active_month(data, mid)
+    txs = data.get("txs", [])
+    all_months = data.get("months", [])
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
 
+    # ── Available months for dropdown ─────────────────────────────────────────
+    seen = {m["id"] for m in all_months} | {F.current_month_id()}
+    available_months = [{"mid": m, "label": month_label(m)}
+                        for m in sorted(seen, reverse=True)[:13]]
+
+    # ── BvA (current month) ───────────────────────────────────────────────────
     bva, cat_spend = [], []
     grand_budget = grand_spent = 0.0
     for cat in cats:
@@ -471,27 +774,229 @@ def reports_view():
                 cat_spend.append({"name": cat["name"], "color": cat.get("color", "#888"),
                                   "spent": c_spent})
 
-    total_spend = sum(c["spent"] for c in cat_spend) or 1
+    total_spend_cat = sum(c["spent"] for c in cat_spend) or 1
     for c in cat_spend:
-        c["pct"] = round((c["spent"] / total_spend) * 100)
+        c["pct"] = round((c["spent"] / total_spend_cat) * 100)
     cat_spend.sort(key=lambda c: c["spent"], reverse=True)
 
     income = F.month_income(mid, txs, accounts)
     totals = {"income": income, "spent": grand_spent, "budget": grand_budget,
               "net": income - grand_spent}
 
-    # Debt accounts are liabilities — negate for net worth
+    # ── Account snapshot / net worth ──────────────────────────────────────────
     snapshot = []
     for a in accounts:
         bal = F.acct_balance(a, txs)
         atype = a.get("type", "budget")
-        snapshot.append({"name": a["name"], "type": atype,
-                         "balance": bal,
+        snapshot.append({"name": a["name"], "type": atype, "balance": bal,
                          "net_worth_bal": -bal if atype == "debt" else bal})
     net_worth = sum(s["net_worth_bal"] for s in snapshot)
 
-    return {"bva": bva, "cat_spend": cat_spend, "totals": totals,
-            "snapshot": snapshot, "net_worth": net_worth}
+    # ── Funding rate ──────────────────────────────────────────────────────────
+    expense_bkts = [b for b in buckets if b.get("type", "expense") != "vault"]
+    funded_count = sum(
+        1 for b in expense_bkts
+        if F.b_alloc(month, b["id"]) >= max(F.b_budget(month, b["id"]) - 0.005, 0.005)
+    )
+    funding_rate = {"funded": funded_count, "total": max(len(expense_bkts), 1),
+                    "pct": round(funded_count / max(len(expense_bkts), 1) * 100)}
+
+    # ── Allocation rate + RTS ─────────────────────────────────────────────────
+    total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets)
+    rts_val = round(income - total_alloc, 2)
+    alloc_pct = min(100, round(total_alloc / income * 100) if income > 0 else 0)
+    allocation_rate = {"allocated": total_alloc, "income": income,
+                       "pct": alloc_pct, "rts": rts_val}
+
+    # ── Fixed vs variable ─────────────────────────────────────────────────────
+    fixed_spent = sum(
+        F.b_spent(mid, b["id"], txs)
+        for b in buckets
+        if not b.get("flex") and b.get("type", "expense") == "expense"
+           and (b.get("recurring") or b.get("dueDay") or (b.get("defaultBudget") or 0) > 0)
+    )
+    variable_spent = max(0.0, grand_spent - fixed_spent)
+    fv_denom = (fixed_spent + variable_spent) or 1
+    fixed_pct = round(fixed_spent / fv_denom * 100)
+    fixed_vs_variable = {"fixed": fixed_spent, "variable": variable_spent,
+                         "fixed_pct": fixed_pct, "variable_pct": 100 - fixed_pct}
+
+    # ── Top merchants ─────────────────────────────────────────────────────────
+    merchant_totals: dict = defaultdict(float)
+    for t in txs:
+        if t.get("monthId") == mid and t.get("type") == "out" and not F.is_scheduled(t):
+            name = (t.get("desc") or "Unknown").strip()
+            merchant_totals[name] += float(t.get("amount") or 0)
+    top_merchants = [{"name": k, "amount": round(v, 2)}
+                     for k, v in sorted(merchant_totals.items(),
+                                        key=lambda x: x[1], reverse=True)[:8]]
+
+    # ── Top transactions ──────────────────────────────────────────────────────
+    bkt_name = {b["id"]: b["name"] for b in buckets}
+    out_txs = sorted(
+        [t for t in txs if t.get("monthId") == mid and t.get("type") == "out"
+         and not F.is_scheduled(t)],
+        key=lambda t: float(t.get("amount") or 0), reverse=True
+    )
+    top_txs = [{"date": (t.get("date") or "")[:10][5:],
+                "desc": t.get("desc") or "Transaction",
+                "bucket": bkt_name.get(t.get("bucketId", ""), ""),
+                "amount": float(t.get("amount") or 0)}
+               for t in out_txs[:5]]
+
+    # ── 12-month income/expense trend ─────────────────────────────────────────
+    trend_12mo = []
+    for i in range(11, -1, -1):
+        m_id = F.month_offset(mid, -i)
+        m_income = F.month_income(m_id, txs, accounts)
+        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets)
+        trend_12mo.append({"mid": m_id, "label": month_label(m_id)[:3],
+                           "income": m_income, "spent": m_spent,
+                           "net": m_income - m_spent})
+    max_val = max((max(t["income"], t["spent"]) for t in trend_12mo), default=1) or 1
+    for t in trend_12mo:
+        t["income_pct"] = round(t["income"] / max_val * 100)
+        t["spent_pct"] = round(t["spent"] / max_val * 100)
+
+    # ── Over-budget frequency by category (last 6 months) ────────────────────
+    over_freq = []
+    for cat in cats:
+        cat_bkts = [b for b in buckets if b.get("catId") == cat["id"]]
+        if not cat_bkts:
+            continue
+        dots, over_count = [], 0
+        for i in range(5, -1, -1):
+            m_id = F.month_offset(mid, -i)
+            m_month = active_month(data, m_id)
+            c_budget = sum(F.b_budget(m_month, b["id"]) for b in cat_bkts)
+            c_spent = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
+            hit = c_budget > 0 and c_spent > c_budget + 0.005
+            dots.append(hit)
+            if hit:
+                over_count += 1
+        if over_count > 0:
+            over_freq.append({"name": cat["name"], "count": over_count,
+                              "total": 6, "dots": dots})
+    over_freq.sort(key=lambda x: x["count"], reverse=True)
+    over_freq = over_freq[:6]
+
+    # ── Goals ─────────────────────────────────────────────────────────────────
+    goals = []
+    for b in buckets:
+        btype = b.get("type", "expense")
+        target = float(b.get("targetAmount") or 0)
+        if btype in ("goal", "sinking") and target > 0:
+            saved = F.bucket_available(b, month, all_months, txs)
+            saved = max(0.0, saved)
+            monthly_contrib = float(b.get("defaultBudget") or 0)
+            remaining = max(0.0, target - saved)
+            months_left = (round(remaining / monthly_contrib)
+                          if monthly_contrib > 0 else None)
+            pct = min(100, round(saved / target * 100))
+            goals.append({"name": b["name"], "saved": saved, "target": target,
+                          "pct": pct, "monthly_contrib": monthly_contrib,
+                          "months_left": months_left,
+                          "target_date": b.get("targetDate") or ""})
+
+    # ── Net worth trend (6 months) ────────────────────────────────────────────
+    nw_trend = []
+    for i in range(5, -1, -1):
+        m_id = F.month_offset(mid, -i)
+        y, m0 = F.parse_month_id(m_id)
+        last_day = _date(y, m0 + 1, _cal.monthrange(y, m0 + 1)[1])
+        nw = sum(
+            (-F.acct_balance_as_of(a, txs, last_day) if a.get("type") == "debt"
+             else F.acct_balance_as_of(a, txs, last_day))
+            for a in accounts
+        )
+        nw_trend.append({"mid": m_id, "label": month_label(m_id)[:3], "net_worth": round(nw, 2)})
+    nw_min = min(t["net_worth"] for t in nw_trend) if nw_trend else 0
+    nw_max = max(t["net_worth"] for t in nw_trend) if nw_trend else 1
+    nw_range = (nw_max - nw_min) or 1
+    for t in nw_trend:
+        t["pct"] = round((t["net_worth"] - nw_min) / nw_range * 100)
+
+    # ── Debt accounts with monthly delta ─────────────────────────────────────
+    debt_accounts = []
+    for a in accounts:
+        if a.get("type") == "debt":
+            cur_bal = F.acct_balance(a, txs)
+            prev_mid = F.month_offset(mid, -1)
+            prev_y, prev_m0 = F.parse_month_id(prev_mid)
+            prev_last = _date(prev_y, prev_m0 + 1, _cal.monthrange(prev_y, prev_m0 + 1)[1])
+            prev_bal = F.acct_balance_as_of(a, txs, prev_last)
+            debt_accounts.append({"name": a["name"], "balance": cur_bal,
+                                   "delta": round(prev_bal - cur_bal, 2)})
+
+    # ── Multi-month BvA ───────────────────────────────────────────────────────
+    def _bva_multi(n):
+        m_ids = [F.month_offset(mid, -(n - 1 - i)) for i in range(n)]
+        rows = []
+        for cat in cats:
+            cat_bkts = [b for b in buckets if b.get("catId") == cat["id"]]
+            if not cat_bkts:
+                continue
+            months_data = []
+            for m_id in m_ids:
+                m_mo = active_month(data, m_id)
+                c_bud = sum(F.b_budget(m_mo, b["id"]) for b in cat_bkts)
+                c_sp = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
+                months_data.append({"label": month_label(m_id)[:3],
+                                    "variance": c_bud - c_sp,
+                                    "budget": c_bud, "spent": c_sp})
+            rows.append({"name": cat["name"], "color": cat.get("color", "#888"),
+                         "months": months_data})
+        labels = [month_label(m)[:3] for m in m_ids]
+        return {"rows": rows, "labels": labels}
+
+    bva_3mo = _bva_multi(3)
+    bva_6mo = _bva_multi(6)
+
+    # ── Discipline heatmap (12 months) ────────────────────────────────────────
+    heatmap, neg_rts_months = [], []
+    for i in range(11, -1, -1):
+        m_id = F.month_offset(mid, -i)
+        m_mo = active_month(data, m_id)
+        m_income = F.month_income(m_id, txs, accounts)
+        m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets)
+        rts_m = m_income - m_alloc
+        if m_income > 0:
+            alloc_rate = min(m_alloc / m_income, 1.0)
+            if rts_m < -0.005:
+                status = "deficit"
+                neg_rts_months.append(month_label(m_id))
+            elif alloc_rate >= 0.90:
+                status = "full"
+            else:
+                status = "partial"
+        else:
+            alloc_rate = 0.0
+            status = "empty"
+        heatmap.append({"mid": m_id, "label": month_label(m_id)[:3],
+                        "status": status, "rts": round(rts_m, 2),
+                        "alloc_rate": round(alloc_rate * 100)})
+
+    active_hm = [h for h in heatmap if h["status"] != "empty"]
+    disc_score = round(sum(h["alloc_rate"] for h in active_hm) / max(len(active_hm), 1))
+    avg_surplus = round(
+        sum(h["rts"] for h in heatmap if h["rts"] > 0) /
+        max(sum(1 for h in heatmap if h["rts"] > 0), 1), 2
+    )
+
+    return {
+        "view_mid": mid, "available_months": available_months,
+        "bva": bva, "bva_3mo": bva_3mo, "bva_6mo": bva_6mo,
+        "cat_spend": cat_spend, "totals": totals,
+        "snapshot": snapshot, "net_worth": net_worth,
+        "funding_rate": funding_rate, "allocation_rate": allocation_rate,
+        "fixed_vs_variable": fixed_vs_variable,
+        "top_merchants": top_merchants, "top_txs": top_txs,
+        "trend_12mo": trend_12mo, "over_freq": over_freq,
+        "goals": goals, "nw_trend": nw_trend,
+        "debt_accounts": debt_accounts,
+        "heatmap": heatmap, "disc_score": disc_score,
+        "neg_rts_months": neg_rts_months, "avg_surplus": avg_surplus,
+    }
 
 
 def tx_form_ctx():

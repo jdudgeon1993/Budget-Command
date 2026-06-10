@@ -224,12 +224,23 @@ document.addEventListener('htmx:beforeSwap',function(e){
     var m=document.querySelector('.main');
     sessionStorage.setItem('_pScroll',m?m.scrollTop:0);
   }
+  // Checkpoint scroll before modal-body swaps (checkbox live-previews) so the
+  // page doesn't jump to the bottom when the modal content is replaced.
+  if(e.detail.target.id==='modal-body'){
+    window._modalScrollY=window.scrollY;
+    window._modalInnerY=(document.querySelector('.modal-inner')||document.querySelector('.modal-body-inner')||{scrollTop:0}).scrollTop;
+  }
 });
 document.addEventListener('htmx:afterSettle',function(e){
   if(e.detail.target.id==='panel'){
     var y=sessionStorage.getItem('_pScroll');
     var m=document.querySelector('.main');
     if(y&&m){m.scrollTop=parseInt(y);sessionStorage.removeItem('_pScroll');}
+  }
+  // Restore scroll position after modal content rerender
+  if(e.detail.target.id==='modal-body'&&window._modalScrollY!=null){
+    window.scrollTo(0,window._modalScrollY);
+    window._modalScrollY=null;
   }
 });
 document.addEventListener('htmx:afterSwap',function(e){
@@ -245,7 +256,66 @@ document.addEventListener('htmx:afterRequest',function(){
   var b=document.getElementById('nprogress-bar');
   b.classList.remove('running');b.classList.add('done');
   setTimeout(function(){b.classList.remove('done');b.style.width='';},500);
+  // If the server used HX-Retarget to redirect to a modal, the original
+  // hx-target="#panel" never gets its afterSwap, so panel-loading stays stuck.
+  var p=document.getElementById('panel');
+  if(p)p.classList.remove('panel-loading');
 });
+// Close fx popovers when clicking outside
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.fx-wrap')){
+    document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
+  }
+});
+function fxOpen(inputId, popId){
+  var pop=document.getElementById(popId);
+  if(!pop)return;
+  var wasOpen=pop.classList.contains('open');
+  document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
+  if(!wasOpen){
+    // Show first (display:block) so we can measure dimensions
+    pop.classList.add('open');
+    // Find the fx button (sibling before the popover)
+    var btn=document.querySelector('[onclick*="'+popId+'"]');
+    if(btn){
+      var r=btn.getBoundingClientRect();
+      var pw=pop.offsetWidth||190;
+      var ph=pop.offsetHeight||100;
+      var top=r.top-ph-6;
+      var left=r.left;
+      // Flip below if not enough space above
+      if(top<8)top=r.bottom+6;
+      // Keep within right edge
+      if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+      pop.style.top=Math.max(8,top)+'px';
+      pop.style.left=Math.max(8,left)+'px';
+    }
+    var expr=pop.querySelector('.fx-expr-input');
+    if(expr){expr.value='';expr.focus();}
+  }
+}
+function fxApply(inputId, popId, expr){
+  var input=document.getElementById(inputId);
+  var errEl=document.getElementById(popId.replace('fx-pop-','fx-err-'));
+  if(!input||!expr||!expr.trim())return;
+  // Strip currency symbols and parse current value
+  var cur=parseFloat(String(input.value).replace(/[^0-9.\-]/g,''))||0;
+  // Build safe expression: only allow digits, operators, dot, parens, spaces
+  var safe=expr.replace(/[^0-9+\-*/.()\s]/g,'');
+  // If expression starts with operator, prepend current value
+  if(/^[+\-*/]/.test(safe.trim()))safe=cur+safe;
+  var result;
+  try{result=Function('"use strict";return('+safe+')')();}catch(err){result=NaN;}
+  if(typeof result!=='number'||!isFinite(result)||result<0){
+    if(errEl){errEl.textContent='Invalid expression';errEl.style.display='block';}
+    return;
+  }
+  result=Math.round(result*100)/100;
+  input.value=result.toFixed(2);
+  document.getElementById(popId).classList.remove('open');
+  // Trigger HTMX change
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+}
 </script>
 </body>
 </html>

@@ -192,6 +192,7 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "targetDate": b.get("target_date") or "",
         "contribFreq": b.get("contrib_freq") or "",
         "recurring": bool(b.get("recurring")),
+        "flex": bool(b.get("flex")),
         "notes": b.get("notes") or "",
         "order": b.get("sort_order", 0),
         "debtAccountId": b.get("debt_account_id") or "",
@@ -295,6 +296,7 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         "target_amount": "target_amount", "target_date": "target_date",
         "contrib_freq": "contrib_freq",
         "recurring": "recurring",
+        "flex": "flex",
         "notes": "notes",
         "sort_order": "sort_order",
         "debt_account_id": "debt_account_id",
@@ -587,25 +589,6 @@ def update_category_order(uid: str, token: str, cid: str, sort_order: int) -> No
 
 # ── Month workflow ────────────────────────────────────────────────────────────
 
-def copy_month_allocs(uid: str, token: str, dst_mid: str, src_mid: str) -> None:
-    """Copy allocation rows from src_mid → dst_mid, skipping already-set buckets."""
-    db = client(token)
-    src = db.table("bcc_month_allocations").select("*") \
-        .eq("user_id", uid).eq("month_id", src_mid).execute().data or []
-    if not src:
-        return
-    existing_bids = {
-        r["bucket_id"] for r in
-        (db.table("bcc_month_allocations").select("bucket_id")
-           .eq("user_id", uid).eq("month_id", dst_mid).execute().data or [])
-    }
-    rows = [
-        {"user_id": uid, "month_id": dst_mid,
-         "bucket_id": r["bucket_id"], "amount": r["amount"]}
-        for r in src if r["bucket_id"] not in existing_bids
-    ]
-    if rows:
-        db.table("bcc_month_allocations").insert(rows).execute()
 
 
 # ── Payees ────────────────────────────────────────────────────────────────────

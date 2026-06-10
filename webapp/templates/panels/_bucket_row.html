@@ -1,93 +1,200 @@
-{# ── Bar/figure + color computed from existing bucket fields (no new backend data) ── #}
+{# ── Bucket row for vg-cat card layout ──────────────────────────────────────
+   Status tiers (auto-sorted by buckets.html):
+     over → partial → funded → empty → paid
+   b.status is one of: over | funded | partial
+   We derive display_status here for the paid/empty/vault special cases.
+   ─────────────────────────────────────────────────────────────────────────── #}
+
+{# Derive display status and bar class #}
 {% if b.btype == 'vault' %}
-  {% set _bar_pct = (([100, ((b.alloc / b.budget * 100) | round | int)] | min) if b.budget > 0 else 100) %}
-  {% set _bar_color = 'var(--indigo)' %}
-{% elif b.btype in ('sinking', 'goal') %}
-  {% if b.target_amount > 0 %}
-    {% set _bar_pct = b.progress_pct %}
-  {% else %}
-    {% set _bar_pct = (([100, ((b.alloc / b.budget * 100) | round | int)] | min) if b.budget > 0 else 100) %}
-  {% endif %}
-  {% set _bar_color = 'var(--green)' %}
-{% else %}
+  {% set display_status = 'vault' %}
+  {% set bar_pct = 100 %}
+  {% set bar_cls = 'vault' %}
+{% elif b.flex %}
+  {% set display_status = b.status %}
+  {% set bar_pct = 0 %}
+  {% set bar_cls = b.status %}
+{% elif b.status == 'funded' and b.pill == 'Paid' %}
+  {% set display_status = 'paid' %}
+  {% set bar_pct = 0 %}
+  {% set bar_cls = 'funded' %}
+{% elif b.status == 'partial' and b.alloc <= 0.005 %}
+  {% set display_status = 'empty' %}
+  {% set bar_pct = 0 %}
+  {% set bar_cls = 'empty' %}
+{% elif b.status == 'over' %}
+  {% set display_status = 'over' %}
   {% set _denom = b.budget if b.budget > 0 else b.alloc %}
-  {% set _bar_pct = (([100, ((b.spent / _denom * 100) | round | int)] | min) if _denom > 0 else 0) %}
-  {% set _bar_color = ('var(--red)' if b.status == 'over' else ('var(--amber)' if b.status == 'partial' else 'var(--green)')) %}
+  {% set bar_pct = ([100, ((b.spent / _denom * 100) | round | int)] | min) if _denom > 0 else 0 %}
+  {% set bar_cls = 'over' %}
+{% elif b.status == 'funded' %}
+  {% set display_status = 'funded' %}
+  {% if b.btype in ('sinking','goal') and b.target_amount > 0 %}
+    {% set bar_pct = b.progress_pct %}
+  {% elif b.budget > 0 %}
+    {% set bar_pct = ([100, ((b.alloc / b.budget * 100) | round | int)] | min) %}
+  {% else %}
+    {% set bar_pct = 100 %}
+  {% endif %}
+  {% set bar_cls = 'funded' %}
+{% else %}
+  {% set display_status = 'partial' %}
+  {% if b.btype in ('sinking','goal') and b.target_amount > 0 %}
+    {% set bar_pct = b.progress_pct %}
+  {% elif b.budget > 0 %}
+    {% set bar_pct = ([100, ((b.alloc / b.budget * 100) | round | int)] | min) %}
+  {% else %}
+    {% set bar_pct = 0 %}
+  {% endif %}
+  {% set bar_cls = 'partial' %}
 {% endif %}
 
-<div class="bkt-row {{ b.status }}" id="bkt-{{ b.id }}">
-  <div class="bkt-row-head" onclick="toggleBktRow('{{ b.id }}')">
-    <div class="bkt-row-main">
-      <div class="bkt-row-top">
-        <span class="bkt-row-name">{{ b.name }}</span>
-        <span class="bkt-row-badges">
-          {% if b.btype == 'vault' %}
-            {% if b.budget > 0 %}<span class="bkt-badge meta-vault">{{ b.budget | money }}/mo</span>{% endif %}
-          {% elif b.btype in ('sinking', 'goal') %}
-            {% if b.contrib_freq %}<span class="bkt-badge meta-contrib">{{ b.contrib_freq | capitalize }}</span>{% endif %}
-            {% if b.target_date %}<span class="bkt-badge meta-due">Target {{ b.target_date }}</span>{% endif %}
-            {% if b.goal_reached %}<span class="bkt-badge meta-vault" style="color:var(--green)">✓ Goal reached!</span>{% endif %}
-            {% if b.monthly_needed %}<span class="bkt-badge meta-due">need {{ b.monthly_needed | money }}/mo</span>{% endif %}
-          {% elif b.due_day or b.pay_freq %}
-            {% if b.due_day %}
-            {% set _ord = {'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','6':'6th','7':'7th','8':'8th','9':'9th','10':'10th','11':'11th','12':'12th','13':'13th','14':'14th','15':'15th','16':'16th','17':'17th','18':'18th','19':'19th','20':'20th','21':'21st','22':'22nd','23':'23rd','24':'24th','25':'25th','26':'26th','27':'27th','28':'28th','eom':'End of Month'} %}
-            <span class="bkt-badge meta-due">Due {{ _ord.get(b.due_day | string, b.due_day | string) }}</span>
-            {% endif %}
-            {% if b.pay_freq %}
-            {% set _freq_label = {'monthly':'Monthly','biweekly':'Biweekly','weekly':'Weekly','triweekly':'Triweekly'} %}
-            <span class="bkt-badge meta-contrib">{{ _freq_label.get(b.pay_freq, b.pay_freq | capitalize) }}</span>
-            {% endif %}
-          {% endif %}
-        </span>
-      </div>
-      <div class="bkt-bar-track"><div class="bkt-bar-fill" style="width:{{ _bar_pct }}%;background:{{ _bar_color }}"></div></div>
-    </div>
+{# Shortfall label for partial/over #}
+{% if display_status == 'partial' and b.budget > 0 and b.alloc > 0.005 %}
+  {% set shortfall_text = '−' ~ (b.budget - b.alloc) | money ~ ' needed' %}
+{% elif display_status == 'over' %}
+  {% set shortfall_text = '+' ~ (b.spent - b.budget) | money ~ ' over' %}
+{% else %}
+  {% set shortfall_text = '' %}
+{% endif %}
 
-    <div class="bkt-row-figure">
-      {% if b.btype == 'vault' %}
-        <span class="bkt-figure-amt">{{ b.vault_total | money }}</span>
-        <span class="bkt-figure-status">saved</span>
-      {% elif b.btype in ('sinking', 'goal') %}
-        {% if b.target_amount > 0 %}
-        <span class="bkt-figure-amt">{{ b.left | money }} / {{ b.target_amount | money }}</span>
-        <span class="bkt-figure-status {{ 'funded' if b.goal_reached }}">{{ '✓ Goal reached!' if b.goal_reached else (b.progress_pct ~ '% saved') }}</span>
-        {% else %}
-        <span class="bkt-figure-amt">{{ b.left | money }}</span>
-        <span class="bkt-figure-status">saved</span>
-        {% endif %}
-      {% else %}
-        <span class="bkt-figure-amt">{{ b.spent | money }} / {{ b.budget | money }}</span>
-        <span class="bkt-figure-status {{ b.status }}">{{ b.pill }}</span>
+<div class="vg-row status-{{ display_status }}" id="bkt-{{ b.id }}">
+  {# ── Collapsed headline ── #}
+  <div class="vg-row-top">
+    <span class="vg-bkt-name" onclick="toggleBktRow('{{ b.id }}')">
+      {{ b.name }}
+      {% if b.btype == 'vault' %}<span class="vg-type-tag vault">Vault</span>{% endif %}
+      {% if b.btype in ('sinking','goal') %}<span class="vg-type-tag goal">Goal</span>{% endif %}
+      {% if b.flex %}<span class="vg-type-tag flex">Flex</span>{% endif %}
+    </span>
+
+    <span class="vg-badge {{ display_status }}">{{ b.pill }}</span>
+
+    <div class="vg-row-actions">
+      {# Fill CTA — prominent, right in the row #}
+      {% if display_status == 'over' %}
+        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+          <button class="vg-fill-btn over" type="submit">Cover {{ [0, (b.spent - b.alloc)] | max | money }}</button>
+        </form>
+      {% elif display_status == 'partial' and b.budget > 0 %}
+        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+          <button class="vg-fill-btn" type="submit">Fill {{ b.needed | money }}</button>
+        </form>
+      {% elif b.flex and display_status == 'partial' %}
+        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+          <button class="vg-fill-btn" type="submit">Cover {{ b.uncovered | money }}</button>
+        </form>
+      {% elif display_status == 'vault' %}
+        <a class="vg-act-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
+           hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}" hx-target="#modal-body">⇄</a>
       {% endif %}
+
+      <button class="vg-expand-btn" type="button" id="settings-{{ b.id }}"
+              onclick="toggleBktRow('{{ b.id }}')" title="Expand">▾</button>
     </div>
-    <div class="bkt-row-toggle">▾</div>
   </div>
 
-  <div class="bkt-drawer">
-    <div class="bkt-drawer-inner">
+  {# ── Amounts + bar (or paid stamp) ── #}
+  {% if display_status == 'paid' %}
+    <div class="vg-paid-stamp">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <circle cx="6" cy="6" r="5.5" stroke="currentColor" stroke-opacity=".4"/>
+        <path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="vg-paid-line"></div>
+      <span>{{ b.pill }} · {{ b.spent | money }}</span>
+    </div>
+  {% else %}
+    <div class="vg-row-amts">
+      {% if b.flex %}
+        <span class="vg-alloc {{ display_status }}">{{ b.spent | money }}</span>
+        <span class="vg-budget-lbl">spent</span>
+      {% elif b.btype == 'vault' %}
+        <span class="vg-alloc vault">{{ b.vault_total | money }}</span>
+        <span class="vg-budget-lbl">saved</span>
+      {% elif b.btype in ('sinking','goal') and b.target_amount > 0 %}
+        <span class="vg-alloc {{ display_status }}">{{ b.left | money }}</span>
+        <span class="vg-budget-lbl">/ {{ b.target_amount | money }} goal</span>
+      {% else %}
+        <span class="vg-alloc {{ display_status }}">{{ b.alloc | money }}</span>
+        <span class="vg-budget-lbl">/ {{ b.budget | money }}</span>
+      {% endif %}
+      {% if shortfall_text %}
+        <span class="vg-shortfall {{ display_status }}">{{ shortfall_text }}</span>
+      {% endif %}
+    </div>
+    <div class="vg-bar-wrap">
+      <div class="vg-bar-track">
+        <div class="vg-bar-fill {{ bar_cls }}" style="width:{{ bar_pct }}%"></div>
+      </div>
+      <span class="vg-bar-pct {{ bar_cls }}">
+        {% if b.btype == 'vault' %}∞{% else %}{{ bar_pct }}%{% endif %}
+      </span>
+    </div>
+  {% endif %}
+
+  {# ── Expandable drawer (alloc/budget inputs, ledger, settings) ── #}
+  <div class="vg-drawer" id="vg-drawer-{{ b.id }}">
+    <div class="vg-drawer-inner">
       <div class="bkt-drawer-inputs">
         <form method="post" action="{{ url_for('panels.set_alloc', bid=b.id) }}"
               style="display:contents"
               hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
               hx-trigger="change from:find input[name=alloc]"
-              hx-target="closest .bkt-row" hx-swap="outerHTML show:false"
+              hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
           <label>Allocation
-            <input class="alloc-input mono" name="alloc" value="{{ b.alloc | money }}"
-                   aria-label="Allocation for {{ b.name }}"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+            <div class="fx-wrap">
+              <input class="alloc-input mono" name="alloc" id="alloc-{{ b.id }}" value="{{ b.alloc | money }}"
+                     aria-label="Allocation for {{ b.name }}"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+              <button type="button" class="fx-btn" onclick="fxOpen('alloc-{{ b.id }}','fx-pop-alloc-{{ b.id }}')" title="Calculator">fx</button>
+              <div class="fx-popover" id="fx-pop-alloc-{{ b.id }}">
+                <div class="fx-popover-lbl">Expression (e.g. +15, *1.15, 45+20)</div>
+                <div class="fx-popover-row">
+                  <input class="fx-expr-input" type="text" placeholder="+0"
+                         onkeydown="if(event.key==='Enter'){fxApply('alloc-{{ b.id }}','fx-pop-alloc-{{ b.id }}',this.value);event.preventDefault();}"
+                         oninput="document.getElementById('fx-err-alloc-{{ b.id }}').style.display='none'">
+                  <button type="button" class="fx-apply-btn"
+                          onclick="fxApply('alloc-{{ b.id }}','fx-pop-alloc-{{ b.id }}',this.previousElementSibling.value)">→</button>
+                </div>
+                <div class="fx-error" id="fx-err-alloc-{{ b.id }}">Invalid expression</div>
+                <div class="fx-hint">Uses current value as base</div>
+              </div>
+            </div>
           </label>
         </form>
         <form method="post" action="{{ url_for('panels.set_budget', bid=b.id) }}"
               style="display:contents"
               hx-post="{{ url_for('panels.set_budget', bid=b.id) }}"
               hx-trigger="change from:find input[name=budget]"
-              hx-target="closest .bkt-row" hx-swap="outerHTML show:false"
+              hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
-          <label>{{ 'Monthly contribution' if b.btype == 'vault' else 'Budget' }}
-            <input class="budget-input mono" name="budget" value="{{ b.budget | money }}"
-                   aria-label="Budget for {{ b.name }}" title="Budget target"
-                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+          <label>{{ 'Monthly contrib' if b.btype == 'vault' else 'Budget' }}
+            <div class="fx-wrap">
+              <input class="budget-input mono" name="budget" id="budget-{{ b.id }}" value="{{ b.budget | money }}"
+                     aria-label="Budget for {{ b.name }}"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+              <button type="button" class="fx-btn" onclick="fxOpen('budget-{{ b.id }}','fx-pop-budget-{{ b.id }}')" title="Calculator">fx</button>
+              <div class="fx-popover" id="fx-pop-budget-{{ b.id }}">
+                <div class="fx-popover-lbl">Expression (e.g. +15, *1.15, 45+20)</div>
+                <div class="fx-popover-row">
+                  <input class="fx-expr-input" type="text" placeholder="+0"
+                         onkeydown="if(event.key==='Enter'){fxApply('budget-{{ b.id }}','fx-pop-budget-{{ b.id }}',this.value);event.preventDefault();}"
+                         oninput="document.getElementById('fx-err-budget-{{ b.id }}').style.display='none'">
+                  <button type="button" class="fx-apply-btn"
+                          onclick="fxApply('budget-{{ b.id }}','fx-pop-budget-{{ b.id }}',this.previousElementSibling.value)">→</button>
+                </div>
+                <div class="fx-error" id="fx-err-budget-{{ b.id }}">Invalid expression</div>
+                <div class="fx-hint">Uses current value as base</div>
+              </div>
+            </div>
           </label>
         </form>
       </div>
@@ -96,79 +203,56 @@
         {% if b.btype == 'vault' %}
           <a class="vault-action-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
              hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}"
-             hx-target="#modal-body" title="Transfer to another bucket">⇄ Transfer</a>
+             hx-target="#modal-body">⇄ Transfer</a>
           <a class="vault-action-btn" href="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
              hx-get="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
-             hx-target="#modal-body" title="Release savings back to pool">↑ Release</a>
-        {% elif b.status == 'partial' and b.budget > 0 %}
-          <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}"
-                style="display:inline"
-                hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}"
-                hx-target="#panel" hx-swap="innerHTML">
-            <button class="fill-btn" type="submit" title="Set allocation to budget">Fill</button>
-          </form>
+             hx-target="#modal-body">↑ Release</a>
         {% endif %}
 
         {% if b.due_day or b.pay_freq %}
         <form method="post" action="{{ url_for('panels.toggle_handled', bid=b.id) }}"
               style="display:inline"
               hx-post="{{ url_for('panels.toggle_handled', bid=b.id) }}"
-              hx-target="closest .bkt-row" hx-swap="outerHTML">
-          <button class="handled-btn {{ 'active' if b.handled }}" type="submit"
-                  title="{{ 'Mark as not handled' if b.handled else 'Mark as handled — hide from forecast this month' }}">
+              hx-target="#panel" hx-swap="innerHTML">
+          <button class="handled-btn {{ 'active' if b.handled }}" type="submit">
             {{ '✓ Handled' if b.handled else 'Handled?' }}
           </button>
         </form>
         {% endif %}
 
-        <button class="toolbar-btn" type="button" id="exp-{{ b.id }}" onclick="toggleBktTxs('{{ b.id }}')"
-                title="{{ b.txs | length }} transaction{{ 's' if b.txs | length != 1 }} this month">
+        <button class="toolbar-btn" type="button" onclick="toggleBktTxs('{{ b.id }}')"
+                title="{{ b.txs | length }} transaction{{ 's' if b.txs | length != 1 }}">
           <span id="exp-icon-{{ b.id }}">▸</span> Ledger · {{ b.txs | length }}
         </button>
-        <button class="toolbar-btn" type="button" id="settings-{{ b.id }}"
+        <button class="toolbar-btn" type="button"
                 onclick="toggleBktSettings('{{ b.id }}', '{{ url_for('panels.bucket_settings', bid=b.id) }}')"
                 title="Bucket settings">
           <span id="settings-icon-{{ b.id }}">▸</span> ⚙ Settings
         </button>
-
-        <span class="bkt-drawer-spacer"></span>
-
-        <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}"
-              style="display:inline"
-              hx-post="{{ url_for('panels.move_bucket', bid=b.id, direction='up') }}"
-              hx-target="#panel" hx-swap="innerHTML">
-          <button class="reorder-btn" type="submit" title="Move up">▲ Up</button>
-        </form>
-        <form method="post" action="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}"
-              style="display:inline"
-              hx-post="{{ url_for('panels.move_bucket', bid=b.id, direction='down') }}"
-              hx-target="#panel" hx-swap="innerHTML">
-          <button class="reorder-btn" type="submit" title="Move down">▼ Down</button>
-        </form>
       </div>
 
-      {# ── Inline transaction list ── #}
+      {# Inline transaction list #}
       <div class="bucket-txs" id="txs-{{ b.id }}" style="display:none">
         {% if b.txs %}
-        {% for tx in b.txs %}
-        <div class="bkt-tx-row">
-          <span class="bkt-tx-date">{{ tx.date[5:] }}</span>
-          <span class="bkt-tx-desc">{{ tx.desc }}</span>
-          <span class="bkt-tx-amt">{{ tx.amount | money }}</span>
-        </div>
-        {% endfor %}
+          {% for tx in b.txs %}
+          <div class="bkt-tx-row">
+            <span class="bkt-tx-date">{{ tx.date[5:] }}</span>
+            <span class="bkt-tx-desc">{{ tx.desc }}</span>
+            <span class="bkt-tx-amt">{{ tx.amount | money }}</span>
+          </div>
+          {% endfor %}
         {% else %}
-        <div class="bkt-tx-empty">No transactions this month</div>
+          <div class="bkt-tx-empty">No transactions this month</div>
         {% endif %}
       </div>
 
-      {# ── Inline settings (lazy-loaded on first expand) ── #}
+      {# Inline settings (lazy-loaded) #}
       <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}" style="display:none"></div>
     </div>
   </div>
 
-  {# ── Goal celebration ── #}
-  {% if b.goal_reached and b.btype in ('sinking', 'goal') %}
-  <script>(function(){var k='cura-celebrated-{{ b.id }}';if(!localStorage.getItem(k)){localStorage.setItem(k,'1');showToast('{{ b.name }} goal reached! You saved {{ b.target_amount | money }}', 'success', 6000);}})();</script>
+  {# Goal celebration #}
+  {% if b.goal_reached and b.btype in ('sinking','goal') %}
+  <script>(function(){var k='cura-celebrated-{{ b.id }}';if(!localStorage.getItem(k)){localStorage.setItem(k,'1');showToast('{{ b.name }} goal reached! You saved {{ b.target_amount | money }}','success',6000);}})();</script>
   {% endif %}
 </div>

@@ -1,0 +1,146 @@
+<div class="modal-title">Paycheck — {{ paycheck_amount | money }}</div>
+<p style="font-size:12px;color:var(--text2);line-height:1.5;margin:-12px 0 16px">
+  Rules fire first, then obligations are filled in urgency order. Catch-all rules absorb whatever remains.
+</p>
+
+<form method="post" action="{{ url_for('panels.apply_paycheck_distribute', tid=tid) }}"
+      hx-post="{{ url_for('panels.apply_paycheck_distribute', tid=tid) }}"
+      hx-target="#panel" hx-swap="innerHTML"
+      id="paycheck-distribute-form">
+
+  {% if external_rules %}
+  <div class="modal-section-lbl"><span>Transfer reminders</span><span class="line"></span></div>
+  {% for r in external_rules %}
+  <div class="suggest-row" style="opacity:0.6;cursor:default;pointer-events:none">
+    <div class="suggest-info">
+      <div class="suggest-name">{{ r.name }}</div>
+      <div class="suggest-reason">Manual transfer · {% if r.is_pct %}{{ '%.0f'|format(r.value) }}% of paycheck{% else %}fixed amount{% endif %}</div>
+    </div>
+    <div class="suggest-amt" style="color:var(--text2)">{{ r.computed | money }}</div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {# ── Step 1 — Rules (orange) ─────────────────────────────────────────── #}
+  <div class="pd-step pd-step-1">
+    <div class="pd-step-lbl">
+      <div class="pd-step-num">1</div>
+      <span class="pd-step-title">Apply your rules</span>
+      <span class="pd-step-line"></span>
+    </div>
+    {% for r in internal_rules %}
+    <label class="suggest-row {{ 'checked' if r.checked else 'unchecked' }}">
+      <input type="checkbox" name="rule" value="{{ r.id }}" {{ 'checked' if r.checked }}
+             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-trigger="change" hx-include="#paycheck-distribute-form"
+             hx-target="#modal-body" hx-swap="innerHTML">
+      <div class="suggest-info">
+        <div class="suggest-name">{{ r.bucket_name }}</div>
+        <div class="suggest-reason">{{ r.name }} · {% if r.is_pct %}{{ '%.0f'|format(r.value) }}% of paycheck{% else %}fixed{% endif %}</div>
+      </div>
+      <div class="suggest-amt">{{ ('+' ~ (r.computed | money)) if r.checked else '—' }}</div>
+    </label>
+    {% else %}
+    <div class="empty-hint">No allocation rules — add them in Setup.</div>
+    {% endfor %}
+    <div class="modal-totals" style="margin-top:10px">
+      <div class="total-row"><span>Rules total</span><b style="color:var(--amber)">{{ total_rules | money }}</b></div>
+      <div class="total-row"><span>Left for obligations</span><b>{{ [rts - total_rules, 0] | max | round(2) | money }}</b></div>
+    </div>
+  </div>
+
+  {# ── Step 2 — Obligations (red) ──────────────────────────────────────── #}
+  <div class="pd-step pd-step-2">
+    <div class="pd-step-lbl">
+      <div class="pd-step-num">2</div>
+      <span class="pd-step-title">Fill what's due</span>
+      <span class="pd-step-line"></span>
+    </div>
+    {% for o in obligations %}
+    <label class="suggest-row {{ 'checked' if o.checked else 'unchecked' }}">
+      <input type="checkbox" name="ob" value="{{ o.id }}" {{ 'checked' if o.checked }}
+             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-trigger="change" hx-include="#paycheck-distribute-form"
+             hx-target="#modal-body" hx-swap="innerHTML">
+      <div class="suggest-info">
+        <div class="suggest-name">{{ o.name }}</div>
+        <div class="suggest-reason">{{ o.reason }}</div>
+      </div>
+      <div class="suggest-amt">{{ ('+' ~ (o.gap | money)) if o.checked else '—' }}</div>
+    </label>
+    {% else %}
+    <div class="empty-hint">Nothing underfunded — every bucket is covered.</div>
+    {% endfor %}
+    <div class="modal-totals" style="margin-top:10px">
+      <div class="total-row"><span>Obligations total</span><b style="color:var(--red)">{{ total_ob | money }}</b></div>
+    </div>
+  </div>
+
+  {# ── Step 3 — Catch remainder (green) ────────────────────────────────── #}
+  {% if fund_rules %}
+  <div class="pd-step pd-step-3">
+    <div class="pd-step-lbl">
+      <div class="pd-step-num">3</div>
+      <span class="pd-step-title">Catch remainder</span>
+      <span class="pd-step-line"></span>
+    </div>
+    {% for r in fund_rules %}
+    <label class="suggest-row {{ 'checked' if r.checked else 'unchecked' }}">
+      <input type="checkbox" name="fund" value="{{ r.id }}" {{ 'checked' if r.checked }}
+             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-trigger="change" hx-include="#paycheck-distribute-form"
+             hx-target="#modal-body" hx-swap="innerHTML">
+      <div class="suggest-info">
+        <div class="suggest-name">{{ r.bucket_name }}</div>
+        <div class="suggest-reason">{{ r.name }} <span class="suggest-tag">catches remainder</span></div>
+      </div>
+      <div class="suggest-amt">{{ ('+' ~ (r.computed | money)) if r.checked and r.computed > 0 else '—' }}</div>
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Step 4 — Next month obligations (purple) ────────────────────────── #}
+  <div class="pd-step pd-step-4">
+    <div class="pd-step-lbl">
+      <div class="pd-step-num">4</div>
+      <span class="pd-step-title">Get ahead — {{ next_month_label }}</span>
+      <span class="pd-step-line"></span>
+    </div>
+    <p style="font-size:11px;color:var(--text2);margin:0 0 10px;line-height:1.5">
+      Pre-fund next month's bills now. Money sits longer before it's spent — that's how Age of Money grows.
+      Uncheck Step 3 above to redirect surplus here instead.
+    </p>
+    {% for o in next_obligations %}
+    <label class="suggest-row {{ 'checked' if o.checked else 'unchecked' }}">
+      <input type="checkbox" name="next_ob" value="{{ o.id }}" {{ 'checked' if o.checked }}
+             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-trigger="change" hx-include="#paycheck-distribute-form"
+             hx-target="#modal-body" hx-swap="innerHTML">
+      <div class="suggest-info">
+        <div class="suggest-name">{{ o.name }}</div>
+        <div class="suggest-reason">{{ o.reason }}</div>
+      </div>
+      <div class="suggest-amt">{{ ('+' ~ (o.gap | money)) if o.checked else '—' }}</div>
+    </label>
+    {% else %}
+    <div class="empty-hint">No budget targets set for next month — set budgets in the buckets panel to enable pre-funding.</div>
+    {% endfor %}
+    {% if next_obligations %}
+    <div class="modal-totals" style="margin-top:10px">
+      <div class="total-row"><span>Next month pre-funded</span><b style="color:var(--accent)">{{ total_next | money }}</b></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="modal-totals">
+    <div class="total-row"><span>Total being distributed</span><b>{{ total_applied | money }}</b></div>
+    <div class="total-row {{ 'warn' if remaining_rts > 0.005 }}"><span>Remaining in Ready to Assign</span><b>{{ remaining_rts | money }}</b></div>
+    <div class="total-row grand"><span>Ready to Assign right now</span><b>{{ rts | money }}</b></div>
+  </div>
+
+  <div class="edit-actions">
+    <a class="toolbar-btn" onclick="closeModal()">Skip</a>
+    <button class="toolbar-btn primary" type="submit">Apply Distribution</button>
+  </div>
+</form>

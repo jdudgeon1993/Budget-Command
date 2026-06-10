@@ -89,6 +89,7 @@ def login():
     if request.method == "POST":
         try:
             res = DB.sign_in(request.form["email"], request.form["password"])
+            session.permanent        = bool(request.form.get("remember_me"))
             session["access_token"]  = res["access_token"]
             session["refresh_token"] = res["refresh_token"]
             session["expires_at"]    = res["expires_at"]
@@ -104,13 +105,17 @@ def login():
 @bp.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
+        from flask import flash
+        pw = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+        if pw != confirm:
+            flash("Passwords don't match.", "error")
+            return render_template("login.html", mode="signup")
         try:
-            DB.sign_up(request.form["email"], request.form["password"])
-            from flask import flash
+            DB.sign_up(request.form["email"], pw)
             flash("Account created — please sign in.", "ok")
             return redirect(url_for("auth.login"))
         except Exception as e:
-            from flask import flash
             flash(str(e), "error")
     return render_template("login.html", mode="signup")
 
