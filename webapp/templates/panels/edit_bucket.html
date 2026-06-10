@@ -11,7 +11,7 @@
       <label>Name</label>
       <input type="text" name="name" value="{{ bucket.name }}" required autofocus>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Type</label>
         <select name="type" id="bkt-type-sel" onchange="updateBktFields()">
@@ -31,7 +31,7 @@
     </div>
 
     <div id="bkt-expense-fields" style="{{ 'display:none' if bucket.type not in ('expense','') else '' }}">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Default monthly budget</label>
           <input type="text" name="default_budget" inputmode="decimal"
@@ -43,7 +43,7 @@
                  value="{{ bucket.dueAmount or '' }}" placeholder="exact $ due">
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Due day</label>
           <select name="due_day">
@@ -91,14 +91,14 @@
           </select>
         </div>
       </div>
-      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
+      <div class="edit-field modal-toggle-row">
         <label style="margin-bottom:0;flex:1">Recurring bill</label>
         <select name="recurring" style="width:auto;flex:0 0 auto">
           <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
           <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
         </select>
       </div>
-      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
+      <div class="edit-field modal-toggle-row">
         <label style="margin-bottom:0;flex:1">Flexible spending
           <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px">Fund reactively — no fixed target</span>
         </label>
@@ -110,7 +110,7 @@
     </div>
 
     <div id="bkt-sinking-fields" style="{{ '' if bucket.type in ('sinking','goal') else 'display:none' }}">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Monthly contribution</label>
           <input type="text" name="default_budget" inputmode="decimal"
@@ -126,7 +126,7 @@
           </select>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Target amount</label>
           <input type="text" name="target_amount" inputmode="decimal"

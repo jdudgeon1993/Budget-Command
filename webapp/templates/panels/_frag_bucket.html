@@ -1,15 +1,14 @@
-<form class="edit-form" method="post"
+<form class="edit-form modal-form-bare" method="post"
       action="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
       hx-post="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
       hx-target="#panel" hx-swap="innerHTML"
-      style="padding:0;border:none;background:none;box-shadow:none"
       id="bkt-settings-form-{{ bucket.id }}">
 
   <div class="edit-field">
     <label>Name</label>
     <input type="text" name="name" value="{{ bucket.name }}" required autofocus>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="modal-row-2">
     <div class="edit-field">
       <label>Type</label>
       <select name="type" onchange="updateBktFields(this)">
@@ -30,7 +29,7 @@
 
   {# ── Expense fields ── #}
   <div class="bkt-expense-fields" style="{{ 'display:none' if bucket.type not in ('expense','') else '' }}">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Default monthly budget</label>
         <input type="text" name="default_budget" inputmode="decimal"
@@ -42,7 +41,7 @@
                value="{{ bucket.dueAmount or '' }}" placeholder="exact $ due">
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Due day</label>
         <select name="due_day">
@@ -90,7 +89,7 @@
         </select>
       </div>
     </div>
-    <div class="edit-field" style="display:flex;align-items:center;gap:12px">
+    <div class="edit-field modal-toggle-row">
       <label style="margin-bottom:0;flex:1">Recurring bill</label>
       <select name="recurring" style="width:auto;flex:0 0 auto">
         <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
@@ -101,7 +100,7 @@
 
   {# ── Sinking Fund / Goal fields ── #}
   <div class="bkt-sinking-fields" style="{{ '' if bucket.type in ('sinking','goal') else 'display:none' }}">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Monthly contribution</label>
         <input type="text" name="default_budget" inputmode="decimal"
@@ -117,7 +116,7 @@
         </select>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Target amount</label>
         <input type="text" name="target_amount" inputmode="decimal"

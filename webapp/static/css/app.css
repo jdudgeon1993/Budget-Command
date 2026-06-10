@@ -155,10 +155,10 @@ svg{display:block}
      orange = Funding (partial)   green = Funded   red = Over
      purple = Vault/Savings       grey  = Paid (bar hidden)
    ────────────────────────────────────────────────────────────────────────── */
-.vg-cat{border-radius:var(--r-lg);overflow:hidden;margin-bottom:14px;border:1px solid var(--border);background:rgba(255,255,255,.03)}
+.vg-cat{border-radius:var(--r-lg);overflow:hidden;margin-bottom:10px;border:1px solid var(--border);background:rgba(255,255,255,.03)}
 
 /* Category header */
-.vg-cat-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px 10px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;user-select:none}
+.vg-cat-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px 9px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;user-select:none}
 .vg-cat-swatch{width:10px;height:10px;border-radius:3px;flex-shrink:0}
 .vg-cat-name{font-size:13px;font-weight:700;flex:1;letter-spacing:.01em}
 .vg-cat-amt{font-family:var(--mono);font-size:12px;color:var(--text2)}
@@ -194,7 +194,7 @@ svg{display:block}
 .vg-tier-sep.paid::after{background:rgba(255,255,255,.06)}
 
 /* Bucket row */
-.vg-row{padding:11px 16px 12px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s}
+.vg-row{padding:9px 14px 10px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s}
 .vg-row:last-child{border-bottom:none}
 .vg-row:hover{background:rgba(255,255,255,.025)}
 .vg-row.status-partial{background:rgba(255,159,10,.03)}
@@ -204,7 +204,7 @@ svg{display:block}
 .vg-row.status-paid{opacity:.7}
 
 /* Row top line */
-.vg-row-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.vg-row-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .vg-bkt-name{font-size:13px;font-weight:600;flex:1;color:var(--text)}
 .vg-row.status-paid .vg-bkt-name{color:var(--text3)}
 .vg-row.status-funded .vg-bkt-name{color:rgba(255,255,255,.8)}
@@ -230,7 +230,7 @@ svg{display:block}
 .vg-expand-btn:hover{border-color:rgba(255,255,255,.18);color:var(--text2)}
 
 /* Amounts line */
-.vg-row-amts{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.vg-row-amts{display:flex;align-items:center;gap:6px;margin-bottom:5px}
 .vg-alloc{font-family:var(--mono);font-size:13px;font-weight:600}
 .vg-alloc.partial{color:var(--amber)}
 .vg-alloc.funded{color:var(--green)}
@@ -270,7 +270,7 @@ svg{display:block}
 /* Drawer (reused from bkt-* — just override the wrapper) */
 .vg-row.open .vg-drawer{max-height:600px;border-top:1px solid var(--border)}
 .vg-drawer{max-height:0;overflow:hidden;transition:max-height .22s ease}
-.vg-drawer-inner{padding:13px 16px 15px}
+.vg-drawer-inner{padding:11px 14px 13px}
 
 /* Status legend card */
 .status-legend{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px}
@@ -288,8 +288,8 @@ svg{display:block}
 
 /* Mobile */
 @media(max-width:768px){
-  .vg-cat-hdr{padding:11px 13px 9px}
-  .vg-row{padding:10px 13px 11px}
+  .vg-cat-hdr{padding:9px 12px 8px}
+  .vg-row{padding:8px 12px 9px}
   .vg-bkt-name{font-size:12px}
   .vg-row-amts{font-size:12px}
   .vg-drawer-inner{padding:11px 13px 13px}
@@ -536,13 +536,7 @@ svg{display:block}
 .tx-type-row{display:flex;gap:6px;margin-bottom:16px}
 .tx-type{flex:1;text-align:center;padding:9px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer}
 .tx-type.on{background:var(--accent-dim);border-color:var(--accent);color:var(--nav-active)}
-.tx-field{margin-bottom:12px}
-.tx-field label{display:block;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;font-family:var(--mono)}
 .tx-hint{color:var(--text3);text-transform:none;letter-spacing:0}
-.tx-field input,.tx-field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:var(--sans)}
-.tx-field input:focus,.tx-field select:focus{border-color:var(--accent)}
-.tx-actions{display:flex;gap:8px;margin-top:18px}
-.tx-actions .toolbar-btn{flex:1;text-align:center;padding:11px}
 
 /* ── Stub ── */
 .stub{padding:48px 24px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:13px}
@@ -614,14 +608,26 @@ button.tx-edit-link{background:none;border:none;cursor:pointer;font-family:var(-
 .edit-form{padding:22px 22px 18px}
 .edit-form-title{font-size:16px;font-weight:700;margin-bottom:6px}
 .edit-form-sub{font-size:12px;color:var(--text3);margin-bottom:18px}
-.edit-field{margin-bottom:12px}
-.edit-field label{display:block;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;font-family:var(--mono)}
-.edit-field input,.edit-field select,.edit-field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:var(--sans)}
-.edit-field input:focus,.edit-field select:focus{border-color:var(--accent)}
-.edit-actions{display:flex;gap:8px;margin-top:18px;align-items:center}
-.edit-actions .toolbar-btn{flex:1;text-align:center;padding:11px}
-.edit-delete-btn{padding:11px 14px;border-radius:var(--r-sm);font-size:11px;font-family:var(--mono);cursor:pointer;border:1px solid var(--red-dim);background:var(--red-dim);color:var(--red)}
-.edit-delete-btn:hover{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* ── Shared modal/edit/tx field + action styles ── */
+.edit-field,.tx-field,.modal-field{margin-bottom:12px}
+.edit-field label,.tx-field label,.modal-field label{display:block;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:var(--text3);margin-bottom:5px;font-family:var(--mono)}
+.edit-field input,.edit-field select,.edit-field textarea,
+.tx-field input,.tx-field select,.tx-field textarea,
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;color:var(--text);font-size:14px;outline:none;font-family:var(--sans)}
+.edit-field input:focus,.edit-field select:focus,
+.tx-field input:focus,.tx-field select:focus,
+.modal-field input:focus,.modal-field select:focus{border-color:var(--accent)}
+
+.edit-actions,.tx-actions,.modal-actions{display:flex;gap:8px;margin-top:18px;align-items:center}
+.edit-actions .toolbar-btn,.tx-actions .toolbar-btn,.modal-actions .toolbar-btn{flex:1;text-align:center;padding:11px}
+.edit-delete-btn,.modal-delete-btn{padding:11px 14px;border-radius:var(--r-sm);font-size:11px;font-family:var(--mono);cursor:pointer;border:1px solid var(--red-dim);background:var(--red-dim);color:var(--red)}
+.edit-delete-btn:hover,.modal-delete-btn:hover{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* Repeated layout helpers used inside modal forms */
+.modal-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-toggle-row{display:flex;align-items:center;gap:12px}
+.modal-form-bare{padding:0;border:none;background:none;box-shadow:none}
 
 /* ── Setup inline edit (details/summary pattern) ── */
 .setup-expand-row{border-bottom:1px solid var(--border)}

@@ -1,15 +1,14 @@
-<form class="edit-form" method="post"
+<form class="edit-form modal-form-bare" method="post"
       action="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
       hx-post="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
-      hx-target="#panel" hx-swap="innerHTML"
-      style="padding:0;border:none;background:none;box-shadow:none">
+      hx-target="#panel" hx-swap="innerHTML">
 
   <div class="edit-field">
     <label>Account name</label>
     <input type="text" name="name" value="{{ account.name if account else '' }}"
            placeholder="e.g. Chase Checking" required autofocus>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="modal-row-2">
     <div class="edit-field">
       <label>Type</label>
       <select name="type" onchange="updateAcctFields(this)">
@@ -33,7 +32,7 @@
   {# Debt-specific fields #}
   {% set _is_debt = account and account.type == 'debt' %}
   <div class="acct-debt-fields" style="{{ '' if _is_debt else 'display:none' }}">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>APR <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(%)</span></label>
         <input type="text" name="debt_apr" inputmode="decimal"
@@ -46,13 +45,13 @@
                value="{{ account.debtMinPayment or '' }}" placeholder="0.00">
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Credit limit</label>
         <input type="text" name="credit_limit" inputmode="decimal"
                value="{{ account.creditLimit or '' }}" placeholder="0.00">
       </div>
-      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
+      <div class="edit-field modal-toggle-row">
         <label style="margin-bottom:0;flex:1">Promo rate?</label>
         <select name="is_promo" style="width:auto;flex:0 0 auto">
           <option value="0" {{ 'selected' if not (account and account.isPromo) }}>No</option>
