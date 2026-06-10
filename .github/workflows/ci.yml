@@ -1,4 +1,4 @@
-name: CI — Reflex compile gate
+name: CI — Flask app sanity check
 
 on:
   push:
@@ -7,11 +7,8 @@ on:
     branches: ["main"]
 
 jobs:
-  compile:
+  check:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: reflex_app
 
     steps:
       - uses: actions/checkout@v4
@@ -22,10 +19,27 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r webapp/requirements.txt
 
-      - name: Reflex compile (frontend-only, no zip)
+      - name: Compile check
+        run: python -m compileall -q webapp
+
+      - name: Template render check
         env:
           SUPABASE_URL: "https://placeholder.supabase.co"
           SUPABASE_ANON_KEY: "placeholder"
-        run: reflex export --frontend-only --no-zip
+          DEV_SEED: "1"
+        run: |
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, ".")
+          from webapp import create_app
+
+          app = create_app()
+          with app.test_request_context():
+              env = app.jinja_env
+              for name in env.list_templates():
+                  if name.endswith(".html"):
+                      env.get_template(name)
+          print("All templates compiled OK")
+          EOF
