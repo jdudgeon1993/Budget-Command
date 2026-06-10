@@ -27,6 +27,25 @@
       {% endfor %}
     </select>
   </div>
+  {% if linked_buckets %}
+  <div class="edit-field">
+    <label>Bucket <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional — links payment to a budget bucket)</span></label>
+    <select name="bucketId">
+      <option value="">— No bucket —</option>
+      {% for b in linked_buckets %}
+      <option value="{{ b.id }}">{{ b.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% else %}
+  <div style="font-size:11px;color:var(--text3);padding:6px 0 10px;line-height:1.5">
+    Tip: link a bucket to this account in Setup to track payments against your budget.
+  </div>
+  {% endif %}
+  <div class="edit-field">
+    <label>Note <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+    <input type="text" name="desc" placeholder="e.g. Minimum payment">
+  </div>
   <div class="edit-actions">
     <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
     <button class="toolbar-btn primary" type="submit">Record Payment</button>

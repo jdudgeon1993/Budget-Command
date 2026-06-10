@@ -6,7 +6,7 @@ Ported from app/app.py forecast endpoint.
 import calendar as _cal
 from datetime import date, timedelta
 from .formulas import (acct_balance as _acct_balance, is_scheduled as _is_scheduled,
-                       b_alloc, b_spent, rollover_bal_raw)
+                       b_alloc, b_spent, bucket_available)
 
 
 # ── Timeline helpers ──────────────────────────────────────────────────────────
@@ -236,7 +236,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      due_day_overrides: dict = None,
                      timeline: dict = None,
                      skipped_pay_dates: list = None,
-                     no_accrue_dates: list = None) -> dict:
+                     no_accrue_dates: list = None,
+                     phantom_monthly: list = None) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -363,12 +364,12 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         target  = budget if budget > 0 else bill_a
         if target <= 0:
             return alloc > 0
-        # For current month include rollover — a bucket funded by carryover is not unfunded
+        # Carryforward is always-on — a bucket funded by its rolled-over balance is not unfunded
         if mid_ == today_mid:
             bucket_obj = next((b for b in buckets if b["id"] == bid), None)
-            if bucket_obj and bucket_obj.get("rollover"):
-                roll = rollover_bal_raw(bucket_obj, mid_, months_raw, txs)
-                avail = alloc + roll - b_spent(mid_, bid, txs)
+            month_obj = next((m for m in months_raw if m.get("id") == mid_), None)
+            if bucket_obj and month_obj:
+                avail = bucket_available(bucket_obj, month_obj, months_raw, txs)
                 return avail >= target * 0.99
         return alloc >= target * 0.99
 
@@ -398,6 +399,18 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     freq_bills  = [b for b in active_buckets if b.get("dueDay") is None
                    and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
                    and _effective_bill_amt(b) > 0]
+    # Scenario-injected buckets with no due date — treated as monthly on the 1st
+    for ph in (phantom_monthly or []):
+        if ph["id"] in off_set:
+            continue
+        amt = float(bucket_overrides.get(ph["id"], ph.get("amount", 0)))
+        if amt <= 0:
+            continue
+        dated_bills.append({
+            "id": ph["id"], "name": ph["name"],
+            "dueDay": 1, "payFreq": "monthly",
+            "dueAmount": amt, "defaultBudget": amt,
+        })
 
     # ── Build periods ─────────────────────────────────────────────────────────
     running_balance = start_balance
@@ -471,25 +484,23 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         # Process funded (green) — deduct from balance
         funded_lines: list[dict] = []
         for d in sorted(funded_by_day):
-            funded_lines.append({"row_type": "date", "text": _date_label(d), "amount_fmt": ""})
+            funded_lines.append({"row_type": "date", "text": _date_label(d)})
             for bill in funded_by_day[d]:
                 running_balance -= bill["amount"]
                 funded_lines.append({"row_type": "bill", "text": bill["name"],
                                      "amount_fmt": _fmt(bill["amount"])})
-            funded_lines.append({"row_type": "bal", "text": _fmt(running_balance), "amount_fmt": ""})
 
         bal_after_funded = running_balance  # snapshot before unfunded bills
 
         # Process unfunded (red) — deduct from balance
         unfunded_lines: list[dict] = []
         for d in sorted(unfunded_by_day):
-            unfunded_lines.append({"row_type": "date", "text": _date_label(d), "amount_fmt": ""})
+            unfunded_lines.append({"row_type": "date", "text": _date_label(d)})
             for bill in unfunded_by_day[d]:
                 running_balance -= bill["amount"]
                 grand_unfunded  += bill["amount"]
                 unfunded_lines.append({"row_type": "bill", "text": bill["name"],
                                        "amount_fmt": _fmt(bill["amount"])})
-            unfunded_lines.append({"row_type": "bal", "text": _fmt(running_balance), "amount_fmt": ""})
 
         # Build transfer lines with cumulative totals
         xfr_cum = 0.0
@@ -523,7 +534,6 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         if is_gap:
             label = "Pre-Paycheck Gap"
         elif is_skipped:
-            pc_labels = list({pc["label"] for pcs in pay_events.get(ps, []) for pc in [pcs]}) or ["Paycheck"]
             pay_labels = list({pc_hit["label"] for pc_hit in pay_events.get(ps, [])}) or ["Paycheck"]
             label = " + ".join(sorted(pay_labels)) + " (Skipped)"
         else:
@@ -551,6 +561,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             "has_unfunded":        bool(unfunded_by_day),
             "start_bal_fmt":          _fmt(period_start_bal),
             "bal_after_xfr_fmt":      _fmt(bal_after_xfr),
+            "bal_after_xfr_color":    _bal_color(bal_after_xfr),
             "income_total_fmt":       _fmt(period_income),
             "unfunded_total_fmt":     _fmt(period_unfunded),
             "funded_total_fmt":       _fmt(total_funded),
@@ -558,6 +569,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             "net_sign":               "+" if period_net >= 0 else "-",
             "net_negative":           period_net < 0,
             "end_bal_fmt":            _fmt(running_balance),
+            "end_bal_raw":            running_balance,
             "end_bal_negative":       running_balance < 0,
             "end_bal_color":          _bal_color(running_balance),
             "shortfall":              running_balance < 0,
@@ -573,17 +585,10 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         })
 
     # ── Safe to spend (forward minimum) ──────────────────────────────────────
-    def _parse_fmt(s: str) -> float:
-        s = s.strip().lstrip("$").replace(",", "")
-        if s.startswith("-"):
-            return -float(s[1:].lstrip("$").replace(",", ""))
-        return float(s) if s else 0.0
-
-    float_ends  = [_parse_fmt(p["end_bal_fmt"]) for p in period_results]
     running_min = float("inf")
     fwd_mins    = [0.0] * len(period_results)
     for i in range(len(period_results) - 1, -1, -1):
-        running_min = min(running_min, float_ends[i])
+        running_min = min(running_min, period_results[i]["end_bal_raw"])
         fwd_mins[i] = running_min
 
     safe_to_spend = fwd_mins[0] if fwd_mins else start_balance
@@ -707,7 +712,7 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
                 "scheduled":  not _is_paid(b, bd, occ) and _has_scheduled_tx(b, bd),
             })
 
-    all_dates = sorted(set(pc_by_date.keys()) | set(bill_by_date.keys()))
+    all_dates = sorted(set(pc_by_date.keys()) | set(bill_by_date.keys()) | {today})
 
     _blank = {"rt": "", "lbl": "", "amt": "", "td": "", "pa": "", "pd": "", "sch": ""}
 
@@ -743,102 +748,6 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
                              sch="1" if bl["scheduled"] and d >= today else ""))
 
     return rows
-
-
-# ── 6-month What-If chart data ────────────────────────────────────────────────
-
-def compute_6month(data: dict, bucket_overrides: dict = None, rule_overrides: dict = None,
-                   off_buckets: list = None, income_override: float = 0.0,
-                   schedule: dict = None, due_day_overrides: dict = None,
-                   timeline: dict = None) -> list[dict]:
-    """
-    Returns list of 6 monthly dicts for the What-If bar chart.
-    Each dict: {label, income, bills, surplus, surplus_positive}
-    """
-    today          = date.today()
-    bucket_overrides  = bucket_overrides or {}
-    off_set           = set(off_buckets or [])
-    schedule          = schedule or {}
-    due_day_overrides = due_day_overrides or {}
-    paychecks         = data.get("paychecks", [])
-    buckets           = data.get("buckets", [])
-
-    def _eff_bill(b: dict, for_year: int = 0, for_month: int = 0) -> float:
-        bid  = b["id"]
-        base = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
-        if timeline and for_year and for_month:
-            rule = get_timeline_rule(timeline, bid, for_year, for_month)
-            if rule is not None:
-                if not rule.get("enabled", True):
-                    return 0.0
-                if rule.get("amount") is not None:
-                    return float(rule["amount"])
-        if bid in bucket_overrides:
-            return _apply_expr(base, str(bucket_overrides[bid]))
-        return base
-
-    # Compute natural monthly income for scaling
-    nat_monthly = _natural_monthly_income(paychecks, today) if income_override > 0 else 0.0
-    income_scale = _income_scale(income_override, nat_monthly)
-
-    active_dated  = [b for b in buckets if not b.get("archived") and b["id"] not in off_set
-                     and b.get("dueDay") is not None and _eff_bill(b) > 0]
-    active_freq   = [b for b in buckets if not b.get("archived") and b["id"] not in off_set
-                     and b.get("dueDay") is None
-                     and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
-                     and _eff_bill(b) > 0]
-
-    results = []
-    for i in range(6):
-        m_idx   = (today.month - 1 + i) % 12
-        yr      = today.year + (today.month - 1 + i) // 12
-        cal_m   = m_idx + 1
-        m_start = date(yr, cal_m, 1)
-        m_end   = date(yr, cal_m, _cal.monthrange(yr, cal_m)[1])
-
-        # Monthly income
-        month_income = 0.0
-        for pc in paychecks:
-            anchor = pc.get("anchor_date") or pc.get("anchorDate")
-            if not anchor:
-                continue
-            for _ in _gen_pay_dates(anchor, int(pc.get("freq", 14)), m_start, m_end):
-                month_income += float(pc.get("amount") or 0) * income_scale
-
-        # Monthly bills
-        mid_str = _mid(m_start)
-        month_bills = 0.0
-        for b in active_dated:
-            if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
-                continue
-            if timeline:
-                rule = get_timeline_rule(timeline, b["id"], yr, cal_m)
-                if rule is not None and not rule.get("enabled", True):
-                    continue
-            eff_due = due_day_overrides.get(b["id"]) or b.get("dueDay")
-            dates = _bill_dates(eff_due, b.get("payFreq"), m_start, m_end)
-            month_bills += _eff_bill(b, yr, cal_m) * len(dates)
-        for b in active_freq:
-            if schedule.get(f"{b['id']}_{mid_str}", "on") == "off":
-                continue
-            if timeline:
-                rule = get_timeline_rule(timeline, b["id"], yr, cal_m)
-                if rule is not None and not rule.get("enabled", True):
-                    continue
-            dates = _freq_only_dates(b["payFreq"], m_start, m_end)
-            month_bills += _eff_bill(b, yr, cal_m) * len(dates)
-
-        surplus = round(month_income - month_bills, 2)
-        results.append({
-            "label":            m_start.strftime("%b"),
-            "full_label":       m_start.strftime("%B %Y"),
-            "income":           round(month_income, 2),
-            "bills":            round(month_bills, 2),
-            "surplus":          surplus,
-            "surplus_positive": surplus >= 0,
-        })
-
-    return results
 
 
 # ── Balance trajectory SVG ────────────────────────────────────────────────────
@@ -900,8 +809,8 @@ def build_balance_svg(periods: list, width: int = 840, height: int = 120) -> str
     area_col  = "rgba(48,209,88,0.10)" if final_v >= 0 else "rgba(255,69,58,0.09)"
 
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'style="overflow:visible;font-family:\'JetBrains Mono\',monospace">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+        f'style="width:100%;height:auto;overflow:visible;font-family:\'JetBrains Mono\',monospace;display:block">'
     ]
 
     # Zero baseline

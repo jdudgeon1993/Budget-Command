@@ -1,0 +1,63 @@
+<div class="modal-title">Distribute {{ rts | money }}</div>
+<p style="font-size:12px;color:var(--text2);line-height:1.5;margin:-12px 0 16px">
+  Ranked by urgency — due date, frequency, and funding gap. Uncheck anything you'd rather handle yourself.
+</p>
+
+<form method="post" action="{{ url_for('panels.distribute_rts') }}"
+      hx-post="{{ url_for('panels.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML"
+      id="distribute-form">
+
+  <div class="modal-section-lbl"><span>Step 1 — Fill what's due</span><span class="line"></span></div>
+  {% for o in obligations %}
+  <label class="suggest-row {{ 'checked' if o.checked else 'unchecked' }}">
+    <input type="checkbox" name="ob" value="{{ o.id }}" {{ 'checked' if o.checked }}
+           hx-post="{{ url_for('panels.distribute_preview') }}" hx-trigger="change"
+           hx-include="#distribute-form" hx-target="#modal-body" hx-swap="innerHTML">
+    <div class="suggest-info">
+      <div class="suggest-name">{{ o.name }}</div>
+      <div class="suggest-reason">{{ o.reason }}</div>
+    </div>
+    <div class="suggest-amt">+{{ o.gap | money }}</div>
+  </label>
+  {% else %}
+  <div class="empty-hint">Nothing underfunded right now — every bucket is covered.</div>
+  {% endfor %}
+
+  <div class="modal-totals">
+    <div class="total-row"><span>Subtotal — obligations</span><b>{{ total_gap | money }}</b></div>
+    <div class="total-row"><span>Left over for rules</span><b>{{ leftover | money }}</b></div>
+  </div>
+
+  <div class="modal-section-lbl"><span>Step 2 — Your rules suggest</span><span class="line"></span></div>
+  {% for r in rule_suggestions %}
+  <label class="suggest-row rule-suggest-row {{ 'checked' if r.checked else 'unchecked' }}">
+    <input type="checkbox" name="rule" value="{{ r.id }}" {{ 'checked' if r.checked }}
+           hx-post="{{ url_for('panels.distribute_preview') }}" hx-trigger="change"
+           hx-include="#distribute-form" hx-target="#modal-body" hx-swap="innerHTML">
+    <div class="suggest-info">
+      <div class="suggest-name">{{ r.name }}
+        {% if r.is_fund %}<span class="suggest-tag">catches remainder</span>
+        {% elif r.is_pct %}<span class="suggest-tag">{{ '%.0f'|format(r.value) }}% of leftover</span>
+        {% endif %}
+      </div>
+      <div class="suggest-reason">
+        Internal rule → {{ r.bucket_name }}{% if r.is_fund %}. Absorbs whatever remains after every obligation and rule above it.{% endif %}
+      </div>
+    </div>
+    <div class="suggest-amt">{{ ('+' ~ (r.computed | money)) if r.checked else '—' }}</div>
+  </label>
+  {% else %}
+  <div class="empty-hint">No internal rules configured — leftover stays in Ready to Assign.</div>
+  {% endfor %}
+
+  <div class="modal-totals">
+    <div class="total-row"><span>Total being distributed</span><b>{{ total_applied | money }}</b></div>
+    <div class="total-row {{ 'warn' if remaining_rts > 0.005 }}"><span>Remaining in Ready to Assign</span><b>{{ remaining_rts | money }}</b></div>
+    <div class="total-row grand"><span>Ready to Assign right now</span><b>{{ rts | money }}</b></div>
+  </div>
+
+  <div class="edit-actions">
+    <a class="toolbar-btn" onclick="closeModal()">Cancel</a>
+    <button class="toolbar-btn primary" type="submit">Apply Distribution</button>
+  </div>
+</form>

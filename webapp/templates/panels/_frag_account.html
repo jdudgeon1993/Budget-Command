@@ -1,19 +1,17 @@
-<div class="modal-title">{{ 'Edit Account' if account else 'Add Account' }}</div>
-<form class="edit-form" method="post"
+<form class="edit-form modal-form-bare" method="post"
       action="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
       hx-post="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
-      hx-target="#panel" hx-swap="innerHTML"
-      style="padding:0;border:none;background:none;box-shadow:none">
+      hx-target="#panel" hx-swap="innerHTML">
 
   <div class="edit-field">
     <label>Account name</label>
     <input type="text" name="name" value="{{ account.name if account else '' }}"
-           placeholder="e.g. Chase Checking" required autofocus>
+           placeholder="e.g. Chase Checking" required>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="modal-row-2">
     <div class="edit-field">
       <label>Type</label>
-      <select name="type" id="acct-type-sel" onchange="updateAcctFields()">
+      <select name="type" onchange="updateAcctFields(this)">
         {% for val, label in [('budget','Checking / Cash'),('savings','Savings'),('debt','Credit / Debt')] %}
         <option value="{{ val }}" {{ 'selected' if account and account.type == val }}>{{ label }}</option>
         {% endfor %}
@@ -33,8 +31,8 @@
 
   {# Debt-specific fields #}
   {% set _is_debt = account and account.type == 'debt' %}
-  <div id="acct-debt-fields" style="{{ '' if _is_debt else 'display:none' }}">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="acct-debt-fields" style="{{ '' if _is_debt else 'display:none' }}">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>APR <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(%)</span></label>
         <input type="text" name="debt_apr" inputmode="decimal"
@@ -47,15 +45,15 @@
                value="{{ account.debtMinPayment or '' }}" placeholder="0.00">
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Credit limit</label>
         <input type="text" name="credit_limit" inputmode="decimal"
                value="{{ account.creditLimit or '' }}" placeholder="0.00">
       </div>
-      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-        <label style="margin-bottom:0;flex:1">Promo rate?</label>
-        <select name="is_promo" style="width:auto;flex:0 0 auto">
+      <div class="edit-field">
+        <label>Promo rate?</label>
+        <select name="is_promo">
           <option value="0" {{ 'selected' if not (account and account.isPromo) }}>No</option>
           <option value="1" {{ 'selected' if account and account.isPromo }}>Yes — promo APR</option>
         </select>
@@ -69,7 +67,11 @@
   </div>
 
   <div class="edit-actions">
+    {% if account %}
+    <button class="toolbar-btn" type="button" onclick="toggleAcctSettings('{{ account.id }}', '{{ url_for('panels.account_edit', aid=account.id) }}')">Cancel</button>
+    {% else %}
     <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    {% endif %}
     <button class="toolbar-btn primary" type="submit">{{ 'Save Changes' if account else 'Add Account' }}</button>
   </div>
 </form>

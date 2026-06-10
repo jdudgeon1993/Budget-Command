@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS bcc_buckets (
     target_date     TEXT,                              -- goal/sinking: YYYY-MM deadline
     contrib_freq    TEXT,                              -- goal/sinking: contribution frequency
     notes           TEXT,
+    flex            BOOLEAN NOT NULL DEFAULT FALSE,
     archived        BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order      INTEGER NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()

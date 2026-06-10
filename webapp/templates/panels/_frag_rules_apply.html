@@ -14,7 +14,10 @@
 <div class="rules-row">
   <div>
     <div class="rules-row-name">{{ r.name }}</div>
-    <div class="rules-row-meta">{{ '%.0f%%'|format(r.value) if r.is_pct else (r.value | money) }} — transfer out</div>
+    <div class="rules-row-meta">
+      {% if r.is_fund %}catches remainder{% elif r.is_pct %}{{ '%.0f%%'|format(r.value) }}{% else %}{{ r.value | money }}{% endif %}
+      — transfer out
+    </div>
   </div>
   <span class="mono c-text2">-{{ r.computed | money }}</span>
 </div>
@@ -27,7 +30,10 @@
 <div class="rules-row">
   <div>
     <div class="rules-row-name">{{ r.bucket_name }}</div>
-    <div class="rules-row-meta">{{ r.name }} · {{ '%.0f%%'|format(r.value) if r.is_pct else (r.value | money) }}</div>
+    <div class="rules-row-meta">
+      {{ r.name }} ·
+      {% if r.is_fund %}catches remainder{% elif r.is_pct %}{{ '%.0f%%'|format(r.value) }}{% else %}{{ r.value | money }}{% endif %}
+    </div>
   </div>
   <span class="mono c-green">+{{ r.computed | money }}</span>
 </div>

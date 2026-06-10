@@ -44,7 +44,6 @@ document.addEventListener('htmx:afterSettle',function(e){
 {% if msgs %}<script>{% for cat, msg in msgs %}showToast({{ msg | tojson }},{{ cat | tojson }});{% endfor %}</script>{% endif %}
 {% endwith %}
 <div id="nprogress"><div id="nprogress-bar"></div></div>
-<template id="add-tx-tpl">{% with accounts=shell.tx_accounts,buckets_by_cat=shell.tx_buckets_by_cat,today=shell.tx_today,tx_type='out',back=shell.active_panel %}{% include "panels/_frag_add_tx.html" %}{% endwith %}</template>
 <div id="modal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal()" type="button">✕</button>
@@ -153,16 +152,9 @@ document.addEventListener('htmx:afterSettle',function(e){
   </nav>
 </div>
 <script>
-function _restoreAddTx(){
-  var t=document.getElementById('add-tx-tpl');
-  if(!t)return;
-  var mb=document.getElementById('modal-body');
-  mb.innerHTML=t.innerHTML;
-  if(typeof htmx!=='undefined')htmx.process(mb);
-}
 function openModal(){var m=document.getElementById('modal');m.style.display='flex';requestAnimationFrame(function(){m.classList.add('open');});}
-function openAddTxModal(){_restoreAddTx();openModal();}
-function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';_restoreAddTx();},220);}
+function openAddTxModal(){htmx.ajax('GET',{{ url_for('panels.transaction_new') | tojson }},{target:'#modal-body',swap:'innerHTML'});}
+function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';document.getElementById('modal-body').innerHTML='';},220);}
 document.body.addEventListener('closeModal',closeModal);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 function updateTxFields(t){
@@ -177,20 +169,56 @@ function updateTxFields(t){
   if(incType)incType.style.display=(t==='in')?'':'none';
   document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
 }
-function updateAcctFields(){
-  var t=document.getElementById('acct-type-sel');
-  var f=document.getElementById('acct-debt-fields');
-  if(t&&f)f.style.display=(t.value==='debt')?'':'none';
-}
-function updateBktFields(){
-  var t=document.getElementById('bkt-type-sel');
-  var ef=document.getElementById('bkt-expense-fields');
-  var sf=document.getElementById('bkt-sinking-fields');
-  var vf=document.getElementById('bkt-vault-fields');
+function updateAcctFields(sel){
+  var t=sel||document.getElementById('acct-type-sel');
   if(!t)return;
+  var root=t.closest('form')||document;
+  var f=root.querySelector('.acct-debt-fields,#acct-debt-fields');
+  if(f)f.style.display=(t.value==='debt')?'':'none';
+}
+function toggleInlineDrawer(elId, url, iconElId){
+  var el=document.getElementById(elId);
+  if(!el)return;
+  var icon=iconElId?document.getElementById(iconElId):null;
+  var open=el.style.display!=='none';
+  if(open){
+    el.style.display='none';
+    if(icon)icon.textContent='▸';
+    return;
+  }
+  el.style.display='block';
+  if(icon)icon.textContent='▾';
+  if(!el.dataset.loaded){
+    el.dataset.loaded='1';
+    htmx.ajax('GET', url, {target:'#'+el.id, swap:'innerHTML'});
+  }
+}
+function toggleTxEdit(id, url){
+  toggleInlineDrawer('tx-edit-'+id, url);
+}
+function toggleAcctSettings(id, url){
+  toggleInlineDrawer('acct-settings-'+id, url);
+}
+function updateBktFields(sel){
+  var t=sel||document.getElementById('bkt-type-sel');
+  if(!t)return;
+  var root=t.closest('form')||document;
+  var ef=root.querySelector('.bkt-expense-fields,#bkt-expense-fields');
+  var sf=root.querySelector('.bkt-sinking-fields,#bkt-sinking-fields');
+  var vf=root.querySelector('.bkt-vault-fields,#bkt-vault-fields');
   if(ef)ef.style.display=(t.value==='expense'||t.value==='')?'':'none';
   if(sf)sf.style.display=(t.value==='sinking'||t.value==='goal')?'':'none';
   if(vf)vf.style.display=(t.value==='vault')?'':'none';
+  if(root.id&&root.id.indexOf('bkt-settings-form-')===0){
+    _recalcVgDrawer(root.id.slice('bkt-settings-form-'.length));
+  }
+}
+function _recalcVgDrawer(id){
+  var row=document.getElementById('bkt-'+id);
+  var drawer=document.getElementById('vg-drawer-'+id);
+  if(row&&row.classList.contains('open')&&drawer){
+    drawer.style.maxHeight=(drawer.scrollHeight+50)+'px';
+  }
 }
 function _syncNav(){
   var path=location.pathname;
@@ -206,12 +234,23 @@ document.addEventListener('htmx:beforeSwap',function(e){
     var m=document.querySelector('.main');
     sessionStorage.setItem('_pScroll',m?m.scrollTop:0);
   }
+  // Checkpoint scroll before modal-body swaps (checkbox live-previews) so the
+  // page doesn't jump to the bottom when the modal content is replaced.
+  if(e.detail.target.id==='modal-body'){
+    window._modalScrollY=window.scrollY;
+    window._modalInnerY=(document.querySelector('.modal-inner')||document.querySelector('.modal-body-inner')||{scrollTop:0}).scrollTop;
+  }
 });
 document.addEventListener('htmx:afterSettle',function(e){
   if(e.detail.target.id==='panel'){
     var y=sessionStorage.getItem('_pScroll');
     var m=document.querySelector('.main');
     if(y&&m){m.scrollTop=parseInt(y);sessionStorage.removeItem('_pScroll');}
+  }
+  // Restore scroll position after modal content rerender
+  if(e.detail.target.id==='modal-body'&&window._modalScrollY!=null){
+    window.scrollTo(0,window._modalScrollY);
+    window._modalScrollY=null;
   }
 });
 document.addEventListener('htmx:afterSwap',function(e){
@@ -227,7 +266,66 @@ document.addEventListener('htmx:afterRequest',function(){
   var b=document.getElementById('nprogress-bar');
   b.classList.remove('running');b.classList.add('done');
   setTimeout(function(){b.classList.remove('done');b.style.width='';},500);
+  // If the server used HX-Retarget to redirect to a modal, the original
+  // hx-target="#panel" never gets its afterSwap, so panel-loading stays stuck.
+  var p=document.getElementById('panel');
+  if(p)p.classList.remove('panel-loading');
 });
+// Close fx popovers when clicking outside
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.fx-wrap')){
+    document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
+  }
+});
+function fxOpen(inputId, popId){
+  var pop=document.getElementById(popId);
+  if(!pop)return;
+  var wasOpen=pop.classList.contains('open');
+  document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
+  if(!wasOpen){
+    // Show first (display:block) so we can measure dimensions
+    pop.classList.add('open');
+    // Find the fx button (sibling before the popover)
+    var btn=document.querySelector('[onclick*="'+popId+'"]');
+    if(btn){
+      var r=btn.getBoundingClientRect();
+      var pw=pop.offsetWidth||190;
+      var ph=pop.offsetHeight||100;
+      var top=r.top-ph-6;
+      var left=r.left;
+      // Flip below if not enough space above
+      if(top<8)top=r.bottom+6;
+      // Keep within right edge
+      if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+      pop.style.top=Math.max(8,top)+'px';
+      pop.style.left=Math.max(8,left)+'px';
+    }
+    var expr=pop.querySelector('.fx-expr-input');
+    if(expr){expr.value='';expr.focus();}
+  }
+}
+function fxApply(inputId, popId, expr){
+  var input=document.getElementById(inputId);
+  var errEl=document.getElementById(popId.replace('fx-pop-','fx-err-'));
+  if(!input||!expr||!expr.trim())return;
+  // Strip currency symbols and parse current value
+  var cur=parseFloat(String(input.value).replace(/[^0-9.\-]/g,''))||0;
+  // Build safe expression: only allow digits, operators, dot, parens, spaces
+  var safe=expr.replace(/[^0-9+\-*/.()\s]/g,'');
+  // If expression starts with operator, prepend current value
+  if(/^[+\-*/]/.test(safe.trim()))safe=cur+safe;
+  var result;
+  try{result=Function('"use strict";return('+safe+')')();}catch(err){result=NaN;}
+  if(typeof result!=='number'||!isFinite(result)||result<0){
+    if(errEl){errEl.textContent='Invalid expression';errEl.style.display='block';}
+    return;
+  }
+  result=Math.round(result*100)/100;
+  input.value=result.toFixed(2);
+  document.getElementById(popId).classList.remove('open');
+  // Trigger HTMX change
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+}
 </script>
 </body>
 </html>

@@ -8,6 +8,7 @@
   <input type="hidden" name="toggle_skip_date"     value="">
   <input type="hidden" name="no_accrue_dates"      value="{{ no_accrue_dates_str }}">
   <input type="hidden" name="toggle_no_accrue_date" value="">
+  <input type="hidden" name="active_scenario_id"   value="{{ active_scenario_id }}">
   <span class="fc-controls-lbl">Periods:</span>
   <select name="n_months" onchange="this.form.dispatchEvent(new Event('submit',{bubbles:true}))">
     {% for n in [1,2,3,4,6,9,12] %}
@@ -21,13 +22,65 @@
   <button class="toolbar-btn primary" type="submit">Refresh</button>
 </form>
 
+<!-- Scenario bar -->
+<div class="fc-scenario-bar">
+  <button class="fc-sc-chip {{ 'active' if not active_scenario_id }}"
+          type="button" onclick="fcSetScenario('')">Baseline</button>
+  {% for sc in scenarios %}
+  <button class="fc-sc-chip {{ 'active' if active_scenario_id == sc.id }}"
+          type="button" onclick="fcSetScenario('{{ sc.id }}')">
+    {{ sc.name }}
+    <a class="fc-sc-edit" hx-get="{{ url_for('panels.scenario_editor_edit', sid=sc.id) }}"
+       hx-target="#modal-body" hx-include="[name='n_months']"
+       onclick="openModal();event.stopPropagation();return false;">✏</a>
+  </button>
+  {% endfor %}
+  {% if scenarios|length < 6 %}
+  <a class="fc-sc-new" hx-get="{{ url_for('panels.scenario_editor_new') }}"
+     hx-target="#modal-body" hx-include="[name='n_months']" onclick="openModal()">+ New Scenario</a>
+  {% endif %}
+</div>
+
+<!-- OOB: keep KPI bar in sync with active scenario numbers -->
+{% set _active_sc_name = (scenarios | selectattr('id', 'equalto', active_scenario_id) | map(attribute='name') | first) if active_scenario_id else '' %}
+<div id="fc-kpi-bar" class="fc-kpi-bar" hx-swap-oob="outerHTML">
+  {% if _active_sc_name %}
+  <div class="fc-kpi fc-kpi-scenario-active">
+    <div class="fc-kpi-lbl">Scenario</div>
+    <div class="fc-kpi-val" style="font-size:13px;font-weight:700;color:var(--accent)">{{ _active_sc_name }}</div>
+  </div>
+  {% endif %}
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Current Balance</div>
+    <div class="fc-kpi-val mono">{{ forecast.start_balance }}</div>
+  </div>
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Projected Income</div>
+    <div class="fc-kpi-val mono c-green">{{ forecast.total_income }}</div>
+  </div>
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Unfunded Bills</div>
+    <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
+  </div>
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Safe to Spend</div>
+    <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
+  </div>
+  {% if forecast.shortfall_count > 0 %}
+  <div class="fc-kpi fc-kpi-alert">
+    <div class="fc-kpi-lbl">Shortfalls</div>
+    <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
+  </div>
+  {% endif %}
+</div>
+
 <!-- Balance trajectory chart -->
 {% if balance_svg %}
 <div class="fc-chart">{{ balance_svg | safe }}</div>
 {% endif %}
 
 <!-- Period cards -->
-<div class="fc-periods" style="margin-top:14px">
+<div class="fc-periods">
   {% for p in forecast.periods %}
   <div class="fc-period {{ 'fc-period-skipped' if p.is_skipped }} {{ 'fc-period-gap' if p.type == 'gap' }} {{ 'fc-period-shortfall' if p.shortfall and not p.is_skipped }}">
 
@@ -95,7 +148,7 @@
       {% endif %}
       {% if p.type != 'gap' %}<div class="fc-brow fc-brow-bal">
         <span>Running Balance</span>
-        <span class="mono c-green">{{ p.bal_after_xfr_fmt }}</span>
+        <span class="mono" style="color:{{ p.bal_after_xfr_color }}">{{ p.bal_after_xfr_fmt }}</span>
       </div>{% endif %}
     </div>
 
@@ -104,6 +157,7 @@
     <div class="fc-block fc-block-funded">
       <div class="fc-brow fc-brow-hdr">
         <span>Funded Bills ({{ p.funded_count }})</span>
+        <span class="mono" style="font-size:11px;opacity:.7">{{ p.funded_total_fmt }}</span>
       </div>
       {% set ns = namespace(last_date='') %}
       {% for line in p.funded_lines %}
@@ -129,6 +183,7 @@
     <div class="fc-block fc-block-unfunded">
       <div class="fc-brow fc-brow-hdr">
         <span>Unfunded Bills ({{ p.total_count - p.funded_count }})</span>
+        <span class="mono" style="font-size:11px;opacity:.7">{{ p.unfunded_total_fmt }}</span>
       </div>
       {% for line in p.unfunded_lines %}
         {% if line.row_type == 'date' %}

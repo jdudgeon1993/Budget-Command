@@ -112,9 +112,17 @@
             {% else %}
               → {{ r.bucket if r.bucket != '—' else '(no bucket)' }}
             {% endif %}
+            {% if r.is_fund %}
+              <span class="meta-badge" style="background:rgba(124,58,237,.12);color:var(--accent)">Fund this bucket</span>
+            {% endif %}
           </span>
         </div>
-        <span class="setup-fig">{{ ('%.1f%%'|format(r.value)) if r.is_pct else (r.value | money) }}</span>
+        <span class="setup-fig">
+          {% if r.is_fund %}catches remainder
+          {% elif r.is_pct %}{{ '%.1f%%'|format(r.value) }}
+          {% else %}{{ r.value | money }}
+          {% endif %}
+        </span>
         <form method="post" action="{{ url_for('panels.toggle_rule', rid=r.id) }}" style="display:contents"
               hx-post="{{ url_for('panels.toggle_rule', rid=r.id) }}" hx-target="#panel" hx-swap="innerHTML">
           <button class="setup-toggle-btn {{ 'active' if r.active }}" type="submit"
@@ -143,10 +151,12 @@
           <option value="{{ b.id }}" {{ 'selected' if b.id == r.bucket_id }}>{{ b.name }}</option>
           {% endfor %}
         </select>
-        <input name="value" value="{{ r.value }}" placeholder="Value" inputmode="decimal" style="flex:0 0 80px">
-        <select name="value_type" style="flex:0 0 90px">
-          <option value="fixed" {{ 'selected' if not r.is_pct }}>$ fixed</option>
-          <option value="pct"   {{ 'selected' if r.is_pct }}>% pct</option>
+        <input name="value" value="{{ r.value }}" placeholder="Value" inputmode="decimal"
+               style="flex:0 0 80px" {{ 'hidden' if r.is_fund }}>
+        <select name="value_type" style="flex:0 0 110px" onchange="toggleRuleValue(this)">
+          <option value="fixed" {{ 'selected' if r.value_type == 'fixed' }}>$ fixed</option>
+          <option value="pct"   {{ 'selected' if r.value_type == 'pct' }}>% pct</option>
+          <option value="fund"  {{ 'selected' if r.value_type == 'fund' }}>Fund this bucket</option>
         </select>
         <button class="toolbar-btn primary" type="submit">Save</button>
       </form>
@@ -181,16 +191,23 @@
         {% for b in buckets %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
       </select>
       <input name="value" placeholder="Value" inputmode="decimal" style="flex:0 0 80px">
-      <select name="value_type" style="flex:0 0 90px">
+      <select name="value_type" style="flex:0 0 110px" onchange="toggleRuleValue(this)">
         <option value="fixed">$ fixed</option>
         <option value="pct">% pct</option>
+        <option value="fund">Fund this bucket</option>
       </select>
       <button class="toolbar-btn primary">+ Add</button>
     </form>
     <p class="setup-help">
-      <strong>Internal</strong> rules allocate $ or % of each paycheck to a bucket.
+      <strong>$ fixed / % pct</strong> rules carve a specific amount or percentage of each
+      paycheck off to a bucket. <strong>Fund this bucket</strong> rules don't take a fixed
+      cut — each one simply claims whatever's left after every rule above it, like an
+      envelope catching the remainder. Order matters: list your fixed/percentage rules
+      first, then a "fund this bucket" rule last to absorb whatever's left over.
       <strong>External</strong> rules mark money transferred out (shown in forecast).
-      Rules fire automatically when a paycheck income transaction is entered.
+      Rules fire automatically when a paycheck income transaction is entered — and the
+      same rules also drive the Distribute suggestions for spreading unassigned money
+      across your buckets.
     </p>
   </div>
 
@@ -206,6 +223,11 @@ function toggleEditBucket(sel) {
   var form = sel.closest('form');
   var bucketSel = form.querySelector('[name="bucketId"]');
   if (bucketSel) bucketSel.hidden = sel.value === 'external';
+}
+function toggleRuleValue(sel) {
+  var form = sel.closest('form');
+  var valueInput = form.querySelector('[name="value"]');
+  if (valueInput) valueInput.hidden = sel.value === 'fund';
 }
 </script>
 {% endblock %}

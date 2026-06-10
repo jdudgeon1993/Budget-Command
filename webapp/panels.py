@@ -41,7 +41,8 @@ def dashboard():
 @bp.route("/buckets")
 @login_required
 def buckets():
-    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
+    view_mid = request.args.get("m") or None
+    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
 @bp.route("/buckets/<bid>/alloc", methods=["POST"])
@@ -58,19 +59,8 @@ def set_alloc(bid):
     if not current_app.config["DEV_SEED"]:
         DB.upsert_alloc(session["user_id"], session["access_token"],
                         D.active_mid(), bid, amount)
-    # No-JS fallback: a plain form submit (Enter) reloads the panel.
-    if request.headers.get("HX-Request") != "true":
-        return redirect(url_for("panels.buckets"))
-    # HTMX: swap just the row + out-of-band Ready-to-Assign.
-    vm = D.bucket_rows()
-    row = color = None
-    for grp in vm["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                row, color = b, grp["color"]
-    shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
-            + render_template("panels/_oob_rts.html", shell=shell))
+        D.invalidate_cache()
+    return _buckets_response()
 
 
 # ── Bucket fill / distribute ─────────────────────────────────────────────────
@@ -78,50 +68,89 @@ def set_alloc(bid):
 @bp.route("/buckets/<bid>/fill", methods=["POST"])
 @login_required
 def fill_bucket(bid):
-    """Set allocation = budget for this bucket."""
+    """Set allocation = max(budget, spent) — fills to target or covers actual spend."""
     data = D.load_data()
+    mid = D.active_mid()
     month = D.active_month(data)
     budget = D.F.b_budget(month, bid)
-    month.setdefault("allocations", {})[bid] = budget
+    spent  = D.F.b_spent(mid, bid, data.get("txs", []))
+    new_alloc = max(budget, spent)
+    month.setdefault("allocations", {})[bid] = new_alloc
     if not current_app.config["DEV_SEED"]:
         DB.upsert_alloc(session["user_id"], session["access_token"],
-                        D.active_mid(), bid, budget)
-    flash(f"Filled.", "ok")
+                        mid, bid, new_alloc)
+        D.invalidate_cache()
+    flash("Covered." if spent > budget else "Filled.", "ok")
     return _buckets_response()
+
+
+def _distribute_checks():
+    """Checkbox state from the Distribute form, or None for the un-submitted default."""
+    if "ob" not in request.form and "rule" not in request.form:
+        return None, None
+    return set(request.form.getlist("ob")), set(request.form.getlist("rule"))
+
+
+@bp.route("/buckets/distribute")
+@login_required
+def distribute_modal():
+    """Open the Distribute modal: ranked funding suggestions to review and apply."""
+    ctx = D.distribute_ctx()
+    if _is_modal():
+        resp = make_response(render_template("panels/_frag_distribute.html", **ctx))
+        resp.headers["HX-Retarget"] = "#modal-body"
+        resp.headers["HX-Reswap"] = "innerHTML"
+        return resp
+    return _buckets_response()
+
+
+@bp.route("/buckets/distribute/preview", methods=["POST"])
+@login_required
+def distribute_preview():
+    """Re-render the Distribute modal reflecting the user's current checkbox state."""
+    checked_ob, checked_rule = _distribute_checks()
+    ctx = D.distribute_ctx(checked_ob=checked_ob, checked_rule=checked_rule)
+    resp = make_response(render_template("panels/_frag_distribute.html", **ctx))
+    resp.headers["HX-Retarget"] = "#modal-body"
+    resp.headers["HX-Reswap"] = "innerHTML"
+    return resp
 
 
 @bp.route("/buckets/distribute", methods=["POST"])
 @login_required
 def distribute_rts():
-    """Spread remaining RTS evenly across underfunded buckets."""
+    """Apply the selected obligations and rule suggestions from the Distribute modal.
+
+    Re-derives suggested amounts server-side (never trusts client-submitted
+    dollar figures) and only funds the items the user left checked.
+    """
+    checked_ob, checked_rule = _distribute_checks()
+    ctx = D.distribute_ctx(checked_ob=checked_ob, checked_rule=checked_rule)
     data = D.load_data()
     month = D.active_month(data)
-    months = data.get("months", [])
-    accounts = data.get("accounts", [])
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    txs = data.get("txs", [])
 
-    rts = D.F.ready_to_spend(month, months, accounts, buckets, txs)
-    if rts <= 0:
-        return _buckets_response()
+    def _bump(bid, add):
+        if add <= 0.005:
+            return
+        new_alloc = round(D.F.b_alloc(month, bid) + add, 2)
+        month.setdefault("allocations", {})[bid] = new_alloc
+        if not current_app.config["DEV_SEED"]:
+            DB.upsert_alloc(session["user_id"], session["access_token"],
+                            D.active_mid(), bid, new_alloc)
 
-    underfunded = []
-    for b in buckets:
-        alloc = D.F.b_alloc(month, b["id"])
-        budget = D.F.b_budget(month, b["id"])
-        if budget > alloc:
-            underfunded.append((b["id"], budget - alloc))
+    for o in ctx["obligations"]:
+        if o["checked"]:
+            _bump(o["id"], o["gap"])
 
-    if underfunded:
-        per_bucket = min(rts / len(underfunded), max(n for _, n in underfunded))
-        for bid, needed in underfunded:
-            add = min(per_bucket, needed)
-            new_alloc = D.F.b_alloc(month, bid) + add
-            month.setdefault("allocations", {})[bid] = new_alloc
-            if not current_app.config["DEV_SEED"]:
-                DB.upsert_alloc(session["user_id"], session["access_token"],
-                                D.active_mid(), bid, new_alloc)
-    flash("RTS distributed.", "ok")
+    for r in ctx["rule_suggestions"]:
+        if r["checked"]:
+            _bump(r["bucket_id"], r["computed"])
+
+    if not current_app.config["DEV_SEED"]:
+        D.invalidate_cache()
+    flash("Distribution applied.", "ok")
+    if request.headers.get("HX-Request") == "true":
+        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
     return _buckets_response()
 
 
@@ -133,7 +162,9 @@ def _buckets_response():
 
 
 def _is_modal():
-    return request.headers.get("HX-Target") == "modal-body"
+    target = request.headers.get("HX-Target", "")
+    return (target == "modal-body" or target.startswith("bkt-settings-")
+            or target.startswith("tx-edit-") or target.startswith("acct-settings-"))
 
 
 def _panel_close_modal(panel_tmpl, active_panel, **ctx):
@@ -176,7 +207,6 @@ def bucket_settings(bid):
                 "cat_id": f.get("catId", bucket.get("catId", "")),
                 "type": btype,
                 "default_budget": _num("default_budget"),
-                "rollover": f.get("rollover") == "1",
                 "notes": f.get("notes", ""),
             }
             if btype == "expense":
@@ -185,6 +215,7 @@ def bucket_settings(bid):
                     "due_amount": _num("due_amount"),
                     "pay_freq": f.get("pay_freq") or None,
                     "recurring": f.get("recurring") == "1",
+                    "flex": f.get("flex") == "1",
                 })
             elif btype in ("goal", "sinking"):
                 payload.update({
@@ -193,6 +224,7 @@ def bucket_settings(bid):
                     "contrib_freq": f.get("contrib_freq") or None,
                 })
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
+            D.invalidate_cache()
             flash("Bucket updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
@@ -215,6 +247,7 @@ def bucket_settings(bid):
 def archive_bucket(bid):
     if not current_app.config["DEV_SEED"]:
         DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"archived": True})
+        D.invalidate_cache()
         flash("Bucket archived.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
@@ -247,6 +280,7 @@ def vault_transfer(bid):
             if not current_app.config["DEV_SEED"]:
                 DB.vault_transfer(session["user_id"], session["access_token"],
                                   mid, bid, to_bid, amount, new_from, new_to)
+                D.invalidate_cache()
                 flash(f"Transferred ${amount:,.2f} from vault.", "ok")
             else:
                 flash("Dev mode: transfer not persisted.", "ok")
@@ -296,6 +330,7 @@ def vault_release_to_pool(bid):
                 if reason:
                     DB.log_vault_release(session["user_id"], session["access_token"],
                                          mid, bid, amount, reason, is_planned)
+                D.invalidate_cache()
                 flash(f"Released ${amount:,.2f} from vault to pool.", "ok")
             else:
                 flash("Dev mode: release not persisted.", "ok")
@@ -322,20 +357,17 @@ def set_budget(bid):
     data = D.load_data()
     month = D.active_month(data)
     month.setdefault("budgets", {})[bid] = amount
+    saving_mid = D.active_mid()
     if not current_app.config["DEV_SEED"]:
         DB.upsert_budget(session["user_id"], session["access_token"],
-                         D.active_mid(), bid, amount)
-    if request.headers.get("HX-Request") != "true":
-        return redirect(url_for("panels.buckets"))
-    vm = D.bucket_rows()
-    row = color = None
-    for grp in vm["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                row, color = b, grp["color"]
-    shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
-            + render_template("panels/_oob_rts.html", shell=shell))
+                         saving_mid, bid, amount)
+        if saving_mid == D.F.current_month_id():
+            for m in data.get("months", []):
+                if D.F.month_status(m["id"]) == "future":
+                    DB.upsert_budget(session["user_id"], session["access_token"],
+                                     m["id"], bid, amount)
+        D.invalidate_cache()
+    return _buckets_response()
 
 
 # ── Add bucket ────────────────────────────────────────────────────────────────
@@ -349,6 +381,7 @@ def add_bucket():
     btype = f.get("type", "expense")
     if name and cat_id and not current_app.config["DEV_SEED"]:
         DB.insert_bucket(session["user_id"], session["access_token"], name, cat_id, btype)
+        D.invalidate_cache()
         flash("Bucket added.", "ok")
     elif current_app.config["DEV_SEED"]:
         flash("Dev mode: bucket not persisted.", "ok")
@@ -380,6 +413,7 @@ def move_bucket(bid, direction):
         if not current_app.config["DEV_SEED"]:
             DB.update_bucket_order(session["user_id"], session["access_token"], b1["id"], o2)
             DB.update_bucket_order(session["user_id"], session["access_token"], b2["id"], o1)
+            D.invalidate_cache()
     return _buckets_response()
 
 
@@ -393,91 +427,11 @@ def toggle_handled(bid):
     if not current_app.config["DEV_SEED"]:
         DB.ensure_month(session["user_id"], session["access_token"], mid)
         DB.toggle_handled(session["user_id"], session["access_token"], mid, bid, currently)
-    # Return updated bucket row fragment
-    bkt = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
-    if not bkt:
-        return "", 204
-    rows = D.bucket_rows()
-    for grp in rows["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                b["handled"] = not currently
-                return render_template("panels/_bucket_row.html", b=b)
-    return "", 204
-
-
-def _bucket_card_response(bid: str):
-    """Return just the updated bucket card + OOB RTS refresh."""
-    vm = D.bucket_rows()
-    row = color = None
-    for grp in vm["groups"]:
-        for b in grp["buckets"]:
-            if b["id"] == bid:
-                row, color = b, grp["color"]
-    if row is None:
-        return _buckets_response()
-    shell = D.shell_ctx("buckets")
-    return (render_template("panels/_bucket_row.html", b=row, cat_color=color)
-            + render_template("panels/_oob_rts.html", shell=shell))
-
-
-@bp.route("/buckets/<bid>/rollover/release", methods=["POST"])
-@login_required
-def rollover_release(bid):
-    """Release full rollover balance back to RTS pool."""
-    data = D.load_data()
-    month = D.active_month(data)
-    months = data.get("months", [])
-    txs = data.get("txs", [])
-    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
-    if not bucket:
-        flash("Bucket not found.", "error")
-        return redirect(url_for("panels.buckets"))
-    raw = D.F.rollover_bal_raw(bucket, month["id"], months, txs)
-    if raw <= 0:
-        flash("No rollover balance to release.", "ok")
-        return _buckets_response()
-    month.setdefault("rolloverReleased", {})[bid] = raw
-    if not current_app.config["DEV_SEED"]:
-        DB.ensure_month(session["user_id"], session["access_token"], month["id"])
-        DB.upsert_rollover_released(session["user_id"], session["access_token"],
-                                    month["id"], bid, raw)
-    flash(f"Released ${raw:,.2f} rollover to pool.", "ok")
-    return _bucket_card_response(bid)
-
-
-@bp.route("/buckets/<bid>/rollover/undo-release", methods=["POST"])
-@login_required
-def rollover_undo_release(bid):
-    """Undo a rollover release — restores the rollover balance."""
-    data = D.load_data()
-    month = D.active_month(data)
-    rr = month.get("rolloverReleased") or {}
-    if bid in rr:
-        del rr[bid]
-    if not current_app.config["DEV_SEED"]:
-        DB.delete_rollover_released(session["user_id"], session["access_token"],
-                                    month["id"], bid)
-    flash("Rollover release undone.", "ok")
-    return _bucket_card_response(bid)
+        D.invalidate_cache()
+    return _buckets_response()
 
 
 # ── Month workflow ────────────────────────────────────────────────────────────
-
-@bp.route("/month/copy", methods=["POST"])
-@login_required
-def month_copy():
-    mid = D.active_mid()
-    y, m0 = D.F.parse_month_id(mid)
-    total = y * 12 + m0 - 1
-    prev_mid = f"m_{total // 12}_{total % 12}"
-    if not current_app.config["DEV_SEED"]:
-        DB.copy_month_allocs(session["user_id"], session["access_token"], mid, prev_mid)
-        flash("Allocations copied from last month.", "ok")
-    else:
-        flash("Dev mode: copy not persisted.", "ok")
-    return _buckets_response()
-
 
 @bp.route("/month/close", methods=["POST"])
 @login_required
@@ -486,9 +440,8 @@ def month_close():
     if not current_app.config["DEV_SEED"]:
         DB.close_month(session["user_id"], session["access_token"],
                        D.active_mid(), data.get("accounts", []), data.get("txs", []))
+        D.invalidate_cache()
         flash("Month closed.", "ok")
-    else:
-        flash("Dev mode: close not persisted.", "ok")
     return _buckets_response()
 
 
@@ -497,9 +450,8 @@ def month_close():
 def month_reopen():
     if not current_app.config["DEV_SEED"]:
         DB.reopen_month(session["user_id"], session["access_token"], D.active_mid())
+        D.invalidate_cache()
         flash("Month reopened.", "ok")
-    else:
-        flash("Dev mode: reopen not persisted.", "ok")
     return _buckets_response()
 
 
@@ -527,6 +479,7 @@ def account_new():
             DB.insert_account(session["user_id"], session["access_token"],
                               name, f.get("type", "budget"),
                               f.get("color", "#818cf8"), ob)
+            D.invalidate_cache()
             flash("Account added.", "ok")
         elif current_app.config["DEV_SEED"]:
             flash("Dev mode: account not persisted.", "ok")
@@ -577,6 +530,7 @@ def account_edit(aid):
             fields["promo_end_date"] = f.get("promo_end_date") or None
         if not current_app.config["DEV_SEED"]:
             DB.update_account(session["user_id"], session["access_token"], aid, fields)
+            D.invalidate_cache()
             flash("Account updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
@@ -593,6 +547,7 @@ def account_edit(aid):
 def account_archive(aid):
     if not current_app.config["DEV_SEED"]:
         DB.update_account(session["user_id"], session["access_token"], aid, {"archived": True})
+        D.invalidate_cache()
         flash("Account archived.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
@@ -625,6 +580,7 @@ def debt_payment(aid):
             DB.insert_debt_payment(session["user_id"], session["access_token"],
                                    aid, from_aid, amount, iso, mid,
                                    account["name"], bucket_id)
+            D.invalidate_cache()
             flash(f"Payment of {amount:,.2f} recorded.", "ok")
         elif current_app.config["DEV_SEED"]:
             flash("Dev mode: payment not persisted.", "ok")
@@ -641,10 +597,52 @@ def debt_payment(aid):
                            today=_date.today().isoformat())
 
 
+@bp.route("/accounts/<aid>/payoff", methods=["GET", "POST"])
+@login_required
+def debt_payoff(aid):
+    return debt_payment(aid)
+
+
+@bp.route("/accounts/<aid>/interest", methods=["GET", "POST"])
+@login_required
+def post_interest(aid):
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if not account or account.get("type") != "debt":
+        return redirect(url_for("panels.accounts"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            amount = 0.0
+        desc = f.get("desc", "").strip() or "Interest charge"
+        pay_date = f.get("date") or D.tx_form_ctx()["today"]
+        if amount > 0 and not current_app.config["DEV_SEED"]:
+            DB.insert_tx(session["user_id"], session["access_token"], {
+                "accountId": aid, "type": "out", "amount": amount,
+                "desc": desc, "date": pay_date, "monthId": D.active_mid(),
+            })
+            D.invalidate_cache()
+        flash("Interest posted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
+        return redirect(url_for("panels.accounts"))
+    # GET — show form
+    balance = abs(D.F.acct_balance(account, data.get("txs", [])))
+    apr = account.get("debtAPR") or 0
+    suggested = round(balance * (apr / 100) / 12, 2) if apr and balance else None
+    from datetime import date as _date
+    return render_template("panels/_frag_post_interest.html",
+                           account=account, suggested=suggested,
+                           today=_date.today().isoformat())
+
+
 @bp.route("/reports")
 @login_required
 def reports():
-    return render_panel("panels/reports.html", "reports", **D.reports_view())
+    view_mid = request.args.get("m") or None
+    return render_panel("panels/reports.html", "reports", **D.reports_view(view_mid=view_mid))
 
 
 @bp.route("/setup")
@@ -690,11 +688,20 @@ def forecast_whatif():
         else:
             no_accrue_dates.append(toggle_na)
 
-    from . import forecast_calc as FC
+    active_sid = (f.get("active_scenario_id") or "").strip()
     data = D.load_data()
+    scenarios = _load_scenarios()
+    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+        _scenario_fc_params(scenarios, active_sid, n_months, data)
+
+    from . import forecast_calc as FC
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
                              skipped_pay_dates=skip_dates,
-                             no_accrue_dates=no_accrue_dates)
+                             no_accrue_dates=no_accrue_dates,
+                             bucket_overrides=bucket_overrides,
+                             off_buckets=off_buckets,
+                             schedule=schedule,
+                             phantom_monthly=phantom_monthly)
     svg = FC.build_balance_svg(fc["periods"])
     return render_template("panels/_frag_forecast_whatif.html",
                            forecast=fc, balance_svg=svg,
@@ -702,7 +709,271 @@ def forecast_whatif():
                            skipped_pay_dates=skip_dates,
                            skip_dates_str=",".join(skip_dates),
                            no_accrue_dates=no_accrue_dates,
-                           no_accrue_dates_str=",".join(no_accrue_dates))
+                           no_accrue_dates_str=",".join(no_accrue_dates),
+                           scenarios=scenarios,
+                           active_scenario_id=active_sid)
+
+
+# ── Scenario helpers ──────────────────────────────────────────────────────────
+
+def _load_scenarios() -> list:
+    if current_app.config.get("DEV_SEED"):
+        return []
+    uid = session.get("user_id", "")
+    token = session.get("access_token", "")
+    if not uid or not token:
+        return []
+    try:
+        return DB.list_scenarios(uid, token)
+    except Exception:
+        return []
+
+
+def _mid_seq(n_months: int) -> list:
+    """Generate n_months+3 month IDs starting from current month."""
+    from .formulas import current_month_id, parse_month_id, month_id as _mkid
+    sy, sm0 = parse_month_id(current_month_id())
+    result = []
+    for i in range(n_months + 3):
+        total = sm0 + i
+        result.append(_mkid(sy + total // 12, total % 12))
+    return result
+
+
+def _mid_lt(a: str, b: str) -> bool:
+    """True if month_id a is strictly before month_id b."""
+    from .formulas import parse_month_id
+    ya, ma = parse_month_id(a)
+    yb, mb = parse_month_id(b)
+    return ya * 12 + ma < yb * 12 + mb
+
+
+_FREQ_BILL_TYPES = {"weekly", "biweekly", "triweekly", "monthly"}
+
+
+def _build_fc_params(allocs: dict, data: dict, n_months: int = 12):
+    """Translate scenario allocations blob into (bucket_overrides, off_buckets, schedule, phantom_monthly)."""
+    bucket_overrides = dict(allocs.get("bucket_overrides") or {})
+    off_buckets = list(allocs.get("off_buckets") or [])
+    off_set = set(off_buckets)
+    changes = allocs.get("changes") or []
+    schedule = {}
+    if changes:
+        all_mids = _mid_seq(n_months)
+        for ch in changes:
+            bid = ch.get("bid", "")
+            from_mid = ch.get("from_mid", "")
+            ctype = ch.get("type", "off")
+            if not bid or not from_mid:
+                continue
+            if ctype == "off":
+                for mid in all_mids:
+                    if not _mid_lt(mid, from_mid):
+                        schedule[f"{bid}_{mid}"] = "off"
+            elif ctype == "amount":
+                amt = ch.get("amount")
+                if amt is not None:
+                    bucket_overrides[bid] = float(amt)
+                for mid in all_mids:
+                    if _mid_lt(mid, from_mid):
+                        schedule[f"{bid}_{mid}"] = "off"
+    # Buckets with no recurrence that the scenario explicitly enables/overrides
+    phantom_monthly = []
+    for b in data.get("buckets", []):
+        if b.get("archived"):
+            continue
+        bid = b["id"]
+        if bid in off_set:
+            continue
+        if b.get("dueDay") is not None or b.get("payFreq") in _FREQ_BILL_TYPES:
+            continue
+        amt = float(bucket_overrides.get(bid) or b.get("dueAmount") or b.get("defaultBudget") or 0)
+        if amt <= 0:
+            continue
+        phantom_monthly.append({"id": bid, "name": b["name"], "amount": amt})
+    return (bucket_overrides or None, off_buckets or None,
+            schedule or None, phantom_monthly or None)
+
+
+def _scenario_fc_params(scenarios: list, active_sid: str, n_months: int, data: dict):
+    """Extract (bucket_overrides, off_buckets, schedule, phantom_monthly) for the active scenario."""
+    if not active_sid:
+        return None, None, None, None
+    sc = next((s for s in scenarios if s["id"] == active_sid), None)
+    if not sc:
+        return None, None, None, None
+    return _build_fc_params(sc.get("allocations") or {}, data, n_months)
+
+
+def _parse_scenario_form(f, data: dict) -> dict:
+    """Build allocations blob from the scenario editor form POST."""
+    buckets = [b for b in data.get("buckets", [])
+               if not b.get("archived") and b.get("type") != "vault"]
+    bucket_overrides, off_buckets, changes = {}, [], []
+    for b in buckets:
+        bid = b["id"]
+        if f.get(f"bucket_on_{bid}") != "1":
+            off_buckets.append(bid)
+        amt_raw = (f.get(f"bucket_amt_{bid}") or "").strip()
+        if amt_raw:
+            try:
+                bucket_overrides[bid] = float(amt_raw.replace("$", "").replace(",", ""))
+            except ValueError:
+                pass
+        ctype = (f.get(f"change_type_{bid}") or "").strip()
+        from_mid = (f.get(f"change_from_{bid}") or "").strip()
+        if ctype and from_mid:
+            ch = {"bid": bid, "type": ctype, "from_mid": from_mid}
+            if ctype == "amount":
+                ca_raw = (f.get(f"change_amt_{bid}") or "").strip()
+                if ca_raw:
+                    try:
+                        ch["amount"] = float(ca_raw.replace("$", "").replace(",", ""))
+                    except ValueError:
+                        pass
+            changes.append(ch)
+    return {"bucket_overrides": bucket_overrides, "off_buckets": off_buckets, "changes": changes}
+
+
+def _scenario_editor_ctx(data: dict, scenario=None) -> dict:
+    """Build template context for the scenario editor modal."""
+    from .formulas import current_month_id, parse_month_id, month_id as _mkid
+    _MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun",
+                    "Jul","Aug","Sep","Oct","Nov","Dec"]
+    buckets = [b for b in data.get("buckets", [])
+               if not b.get("archived") and b.get("type") != "vault"]
+    cats_raw = data.get("cats", [])
+    cat_order = {c["id"]: c.get("order", 0) for c in cats_raw}
+    cat_name  = {c["id"]: c.get("name", "Other") for c in cats_raw}
+    by_cat: dict[str, list] = {}
+    for b in buckets:
+        cid = b.get("catId", "")
+        by_cat.setdefault(cid, []).append(b)
+    buckets_by_cat = [
+        {"cat_name": cat_name.get(cid, "Other"), "buckets": bkts}
+        for cid, bkts in sorted(by_cat.items(), key=lambda x: cat_order.get(x[0], 999))
+    ]
+    allocs = (scenario.get("allocations") or {}) if scenario else {}
+    off_bucket_ids = set(allocs.get("off_buckets") or [])
+    bucket_overrides = dict(allocs.get("bucket_overrides") or {})
+    changes_by_bid = {ch["bid"]: ch for ch in (allocs.get("changes") or [])}
+    sy, sm0 = parse_month_id(current_month_id())
+    month_options = []
+    for i in range(1, 13):
+        total = sm0 + i
+        yr = sy + total // 12
+        mo0 = total % 12
+        month_options.append({"mid": _mkid(yr, mo0),
+                               "label": f"{_MONTH_NAMES[mo0]} {yr}"})
+    return {
+        "scenario": scenario,
+        "buckets_by_cat": buckets_by_cat,
+        "off_bucket_ids": off_bucket_ids,
+        "bucket_overrides": bucket_overrides,
+        "changes_by_bid": changes_by_bid,
+        "month_options": month_options,
+    }
+
+
+def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
+                       no_accrue_dates: list = None, n_months: int = 3,
+                       income_override: float = 0.0):
+    """Render forecast fragment as OOB response, used after scenario save/delete."""
+    skip_dates = skip_dates or []
+    no_accrue_dates = no_accrue_dates or []
+    data = D.load_data()
+    scenarios = _load_scenarios()
+    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+        _scenario_fc_params(scenarios, active_sid, n_months, data)
+    from . import forecast_calc as FC
+    fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
+                             skipped_pay_dates=skip_dates,
+                             no_accrue_dates=no_accrue_dates,
+                             bucket_overrides=bucket_overrides,
+                             off_buckets=off_buckets,
+                             schedule=schedule,
+                             phantom_monthly=phantom_monthly)
+    svg = FC.build_balance_svg(fc["periods"])
+    fragment = render_template("panels/_frag_forecast_whatif.html",
+                               forecast=fc, balance_svg=svg,
+                               n_months=n_months, income_override=income_override,
+                               skipped_pay_dates=skip_dates,
+                               skip_dates_str=",".join(skip_dates),
+                               no_accrue_dates=no_accrue_dates,
+                               no_accrue_dates_str=",".join(no_accrue_dates),
+                               scenarios=scenarios,
+                               active_scenario_id=active_sid)
+    oob = f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{fragment}</div>'
+    resp = make_response(oob)
+    resp.headers["HX-Trigger"] = "closeModal"
+    return resp
+
+
+# ── Scenario routes ───────────────────────────────────────────────────────────
+
+@bp.route("/scenarios/editor", methods=["GET"])
+@login_required
+def scenario_editor_new():
+    data = D.load_data()
+    n_months = _safe_n_months(request.args.get("n_months"))
+    ctx = _scenario_editor_ctx(data)
+    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, **ctx)
+
+
+@bp.route("/scenarios/<sid>/editor", methods=["GET"])
+@login_required
+def scenario_editor_edit(sid):
+    data = D.load_data()
+    scenarios = _load_scenarios()
+    sc = next((s for s in scenarios if s["id"] == sid), None)
+    n_months = _safe_n_months(request.args.get("n_months"))
+    ctx = _scenario_editor_ctx(data, sc)
+    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, **ctx)
+
+
+@bp.route("/scenarios", methods=["POST"])
+@login_required
+def scenario_create():
+    f = request.form
+    data = D.load_data()
+    allocs = _parse_scenario_form(f, data)
+    name = (f.get("name") or "Scenario").strip()[:40]
+    n_months = _safe_n_months(f.get("n_months"))
+    if not current_app.config.get("DEV_SEED"):
+        sid = DB.save_scenario(session["user_id"], session["access_token"], name, allocs)
+    else:
+        sid = ""
+    return _fc_frag_response(active_sid=sid, n_months=n_months)
+
+
+@bp.route("/scenarios/<sid>/update", methods=["POST"])
+@login_required
+def scenario_update(sid):
+    f = request.form
+    data = D.load_data()
+    allocs = _parse_scenario_form(f, data)
+    name = (f.get("name") or "Scenario").strip()[:40]
+    n_months = _safe_n_months(f.get("n_months"))
+    if not current_app.config.get("DEV_SEED"):
+        DB.update_scenario(session["user_id"], session["access_token"], sid, name, allocs)
+    return _fc_frag_response(active_sid=sid, n_months=n_months)
+
+
+@bp.route("/scenarios/<sid>/delete", methods=["POST"])
+@login_required
+def scenario_delete(sid):
+    f = request.form
+    n_months = _safe_n_months(f.get("n_months"))
+    if not current_app.config.get("DEV_SEED"):
+        DB.delete_scenario(session["user_id"], session["access_token"], sid)
+    return _fc_frag_response(active_sid="", n_months=n_months)
+
+
+def _safe_n_months(raw) -> int:
+    try:
+        return max(1, min(12, int(raw or 3)))
+    except (ValueError, TypeError):
+        return 3
 
 
 def _setup_panel():
@@ -712,6 +983,7 @@ def _setup_panel():
 def _dev_or(fn):
     if not current_app.config["DEV_SEED"]:
         fn(session["user_id"], session["access_token"])
+        D.invalidate_cache()
     return _setup_panel()
 
 
@@ -780,15 +1052,25 @@ def move_category(cid, direction):
         if not current_app.config["DEV_SEED"]:
             DB.update_category_order(session["user_id"], session["access_token"], c1["id"], o2)
             DB.update_category_order(session["user_id"], session["access_token"], c2["id"], o1)
+            D.invalidate_cache()
     return _setup_panel()
+
+
+def _rule_value_type(raw: str | None) -> str:
+    """Normalize the rule form's value_type into one of: pct, fund, fixed."""
+    if raw == "pct":
+        return "pct"
+    if raw == "fund":
+        return "fund"
+    return "fixed"
 
 
 @bp.route("/setup/rule", methods=["POST"])
 @login_required
 def add_rule():
     f = request.form
-    val = float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
-    vtype = "pct" if f.get("value_type") == "pct" else "fixed"
+    vtype = _rule_value_type(f.get("value_type"))
+    val = 0.0 if vtype == "fund" else float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
     rtype = "external" if f.get("rule_type") == "external" else "internal"
     return _dev_or(lambda u, t: DB.insert_alloc_rule(
         u, t, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
@@ -798,11 +1080,11 @@ def add_rule():
 @login_required
 def edit_rule(rid):
     f = request.form
+    vtype = _rule_value_type(f.get("value_type"))
     try:
-        val = float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
+        val = 0.0 if vtype == "fund" else float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
     except ValueError:
         val = 0.0
-    vtype = "pct" if f.get("value_type") == "pct" else "fixed"
     rtype = "external" if f.get("rule_type") == "external" else "internal"
     return _dev_or(lambda u, t: DB.update_alloc_rule(
         u, t, rid, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
@@ -819,7 +1101,73 @@ def del_rule(rid):
 def toggle_rule(rid):
     if not current_app.config["DEV_SEED"]:
         DB.toggle_alloc_rule(session["user_id"], session["access_token"], rid)
+        D.invalidate_cache()
     return _setup_panel()
+
+
+@bp.route("/transaction/<tid>/paycheck-distribute/preview", methods=["POST"])
+@login_required
+def paycheck_distribute_preview(tid):
+    """Live recompute when a checkbox changes in the paycheck distribute modal."""
+    tx = next((t for t in D.load_data().get("txs", []) if t.get("id") == tid), None)
+    if not tx:
+        return "", 404
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    f = request.form
+    ctx = D.paycheck_distribute_ctx(
+        amount, mid,
+        checked_rule=set(f.getlist("rule")),
+        checked_ob=set(f.getlist("ob")),
+        checked_fund=set(f.getlist("fund")),
+        checked_next=set(f.getlist("next_ob")),
+    )
+    return render_template("panels/_frag_paycheck_distribute.html", tid=tid, **ctx)
+
+
+@bp.route("/transaction/<tid>/paycheck-distribute", methods=["POST"])
+@login_required
+def apply_paycheck_distribute(tid):
+    """Apply the combined paycheck distribution (rules + obligations + catch-alls + next month)."""
+    data = D.load_data()
+    tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
+    if not tx:
+        flash("Transaction not found.", "error")
+        return redirect(url_for("panels.buckets"))
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    f = request.form
+    # Recompute server-side — never trust client-submitted amounts
+    ctx = D.paycheck_distribute_ctx(
+        amount, mid,
+        checked_rule=set(f.getlist("rule")),
+        checked_ob=set(f.getlist("ob")),
+        checked_fund=set(f.getlist("fund")),
+        checked_next=set(f.getlist("next_ob")),
+    )
+    if not current_app.config["DEV_SEED"]:
+        month = D.active_month(data, mid)
+        next_mid = ctx["next_mid"]
+        next_month = D.active_month(data, next_mid)
+        for r in ctx["internal_rules"]:
+            if r["checked"] and r["computed"] > 0:
+                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], mid, r["bucket_id"], new_alloc)
+        for o in ctx["obligations"]:
+            if o["checked"] and o["gap"] > 0:
+                new_alloc = round(D.F.b_alloc(month, o["id"]) + o["gap"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], mid, o["id"], new_alloc)
+        for r in ctx["fund_rules"]:
+            if r["checked"] and r["computed"] > 0:
+                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], mid, r["bucket_id"], new_alloc)
+        for o in ctx["next_obligations"]:
+            if o["checked"] and o["gap"] > 0:
+                new_alloc = round(D.F.b_alloc(next_month, o["id"]) + o["gap"], 2)
+                DB.upsert_alloc(session["user_id"], session["access_token"], next_mid, o["id"], new_alloc)
+        D.invalidate_cache()
+    flash(f"Distributed {ctx['total_applied']:,.2f}.", "ok")
+    return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
 
 
 @bp.route("/transaction/<tid>/apply-rules", methods=["POST"])
@@ -836,24 +1184,33 @@ def apply_rules(tid):
     mid = tx.get("monthId") or D.active_mid()
     month = next((m for m in data.get("months", []) if m.get("id") == mid),
                  {"id": mid, "allocations": {}})
-    rules_raw = [r for r in data.get("allocationRules", [])
-                 if r.get("active", True) and r.get("rule_type", "internal") == "internal"]
+    rules_raw = sorted(
+        [r for r in data.get("allocationRules", []) if r.get("active", True)],
+        key=lambda r: r.get("sort_order", 0))
 
     applied = 0
+    remaining = amount
     for r in rules_raw:
-        bid = r.get("bucket_id") or r.get("bucketId") or ""
-        if not bid:
-            continue
         v = float(r.get("value") or 0)
         vtype = r.get("value_type", "fixed")
-        computed = round(amount * v / 100, 2) if vtype == "pct" else v
-        if computed <= 0:
+        if vtype == "fund":
+            computed = round(max(0.0, remaining), 2)
+        else:
+            computed = round(amount * v / 100, 2) if vtype == "pct" else v
+        remaining = round(remaining - computed, 2)
+
+        if r.get("rule_type", "internal") == "external":
+            continue
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        if not bid or computed <= 0:
             continue
         new_alloc = round(D.F.b_alloc(month, bid) + computed, 2)
         if not current_app.config["DEV_SEED"]:
             DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, new_alloc)
         applied += 1
 
+    if applied and not current_app.config["DEV_SEED"]:
+        D.invalidate_cache()
     flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
@@ -891,6 +1248,7 @@ def transaction_edit(tid):
                 "reconciled": f.get("reconciled") == "1",
                 "income_type": f.get("incomeType") or None,
             })
+            D.invalidate_cache()
             flash("Transaction updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
@@ -913,6 +1271,7 @@ def transaction_delete(tid):
     back_panel = request.form.get("back") or "accounts"
     if not current_app.config["DEV_SEED"]:
         DB.delete_transaction(session["user_id"], session["access_token"], tid)
+        D.invalidate_cache()
         flash("Transaction deleted.", "ok")
     else:
         flash("Dev mode: change not persisted.", "ok")
@@ -958,29 +1317,31 @@ def transaction_create():
         _bkt = next((b for b in D.load_data().get("buckets", []) if b["id"] == bucket_id), None)
         if _bkt and _bkt.get("type") == "vault":
             flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
-            back_panel = f.get("back") or "buckets"
+            back_panel = f.get("back") or session.get("active_panel", "buckets")
             if request.headers.get("HX-Request") == "true":
                 tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
                 return _panel_close_modal(tmpl, back_panel, **ctx_fn())
             return redirect(url_for("panels." + back_panel))
 
-    back_panel = f.get("back") or "buckets"
+    back_panel = f.get("back") or session.get("active_panel", "buckets")
     if current_app.config["DEV_SEED"]:
         flash("Dev mode: transaction not persisted (no database).", "ok")
     elif amount > 0 and tx["accountId"]:
         new_tid = DB.insert_transaction(session["user_id"], session["access_token"], tx)
+        D.invalidate_cache()
         flash("Transaction added.", "ok")
-        # After a paycheck income, show allocation rules modal if rules exist
+        # After a paycheck, open the combined distribute modal
         if (tx["type"] == "in" and tx.get("incomeType") == "paycheck"
                 and request.headers.get("HX-Request") == "true"):
-            rules_ctx = D.income_rules_ctx(amount, mid)
-            if rules_ctx["internal_rules"] or rules_ctx["external_rules"]:
-                resp = make_response(render_template(
-                    "panels/_frag_rules_apply.html",
-                    tid=new_tid, back=back_panel, **rules_ctx))
-                resp.headers["HX-Retarget"] = "#modal-body"
-                resp.headers["HX-Reswap"] = "innerHTML"
-                return resp
+            ctx = D.paycheck_distribute_ctx(amount, mid)
+            shell = D.shell_ctx(back_panel)
+            resp = make_response(
+                render_template("panels/_frag_paycheck_distribute.html",
+                                tid=new_tid, back=back_panel, **ctx)
+                + render_template("panels/_oob_rts.html", shell=shell))
+            resp.headers["HX-Retarget"] = "#modal-body"
+            resp.headers["HX-Reswap"] = "innerHTML"
+            return resp
     else:
         flash("Amount and account are required.", "error")
     if request.headers.get("HX-Request") == "true":
@@ -995,6 +1356,14 @@ def month_nav(direction):
     y, m0 = D.F.parse_month_id(D.active_mid())
     total = y * 12 + m0 + (1 if direction == "next" else -1)
     session["active_mid"] = f"m_{total // 12}_{total % 12}"
+    return redirect(url_for("panels." + session.get("active_panel", "buckets")))
+
+
+@bp.route("/month/today")
+@login_required
+def month_today():
+    """Jump the active month back to today's calendar month."""
+    session["active_mid"] = D.F.current_month_id()
     return redirect(url_for("panels." + session.get("active_panel", "buckets")))
 
 

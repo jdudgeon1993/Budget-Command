@@ -1,4 +1,3 @@
-<div class="modal-title">Edit Transaction</div>
 <form class="tx-form" method="post" action="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
       hx-post="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
       hx-target="#panel" hx-swap="innerHTML">
@@ -35,14 +34,17 @@
   </div>
   <div class="tx-field" id="tf-bucket" style="{{ '' if tx.type == 'out' else 'display:none' }}">
     <label>Bucket</label>
-    <select name="bucketId">
+    <select name="bucketId" id="tf-bucket-sel" onchange="updateDebtHint(this)">
       <option value="">—</option>
       {% for grp in buckets_by_cat %}
       <optgroup label="{{ grp.cat }}">
-        {% for b in grp.buckets %}<option value="{{ b.id }}" {{ 'selected' if b.id == tx.bucketId }}>{{ b.name }}</option>{% endfor %}
+        {% for b in grp.buckets %}
+        <option value="{{ b.id }}" data-debt-aid="{{ b.debtAccountId }}" data-debt-name="{{ b.debtAccountName }}" {{ 'selected' if b.id == tx.bucketId }}>{{ b.name }}</option>
+        {% endfor %}
       </optgroup>
       {% endfor %}
     </select>
+    <div id="tf-debt-hint" style="display:none;font-size:11px;color:var(--green);margin-top:4px">↳ Pays: <span id="tf-debt-hint-name"></span></div>
   </div>
   <div class="tx-field" id="tf-incomeType" style="{{ '' if tx.type == 'in' else 'display:none' }}">
     <label>Income type</label>
@@ -58,19 +60,37 @@
       {% for p in payees %}<option value="{{ p }}">{% endfor %}
     </datalist>
   </div>
-  <div class="tx-field" style="display:flex;align-items:center;gap:12px">
-    <label style="margin-bottom:0;flex:1">Reconciled</label>
-    <select name="reconciled" style="width:auto;flex:0 0 auto">
+  <div class="tx-field">
+    <label>Reconciled</label>
+    <select name="reconciled">
       <option value="1" {{ 'selected' if tx.reconciled }}>✓ Yes — reconciled</option>
       <option value="0" {{ 'selected' if not tx.reconciled }}>Not reconciled</option>
     </select>
   </div>
 
   <div class="tx-actions">
-    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn" type="button" onclick="toggleTxEdit('{{ tx.id }}', '{{ url_for('panels.transaction_edit', tid=tx.id) }}')">Cancel</button>
     <button class="toolbar-btn primary" type="submit">Save Changes</button>
   </div>
 </form>
+<script>
+function updateDebtHint(sel){
+  var opt=sel.options[sel.selectedIndex];
+  var hint=document.getElementById('tf-debt-hint');
+  var name=document.getElementById('tf-debt-hint-name');
+  if(opt&&opt.dataset.debtAid&&hint&&name){
+    name.textContent=opt.dataset.debtName||opt.dataset.debtAid;
+    hint.style.display='';
+  } else if(hint){
+    hint.style.display='none';
+  }
+}
+// Show hint on load if bucket already linked
+(function(){
+  var sel=document.getElementById('tf-bucket-sel');
+  if(sel) updateDebtHint(sel);
+})();
+</script>
 
 <form method="post" action="{{ url_for('panels.transaction_delete', tid=tx.id) }}"
       hx-post="{{ url_for('panels.transaction_delete', tid=tx.id) }}"

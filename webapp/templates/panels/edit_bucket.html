@@ -11,7 +11,7 @@
       <label>Name</label>
       <input type="text" name="name" value="{{ bucket.name }}" required autofocus>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Type</label>
         <select name="type" id="bkt-type-sel" onchange="updateBktFields()">
@@ -31,7 +31,7 @@
     </div>
 
     <div id="bkt-expense-fields" style="{{ 'display:none' if bucket.type not in ('expense','') else '' }}">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Default monthly budget</label>
           <input type="text" name="default_budget" inputmode="decimal"
@@ -43,7 +43,7 @@
                  value="{{ bucket.dueAmount or '' }}" placeholder="exact $ due">
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Due day</label>
           <select name="due_day">
@@ -91,24 +91,28 @@
           </select>
         </div>
       </div>
-      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-        <label style="margin-bottom:0;flex:1">Rollover unspent balance</label>
-        <select name="rollover" style="width:auto;flex:0 0 auto">
-          <option value="1" {{ 'selected' if bucket.rollover }}>Yes — roll over</option>
-          <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
-        </select>
-      </div>
-      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-        <label style="margin-bottom:0;flex:1">Recurring bill</label>
-        <select name="recurring" style="width:auto;flex:0 0 auto">
-          <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
-          <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
-        </select>
+      <div class="modal-row-2">
+        <div class="edit-field">
+          <label>Recurring bill</label>
+          <select name="recurring">
+            <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
+            <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
+          </select>
+        </div>
+        <div class="edit-field">
+          <label>Flexible spending
+            <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;letter-spacing:0;text-transform:none">Fund reactively — no fixed target</span>
+          </label>
+          <select name="flex">
+            <option value="0" {{ 'selected' if not bucket.flex }}>No — fixed</option>
+            <option value="1" {{ 'selected' if bucket.flex }}>Yes — flex</option>
+          </select>
+        </div>
       </div>
     </div>
 
     <div id="bkt-sinking-fields" style="{{ '' if bucket.type in ('sinking','goal') else 'display:none' }}">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Monthly contribution</label>
           <input type="text" name="default_budget" inputmode="decimal"
@@ -124,7 +128,7 @@
           </select>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="modal-row-2">
         <div class="edit-field">
           <label>Target amount</label>
           <input type="text" name="target_amount" inputmode="decimal"
@@ -135,13 +139,6 @@
           <input type="month" name="target_date"
                  value="{{ bucket.targetDate or '' }}" placeholder="YYYY-MM">
         </div>
-      </div>
-      <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-        <label style="margin-bottom:0;flex:1">Roll over balance (accumulate)</label>
-        <select name="rollover" style="width:auto;flex:0 0 auto">
-          <option value="1" {{ 'selected' if bucket.rollover }}>Yes — accumulate</option>
-          <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
-        </select>
       </div>
     </div>
 

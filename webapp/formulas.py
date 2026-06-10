@@ -78,6 +78,19 @@ def month_status(mid: str) -> str:
     return "present"
 
 
+def month_offset(mid: str, n: int) -> str:
+    """Return the month n months after (or before, if n<0) mid."""
+    y, m0 = parse_month_id(mid)
+    m0 += n
+    while m0 > 11:
+        m0 -= 12
+        y += 1
+    while m0 < 0:
+        m0 += 12
+        y -= 1
+    return month_id(y, m0)
+
+
 # ── Transaction helpers ───────────────────────────────────────────────────────
 
 def is_scheduled(tx: dict) -> bool:
@@ -86,7 +99,96 @@ def is_scheduled(tx: dict) -> bool:
     return d is not None and d > date.today()
 
 
+# ── Urgency helpers (Distribute ranking) ─────────────────────────────────────
+
+_FREQ_LABELS = {
+    "weekly": "Weekly", "biweekly": "Biweekly",
+    "triweekly": "Triweekly", "monthly": "Monthly",
+}
+
+DEFAULT_URGENCY_HORIZON_DAYS = 21
+
+
+def days_until_due(bucket: dict, today: "date | None" = None) -> int | None:
+    """Days from today until this bucket's next due date, or None if it has none.
+
+    Only `dueDay` (a fixed day-of-month) gives an actual date to count down to.
+    Buckets with just a `payFreq` recur on no particular date — they get no
+    due-date countdown; the urgency scorer falls back to a default horizon.
+    """
+    today = today or date.today()
+    due_day = bucket.get("dueDay")
+    if due_day is None:
+        return None
+    try:
+        due_day = int(due_day)
+    except (ValueError, TypeError):
+        return None
+    if not (1 <= due_day <= 31):
+        return None
+
+    import calendar
+    y, m = today.year, today.month
+    last_day = calendar.monthrange(y, m)[1]
+    candidate = date(y, m, min(due_day, last_day))
+    if candidate < today:
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+        last_day = calendar.monthrange(y, m)[1]
+        candidate = date(y, m, min(due_day, last_day))
+    return (candidate - today).days
+
+
+def freq_label(pay_freq: str | None) -> str:
+    return _FREQ_LABELS.get(pay_freq or "", "")
+
+
+def urgency_score(gap: float, horizon_days: int | None) -> float:
+    """Higher = more urgent. Funding gap weighted by how soon it's needed.
+
+    Recurring spends with no fixed due date use a default horizon — they're
+    not "due" on any particular day, but they do recur reliably and need a
+    home eventually.
+    """
+    horizon = horizon_days if horizon_days and horizon_days > 0 else DEFAULT_URGENCY_HORIZON_DAYS
+    return gap / horizon
+
+
+def distribute_obligations(buckets: list[dict], month: dict) -> list[dict]:
+    """Underfunded buckets ranked by urgency (funding gap weighted by due date).
+
+    Each entry carries enough to both rank it and explain the ranking:
+    the dollar gap between budget and current allocation, days until its
+    next due date (None for buckets with no fixed due day), and its pay
+    frequency label for display.
+    """
+    obligations = []
+    for b in buckets:
+        budget = b_budget(month, b["id"])
+        alloc = b_alloc(month, b["id"])
+        gap = round(budget - alloc, 2)
+        if gap <= 0.005:
+            continue
+        due_in = days_until_due(b)
+        obligations.append({
+            "id": b["id"], "name": b["name"], "gap": gap,
+            "due_in": due_in, "freq": freq_label(b.get("payFreq")),
+            "score": urgency_score(gap, due_in),
+        })
+    obligations.sort(key=lambda o: o["score"], reverse=True)
+    return obligations
+
+
 # ── 3.1 Account Balance ───────────────────────────────────────────────────────
+
+def acct_balance_as_of(account: dict, transactions: list[dict], as_of: "date") -> float:
+    """Balance including only transactions on or before as_of date."""
+    filtered = [t for t in transactions
+                if (_safe_date(t.get("date")) or date.max) <= as_of]
+    return acct_balance(account, filtered)
+
 
 def acct_balance(account: dict, transactions: list[dict]) -> float:
     mult = -1 if account["type"] == "debt" else 1
@@ -182,46 +284,6 @@ def total_allocated(month: dict, buckets: list[dict]) -> float:
     )
 
 
-# ── 3.8 Rollover Balance Raw ──────────────────────────────────────────────────
-
-def rollover_bal_raw(
-    bucket: dict,
-    current_month_id: str,
-    all_months: list[dict],
-    transactions: list[dict],
-) -> float:
-    if not bucket.get("rollover"):
-        return 0.0
-
-    prior = months_before(current_month_id, all_months)
-    total = 0.0
-    bid = bucket["id"]
-
-    for m in prior:
-        skipped = (m.get("skippedBuckets") or {}).get(bid)
-        if skipped:
-            continue
-        alloc = b_alloc(m, bid)
-        released = float((m.get("rolloverReleased") or {}).get(bid) or 0)
-        spent = b_spent(m["id"], bid, transactions)
-        total += (alloc - spent) - released
-
-    return total
-
-
-# ── 3.9 Rollover Balance Net ──────────────────────────────────────────────────
-
-def rollover_bal(
-    bucket: dict,
-    month: dict,
-    all_months: list[dict],
-    transactions: list[dict],
-) -> float:
-    raw = rollover_bal_raw(bucket, month["id"], all_months, transactions)
-    released = float((month.get("rolloverReleased") or {}).get(bucket["id"]) or 0)
-    return raw - released
-
-
 # ── 3.10 Bucket Available ─────────────────────────────────────────────────────
 
 def bucket_available(
@@ -230,10 +292,27 @@ def bucket_available(
     all_months: list[dict],
     transactions: list[dict],
 ) -> float:
-    alloc = b_alloc(month, bucket["id"])
-    roll = rollover_bal(bucket, month, all_months, transactions)
-    spent = b_spent(month["id"], bucket["id"], transactions)
-    return (alloc + roll) - spent
+    """Net spendable balance for this bucket.
+
+    Vaults and savings goals accumulate contributions across all months —
+    that's their purpose. Expense buckets are current-month only: unspent
+    allocation returns to Ready to Assign rather than silently claiming
+    the cash in future months. A bucket with explicit rollover=True also
+    accumulates (for users who want envelope carry-over on a specific
+    expense category). Overspending on non-accumulating buckets still
+    shows as a negative balance within the month, feeding correctly into
+    the RTS calculation via the cash-conservation identity.
+    """
+    bid = bucket["id"]
+    btype = bucket.get("type", "expense")
+    accumulates = btype in ("vault", "sinking", "goal") or bucket.get("rollover")
+    if not accumulates:
+        return b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
+    carried = sum(
+        b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
+        for m in months_before(month["id"], all_months)
+    )
+    return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
 
 
 # ── 3.12 Vault Accumulated ────────────────────────────────────────────────────
@@ -299,32 +378,43 @@ def ready_to_spend(
     buckets: list[dict],
     transactions: list[dict],
 ) -> float:
-    mid = active_month["id"]
-    status = month_status(mid)
+    """RTS is anchored to today's cash position, not the viewed month.
 
+    bb is always live (all transactions). Claims are always measured from
+    today's calendar month — expense buckets reset monthly, vault/savings
+    buckets accumulate, and future pre-allocations are subtracted regardless
+    of which historical or future month the user is currently browsing.
+
+    This preserves the ZBB identity:  bb == RTS + Σ(bucket claims)
+    consistently across month navigation.
+    """
     bb = budget_bal(accounts, transactions)
     active_buckets = [b for b in buckets if not b.get("archived")]
 
-    def _claimed(b: dict) -> float:
-        return max(0.0, bucket_available(b, active_month, all_months, transactions))
+    # Always anchor to today's calendar month, not the viewed month.
+    today_mid = current_month_id()
+    today_month_list = [m for m in all_months if m["id"] == today_mid]
+    # If today's month doesn't exist in the DB yet (no allocations made),
+    # synthesise an empty one so bucket_available still gets a valid dict.
+    today_month = today_month_list[0] if today_month_list else {
+        "id": today_mid, "allocations": {}, "budgets": {}
+    }
 
-    if status == "past":
-        return bb - sum(_claimed(b) for b in active_buckets)
+    # Current claims: vault buckets accumulate through today; expense buckets
+    # only claim today's calendar month net. Negative values (overspent) are
+    # kept — clamping to zero double-penalises overspending.
+    cur_claimed = sum(
+        bucket_available(b, today_month, all_months, transactions)
+        for b in active_buckets
+    )
 
-    # Current or future month — full formula
-    cur_claimed = sum(_claimed(b) for b in active_buckets)
-
-    future_months = months_after(mid, all_months)
-
+    # Future pre-allocations: anything assigned to months after today is already
+    # spoken for, regardless of which month the user is viewing.
+    future_months = months_after(today_mid, all_months)
     future_claimed = sum(
         b_alloc(fm, b["id"])
         for fm in future_months
         for b in active_buckets
     )
 
-    future_released = sum(
-        sum(float(v) for v in (fm.get("rolloverReleased") or {}).values())
-        for fm in future_months
-    )
-
-    return bb - cur_claimed - future_claimed + future_released
+    return bb - cur_claimed - future_claimed

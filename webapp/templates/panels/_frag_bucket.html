@@ -1,19 +1,17 @@
-<div class="modal-title">{{ bucket.name }}</div>
-<form class="edit-form" method="post"
+<form class="edit-form modal-form-bare" method="post"
       action="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
       hx-post="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
       hx-target="#panel" hx-swap="innerHTML"
-      style="padding:0;border:none;background:none;box-shadow:none"
-      id="bkt-settings-form">
+      id="bkt-settings-form-{{ bucket.id }}">
 
   <div class="edit-field">
     <label>Name</label>
-    <input type="text" name="name" value="{{ bucket.name }}" required autofocus>
+    <input type="text" name="name" value="{{ bucket.name }}" required>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="modal-row-2">
     <div class="edit-field">
       <label>Type</label>
-      <select name="type" id="bkt-type-sel" onchange="updateBktFields()">
+      <select name="type" onchange="updateBktFields(this)">
         <option value="expense" {{ 'selected' if bucket.type == 'expense' }}>Expense</option>
         <option value="goal"    {{ 'selected' if bucket.type in ('goal','sinking') }}>Goal</option>
         <option value="vault"   {{ 'selected' if bucket.type == 'vault' }}>Vault</option>
@@ -30,20 +28,20 @@
   </div>
 
   {# ── Expense fields ── #}
-  <div id="bkt-expense-fields" style="{{ 'display:none' if bucket.type not in ('expense','') else '' }}">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="bkt-expense-fields" style="{{ 'display:none' if bucket.type not in ('expense','') else '' }}">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Default monthly budget</label>
         <input type="text" name="default_budget" inputmode="decimal"
-               value="{{ bucket.defaultBudget or '' }}" placeholder="0.00">
+               value="{{ bucket.defaultBudget | money if bucket.defaultBudget else '' }}" placeholder="$0.00">
       </div>
       <div class="edit-field">
         <label>Due amount</label>
         <input type="text" name="due_amount" inputmode="decimal"
-               value="{{ bucket.dueAmount or '' }}" placeholder="exact $ due">
+               value="{{ bucket.dueAmount | money if bucket.dueAmount else '' }}" placeholder="exact $ due">
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Due day</label>
         <select name="due_day">
@@ -91,29 +89,33 @@
         </select>
       </div>
     </div>
-    <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-      <label style="margin-bottom:0;flex:1">Rollover unspent balance</label>
-      <select name="rollover" style="width:auto;flex:0 0 auto">
-        <option value="1" {{ 'selected' if bucket.rollover }}>Yes — roll over</option>
-        <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
-      </select>
-    </div>
-    <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-      <label style="margin-bottom:0;flex:1">Recurring bill</label>
-      <select name="recurring" style="width:auto;flex:0 0 auto">
-        <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
-        <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
-      </select>
+    <div class="modal-row-2">
+      <div class="edit-field">
+        <label>Recurring bill</label>
+        <select name="recurring">
+          <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
+          <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
+        </select>
+      </div>
+      <div class="edit-field">
+        <label>Flexible spending
+          <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;letter-spacing:0;text-transform:none">Fund reactively — no fixed target</span>
+        </label>
+        <select name="flex">
+          <option value="0" {{ 'selected' if not bucket.flex }}>No — fixed</option>
+          <option value="1" {{ 'selected' if bucket.flex }}>Yes — flex</option>
+        </select>
+      </div>
     </div>
   </div>
 
   {# ── Sinking Fund / Goal fields ── #}
-  <div id="bkt-sinking-fields" style="{{ '' if bucket.type in ('sinking','goal') else 'display:none' }}">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="bkt-sinking-fields" style="{{ '' if bucket.type in ('sinking','goal') else 'display:none' }}">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Monthly contribution</label>
         <input type="text" name="default_budget" inputmode="decimal"
-               value="{{ bucket.defaultBudget or '' }}" placeholder="0.00">
+               value="{{ bucket.defaultBudget | money if bucket.defaultBudget else '' }}" placeholder="$0.00">
       </div>
       <div class="edit-field">
         <label>Contribution frequency</label>
@@ -125,11 +127,11 @@
         </select>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="modal-row-2">
       <div class="edit-field">
         <label>Target amount</label>
         <input type="text" name="target_amount" inputmode="decimal"
-               value="{{ bucket.targetAmount or '' }}" placeholder="e.g. 5000.00">
+               value="{{ bucket.targetAmount | money if bucket.targetAmount else '' }}" placeholder="e.g. $5,000.00">
       </div>
       <div class="edit-field">
         <label>Target date <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(YYYY-MM)</span></label>
@@ -137,17 +139,10 @@
                value="{{ bucket.targetDate or '' }}" placeholder="YYYY-MM">
       </div>
     </div>
-    <div class="edit-field" style="display:flex;align-items:center;gap:12px">
-      <label style="margin-bottom:0;flex:1">Roll over balance (accumulate)</label>
-      <select name="rollover" style="width:auto;flex:0 0 auto">
-        <option value="1" {{ 'selected' if bucket.rollover }}>Yes — accumulate</option>
-        <option value="0" {{ 'selected' if not bucket.rollover }}>No — reset each month</option>
-      </select>
-    </div>
   </div>
 
   {# ── Vault fields ── #}
-  <div id="bkt-vault-fields" style="{{ '' if bucket.type == 'vault' else 'display:none' }}">
+  <div class="bkt-vault-fields" style="{{ '' if bucket.type == 'vault' else 'display:none' }}">
     <div class="edit-field">
       <label>Monthly contribution</label>
       <input type="text" name="default_budget" inputmode="decimal"
@@ -158,13 +153,25 @@
     </p>
   </div>
 
+  {% if debt_accounts %}
+  <div class="edit-field">
+    <label>Linked debt account <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0;font-weight:400">(payments to this bucket reduce the debt balance)</span></label>
+    <select name="debtAccountId">
+      <option value="">— None —</option>
+      {% for da in debt_accounts %}
+      <option value="{{ da.id }}" {{ 'selected' if da.id == bucket.debtAccountId }}>{{ da.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
   <div class="edit-field">
     <label>Notes</label>
     <textarea name="notes" rows="2" style="resize:vertical">{{ bucket.notes or '' }}</textarea>
   </div>
 
   <div class="edit-actions">
-    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn" type="button" onclick="toggleBktSettings('{{ bucket.id }}', '{{ url_for('panels.bucket_settings', bid=bucket.id) }}')">Cancel</button>
     <button class="toolbar-btn primary" type="submit">Save Changes</button>
   </div>
 </form>
