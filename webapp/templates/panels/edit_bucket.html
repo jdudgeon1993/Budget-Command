@@ -91,21 +91,23 @@
           </select>
         </div>
       </div>
-      <div class="edit-field modal-toggle-row">
-        <label style="margin-bottom:0;flex:1">Recurring bill</label>
-        <select name="recurring" style="width:auto;flex:0 0 auto">
-          <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
-          <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
-        </select>
-      </div>
-      <div class="edit-field modal-toggle-row">
-        <label style="margin-bottom:0;flex:1">Flexible spending
-          <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px">Fund reactively — no fixed target</span>
-        </label>
-        <select name="flex" style="width:auto;flex:0 0 auto">
-          <option value="0" {{ 'selected' if not bucket.flex }}>No — fixed</option>
-          <option value="1" {{ 'selected' if bucket.flex }}>Yes — flex</option>
-        </select>
+      <div class="modal-row-2">
+        <div class="edit-field">
+          <label>Recurring bill</label>
+          <select name="recurring">
+            <option value="1" {{ 'selected' if bucket.recurring }}>Yes — recurring</option>
+            <option value="0" {{ 'selected' if not bucket.recurring }}>No — one-time</option>
+          </select>
+        </div>
+        <div class="edit-field">
+          <label>Flexible spending
+            <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;letter-spacing:0;text-transform:none">Fund reactively — no fixed target</span>
+          </label>
+          <select name="flex">
+            <option value="0" {{ 'selected' if not bucket.flex }}>No — fixed</option>
+            <option value="1" {{ 'selected' if bucket.flex }}>Yes — flex</option>
+          </select>
+        </div>
       </div>
     </div>
 

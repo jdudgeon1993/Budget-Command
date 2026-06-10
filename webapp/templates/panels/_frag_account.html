@@ -51,9 +51,9 @@
         <input type="text" name="credit_limit" inputmode="decimal"
                value="{{ account.creditLimit or '' }}" placeholder="0.00">
       </div>
-      <div class="edit-field modal-toggle-row">
-        <label style="margin-bottom:0;flex:1">Promo rate?</label>
-        <select name="is_promo" style="width:auto;flex:0 0 auto">
+      <div class="edit-field">
+        <label>Promo rate?</label>
+        <select name="is_promo">
           <option value="0" {{ 'selected' if not (account and account.isPromo) }}>No</option>
           <option value="1" {{ 'selected' if account and account.isPromo }}>Yes — promo APR</option>
         </select>
