@@ -18,7 +18,7 @@
     <div class="rpt-card-hd" onclick="rptToggle('perf')">
       <span class="rpt-card-icon">📊</span>
       <span class="rpt-card-title">Month Performance</span>
-      <span class="rpt-card-summary">{{ available_months[0].label if available_months else '' }}</span>
+      <span class="rpt-card-summary">{{ (available_months | selectattr('mid', 'equalto', view_mid) | map(attribute='label') | first) or (available_months[0].label if available_months else '') }}</span>
       <span class="rpt-arrow open" id="rpt-arr-perf">▾</span>
     </div>
     <div class="rpt-card-body open" id="rpt-body-perf">
