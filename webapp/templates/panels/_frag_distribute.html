@@ -6,6 +6,7 @@
 <form method="post" action="{{ url_for('panels.distribute_rts') }}"
       hx-post="{{ url_for('panels.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML"
       id="distribute-form">
+  <input type="hidden" name="submitted" value="1">
 
   <div class="modal-section-lbl"><span>Step 1 — Fill what's due</span><span class="line"></span></div>
   {% for o in obligations %}

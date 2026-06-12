@@ -13,6 +13,14 @@ from . import formulas as F
 from .seed import sample_data
 
 
+def parse_amount(raw, default: float = 0.0) -> float:
+    """Parse a user-entered dollar amount, stripping $ and , separators."""
+    try:
+        return round(float((raw or "0").replace("$", "").replace(",", "")), 2)
+    except ValueError:
+        return default
+
+
 # ── Loading ───────────────────────────────────────────────────────────────────
 
 def load_data(full_history: bool = False) -> dict:

@@ -49,10 +49,7 @@ def buckets():
 @login_required
 def set_alloc(bid):
     """Inline allocation edit -> returns the updated row + OOB shell refresh."""
-    try:
-        amount = round(float(request.form.get("alloc", "0").replace("$", "").replace(",", "")), 2)
-    except ValueError:
-        amount = 0.0
+    amount = D.parse_amount(request.form.get("alloc", "0"))
     data = D.load_data()
     month = D.active_month(data)
     month.setdefault("allocations", {})[bid] = amount
@@ -86,7 +83,7 @@ def fill_bucket(bid):
 
 def _distribute_checks():
     """Checkbox state from the Distribute form, or None for the un-submitted default."""
-    if "ob" not in request.form and "rule" not in request.form:
+    if "submitted" not in request.form:
         return None, None
     return set(request.form.getlist("ob")), set(request.form.getlist("rule"))
 
@@ -196,10 +193,7 @@ def bucket_settings(bid):
     if request.method == "POST":
         f = request.form
         def _num(key, default=0.0):
-            try:
-                return round(float((f.get(key) or "0").replace("$", "").replace(",", "")), 2)
-            except ValueError:
-                return default
+            return D.parse_amount(f.get(key), default)
         if not current_app.config["DEV_SEED"]:
             btype = f.get("type", bucket.get("type", "expense"))
             payload = {
@@ -266,10 +260,7 @@ def vault_transfer(bid):
     if request.method == "POST":
         f = request.form
         to_bid = f.get("to_bid", "")
-        try:
-            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            amount = 0.0
+        amount = D.parse_amount(f.get("amount", "0"))
         if amount > 0 and to_bid:
             month = D.active_month(data)
             mid = D.active_mid()
@@ -314,10 +305,7 @@ def vault_release_to_pool(bid):
         return redirect(url_for("panels.buckets"))
     if request.method == "POST":
         f = request.form
-        try:
-            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            amount = 0.0
+        amount = D.parse_amount(f.get("amount", "0"))
         if amount > 0:
             month = D.active_month(data)
             mid = D.active_mid()
@@ -350,10 +338,7 @@ def vault_release_to_pool(bid):
 @bp.route("/buckets/<bid>/budget", methods=["POST"])
 @login_required
 def set_budget(bid):
-    try:
-        amount = round(float(request.form.get("budget", "0").replace("$", "").replace(",", "")), 2)
-    except ValueError:
-        amount = 0.0
+    amount = D.parse_amount(request.form.get("budget", "0"))
     data = D.load_data()
     month = D.active_month(data)
     month.setdefault("budgets", {})[bid] = amount
@@ -470,10 +455,7 @@ def accounts():
 def account_new():
     if request.method == "POST":
         f = request.form
-        try:
-            ob = round(float(f.get("opening_balance", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            ob = 0.0
+        ob = D.parse_amount(f.get("opening_balance", "0"))
         name = f.get("name", "").strip()
         if name and not current_app.config["DEV_SEED"]:
             DB.insert_account(session["user_id"], session["access_token"],
@@ -503,10 +485,7 @@ def account_edit(aid):
         return redirect(url_for("panels.accounts"))
     if request.method == "POST":
         f = request.form
-        try:
-            ob = round(float(f.get("opening_balance", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            ob = 0.0
+        ob = D.parse_amount(f.get("opening_balance", "0"))
         def _numf(key):
             try:
                 v = (f.get(key) or "").replace("$", "").replace(",", "").replace("%", "").strip()
@@ -565,10 +544,7 @@ def debt_payment(aid):
         return redirect(url_for("panels.accounts"))
     if request.method == "POST":
         f = request.form
-        try:
-            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            amount = 0.0
+        amount = D.parse_amount(f.get("amount", "0"))
         from_aid = f.get("from_aid", "")
         pay_date = f.get("date") or D.tx_form_ctx()["today"]
         iso = pay_date[:10]
@@ -612,10 +588,7 @@ def post_interest(aid):
         return redirect(url_for("panels.accounts"))
     if request.method == "POST":
         f = request.form
-        try:
-            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            amount = 0.0
+        amount = D.parse_amount(f.get("amount", "0"))
         desc = f.get("desc", "").strip() or "Interest charge"
         pay_date = f.get("date") or D.tx_form_ctx()["today"]
         if amount > 0 and not current_app.config["DEV_SEED"]:
@@ -1007,10 +980,7 @@ def del_paycheck(pid):
 @login_required
 def edit_paycheck(pid):
     f = request.form
-    try:
-        amt = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-    except ValueError:
-        amt = 0.0
+    amt = D.parse_amount(f.get("amount", "0"))
     return _dev_or(lambda u, t: DB.update_paycheck(
         u, t, pid, f.get("label", "Paycheck"), amt,
         int(f.get("freq") or 14),
@@ -1228,10 +1198,7 @@ def transaction_edit(tid):
         return redirect(url_for("panels.accounts"))
     if request.method == "POST":
         f = request.form
-        try:
-            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            amount = 0.0
+        amount = D.parse_amount(f.get("amount", "0"))
         iso = f.get("date") or D.tx_form_ctx()["today"]
         y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
         mid = D.F.month_id(int(y), int(m) - 1)
@@ -1297,10 +1264,7 @@ def transaction_new():
 @login_required
 def transaction_create():
     f = request.form
-    try:
-        amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-    except ValueError:
-        amount = 0.0
+    amount = D.parse_amount(f.get("amount", "0"))
     iso = f.get("date") or D.tx_form_ctx()["today"]
     y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
     mid = D.F.month_id(int(y), int(m) - 1)
