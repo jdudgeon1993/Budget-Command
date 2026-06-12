@@ -1049,7 +1049,7 @@ def _rule_value_type(raw: str | None) -> str:
 def add_rule():
     f = request.form
     vtype = _rule_value_type(f.get("value_type"))
-    val = 0.0 if vtype == "fund" else float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
+    val = 0.0 if vtype == "fund" else D.parse_amount(f.get("value", "0").replace("%", ""))
     rtype = "external" if f.get("rule_type") == "external" else "internal"
     return _dev_or(lambda u, t: DB.insert_alloc_rule(
         u, t, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
@@ -1060,10 +1060,7 @@ def add_rule():
 def edit_rule(rid):
     f = request.form
     vtype = _rule_value_type(f.get("value_type"))
-    try:
-        val = 0.0 if vtype == "fund" else float(f.get("value", "0").replace("$", "").replace("%", "") or 0)
-    except ValueError:
-        val = 0.0
+    val = 0.0 if vtype == "fund" else D.parse_amount(f.get("value", "0").replace("%", ""))
     rtype = "external" if f.get("rule_type") == "external" else "internal"
     return _dev_or(lambda u, t: DB.update_alloc_rule(
         u, t, rid, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", "")))
