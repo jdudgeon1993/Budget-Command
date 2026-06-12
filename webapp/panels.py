@@ -573,10 +573,16 @@ def debt_payment(aid):
                            today=_date.today().isoformat())
 
 
-@bp.route("/accounts/<aid>/payoff", methods=["GET", "POST"])
+@bp.route("/accounts/<aid>/payoff")
 @login_required
 def debt_payoff(aid):
-    return debt_payment(aid)
+    data = D.load_data()
+    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
+    if not account or account.get("type") != "debt":
+        return redirect(url_for("panels.accounts"))
+    balance = abs(D.F.acct_balance(account, data.get("txs", [])))
+    return render_template("panels/_frag_debt_tracker.html",
+                           account=account, balance=balance)
 
 
 @bp.route("/accounts/<aid>/interest", methods=["GET", "POST"])
