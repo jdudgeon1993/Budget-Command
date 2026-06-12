@@ -1,0 +1,24 @@
+
+import {Fragment,memo,useCallback,useContext,useEffect} from "react"
+import {ReflexEvent,applyEventActions,isNotNullOrUndefined,isTrue} from "$/utils/state"
+import DebounceInput from "react-debounce-input"
+import {EventLoopContext,StateContexts} from "$/utils/context"
+import {TextField as RadixThemesTextField} from "@radix-ui/themes"
+import {jsx} from "@emotion/react"
+
+
+
+
+
+
+export const Debounceinput_debounceinput_005cbb6e94a73ee0edab2fa1434733e1 = memo(({children}) => {
+    const [addEvents, connectErrors] = useContext(EventLoopContext);
+const on_change_d14e6aee90354464232db1adfbd69be5 = useCallback(((_e) => (addEvents([(ReflexEvent("reflex___state____state.cura___state____app_state.set_add_acct_opening", ({ ["value"] : _e?.["target"]?.["value"] }), ({  })))], [_e], ({  })))), [addEvents, ReflexEvent])
+const reflex___state____state__cura___state____app_state = useContext(StateContexts.reflex___state____state__cura___state____app_state)
+
+
+
+    return(
+        jsx(DebounceInput,{css:({ ["background"] : "#1c1c25", ["border"] : "1px solid #252535", ["borderRadius"] : "8px", ["color"] : "#f0f0fa", ["fontFamily"] : "'Share Tech Mono', monospace", ["--default-font-family"] : "'Share Tech Mono', monospace", ["fontSize"] : "13px", ["padding"] : "8px 12px", ["outline"] : "none", ["width"] : "100%", ["&:focus"] : ({ ["borderColor"] : "#818cf8", ["outline"] : "none" }), ["&:placeholder"] : ({ ["color"] : "#6868a2" }), ["inputMode"] : "decimal" }),debounceTimeout:300,element:RadixThemesTextField.Root,onChange:on_change_d14e6aee90354464232db1adfbd69be5,placeholder:"0.00",type:"number",value:(isNotNullOrUndefined(reflex___state____state__cura___state____app_state.add_acct_opening_rx_state_) ? reflex___state____state__cura___state____app_state.add_acct_opening_rx_state_ : "")},)
+    )
+});

@@ -1,0 +1,23 @@
+
+import {Fragment,memo,useCallback,useContext,useEffect} from "react"
+import {ReflexEvent,applyEventActions,isTrue} from "$/utils/state"
+import {Box as RadixThemesBox} from "@radix-ui/themes"
+import {EventLoopContext,StateContexts} from "$/utils/context"
+import {jsx} from "@emotion/react"
+
+
+
+
+
+
+export const Box_box_445cda95a4b886b68cada5f26bf67335 = memo(({children}) => {
+    const [addEvents, connectErrors] = useContext(EventLoopContext);
+const on_click_28475cb91808a86d657b09b7fd6c382d = useCallback(((_e) => (addEvents([(ReflexEvent("reflex___state____state.cura___state____app_state.set_sheet_type", ({ ["t"] : "out" }), ({  })))], [_e], ({  })))), [addEvents, ReflexEvent])
+const reflex___state____state__cura___state____app_state = useContext(StateContexts.reflex___state____state__cura___state____app_state)
+
+
+
+    return(
+        jsx(RadixThemesBox,{css:({ ["&"] : ((reflex___state____state__cura___state____app_state.sheet_type_rx_state_?.valueOf?.() === "out"?.valueOf?.()) ? ({ ["flex"] : "1", ["padding"] : "9px", ["border_radius"] : "8px", ["cursor"] : "pointer", ["text_align"] : "center", ["font_size"] : "12px", ["letter_spacing"] : "0.06em", ["font_family"] : "'Share Tech Mono', monospace", ["border"] : "1px solid #f87171", ["color"] : "#f87171", ["background"] : "#f871711a" }) : ({ ["flex"] : "1", ["padding"] : "9px", ["border_radius"] : "8px", ["cursor"] : "pointer", ["text_align"] : "center", ["font_size"] : "12px", ["letter_spacing"] : "0.06em", ["font_family"] : "'Share Tech Mono', monospace", ["border"] : "1px solid #252535", ["color"] : "#6868a2", ["background"] : "#1c1c25", ["_hover"] : ({ ["color"] : "#8282a2", ["border_color"] : "#3c3c56" }) })) }),onClick:on_click_28475cb91808a86d657b09b7fd6c382d},children)
+    )
+});

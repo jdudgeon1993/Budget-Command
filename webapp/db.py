@@ -181,7 +181,7 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
     } for c in cats_raw]
 
     buckets = [{
-        "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
+        "id": b["id"], "name": b["name"], "type": b.get("type") or "expense",
         "catId": b.get("cat_id", ""),
         "archived": b.get("archived", False),
         "openingBalance": float(b.get("opening_balance") or 0),

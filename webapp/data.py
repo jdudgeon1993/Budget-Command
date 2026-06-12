@@ -202,7 +202,13 @@ def bucket_rows(view_mid: str = None):
                 elif alloc > budget + 0.005:
                     status, pill = "funded", "Overfunded"
                 elif alloc >= budget - 0.005:
-                    status, pill = "funded", ("Paid" if spent >= budget - 0.005 else "Funded")
+                    left_amt = alloc - spent
+                    if spent >= budget - 0.005:
+                        status, pill = "funded", "Paid"
+                    elif left_amt > 0.005:
+                        status, pill = "funded", f"${left_amt:,.2f} left"
+                    else:
+                        status, pill = "funded", "Funded"
                 elif alloc <= 0.005:
                     status, pill = "partial", "Unfunded"
                 else:
@@ -210,8 +216,11 @@ def bucket_rows(view_mid: str = None):
             else:
                 # No budget target — envelope vs spending
                 over = spent - alloc
+                left_amt = alloc - spent
                 if over > 0.005:
                     status, pill = "partial", f"Cover ${over:,.2f}"
+                elif alloc > 0.005 and left_amt > 0.005:
+                    status, pill = "funded", f"${left_amt:,.2f} left"
                 elif alloc > 0.005:
                     status, pill = "funded", "Funded"
                 else:
