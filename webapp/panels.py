@@ -179,6 +179,21 @@ _PANEL_MAP = {
 }
 
 
+def _dev_or_panel(fn, panel="buckets"):
+    """Run fn(uid, token) + invalidate cache unless DEV_SEED, then return the panel.
+
+    Closes the modal on HTMX submits, redirects on plain requests — the
+    shared tail end of most bucket/account mutation routes.
+    """
+    if not current_app.config["DEV_SEED"]:
+        fn(session["user_id"], session["access_token"])
+        D.invalidate_cache()
+    tmpl, ctx_fn = _PANEL_MAP[panel]
+    if request.headers.get("HX-Request") == "true":
+        return _panel_close_modal(tmpl, panel, **ctx_fn())
+    return redirect(url_for("panels." + panel))
+
+
 # ── Bucket settings ───────────────────────────────────────────────────────────
 
 @bp.route("/buckets/<bid>/settings", methods=["GET", "POST"])
@@ -239,15 +254,11 @@ def bucket_settings(bid):
 @bp.route("/buckets/<bid>/archive", methods=["POST"])
 @login_required
 def archive_bucket(bid):
-    if not current_app.config["DEV_SEED"]:
-        DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"archived": True})
-        D.invalidate_cache()
-        flash("Bucket archived.", "ok")
-    else:
+    if current_app.config["DEV_SEED"]:
         flash("Dev mode: change not persisted.", "ok")
-    if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+    else:
+        flash("Bucket archived.", "ok")
+    return _dev_or_panel(lambda u, t: DB.upsert_bucket(u, t, bid, {"archived": True}), "buckets")
 
 
 @bp.route("/buckets/<bid>/vault-transfer", methods=["GET", "POST"])
@@ -524,15 +535,11 @@ def account_edit(aid):
 @bp.route("/accounts/<aid>/archive", methods=["POST"])
 @login_required
 def account_archive(aid):
-    if not current_app.config["DEV_SEED"]:
-        DB.update_account(session["user_id"], session["access_token"], aid, {"archived": True})
-        D.invalidate_cache()
-        flash("Account archived.", "ok")
-    else:
+    if current_app.config["DEV_SEED"]:
         flash("Dev mode: change not persisted.", "ok")
-    if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-    return redirect(url_for("panels.accounts"))
+    else:
+        flash("Account archived.", "ok")
+    return _dev_or_panel(lambda u, t: DB.update_account(u, t, aid, {"archived": True}), "accounts")
 
 
 @bp.route("/accounts/<aid>/pay", methods=["GET", "POST"])
