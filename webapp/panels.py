@@ -238,8 +238,8 @@ def bucket_settings(bid):
     if _is_modal():
         return render_template("panels/_frag_bucket.html", bucket=bucket, cats=cats,
                                debt_accounts=debt_accounts)
-    return render_panel("panels/edit_bucket.html", "buckets",
-                        bucket=bucket, cats=cats, debt_accounts=debt_accounts)
+    # No standalone settings page — settings live inline in the buckets panel.
+    return redirect(url_for("panels.buckets"))
 
 
 @bp.route("/buckets/<bid>/archive", methods=["POST"])
@@ -1261,8 +1261,8 @@ def transaction_edit(tid):
     if _is_modal():
         return render_template("panels/_frag_edit_tx.html", tx=tx, back=back,
                                **D.tx_form_ctx())
-    return render_panel("panels/edit_tx.html", back,
-                        tx=tx, back=back, **D.tx_form_ctx())
+    # No standalone edit page — transaction editing lives inline in its panel.
+    return redirect(url_for("panels." + back))
 
 
 @bp.route("/transaction/<tid>/delete", methods=["POST"])
