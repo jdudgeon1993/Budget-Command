@@ -591,13 +591,16 @@ def post_interest(aid):
         amount = D.parse_amount(f.get("amount", "0"))
         desc = f.get("desc", "").strip() or "Interest charge"
         pay_date = f.get("date") or D.tx_form_ctx()["today"]
-        if amount > 0 and not current_app.config["DEV_SEED"]:
-            DB.insert_tx(session["user_id"], session["access_token"], {
-                "accountId": aid, "type": "out", "amount": amount,
-                "desc": desc, "date": pay_date, "monthId": D.active_mid(),
-            })
-            D.invalidate_cache()
-        flash("Interest posted.", "ok")
+        if amount > 0:
+            if not current_app.config["DEV_SEED"]:
+                DB.insert_tx(session["user_id"], session["access_token"], {
+                    "accountId": aid, "type": "out", "amount": amount,
+                    "desc": desc, "date": pay_date, "monthId": D.active_mid(),
+                })
+                D.invalidate_cache()
+            flash("Interest posted.", "ok")
+        else:
+            flash("Enter an amount greater than zero.", "error")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
         return redirect(url_for("panels.accounts"))
