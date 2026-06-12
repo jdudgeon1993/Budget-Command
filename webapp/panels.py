@@ -973,7 +973,7 @@ def _dev_or(fn):
 @login_required
 def add_paycheck():
     f = request.form
-    amt = float(f.get("amount", "0").replace("$", "").replace(",", "") or 0)
+    amt = D.parse_amount(f.get("amount", "0"))
     return _dev_or(lambda u, t: DB.insert_paycheck(
         u, t, f.get("label", "Paycheck"), amt, int(f.get("freq", 14)),
         f.get("anchor") or D.tx_form_ctx()["today"]))
