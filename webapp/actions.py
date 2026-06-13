@@ -36,7 +36,12 @@ class Action:
     response_mode: str = "panel"  # "panel" | "close_modal" | "oob"
     # flash(form) -> (message, category) | None
     flash_msg: Optional[Callable] = None
-    dev_seed_msg: str = "Dev mode: change not persisted."
+    dev_seed_msg: Optional[str] = "Dev mode: change not persisted."
+    # If True, fn always runs (even under DEV_SEED) and is responsible for
+    # checking current_app.config["DEV_SEED"] itself before any DB write.
+    # fn may optionally return a (message, category) tuple to override the
+    # flash message.
+    always_run: bool = False
 
 
 _REGISTRY: dict[str, Action] = {}
@@ -76,12 +81,19 @@ def dispatch(name: str):
     form = request.form
     data = D.load_data()
 
-    if not current_app.config["DEV_SEED"]:
-        action.fn(session["user_id"], session["access_token"], form, data)
-        D.invalidate_cache()
+    dev_seed = current_app.config["DEV_SEED"]
+    result = None
+    if action.always_run or not dev_seed:
+        result = action.fn(session["user_id"], session["access_token"], form, data)
+        if not dev_seed:
+            D.invalidate_cache()
+
+    if isinstance(result, tuple):
+        msg = result
+    elif not dev_seed:
         msg = action.flash_msg(form) if action.flash_msg else None
     else:
-        msg = (action.dev_seed_msg, "ok")
+        msg = (action.dev_seed_msg, "ok") if action.dev_seed_msg else None
     if msg:
         flash(*msg)
 
@@ -207,3 +219,107 @@ def _rule_toggle(u, t, f, data):
 
 
 register(Action("rule_toggle", _rule_toggle, "setup"))
+
+
+# ── Bucket actions ────────────────────────────────────────────────────────
+
+def _bucket_add(u, t, f, data):
+    name = f.get("name", "").strip()
+    cat_id = f.get("catId", "")
+    btype = f.get("type", "expense")
+    if not (name and cat_id):
+        return ("Name and category are required.", "error")
+    if not current_app.config["DEV_SEED"]:
+        DB.insert_bucket(u, t, name, cat_id, btype)
+        return ("Bucket added.", "ok")
+    return ("Dev mode: bucket not persisted.", "ok")
+
+
+register(Action("bucket_add", _bucket_add, "buckets", always_run=True))
+
+
+def _bucket_alloc_set(u, t, f, data):
+    bid = f.get("id", "")
+    amount = D.parse_amount(f.get("alloc", "0"))
+    month = D.active_month(data)
+    month.setdefault("allocations", {})[bid] = amount
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_alloc(u, t, D.active_mid(), bid, amount)
+
+
+register(Action("bucket_alloc_set", _bucket_alloc_set, "buckets", always_run=True, dev_seed_msg=None))
+
+
+def _bucket_fill(u, t, f, data):
+    bid = f.get("id", "")
+    mid = D.active_mid()
+    month = D.active_month(data)
+    budget = D.F.b_budget(month, bid)
+    spent = D.F.b_spent(mid, bid, data.get("txs", []))
+    new_alloc = max(budget, spent)
+    month.setdefault("allocations", {})[bid] = new_alloc
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_alloc(u, t, mid, bid, new_alloc)
+    return ("Covered." if spent > budget else "Filled.", "ok")
+
+
+register(Action("bucket_fill", _bucket_fill, "buckets", always_run=True))
+
+
+def _bucket_budget_set(u, t, f, data):
+    bid = f.get("id", "")
+    amount = D.parse_amount(f.get("budget", "0"))
+    month = D.active_month(data)
+    month.setdefault("budgets", {})[bid] = amount
+    saving_mid = D.active_mid()
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_budget(u, t, saving_mid, bid, amount)
+        if saving_mid == D.F.current_month_id():
+            for m in data.get("months", []):
+                if D.F.month_status(m["id"]) == "future":
+                    DB.upsert_budget(u, t, m["id"], bid, amount)
+
+
+register(Action("bucket_budget_set", _bucket_budget_set, "buckets", always_run=True, dev_seed_msg=None))
+
+
+def _bucket_archive(u, t, f, data):
+    DB.upsert_bucket(u, t, f.get("id", ""), {"archived": True})
+
+
+register(Action("bucket_archive", _bucket_archive, "buckets",
+                 flash_msg=lambda f: ("Bucket archived.", "ok")))
+
+
+def _bucket_move(u, t, f, data):
+    bid, direction = f.get("id", ""), f.get("direction", "")
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    this_b = next((b for b in buckets if b["id"] == bid), None)
+    if not this_b:
+        return
+    siblings = sorted(
+        [b for b in buckets if b.get("catId") == this_b.get("catId")],
+        key=lambda b: b.get("order", 0)
+    )
+    idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), -1)
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if 0 <= idx < len(siblings) and 0 <= swap_idx < len(siblings):
+        b1, b2 = siblings[idx], siblings[swap_idx]
+        o1, o2 = b1.get("order", idx), b2.get("order", swap_idx)
+        DB.update_bucket_order(u, t, b1["id"], o2)
+        DB.update_bucket_order(u, t, b2["id"], o1)
+
+
+register(Action("bucket_move", _bucket_move, "buckets", dev_seed_msg=None))
+
+
+def _bucket_handled_toggle(u, t, f, data):
+    bid = f.get("id", "")
+    mid = D.active_mid()
+    month = D.active_month(data)
+    currently = bool((month.get("handledBuckets") or {}).get(bid))
+    DB.ensure_month(u, t, mid)
+    DB.toggle_handled(u, t, mid, bid, currently)
+
+
+register(Action("bucket_handled_toggle", _bucket_handled_toggle, "buckets", dev_seed_msg=None))

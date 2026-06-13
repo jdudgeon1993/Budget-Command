@@ -20,14 +20,14 @@ Legend:
 | Route | Methods | Function | Type | DB calls | Back panel | Modal? |
 |---|---|---|---|---|---|---|
 | `/buckets` | GET | `buckets` | read | — | buckets | — |
-| `/buckets` | POST | `add_bucket` | mutation | `insert_bucket` | buckets | — |
-| `/buckets/<bid>/alloc` | POST | `set_alloc` | mutation | `upsert_alloc` | buckets | — |
-| `/buckets/<bid>/fill` | POST | `fill_bucket` | mutation | `upsert_alloc` | buckets | — |
-| `/buckets/<bid>/budget` | POST | `set_budget` | mutation | `upsert_budget` (+ future months if current month) | buckets | — |
+| `/actions/bucket_add` | POST | `_bucket_add` | **migrated** | `insert_bucket` | buckets | — |
+| `/actions/bucket_alloc_set` | POST | `_bucket_alloc_set` | **migrated** | `upsert_alloc` | buckets | — |
+| `/actions/bucket_fill` | POST | `_bucket_fill` | **migrated** | `upsert_alloc` | buckets | — |
+| `/actions/bucket_budget_set` | POST | `_bucket_budget_set` | **migrated** | `upsert_budget` (+ future months if current month) | buckets | — |
 | `/buckets/<bid>/settings` | GET, POST | `bucket_settings` | mutation | `upsert_bucket` | buckets | yes (`_frag_bucket`) |
-| `/buckets/<bid>/archive` | POST | `archive_bucket` | mutation | `upsert_bucket({archived:true})` | buckets | — |
-| `/buckets/<bid>/move/<direction>` | POST | `move_bucket` | mutation | `update_bucket_order` ×2 | buckets | — |
-| `/buckets/<bid>/handled` | POST | `toggle_handled` | mutation | `ensure_month`, `toggle_handled` | buckets | — |
+| `/actions/bucket_archive` | POST | `_bucket_archive` | **migrated** | `upsert_bucket({archived:true})` | buckets | — |
+| `/actions/bucket_move` | POST | `_bucket_move` | **migrated** | `update_bucket_order` ×2 | buckets | — |
+| `/actions/bucket_handled_toggle` | POST | `_bucket_handled_toggle` | **migrated** | `ensure_month`, `toggle_handled` | buckets | — |
 | `/buckets/<bid>/vault-transfer` | GET, POST | `vault_transfer` | mutation | `vault_transfer` | buckets | yes (`_frag_vault_transfer`) |
 | `/buckets/<bid>/vault-release` | GET, POST | `vault_release_to_pool` | mutation | `vault_release_to_pool`, `log_vault_release` | buckets | yes (`_frag_vault_release`) |
 | `/buckets/distribute` | GET | `distribute_modal` | read | — | — | yes (`_frag_distribute`) |

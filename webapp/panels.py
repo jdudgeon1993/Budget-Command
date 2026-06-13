@@ -46,41 +46,7 @@ def buckets():
     return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
-@bp.route("/buckets/<bid>/alloc", methods=["POST"])
-@login_required
-def set_alloc(bid):
-    """Inline allocation edit -> returns the updated row + OOB shell refresh."""
-    amount = D.parse_amount(request.form.get("alloc", "0"))
-    data = D.load_data()
-    month = D.active_month(data)
-    month.setdefault("allocations", {})[bid] = amount
-    if not current_app.config["DEV_SEED"]:
-        DB.upsert_alloc(session["user_id"], session["access_token"],
-                        D.active_mid(), bid, amount)
-        D.invalidate_cache()
-    return _buckets_response()
-
-
 # ── Bucket fill / distribute ─────────────────────────────────────────────────
-
-@bp.route("/buckets/<bid>/fill", methods=["POST"])
-@login_required
-def fill_bucket(bid):
-    """Set allocation = max(budget, spent) — fills to target or covers actual spend."""
-    data = D.load_data()
-    mid = D.active_mid()
-    month = D.active_month(data)
-    budget = D.F.b_budget(month, bid)
-    spent  = D.F.b_spent(mid, bid, data.get("txs", []))
-    new_alloc = max(budget, spent)
-    month.setdefault("allocations", {})[bid] = new_alloc
-    if not current_app.config["DEV_SEED"]:
-        DB.upsert_alloc(session["user_id"], session["access_token"],
-                        mid, bid, new_alloc)
-        D.invalidate_cache()
-    flash("Covered." if spent > budget else "Filled.", "ok")
-    return _buckets_response()
-
 
 def _distribute_checks():
     """Checkbox state from the Distribute form, or None for the un-submitted default."""
@@ -252,16 +218,6 @@ def bucket_settings(bid):
                         bucket=bucket, cats=cats, debt_accounts=debt_accounts)
 
 
-@bp.route("/buckets/<bid>/archive", methods=["POST"])
-@login_required
-def archive_bucket(bid):
-    if current_app.config["DEV_SEED"]:
-        flash("Dev mode: change not persisted.", "ok")
-    else:
-        flash("Bucket archived.", "ok")
-    return _dev_or_panel(lambda u, t: DB.upsert_bucket(u, t, bid, {"archived": True}), "buckets")
-
-
 @bp.route("/buckets/<bid>/vault-transfer", methods=["GET", "POST"])
 @login_required
 def vault_transfer(bid):
@@ -343,89 +299,6 @@ def vault_release_to_pool(bid):
     vault_accum = D.F.vault_accumulated(bid, data.get("months", []))
     return render_template("panels/_frag_vault_release.html",
                            bucket=bucket, vault_alloc=vault_alloc, vault_accum=vault_accum)
-
-
-# ── Budget inline edit ───────────────────────────────────────────────────────
-
-@bp.route("/buckets/<bid>/budget", methods=["POST"])
-@login_required
-def set_budget(bid):
-    amount = D.parse_amount(request.form.get("budget", "0"))
-    data = D.load_data()
-    month = D.active_month(data)
-    month.setdefault("budgets", {})[bid] = amount
-    saving_mid = D.active_mid()
-    if not current_app.config["DEV_SEED"]:
-        DB.upsert_budget(session["user_id"], session["access_token"],
-                         saving_mid, bid, amount)
-        if saving_mid == D.F.current_month_id():
-            for m in data.get("months", []):
-                if D.F.month_status(m["id"]) == "future":
-                    DB.upsert_budget(session["user_id"], session["access_token"],
-                                     m["id"], bid, amount)
-        D.invalidate_cache()
-    return _buckets_response()
-
-
-# ── Add bucket ────────────────────────────────────────────────────────────────
-
-@bp.route("/buckets", methods=["POST"])
-@login_required
-def add_bucket():
-    f = request.form
-    name = f.get("name", "").strip()
-    cat_id = f.get("catId", "")
-    btype = f.get("type", "expense")
-    if name and cat_id and not current_app.config["DEV_SEED"]:
-        DB.insert_bucket(session["user_id"], session["access_token"], name, cat_id, btype)
-        D.invalidate_cache()
-        flash("Bucket added.", "ok")
-    elif current_app.config["DEV_SEED"]:
-        flash("Dev mode: bucket not persisted.", "ok")
-    else:
-        flash("Name and category are required.", "error")
-    return _buckets_response()
-
-
-# ── Bucket reorder ────────────────────────────────────────────────────────────
-
-@bp.route("/buckets/<bid>/move/<direction>", methods=["POST"])
-@login_required
-def move_bucket(bid, direction):
-    data = D.load_data()
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    this_b = next((b for b in buckets if b["id"] == bid), None)
-    if not this_b:
-        return redirect(url_for("panels.buckets"))
-    siblings = sorted(
-        [b for b in buckets if b.get("catId") == this_b.get("catId")],
-        key=lambda b: b.get("order", 0)
-    )
-    idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), -1)
-    swap_idx = idx - 1 if direction == "up" else idx + 1
-    if 0 <= idx < len(siblings) and 0 <= swap_idx < len(siblings):
-        b1, b2 = siblings[idx], siblings[swap_idx]
-        o1 = b1.get("order", idx)
-        o2 = b2.get("order", swap_idx)
-        if not current_app.config["DEV_SEED"]:
-            DB.update_bucket_order(session["user_id"], session["access_token"], b1["id"], o2)
-            DB.update_bucket_order(session["user_id"], session["access_token"], b2["id"], o1)
-            D.invalidate_cache()
-    return _buckets_response()
-
-
-@bp.route("/buckets/<bid>/handled", methods=["POST"])
-@login_required
-def toggle_handled(bid):
-    mid = D.active_mid()
-    data = D.load_data()
-    month = D.active_month(data)
-    currently = bool((month.get("handledBuckets") or {}).get(bid))
-    if not current_app.config["DEV_SEED"]:
-        DB.ensure_month(session["user_id"], session["access_token"], mid)
-        DB.toggle_handled(session["user_id"], session["access_token"], mid, bid, currently)
-        D.invalidate_cache()
-    return _buckets_response()
 
 
 # ── Month workflow ────────────────────────────────────────────────────────────

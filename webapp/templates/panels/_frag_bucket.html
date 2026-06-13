@@ -176,11 +176,12 @@
   </div>
 </form>
 
-<form method="post" action="{{ url_for('panels.archive_bucket', bid=bucket.id) }}"
-      hx-post="{{ url_for('panels.archive_bucket', bid=bucket.id) }}"
+<form method="post" action="{{ url_for('panels.run_action', name='bucket_archive') }}"
+      hx-post="{{ url_for('panels.run_action', name='bucket_archive') }}"
       hx-target="#panel" hx-swap="innerHTML"
       style="margin-top:8px"
       onsubmit="return confirm('Archive {{ bucket.name }}?')">
+  <input type="hidden" name="id" value="{{ bucket.id }}">
   <button class="edit-delete-btn" style="width:100%" type="submit">Archive Bucket</button>
 </form>
 

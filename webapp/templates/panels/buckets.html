@@ -131,8 +131,8 @@
           <option value="goal">Goal</option>
           <option value="vault">Vault</option>
         </select>
-        <form method="post" action="{{ url_for('panels.add_bucket') }}" style="display:contents"
-              hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML"
+        <form method="post" action="{{ url_for('panels.run_action', name='bucket_add') }}" style="display:contents"
+              hx-post="{{ url_for('panels.run_action', name='bucket_add') }}" hx-target="#panel" hx-swap="innerHTML"
               onsubmit="
                 var n=document.getElementById('new-bkt-name-{{ grp.id }}');
                 var t=document.getElementById('new-bkt-type-{{ grp.id }}');
@@ -183,8 +183,8 @@
     </script>
 
     {# Global add strip (fallback / add to any category) #}
-    <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}"
-          hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
+    <form class="add-strip" method="post" action="{{ url_for('panels.run_action', name='bucket_add') }}"
+          hx-post="{{ url_for('panels.run_action', name='bucket_add') }}" hx-target="#panel" hx-swap="innerHTML">
       <select name="catId" style="flex:0 0 130px" required>
         <option value="">— Category —</option>
         {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
