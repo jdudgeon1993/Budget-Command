@@ -9,6 +9,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 
 from . import db as DB
 from . import data as D
+from . import actions as A
 from .auth import login_required
 
 bp = Blueprint("panels", __name__)
@@ -1355,3 +1356,14 @@ def _stub(name, title):
 
 
 # (all panels now have real routes)
+
+
+# ── Action registry dispatcher (Phase 2 of REFACTOR_PLAN.md) ─────────────────
+# New mutation routes register an Action in actions.py and run through here.
+# Existing routes are migrated one group at a time per REFACTOR_PLAN.md —
+# nothing below replaces them yet.
+
+@bp.route("/actions/<name>", methods=["POST"])
+@login_required
+def run_action(name):
+    return A.dispatch(name)
