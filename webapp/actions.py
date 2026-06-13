@@ -97,3 +97,113 @@ def dispatch(name: str):
             return _render_panel(panel, htmx)
         return redirect(url_for(f"panels.{panel}"))
     raise ValueError(f"Unsupported response_mode for /actions dispatch: {action.response_mode!r}")
+
+
+# ── Setup actions (paychecks, categories, allocation rules) ─────────────────
+# Migrated from panels.py per REFACTOR_PLAN.md Phase 3. Forms post the row's
+# id (and direction, where relevant) as hidden fields rather than URL segments.
+
+def _rule_value_type(raw: "str | None") -> str:
+    """Normalize the rule form's value_type into one of: pct, fund, fixed."""
+    if raw == "pct":
+        return "pct"
+    if raw == "fund":
+        return "fund"
+    return "fixed"
+
+
+def _paycheck_add(u, t, f, data):
+    amt = D.parse_amount(f.get("amount", "0"))
+    DB.insert_paycheck(u, t, f.get("label", "Paycheck"), amt, int(f.get("freq") or 14),
+                       f.get("anchor") or D.tx_form_ctx()["today"])
+
+
+register(Action("paycheck_add", _paycheck_add, "setup"))
+
+
+def _paycheck_edit(u, t, f, data):
+    amt = D.parse_amount(f.get("amount", "0"))
+    DB.update_paycheck(u, t, f.get("id", ""), f.get("label", "Paycheck"), amt,
+                        int(f.get("freq") or 14), f.get("anchor") or D.tx_form_ctx()["today"])
+
+
+register(Action("paycheck_edit", _paycheck_edit, "setup"))
+
+
+def _paycheck_delete(u, t, f, data):
+    DB.delete_paycheck(u, t, f.get("id", ""))
+
+
+register(Action("paycheck_delete", _paycheck_delete, "setup"))
+
+
+def _category_add(u, t, f, data):
+    DB.insert_category(u, t, f.get("name", "Category"), f.get("color") or "#818cf8")
+
+
+register(Action("category_add", _category_add, "setup"))
+
+
+def _category_edit(u, t, f, data):
+    DB.update_category(u, t, f.get("id", ""),
+                        {"name": f.get("name", ""), "color": f.get("color", "#818cf8")})
+
+
+register(Action("category_edit", _category_edit, "setup"))
+
+
+def _category_delete(u, t, f, data):
+    DB.update_category(u, t, f.get("id", ""), {"archived": True})
+
+
+register(Action("category_delete", _category_delete, "setup"))
+
+
+def _category_move(u, t, f, data):
+    cid, direction = f.get("id", ""), f.get("direction", "")
+    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    idx = next((i for i, c in enumerate(cats) if c["id"] == cid), -1)
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if 0 <= idx < len(cats) and 0 <= swap_idx < len(cats):
+        c1, c2 = cats[idx], cats[swap_idx]
+        o1, o2 = c1.get("order", idx), c2.get("order", swap_idx)
+        DB.update_category_order(u, t, c1["id"], o2)
+        DB.update_category_order(u, t, c2["id"], o1)
+
+
+register(Action("category_move", _category_move, "setup"))
+
+
+def _rule_add(u, t, f, data):
+    vtype = _rule_value_type(f.get("value_type"))
+    val = 0.0 if vtype == "fund" else D.parse_amount(f.get("value", "0").replace("%", ""))
+    rtype = "external" if f.get("rule_type") == "external" else "internal"
+    DB.insert_alloc_rule(u, t, f.get("name", "Rule"), rtype, vtype, val, f.get("bucketId", ""))
+
+
+register(Action("rule_add", _rule_add, "setup"))
+
+
+def _rule_edit(u, t, f, data):
+    vtype = _rule_value_type(f.get("value_type"))
+    val = 0.0 if vtype == "fund" else D.parse_amount(f.get("value", "0").replace("%", ""))
+    rtype = "external" if f.get("rule_type") == "external" else "internal"
+    DB.update_alloc_rule(u, t, f.get("id", ""), f.get("name", "Rule"), rtype, vtype, val,
+                          f.get("bucketId", ""))
+
+
+register(Action("rule_edit", _rule_edit, "setup"))
+
+
+def _rule_delete(u, t, f, data):
+    DB.delete_alloc_rule(u, t, f.get("id", ""))
+
+
+register(Action("rule_delete", _rule_delete, "setup"))
+
+
+def _rule_toggle(u, t, f, data):
+    DB.toggle_alloc_rule(u, t, f.get("id", ""))
+
+
+register(Action("rule_toggle", _rule_toggle, "setup"))

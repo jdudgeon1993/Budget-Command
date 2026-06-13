@@ -18,14 +18,16 @@
         </div>
         <span class="setup-fig c-green">{{ p.amount | money }}</span>
         <span class="setup-edit-toggle">Edit ▾</span>
-        <form method="post" action="{{ url_for('panels.del_paycheck', pid=p.id) }}" style="display:contents"
-              hx-post="{{ url_for('panels.del_paycheck', pid=p.id) }}" hx-target="#panel" hx-swap="innerHTML"
+        <form method="post" action="{{ url_for('panels.run_action', name='paycheck_delete') }}" style="display:contents"
+              hx-post="{{ url_for('panels.run_action', name='paycheck_delete') }}" hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return confirm('Delete this paycheck?');event.stopPropagation()">
+          <input type="hidden" name="id" value="{{ p.id }}">
           <button class="setup-del" type="submit" title="Delete" onclick="event.stopPropagation()">✕</button>
         </form>
       </summary>
-      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_paycheck', pid=p.id) }}"
-            hx-post="{{ url_for('panels.edit_paycheck', pid=p.id) }}" hx-target="#panel" hx-swap="innerHTML">
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.run_action', name='paycheck_edit') }}"
+            hx-post="{{ url_for('panels.run_action', name='paycheck_edit') }}" hx-target="#panel" hx-swap="innerHTML">
+        <input type="hidden" name="id" value="{{ p.id }}">
         <input name="label" value="{{ p.label }}" placeholder="Label" style="flex:1;min-width:100px">
         <input name="amount" value="{{ p.amount }}" placeholder="Amount" inputmode="decimal" style="flex:0 0 90px">
         <select name="freq" style="flex:0 0 120px">
@@ -39,8 +41,8 @@
       </form>
     </details>
     {% else %}<div class="setup-empty">No paychecks yet.</div>{% endfor %}
-    <form class="setup-add" method="post" action="{{ url_for('panels.add_paycheck') }}"
-          hx-post="{{ url_for('panels.add_paycheck') }}" hx-target="#panel" hx-swap="innerHTML">
+    <form class="setup-add" method="post" action="{{ url_for('panels.run_action', name='paycheck_add') }}"
+          hx-post="{{ url_for('panels.run_action', name='paycheck_add') }}" hx-target="#panel" hx-swap="innerHTML">
       <input name="label" placeholder="Label" required style="flex:1;min-width:80px">
       <input name="amount" placeholder="Amount" inputmode="decimal" style="flex:0 0 90px">
       <select name="freq" style="flex:0 0 120px">
@@ -64,32 +66,38 @@
         <div class="setup-main"><span class="setup-name">{{ c.name }}</span></div>
         <span class="setup-meta">{{ c.count }} bucket{{ '' if c.count == 1 else 's' }}</span>
         <div class="setup-reorder-btns">
-          <form method="post" action="{{ url_for('panels.move_category', cid=c.id, direction='up') }}" style="display:contents"
-                hx-post="{{ url_for('panels.move_category', cid=c.id, direction='up') }}" hx-target="#panel" hx-swap="innerHTML">
+          <form method="post" action="{{ url_for('panels.run_action', name='category_move') }}" style="display:contents"
+                hx-post="{{ url_for('panels.run_action', name='category_move') }}" hx-target="#panel" hx-swap="innerHTML">
+            <input type="hidden" name="id" value="{{ c.id }}">
+            <input type="hidden" name="direction" value="up">
             <button class="reorder-btn" type="submit" onclick="event.stopPropagation()" title="Move up">▲</button>
           </form>
-          <form method="post" action="{{ url_for('panels.move_category', cid=c.id, direction='down') }}" style="display:contents"
-                hx-post="{{ url_for('panels.move_category', cid=c.id, direction='down') }}" hx-target="#panel" hx-swap="innerHTML">
+          <form method="post" action="{{ url_for('panels.run_action', name='category_move') }}" style="display:contents"
+                hx-post="{{ url_for('panels.run_action', name='category_move') }}" hx-target="#panel" hx-swap="innerHTML">
+            <input type="hidden" name="id" value="{{ c.id }}">
+            <input type="hidden" name="direction" value="down">
             <button class="reorder-btn" type="submit" onclick="event.stopPropagation()" title="Move down">▼</button>
           </form>
         </div>
         <span class="setup-edit-toggle">Edit ▾</span>
-        <form method="post" action="{{ url_for('panels.del_category', cid=c.id) }}" style="display:contents"
-              hx-post="{{ url_for('panels.del_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML"
+        <form method="post" action="{{ url_for('panels.run_action', name='category_delete') }}" style="display:contents"
+              hx-post="{{ url_for('panels.run_action', name='category_delete') }}" hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return confirm('Archive this category?');event.stopPropagation()">
+          <input type="hidden" name="id" value="{{ c.id }}">
           <button class="setup-del" type="submit" title="Archive" onclick="event.stopPropagation()">✕</button>
         </form>
       </summary>
-      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_category', cid=c.id) }}"
-            hx-post="{{ url_for('panels.edit_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML">
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.run_action', name='category_edit') }}"
+            hx-post="{{ url_for('panels.run_action', name='category_edit') }}" hx-target="#panel" hx-swap="innerHTML">
+        <input type="hidden" name="id" value="{{ c.id }}">
         <input name="name" value="{{ c.name }}" placeholder="Category name" required style="flex:1">
         <input name="color" type="color" value="{{ c.color }}" style="flex:0 0 48px;padding:4px;height:38px">
         <button class="toolbar-btn primary" type="submit">Save</button>
       </form>
     </details>
     {% else %}<div class="setup-empty">No categories yet.</div>{% endfor %}
-    <form class="setup-add" method="post" action="{{ url_for('panels.add_category') }}"
-          hx-post="{{ url_for('panels.add_category') }}" hx-target="#panel" hx-swap="innerHTML">
+    <form class="setup-add" method="post" action="{{ url_for('panels.run_action', name='category_add') }}"
+          hx-post="{{ url_for('panels.run_action', name='category_add') }}" hx-target="#panel" hx-swap="innerHTML">
       <input name="name" placeholder="Category name" required style="flex:1">
       <input name="color" type="color" value="#BF5AF2" style="flex:0 0 48px;padding:4px;height:38px">
       <button class="toolbar-btn primary">+ Add</button>
@@ -123,8 +131,9 @@
           {% else %}{{ r.value | money }}
           {% endif %}
         </span>
-        <form method="post" action="{{ url_for('panels.toggle_rule', rid=r.id) }}" style="display:contents"
-              hx-post="{{ url_for('panels.toggle_rule', rid=r.id) }}" hx-target="#panel" hx-swap="innerHTML">
+        <form method="post" action="{{ url_for('panels.run_action', name='rule_toggle') }}" style="display:contents"
+              hx-post="{{ url_for('panels.run_action', name='rule_toggle') }}" hx-target="#panel" hx-swap="innerHTML">
+          <input type="hidden" name="id" value="{{ r.id }}">
           <button class="setup-toggle-btn {{ 'active' if r.active }}" type="submit"
                   onclick="event.stopPropagation()"
                   title="{{ 'Active — click to disable' if r.active else 'Disabled — click to enable' }}">
@@ -132,14 +141,16 @@
           </button>
         </form>
         <span class="setup-edit-toggle">Edit ▾</span>
-        <form method="post" action="{{ url_for('panels.del_rule', rid=r.id) }}" style="display:contents"
-              hx-post="{{ url_for('panels.del_rule', rid=r.id) }}" hx-target="#panel" hx-swap="innerHTML">
+        <form method="post" action="{{ url_for('panels.run_action', name='rule_delete') }}" style="display:contents"
+              hx-post="{{ url_for('panels.run_action', name='rule_delete') }}" hx-target="#panel" hx-swap="innerHTML">
+          <input type="hidden" name="id" value="{{ r.id }}">
           <button class="setup-del" type="submit" title="Delete"
                   onclick="event.stopPropagation();return confirm('Delete this rule?')">✕</button>
         </form>
       </summary>
-      <form class="setup-edit-form" method="post" action="{{ url_for('panels.edit_rule', rid=r.id) }}"
-            hx-post="{{ url_for('panels.edit_rule', rid=r.id) }}" hx-target="#panel" hx-swap="innerHTML">
+      <form class="setup-edit-form" method="post" action="{{ url_for('panels.run_action', name='rule_edit') }}"
+            hx-post="{{ url_for('panels.run_action', name='rule_edit') }}" hx-target="#panel" hx-swap="innerHTML">
+        <input type="hidden" name="id" value="{{ r.id }}">
         <input name="name" value="{{ r.name }}" placeholder="Rule name" required style="flex:1;min-width:80px">
         <select name="rule_type" style="flex:0 0 110px" onchange="toggleEditBucket(this)">
           <option value="internal" {{ 'selected' if r.rule_type == 'internal' }}>Internal</option>
@@ -179,8 +190,8 @@
     </div>
     {% endif %}
 
-    <form class="setup-add" method="post" action="{{ url_for('panels.add_rule') }}"
-          hx-post="{{ url_for('panels.add_rule') }}" hx-target="#panel" hx-swap="innerHTML">
+    <form class="setup-add" method="post" action="{{ url_for('panels.run_action', name='rule_add') }}"
+          hx-post="{{ url_for('panels.run_action', name='rule_add') }}" hx-target="#panel" hx-swap="innerHTML">
       <input name="name" placeholder="Rule name" required style="flex:1;min-width:80px">
       <select name="rule_type" style="flex:0 0 110px" onchange="toggleBucketSel(this)">
         <option value="internal">Internal</option>

@@ -85,17 +85,20 @@ Legend:
 | Route | Methods | Function | Type | DB calls | Back panel |
 |---|---|---|---|---|---|
 | `/setup` | GET | `setup` | read | — | setup |
-| `/setup/paycheck` | POST | `add_paycheck` | mutation | `insert_paycheck` | setup |
-| `/setup/paycheck/<pid>/edit` | POST | `edit_paycheck` | mutation | `update_paycheck` | setup |
-| `/setup/paycheck/<pid>/delete` | POST | `del_paycheck` | mutation | `delete_paycheck` | setup |
-| `/setup/category` | POST | `add_category` | mutation | `insert_category` | setup |
-| `/setup/category/<cid>/edit` | POST | `edit_category` | mutation | `update_category` | setup |
-| `/setup/category/<cid>/delete` | POST | `del_category` | mutation | `update_category({archived:true})` | setup |
-| `/setup/category/<cid>/move/<direction>` | POST | `move_category` | mutation | `update_category_order` ×2 | setup |
-| `/setup/rule` | POST | `add_rule` | mutation | `insert_alloc_rule` | setup |
-| `/setup/rule/<rid>/edit` | POST | `edit_rule` | mutation | `update_alloc_rule` | setup |
-| `/setup/rule/<rid>/delete` | POST | `del_rule` | mutation | `delete_alloc_rule` | setup |
-| `/setup/rule/<rid>/toggle` | POST | `toggle_rule` | mutation | `toggle_alloc_rule` | setup |
+| `/actions/paycheck_add` | POST | `_paycheck_add` | **migrated** | `insert_paycheck` | setup |
+| `/actions/paycheck_edit` | POST | `_paycheck_edit` | **migrated** | `update_paycheck` | setup |
+| `/actions/paycheck_delete` | POST | `_paycheck_delete` | **migrated** | `delete_paycheck` | setup |
+| `/actions/category_add` | POST | `_category_add` | **migrated** | `insert_category` | setup |
+| `/actions/category_edit` | POST | `_category_edit` | **migrated** | `update_category` | setup |
+| `/actions/category_delete` | POST | `_category_delete` | **migrated** | `update_category({archived:true})` | setup |
+| `/actions/category_move` | POST | `_category_move` | **migrated** | `update_category_order` ×2 | setup |
+| `/actions/rule_add` | POST | `_rule_add` | **migrated** | `insert_alloc_rule` | setup |
+| `/actions/rule_edit` | POST | `_rule_edit` | **migrated** | `update_alloc_rule` | setup |
+| `/actions/rule_delete` | POST | `_rule_delete` | **migrated** | `delete_alloc_rule` | setup |
+| `/actions/rule_toggle` | POST | `_rule_toggle` | **migrated** | `toggle_alloc_rule` | setup |
+
+> All Setup actions now live in `actions.py` and run through `/actions/<name>`.
+> Forms pass row id (and `direction` for reordering) as hidden fields.
 
 ## Top-level / misc
 
