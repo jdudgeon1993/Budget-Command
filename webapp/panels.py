@@ -146,21 +146,6 @@ _PANEL_MAP = {
 }
 
 
-def _dev_or_panel(fn, panel="buckets"):
-    """Run fn(uid, token) + invalidate cache unless DEV_SEED, then return the panel.
-
-    Closes the modal on HTMX submits, redirects on plain requests — the
-    shared tail end of most bucket/account mutation routes.
-    """
-    if not current_app.config["DEV_SEED"]:
-        fn(session["user_id"], session["access_token"])
-        D.invalidate_cache()
-    tmpl, ctx_fn = _PANEL_MAP[panel]
-    if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal(tmpl, panel, **ctx_fn())
-    return redirect(url_for("panels." + panel))
-
-
 # ── Bucket settings ───────────────────────────────────────────────────────────
 
 @bp.route("/buckets/<bid>/settings", methods=["GET", "POST"])
@@ -404,16 +389,6 @@ def account_edit(aid):
     if _is_modal():
         return render_template("panels/_frag_account.html", account=account)
     return render_panel("panels/edit_account.html", "accounts", account=account)
-
-
-@bp.route("/accounts/<aid>/archive", methods=["POST"])
-@login_required
-def account_archive(aid):
-    if current_app.config["DEV_SEED"]:
-        flash("Dev mode: change not persisted.", "ok")
-    else:
-        flash("Account archived.", "ok")
-    return _dev_or_panel(lambda u, t: DB.update_account(u, t, aid, {"archived": True}), "accounts")
 
 
 @bp.route("/accounts/<aid>/pay", methods=["GET", "POST"])

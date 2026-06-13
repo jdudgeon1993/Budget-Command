@@ -323,3 +323,13 @@ def _bucket_handled_toggle(u, t, f, data):
 
 
 register(Action("bucket_handled_toggle", _bucket_handled_toggle, "buckets", dev_seed_msg=None))
+
+
+# ── Account actions ──────────────────────────────────────────────────────
+
+def _account_archive(u, t, f, data):
+    DB.update_account(u, t, f.get("id", ""), {"archived": True})
+
+
+register(Action("account_archive", _account_archive, "accounts",
+                 flash_msg=lambda f: ("Account archived.", "ok")))

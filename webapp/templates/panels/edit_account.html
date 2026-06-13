@@ -76,9 +76,10 @@
   </form>
 
   {% if account %}
-  <form method="post" action="{{ url_for('panels.account_archive', aid=account.id) }}"
+  <form method="post" action="{{ url_for('panels.run_action', name='account_archive') }}"
         style="margin-top:8px"
         onsubmit="return confirm('Archive this account? It will be hidden from the app.')">
+    <input type="hidden" name="id" value="{{ account.id }}">
     <button class="edit-delete-btn" style="width:100%" type="submit">Archive Account</button>
   </form>
   {% endif %}

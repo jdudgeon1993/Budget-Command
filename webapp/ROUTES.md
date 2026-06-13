@@ -50,7 +50,7 @@ Legend:
 | `/accounts` | GET | `accounts` | read | — | accounts | — |
 | `/accounts/new` | GET, POST | `account_new` | mutation | `insert_account` | accounts | yes (`_frag_account`) |
 | `/accounts/<aid>/edit` | GET, POST | `account_edit` | mutation | `update_account` | accounts | yes (`_frag_account`) |
-| `/accounts/<aid>/archive` | POST | `account_archive` | mutation | `update_account({archived:true})` | accounts | — |
+| `/actions/account_archive` | POST | `_account_archive` | **migrated** | `update_account({archived:true})` | accounts | — |
 | `/accounts/<aid>/pay` | GET, POST | `debt_payment` | mutation | `ensure_month`, `insert_debt_payment` | accounts | yes (`_frag_debt_payment`) |
 | `/accounts/<aid>/payoff` | GET | `debt_payoff` | read | — | — | yes (`_frag_debt_tracker`, amortization calc) |
 | `/accounts/<aid>/interest` | GET, POST | `post_interest` | mutation | `insert_tx` | accounts | yes (`_frag_post_interest`) |
