@@ -837,6 +837,7 @@ def quick_add():
             "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
             "toAccountId": f.get("toAccountId") or "",
             "incomeType": f.get("incomeType") or "paycheck",
+            "planned": f.get("planned", "1") == "1",
         }
         data = D.load_data()
         bkt = next((b for b in data.get("buckets", []) if b["id"] == tx["bucketId"]), None)

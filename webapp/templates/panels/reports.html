@@ -40,6 +40,49 @@
   </div>
   {% endif %}
 
+  {% if planned_unplanned.unplanned > 0 %}
+  {# ══ CARD 0b — Planned vs. Unplanned Spend ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('plan')">
+      <span class="rpt-card-icon">🎯</span>
+      <span class="rpt-card-title">Planned vs. Unplanned</span>
+      <span class="rpt-card-summary">{{ planned_unplanned.unplanned_pct }}% unplanned this month</span>
+      <span class="rpt-arrow" id="rpt-arr-plan">▾</span>
+    </div>
+    <div class="rpt-card-body" id="rpt-body-plan">
+      <div style="display:flex;height:10px;border-radius:6px;overflow:hidden;margin-bottom:10px">
+        <div style="background:var(--accent);width:{{ planned_unplanned.planned_pct }}%"></div>
+        <div style="background:var(--amber);width:{{ planned_unplanned.unplanned_pct }}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:12px">
+        <span><span style="color:var(--accent)">●</span> Planned {{ planned_unplanned.planned | money }} ({{ planned_unplanned.planned_pct }}%)</span>
+        <span><span style="color:var(--amber)">●</span> Unplanned {{ planned_unplanned.unplanned | money }} ({{ planned_unplanned.unplanned_pct }}%)</span>
+      </div>
+      {% if planned_unplanned.top_unplanned %}
+      <div class="rpt-card-summary" style="margin-bottom:6px">Top unplanned spend</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        {% for u in planned_unplanned.top_unplanned %}
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span>{{ u.name }}</span>
+          <span style="font-family:var(--mono)">{{ u.amount | money }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div style="display:flex;gap:4px;margin-top:12px">
+        {% for m in pu_trend %}
+        <div style="flex:1;text-align:center">
+          <div style="height:40px;display:flex;align-items:flex-end;justify-content:center">
+            <div style="width:60%;background:var(--amber);border-radius:3px 3px 0 0;height:{{ m.unplanned_pct }}%"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">{{ m.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {# ══ CARD 1 — Month Performance (open by default) ══ #}
   <div class="rpt-card">
     <div class="rpt-card-hd" onclick="rptToggle('perf')">

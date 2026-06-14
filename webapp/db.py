@@ -208,6 +208,7 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "debtPaymentAccountId": t.get("debt_payment_account_id") or "",
         "incomeType": t.get("income_type") or "paycheck",
         "reconciled": bool(t.get("reconciled")),
+        "planned": t.get("planned", True),
     } for t in txs_raw]
 
     # Build month objects with nested allocations/budgets/etc.
@@ -254,6 +255,7 @@ def insert_transaction(uid: str, token: str, tx: dict) -> str:
         "to_account_id": tx.get("toAccountId") or None,
         "income_type": tx.get("incomeType") or None,
         "debt_payment_account_id": tx.get("debtPaymentAccountId") or None,
+        "planned": tx.get("planned", True),
     }).execute()
     return tx_id
 

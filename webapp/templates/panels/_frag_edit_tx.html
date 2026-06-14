@@ -68,6 +68,11 @@
       <option value="0" {{ 'selected' if not tx.reconciled }}>Not reconciled</option>
     </select>
   </div>
+  <div class="tx-field" id="tf-planned" style="{{ '' if tx.type == 'out' else 'display:none' }}">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" name="planned" value="1" {{ 'checked' if tx.planned }}><input type="hidden" name="planned" value="0"> Planned spend
+    </label>
+  </div>
 
   <div class="tx-actions">
     <button class="toolbar-btn" type="button" onclick="toggleTxEdit('{{ tx.id }}', '{{ url_for('panels.transaction_edit', tid=tx.id) }}')">Cancel</button>

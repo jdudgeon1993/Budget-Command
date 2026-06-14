@@ -85,8 +85,12 @@ CREATE TABLE IF NOT EXISTS bcc_transactions (
     debt_payment_account_id TEXT,
     reconciled              BOOLEAN NOT NULL DEFAULT FALSE,
     recurring               BOOLEAN NOT NULL DEFAULT FALSE,
+    planned                 BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: add `planned` to existing installs (no-op if column exists)
+ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS planned BOOLEAN NOT NULL DEFAULT TRUE;
 
 ALTER TABLE bcc_transactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY bcc_transactions_user_policy ON bcc_transactions

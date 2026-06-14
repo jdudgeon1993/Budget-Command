@@ -1049,6 +1049,42 @@ def reports_view(view_mid: str = None):
     alerts.sort(key=lambda a: abs(a["delta_pct"]), reverse=True)
     alerts = alerts[:6]
 
+    # ── Planned vs. unplanned spend ───────────────────────────────────────────
+    planned_spend = unplanned_spend = 0.0
+    unplanned_txs: dict = defaultdict(float)
+    for t in txs:
+        if t.get("monthId") == mid and t.get("type") == "out" and not F.is_scheduled(t):
+            amt = float(t.get("amount") or 0)
+            if t.get("planned", True):
+                planned_spend += amt
+            else:
+                unplanned_spend += amt
+                name = (t.get("desc") or "Unknown").strip()
+                unplanned_txs[name] += amt
+    pu_total = (planned_spend + unplanned_spend) or 1
+    planned_unplanned = {
+        "planned": round(planned_spend, 2), "unplanned": round(unplanned_spend, 2),
+        "planned_pct": round(planned_spend / pu_total * 100),
+        "unplanned_pct": round(unplanned_spend / pu_total * 100),
+        "top_unplanned": [{"name": k, "amount": round(v, 2)}
+                          for k, v in sorted(unplanned_txs.items(), key=lambda x: x[1], reverse=True)[:5]],
+    }
+
+    pu_trend = []
+    for i in range(5, -1, -1):
+        m_id = F.month_offset(mid, -i)
+        m_planned = m_unplanned = 0.0
+        for t in txs:
+            if t.get("monthId") == m_id and t.get("type") == "out" and not F.is_scheduled(t):
+                amt = float(t.get("amount") or 0)
+                if t.get("planned", True):
+                    m_planned += amt
+                else:
+                    m_unplanned += amt
+        m_total = (m_planned + m_unplanned) or 1
+        pu_trend.append({"mid": m_id, "label": month_label(m_id)[:3],
+                         "unplanned_pct": round(m_unplanned / m_total * 100)})
+
     return {
         "alerts": alerts,
         "view_mid": mid, "available_months": available_months,
@@ -1063,6 +1099,7 @@ def reports_view(view_mid: str = None):
         "debt_accounts": debt_accounts,
         "heatmap": heatmap, "disc_score": disc_score,
         "neg_rts_months": neg_rts_months, "avg_surplus": avg_surplus,
+        "planned_unplanned": planned_unplanned, "pu_trend": pu_trend,
     }
 
 

@@ -175,6 +175,8 @@ function updateTxFields(t){
   var incType=document.getElementById('tf-incomeType');
   if(toAcct)toAcct.style.display=(t==='xfr')?'':'none';
   if(bucket)bucket.style.display=(t==='out')?'':'none';
+  var planned=document.getElementById('tf-planned');
+  if(planned)planned.style.display=(t==='out')?'':'none';
   if(incType)incType.style.display=(t==='in')?'':'none';
   document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
 }

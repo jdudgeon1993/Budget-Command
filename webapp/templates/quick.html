@@ -92,6 +92,11 @@
         {% for p in payees %}<option value="{{ p }}">{% endfor %}
       </datalist>
     </div>
+    <div class="tx-field" id="qa-planned">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" name="planned" value="1" checked><input type="hidden" name="planned" value="0"> Planned spend
+      </label>
+    </div>
 
     <div class="tx-actions">
       <button class="toolbar-btn primary" type="submit" style="flex:1">Save</button>
@@ -112,6 +117,7 @@ function qaSetType(val){
   document.querySelectorAll('.tx-type').forEach(function(l){l.classList.remove('on');});
   event.currentTarget.classList.add('on');
   document.getElementById('qa-bucket').style.display = val === 'out' ? '' : 'none';
+  document.getElementById('qa-planned').style.display = val === 'out' ? '' : 'none';
   document.getElementById('qa-toAcct').style.display = val === 'xfr' ? '' : 'none';
   document.getElementById('qa-incomeType').style.display = val === 'in' ? '' : 'none';
   document.querySelector('select[name=toAccountId]').required = (val === 'xfr');

@@ -87,6 +87,11 @@
       {% for p in payees %}<option value="{{ p }}">{% endfor %}
     </datalist>
   </div>
+  <div class="tx-field" id="tf-planned" style="{{ '' if tx_type == 'out' else 'display:none' }}">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" name="planned" value="1" checked><input type="hidden" name="planned" value="0"> Planned spend
+    </label>
+  </div>
 
   <div class="tx-actions">
     <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
