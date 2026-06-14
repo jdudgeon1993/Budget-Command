@@ -13,6 +13,33 @@
     </select>
   </div>
 
+  {% if alerts %}
+  {# ══ CARD 0 — Spending Alerts ══ #}
+  <div class="rpt-card">
+    <div class="rpt-card-hd" onclick="rptToggle('alerts')">
+      <span class="rpt-card-icon">⚡</span>
+      <span class="rpt-card-title">Spending Alerts</span>
+      <span class="rpt-card-summary">{{ alerts | length }} categor{{ 'y' if alerts|length == 1 else 'ies' }} trending vs. 3-mo avg</span>
+      <span class="rpt-arrow open" id="rpt-arr-alerts">▾</span>
+    </div>
+    <div class="rpt-card-body open" id="rpt-body-alerts">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        {% for a in alerts %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm)">
+          <div>
+            <strong>{{ a.name }}</strong>
+            <span style="color:var(--text3);font-size:11px"> — {{ a.current | money }} this month vs. {{ a.avg | money }} avg</span>
+          </div>
+          <span style="font-family:var(--mono);font-size:12px;color:{{ 'var(--red)' if a.direction == 'up' else 'var(--green)' }}">
+            {{ '+' if a.direction == 'up' }}{{ a.delta_pct }}%
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {# ══ CARD 1 — Month Performance (open by default) ══ #}
   <div class="rpt-card">
     <div class="rpt-card-hd" onclick="rptToggle('perf')">

@@ -993,7 +993,29 @@ def reports_view(view_mid: str = None):
         max(sum(1 for h in heatmap if h["rts"] > 0), 1), 2
     )
 
+    # ── Spending alerts: this month vs. trailing 3-month average ─────────────
+    alerts = []
+    prior_mids = [F.month_offset(mid, -i) for i in (1, 2, 3)]
+    for b in buckets:
+        if b.get("type") == "vault":
+            continue
+        cur = F.b_spent(mid, b["id"], txs)
+        prior_vals = [F.b_spent(m_id, b["id"], txs) for m_id in prior_mids]
+        avg = sum(prior_vals) / len(prior_vals) if prior_vals else 0
+        if avg < 5 or cur < 5:
+            continue
+        delta_pct = round((cur - avg) / avg * 100)
+        if delta_pct >= 25:
+            alerts.append({"name": b["name"], "current": cur, "avg": round(avg, 2),
+                           "delta_pct": delta_pct, "direction": "up"})
+        elif delta_pct <= -25:
+            alerts.append({"name": b["name"], "current": cur, "avg": round(avg, 2),
+                           "delta_pct": delta_pct, "direction": "down"})
+    alerts.sort(key=lambda a: abs(a["delta_pct"]), reverse=True)
+    alerts = alerts[:6]
+
     return {
+        "alerts": alerts,
         "view_mid": mid, "available_months": available_months,
         "bva": bva, "bva_3mo": bva_3mo, "bva_6mo": bva_6mo,
         "cat_spend": cat_spend, "totals": totals,
