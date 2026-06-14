@@ -12,6 +12,10 @@
         {{ tab.label }}{% if tab.offset > 0 %} <span style="font-size:9px;opacity:.6;vertical-align:middle">▸</span>{% endif %}
       </a>
       {% endfor %}
+      <a class="month-tab" style="margin-left:auto" title="Buckets help / FAQ"
+         href="{{ url_for('panels.buckets_faq') }}"
+         hx-get="{{ url_for('panels.buckets_faq') }}"
+         hx-target="#panel" hx-swap="innerHTML" hx-push-url="true">? Help</a>
     </div>
 
     {% if shell.is_past_month %}

@@ -1,0 +1,235 @@
+{% extends layout %}
+{% block panel %}
+<div class="rpt-page">
+  <div class="rpt-header">
+    <div class="rpt-title">Buckets — Help &amp; FAQ</div>
+    <a class="toolbar-btn" href="{{ url_for('panels.buckets') }}"
+       hx-get="{{ url_for('panels.buckets') }}" hx-target="#panel" hx-swap="innerHTML" hx-push-url="true">
+      ← Back to Buckets
+    </a>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">What is a bucket?</div>
+    <p>
+      A bucket is a named "job" for your money — rent, groceries, the car fund,
+      a vacation goal. Every dollar in your budget account is either sitting in
+      <strong>Ready to Spend</strong> (unassigned) or assigned to a bucket. That's
+      zero-based budgeting: nothing is left to chance.
+    </p>
+    <p>
+      Each bucket has an <strong>Allocation</strong> (the money you've actually
+      put in it this month), and usually a <strong>Target/Budget</strong> (what
+      it's supposed to cost). The gap between the two drives the bucket's status
+      pill (e.g. "Funding — $50 short", "Funded", "Overspent $20").
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Bucket types</div>
+
+    <h4 style="margin:14px 0 4px">Expense (default)</h4>
+    <p>
+      A normal monthly category — groceries, gas, subscriptions. Each month its
+      allocation resets: whatever you didn't spend goes back to Ready to Spend
+      automatically. It doesn't carry over unless you turn on <strong>Rollover</strong>.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> "Groceries" has a $400 target. You allocate $400 this
+      month, spend $350. Next month, the leftover $50 returns to Ready to Spend —
+      "Groceries" starts fresh at $0 allocated again.
+    </p>
+
+    <h4 style="margin:14px 0 4px">Expense with Rollover</h4>
+    <p>
+      Same as Expense, but unspent money <strong>stays in the bucket</strong>
+      instead of returning to Ready to Spend — an envelope that carries a
+      balance forward.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> "Car Maintenance" has Rollover on, target $50/month.
+      You allocate $50 and spend $0 in January. In February the bucket still
+      shows $50 available, plus whatever you allocate that month — so a $300
+      repair in March is already covered.
+    </p>
+
+    <h4 style="margin:14px 0 4px">Vault</h4>
+    <p>
+      A long-term holding bucket that accumulates across every month — for
+      money you're setting aside but don't have a specific target/date for yet
+      (an emergency fund, a general savings cushion).
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> You allocate $100/month to "Emergency Fund" (a Vault).
+      After 6 months it shows a total of $600, even though no single month's
+      allocation was $600 — Vaults remember everything you've ever put in.
+    </p>
+
+    <h4 style="margin:14px 0 4px">Sinking Fund / Goal</h4>
+    <p>
+      Like a Vault (accumulates over time), but with a <strong>Target Amount</strong>
+      and optional <strong>Target Date</strong>. Shows a progress bar and tells
+      you exactly how much to save per month to hit the goal on time.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> "New Laptop" — target $1,200 by December (8 months away).
+      The bucket shows "Save $150/month to reach your goal" and a progress bar
+      that fills as you contribute.
+    </p>
+
+    <h4 style="margin:14px 0 4px">Flex</h4>
+    <p>
+      For categories that genuinely vary month to month and don't have a fixed
+      target — "Dining Out," "Misc." Flex buckets don't show "over/under budget"
+      against a target; instead they just track what you've spent vs. allocated,
+      with a simple "Cover $X" prompt if spending exceeds the allocation.
+      Flex buckets are excluded from the Funding Rate metric in Reports, since
+      they're not meant to hit a fixed number.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> "Dining Out" (Flex) — you allocate $150. You spend $180.
+      The bucket shows "Cover $30" — a nudge to move $30 from somewhere else,
+      but it's not flagged as "over budget" the way a fixed-target bucket would be.
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Allocation vs. Target/Budget</div>
+    <p>
+      <strong>Target/Budget</strong> is what a bucket is supposed to cost — set
+      it once in the bucket's settings (it carries forward to future months
+      automatically when set from the current month).
+    </p>
+    <p>
+      <strong>Allocation</strong> is the actual money you've put into the bucket
+      this month — set via the <strong>+ / −</strong> buttons or the alloc field
+      on each bucket row, or in bulk via <strong>Distribute</strong>.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> "Internet" target is $80. At the start of the month you
+      allocate $80 → pill shows "Funded". If you only allocate $60, the pill
+      shows "Funding — $20 short" until you top it up.
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Status pills explained</div>
+    <ul style="margin:0;padding-left:18px;line-height:1.8">
+      <li><strong style="color:var(--red)">Overspent $X</strong> — spending exceeded the bucket's target this month.</li>
+      <li><strong style="color:var(--amber)">Funding — $X short</strong> — allocation hasn't reached the target yet.</li>
+      <li><strong style="color:var(--amber)">Unfunded</strong> — has a target but $0 allocated.</li>
+      <li><strong style="color:var(--green)">Funded</strong> — allocation meets or exceeds the target.</li>
+      <li><strong style="color:var(--green)">Paid</strong> — funded and the full target has already been spent.</li>
+      <li><strong style="color:var(--green)">Overfunded</strong> — you've allocated more than the target (extra is "parked" in the bucket).</li>
+      <li><strong style="color:rgba(255,255,255,.7)">Open</strong> — an envelope bucket with no target, nothing allocated yet.</li>
+      <li><strong style="color:rgba(255,255,255,.4)">✓ Handled</strong> — manually marked done for this month (see below).</li>
+    </ul>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">"Handled" — what it does</div>
+    <p>
+      Sometimes you allocate more than you end up spending — and you don't want
+      to leave that extra money sitting idle in the bucket, or have the bucket
+      nag you with "$100 short" forever because the target is higher than what
+      you actually needed this month.
+    </p>
+    <p>
+      Marking a bucket <strong>Handled</strong> does two things, for the current
+      month only:
+    </p>
+    <ol style="margin:0;padding-left:18px;line-height:1.8">
+      <li>Releases any unspent allocation back to <strong>Ready to Spend</strong>
+        (allocation drops to match what was actually spent).</li>
+      <li>Treats the bucket's target as "met" for this month — every report,
+        the funding rate, and the bucket's pill all show it as fully funded
+        (✓ Handled), so it stops showing a misleading "short" amount.</li>
+    </ol>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> "Rent" has a $2,200 target. This month rent was actually
+      $2,100 (a discount). You allocated $2,200. Mark it Handled:
+      allocation drops to $2,100, the freed-up $100 returns to Ready to Spend,
+      and Reports show Rent as 100% funded this month — not "$100 short."
+    </p>
+    <p>
+      Toggling Handled back off just removes the badge — it does <strong>not</strong>
+      put the $100 back into the bucket (that money has already been freed for
+      you to reassign).
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Distribute (assigning Ready to Spend)</div>
+    <p>
+      Click <strong>DISTRIBUTE RTS →</strong> in the sidebar to open a modal
+      that suggests how to spread your unassigned cash across buckets that
+      still need funding — typically prioritizing buckets that are unfunded or
+      short first. Check/uncheck buckets and adjust amounts, then apply.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> You get paid and have $500 in Ready to Spend. Distribute
+      shows "Groceries — $50 short", "Internet — $80 short", "Emergency Fund —
+      flex $370". Apply it, and all three allocations update in one step.
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Vault Transfer &amp; Vault Release</div>
+    <p>
+      <strong>Vault Transfer</strong> moves money from one Vault/Sinking/Goal
+      bucket directly into another — no need to release to Ready to Spend and
+      re-allocate.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> You decide your "Vacation" goal is fully funded and want
+      to redirect future contributions toward "New Car" — transfer the
+      accumulated balance directly.
+    </p>
+    <p>
+      <strong>Vault Release</strong> moves accumulated money out of a Vault back
+      into <strong>Ready to Spend</strong>, for when plans change and you want
+      that cash freed up for something else.
+    </p>
+    <p class="fc-sc-hint" style="margin:0">
+      <em>Example:</em> "New Laptop" goal has $600 saved, but you've decided to
+      use your old laptop another year — Release sends that $600 back to Ready
+      to Spend to reassign anywhere.
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Categories &amp; ordering</div>
+    <p>
+      Buckets are grouped into categories (Housing, Food, Subscriptions, etc.)
+      shown as collapsible cards. Each category card shows a progress bar of
+      <code>allocated / target</code> across all its buckets. Add a new bucket
+      directly from the "+ New bucket in…" strip at the bottom of any category,
+      or use the global add strip to pick a category explicitly.
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Future months &amp; planning</div>
+    <p>
+      The month tabs at the top let you peek at upcoming months. Future months
+      always show <em>today's</em> targets — if you change a bucket's target
+      now, every future month immediately reflects it (no need to update each
+      month individually). Allocations you make to a future month are
+      "pre-claimed" and subtracted from today's Ready to Spend, so you can't
+      accidentally double-spend money you've already earmarked for next month's
+      rent.
+    </p>
+  </div>
+
+  <div class="card card-pad" style="margin-top:12px">
+    <div class="card-label">Closing the month &amp; archiving</div>
+    <p>
+      <strong>Close Month</strong> locks in the month's numbers for historical
+      reporting — you can <strong>Reopen</strong> it later if you need to make
+      corrections. <strong>Archive</strong> a bucket (from its settings) when
+      you no longer need it — it disappears from the active list but its
+      history is preserved for past-month reports.
+    </p>
+  </div>
+</div>
+{% endblock %}

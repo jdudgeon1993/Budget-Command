@@ -46,6 +46,12 @@ def buckets():
     return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
+@bp.route("/buckets/faq")
+@login_required
+def buckets_faq():
+    return render_panel("panels/buckets_faq.html", "buckets")
+
+
 # ── Bucket fill / distribute ─────────────────────────────────────────────────
 
 def _distribute_checks():
