@@ -140,6 +140,13 @@
         {% if b.btype == 'vault' %}∞{% else %}{{ bar_pct }}%{% endif %}
       </span>
     </div>
+    {% if b.btype in ('sinking','goal') and b.target_amount > 0 and not b.goal_reached %}
+      {% if b.monthly_needed %}
+      <div class="vg-goal-hint">Save {{ b.monthly_needed | money }}/mo to reach your goal by {{ b.target_date }}</div>
+      {% elif b.target_date %}
+      <div class="vg-goal-hint">Target date passed — increase contributions to catch up</div>
+      {% endif %}
+    {% endif %}
   {% endif %}
 
   {# ── Expandable drawer (alloc/budget inputs, ledger, settings) ── #}
