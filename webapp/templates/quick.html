@@ -116,6 +116,9 @@ function qaSetType(val){
   document.getElementById('qa-incomeType').style.display = val === 'in' ? '' : 'none';
   document.querySelector('select[name=toAccountId]').required = (val === 'xfr');
 }
+if (window.location.search) {
+  history.replaceState(null, '', window.location.pathname);
+}
 </script>
 </body>
 </html>

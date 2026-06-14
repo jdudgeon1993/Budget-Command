@@ -855,5 +855,9 @@ def quick_add():
                 session["pending_distribute_tid"] = new_tid
         else:
             flash("Amount and account are required.", "error")
+        if saved:
+            return redirect(url_for("panels.quick_add", saved="1"))
+        return redirect(url_for("panels.quick_add"))
+    saved = request.args.get("saved") == "1"
     ctx = D.tx_form_ctx()
     return render_template("quick.html", saved=saved, **ctx)
