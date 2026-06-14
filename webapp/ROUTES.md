@@ -28,11 +28,13 @@ Legend:
 | `/actions/bucket_archive` | POST | `_bucket_archive` | **migrated** | `upsert_bucket({archived:true})` | buckets | — |
 | `/actions/bucket_move` | POST | `_bucket_move` | **migrated** | `update_bucket_order` ×2 | buckets | — |
 | `/actions/bucket_handled_toggle` | POST | `_bucket_handled_toggle` | **migrated** | `ensure_month`, `toggle_handled` | buckets | — |
-| `/buckets/<bid>/vault-transfer` | GET, POST | `vault_transfer` | mutation | `vault_transfer` | buckets | yes (`_frag_vault_transfer`) |
-| `/buckets/<bid>/vault-release` | GET, POST | `vault_release_to_pool` | mutation | `vault_release_to_pool`, `log_vault_release` | buckets | yes (`_frag_vault_release`) |
+| `/buckets/<bid>/vault-transfer` | GET | `vault_transfer` | read | — | — | yes (`_frag_vault_transfer`) |
+| `/actions/vault_transfer` | POST | `_vault_transfer` | **migrated** | `vault_transfer` | buckets | closes modal |
+| `/buckets/<bid>/vault-release` | GET | `vault_release_to_pool` | read | — | — | yes (`_frag_vault_release`) |
+| `/actions/vault_release` | POST | `_vault_release` | **migrated** | `vault_release_to_pool`, `log_vault_release` | buckets | closes modal |
 | `/buckets/distribute` | GET | `distribute_modal` | read | — | — | yes (`_frag_distribute`) |
 | `/buckets/distribute/preview` | POST | `distribute_preview` | read | — | — | yes (`_frag_distribute`) |
-| `/buckets/distribute` | POST | `distribute_rts` | mutation | `upsert_alloc` (N×) | buckets | closes modal |
+| `/actions/distribute_apply` | POST | `_distribute_apply` | **migrated** | `upsert_alloc` (N×) | buckets | closes modal |
 
 ## Month workflow
 
@@ -63,9 +65,9 @@ Legend:
 | `/transaction` | POST | `transaction_create` | mutation | `insert_transaction` | `back` form field (default buckets) | may open paycheck-distribute modal |
 | `/transaction/<tid>/edit` | GET, POST | `transaction_edit` | mutation | `update_transaction` | `back` form field (default accounts) | yes (`_frag_edit_tx`) |
 | `/transaction/<tid>/delete` | POST | `transaction_delete` | mutation | `delete_transaction` | `back` form field (default accounts) | — |
-| `/transaction/<tid>/apply-rules` | POST | `apply_rules` | mutation | `upsert_alloc` (N×) | buckets | — |
+| `/actions/tx_apply_rules` | POST | `_tx_apply_rules` | **migrated** | `upsert_alloc` (N×) | buckets | closes modal |
 | `/transaction/<tid>/paycheck-distribute/preview` | POST | `paycheck_distribute_preview` | read | — | — | yes (`_frag_paycheck_distribute`) |
-| `/transaction/<tid>/paycheck-distribute` | POST | `apply_paycheck_distribute` | mutation | `upsert_alloc` (N×, across current + next month) | buckets | closes modal |
+| `/actions/tx_paycheck_distribute` | POST | `_tx_paycheck_distribute` | **migrated** | `upsert_alloc` (N×, across current + next month) | buckets | closes modal |
 
 ## Reports / Insights / Forecast
 

@@ -53,10 +53,11 @@
      hx-target="#panel" hx-swap="innerHTML"
      onclick="closeModal()">Skip</a>
   {% if internal_rules %}
-  <form method="post" action="{{ url_for('panels.apply_rules', tid=tid) }}"
-        hx-post="{{ url_for('panels.apply_rules', tid=tid) }}"
+  <form method="post" action="{{ url_for('panels.run_action', name='tx_apply_rules') }}"
+        hx-post="{{ url_for('panels.run_action', name='tx_apply_rules') }}"
         hx-target="#panel" hx-swap="innerHTML"
         style="display:contents">
+    <input type="hidden" name="id" value="{{ tid }}">
     <button class="toolbar-btn primary" type="submit">
       Apply {{ internal_rules | length }} Rule{{ 's' if internal_rules | length != 1 }}
     </button>

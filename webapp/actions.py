@@ -333,3 +333,171 @@ def _account_archive(u, t, f, data):
 
 register(Action("account_archive", _account_archive, "accounts",
                  flash_msg=lambda f: ("Account archived.", "ok")))
+
+
+# ── Multi-call / loop mutations (Phase 4) ───────────────────────────────────
+
+def _distribute_apply(u, t, f, data):
+    """Apply the selected obligations and rule suggestions from the Distribute modal.
+
+    Re-derives suggested amounts server-side (never trusts client-submitted
+    dollar figures) and only funds the items the user left checked.
+    """
+    if "submitted" not in f:
+        checked_ob, checked_rule = None, None
+    else:
+        checked_ob, checked_rule = set(f.getlist("ob")), set(f.getlist("rule"))
+    ctx = D.distribute_ctx(checked_ob=checked_ob, checked_rule=checked_rule)
+    month = D.active_month(data)
+
+    def _bump(bid, add):
+        if add <= 0.005:
+            return
+        new_alloc = round(D.F.b_alloc(month, bid) + add, 2)
+        month.setdefault("allocations", {})[bid] = new_alloc
+        if not current_app.config["DEV_SEED"]:
+            DB.upsert_alloc(u, t, D.active_mid(), bid, new_alloc)
+
+    for o in ctx["obligations"]:
+        if o["checked"]:
+            _bump(o["id"], o["gap"])
+    for r in ctx["rule_suggestions"]:
+        if r["checked"]:
+            _bump(r["bucket_id"], r["computed"])
+
+    return ("Distribution applied.", "ok")
+
+
+register(Action("distribute_apply", _distribute_apply, "buckets",
+                 response_mode="close_modal", always_run=True))
+
+
+def _tx_apply_rules(u, t, f, data):
+    tid = f.get("id", "")
+    tx = next((tr for tr in data.get("txs", []) if tr.get("id") == tid), None)
+    if not tx:
+        return ("Transaction not found.", "error")
+
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    month = next((m for m in data.get("months", []) if m.get("id") == mid),
+                 {"id": mid, "allocations": {}})
+    rules_raw = sorted(
+        [r for r in data.get("allocationRules", []) if r.get("active", True)],
+        key=lambda r: r.get("sort_order", 0))
+
+    applied = 0
+    remaining = amount
+    for r in rules_raw:
+        v = float(r.get("value") or 0)
+        vtype = r.get("value_type", "fixed")
+        if vtype == "fund":
+            computed = round(max(0.0, remaining), 2)
+        else:
+            computed = round(amount * v / 100, 2) if vtype == "pct" else v
+        remaining = round(remaining - computed, 2)
+
+        if r.get("rule_type", "internal") == "external":
+            continue
+        bid = r.get("bucket_id") or r.get("bucketId") or ""
+        if not bid or computed <= 0:
+            continue
+        new_alloc = round(D.F.b_alloc(month, bid) + computed, 2)
+        if not current_app.config["DEV_SEED"]:
+            DB.upsert_alloc(u, t, mid, bid, new_alloc)
+        applied += 1
+
+    return (f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
+
+
+register(Action("tx_apply_rules", _tx_apply_rules, "buckets",
+                 response_mode="close_modal", always_run=True))
+
+
+def _tx_paycheck_distribute(u, t, f, data):
+    tid = f.get("id", "")
+    tx = next((tr for tr in data.get("txs", []) if tr.get("id") == tid), None)
+    if not tx:
+        return ("Transaction not found.", "error")
+
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    ctx = D.paycheck_distribute_ctx(
+        amount, mid,
+        checked_rule=set(f.getlist("rule")),
+        checked_ob=set(f.getlist("ob")),
+        checked_fund=set(f.getlist("fund")),
+        checked_next=set(f.getlist("next_ob")),
+    )
+    if not current_app.config["DEV_SEED"]:
+        month = D.active_month(data, mid)
+        next_mid = ctx["next_mid"]
+        next_month = D.active_month(data, next_mid)
+        for r in ctx["internal_rules"]:
+            if r["checked"] and r["computed"] > 0:
+                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
+                DB.upsert_alloc(u, t, mid, r["bucket_id"], new_alloc)
+        for o in ctx["obligations"]:
+            if o["checked"] and o["gap"] > 0:
+                new_alloc = round(D.F.b_alloc(month, o["id"]) + o["gap"], 2)
+                DB.upsert_alloc(u, t, mid, o["id"], new_alloc)
+        for r in ctx["fund_rules"]:
+            if r["checked"] and r["computed"] > 0:
+                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
+                DB.upsert_alloc(u, t, mid, r["bucket_id"], new_alloc)
+        for o in ctx["next_obligations"]:
+            if o["checked"] and o["gap"] > 0:
+                new_alloc = round(D.F.b_alloc(next_month, o["id"]) + o["gap"], 2)
+                DB.upsert_alloc(u, t, next_mid, o["id"], new_alloc)
+
+    return (f"Distributed {ctx['total_applied']:,.2f}.", "ok")
+
+
+register(Action("tx_paycheck_distribute", _tx_paycheck_distribute, "buckets",
+                 response_mode="close_modal", always_run=True))
+
+
+def _vault_transfer(u, t, f, data):
+    bid = f.get("id", "")
+    to_bid = f.get("to_bid", "")
+    amount = D.parse_amount(f.get("amount", "0"))
+    if not (amount > 0 and to_bid):
+        return None
+
+    month = D.active_month(data)
+    mid = D.active_mid()
+    from_alloc = D.F.b_alloc(month, bid)
+    to_alloc = D.F.b_alloc(month, to_bid)
+    new_from = max(0.0, round(from_alloc - amount, 2))
+    new_to = round(to_alloc + amount, 2)
+    if not current_app.config["DEV_SEED"]:
+        DB.vault_transfer(u, t, mid, bid, to_bid, amount, new_from, new_to)
+        return (f"Transferred ${amount:,.2f} from vault.", "ok")
+    return ("Dev mode: transfer not persisted.", "ok")
+
+
+register(Action("vault_transfer", _vault_transfer, "buckets",
+                 response_mode="close_modal", always_run=True))
+
+
+def _vault_release(u, t, f, data):
+    bid = f.get("id", "")
+    amount = D.parse_amount(f.get("amount", "0"))
+    if not (amount > 0):
+        return None
+
+    month = D.active_month(data)
+    mid = D.active_mid()
+    current_alloc = D.F.b_alloc(month, bid)
+    if not current_app.config["DEV_SEED"]:
+        DB.vault_release_to_pool(u, t, mid, bid, amount, current_alloc)
+        reason = f.get("reason", "").strip()
+        is_planned = f.get("is_planned") == "1"
+        if reason:
+            DB.log_vault_release(u, t, mid, bid, amount, reason, is_planned)
+        return (f"Released ${amount:,.2f} from vault to pool.", "ok")
+    return ("Dev mode: release not persisted.", "ok")
+
+
+register(Action("vault_release", _vault_release, "buckets",
+                 response_mode="close_modal", always_run=True))

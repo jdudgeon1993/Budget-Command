@@ -8,9 +8,10 @@
   <p style="font-size:12px;color:var(--text3);margin:8px 0 0">Transfers move this month's vault allocation to another bucket. Net effect on RTS: zero.</p>
 </div>
 
-<form method="post" action="{{ url_for('panels.vault_transfer', bid=bucket.id) }}"
-      hx-post="{{ url_for('panels.vault_transfer', bid=bucket.id) }}"
+<form method="post" action="{{ url_for('panels.run_action', name='vault_transfer') }}"
+      hx-post="{{ url_for('panels.run_action', name='vault_transfer') }}"
       hx-target="#panel" hx-swap="innerHTML">
+  <input type="hidden" name="id" value="{{ bucket.id }}">
   <div class="edit-field">
     <label>Amount to transfer</label>
     <input type="text" name="amount" inputmode="decimal" placeholder="0.00" required autofocus>

@@ -80,44 +80,6 @@ def distribute_preview():
     return resp
 
 
-@bp.route("/buckets/distribute", methods=["POST"])
-@login_required
-def distribute_rts():
-    """Apply the selected obligations and rule suggestions from the Distribute modal.
-
-    Re-derives suggested amounts server-side (never trusts client-submitted
-    dollar figures) and only funds the items the user left checked.
-    """
-    checked_ob, checked_rule = _distribute_checks()
-    ctx = D.distribute_ctx(checked_ob=checked_ob, checked_rule=checked_rule)
-    data = D.load_data()
-    month = D.active_month(data)
-
-    def _bump(bid, add):
-        if add <= 0.005:
-            return
-        new_alloc = round(D.F.b_alloc(month, bid) + add, 2)
-        month.setdefault("allocations", {})[bid] = new_alloc
-        if not current_app.config["DEV_SEED"]:
-            DB.upsert_alloc(session["user_id"], session["access_token"],
-                            D.active_mid(), bid, new_alloc)
-
-    for o in ctx["obligations"]:
-        if o["checked"]:
-            _bump(o["id"], o["gap"])
-
-    for r in ctx["rule_suggestions"]:
-        if r["checked"]:
-            _bump(r["bucket_id"], r["computed"])
-
-    if not current_app.config["DEV_SEED"]:
-        D.invalidate_cache()
-    flash("Distribution applied.", "ok")
-    if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-    return _buckets_response()
-
-
 def _buckets_response():
     """Return buckets panel for HTMX or redirect for plain requests."""
     if request.headers.get("HX-Request") == "true":
@@ -203,33 +165,12 @@ def bucket_settings(bid):
                         bucket=bucket, cats=cats, debt_accounts=debt_accounts)
 
 
-@bp.route("/buckets/<bid>/vault-transfer", methods=["GET", "POST"])
+@bp.route("/buckets/<bid>/vault-transfer", methods=["GET"])
 @login_required
 def vault_transfer(bid):
     data = D.load_data()
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket or bucket.get("type") != "vault":
-        return redirect(url_for("panels.buckets"))
-    if request.method == "POST":
-        f = request.form
-        to_bid = f.get("to_bid", "")
-        amount = D.parse_amount(f.get("amount", "0"))
-        if amount > 0 and to_bid:
-            month = D.active_month(data)
-            mid = D.active_mid()
-            from_alloc = D.F.b_alloc(month, bid)
-            to_alloc = D.F.b_alloc(month, to_bid)
-            new_from = max(0.0, round(from_alloc - amount, 2))
-            new_to = round(to_alloc + amount, 2)
-            if not current_app.config["DEV_SEED"]:
-                DB.vault_transfer(session["user_id"], session["access_token"],
-                                  mid, bid, to_bid, amount, new_from, new_to)
-                D.invalidate_cache()
-                flash(f"Transferred ${amount:,.2f} from vault.", "ok")
-            else:
-                flash("Dev mode: transfer not persisted.", "ok")
-        if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
         return redirect(url_for("panels.buckets"))
     # GET — render transfer form in modal
     dest_buckets = [b for b in data.get("buckets", [])
@@ -249,34 +190,12 @@ def vault_transfer(bid):
                            vault_alloc=vault_alloc, vault_accum=vault_accum)
 
 
-@bp.route("/buckets/<bid>/vault-release", methods=["GET", "POST"])
+@bp.route("/buckets/<bid>/vault-release", methods=["GET"])
 @login_required
 def vault_release_to_pool(bid):
     data = D.load_data()
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket or bucket.get("type") != "vault":
-        return redirect(url_for("panels.buckets"))
-    if request.method == "POST":
-        f = request.form
-        amount = D.parse_amount(f.get("amount", "0"))
-        if amount > 0:
-            month = D.active_month(data)
-            mid = D.active_mid()
-            current_alloc = D.F.b_alloc(month, bid)
-            if not current_app.config["DEV_SEED"]:
-                DB.vault_release_to_pool(session["user_id"], session["access_token"],
-                                         mid, bid, amount, current_alloc)
-                reason = f.get("reason", "").strip()
-                is_planned = f.get("is_planned") == "1"
-                if reason:
-                    DB.log_vault_release(session["user_id"], session["access_token"],
-                                         mid, bid, amount, reason, is_planned)
-                D.invalidate_cache()
-                flash(f"Released ${amount:,.2f} from vault to pool.", "ok")
-            else:
-                flash("Dev mode: release not persisted.", "ok")
-        if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
         return redirect(url_for("panels.buckets"))
     # GET — render release form in modal
     month = D.active_month(data)
@@ -832,100 +751,6 @@ def paycheck_distribute_preview(tid):
         checked_next=set(f.getlist("next_ob")),
     )
     return render_template("panels/_frag_paycheck_distribute.html", tid=tid, **ctx)
-
-
-@bp.route("/transaction/<tid>/paycheck-distribute", methods=["POST"])
-@login_required
-def apply_paycheck_distribute(tid):
-    """Apply the combined paycheck distribution (rules + obligations + catch-alls + next month)."""
-    data = D.load_data()
-    tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
-    if not tx:
-        flash("Transaction not found.", "error")
-        return redirect(url_for("panels.buckets"))
-    amount = float(tx.get("amount") or 0)
-    mid = tx.get("monthId") or D.active_mid()
-    f = request.form
-    # Recompute server-side — never trust client-submitted amounts
-    ctx = D.paycheck_distribute_ctx(
-        amount, mid,
-        checked_rule=set(f.getlist("rule")),
-        checked_ob=set(f.getlist("ob")),
-        checked_fund=set(f.getlist("fund")),
-        checked_next=set(f.getlist("next_ob")),
-    )
-    if not current_app.config["DEV_SEED"]:
-        month = D.active_month(data, mid)
-        next_mid = ctx["next_mid"]
-        next_month = D.active_month(data, next_mid)
-        for r in ctx["internal_rules"]:
-            if r["checked"] and r["computed"] > 0:
-                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
-                DB.upsert_alloc(session["user_id"], session["access_token"], mid, r["bucket_id"], new_alloc)
-        for o in ctx["obligations"]:
-            if o["checked"] and o["gap"] > 0:
-                new_alloc = round(D.F.b_alloc(month, o["id"]) + o["gap"], 2)
-                DB.upsert_alloc(session["user_id"], session["access_token"], mid, o["id"], new_alloc)
-        for r in ctx["fund_rules"]:
-            if r["checked"] and r["computed"] > 0:
-                new_alloc = round(D.F.b_alloc(month, r["bucket_id"]) + r["computed"], 2)
-                DB.upsert_alloc(session["user_id"], session["access_token"], mid, r["bucket_id"], new_alloc)
-        for o in ctx["next_obligations"]:
-            if o["checked"] and o["gap"] > 0:
-                new_alloc = round(D.F.b_alloc(next_month, o["id"]) + o["gap"], 2)
-                DB.upsert_alloc(session["user_id"], session["access_token"], next_mid, o["id"], new_alloc)
-        D.invalidate_cache()
-    flash(f"Distributed {ctx['total_applied']:,.2f}.", "ok")
-    return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-
-
-@bp.route("/transaction/<tid>/apply-rules", methods=["POST"])
-@login_required
-def apply_rules(tid):
-    """Apply active internal allocation rules to bucket allocations for this income tx."""
-    data = D.load_data()
-    tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
-    if not tx:
-        flash("Transaction not found.", "error")
-        return redirect(url_for("panels.buckets"))
-
-    amount = float(tx.get("amount") or 0)
-    mid = tx.get("monthId") or D.active_mid()
-    month = next((m for m in data.get("months", []) if m.get("id") == mid),
-                 {"id": mid, "allocations": {}})
-    rules_raw = sorted(
-        [r for r in data.get("allocationRules", []) if r.get("active", True)],
-        key=lambda r: r.get("sort_order", 0))
-
-    applied = 0
-    remaining = amount
-    for r in rules_raw:
-        v = float(r.get("value") or 0)
-        vtype = r.get("value_type", "fixed")
-        if vtype == "fund":
-            computed = round(max(0.0, remaining), 2)
-        else:
-            computed = round(amount * v / 100, 2) if vtype == "pct" else v
-        remaining = round(remaining - computed, 2)
-
-        if r.get("rule_type", "internal") == "external":
-            continue
-        bid = r.get("bucket_id") or r.get("bucketId") or ""
-        if not bid or computed <= 0:
-            continue
-        new_alloc = round(D.F.b_alloc(month, bid) + computed, 2)
-        if not current_app.config["DEV_SEED"]:
-            DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, new_alloc)
-        applied += 1
-
-    if applied and not current_app.config["DEV_SEED"]:
-        D.invalidate_cache()
-    flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
-    if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
-
-
 
 
 @bp.route("/transaction/<tid>/edit", methods=["GET", "POST"])

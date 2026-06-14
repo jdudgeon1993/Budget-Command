@@ -3,10 +3,11 @@
   Rules fire first, then obligations are filled in urgency order. Catch-all rules absorb whatever remains.
 </p>
 
-<form method="post" action="{{ url_for('panels.apply_paycheck_distribute', tid=tid) }}"
-      hx-post="{{ url_for('panels.apply_paycheck_distribute', tid=tid) }}"
+<form method="post" action="{{ url_for('panels.run_action', name='tx_paycheck_distribute') }}"
+      hx-post="{{ url_for('panels.run_action', name='tx_paycheck_distribute') }}"
       hx-target="#panel" hx-swap="innerHTML"
       id="paycheck-distribute-form">
+  <input type="hidden" name="id" value="{{ tid }}">
 
   {% if external_rules %}
   <div class="modal-section-lbl"><span>Transfer reminders</span><span class="line"></span></div>
