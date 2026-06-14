@@ -116,6 +116,15 @@ document.addEventListener('htmx:afterSettle',function(e){
       <span class="hdr-panel" id="hdr-panel">{{ p }}</span>
     </header>
 
+    {% if shell.pending_distribute_tid %}
+    <div class="month-banner" style="background:rgba(48,209,88,.10);border:1px solid rgba(48,209,88,.25);color:var(--green)">
+      <span>💰 A paycheck was logged from Quick Add — distribute it to your buckets?</span>
+      <button class="month-banner-cta" type="button" style="background:var(--green);color:#0c001a"
+              hx-get="{{ url_for('panels.paycheck_distribute_open', tid=shell.pending_distribute_tid) }}"
+              hx-target="#modal-body" hx-swap="innerHTML" onclick="openModal()">Distribute now →</button>
+    </div>
+    {% endif %}
+
     <div id="panel">{% block panel %}{% endblock %}</div>
   </main>
 

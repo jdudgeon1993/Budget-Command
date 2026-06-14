@@ -715,6 +715,20 @@ def _safe_n_months(raw) -> int:
         return 3
 
 
+@bp.route("/transaction/<tid>/paycheck-distribute", methods=["GET"])
+@login_required
+def paycheck_distribute_open(tid):
+    """Open the paycheck-distribute modal with smart defaults (e.g. for a
+    paycheck logged via Quick Add, prompted on next full-app visit)."""
+    tx = next((t for t in D.load_data().get("txs", []) if t.get("id") == tid), None)
+    if not tx:
+        return "", 404
+    amount = float(tx.get("amount") or 0)
+    mid = tx.get("monthId") or D.active_mid()
+    ctx = D.paycheck_distribute_ctx(amount, mid)
+    return render_template("panels/_frag_paycheck_distribute.html", tid=tid, **ctx)
+
+
 @bp.route("/transaction/<tid>/paycheck-distribute/preview", methods=["POST"])
 @login_required
 def paycheck_distribute_preview(tid):
@@ -833,10 +847,12 @@ def quick_add():
         elif tx_type == "xfr" and not tx["toAccountId"]:
             flash("Pick a destination account for the transfer.", "error")
         elif amount > 0 and tx["accountId"]:
-            DB.insert_transaction(session["user_id"], session["access_token"], tx)
+            new_tid = DB.insert_transaction(session["user_id"], session["access_token"], tx)
             D.invalidate_cache()
             saved = True
             flash("Transaction added.", "ok")
+            if tx_type == "in" and tx["incomeType"] == "paycheck":
+                session["pending_distribute_tid"] = new_tid
         else:
             flash("Amount and account are required.", "error")
     ctx = D.tx_form_ctx()

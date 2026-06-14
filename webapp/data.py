@@ -142,6 +142,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_accounts": tx_accounts,
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
+        "pending_distribute_tid": session.pop("pending_distribute_tid", None),
     }
 
 
