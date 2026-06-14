@@ -46,6 +46,28 @@ def login_required(view):
     return wrapped
 
 
+_QUICK_AUTH_MAX_AGE = 7 * 24 * 60 * 60  # re-prompt login weekly on /quick
+
+
+def quick_required(view):
+    """Like login_required, but also forces re-login weekly for /quick —
+    this page is meant to live on a phone home screen, so a stolen/lost
+    device only grants a week of standing access."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if current_app.config["DEV_SEED"]:
+            session.update(SAMPLE_SESSION)
+            session.setdefault("quick_auth_at", time.time())
+            return view(*args, **kwargs)
+        if not session.get("access_token"):
+            return redirect(url_for("auth.login", next="quick"))
+        quick_auth_at = session.get("quick_auth_at", 0)
+        if time.time() - quick_auth_at > _QUICK_AUTH_MAX_AGE:
+            return redirect(url_for("auth.login", next="quick"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 @bp.before_app_request
 def _refresh_token_if_needed():
     """Proactively refresh the Supabase access token before it expires."""
@@ -95,6 +117,9 @@ def login():
             session["expires_at"]    = res["expires_at"]
             session["user_id"]       = res["user_id"]
             session["email"]         = res.get("user_email", request.form["email"])
+            session["quick_auth_at"] = time.time()
+            if request.args.get("next") == "quick":
+                return redirect(url_for("panels.quick_add"))
             return redirect(url_for("panels.buckets"))
         except Exception as e:
             from flask import flash

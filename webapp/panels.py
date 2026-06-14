@@ -10,7 +10,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 from . import db as DB
 from . import data as D
 from . import actions as A
-from .auth import login_required
+from .auth import login_required, quick_required
 
 bp = Blueprint("panels", __name__)
 
@@ -801,3 +801,36 @@ def _stub(name, title):
 @login_required
 def run_action(name):
     return A.dispatch(name)
+
+
+# ── Quick Add — standalone, home-screen-installable transaction entry ───────
+
+@bp.route("/quick", methods=["GET", "POST"])
+@quick_required
+def quick_add():
+    from datetime import date as _date
+    saved = False
+    if request.method == "POST":
+        f = request.form
+        amount = D.parse_amount(f.get("amount", "0"))
+        tx_type = f.get("type", "out")
+        iso = f.get("date") or _date.today().isoformat()
+        y, m, _d = (iso[:10].split("-") + ["1", "1", "1"])[:3]
+        mid = D.F.month_id(int(y), int(m) - 1)
+        tx = {
+            "accountId": f.get("accountId", ""), "monthId": mid,
+            "type": tx_type, "amount": amount, "date": iso,
+            "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
+            "toAccountId": "", "incomeType": "other",
+        }
+        if current_app.config["DEV_SEED"]:
+            flash("Dev mode: transaction not persisted (no database).", "ok")
+        elif amount > 0 and tx["accountId"]:
+            DB.insert_transaction(session["user_id"], session["access_token"], tx)
+            D.invalidate_cache()
+            saved = True
+            flash("Transaction added.", "ok")
+        else:
+            flash("Amount and account are required.", "error")
+    ctx = D.tx_form_ctx()
+    return render_template("quick.html", saved=saved, **ctx)

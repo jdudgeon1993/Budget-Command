@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="electric">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0c001a">
+  <title>Cura — Quick Add</title>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest-quick.json') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <style>
+    html,body{height:100%;background:var(--bg)}
+    body{display:flex;align-items:center;justify-content:center;padding:24px}
+    .qa-card{width:100%;max-width:360px}
+    .qa-title{font-size:18px;font-weight:800;margin-bottom:4px}
+    .qa-sub{font-size:12px;color:var(--text3);margin-bottom:18px}
+    .qa-saved{background:var(--green-dim);border:1px solid rgba(48,209,88,.25);border-radius:var(--r-sm);
+      padding:10px 14px;font-size:13px;color:var(--green);margin-bottom:16px;text-align:center}
+  </style>
+</head>
+<body>
+<div class="qa-card">
+  <div class="qa-title">Quick Add</div>
+  <div class="qa-sub">Cura — log a transaction</div>
+
+  {% if saved %}
+  <div class="qa-saved">✓ Saved — add another below</div>
+  {% endif %}
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="qa-saved" style="{{ 'background:var(--red-dim);border-color:rgba(255,69,58,.25);color:var(--red)' if cat=='error' }}">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+
+  <form class="tx-form" method="post" action="{{ url_for('panels.quick_add') }}">
+    <div class="tx-type-row">
+      {% for val, label in [('out','Expense'),('in','Income')] %}
+      <label class="tx-type {{ 'on' if val == 'out' }}" onclick="qaSetType('{{ val }}')">
+        <input type="radio" name="type" value="{{ val }}" {{ 'checked' if val == 'out' }} hidden>{{ label }}
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="tx-field">
+      <label>Amount</label>
+      <input type="text" name="amount" inputmode="decimal" placeholder="0.00" autofocus required>
+    </div>
+    <div class="tx-field">
+      <label>Date</label>
+      <input type="date" name="date" value="{{ today }}">
+    </div>
+    <div class="tx-field">
+      <label>Account</label>
+      <select name="accountId" required>
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="tx-field" id="qa-bucket">
+      <label>Bucket</label>
+      <select name="bucketId">
+        <option value="">—</option>
+        {% for grp in buckets_by_cat %}
+        <optgroup label="{{ grp.cat }}">
+          {% for b in grp.buckets %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="tx-field">
+      <label>Payee / note</label>
+      <input type="text" name="desc" placeholder="e.g. Whole Foods" list="payee-list" autocomplete="off">
+      <datalist id="payee-list">
+        {% for p in payees %}<option value="{{ p }}">{% endfor %}
+      </datalist>
+    </div>
+
+    <div class="tx-actions">
+      <button class="toolbar-btn primary" type="submit" style="flex:1">Save</button>
+    </div>
+  </form>
+
+  <div style="margin-top:20px;text-align:center">
+    <a href="{{ url_for('panels.buckets') }}" style="font-size:11px;color:var(--text3)">Open full app →</a>
+  </div>
+</div>
+<script>
+function qaSetType(val){
+  document.querySelectorAll('.tx-type').forEach(function(l){l.classList.remove('on');});
+  event.currentTarget.classList.add('on');
+  var bkt=document.getElementById('qa-bucket');
+  bkt.style.display = val === 'out' ? '' : 'none';
+}
+</script>
+</body>
+</html>
