@@ -100,14 +100,6 @@ def _panel_close_modal(panel_tmpl, active_panel, **ctx):
     return resp
 
 
-_PANEL_MAP = {
-    "accounts": ("panels/accounts.html", lambda: D.accounts_view()),
-    "buckets":  ("panels/buckets.html",  lambda: D.bucket_rows()),
-    "reports":  ("panels/reports.html",  lambda: D.reports_view()),
-    "setup":    ("panels/setup.html",    lambda: D.setup_view()),
-}
-
-
 # ── Bucket settings ───────────────────────────────────────────────────────────
 
 @bp.route("/buckets/<bid>/settings", methods=["GET", "POST"])

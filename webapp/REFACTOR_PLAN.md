@@ -22,7 +22,7 @@ migrate — it's the fallback reference if something regresses).
 - Add this alongside existing routes — nothing removed yet. Write a couple
   of throwaway test actions to prove the dispatcher works end-to-end.
 
-## Phase 3 — Migrate simple single-call mutations
+## Phase 3 — Migrate simple single-call mutations (done)
 - Targets: `add_bucket`, `set_alloc`, `fill_bucket`, `set_budget`,
   `archive_bucket`, `move_bucket`, `toggle_handled`, `account_archive`,
   `add_paycheck`/`edit_paycheck`/`del_paycheck`, `add_category`/
@@ -34,7 +34,7 @@ migrate — it's the fallback reference if something regresses).
   to avoid a long dual-route period).
 - Update `ROUTES.md` row-by-row as each migrates (mark "migrated").
 
-## Phase 4 — Migrate multi-call / loop mutations
+## Phase 4 — Migrate multi-call / loop mutations (done)
 - Targets: `distribute_rts`, `apply_rules`, `apply_paycheck_distribute`,
   `vault_release_to_pool`, `vault_transfer`, `set_budget`'s future-month
   propagation.
@@ -42,21 +42,30 @@ migrate — it's the fallback reference if something regresses).
   win here is just shedding the `_dev_or_panel` boilerplate at the edges,
   not forcing these into single DB calls.
 
-## Phase 5 — Dynamic back-panel + OOB response modes
+## Phase 5 — Dynamic back-panel + OOB response modes (done)
 - Targets: `transaction_create`, `transaction_edit`, `transaction_delete`
   (back-panel from `request.form["back"]`), and `scenario_*` (OOB forecast
   fragment response mode).
 - Extend dispatcher's `response_mode` handling to cover these two cases
   generically so no route-specific glue remains.
+- Added `always_run` (fn runs even under DEV_SEED, self-checks before DB
+  writes) and tuple-return flash overrides to `Action`/`dispatch()` to
+  support dynamic flash messages and validation-only paths.
+- Added `"oob"` response_mode: `fn` returns the full `Response` directly
+  (used by `tx_create`'s paycheck-distribute branch and `scenario_*`'s
+  forecast-fragment swap).
 
-## Phase 6 — Cleanup
-- Remove now-unused `_dev_or`, `_dev_or_panel`, `_panel_close_modal`,
-  `_buckets_response`, `_PANEL_MAP` if fully superseded by the registry
-  (or keep whichever pieces the dispatcher still relies on).
-- Re-run the full route inventory against `ROUTES.md` — confirm every
-  mutation route is either migrated or intentionally still standalone
-  (read-only modal routes).
-- Update `FORMULAS.md`/CI template-render check if route names changed.
+## Phase 6 — Cleanup (done)
+- Removed now-unused `_dev_or`, `_dev_or_panel`, and panels.py's local
+  `_PANEL_MAP` (superseded by `actions._PANEL_MAP`).
+- Kept `_panel_close_modal`, `_buckets_response`, `_is_modal`, and
+  `render_panel` — still used by the remaining read-only modal routes
+  (bucket/account settings, debt payment/interest, vault transfer/release
+  GET, scenario editor, add/edit-tx GET).
+- `ROUTES.md` updated row-by-row; every mutation route is either migrated
+  to `/actions/<name>` or intentionally standalone (read-only modal GETs).
+
+## Status: all phases complete.
 
 ## Testing strategy throughout
 - Each phase: `python -m compileall webapp`, template-render check (already
