@@ -238,6 +238,40 @@
     </p>
   </div>
 
+  <!-- ── Reconcile Planned vs Unplanned (temporary) ── -->
+  {% if reconcile_txs %}
+  <div class="card card-pad setup-card">
+    <div class="card-label">Reconcile Planned vs Unplanned</div>
+    <p style="font-size:12px;color:var(--text3);margin:6px 0 12px">
+      Temporary helper — quickly mark recent expense transactions as planned or
+      unplanned for the Reports "Planned vs. Unplanned" card. Last 3 months shown.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:480px;overflow-y:auto">
+      {% for t in reconcile_txs %}
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px">
+        <span style="color:var(--text3);width:48px;flex:0 0 48px">{{ t.date[5:] }}</span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          {{ t.desc }}{% if t.bucket %} <span style="color:var(--text3)">· {{ t.bucket }}</span>{% endif %}
+        </span>
+        <span style="font-family:var(--mono);flex:0 0 70px;text-align:right">{{ t.amount | money }}</span>
+        <form method="post" action="{{ url_for('panels.run_action', name='tx_planned_toggle') }}" style="display:flex;gap:4px;flex:0 0 auto"
+              hx-post="{{ url_for('panels.run_action', name='tx_planned_toggle') }}" hx-target="#panel" hx-swap="innerHTML">
+          <input type="hidden" name="id" value="{{ t.id }}">
+          <input type="hidden" name="planned" value="1">
+          <button class="setup-toggle-btn {{ 'active' if t.planned }}" type="submit" title="Mark planned">Planned</button>
+        </form>
+        <form method="post" action="{{ url_for('panels.run_action', name='tx_planned_toggle') }}" style="display:flex;gap:4px;flex:0 0 auto"
+              hx-post="{{ url_for('panels.run_action', name='tx_planned_toggle') }}" hx-target="#panel" hx-swap="innerHTML">
+          <input type="hidden" name="id" value="{{ t.id }}">
+          <input type="hidden" name="planned" value="0">
+          <button class="setup-toggle-btn {{ 'active' if not t.planned }}" type="submit" title="Mark unplanned">Unplanned</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
 </div>
 
 <script>

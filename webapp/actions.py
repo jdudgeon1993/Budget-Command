@@ -224,6 +224,19 @@ def _rule_toggle(u, t, f, data):
 register(Action("rule_toggle", _rule_toggle, "setup"))
 
 
+# ── Temporary: planned/unplanned reconcile toggle ────────────────────────────
+
+def _tx_planned_toggle(u, t, f, data):
+    tid = f.get("id", "")
+    planned = f.get("planned") == "1"
+    if not current_app.config["DEV_SEED"]:
+        DB.update_transaction(u, t, tid, {"planned": planned})
+        D.invalidate_cache()
+
+
+register(Action("tx_planned_toggle", _tx_planned_toggle, "setup"))
+
+
 # ── Bucket actions ────────────────────────────────────────────────────────
 
 def _bucket_add(u, t, f, data):

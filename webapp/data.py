@@ -566,11 +566,25 @@ def setup_view():
     rules_total_pct   = sum(r["value"] for r in active_internal if r["is_pct"])
     rules_total_fixed = sum(r["value"] for r in active_internal if not r["is_pct"])
     paycheck_total = sum(p["amount"] for p in paychecks)
+
+    # ── Temporary: reconcile planned/unplanned on recent expense txs ─────────
+    recent_mids = {F.month_offset(active_mid(), -i) for i in (0, 1, 2)}
+    reconcile_txs = sorted([
+        {"id": t["id"], "date": (t.get("date") or "")[:10],
+         "desc": t.get("desc") or "Transaction",
+         "bucket": bkt_name.get(t.get("bucketId", ""), ""),
+         "amount": float(t.get("amount") or 0),
+         "planned": t.get("planned", True)}
+        for t in data.get("txs", [])
+        if t.get("type") == "out" and t.get("monthId") in recent_mids and not F.is_scheduled(t)
+    ], key=lambda x: x["date"], reverse=True)
+
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
             "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"},
             "rules_total_pct": rules_total_pct,
             "rules_total_fixed": rules_total_fixed,
-            "paycheck_total": paycheck_total}
+            "paycheck_total": paycheck_total,
+            "reconcile_txs": reconcile_txs}
 
 
 def income_rules_ctx(amount: float, mid: str) -> dict:
