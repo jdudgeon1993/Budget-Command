@@ -88,6 +88,9 @@ def dispatch(name: str):
         if not dev_seed:
             D.invalidate_cache()
 
+    if action.response_mode == "oob":
+        return result
+
     if isinstance(result, tuple):
         msg = result
     elif not dev_seed:
@@ -501,3 +504,150 @@ def _vault_release(u, t, f, data):
 
 register(Action("vault_release", _vault_release, "buckets",
                  response_mode="close_modal", always_run=True))
+
+
+# ── Transaction actions (Phase 5: dynamic back-panel) ───────────────────────
+
+def _tx_back_panel(f):
+    back = f.get("back") or "accounts"
+    return back if back in _PANEL_MAP else "accounts"
+
+
+def _tx_update(u, t, f, data):
+    tid = f.get("id", "")
+    amount = D.parse_amount(f.get("amount", "0"))
+    iso = f.get("date") or D.tx_form_ctx()["today"]
+    y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
+    mid = D.F.month_id(int(y), int(m) - 1)
+    if not current_app.config["DEV_SEED"]:
+        DB.update_transaction(u, t, tid, {
+            "account_id": f.get("accountId", ""),
+            "month_id": mid,
+            "type": f.get("type", "out"),
+            "amount": amount,
+            "date": iso,
+            "description": f.get("desc", ""),
+            "bucket_id": f.get("bucketId") or None,
+            "to_account_id": f.get("toAccountId") or None,
+            "reconciled": f.get("reconciled") == "1",
+            "income_type": f.get("incomeType") or None,
+        })
+        return ("Transaction updated.", "ok")
+    return ("Dev mode: change not persisted.", "ok")
+
+
+register(Action("tx_update", _tx_update, back_panel=_tx_back_panel,
+                 response_mode="close_modal", always_run=True))
+
+
+def _tx_delete(u, t, f, data):
+    if not current_app.config["DEV_SEED"]:
+        DB.delete_transaction(u, t, f.get("id", ""))
+        return ("Transaction deleted.", "ok")
+    return ("Dev mode: change not persisted.", "ok")
+
+
+register(Action("tx_delete", _tx_delete, back_panel=_tx_back_panel,
+                 response_mode="close_modal", always_run=True))
+
+
+def _close_panel(back_panel, htmx):
+    if htmx:
+        resp = make_response(_render_panel(back_panel, htmx))
+        resp.headers["HX-Trigger"] = "closeModal"
+        return resp
+    return redirect(url_for(f"panels.{back_panel}"))
+
+
+def _tx_create(u, t, f, data):
+    amount = D.parse_amount(f.get("amount", "0"))
+    iso = f.get("date") or D.tx_form_ctx()["today"]
+    y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
+    mid = D.F.month_id(int(y), int(m) - 1)
+    tx = {
+        "accountId": f.get("accountId", ""), "monthId": mid,
+        "type": f.get("type", "out"), "amount": amount, "date": iso,
+        "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
+        "toAccountId": f.get("toAccountId") or "",
+        "incomeType": f.get("incomeType") or "paycheck",
+    }
+    back_panel = _tx_back_panel(f)
+    htmx = request.headers.get("HX-Request") == "true"
+
+    # Block vault buckets from receiving transactions
+    bucket_id = tx.get("bucketId", "")
+    if bucket_id:
+        bkt = next((b for b in data.get("buckets", []) if b["id"] == bucket_id), None)
+        if bkt and bkt.get("type") == "vault":
+            flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
+            return _close_panel(back_panel, htmx)
+
+    if current_app.config["DEV_SEED"]:
+        flash("Dev mode: transaction not persisted (no database).", "ok")
+    elif amount > 0 and tx["accountId"]:
+        new_tid = DB.insert_transaction(u, t, tx)
+        D.invalidate_cache()
+        flash("Transaction added.", "ok")
+        # After a paycheck, open the combined distribute modal
+        if tx["type"] == "in" and tx.get("incomeType") == "paycheck" and htmx:
+            ctx = D.paycheck_distribute_ctx(amount, mid)
+            shell = D.shell_ctx(back_panel)
+            resp = make_response(
+                render_template("panels/_frag_paycheck_distribute.html",
+                                tid=new_tid, back=back_panel, **ctx)
+                + render_template("panels/_oob_rts.html", shell=shell))
+            resp.headers["HX-Retarget"] = "#modal-body"
+            resp.headers["HX-Reswap"] = "innerHTML"
+            return resp
+    else:
+        flash("Amount and account are required.", "error")
+
+    return _close_panel(back_panel, htmx)
+
+
+register(Action("tx_create", _tx_create, response_mode="oob", always_run=True))
+
+
+# ── Scenario actions (Phase 5: OOB forecast fragment) ───────────────────────
+
+def _scenario_create(u, t, f, data):
+    from .panels import _fc_frag_response, _safe_n_months, _parse_scenario_form
+    allocs = _parse_scenario_form(f, data)
+    name = (f.get("name") or "Scenario").strip()[:40]
+    n_months = _safe_n_months(f.get("n_months"))
+    if not current_app.config["DEV_SEED"]:
+        sid = DB.save_scenario(u, t, name, allocs)
+        D.invalidate_cache()
+    else:
+        sid = ""
+    return _fc_frag_response(active_sid=sid, n_months=n_months)
+
+
+register(Action("scenario_create", _scenario_create, response_mode="oob", always_run=True))
+
+
+def _scenario_update(u, t, f, data):
+    from .panels import _fc_frag_response, _safe_n_months, _parse_scenario_form
+    sid = f.get("id", "")
+    allocs = _parse_scenario_form(f, data)
+    name = (f.get("name") or "Scenario").strip()[:40]
+    n_months = _safe_n_months(f.get("n_months"))
+    if not current_app.config["DEV_SEED"]:
+        DB.update_scenario(u, t, sid, name, allocs)
+        D.invalidate_cache()
+    return _fc_frag_response(active_sid=sid, n_months=n_months)
+
+
+register(Action("scenario_update", _scenario_update, response_mode="oob", always_run=True))
+
+
+def _scenario_delete(u, t, f, data):
+    from .panels import _fc_frag_response, _safe_n_months
+    n_months = _safe_n_months(f.get("n_months"))
+    if not current_app.config["DEV_SEED"]:
+        DB.delete_scenario(u, t, f.get("id", ""))
+        D.invalidate_cache()
+    return _fc_frag_response(active_sid="", n_months=n_months)
+
+
+register(Action("scenario_delete", _scenario_delete, response_mode="oob", always_run=True))

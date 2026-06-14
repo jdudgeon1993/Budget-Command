@@ -1,7 +1,8 @@
 <div class="modal-title">{{ 'Edit: ' + scenario.name if scenario else 'New Scenario' }}</div>
-<form hx-post="{{ url_for('panels.scenario_update', sid=scenario.id) if scenario else url_for('panels.scenario_create') }}"
+<form hx-post="{{ url_for('panels.run_action', name='scenario_update') if scenario else url_for('panels.run_action', name='scenario_create') }}"
       hx-target="#modal-body" hx-swap="innerHTML">
   <input type="hidden" name="n_months" value="{{ n_months }}">
+  {% if scenario %}<input type="hidden" name="id" value="{{ scenario.id }}">{% endif %}
   <div class="fc-sc-editor-body">
     <div class="edit-field">
       <label class="sf-lbl">Name</label>
@@ -64,8 +65,8 @@
     {% if scenario %}
     <button class="toolbar-btn" style="color:var(--red);border-color:rgba(255,69,58,.4)"
             type="button"
-            hx-post="{{ url_for('panels.scenario_delete', sid=scenario.id) }}"
-            hx-vals='{"n_months": "{{ n_months }}"}'
+            hx-post="{{ url_for('panels.run_action', name='scenario_delete') }}"
+            hx-vals='{"n_months": "{{ n_months }}", "id": "{{ scenario.id }}"}'
             hx-target="#modal-body" hx-swap="innerHTML">Delete</button>
     {% endif %}
     <div style="flex:1"></div>

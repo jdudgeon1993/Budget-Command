@@ -688,44 +688,6 @@ def scenario_editor_edit(sid):
     return render_template("panels/_frag_scenario_editor.html", n_months=n_months, **ctx)
 
 
-@bp.route("/scenarios", methods=["POST"])
-@login_required
-def scenario_create():
-    f = request.form
-    data = D.load_data()
-    allocs = _parse_scenario_form(f, data)
-    name = (f.get("name") or "Scenario").strip()[:40]
-    n_months = _safe_n_months(f.get("n_months"))
-    if not current_app.config.get("DEV_SEED"):
-        sid = DB.save_scenario(session["user_id"], session["access_token"], name, allocs)
-    else:
-        sid = ""
-    return _fc_frag_response(active_sid=sid, n_months=n_months)
-
-
-@bp.route("/scenarios/<sid>/update", methods=["POST"])
-@login_required
-def scenario_update(sid):
-    f = request.form
-    data = D.load_data()
-    allocs = _parse_scenario_form(f, data)
-    name = (f.get("name") or "Scenario").strip()[:40]
-    n_months = _safe_n_months(f.get("n_months"))
-    if not current_app.config.get("DEV_SEED"):
-        DB.update_scenario(session["user_id"], session["access_token"], sid, name, allocs)
-    return _fc_frag_response(active_sid=sid, n_months=n_months)
-
-
-@bp.route("/scenarios/<sid>/delete", methods=["POST"])
-@login_required
-def scenario_delete(sid):
-    f = request.form
-    n_months = _safe_n_months(f.get("n_months"))
-    if not current_app.config.get("DEV_SEED"):
-        DB.delete_scenario(session["user_id"], session["access_token"], sid)
-    return _fc_frag_response(active_sid="", n_months=n_months)
-
-
 def _safe_n_months(raw) -> int:
     try:
         return max(1, min(12, int(raw or 3)))
@@ -753,63 +715,19 @@ def paycheck_distribute_preview(tid):
     return render_template("panels/_frag_paycheck_distribute.html", tid=tid, **ctx)
 
 
-@bp.route("/transaction/<tid>/edit", methods=["GET", "POST"])
+@bp.route("/transaction/<tid>/edit", methods=["GET"])
 @login_required
 def transaction_edit(tid):
     tx = D.tx_by_id(tid)
     if not tx:
         flash("Transaction not found.", "error")
         return redirect(url_for("panels.accounts"))
-    if request.method == "POST":
-        f = request.form
-        amount = D.parse_amount(f.get("amount", "0"))
-        iso = f.get("date") or D.tx_form_ctx()["today"]
-        y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
-        mid = D.F.month_id(int(y), int(m) - 1)
-        if not current_app.config["DEV_SEED"]:
-            DB.update_transaction(session["user_id"], session["access_token"], tid, {
-                "account_id": f.get("accountId", ""),
-                "month_id": mid,
-                "type": f.get("type", "out"),
-                "amount": amount,
-                "date": iso,
-                "description": f.get("desc", ""),
-                "bucket_id": f.get("bucketId") or None,
-                "to_account_id": f.get("toAccountId") or None,
-                "reconciled": f.get("reconciled") == "1",
-                "income_type": f.get("incomeType") or None,
-            })
-            D.invalidate_cache()
-            flash("Transaction updated.", "ok")
-        else:
-            flash("Dev mode: change not persisted.", "ok")
-        back_panel = f.get("back") or "accounts"
-        if request.headers.get("HX-Request") == "true":
-            tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
-            return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-        return redirect(url_for("panels." + back_panel))
     back = session.get("active_panel", "accounts")
     if _is_modal():
         return render_template("panels/_frag_edit_tx.html", tx=tx, back=back,
                                **D.tx_form_ctx())
     return render_panel("panels/edit_tx.html", back,
                         tx=tx, back=back, **D.tx_form_ctx())
-
-
-@bp.route("/transaction/<tid>/delete", methods=["POST"])
-@login_required
-def transaction_delete(tid):
-    back_panel = request.form.get("back") or "accounts"
-    if not current_app.config["DEV_SEED"]:
-        DB.delete_transaction(session["user_id"], session["access_token"], tid)
-        D.invalidate_cache()
-        flash("Transaction deleted.", "ok")
-    else:
-        flash("Dev mode: change not persisted.", "ok")
-    if request.headers.get("HX-Request") == "true":
-        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
-        return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-    return redirect(url_for("panels." + back_panel))
 
 
 @bp.route("/transaction/new")
@@ -822,60 +740,6 @@ def transaction_new():
                                **D.tx_form_ctx())
     return render_panel("panels/add_tx.html", back, tx_type=tx_type, back=back,
                         **D.tx_form_ctx())
-
-
-@bp.route("/transaction", methods=["POST"])
-@login_required
-def transaction_create():
-    f = request.form
-    amount = D.parse_amount(f.get("amount", "0"))
-    iso = f.get("date") or D.tx_form_ctx()["today"]
-    y, m, _ = (iso[:10].split("-") + ["1", "1", "1"])[:3]
-    mid = D.F.month_id(int(y), int(m) - 1)
-    tx = {
-        "accountId": f.get("accountId", ""), "monthId": mid,
-        "type": f.get("type", "out"), "amount": amount, "date": iso,
-        "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
-        "toAccountId": f.get("toAccountId") or "",
-        "incomeType": f.get("incomeType") or "paycheck",
-    }
-    # Block vault buckets from receiving transactions
-    bucket_id = tx.get("bucketId", "")
-    if bucket_id:
-        _bkt = next((b for b in D.load_data().get("buckets", []) if b["id"] == bucket_id), None)
-        if _bkt and _bkt.get("type") == "vault":
-            flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
-            back_panel = f.get("back") or session.get("active_panel", "buckets")
-            if request.headers.get("HX-Request") == "true":
-                tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
-                return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-            return redirect(url_for("panels." + back_panel))
-
-    back_panel = f.get("back") or session.get("active_panel", "buckets")
-    if current_app.config["DEV_SEED"]:
-        flash("Dev mode: transaction not persisted (no database).", "ok")
-    elif amount > 0 and tx["accountId"]:
-        new_tid = DB.insert_transaction(session["user_id"], session["access_token"], tx)
-        D.invalidate_cache()
-        flash("Transaction added.", "ok")
-        # After a paycheck, open the combined distribute modal
-        if (tx["type"] == "in" and tx.get("incomeType") == "paycheck"
-                and request.headers.get("HX-Request") == "true"):
-            ctx = D.paycheck_distribute_ctx(amount, mid)
-            shell = D.shell_ctx(back_panel)
-            resp = make_response(
-                render_template("panels/_frag_paycheck_distribute.html",
-                                tid=new_tid, back=back_panel, **ctx)
-                + render_template("panels/_oob_rts.html", shell=shell))
-            resp.headers["HX-Retarget"] = "#modal-body"
-            resp.headers["HX-Reswap"] = "innerHTML"
-            return resp
-    else:
-        flash("Amount and account are required.", "error")
-    if request.headers.get("HX-Request") == "true":
-        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
-        return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-    return redirect(url_for("panels." + back_panel))
 
 
 @bp.route("/month/<direction>")

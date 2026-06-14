@@ -1,6 +1,7 @@
-<form class="tx-form" method="post" action="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
-      hx-post="{{ url_for('panels.transaction_edit', tid=tx.id) }}"
+<form class="tx-form" method="post" action="{{ url_for('panels.run_action', name='tx_update') }}"
+      hx-post="{{ url_for('panels.run_action', name='tx_update') }}"
       hx-target="#panel" hx-swap="innerHTML">
+  <input type="hidden" name="id" value="{{ tx.id }}">
   <input type="hidden" name="back" value="{{ back }}">
 
   <div class="tx-type-row">
@@ -92,11 +93,12 @@ function updateDebtHint(sel){
 })();
 </script>
 
-<form method="post" action="{{ url_for('panels.transaction_delete', tid=tx.id) }}"
-      hx-post="{{ url_for('panels.transaction_delete', tid=tx.id) }}"
+<form method="post" action="{{ url_for('panels.run_action', name='tx_delete') }}"
+      hx-post="{{ url_for('panels.run_action', name='tx_delete') }}"
       hx-target="#panel" hx-swap="innerHTML"
       style="margin-top:8px"
       onsubmit="return confirm('Delete this transaction?')">
+  <input type="hidden" name="id" value="{{ tx.id }}">
   <input type="hidden" name="back" value="{{ back }}">
   <button class="edit-delete-btn" style="width:100%" type="submit">Delete Transaction</button>
 </form>

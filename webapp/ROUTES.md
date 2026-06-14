@@ -62,9 +62,10 @@ Legend:
 | Route | Methods | Function | Type | DB calls | Back panel | Modal? |
 |---|---|---|---|---|---|---|
 | `/transaction/new` | GET | `transaction_new` | read | — | — | yes (`_frag_add_tx`) |
-| `/transaction` | POST | `transaction_create` | mutation | `insert_transaction` | `back` form field (default buckets) | may open paycheck-distribute modal |
-| `/transaction/<tid>/edit` | GET, POST | `transaction_edit` | mutation | `update_transaction` | `back` form field (default accounts) | yes (`_frag_edit_tx`) |
-| `/transaction/<tid>/delete` | POST | `transaction_delete` | mutation | `delete_transaction` | `back` form field (default accounts) | — |
+| `/actions/tx_create` | POST | `_tx_create` | **migrated** | `insert_transaction` | `back` form field (default accounts) | may open paycheck-distribute modal |
+| `/transaction/<tid>/edit` | GET | `transaction_edit` | read | — | — | yes (`_frag_edit_tx`) |
+| `/actions/tx_update` | POST | `_tx_update` | **migrated** | `update_transaction` | `back` form field (default accounts) | closes modal |
+| `/actions/tx_delete` | POST | `_tx_delete` | **migrated** | `delete_transaction` | `back` form field (default accounts) | closes modal |
 | `/actions/tx_apply_rules` | POST | `_tx_apply_rules` | **migrated** | `upsert_alloc` (N×) | buckets | closes modal |
 | `/transaction/<tid>/paycheck-distribute/preview` | POST | `paycheck_distribute_preview` | read | — | — | yes (`_frag_paycheck_distribute`) |
 | `/actions/tx_paycheck_distribute` | POST | `_tx_paycheck_distribute` | **migrated** | `upsert_alloc` (N×, across current + next month) | buckets | closes modal |
@@ -78,9 +79,9 @@ Legend:
 | `/forecast/whatif` | POST | `forecast_whatif` | read (pure compute) | — | — | yes (`_frag_forecast_whatif`) |
 | `/scenarios/editor` | GET | `scenario_editor_new` | read | — | — | yes (`_frag_scenario_editor`) |
 | `/scenarios/<sid>/editor` | GET | `scenario_editor_edit` | read | — | — | yes (`_frag_scenario_editor`) |
-| `/scenarios` | POST | `scenario_create` | mutation | `save_scenario` | — (OOB forecast frag) | closes modal |
-| `/scenarios/<sid>/update` | POST | `scenario_update` | mutation | `update_scenario` | — (OOB forecast frag) | closes modal |
-| `/scenarios/<sid>/delete` | POST | `scenario_delete` | mutation | `delete_scenario` | — (OOB forecast frag) | closes modal |
+| `/actions/scenario_create` | POST | `_scenario_create` | **migrated** | `save_scenario` | — (OOB forecast frag) | closes modal |
+| `/actions/scenario_update` | POST | `_scenario_update` | **migrated** | `update_scenario` | — (OOB forecast frag) | closes modal |
+| `/actions/scenario_delete` | POST | `_scenario_delete` | **migrated** | `delete_scenario` | — (OOB forecast frag) | closes modal |
 
 ## Setup
 
