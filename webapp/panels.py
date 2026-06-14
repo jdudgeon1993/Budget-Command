@@ -346,6 +346,28 @@ def debt_payment(aid):
                            today=_date.today().isoformat())
 
 
+@bp.route("/debt-planner")
+@login_required
+def debt_planner():
+    data = D.load_data()
+    txs = data.get("txs", [])
+    debts = []
+    for a in data.get("accounts", []):
+        if a.get("archived") or a.get("type") != "debt":
+            continue
+        if not a.get("debtAPR"):
+            continue
+        bal = abs(D.F.acct_balance(a, txs))
+        if bal <= 0.005:
+            continue
+        debts.append({
+            "id": a["id"], "name": a["name"], "balance": round(bal, 2),
+            "apr": a.get("debtAPR") or 0,
+            "min_payment": a.get("debtMinPayment") or 0,
+        })
+    return render_template("panels/_frag_debt_planner.html", debts=debts)
+
+
 @bp.route("/accounts/<aid>/payoff")
 @login_required
 def debt_payoff(aid):

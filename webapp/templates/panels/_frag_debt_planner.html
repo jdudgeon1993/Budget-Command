@@ -1,0 +1,156 @@
+<div class="modal-title">Debt Payoff Plan</div>
+
+{% if not debts %}
+<div style="color:var(--text2);font-size:13px;padding:16px 0">
+  No debt accounts with an APR set yet. Add an APR in account settings to use the payoff planner.
+</div>
+<div class="edit-actions" style="margin-top:16px">
+  <button class="toolbar-btn" type="button" onclick="closeModal()">Close</button>
+</div>
+{% else %}
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+  <div class="rts-kpi">
+    <span class="rts-kpi-lbl">Total debt</span>
+    <span class="rts-kpi-val" style="color:var(--red)">{{ debts | sum(attribute='balance') | money }}</span>
+  </div>
+  <div class="rts-kpi">
+    <span class="rts-kpi-lbl">Total min payments</span>
+    <span class="rts-kpi-val">{{ debts | sum(attribute='min_payment') | money }}</span>
+  </div>
+</div>
+
+<div style="margin-bottom:16px">
+  <label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);font-family:var(--mono);margin-bottom:8px">
+    Extra monthly payment (split toward your debts)
+  </label>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="color:var(--text2);font-size:14px;font-family:var(--mono)">+$</span>
+    <input id="dp-extra" type="number" min="0" step="10" value="0"
+           style="width:100px;font-family:var(--mono);font-size:18px;font-weight:600;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 10px;color:var(--text);text-align:right">
+    <input id="dp-slider" type="range" min="0" max="1000" step="10" value="0"
+           style="flex:1;accent-color:var(--accent)">
+  </div>
+</div>
+
+<div class="tx-type-row" style="margin-bottom:16px">
+  <label class="tx-type on" id="dp-tab-avalanche" onclick="dpSetStrategy('avalanche')">Avalanche (highest APR first)</label>
+  <label class="tx-type" id="dp-tab-snowball" onclick="dpSetStrategy('snowball')">Snowball (smallest balance first)</label>
+</div>
+
+<div id="dp-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+<div id="dp-order"></div>
+
+<div class="edit-actions" style="margin-top:16px">
+  <button class="toolbar-btn" type="button" onclick="closeModal()">Close</button>
+</div>
+
+<script>
+(function(){
+var DEBTS = {{ debts | tojson }};
+var strategy = 'avalanche';
+
+document.getElementById('dp-extra').addEventListener('input', function(){
+  document.getElementById('dp-slider').value = this.value;
+  dpUpdate();
+});
+document.getElementById('dp-slider').addEventListener('input', function(){
+  document.getElementById('dp-extra').value = this.value;
+  dpUpdate();
+});
+
+window.dpSetStrategy = function(s){
+  strategy = s;
+  document.getElementById('dp-tab-avalanche').classList.toggle('on', s==='avalanche');
+  document.getElementById('dp-tab-snowball').classList.toggle('on', s==='snowball');
+  dpUpdate();
+};
+
+function money(v){
+  return '$'+Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+function fmtDate(monthsFromNow){
+  var d=new Date();
+  d.setMonth(d.getMonth()+monthsFromNow);
+  return d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+}
+
+// Simulate paying minimums on every debt, with all "extra" (slider + freed-up
+// minimums from paid-off debts) rolled onto the next debt in the given order.
+function simulate(debts, extra, order){
+  var bals = {}, rates = {}, mins = {};
+  debts.forEach(function(d){
+    bals[d.id]=d.balance; rates[d.id]=d.apr/100/12;
+    mins[d.id]=d.min_payment||Math.max(1, d.balance*0.02);
+  });
+  var totalInterest=0, month=0, payoffMonth={};
+  var remaining = order.slice();
+  while(remaining.length>0 && month<600){
+    month++;
+    var freedUp=0, snowball=extra;
+    remaining = remaining.filter(function(id){ return bals[id]>0.005; });
+    remaining.forEach(function(id){
+      var ic = bals[id]*rates[id];
+      totalInterest += ic;
+      bals[id] += ic;
+    });
+    // freed-up minimums from already-paid-off debts roll into the snowball
+    debts.forEach(function(d){
+      if(bals[d.id]<=0.005 && !(remaining.indexOf(d.id)>=0)) freedUp += mins[d.id];
+    });
+    snowball += freedUp;
+    remaining.forEach(function(id, idx){
+      var pay = mins[id];
+      if(idx===0) pay += snowball;
+      var actual = Math.min(pay, bals[id]);
+      bals[id] -= actual;
+      if(bals[id]<=0.005 && !payoffMonth[id]) payoffMonth[id]=month;
+    });
+  }
+  return {totalInterest: totalInterest, months: month, payoffMonth: payoffMonth};
+}
+
+window.dpUpdate = function(){
+  var extra = parseFloat(document.getElementById('dp-extra').value)||0;
+  var order = DEBTS.slice().sort(function(a,b){
+    if(strategy==='avalanche') return b.apr - a.apr;
+    return a.balance - b.balance;
+  }).map(function(d){return d.id;});
+
+  var noExtra = simulate(DEBTS, 0, order);
+  var withExtra = simulate(DEBTS, extra, order);
+  var saved = noExtra.totalInterest - withExtra.totalInterest;
+  var monthsSaved = noExtra.months - withExtra.months;
+
+  var sum = document.getElementById('dp-summary');
+  sum.innerHTML =
+    '<div class="rts-kpi" style="flex:1;min-width:140px">'+
+      '<span class="rts-kpi-lbl">Debt-free by</span>'+
+      '<span class="rts-kpi-val" style="font-size:14px">'+fmtDate(withExtra.months)+'</span>'+
+    '</div>'+
+    '<div class="rts-kpi" style="flex:1;min-width:140px">'+
+      '<span class="rts-kpi-lbl">Total interest</span>'+
+      '<span class="rts-kpi-val" style="font-size:14px;color:var(--red)">'+money(withExtra.totalInterest)+'</span>'+
+    '</div>'+
+    (extra>0 ?
+    '<div class="rts-kpi" style="flex:1;min-width:140px">'+
+      '<span class="rts-kpi-lbl">You save</span>'+
+      '<span class="rts-kpi-val" style="font-size:14px;color:var(--green)">'+money(saved)+' / '+monthsSaved+' mo</span>'+
+    '</div>' : '');
+
+  var orderHtml = '<div class="card-label" style="margin-bottom:8px">Payoff order</div>';
+  order.forEach(function(id, idx){
+    var d = DEBTS.find(function(x){return x.id===id;});
+    var pm = withExtra.payoffMonth[id];
+    orderHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:6px">'+
+      '<div><strong>'+(idx+1)+'. '+d.name+'</strong> <span style="color:var(--text3);font-size:11px">'+d.apr.toFixed(1)+'% APR · '+money(d.balance)+'</span></div>'+
+      '<span style="color:var(--green);font-family:var(--mono);font-size:12px">'+(pm?fmtDate(pm):'—')+'</span>'+
+    '</div>';
+  });
+  document.getElementById('dp-order').innerHTML = orderHtml;
+};
+
+dpUpdate();
+})();
+</script>
+{% endif %}

@@ -9,6 +9,16 @@
       <div class="sum-card"><div class="sum-label">Transferred</div><div class="sum-val c-text2">{{ summary.transferred | money }}</div></div>
     </div>
 
+    {% if cards | selectattr('type','equalto','debt') | selectattr('debtAPR') | list %}
+    <div style="margin-bottom:12px">
+      <a class="toolbar-btn" style="color:var(--indigo);border-color:rgba(129,140,248,.35)"
+         href="{{ url_for('panels.debt_planner') }}"
+         hx-get="{{ url_for('panels.debt_planner') }}" hx-target="#modal-body" onclick="openModal()">
+        📊 Debt Payoff Plan →
+      </a>
+    </div>
+    {% endif %}
+
     {# ── Search + account filter ── #}
     <div class="ledger-toolbar">
       <input class="ledger-search" type="search" placeholder="Search transactions…"
