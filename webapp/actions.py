@@ -575,11 +575,21 @@ def _tx_create(u, t, f, data):
             flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
             return _close_panel(back_panel, htmx)
 
+    again = f.get("again") == "1"
+
     if current_app.config["DEV_SEED"]:
         flash("Dev mode: transaction not persisted (no database).", "ok")
     elif amount > 0 and tx["accountId"]:
         new_tid = DB.insert_transaction(u, t, tx)
         D.invalidate_cache()
+        if again and htmx:
+            shell = D.shell_ctx(back_panel)
+            resp = make_response(
+                render_template("panels/_frag_add_tx.html", tx_type=tx["type"], back=back_panel,
+                                **D.tx_form_ctx())
+                + render_template("panels/_oob_rts.html", shell=shell)
+                + f'<div data-toast-msg="Transaction added." data-toast-type="ok"></div>')
+            return resp
         flash("Transaction added.", "ok")
         # After a paycheck, open the combined distribute modal
         if tx["type"] == "in" and tx.get("incomeType") == "paycheck" and htmx:
