@@ -46,7 +46,33 @@
       {% endfor %}
     </select>
     <div id="tf-debt-hint" style="display:none;font-size:11px;color:var(--green);margin-top:4px">↳ Pays: <span id="tf-debt-hint-name"></span></div>
+    <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:var(--text3);cursor:pointer">
+      <input type="checkbox" id="tf-split-toggle" onchange="toggleSplitMode(this)"> Split across multiple buckets
+    </label>
   </div>
+
+  <div class="tx-field" id="tf-splits" style="display:none">
+    <label>Splits <span id="tf-split-remaining" style="font-weight:400;color:var(--text3)"></span></label>
+    <div id="tf-split-rows"></div>
+    <button class="toolbar-btn" type="button" style="margin-top:6px;font-size:11px" onclick="addSplitRow()">+ Add split</button>
+  </div>
+
+  <template id="tf-split-row-tpl">
+    <div class="tf-split-row" style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <select name="split_bucket" style="flex:1.4">
+        <option value="">—</option>
+        {% for grp in buckets_by_cat %}
+        <optgroup label="{{ grp.cat }}">
+          {% for b in grp.buckets %}
+          <option value="{{ b.id }}">{{ b.name }}</option>
+          {% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select>
+      <input type="text" name="split_amount" inputmode="decimal" placeholder="0.00" style="flex:1" oninput="updateSplitRemaining()">
+      <button class="toolbar-btn" type="button" style="padding:4px 8px" onclick="this.closest('.tf-split-row').remove();updateSplitRemaining()">✕</button>
+    </div>
+  </template>
   <div class="tx-field" id="tf-incomeType" style="{{ '' if tx_type == 'in' else 'display:none' }}">
     <label>Income type</label>
     <select name="incomeType">
@@ -70,6 +96,34 @@
   </div>
 </form>
 <script>
+function toggleSplitMode(cb){
+  var splits=document.getElementById('tf-splits');
+  var bktSel=document.getElementById('tf-bucket-sel');
+  if(cb.checked){
+    splits.style.display='';
+    bktSel.disabled=true;
+    if(!document.querySelector('.tf-split-row')){addSplitRow();addSplitRow();}
+    updateSplitRemaining();
+  } else {
+    splits.style.display='none';
+    bktSel.disabled=false;
+  }
+}
+function addSplitRow(){
+  var tpl=document.getElementById('tf-split-row-tpl');
+  var row=tpl.content.cloneNode(true);
+  document.getElementById('tf-split-rows').appendChild(row);
+}
+function updateSplitRemaining(){
+  var total=parseFloat(document.querySelector('[name=amount]').value)||0;
+  var sum=0;
+  document.querySelectorAll('[name=split_amount]').forEach(function(el){sum+=parseFloat(el.value)||0;});
+  var rem=Math.round((total-sum)*100)/100;
+  var el=document.getElementById('tf-split-remaining');
+  el.textContent=rem===0?'✓ fully allocated':('$'+rem.toFixed(2)+' remaining');
+  el.style.color=rem===0?'var(--green)':(rem<0?'var(--red)':'var(--text3)');
+}
+document.querySelector('[name=amount]').addEventListener('input',updateSplitRemaining);
 function updateDebtHint(sel){
   var opt=sel.options[sel.selectedIndex];
   var hint=document.getElementById('tf-debt-hint');

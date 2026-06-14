@@ -577,6 +577,32 @@ def _tx_create(u, t, f, data):
 
     again = f.get("again") == "1"
 
+    # Split transaction across multiple buckets: one row per split, each its
+    # own transaction sharing date/account/payee.
+    split_bkts = [b for b in f.getlist("split_bucket") if b]
+    split_amts = [D.parse_amount(a) for a in f.getlist("split_amount")]
+    if split_bkts and tx["type"] == "out":
+        splits = [(b, a) for b, a in zip(split_bkts, split_amts) if a > 0]
+        bkt_by_id = {b["id"]: b for b in data.get("buckets", [])}
+        vault_split = next((b for b, _ in splits if bkt_by_id.get(b, {}).get("type") == "vault"), None)
+        split_total = round(sum(a for _, a in splits), 2)
+        if vault_split:
+            flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
+            return _close_panel(back_panel, htmx)
+        elif not splits or abs(split_total - round(amount, 2)) > 0.005:
+            flash(f"Splits must total ${amount:,.2f} (currently ${split_total:,.2f}).", "error")
+            return _close_panel(back_panel, htmx)
+        elif current_app.config["DEV_SEED"]:
+            flash("Dev mode: transaction not persisted (no database).", "ok")
+        elif tx["accountId"]:
+            for bid, a in splits:
+                DB.insert_transaction(u, t, {**tx, "amount": a, "bucketId": bid})
+            D.invalidate_cache()
+            flash(f"Split transaction added across {len(splits)} buckets.", "ok")
+        else:
+            flash("Account is required.", "error")
+        return _close_panel(back_panel, htmx)
+
     if current_app.config["DEV_SEED"]:
         flash("Dev mode: transaction not persisted (no database).", "ok")
     elif amount > 0 and tx["accountId"]:
