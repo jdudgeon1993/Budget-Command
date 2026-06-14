@@ -228,6 +228,7 @@ def bucket_rows(view_mid: str = None):
 
             if handled:
                 status, pill = "funded", "✓ Handled"
+
             cat_alloc += alloc
             cat_budget += budget
             # Current month transactions for inline expand
@@ -259,6 +260,37 @@ def bucket_rows(view_mid: str = None):
                         monthly_needed = round((target_amount - left) / months_left, 2)
                 except Exception:
                     pass
+
+            # Unified display status + progress bar (single source of truth —
+            # template renders these directly without re-deriving them)
+            if b.get("type") == "vault":
+                display_status, bar_pct, bar_cls = "vault", 100, "vault"
+            elif is_flex:
+                display_status, bar_pct, bar_cls = status, 0, status
+            elif status == "funded" and pill == "Paid":
+                display_status, bar_pct, bar_cls = "paid", 0, "funded"
+            elif status == "partial" and alloc <= 0.005:
+                display_status, bar_pct, bar_cls = "empty", 0, "empty"
+            elif status == "over":
+                display_status, bar_cls = "over", "over"
+                denom = budget if budget > 0 else alloc
+                bar_pct = min(100, round(spent / denom * 100)) if denom > 0 else 0
+            else:
+                display_status, bar_cls = status, status  # 'funded' or 'partial'
+                if b.get("type") in ("sinking", "goal") and target_amount > 0:
+                    bar_pct = progress_pct
+                elif budget > 0:
+                    bar_pct = min(100, round(alloc / budget * 100))
+                else:
+                    bar_pct = 100 if status == "funded" else 0
+
+            if display_status == "partial" and budget > 0 and alloc > 0.005:
+                shortfall_text = f"−${budget - alloc:,.2f} needed"
+            elif display_status == "over":
+                shortfall_text = f"+${spent - budget:,.2f} over"
+            else:
+                shortfall_text = ""
+
             row = {
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left,
@@ -274,6 +306,8 @@ def bucket_rows(view_mid: str = None):
                 "monthly_needed": monthly_needed,
                 "flex": is_flex, "uncovered": round(max(spent - alloc, 0), 2) if is_flex else 0.0,
                 "handled": handled,
+                "display_status": display_status, "bar_pct": bar_pct, "bar_cls": bar_cls,
+                "shortfall_text": shortfall_text,
                 "txs": bkt_txs,
             }
             rows.append(row)

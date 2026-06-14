@@ -1,62 +1,13 @@
 {# ── Bucket row for vg-cat card layout ──────────────────────────────────────
    Status tiers (auto-sorted by buckets.html):
      over → partial → funded → empty → paid
-   b.status is one of: over | funded | partial
-   We derive display_status here for the paid/empty/vault special cases.
+   display_status, bar_pct, bar_cls, shortfall_text are all precomputed in
+   data.py (bucket_rows) — single source of truth, no re-derivation here.
    ─────────────────────────────────────────────────────────────────────────── #}
-
-{# Derive display status and bar class #}
-{% if b.btype == 'vault' %}
-  {% set display_status = 'vault' %}
-  {% set bar_pct = 100 %}
-  {% set bar_cls = 'vault' %}
-{% elif b.flex %}
-  {% set display_status = b.status %}
-  {% set bar_pct = 0 %}
-  {% set bar_cls = b.status %}
-{% elif b.status == 'funded' and b.pill == 'Paid' %}
-  {% set display_status = 'paid' %}
-  {% set bar_pct = 0 %}
-  {% set bar_cls = 'funded' %}
-{% elif b.status == 'partial' and b.alloc <= 0.005 %}
-  {% set display_status = 'empty' %}
-  {% set bar_pct = 0 %}
-  {% set bar_cls = 'empty' %}
-{% elif b.status == 'over' %}
-  {% set display_status = 'over' %}
-  {% set _denom = b.budget if b.budget > 0 else b.alloc %}
-  {% set bar_pct = ([100, ((b.spent / _denom * 100) | round | int)] | min) if _denom > 0 else 0 %}
-  {% set bar_cls = 'over' %}
-{% elif b.status == 'funded' %}
-  {% set display_status = 'funded' %}
-  {% if b.btype in ('sinking','goal') and b.target_amount > 0 %}
-    {% set bar_pct = b.progress_pct %}
-  {% elif b.budget > 0 %}
-    {% set bar_pct = ([100, ((b.alloc / b.budget * 100) | round | int)] | min) %}
-  {% else %}
-    {% set bar_pct = 100 %}
-  {% endif %}
-  {% set bar_cls = 'funded' %}
-{% else %}
-  {% set display_status = 'partial' %}
-  {% if b.btype in ('sinking','goal') and b.target_amount > 0 %}
-    {% set bar_pct = b.progress_pct %}
-  {% elif b.budget > 0 %}
-    {% set bar_pct = ([100, ((b.alloc / b.budget * 100) | round | int)] | min) %}
-  {% else %}
-    {% set bar_pct = 0 %}
-  {% endif %}
-  {% set bar_cls = 'partial' %}
-{% endif %}
-
-{# Shortfall label for partial/over #}
-{% if display_status == 'partial' and b.budget > 0 and b.alloc > 0.005 %}
-  {% set shortfall_text = '−' ~ (b.budget - b.alloc) | money ~ ' needed' %}
-{% elif display_status == 'over' %}
-  {% set shortfall_text = '+' ~ (b.spent - b.budget) | money ~ ' over' %}
-{% else %}
-  {% set shortfall_text = '' %}
-{% endif %}
+{% set display_status = b.display_status %}
+{% set bar_pct = b.bar_pct %}
+{% set bar_cls = b.bar_cls %}
+{% set shortfall_text = b.shortfall_text %}
 
 <div class="vg-row status-{{ display_status }}" id="bkt-{{ b.id }}">
   {# ── Collapsed headline ── #}

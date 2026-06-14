@@ -58,15 +58,15 @@
     {% set tier_empty   = [] %}
     {% set tier_paid    = [] %}
     {% for b in grp.buckets %}
-      {% if b.btype == 'vault' %}
+      {% if b.display_status == 'vault' %}
         {% if tier_vault.append(b) %}{% endif %}
-      {% elif b.status == 'over' %}
+      {% elif b.display_status == 'over' %}
         {% if tier_over.append(b) %}{% endif %}
-      {% elif b.status == 'funded' and b.pill == 'Paid' %}
+      {% elif b.display_status == 'paid' %}
         {% if tier_paid.append(b) %}{% endif %}
-      {% elif b.status == 'funded' %}
+      {% elif b.display_status == 'funded' %}
         {% if tier_funded.append(b) %}{% endif %}
-      {% elif b.alloc <= 0.005 %}
+      {% elif b.display_status == 'empty' %}
         {% if tier_empty.append(b) %}{% endif %}
       {% else %}
         {% if tier_partial.append(b) %}{% endif %}
