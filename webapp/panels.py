@@ -821,10 +821,17 @@ def quick_add():
             "accountId": f.get("accountId", ""), "monthId": mid,
             "type": tx_type, "amount": amount, "date": iso,
             "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
-            "toAccountId": "", "incomeType": "other",
+            "toAccountId": f.get("toAccountId") or "",
+            "incomeType": f.get("incomeType") or "paycheck",
         }
-        if current_app.config["DEV_SEED"]:
+        data = D.load_data()
+        bkt = next((b for b in data.get("buckets", []) if b["id"] == tx["bucketId"]), None)
+        if bkt and bkt.get("type") == "vault":
+            flash("Vault buckets cannot hold transactions. Use Transfer instead in the full app.", "error")
+        elif current_app.config["DEV_SEED"]:
             flash("Dev mode: transaction not persisted (no database).", "ok")
+        elif tx_type == "xfr" and not tx["toAccountId"]:
+            flash("Pick a destination account for the transfer.", "error")
         elif amount > 0 and tx["accountId"]:
             DB.insert_transaction(session["user_id"], session["access_token"], tx)
             D.invalidate_cache()

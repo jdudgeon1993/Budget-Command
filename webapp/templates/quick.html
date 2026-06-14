@@ -39,7 +39,7 @@
 
   <form class="tx-form" method="post" action="{{ url_for('panels.quick_add') }}">
     <div class="tx-type-row">
-      {% for val, label in [('out','Expense'),('in','Income')] %}
+      {% for val, label in [('out','Expense'),('in','Income'),('xfr','Transfer')] %}
       <label class="tx-type {{ 'on' if val == 'out' }}" onclick="qaSetType('{{ val }}')">
         <input type="radio" name="type" value="{{ val }}" {{ 'checked' if val == 'out' }} hidden>{{ label }}
       </label>
@@ -60,6 +60,13 @@
         {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
       </select>
     </div>
+    <div class="tx-field" id="qa-toAcct" style="display:none">
+      <label>To account</label>
+      <select name="toAccountId">
+        <option value="">—</option>
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
     <div class="tx-field" id="qa-bucket">
       <label>Bucket</label>
       <select name="bucketId">
@@ -69,6 +76,13 @@
           {% for b in grp.buckets %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
         </optgroup>
         {% endfor %}
+      </select>
+    </div>
+    <div class="tx-field" id="qa-incomeType" style="display:none">
+      <label>Income type</label>
+      <select name="incomeType">
+        <option value="paycheck">Paycheck</option>
+        <option value="other">Other income</option>
       </select>
     </div>
     <div class="tx-field">
@@ -84,6 +98,11 @@
     </div>
   </form>
 
+  <p style="font-size:11px;color:var(--text3);margin-top:14px;text-align:center">
+    Logging a paycheck here doesn't open the Distribute RTS modal — open the
+    full app to assign the new funds to your buckets.
+  </p>
+
   <div style="margin-top:20px;text-align:center">
     <a href="{{ url_for('panels.buckets') }}" style="font-size:11px;color:var(--text3)">Open full app →</a>
   </div>
@@ -92,8 +111,10 @@
 function qaSetType(val){
   document.querySelectorAll('.tx-type').forEach(function(l){l.classList.remove('on');});
   event.currentTarget.classList.add('on');
-  var bkt=document.getElementById('qa-bucket');
-  bkt.style.display = val === 'out' ? '' : 'none';
+  document.getElementById('qa-bucket').style.display = val === 'out' ? '' : 'none';
+  document.getElementById('qa-toAcct').style.display = val === 'xfr' ? '' : 'none';
+  document.getElementById('qa-incomeType').style.display = val === 'in' ? '' : 'none';
+  document.querySelector('select[name=toAccountId]').required = (val === 'xfr');
 }
 </script>
 </body>
