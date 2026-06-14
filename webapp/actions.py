@@ -294,34 +294,27 @@ register(Action("bucket_archive", _bucket_archive, "buckets",
                  flash_msg=lambda f: ("Bucket archived.", "ok")))
 
 
-def _bucket_move(u, t, f, data):
-    bid, direction = f.get("id", ""), f.get("direction", "")
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    this_b = next((b for b in buckets if b["id"] == bid), None)
-    if not this_b:
-        return
-    siblings = sorted(
-        [b for b in buckets if b.get("catId") == this_b.get("catId")],
-        key=lambda b: b.get("order", 0)
-    )
-    idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), -1)
-    swap_idx = idx - 1 if direction == "up" else idx + 1
-    if 0 <= idx < len(siblings) and 0 <= swap_idx < len(siblings):
-        b1, b2 = siblings[idx], siblings[swap_idx]
-        o1, o2 = b1.get("order", idx), b2.get("order", swap_idx)
-        DB.update_bucket_order(u, t, b1["id"], o2)
-        DB.update_bucket_order(u, t, b2["id"], o1)
-
-
-register(Action("bucket_move", _bucket_move, "buckets", dev_seed_msg=None))
-
-
 def _bucket_handled_toggle(u, t, f, data):
+    """Mark/unmark a bucket as handled for the active month.
+
+    Marking handled releases any unspent allocation back to Ready to
+    Spend (alloc -> spent) and collapses the bucket's effective target to
+    that allocation (see formulas.b_budget), so it reads as fully funded
+    everywhere — no lingering "short" gap to chase. Unmarking just clears
+    the flag; it does not restore the released allocation.
+    """
     bid = f.get("id", "")
     mid = D.active_mid()
     month = D.active_month(data)
     currently = bool((month.get("handledBuckets") or {}).get(bid))
     DB.ensure_month(u, t, mid)
+    if not currently:
+        b = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+        if b:
+            alloc = D.F.b_alloc(month, bid)
+            spent = D.F.b_spent(mid, bid, data.get("txs", []))
+            if spent < alloc - 0.005:
+                DB.upsert_alloc(u, t, mid, bid, round(spent, 2))
     DB.toggle_handled(u, t, mid, bid, currently)
 
 

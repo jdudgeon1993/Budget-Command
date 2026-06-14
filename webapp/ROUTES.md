@@ -26,7 +26,6 @@ Legend:
 | `/actions/bucket_budget_set` | POST | `_bucket_budget_set` | **migrated** | `upsert_budget` (+ future months if current month) | buckets | — |
 | `/buckets/<bid>/settings` | GET, POST | `bucket_settings` | mutation | `upsert_bucket` | buckets | yes (`_frag_bucket`) |
 | `/actions/bucket_archive` | POST | `_bucket_archive` | **migrated** | `upsert_bucket({archived:true})` | buckets | — |
-| `/actions/bucket_move` | POST | `_bucket_move` | **migrated** | `update_bucket_order` ×2 | buckets | — |
 | `/actions/bucket_handled_toggle` | POST | `_bucket_handled_toggle` | **migrated** | `ensure_month`, `toggle_handled` | buckets | — |
 | `/buckets/<bid>/vault-transfer` | GET | `vault_transfer` | read | — | — | yes (`_frag_vault_transfer`) |
 | `/actions/vault_transfer` | POST | `_vault_transfer` | **migrated** | `vault_transfer` | buckets | closes modal |

@@ -801,7 +801,9 @@ def reports_view(view_mid: str = None):
     net_worth = sum(s["net_worth_bal"] for s in snapshot)
 
     # ── Funding rate ──────────────────────────────────────────────────────────
-    expense_bkts = [b for b in buckets if b.get("type", "expense") != "vault"]
+    # Flex buckets have no fixed target by design — excluding them keeps
+    # the funding rate meaningful (they'd otherwise always count "unfunded").
+    expense_bkts = [b for b in buckets if b.get("type", "expense") != "vault" and not b.get("flex")]
     funded_count = sum(
         1 for b in expense_bkts
         if F.b_alloc(month, b["id"]) >= max(F.b_budget(month, b["id"]) - 0.005, 0.005)

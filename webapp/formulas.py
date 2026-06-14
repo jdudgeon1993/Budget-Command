@@ -258,6 +258,15 @@ def b_alloc(month: dict, bucket_id: str) -> float:
 
 
 def b_budget(month: dict, bucket_id: str) -> float:
+    """Target amount for this bucket/month.
+
+    A bucket marked "handled" for this month has its effective target
+    collapsed to its allocation — the user has manually confirmed this
+    bucket is squared away, so it reads as 100% funded everywhere
+    (reports, funding rate, BvA) without leaving a permanent "short" gap.
+    """
+    if (month.get("handledBuckets") or {}).get(bucket_id):
+        return b_alloc(month, bucket_id)
     return float((month.get("budgets") or {}).get(bucket_id) or 0)
 
 
