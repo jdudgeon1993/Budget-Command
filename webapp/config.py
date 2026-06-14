@@ -3,15 +3,23 @@
 import os
 
 
-class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-    SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-    SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+# DEV_SEED: when true (and no Supabase creds), auto-login a fake session and
+# serve sample data so the UI can be built/screenshotted locally. Never set
+# this in production.
+_DEV_SEED = os.environ.get("DEV_SEED", "").lower() in ("1", "true", "yes")
 
-    # DEV_SEED: when true (and no Supabase creds), auto-login a fake session and
-    # serve sample data so the UI can be built/screenshotted locally. Never set
-    # this in production.
-    DEV_SEED = os.environ.get("DEV_SEED", "").lower() in ("1", "true", "yes")
+
+class Config:
+    DEV_SEED = _DEV_SEED
+
+    if _DEV_SEED:
+        SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+        SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+        SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+    else:
+        SECRET_KEY = os.environ["SECRET_KEY"]
+        SUPABASE_URL = os.environ["SUPABASE_URL"]
+        SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
 
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
