@@ -17,9 +17,9 @@ class Config:
         SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
         SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
     else:
-        SECRET_KEY = os.environ["SECRET_KEY"]
-        SUPABASE_URL = os.environ["SUPABASE_URL"]
-        SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
+        SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+        SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+        SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
