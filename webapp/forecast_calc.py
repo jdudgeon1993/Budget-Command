@@ -606,27 +606,23 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         running_min = min(running_min, period_results[i]["end_bal_raw"])
         fwd_mins[i] = running_min
 
-    # Global STS = cushion in first period = how much above the forward floor you are NOW
+    # Global STS = cushion in first period (amount above the forward floor right now)
     if period_results:
         safe_to_spend = max(0.0, period_results[0]["end_bal_raw"] - fwd_mins[0])
     else:
         safe_to_spend = 0.0
 
-    # ── Per-period cushion = the true per-period safe-to-spend ───────────────
-    # cushion[i] = end_bal[i] - fwd_mins[i]
-    # This is how much can be spent from period i without ever breaking a future bill.
-    # When period i IS the forward minimum, cushion = 0 (no spare room).
+    # Per-period: show the forward minimum as safe-to-spend (the floor they must not go below)
     today_str = str(today)
     next_upcoming_marked = False
     for i, p in enumerate(period_results):
+        sts = fwd_mins[i]
         cushion   = max(0.0, p["end_bal_raw"] - fwd_mins[i])
-        safe_save = round(cushion * 0.5, 2)
-        p["safe_to_spend_fmt"] = _fmt(cushion)
-        p["sts_color"]         = _sts_class(cushion)
+        p["safe_to_spend_fmt"] = _fmt(sts)
+        p["sts_color"]         = _sts_class(sts)
         p["cushion_raw"]       = cushion
-        p["cushion_fmt"]       = _fmt(cushion)
-        p["safe_to_save_fmt"]  = _fmt(safe_save)
-        # Mark only the next upcoming (first future) paycheck for Don't Accrue
+        p["safe_to_save_fmt"]  = _fmt(round(cushion * 0.5, 2))
+        # Mark only the next upcoming (first future) paycheck for Not Received Yet
         if not next_upcoming_marked and p["type"] == "paycheck" and not p["is_skipped"] and p["id"] >= today_str:
             p["is_next_upcoming"] = True
             next_upcoming_marked  = True

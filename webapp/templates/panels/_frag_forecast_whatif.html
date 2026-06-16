@@ -134,17 +134,10 @@
         <div class="fc-period-range">{{ p.date_range }}</div>
       </div>
       <div class="fc-period-hdr-right">
-        {% if p.type != 'gap' %}
         <div style="text-align:right">
-          <div class="fc-kpi-lbl">Available to Spend</div>
+          <div class="fc-kpi-lbl">Safe to Spend</div>
           <div class="fc-period-sts {{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
-          {% if p.cushion_raw > 0 %}
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">
-            Consider saving {{ p.safe_to_save_fmt }}
-          </div>
-          {% endif %}
         </div>
-        {% endif %}
         {% if p.type == 'paycheck' %}
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
           <button class="fc-skip-btn {{ 'active' if p.is_skipped }}"
