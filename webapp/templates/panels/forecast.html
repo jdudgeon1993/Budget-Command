@@ -36,34 +36,9 @@
 
   <!-- 60-Day Timeline -->
   <div id="fc-timeline" class="fc-tab-pane" style="display:none">
-    {% if timeline_rows %}
-    <div class="fc-tl-list">
-      {% for row in timeline_rows %}
-        {% if row.rt == 'day' %}
-        <div class="fc-tl-day {{ 'fc-tl-day-today' if row.td }} {{ 'fc-tl-day-past' if row.pa and not row.td }}">
-          <span class="fc-tl-day-lbl">{{ row.lbl }}</span>
-          {% if row.td %}<span class="fc-type-badge fc-badge-today">Today</span>{% endif %}
-        </div>
-        {% elif row.rt == 'paycheck' %}
-        <div class="fc-tl-row fc-tl-paycheck">
-          <span class="fc-tl-lbl">💰 {{ row.lbl }}</span>
-          <span class="fc-tl-amt">{{ row.amt }}</span>
-        </div>
-        {% elif row.rt == 'bill' %}
-        <div class="fc-tl-row {% if row.pd %}fc-tl-bill-paid{% elif row.sch %}fc-tl-bill-sched{% elif row.pa %}fc-tl-bill-past{% else %}fc-tl-bill{% endif %}">
-          <span class="fc-tl-lbl">
-            {{ row.lbl }}
-            {% if row.pd %}<span class="fc-paid-badge">✓ Paid</span>{% endif %}
-            {% if row.sch %}<span class="fc-sched-badge">Scheduled</span>{% endif %}
-          </span>
-          <span class="fc-tl-amt">{{ row.amt }}</span>
-        </div>
-        {% endif %}
-      {% endfor %}
+    <div id="fc-timeline-inner">
+      {% include "panels/_frag_forecast_timeline.html" %}
     </div>
-    {% else %}
-    <div class="fc-empty">No upcoming paychecks or bills in the next 60 days.</div>
-    {% endif %}
   </div>
 
   <!-- What-If Forecast -->
@@ -110,12 +85,6 @@ function fcNoAccrueToggle(dateStr) {
   toggle.value = dateStr;
   htmx.trigger(form, 'submit');
   toggle.value = '';
-}
-
-function fcSetScenario(sid) {
-  const form = document.getElementById('fc-whatif-form');
-  form.querySelector('[name="active_scenario_id"]').value = sid;
-  htmx.trigger(form, 'submit');
 }
 </script>
 {% endblock %}

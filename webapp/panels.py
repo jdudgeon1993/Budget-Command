@@ -480,15 +480,20 @@ def forecast_whatif():
                              schedule=schedule,
                              phantom_monthly=phantom_monthly)
     svg = FC.build_balance_svg(fc["periods"])
-    return render_template("panels/_frag_forecast_whatif.html",
-                           forecast=fc, balance_svg=svg,
-                           n_months=n_months, income_override=income_override,
-                           skipped_pay_dates=skip_dates,
-                           skip_dates_str=",".join(skip_dates),
-                           no_accrue_dates=no_accrue_dates,
-                           no_accrue_dates_str=",".join(no_accrue_dates),
-                           scenarios=scenarios,
-                           active_scenario_id=active_sid)
+    timeline_rows = FC.compute_simple_timeline(data, 60, off_buckets=off_buckets)
+    whatif_html = render_template("panels/_frag_forecast_whatif.html",
+                                  forecast=fc, balance_svg=svg,
+                                  n_months=n_months, income_override=income_override,
+                                  skipped_pay_dates=skip_dates,
+                                  skip_dates_str=",".join(skip_dates),
+                                  no_accrue_dates=no_accrue_dates,
+                                  no_accrue_dates_str=",".join(no_accrue_dates),
+                                  scenarios=scenarios,
+                                  active_scenario_id=active_sid)
+    timeline_html = render_template("panels/_frag_forecast_timeline.html",
+                                    timeline_rows=timeline_rows)
+    oob_timeline = f'<div id="fc-timeline-inner" hx-swap-oob="innerHTML">{timeline_html}</div>'
+    return make_response(whatif_html + oob_timeline)
 
 
 # ── Scenario helpers ──────────────────────────────────────────────────────────
@@ -655,7 +660,10 @@ def _scenario_editor_ctx(data: dict, scenario=None) -> dict:
 def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
                        no_accrue_dates: list = None, n_months: int = 3,
                        income_override: float = 0.0):
-    """Render forecast fragment as OOB response, used after scenario save/delete."""
+    """Render forecast fragments as OOB response after scenario save/delete.
+    Updates the what-if content, KPI bar (already OOB inside the whatif fragment),
+    and the 60-day timeline so all three stay in sync with the active scenario.
+    """
     skip_dates = skip_dates or []
     no_accrue_dates = no_accrue_dates or []
     data = D.load_data()
@@ -671,16 +679,20 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
                              schedule=schedule,
                              phantom_monthly=phantom_monthly)
     svg = FC.build_balance_svg(fc["periods"])
-    fragment = render_template("panels/_frag_forecast_whatif.html",
-                               forecast=fc, balance_svg=svg,
-                               n_months=n_months, income_override=income_override,
-                               skipped_pay_dates=skip_dates,
-                               skip_dates_str=",".join(skip_dates),
-                               no_accrue_dates=no_accrue_dates,
-                               no_accrue_dates_str=",".join(no_accrue_dates),
-                               scenarios=scenarios,
-                               active_scenario_id=active_sid)
-    oob = f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{fragment}</div>'
+    timeline_rows = FC.compute_simple_timeline(data, 60, off_buckets=off_buckets)
+    whatif_html = render_template("panels/_frag_forecast_whatif.html",
+                                  forecast=fc, balance_svg=svg,
+                                  n_months=n_months, income_override=income_override,
+                                  skipped_pay_dates=skip_dates,
+                                  skip_dates_str=",".join(skip_dates),
+                                  no_accrue_dates=no_accrue_dates,
+                                  no_accrue_dates_str=",".join(no_accrue_dates),
+                                  scenarios=scenarios,
+                                  active_scenario_id=active_sid)
+    timeline_html = render_template("panels/_frag_forecast_timeline.html",
+                                    timeline_rows=timeline_rows)
+    oob = (f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{whatif_html}</div>'
+           f'<div id="fc-timeline-inner" hx-swap-oob="innerHTML">{timeline_html}</div>')
     resp = make_response(oob)
     resp.headers["HX-Trigger"] = "closeModal"
     return resp

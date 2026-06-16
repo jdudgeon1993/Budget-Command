@@ -435,8 +435,9 @@ def save_scenario(uid: str, token: str, name: str, allocations: dict) -> str:
 
 def update_scenario(uid: str, token: str, sid: str, name: str, allocations: dict) -> None:
     db = client(token)
-    db.table("bcc_scenarios").update({"name": name, "allocations": allocations}) \
-      .eq("id", sid).eq("user_id", uid).execute()
+    db.table("bcc_scenarios").update({
+        "name": name, "allocations": allocations, "updated_at": "now()",
+    }).eq("id", sid).eq("user_id", uid).execute()
 
 
 def delete_scenario(uid: str, token: str, sid: str) -> None:

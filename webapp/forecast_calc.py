@@ -613,7 +613,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
 # ── Simple 60-day timeline (event feed) ──────────────────────────────────────
 
-def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
+def compute_simple_timeline(data: dict, n_days: int = 60,
+                            off_buckets: list = None) -> list[dict]:
     """
     Generate a flat 60-day event feed from today.
     Returns list of flat row dicts:
@@ -621,12 +622,14 @@ def compute_simple_timeline(data: dict, n_days: int = 60) -> list[dict]:
       {rt: "paycheck", lbl: "Paycheck Name",  amt: "$X.XX",  td: "", pa: ""}
       {rt: "bill",     lbl: "Bill Name",       amt: "$X.XX",  td: "", pa: "1"/"", pd: "1"/""}
     All values are strings.
+    off_buckets: list of bucket IDs excluded by the active scenario.
     """
     today = date.today()
     end   = today + timedelta(days=n_days - 1)
+    off_set = set(off_buckets or [])
 
     paychecks   = data.get("paychecks", [])
-    buckets     = data.get("buckets", [])
+    buckets     = [b for b in data.get("buckets", []) if b.get("id") not in off_set]
     txs         = data.get("txs", [])
     months_raw  = data.get("months", [])
     handled_by_mid = {m.get("id", ""): m.get("handledBuckets", {}) for m in months_raw}
