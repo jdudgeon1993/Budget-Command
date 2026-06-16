@@ -55,7 +55,8 @@
   {% endif %}
 </div>
 
-<!-- OOB: keep KPI bar in sync with active scenario numbers -->
+<!-- OOB: keep KPI bar in sync with active scenario (only emitted on HTMX requests) -->
+{% if is_htmx %}
 {% set _active_sc_name = (scenarios | selectattr('id', 'equalto', active_scenario_id) | map(attribute='name') | first) if active_scenario_id else '' %}
 <div id="fc-kpi-bar" class="fc-kpi-bar" hx-swap-oob="outerHTML">
   {% if _active_sc_name %}
@@ -69,11 +70,11 @@
     <div class="fc-kpi-val mono">{{ forecast.start_balance }}</div>
   </div>
   <div class="fc-kpi">
-    <div class="fc-kpi-lbl">Projected Income</div>
+    <div class="fc-kpi-lbl">Income ({{ n_months }} mo)</div>
     <div class="fc-kpi-val mono c-green">{{ forecast.total_income }}</div>
   </div>
   <div class="fc-kpi">
-    <div class="fc-kpi-lbl">Unfunded Bills</div>
+    <div class="fc-kpi-lbl">Unfunded ({{ n_months }} mo)</div>
     <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
   </div>
   <div class="fc-kpi">
@@ -89,7 +90,8 @@
   {% if forecast.danger_date %}
   <div class="fc-kpi">
     <div class="fc-kpi-lbl">Danger Date</div>
-    <div class="fc-kpi-val mono c-red" title="{{ forecast.danger_date }}">{{ forecast.danger_balance_fmt }}</div>
+    <div class="fc-kpi-val mono c-red" style="font-size:11px">{{ forecast.danger_date }}</div>
+    <div style="font-size:9px;color:var(--text3);text-align:center">Low: {{ forecast.danger_balance_fmt }}</div>
   </div>
   {% endif %}
   {% if forecast.break_even_label %}
@@ -99,12 +101,14 @@
   </div>
   {% endif %}
   {% if forecast.runway_months is not none %}
-  <div class="fc-kpi">
+  <div class="fc-kpi" title="Current balance ÷ avg monthly spend">
     <div class="fc-kpi-lbl">Runway</div>
     <div class="fc-kpi-val mono" style="color:{{ forecast.runway_color }}">{{ forecast.runway_months }} mo</div>
+    <div style="font-size:9px;color:var(--text3);text-align:center">bal ÷ avg spend</div>
   </div>
   {% endif %}
 </div>
+{% endif %}
 
 <!-- Balance trajectory chart -->
 {% if balance_svg %}
@@ -130,13 +134,15 @@
         <div class="fc-period-range">{{ p.date_range }}</div>
       </div>
       <div class="fc-period-hdr-right">
+        {% if p.type != 'gap' %}
         <div style="text-align:right">
-          <div class="fc-kpi-lbl">Safe to Spend</div>
+          <div class="fc-kpi-lbl">Available to Spend</div>
           <div class="fc-period-sts {{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
-        </div>
-        {% if p.cushion_raw > 0 %}
-        <div style="text-align:right;font-size:10px;color:var(--text3);margin-top:2px">
-          Cushion {{ p.cushion_fmt }} · Save {{ p.safe_to_save_fmt }} now
+          {% if p.cushion_raw > 0 %}
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">
+            Consider saving {{ p.safe_to_save_fmt }}
+          </div>
+          {% endif %}
         </div>
         {% endif %}
         {% if p.type == 'paycheck' %}
@@ -145,10 +151,10 @@
                   type="button" onclick="fcSkipToggle('{{ p.id }}')">
             {{ 'Unskip' if p.is_skipped else 'Skip Period' }}
           </button>
-          {% if not p.is_skipped %}
+          {% if not p.is_skipped and p.is_next_upcoming %}
           <button class="fc-skip-btn fc-no-accrue-btn {{ 'active' if p.is_no_accrue }}"
                   type="button" onclick="fcNoAccrueToggle('{{ p.id }}')">
-            {{ 'Accrue Paycheck' if p.is_no_accrue else "Don't Accrue" }}
+            {{ 'Paycheck Received' if p.is_no_accrue else "Not Received Yet" }}
           </button>
           {% endif %}
         </div>

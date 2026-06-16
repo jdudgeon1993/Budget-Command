@@ -606,20 +606,32 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         running_min = min(running_min, period_results[i]["end_bal_raw"])
         fwd_mins[i] = running_min
 
-    safe_to_spend = fwd_mins[0] if fwd_mins else start_balance
+    # Global STS = cushion in first period = how much above the forward floor you are NOW
+    if period_results:
+        safe_to_spend = max(0.0, period_results[0]["end_bal_raw"] - fwd_mins[0])
+    else:
+        safe_to_spend = 0.0
 
-    # ── Per-period cushion + safe-to-save ─────────────────────────────────────
-    # cushion[i] = how much of end_bal[i] is above the forward minimum (truly surplus)
-    # If period i IS the forward minimum, fwd_mins[i] == end_bal[i], cushion = 0.
+    # ── Per-period cushion = the true per-period safe-to-spend ───────────────
+    # cushion[i] = end_bal[i] - fwd_mins[i]
+    # This is how much can be spent from period i without ever breaking a future bill.
+    # When period i IS the forward minimum, cushion = 0 (no spare room).
+    today_str = str(today)
+    next_upcoming_marked = False
     for i, p in enumerate(period_results):
-        sts = fwd_mins[i]
-        p["safe_to_spend_fmt"] = _fmt(sts)
-        p["sts_color"]         = _sts_class(sts)
-        cushion = max(0.0, p["end_bal_raw"] - fwd_mins[i])
+        cushion   = max(0.0, p["end_bal_raw"] - fwd_mins[i])
         safe_save = round(cushion * 0.5, 2)
-        p["cushion_raw"]      = cushion
-        p["cushion_fmt"]      = _fmt(cushion)
-        p["safe_to_save_fmt"] = _fmt(safe_save)
+        p["safe_to_spend_fmt"] = _fmt(cushion)
+        p["sts_color"]         = _sts_class(cushion)
+        p["cushion_raw"]       = cushion
+        p["cushion_fmt"]       = _fmt(cushion)
+        p["safe_to_save_fmt"]  = _fmt(safe_save)
+        # Mark only the next upcoming (first future) paycheck for Don't Accrue
+        if not next_upcoming_marked and p["type"] == "paycheck" and not p["is_skipped"] and p["id"] >= today_str:
+            p["is_next_upcoming"] = True
+            next_upcoming_marked  = True
+        else:
+            p["is_next_upcoming"] = False
 
     shortfall_count = sum(1 for p in period_results if p["shortfall"])
 

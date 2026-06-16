@@ -1184,6 +1184,9 @@ def forecast_view() -> dict:
         "no_accrue_dates_str": "",
         "scenarios": scenarios,
         "active_scenario_id": "",
+        "paychecks": data.get("paychecks", []),
+        "paycheck_overrides_form": {},
+        "is_htmx": False,
     }
 
 

@@ -2,18 +2,18 @@
 {% block panel %}
 <div class="fc-wrap">
 
-  <!-- KPI bar -->
+  <!-- KPI bar — also emitted as OOB by _frag_forecast_whatif.html on HTMX refresh -->
   <div class="fc-kpi-bar" id="fc-kpi-bar">
     <div class="fc-kpi">
       <div class="fc-kpi-lbl">Current Balance</div>
       <div class="fc-kpi-val mono">{{ forecast.start_balance }}</div>
     </div>
     <div class="fc-kpi">
-      <div class="fc-kpi-lbl">Projected Income</div>
+      <div class="fc-kpi-lbl">Income ({{ n_months }} mo)</div>
       <div class="fc-kpi-val mono c-green">{{ forecast.total_income }}</div>
     </div>
     <div class="fc-kpi">
-      <div class="fc-kpi-lbl">Unfunded Bills</div>
+      <div class="fc-kpi-lbl">Unfunded ({{ n_months }} mo)</div>
       <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
     </div>
     <div class="fc-kpi">
@@ -24,6 +24,26 @@
     <div class="fc-kpi fc-kpi-alert">
       <div class="fc-kpi-lbl">Shortfalls</div>
       <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
+    </div>
+    {% endif %}
+    {% if forecast.danger_date %}
+    <div class="fc-kpi">
+      <div class="fc-kpi-lbl">Danger Date</div>
+      <div class="fc-kpi-val mono c-red" style="font-size:11px">{{ forecast.danger_date }}</div>
+      <div style="font-size:9px;color:var(--text3);text-align:center">Low: {{ forecast.danger_balance_fmt }}</div>
+    </div>
+    {% endif %}
+    {% if forecast.break_even_label %}
+    <div class="fc-kpi">
+      <div class="fc-kpi-lbl">Breaks Even</div>
+      <div class="fc-kpi-val mono c-green" style="font-size:11px">{{ forecast.break_even_label }}</div>
+    </div>
+    {% endif %}
+    {% if forecast.runway_months is not none %}
+    <div class="fc-kpi" title="Current balance ÷ avg monthly spend">
+      <div class="fc-kpi-lbl">Runway</div>
+      <div class="fc-kpi-val mono" style="color:{{ forecast.runway_color }}">{{ forecast.runway_months }} mo</div>
+      <div style="font-size:9px;color:var(--text3);text-align:center">bal ÷ avg spend</div>
     </div>
     {% endif %}
   </div>

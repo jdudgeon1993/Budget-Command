@@ -509,7 +509,8 @@ def forecast_whatif():
                                   scenarios=scenarios,
                                   active_scenario_id=active_sid,
                                   paychecks=paychecks_ctx,
-                                  paycheck_overrides_form=form_pc_overrides)
+                                  paycheck_overrides_form=form_pc_overrides,
+                                  is_htmx=True)
     timeline_html = render_template("panels/_frag_forecast_timeline.html",
                                     timeline_rows=timeline_rows)
     oob_timeline = f'<div id="fc-timeline-inner" hx-swap-oob="innerHTML">{timeline_html}</div>'
@@ -731,7 +732,8 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
                                   scenarios=scenarios,
                                   active_scenario_id=active_sid,
                                   paychecks=data.get("paychecks", []),
-                                  paycheck_overrides_form={})
+                                  paycheck_overrides_form={},
+                                  is_htmx=True)
     timeline_html = render_template("panels/_frag_forecast_timeline.html",
                                     timeline_rows=timeline_rows)
     oob = (f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{whatif_html}</div>'
