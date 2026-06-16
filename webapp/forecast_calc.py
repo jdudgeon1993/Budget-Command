@@ -402,6 +402,50 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     freq_bills  = [b for b in active_buckets if b.get("dueDay") is None
                    and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
                    and _effective_bill_amt(b) > 0]
+
+    # ── Sinking/goal buckets: add monthly contribution as a forecast obligation ─
+    already_in = {b["id"] for b in dated_bills + freq_bills}
+    current_month_obj = next((m for m in months_raw if m.get("id") == today_mid), None)
+    for b in active_buckets:
+        if b.get("type") not in ("sinking", "goal"):
+            continue
+        if b["id"] in already_in:
+            continue
+        target_amt = float(b.get("targetAmount") or 0)
+        target_date_str = b.get("targetDate") or ""
+        if target_amt <= 0 or not target_date_str:
+            continue
+        try:
+            td = date.fromisoformat(target_date_str[:10])
+        except (ValueError, TypeError):
+            continue
+        months_left = max(1, (td.year - today.year) * 12 + (td.month - today.month))
+        current_saved = bucket_available(b, current_month_obj, months_raw, txs) if current_month_obj else 0.0
+        needed = round(max(0.0, (target_amt - current_saved) / months_left), 2)
+        if needed < 0.50:
+            continue
+        freq_bills.append({
+            "id": b["id"], "name": b["name"],
+            "dueDay": None, "payFreq": "monthly",
+            "dueAmount": needed, "defaultBudget": needed,
+        })
+        already_in.add(b["id"])
+
+    # ── Flex expense buckets: treat defaultBudget as a monthly obligation ────────
+    for b in active_buckets:
+        if not b.get("flex") or b.get("type", "expense") != "expense":
+            continue
+        if b["id"] in already_in:
+            continue
+        amt = float(b.get("defaultBudget") or b.get("dueAmount") or 0)
+        if amt <= 0:
+            continue
+        freq_bills.append({
+            "id": b["id"], "name": b["name"],
+            "dueDay": None, "payFreq": "monthly",
+            "dueAmount": amt, "defaultBudget": amt,
+        })
+        already_in.add(b["id"])
     # Scenario-injected buckets with no due date — treated as monthly on the 1st
     for ph in (phantom_monthly or []):
         if ph["id"] in off_set:
