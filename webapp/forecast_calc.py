@@ -237,7 +237,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      timeline: dict = None,
                      skipped_pay_dates: list = None,
                      no_accrue_dates: list = None,
-                     phantom_monthly: list = None) -> dict:
+                     phantom_monthly: list = None,
+                     paycheck_overrides: dict = None) -> dict:
     """
     Returns {
         start_balance, safe_to_spend, total_income, total_unfunded,
@@ -251,6 +252,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     today = date.today()
     bucket_overrides  = bucket_overrides or {}
     rule_overrides    = rule_overrides or {}
+    paycheck_overrides = paycheck_overrides or {}
     off_set           = set(off_buckets or [])
     schedule          = schedule or {}
     due_day_overrides = due_day_overrides or {}
@@ -291,7 +293,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         for pd in _gen_pay_dates(anchor, int(pc.get("freq", 14)), today, end_date):
             if pd not in pay_events:
                 pay_events[pd] = []
-            amt = float(pc.get("amount") or 0)
+            pc_id = str(pc.get("id", ""))
+            amt = float(paycheck_overrides.get(pc_id, pc.get("amount") or 0))
             transfers = []
             for r in external_rules:
                 rid = r.get("id", "")
@@ -417,6 +420,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     period_results: list[dict] = []
     grand_income   = 0.0
     grand_unfunded = 0.0
+    grand_funded   = 0.0
 
     for ps, pe, is_gap in periods_meta:
         period_start_bal = running_balance
@@ -466,7 +470,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             amt = _effective_bill_amt(b, bd.year, bd.month)
             if amt <= 0:
                 return
-            entry = {"name": b["name"], "amount": amt}
+            actual = round(spent_by_bid.get(b["id"], 0.0), 2) if is_gap or ps == today else 0.0
+            entry = {"name": b["name"], "amount": amt, "actual": actual}
             if _funded(b["id"], bd):
                 funded_by_day.setdefault(bd, []).append(entry)
             else:
@@ -483,12 +488,18 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
         # Process funded (green) — deduct from balance
         funded_lines: list[dict] = []
+        is_current_period = is_gap or (ps <= today <= pe)
         for d in sorted(funded_by_day):
             funded_lines.append({"row_type": "date", "text": _date_label(d)})
             for bill in funded_by_day[d]:
                 running_balance -= bill["amount"]
+                actual = bill.get("actual", 0.0) if is_current_period else 0.0
                 funded_lines.append({"row_type": "bill", "text": bill["name"],
-                                     "amount_fmt": _fmt(bill["amount"])})
+                                     "amount_fmt": _fmt(bill["amount"]),
+                                     "actual_fmt": _fmt(actual) if actual else "",
+                                     "variance_fmt": _fmt(actual - bill["amount"]) if actual else "",
+                                     "variance_over": actual > bill["amount"] + 0.005 if actual else False})
+                grand_funded += bill["amount"]
 
         bal_after_funded = running_balance  # snapshot before unfunded bills
 
@@ -499,8 +510,12 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             for bill in unfunded_by_day[d]:
                 running_balance -= bill["amount"]
                 grand_unfunded  += bill["amount"]
+                actual = bill.get("actual", 0.0) if is_current_period else 0.0
                 unfunded_lines.append({"row_type": "bill", "text": bill["name"],
-                                       "amount_fmt": _fmt(bill["amount"])})
+                                       "amount_fmt": _fmt(bill["amount"]),
+                                       "actual_fmt": _fmt(actual) if actual else "",
+                                       "variance_fmt": _fmt(actual - bill["amount"]) if actual else "",
+                                       "variance_over": actual > bill["amount"] + 0.005 if actual else False})
 
         # Build transfer lines with cumulative totals
         xfr_cum = 0.0
@@ -593,21 +608,63 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
     safe_to_spend = fwd_mins[0] if fwd_mins else start_balance
 
+    # ── Per-period cushion + safe-to-save ─────────────────────────────────────
+    # cushion[i] = how much of end_bal[i] is above the forward minimum (truly surplus)
+    # If period i IS the forward minimum, fwd_mins[i] == end_bal[i], cushion = 0.
     for i, p in enumerate(period_results):
         sts = fwd_mins[i]
         p["safe_to_spend_fmt"] = _fmt(sts)
         p["sts_color"]         = _sts_class(sts)
+        cushion = max(0.0, p["end_bal_raw"] - fwd_mins[i])
+        safe_save = round(cushion * 0.5, 2)
+        p["cushion_raw"]      = cushion
+        p["cushion_fmt"]      = _fmt(cushion)
+        p["safe_to_save_fmt"] = _fmt(safe_save)
 
     shortfall_count = sum(1 for p in period_results if p["shortfall"])
 
+    # ── Danger date — period with the lowest projected balance ────────────────
+    danger_date = danger_balance_fmt = ""
+    if period_results:
+        danger_idx = min(range(len(period_results)),
+                         key=lambda i: period_results[i]["end_bal_raw"])
+        danger_bal = period_results[danger_idx]["end_bal_raw"]
+        if danger_bal < start_balance:
+            danger_date         = period_results[danger_idx]["date_range"]
+            danger_balance_fmt  = _fmt(danger_bal)
+
+    # ── Break-even — first future period where balance recovers to start ──────
+    break_even_label = None
+    for p in period_results:
+        if p["end_bal_raw"] >= start_balance - 0.005 and not p.get("is_gap"):
+            break_even_label = p["date_range"]
+            break
+
+    # ── Months of runway = start_balance / avg monthly spend ─────────────────
+    avg_monthly_spend = (grand_funded + grand_unfunded) / n_months if n_months else 0
+    if avg_monthly_spend > 0:
+        runway_raw = start_balance / avg_monthly_spend
+        runway_months = round(runway_raw, 1)
+        runway_color = ("var(--red)" if runway_raw < 1
+                        else "var(--amber)" if runway_raw < 3
+                        else "var(--green)")
+    else:
+        runway_months = None
+        runway_color  = "var(--text3)"
+
     return {
-        "start_balance":   _fmt(start_balance),
-        "safe_to_spend":   _fmt(safe_to_spend),
-        "sts_color":       _sts_class(safe_to_spend),
-        "total_income":    _fmt(grand_income),
-        "total_unfunded":  _fmt(grand_unfunded),
-        "shortfall_count": shortfall_count,
-        "periods":         period_results,
+        "start_balance":      _fmt(start_balance),
+        "safe_to_spend":      _fmt(safe_to_spend),
+        "sts_color":          _sts_class(safe_to_spend),
+        "total_income":       _fmt(grand_income),
+        "total_unfunded":     _fmt(grand_unfunded),
+        "shortfall_count":    shortfall_count,
+        "periods":            period_results,
+        "danger_date":        danger_date,
+        "danger_balance_fmt": danger_balance_fmt,
+        "break_even_label":   break_even_label,
+        "runway_months":      runway_months,
+        "runway_color":       runway_color,
     }
 
 

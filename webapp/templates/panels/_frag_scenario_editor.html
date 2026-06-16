@@ -59,6 +59,19 @@
     </div>
     {% endfor %}
     {% endfor %}
+
+    {% if paychecks %}
+    <div class="fc-sc-section-lbl">Paycheck Income Override</div>
+    <p class="fc-sc-hint">Override individual paycheck amounts for this scenario.</p>
+    {% for pc in paychecks %}
+    <div class="fc-sc-brow">
+      <span class="fc-sc-bname">{{ pc.label }}</span>
+      <input class="fc-sc-amt" type="number" name="paycheck_amt_{{ pc.id }}"
+             value="{{ paycheck_overrides.get(pc.id|string, '') or '' }}"
+             placeholder="{{ pc.amount | int }}" min="0" step="0.01">
+    </div>
+    {% endfor %}
+    {% endif %}
   </div>
 
   <div class="edit-actions">

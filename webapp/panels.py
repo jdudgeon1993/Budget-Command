@@ -468,8 +468,25 @@ def forecast_whatif():
     active_sid = (f.get("active_scenario_id") or "").strip()
     data = D.load_data()
     scenarios = _load_scenarios()
-    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+    bucket_overrides, off_buckets, schedule, phantom_monthly, sc_pc_overrides = \
         _scenario_fc_params(scenarios, active_sid, n_months, data)
+
+    # Per-paycheck income overrides from the What-If form (ad-hoc, not saved)
+    form_pc_overrides = {}
+    for pc in data.get("paychecks", []):
+        pc_id = str(pc.get("id", ""))
+        raw = (f.get(f"paycheck_override_{pc_id}") or "").replace("$", "").replace(",", "").strip()
+        if raw:
+            try:
+                form_pc_overrides[pc_id] = float(raw)
+            except ValueError:
+                pass
+    # Form overrides take precedence over scenario overrides
+    paycheck_overrides = {**(sc_pc_overrides or {}), **form_pc_overrides} or None
+
+    paychecks_ctx = [{"id": str(pc.get("id", "")), "label": pc.get("label", "Paycheck"),
+                      "amount": float(pc.get("amount") or 0)}
+                     for pc in data.get("paychecks", [])]
 
     from . import forecast_calc as FC
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
@@ -478,7 +495,8 @@ def forecast_whatif():
                              bucket_overrides=bucket_overrides,
                              off_buckets=off_buckets,
                              schedule=schedule,
-                             phantom_monthly=phantom_monthly)
+                             phantom_monthly=phantom_monthly,
+                             paycheck_overrides=paycheck_overrides)
     svg = FC.build_balance_svg(fc["periods"])
     timeline_rows = FC.compute_simple_timeline(data, 60, off_buckets=off_buckets)
     whatif_html = render_template("panels/_frag_forecast_whatif.html",
@@ -489,7 +507,9 @@ def forecast_whatif():
                                   no_accrue_dates=no_accrue_dates,
                                   no_accrue_dates_str=",".join(no_accrue_dates),
                                   scenarios=scenarios,
-                                  active_scenario_id=active_sid)
+                                  active_scenario_id=active_sid,
+                                  paychecks=paychecks_ctx,
+                                  paycheck_overrides_form=form_pc_overrides)
     timeline_html = render_template("panels/_frag_forecast_timeline.html",
                                     timeline_rows=timeline_rows)
     oob_timeline = f'<div id="fc-timeline-inner" hx-swap-oob="innerHTML">{timeline_html}</div>'
@@ -534,8 +554,10 @@ _FREQ_BILL_TYPES = {"weekly", "biweekly", "triweekly", "monthly"}
 
 
 def _build_fc_params(allocs: dict, data: dict, n_months: int = 12):
-    """Translate scenario allocations blob into (bucket_overrides, off_buckets, schedule, phantom_monthly)."""
-    bucket_overrides = dict(allocs.get("bucket_overrides") or {})
+    """Translate scenario allocations blob into 5-tuple:
+    (bucket_overrides, off_buckets, schedule, phantom_monthly, paycheck_overrides)."""
+    bucket_overrides    = dict(allocs.get("bucket_overrides") or {})
+    paycheck_overrides  = dict(allocs.get("paycheck_overrides") or {})
     off_buckets = list(allocs.get("off_buckets") or [])
     off_set = set(off_buckets)
     changes = allocs.get("changes") or []
@@ -574,16 +596,17 @@ def _build_fc_params(allocs: dict, data: dict, n_months: int = 12):
             continue
         phantom_monthly.append({"id": bid, "name": b["name"], "amount": amt})
     return (bucket_overrides or None, off_buckets or None,
-            schedule or None, phantom_monthly or None)
+            schedule or None, phantom_monthly or None,
+            paycheck_overrides or None)
 
 
 def _scenario_fc_params(scenarios: list, active_sid: str, n_months: int, data: dict):
-    """Extract (bucket_overrides, off_buckets, schedule, phantom_monthly) for the active scenario."""
+    """Extract forecast params for the active scenario (5-tuple)."""
     if not active_sid:
-        return None, None, None, None
+        return None, None, None, None, None
     sc = next((s for s in scenarios if s["id"] == active_sid), None)
     if not sc:
-        return None, None, None, None
+        return None, None, None, None, None
     return _build_fc_params(sc.get("allocations") or {}, data, n_months)
 
 
@@ -614,7 +637,17 @@ def _parse_scenario_form(f, data: dict) -> dict:
                     except ValueError:
                         pass
             changes.append(ch)
-    return {"bucket_overrides": bucket_overrides, "off_buckets": off_buckets, "changes": changes}
+    paycheck_overrides = {}
+    for pc in data.get("paychecks", []):
+        pc_id = str(pc.get("id", ""))
+        raw = (f.get(f"paycheck_amt_{pc_id}") or "").strip()
+        if raw:
+            try:
+                paycheck_overrides[pc_id] = float(raw.replace("$", "").replace(",", ""))
+            except ValueError:
+                pass
+    return {"bucket_overrides": bucket_overrides, "off_buckets": off_buckets,
+            "changes": changes, "paycheck_overrides": paycheck_overrides}
 
 
 def _scenario_editor_ctx(data: dict, scenario=None) -> dict:
@@ -638,7 +671,11 @@ def _scenario_editor_ctx(data: dict, scenario=None) -> dict:
     allocs = (scenario.get("allocations") or {}) if scenario else {}
     off_bucket_ids = set(allocs.get("off_buckets") or [])
     bucket_overrides = dict(allocs.get("bucket_overrides") or {})
+    paycheck_overrides = dict(allocs.get("paycheck_overrides") or {})
     changes_by_bid = {ch["bid"]: ch for ch in (allocs.get("changes") or [])}
+    paychecks = [{"id": str(pc.get("id", "")), "label": pc.get("label", "Paycheck"),
+                  "amount": float(pc.get("amount") or 0)}
+                 for pc in data.get("paychecks", [])]
     sy, sm0 = parse_month_id(current_month_id())
     month_options = []
     for i in range(1, 13):
@@ -652,6 +689,8 @@ def _scenario_editor_ctx(data: dict, scenario=None) -> dict:
         "buckets_by_cat": buckets_by_cat,
         "off_bucket_ids": off_bucket_ids,
         "bucket_overrides": bucket_overrides,
+        "paycheck_overrides": paycheck_overrides,
+        "paychecks": paychecks,
         "changes_by_bid": changes_by_bid,
         "month_options": month_options,
     }
@@ -668,8 +707,9 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
     no_accrue_dates = no_accrue_dates or []
     data = D.load_data()
     scenarios = _load_scenarios()
-    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+    bucket_overrides, off_buckets, schedule, phantom_monthly, pc_ovr = \
         _scenario_fc_params(scenarios, active_sid, n_months, data)
+    effective_pc_overrides = pc_ovr
     from . import forecast_calc as FC
     fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
                              skipped_pay_dates=skip_dates,
@@ -677,7 +717,8 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
                              bucket_overrides=bucket_overrides,
                              off_buckets=off_buckets,
                              schedule=schedule,
-                             phantom_monthly=phantom_monthly)
+                             phantom_monthly=phantom_monthly,
+                             paycheck_overrides=effective_pc_overrides)
     svg = FC.build_balance_svg(fc["periods"])
     timeline_rows = FC.compute_simple_timeline(data, 60, off_buckets=off_buckets)
     whatif_html = render_template("panels/_frag_forecast_whatif.html",
@@ -688,7 +729,9 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
                                   no_accrue_dates=no_accrue_dates,
                                   no_accrue_dates_str=",".join(no_accrue_dates),
                                   scenarios=scenarios,
-                                  active_scenario_id=active_sid)
+                                  active_scenario_id=active_sid,
+                                  paychecks=data.get("paychecks", []),
+                                  paycheck_overrides_form={})
     timeline_html = render_template("panels/_frag_forecast_timeline.html",
                                     timeline_rows=timeline_rows)
     oob = (f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{whatif_html}</div>'

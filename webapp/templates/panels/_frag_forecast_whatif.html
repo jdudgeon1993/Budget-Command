@@ -19,6 +19,20 @@
   <input name="income_override" type="text" inputmode="decimal"
          placeholder="e.g. 5000" value="{{ income_override if income_override else '' }}"
          style="width:110px">
+  {% if paychecks %}
+  <details class="fc-pc-overrides">
+    <summary style="cursor:pointer;font-size:11px;color:var(--text3)">Per-paycheck ▾</summary>
+    {% for pc in paychecks %}
+    <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+      <span style="font-size:11px;color:var(--text3);flex:1">{{ pc.label }}</span>
+      <input type="text" name="paycheck_override_{{ pc.id }}" inputmode="decimal"
+             placeholder="{{ pc.amount }}"
+             value="{{ paycheck_overrides_form.get(pc.id|string, '') }}"
+             style="width:90px;font-size:11px">
+    </div>
+    {% endfor %}
+  </details>
+  {% endif %}
   <button class="toolbar-btn primary" type="submit">Refresh</button>
 </form>
 
@@ -72,6 +86,24 @@
     <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
   </div>
   {% endif %}
+  {% if forecast.danger_date %}
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Danger Date</div>
+    <div class="fc-kpi-val mono c-red" title="{{ forecast.danger_date }}">{{ forecast.danger_balance_fmt }}</div>
+  </div>
+  {% endif %}
+  {% if forecast.break_even_label %}
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Breaks Even</div>
+    <div class="fc-kpi-val mono c-green" style="font-size:11px">{{ forecast.break_even_label }}</div>
+  </div>
+  {% endif %}
+  {% if forecast.runway_months is not none %}
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Runway</div>
+    <div class="fc-kpi-val mono" style="color:{{ forecast.runway_color }}">{{ forecast.runway_months }} mo</div>
+  </div>
+  {% endif %}
 </div>
 
 <!-- Balance trajectory chart -->
@@ -82,6 +114,7 @@
 <!-- Period cards -->
 <div class="fc-periods">
   {% for p in forecast.periods %}
+  {% set _pfirst = loop.first %}
   <div class="fc-period {{ 'fc-period-skipped' if p.is_skipped }} {{ 'fc-period-gap' if p.type == 'gap' }} {{ 'fc-period-shortfall' if p.shortfall and not p.is_skipped }}">
 
     <!-- Period header -->
@@ -101,6 +134,11 @@
           <div class="fc-kpi-lbl">Safe to Spend</div>
           <div class="fc-period-sts {{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
         </div>
+        {% if p.cushion_raw > 0 %}
+        <div style="text-align:right;font-size:10px;color:var(--text3);margin-top:2px">
+          Cushion {{ p.cushion_fmt }} · Save {{ p.safe_to_save_fmt }} now
+        </div>
+        {% endif %}
         {% if p.type == 'paycheck' %}
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
           <button class="fc-skip-btn {{ 'active' if p.is_skipped }}"
@@ -169,6 +207,12 @@
           <span>{{ line.text }}</span>
           <span class="mono">{{ line.amount_fmt }}</span>
         </div>
+        {% if _pfirst and line.actual_fmt %}
+        <div class="fc-brow" style="font-size:10px;padding-left:12px;opacity:.8">
+          <span style="color:var(--text3)">Actual</span>
+          <span class="mono" style="color:{{ 'var(--green)' if line.actual_vs_proj == 'under' else 'var(--red)' if line.actual_vs_proj == 'over' else 'var(--text2)' }}">{{ line.actual_fmt }}</span>
+        </div>
+        {% endif %}
         {% endif %}
       {% endfor %}
       <div class="fc-brow fc-brow-bal">
