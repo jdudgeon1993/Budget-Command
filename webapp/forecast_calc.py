@@ -488,9 +488,11 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                     if ae["is_vault"]:
                         running_balance -= ae["amount"]
                         alloc_events.append({"name": ae["name"], "amount": ae["amount"],
+                                             "amount_fmt": _fmt(ae["amount"]),
                                              "ae_type": "vault"})
                     else:
                         alloc_events.append({"name": ae["name"], "amount": ae["amount"],
+                                             "amount_fmt": _fmt(ae["amount"]),
                                              "ae_type": "info"})
 
         bal_after_xfr = running_balance
@@ -547,11 +549,11 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
 
         bal_after_funded = running_balance  # snapshot before unfunded bills
 
-        # Process unfunded (red) — deduct from balance
+        # Process unfunded (red) — deduct from balance, largest first
         unfunded_lines: list[dict] = []
         for d in sorted(unfunded_by_day):
             unfunded_lines.append({"row_type": "date", "text": _date_label(d)})
-            for bill in unfunded_by_day[d]:
+            for bill in sorted(unfunded_by_day[d], key=lambda x: x["amount"], reverse=True):
                 running_balance -= bill["amount"]
                 grand_unfunded  += bill["amount"]
                 actual = bill.get("actual", 0.0) if is_current_period else 0.0
@@ -692,17 +694,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             break_even_label = p["date_range"]
             break
 
-    # ── Months of runway = start_balance / avg monthly spend ─────────────────
-    avg_monthly_spend = (grand_funded + grand_unfunded) / n_months if n_months else 0
-    if avg_monthly_spend > 0:
-        runway_raw = start_balance / avg_monthly_spend
-        runway_months = round(runway_raw, 1)
-        runway_color = ("var(--red)" if runway_raw < 1
-                        else "var(--amber)" if runway_raw < 3
-                        else "var(--green)")
-    else:
-        runway_months = None
-        runway_color  = "var(--text3)"
+    # ── Months of runway — REMOVED, replaced with save_opportunity ──────────────
+    save_opportunity = round(safe_to_spend * 0.5, 2) if safe_to_spend > 0.5 else 0.0
 
     return {
         "start_balance":      _fmt(start_balance),
@@ -715,8 +708,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         "danger_date":        danger_date,
         "danger_balance_fmt": danger_balance_fmt,
         "break_even_label":   break_even_label,
-        "runway_months":      runway_months,
-        "runway_color":       runway_color,
+        "save_opportunity":   _fmt(save_opportunity) if save_opportunity else "",
     }
 
 

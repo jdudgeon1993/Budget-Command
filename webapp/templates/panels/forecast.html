@@ -19,7 +19,15 @@
     <div class="fc-kpi">
       <div class="fc-kpi-lbl">Safe to Spend</div>
       <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
+      <div style="font-size:9px;color:var(--text3);text-align:center">won't break any bill</div>
     </div>
+    {% if forecast.save_opportunity %}
+    <div class="fc-kpi">
+      <div class="fc-kpi-lbl">Save Opportunity</div>
+      <div class="fc-kpi-val mono c-green">{{ forecast.save_opportunity }}</div>
+      <div style="font-size:9px;color:var(--text3);text-align:center">50% of headroom</div>
+    </div>
+    {% endif %}
     {% if forecast.shortfall_count > 0 %}
     <div class="fc-kpi fc-kpi-alert">
       <div class="fc-kpi-lbl">Shortfalls</div>
@@ -37,13 +45,6 @@
     <div class="fc-kpi">
       <div class="fc-kpi-lbl">Breaks Even</div>
       <div class="fc-kpi-val mono c-green" style="font-size:11px">{{ forecast.break_even_label }}</div>
-    </div>
-    {% endif %}
-    {% if forecast.runway_months is not none %}
-    <div class="fc-kpi" title="Current balance ÷ avg monthly spend">
-      <div class="fc-kpi-lbl">Runway</div>
-      <div class="fc-kpi-val mono" style="color:{{ forecast.runway_color }}">{{ forecast.runway_months }} mo</div>
-      <div style="font-size:9px;color:var(--text3);text-align:center">bal ÷ avg spend</div>
     </div>
     {% endif %}
   </div>
