@@ -1169,11 +1169,11 @@ def forecast_view() -> dict:
     except Exception:
         pass
 
-    timeline_rows = FC.compute_simple_timeline(data, 60)
+    cal_data = FC.compute_calendar_data(data, 60)
     fc = FC.compute_forecast(data)
     svg = FC.build_balance_svg(fc["periods"])
     return {
-        "timeline_rows": timeline_rows,
+        "cal_data": cal_data,
         "forecast": fc,
         "balance_svg": svg,
         "n_months": 3,

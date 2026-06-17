@@ -1,28 +1,62 @@
-{% if timeline_rows %}
-<div class="fc-tl-list">
-  {% for row in timeline_rows %}
-    {% if row.rt == 'day' %}
-    <div class="fc-tl-day {{ 'fc-tl-day-today' if row.td }} {{ 'fc-tl-day-past' if row.pa and not row.td }}">
-      <span class="fc-tl-day-lbl">{{ row.lbl }}</span>
-      {% if row.td %}<span class="fc-type-badge fc-badge-today">Today</span>{% endif %}
+{% if cal_data %}
+
+<!-- ── Heat Strip ──────────────────────────────────────────────────────── -->
+<div class="tl-heat-wrap">
+  <div class="tl-heat-strip">
+    {% for d in cal_data.heat_days %}
+    <div class="tl-hs-cell
+      {%- if d.has_paycheck and d.has_bills %} tl-hs-both
+      {%- elif d.has_paycheck %} tl-hs-pay
+      {%- elif d.has_bills %} tl-hs-bill
+      {%- endif %}
+      {{- ' tl-hs-today' if d.is_today }}"
+      style="--intensity: {{ d.intensity }}"
+      title="{{ d.date }}{% if d.paycheck_labels %} · 💰 {{ d.paycheck_labels|join(', ') }}{% endif %}{% if d.bill_total_fmt %} · {{ d.bill_total_fmt }} out{% endif %}">
+      {% if d.is_today %}<div class="tl-hs-today-dot"></div>{% endif %}
     </div>
-    {% elif row.rt == 'paycheck' %}
-    <div class="fc-tl-row fc-tl-paycheck">
-      <span class="fc-tl-lbl">💰 {{ row.lbl }}</span>
-      <span class="fc-tl-amt">{{ row.amt }}</span>
+    {% endfor %}
+  </div>
+  <div class="tl-heat-legend">
+    <span style="font-size:10px;color:var(--text3)">Today → 60 days</span>
+    <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)">
+      <span class="tl-legend-dot" style="background:var(--green)"></span><span>Paycheck</span>
+      <span class="tl-legend-dot" style="background:var(--red);margin-left:4px"></span><span>Bills</span>
     </div>
-    {% elif row.rt == 'bill' %}
-    <div class="fc-tl-row {% if row.pd %}fc-tl-bill-paid{% elif row.sch %}fc-tl-bill-sched{% elif row.pa %}fc-tl-bill-past{% else %}fc-tl-bill{% endif %}">
-      <span class="fc-tl-lbl">
-        {{ row.lbl }}
-        {% if row.pd %}<span class="fc-paid-badge">✓ Paid</span>{% endif %}
-        {% if row.sch %}<span class="fc-sched-badge">Scheduled</span>{% endif %}
-      </span>
-      <span class="fc-tl-amt">{{ row.amt }}</span>
-    </div>
-    {% endif %}
-  {% endfor %}
+  </div>
 </div>
+
+<!-- ── Calendar months ─────────────────────────────────────────────────── -->
+{% for month in cal_data.months %}
+<div class="tl-month">
+  <div class="tl-month-hdr">{{ month.name }}</div>
+  <div class="tl-cal-grid">
+    {% for dow in ['S','M','T','W','T','F','S'] %}
+    <div class="tl-cal-dow">{{ dow }}</div>
+    {% endfor %}
+    {% for _ in range(month.first_weekday_sun) %}
+    <div class="tl-cal-empty"></div>
+    {% endfor %}
+    {% for d in month.days %}
+    <div class="tl-cal-cell
+      {{- ' tl-today' if d.is_today }}
+      {{- ' tl-past' if d.is_past and d.in_window }}
+      {{- ' tl-out-window' if not d.in_window }}
+      {{- ' tl-has-pay' if d.has_paycheck and d.in_window }}
+      {{- ' tl-has-bills' if d.has_bills and d.in_window }}"
+      style="--intensity: {{ d.intensity if d.in_window else 0 }}">
+      <span class="tl-cal-num">{{ d.day_num }}</span>
+      {% if d.has_paycheck and d.in_window %}
+      <div class="tl-cal-pay-dot"></div>
+      {% endif %}
+      {% if d.has_bills and d.in_window %}
+      <div class="tl-cal-bill-amt">{{ d.bill_total_fmt }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
 {% else %}
-<div class="fc-empty">No upcoming paychecks or bills in the next 60 days.</div>
+<div class="fc-empty">No calendar data available.</div>
 {% endif %}

@@ -498,7 +498,7 @@ def forecast_whatif():
                              phantom_monthly=phantom_monthly,
                              paycheck_overrides=paycheck_overrides)
     svg = FC.build_balance_svg(fc["periods"])
-    timeline_rows = FC.compute_simple_timeline(data, 60, off_buckets=off_buckets)
+    cal_data = FC.compute_calendar_data(data, 60, off_buckets=off_buckets)
     whatif_html = render_template("panels/_frag_forecast_whatif.html",
                                   forecast=fc, balance_svg=svg,
                                   n_months=n_months, income_override=income_override,
@@ -512,7 +512,7 @@ def forecast_whatif():
                                   paycheck_overrides_form=form_pc_overrides,
                                   is_htmx=True)
     timeline_html = render_template("panels/_frag_forecast_timeline.html",
-                                    timeline_rows=timeline_rows)
+                                    cal_data=cal_data)
     oob_timeline = f'<div id="fc-timeline-inner" hx-swap-oob="innerHTML">{timeline_html}</div>'
     return make_response(whatif_html + oob_timeline)
 
@@ -721,7 +721,7 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
                              phantom_monthly=phantom_monthly,
                              paycheck_overrides=effective_pc_overrides)
     svg = FC.build_balance_svg(fc["periods"])
-    timeline_rows = FC.compute_simple_timeline(data, 60, off_buckets=off_buckets)
+    cal_data = FC.compute_calendar_data(data, 60, off_buckets=off_buckets)
     whatif_html = render_template("panels/_frag_forecast_whatif.html",
                                   forecast=fc, balance_svg=svg,
                                   n_months=n_months, income_override=income_override,
@@ -735,7 +735,7 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
                                   paycheck_overrides_form={},
                                   is_htmx=True)
     timeline_html = render_template("panels/_frag_forecast_timeline.html",
-                                    timeline_rows=timeline_rows)
+                                    cal_data=cal_data)
     oob = (f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{whatif_html}</div>'
            f'<div id="fc-timeline-inner" hx-swap-oob="innerHTML">{timeline_html}</div>')
     resp = make_response(oob)

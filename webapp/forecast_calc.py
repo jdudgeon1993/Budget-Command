@@ -854,6 +854,164 @@ def compute_simple_timeline(data: dict, n_days: int = 60,
     return rows
 
 
+def compute_calendar_data(data: dict, n_days: int = 60,
+                          off_buckets: list = None) -> dict:
+    """
+    Returns structured calendar + heat-strip data for the visual timeline.
+    {
+      heat_days: [{date, day_num, is_today, paycheck_total, paycheck_labels,
+                   bill_total, bill_count, intensity, bills}],
+      months:    [{name, year, month, first_weekday_sun, days: [same shape + in_window]}]
+    }
+    """
+    today   = date.today()
+    end     = today + timedelta(days=n_days - 1)
+    off_set = set(off_buckets or [])
+
+    paychecks  = data.get("paychecks", [])
+    buckets    = [b for b in data.get("buckets", []) if b.get("id") not in off_set]
+    txs        = data.get("txs", [])
+    months_raw = data.get("months", [])
+    handled_by_mid = {m.get("id", ""): m.get("handledBuckets", {}) for m in months_raw}
+
+    # ── Paycheck dates ────────────────────────────────────────────────────────
+    pc_by_date: dict[date, list] = {}
+    for pc in paychecks:
+        anchor = pc.get("anchor_date") or pc.get("anchorDate")
+        if not anchor:
+            continue
+        for pd in _gen_pay_dates(anchor, int(pc.get("freq", 14)), today, end):
+            pc_by_date.setdefault(pd, []).append({
+                "label":  pc.get("label", "Paycheck"),
+                "amount": float(pc.get("amount") or 0),
+            })
+
+    def _bill_amt(b: dict) -> float:
+        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+
+    def _is_paid(b: dict, bd: date, occurrence: int = 1) -> bool:
+        mid = _mid(bd)
+        amt = _bill_amt(b)
+        if not amt:
+            return False
+        spent = sum(
+            float(t.get("amount") or 0) for t in txs
+            if t.get("bucketId") == b["id"] and t.get("type") == "out"
+            and t.get("monthId") == mid and not _is_scheduled(t)
+        )
+        return spent >= amt * occurrence * 0.99
+
+    def _has_scheduled(b: dict, bd: date) -> bool:
+        mid = _mid(bd)
+        return any(t for t in txs
+                   if t.get("bucketId") == b["id"] and t.get("type") == "out"
+                   and t.get("monthId") == mid and _is_scheduled(t))
+
+    # ── Bill dates ────────────────────────────────────────────────────────────
+    dated = [b for b in buckets if not b.get("archived") and b.get("dueDay") is not None
+             and _bill_amt(b) > 0]
+    freq  = [b for b in buckets if not b.get("archived") and b.get("dueDay") is None
+             and b.get("payFreq") in ("weekly", "biweekly", "triweekly", "monthly")
+             and _bill_amt(b) > 0]
+
+    occ_count: dict[tuple, int] = {}
+    bill_by_date: dict[date, list] = {}
+
+    for b in dated:
+        for bd in _bill_dates(b.get("dueDay"), b.get("payFreq"), today, end):
+            if handled_by_mid.get(_mid(bd), {}).get(b["id"]):
+                continue
+            key = (b["id"], _mid(bd))
+            occ_count[key] = occ_count.get(key, 0) + 1
+            occ = occ_count[key]
+            paid = _is_paid(b, bd, occ)
+            bill_by_date.setdefault(bd, []).append({
+                "name": b["name"], "amount": _bill_amt(b),
+                "amount_fmt": _fmt(_bill_amt(b)),
+                "paid": paid,
+                "scheduled": not paid and _has_scheduled(b, bd),
+            })
+    for b in freq:
+        for bd in _freq_only_dates(b["payFreq"], today, end):
+            if handled_by_mid.get(_mid(bd), {}).get(b["id"]):
+                continue
+            key = (b["id"], _mid(bd))
+            occ_count[key] = occ_count.get(key, 0) + 1
+            occ = occ_count[key]
+            paid = _is_paid(b, bd, occ)
+            bill_by_date.setdefault(bd, []).append({
+                "name": b["name"], "amount": _bill_amt(b),
+                "amount_fmt": _fmt(_bill_amt(b)),
+                "paid": paid,
+                "scheduled": not paid and _has_scheduled(b, bd),
+            })
+
+    # ── Normalise intensity ───────────────────────────────────────────────────
+    def _day_totals(d: date) -> tuple[float, float]:
+        pc_total   = sum(p["amount"] for p in pc_by_date.get(d, []))
+        bill_total = sum(b["amount"] for b in bill_by_date.get(d, []) if not b["paid"])
+        return pc_total, bill_total
+
+    max_out = max(
+        (sum(b["amount"] for b in bills if not b["paid"])
+         for bills in bill_by_date.values()),
+        default=1.0,
+    ) or 1.0
+
+    def _day_dict(d: date, in_window: bool) -> dict:
+        pc_total, bill_total = _day_totals(d)
+        bills = sorted(bill_by_date.get(d, []), key=lambda x: -x["amount"])
+        return {
+            "date":             str(d),
+            "day_num":          d.day,
+            "weekday":          d.strftime("%a"),
+            "is_today":         d == today,
+            "is_past":          d < today,
+            "in_window":        in_window,
+            "paycheck_total":   pc_total,
+            "paycheck_labels":  [p["label"] for p in pc_by_date.get(d, [])],
+            "bill_total":       bill_total,
+            "bill_total_fmt":   _fmt(bill_total) if bill_total else "",
+            "bill_count":       len([b for b in bills if not b["paid"]]),
+            "bills":            bills,
+            "intensity":        round(min(1.0, bill_total / max_out), 3),
+            "has_paycheck":     pc_total > 0,
+            "has_bills":        bill_total > 0,
+        }
+
+    # ── Heat strip (today → end, every day) ──────────────────────────────────
+    heat_days = []
+    d = today
+    while d <= end:
+        heat_days.append(_day_dict(d, True))
+        d += timedelta(days=1)
+
+    # ── Calendar months ───────────────────────────────────────────────────────
+    months_out = []
+    cur = date(today.year, today.month, 1)
+    end_month = date(end.year, end.month, 1)
+    while cur <= end_month:
+        y, m = cur.year, cur.month
+        days_in_month = _cal.monthrange(y, m)[1]
+        # first_weekday_sun: 0=Sun ... 6=Sat  (Python gives 0=Mon, shift by 1)
+        first_wd_sun = (_cal.monthrange(y, m)[0] + 1) % 7
+        cal_days = []
+        for dn in range(1, days_in_month + 1):
+            dd = date(y, m, dn)
+            in_win = today <= dd <= end
+            cal_days.append(_day_dict(dd, in_win))
+        months_out.append({
+            "name":              cur.strftime("%B %Y"),
+            "year":              y,
+            "month":             m,
+            "first_weekday_sun": first_wd_sun,
+            "days":              cal_days,
+        })
+        cur = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
+
+    return {"heat_days": heat_days, "months": months_out}
+
+
 # ── Balance trajectory SVG ────────────────────────────────────────────────────
 
 def build_balance_svg(periods: list, width: int = 840, height: int = 120) -> str:
