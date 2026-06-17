@@ -1,31 +1,5 @@
 {% if cal_data %}
 
-<!-- ── Heat Strip ──────────────────────────────────────────────────────── -->
-<div class="tl-heat-wrap">
-  <div class="tl-heat-strip">
-    {% for d in cal_data.heat_days %}
-    <div class="tl-hs-cell
-      {%- if d.has_paycheck and d.has_bills %} tl-hs-both
-      {%- elif d.has_paycheck %} tl-hs-pay
-      {%- elif d.has_bills %} tl-hs-bill
-      {%- endif %}
-      {{- ' tl-hs-today' if d.is_today }}"
-      style="--intensity: {{ d.intensity }}"
-      title="{{ d.date }}{% if d.paycheck_labels %} · 💰 {{ d.paycheck_labels|join(', ') }}{% endif %}{% if d.bill_total_fmt %} · {{ d.bill_total_fmt }} out{% endif %}">
-      {% if d.is_today %}<div class="tl-hs-today-dot"></div>{% endif %}
-    </div>
-    {% endfor %}
-  </div>
-  <div class="tl-heat-legend">
-    <span style="font-size:10px;color:var(--text3)">Today → 60 days</span>
-    <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)">
-      <span class="tl-legend-dot" style="background:var(--green)"></span><span>Paycheck</span>
-      <span class="tl-legend-dot" style="background:var(--red);margin-left:4px"></span><span>Bills</span>
-    </div>
-  </div>
-</div>
-
-<!-- ── Calendar months ─────────────────────────────────────────────────── -->
 {% for month in cal_data.months %}
 <div class="tl-month">
   <div class="tl-month-hdr">{{ month.name }}</div>
@@ -42,20 +16,72 @@
       {{- ' tl-past' if d.is_past and d.in_window }}
       {{- ' tl-out-window' if not d.in_window }}
       {{- ' tl-has-pay' if d.has_paycheck and d.in_window }}
-      {{- ' tl-has-bills' if d.has_bills and d.in_window }}"
-      style="--intensity: {{ d.intensity if d.in_window else 0 }}">
+      {{- ' tl-has-bills' if d.has_bills and d.in_window }}
+      {{- ' tl-active' if d.has_paycheck or d.has_bills if d.in_window }}"
+      style="--intensity: {{ d.intensity if d.in_window else 0 }}"
+      {% if d.in_window and (d.has_paycheck or d.has_bills) %}
+      onclick="tlShowDay('{{ d.date }}')" id="tl-cell-{{ d.date }}"
+      {% endif %}>
       <span class="tl-cal-num">{{ d.day_num }}</span>
       {% if d.has_paycheck and d.in_window %}
-      <div class="tl-cal-pay-dot"></div>
-      {% endif %}
-      {% if d.has_bills and d.in_window %}
-      <div class="tl-cal-bill-amt">{{ d.bill_total_fmt }}</div>
+        <span class="tl-cal-pay-lbl">PAY</span>
+      {% elif d.has_bills and d.in_window %}
+        <span class="tl-cal-bill-amt">{{ d.bill_total_fmt }}</span>
       {% endif %}
     </div>
     {% endfor %}
   </div>
+
+  {# Day detail panels — one per active day, hidden until tapped #}
+  {% for d in month.days %}
+  {% if d.in_window and (d.has_paycheck or d.has_bills) %}
+  <div class="tl-day-detail" id="tl-dd-{{ d.date }}">
+    <div class="tl-dd-hdr">
+      <span>{{ d.weekday }}, {{ d.date }}</span>
+      <button class="tl-dd-close" onclick="tlCloseDay()">✕</button>
+    </div>
+    {% for label in d.paycheck_labels %}
+    <div class="tl-dd-row tl-dd-pay">
+      <span>💰 {{ label }}</span>
+    </div>
+    {% endfor %}
+    {% for bill in d.bills %}
+    <div class="tl-dd-row
+      {{- ' tl-dd-paid' if bill.paid }}
+      {{- ' tl-dd-sched' if bill.scheduled }}">
+      <span>
+        {{ bill.name }}
+        {% if bill.paid %}<span class="fc-paid-badge">✓ Paid</span>
+        {% elif bill.scheduled %}<span class="fc-sched-badge">Scheduled</span>{% endif %}
+      </span>
+      <span class="mono">{{ bill.amount_fmt }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+
 </div>
 {% endfor %}
+
+<script>
+function tlShowDay(dateStr) {
+  var prev = document.querySelector('.tl-day-detail.visible');
+  var prevCell = document.querySelector('.tl-cal-cell.tl-selected');
+  var detail = document.getElementById('tl-dd-' + dateStr);
+  var cell   = document.getElementById('tl-cell-' + dateStr);
+  // Toggle off if clicking same day
+  if (prev === detail) { tlCloseDay(); return; }
+  if (prev)     prev.classList.remove('visible');
+  if (prevCell) prevCell.classList.remove('tl-selected');
+  if (detail) { detail.classList.add('visible'); }
+  if (cell)   { cell.classList.add('tl-selected'); }
+}
+function tlCloseDay() {
+  document.querySelectorAll('.tl-day-detail.visible').forEach(function(el){ el.classList.remove('visible'); });
+  document.querySelectorAll('.tl-cal-cell.tl-selected').forEach(function(el){ el.classList.remove('tl-selected'); });
+}
+</script>
 
 {% else %}
 <div class="fc-empty">No calendar data available.</div>
