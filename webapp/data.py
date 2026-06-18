@@ -241,16 +241,17 @@ def bucket_rows(view_mid: str = None):
             spent = F.b_spent(mid, bid, txs)
             left = F.bucket_available(b, month, months, txs)
             vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
-            needed = max(budget - alloc, 0)
             handled = bool((month.get("handledBuckets") or {}).get(bid))
             btype = b.get("type", "expense")
             is_flex = b.get("flex", False) and btype == "expense"
             is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
-            # carryover only applies to regular expense buckets (not flex, vault, sinking, goal)
+            # carryover: prior months' unspent that carries into this bucket
             carryover = round(max(0.0, left - (alloc - spent)), 2) if is_regular_expense else 0.0
-            # effective = total available including carryover for regular expense;
-            # flex stays current-month only so "Cover" reflects this month's gap
-            effective = left if is_regular_expense else alloc
+            # committed: total money dedicated to this bucket (carryover + this-month alloc).
+            # Used for status/funded checks — tells you if the bucket is "full" regardless of spending.
+            # left: what remains after spending — used only for display.
+            committed = round(alloc + carryover, 2) if is_regular_expense else alloc
+            needed = max(budget - committed, 0)
 
             if is_flex:
                 uncovered = spent - alloc
@@ -261,24 +262,24 @@ def bucket_rows(view_mid: str = None):
                 else:
                     status, pill = "funded", "Open"
             elif budget > 0:
-                eff_needed = max(budget - effective, 0)
+                com_needed = max(budget - committed, 0)
                 over = spent - budget
                 if over > 0.005:
                     status, pill = "over", f"Overspent ${over:,.2f}"
-                elif effective > budget + 0.005:
+                elif committed > budget + 0.005:
                     status, pill = "funded", "Overfunded"
-                elif effective >= budget - 0.005:
+                elif committed >= budget - 0.005:
                     status, pill = "funded", ("Paid" if spent >= budget - 0.005 else "Funded")
-                elif effective <= 0.005:
+                elif committed <= 0.005:
                     status, pill = "partial", "Unfunded"
                 else:
-                    status, pill = "partial", f"Funding — ${eff_needed:,.2f} short"
+                    status, pill = "partial", f"Funding — ${com_needed:,.2f} short"
             else:
-                # No budget target — envelope vs spending
-                over = spent - effective
+                # No budget target — envelope vs committed
+                over = spent - committed
                 if over > 0.005:
                     status, pill = "partial", f"Cover ${over:,.2f}"
-                elif effective > 0.005:
+                elif committed > 0.005:
                     status, pill = "funded", "Funded"
                 else:
                     status, pill = "funded", "Open"
@@ -326,23 +327,23 @@ def bucket_rows(view_mid: str = None):
                 display_status, bar_pct, bar_cls = status, 0, status
             elif status == "funded" and pill == "Paid":
                 display_status, bar_pct, bar_cls = "paid", 0, "funded"
-            elif status == "partial" and effective <= 0.005:
+            elif status == "partial" and committed <= 0.005:
                 display_status, bar_pct, bar_cls = "empty", 0, "empty"
             elif status == "over":
                 display_status, bar_cls = "over", "over"
-                denom = budget if budget > 0 else effective
+                denom = budget if budget > 0 else committed
                 bar_pct = min(100, round(spent / denom * 100)) if denom > 0 else 0
             else:
                 display_status, bar_cls = status, status  # 'funded' or 'partial'
                 if b.get("type") in ("sinking", "goal") and target_amount > 0:
                     bar_pct = progress_pct
                 elif budget > 0:
-                    bar_pct = min(100, round(effective / budget * 100))
+                    bar_pct = min(100, round(committed / budget * 100))
                 else:
                     bar_pct = 100 if status == "funded" else 0
 
-            if display_status == "partial" and budget > 0 and effective > 0.005:
-                shortfall_text = f"−${max(budget - effective, 0):,.2f} needed"
+            if display_status == "partial" and budget > 0 and committed > 0.005:
+                shortfall_text = f"−${max(budget - committed, 0):,.2f} needed"
             elif display_status == "over":
                 shortfall_text = f"+${spent - budget:,.2f} over"
             else:
