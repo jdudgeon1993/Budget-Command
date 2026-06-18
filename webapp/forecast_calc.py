@@ -227,7 +227,7 @@ def _freq_only_dates(pay_freq: str, from_date: date, to_date: date) -> list[date
 
 # ── Main forecast calculation ─────────────────────────────────────────────────
 
-def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
+def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
                      income_override: float = 0.0,
                      bucket_overrides: dict = None,
                      rule_overrides: dict = None,
@@ -691,7 +691,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
         trough_label = ""
         for p in period_results:
             if abs(p["end_bal_raw"] - fwd_mins[0]) < 0.005:
-                trough_label = p.get("label") or p.get("date_range", "")
+                trough_label = p.get("date_range") or p.get("label", "")
                 break
     else:
         safe_to_spend = 0.0

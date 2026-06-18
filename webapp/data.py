@@ -1253,13 +1253,13 @@ def forecast_view() -> dict:
         pass
 
     cal_data = FC.compute_calendar_data(data, 60)
-    fc = FC.compute_forecast(data)
+    fc = FC.compute_forecast(data, n_months=1)
     svg = FC.build_balance_svg(fc["periods"])
     return {
         "cal_data": cal_data,
         "forecast": fc,
         "balance_svg": svg,
-        "n_months": 3,
+        "n_months": 1,
         "income_override": 0.0,
         "skipped_pay_dates": [],
         "skip_dates_str": "",

@@ -450,7 +450,7 @@ def forecast_move_suggestions():
 def forecast_whatif():
     f = request.form
     try:
-        n_months = max(1, min(12, int(f.get("n_months", 3))))
+        n_months = max(1, min(12, int(f.get("n_months", 1))))
     except (ValueError, TypeError):
         n_months = 3
     try:
