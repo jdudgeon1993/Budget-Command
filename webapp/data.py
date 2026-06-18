@@ -352,7 +352,7 @@ def bucket_rows(view_mid: str = None):
             row = {
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left, "carryover": carryover,
-                "status": status, "pill": pill, "needed": needed,
+                "status": status, "pill": pill, "needed": needed, "committed": committed,
                 "vault_total": vault_total,
                 "due_day": b.get("dueDay"),
                 "pay_freq": b.get("payFreq") or "",

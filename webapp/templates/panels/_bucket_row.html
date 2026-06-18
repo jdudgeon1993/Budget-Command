@@ -118,9 +118,10 @@
               hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
           <input type="hidden" name="id" value="{{ b.id }}">
-          <label>Allocation
+          {% set _alloc_display = b.committed if b.carryover > 0 else b.alloc %}
+          <label>Allocation{% if b.carryover > 0 %} <span class="vg-carryover" title="Includes {{ b.carryover | money }} carried from prior months">↩ {{ b.carryover | money }} carried</span>{% endif %}
             <div class="fx-wrap">
-              <input class="alloc-input mono" name="alloc" id="alloc-{{ b.id }}" value="{{ b.alloc | money }}"
+              <input class="alloc-input mono" name="alloc" id="alloc-{{ b.id }}" value="{{ _alloc_display | money }}"
                      aria-label="Allocation for {{ b.name }}"
                      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
               <button type="button" class="fx-btn" onclick="fxOpen('alloc-{{ b.id }}','fx-pop-alloc-{{ b.id }}')" title="Calculator">fx</button>

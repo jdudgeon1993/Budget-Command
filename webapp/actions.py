@@ -256,11 +256,28 @@ register(Action("bucket_add", _bucket_add, "buckets", always_run=True))
 
 def _bucket_alloc_set(u, t, f, data):
     bid = f.get("id", "")
-    amount = D.parse_amount(f.get("alloc", "0"))
+    submitted = D.parse_amount(f.get("alloc", "0"))
     month = D.active_month(data)
+    mid = D.active_mid()
+    # The alloc field shows committed (alloc + carryover) so the user edits
+    # a single total. Strip carryover before storing so it isn't double-counted.
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), {})
+    btype = bucket.get("type", "expense")
+    is_flex = bucket.get("flex", False) and btype == "expense"
+    is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
+    if is_regular_expense:
+        txs = data.get("txs", [])
+        months = data.get("months", [])
+        left = D.F.bucket_available(bucket, month, months, txs)
+        spent = D.F.b_spent(mid, bid, txs)
+        cur_alloc = D.F.b_alloc(month, bid)
+        carryover = max(0.0, left - (cur_alloc - spent))
+        amount = max(0.0, round(submitted - carryover, 2))
+    else:
+        amount = submitted
     month.setdefault("allocations", {})[bid] = amount
     if not current_app.config["DEV_SEED"]:
-        DB.upsert_alloc(u, t, D.active_mid(), bid, amount)
+        DB.upsert_alloc(u, t, mid, bid, amount)
 
 
 register(Action("bucket_alloc_set", _bucket_alloc_set, "buckets", always_run=True, dev_seed_msg=None))
