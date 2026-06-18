@@ -279,7 +279,14 @@ def ensure_month(uid: str, token: str, mid: str) -> None:
     c = client(token)
     existing = c.table("bcc_months").select("id").eq("id", mid).eq("user_id", uid).execute()
     if not existing.data:
-        c.table("bcc_months").insert({"id": mid, "user_id": uid}).execute()
+        from .formulas import parse_month_id
+        import calendar as _cal
+        y, m0 = parse_month_id(mid)
+        label = f"{_cal.month_name[m0 + 1]} {y}"
+        c.table("bcc_months").insert({
+            "id": mid, "user_id": uid,
+            "year": y, "month": m0, "label": label,
+        }).execute()
 
 
 def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
