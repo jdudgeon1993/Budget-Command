@@ -303,32 +303,38 @@ def bucket_available(
 ) -> float:
     """Net spendable balance for this bucket.
 
-    All bucket types now carry unspent balances forward — money doesn't
-    evaporate at month end, it stays claimed by the bucket that earned it.
+    All expense buckets (non-flex) carry unspent balances forward — money
+    doesn't evaporate at month end, it stays claimed by the bucket.
+    Each prior month is capped at zero so overspending doesn't penalise
+    the next month.
 
-    Expense/flex buckets cap each prior month's contribution at zero so that
-    overspending in one month doesn't penalise the next month. The new month
-    starts clean from a deficit perspective; it simply doesn't inherit a bonus.
+    Flex buckets are current-month only — cover what you spend this month,
+    start fresh next month. Carrying over flex surplus would distort the
+    "Cover" calculation and mix months in a way that defeats the flex concept.
 
-    Vault/sinking/goal buckets retain their existing behaviour: full
-    accumulation including negatives (savings goals should show real deficits).
+    Vault/sinking/goal buckets retain their existing full accumulation.
     """
     bid = bucket["id"]
     btype = bucket.get("type", "expense")
-    is_expense = btype not in ("vault", "sinking", "goal")
+    is_flex = bucket.get("flex", False) and btype == "expense"
+    is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
 
-    if is_expense:
+    if is_regular_expense:
         carried = sum(
             max(0.0, b_alloc(m, bid) - b_spent(m["id"], bid, transactions))
             for m in months_before(month["id"], all_months)
         )
+        return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
+    elif is_flex:
+        # Flex: current month only
+        return b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
     else:
+        # vault/sinking/goal: full accumulation including negatives
         carried = sum(
             b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
             for m in months_before(month["id"], all_months)
         )
-
-    return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
+        return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
 
 
 # ── 3.12 Vault Accumulated ────────────────────────────────────────────────────

@@ -244,16 +244,16 @@ def bucket_rows(view_mid: str = None):
             needed = max(budget - alloc, 0)
             handled = bool((month.get("handledBuckets") or {}).get(bid))
             btype = b.get("type", "expense")
-            is_expense_type = btype not in ("vault", "sinking", "goal")
-            carryover = round(max(0.0, left - (alloc - spent)), 2) if is_expense_type else 0.0
-
-            is_flex = b.get("flex", False) and b.get("type", "expense") == "expense"
-            # For expense/flex buckets, effective_alloc includes carryover from
-            # prior months so status reflects what's actually available to spend.
-            effective = left if is_expense_type else alloc
+            is_flex = b.get("flex", False) and btype == "expense"
+            is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
+            # carryover only applies to regular expense buckets (not flex, vault, sinking, goal)
+            carryover = round(max(0.0, left - (alloc - spent)), 2) if is_regular_expense else 0.0
+            # effective = total available including carryover for regular expense;
+            # flex stays current-month only so "Cover" reflects this month's gap
+            effective = left if is_regular_expense else alloc
 
             if is_flex:
-                uncovered = spent - effective
+                uncovered = spent - alloc
                 if uncovered > 0.005:
                     status, pill = "partial", f"Cover ${uncovered:,.2f}"
                 elif spent > 0.005:
