@@ -143,8 +143,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
         "pending_distribute_tid": session.pop("pending_distribute_tid", None),
-        "forecast_sts": (_fc := _forecast_sts(data, rts))[0],
-        "forecast_debug": _fc[1],
+        "forecast_sts": _forecast_sts(data, rts),
     }
 
 
@@ -177,44 +176,26 @@ def forecast_move_suggestions(free_amount: float) -> dict:
     return {"suggestions": suggestions, "free_amount": free_amount, "mid": mid}
 
 
-def _forecast_sts(data: dict, rts: float) -> tuple:
-    """Returns (free_rts, debug_dict).
+def _forecast_sts(data: dict, rts: float) -> float:
+    """Truly free RTS: min(rts, forecast global STS).
 
-    Walk forward through periods (including gap periods) accumulating
-    unfunded bills until we hit the first paycheck. That paycheck absorbs
-    the unfunded bills; only what it can't cover needs to come from RTS.
+    Global STS = first_period_end - forward_minimum across all periods.
+    That cushion tells us how much of total balance can be safely removed.
+    Capping at RTS means: if the total balance has plenty of headroom,
+    all RTS is free (no line shown); if headroom < RTS, only headroom is free.
     """
     try:
         from . import forecast_calc as FC
-        fc = FC.compute_forecast(data, n_months=2)
-        all_periods = fc.get("periods", [])
-        if not all_periods:
-            return rts, {"error": "no periods"}
-
-        income = 0.0
-        unfunded = 0.0
-        found_label = "?"
-        for p in all_periods[:6]:
-            unfunded += p.get("unfunded_total_raw", 0.0)
-            p_income = p.get("income_total_raw", 0.0)
-            income += p_income
-            if p_income > 0:
-                found_label = p.get("label", "?")
-                break
-
-        needed = max(0.0, unfunded - income)
-        free   = round(max(0.0, rts - needed), 2)
-        debug  = {
-            "p1_label": found_label,
-            "p1_income": income,
-            "p1_unfunded": unfunded,
-            "needed_from_rts": needed,
-            "free_rts": free,
-            "n_periods": len(all_periods),
-        }
-        return free, debug
-    except Exception as e:
-        return rts, {"error": str(e)}
+        fc = FC.compute_forecast(data, n_months=3)
+        periods = [p for p in fc.get("periods", []) if not p.get("is_gap")]
+        if not periods:
+            return rts
+        first_end = periods[0]["end_bal_raw"]
+        fwd_min   = min(p["end_bal_raw"] for p in periods)
+        global_sts = max(0.0, first_end - fwd_min)
+        return round(min(rts, global_sts), 2)
+    except Exception:
+        return rts
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
