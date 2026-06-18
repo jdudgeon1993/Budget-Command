@@ -81,6 +81,20 @@ document.addEventListener('htmx:afterSettle',function(e){
       </div>
       <div id="fc-move-container"></div>
       {% endif %}
+      {% if shell.forecast_debug %}
+      <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:4px;line-height:1.6;font-family:monospace">
+        {% if shell.forecast_debug.error is defined %}
+        fc err: {{ shell.forecast_debug.error }}
+        {% else %}
+        period: {{ shell.forecast_debug.p1_label }}<br>
+        income: {{ shell.forecast_debug.p1_income | money }}<br>
+        unfunded: {{ shell.forecast_debug.p1_unfunded | money }}<br>
+        needed/rts: {{ shell.forecast_debug.needed_from_rts | money }}<br>
+        free: {{ shell.forecast_debug.free_rts | money }}<br>
+        periods: {{ shell.forecast_debug.n_periods }}
+        {% endif %}
+      </div>
+      {% endif %}
       <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
       <div class="sidebar-total-cash">
         Total cash: <span>{{ shell.total_cash | money }}</span>

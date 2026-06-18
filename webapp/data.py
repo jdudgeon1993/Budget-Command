@@ -143,7 +143,8 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
         "pending_distribute_tid": session.pop("pending_distribute_tid", None),
-        "forecast_sts": _forecast_sts(data, rts),
+        "forecast_sts": (_fc := _forecast_sts(data, rts))[0],
+        "forecast_debug": _fc[1],
     }
 
 
@@ -176,28 +177,30 @@ def forecast_move_suggestions(free_amount: float) -> dict:
     return {"suggestions": suggestions, "free_amount": free_amount, "mid": mid}
 
 
-def _forecast_sts(data: dict, rts: float) -> float:
-    """How much of current RTS is truly free after upcoming obligations.
-
-    Logic: paycheck income absorbs unfunded bills first. Only what the
-    paycheck cannot cover needs to come from current RTS. Everything else is free.
-
-      needed_from_rts = max(0, period1_unfunded - period1_income)
-      free_rts        = max(0, rts - needed_from_rts)
-    """
+def _forecast_sts(data: dict, rts: float) -> tuple:
+    """Returns (free_rts, debug_dict)."""
     try:
         from . import forecast_calc as FC
         fc = FC.compute_forecast(data, n_months=2)
         periods = [p for p in fc.get("periods", []) if not p.get("is_gap")]
         if not periods:
-            return rts
+            return rts, {"error": "no periods"}
         p1 = periods[0]
-        income    = p1.get("income_total_raw", 0.0)
-        unfunded  = p1.get("unfunded_total_raw", 0.0)
-        needed    = max(0.0, unfunded - income)
-        return round(max(0.0, rts - needed), 2)
-    except Exception:
-        return rts
+        income   = p1.get("income_total_raw", 0.0)
+        unfunded = p1.get("unfunded_total_raw", 0.0)
+        needed   = max(0.0, unfunded - income)
+        free     = round(max(0.0, rts - needed), 2)
+        debug = {
+            "p1_label": p1.get("label", "?"),
+            "p1_income": income,
+            "p1_unfunded": unfunded,
+            "needed_from_rts": needed,
+            "free_rts": free,
+            "n_periods": len(periods),
+        }
+        return free, debug
+    except Exception as e:
+        return rts, {"error": str(e)}
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
