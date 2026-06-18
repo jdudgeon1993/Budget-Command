@@ -303,24 +303,31 @@ def bucket_available(
 ) -> float:
     """Net spendable balance for this bucket.
 
-    Vaults and savings goals accumulate contributions across all months —
-    that's their purpose. Expense buckets are current-month only: unspent
-    allocation returns to Ready to Assign rather than silently claiming
-    the cash in future months. A bucket with explicit rollover=True also
-    accumulates (for users who want envelope carry-over on a specific
-    expense category). Overspending on non-accumulating buckets still
-    shows as a negative balance within the month, feeding correctly into
-    the RTS calculation via the cash-conservation identity.
+    All bucket types now carry unspent balances forward — money doesn't
+    evaporate at month end, it stays claimed by the bucket that earned it.
+
+    Expense/flex buckets cap each prior month's contribution at zero so that
+    overspending in one month doesn't penalise the next month. The new month
+    starts clean from a deficit perspective; it simply doesn't inherit a bonus.
+
+    Vault/sinking/goal buckets retain their existing behaviour: full
+    accumulation including negatives (savings goals should show real deficits).
     """
     bid = bucket["id"]
     btype = bucket.get("type", "expense")
-    accumulates = btype in ("vault", "sinking", "goal") or bucket.get("rollover")
-    if not accumulates:
-        return b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
-    carried = sum(
-        b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
-        for m in months_before(month["id"], all_months)
-    )
+    is_expense = btype not in ("vault", "sinking", "goal")
+
+    if is_expense:
+        carried = sum(
+            max(0.0, b_alloc(m, bid) - b_spent(m["id"], bid, transactions))
+            for m in months_before(month["id"], all_months)
+        )
+    else:
+        carried = sum(
+            b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
+            for m in months_before(month["id"], all_months)
+        )
+
     return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
 
 

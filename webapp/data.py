@@ -243,11 +243,17 @@ def bucket_rows(view_mid: str = None):
             vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
             needed = max(budget - alloc, 0)
             handled = bool((month.get("handledBuckets") or {}).get(bid))
+            btype = b.get("type", "expense")
+            is_expense_type = btype not in ("vault", "sinking", "goal")
+            carryover = round(max(0.0, left - (alloc - spent)), 2) if is_expense_type else 0.0
 
             is_flex = b.get("flex", False) and b.get("type", "expense") == "expense"
+            # For expense/flex buckets, effective_alloc includes carryover from
+            # prior months so status reflects what's actually available to spend.
+            effective = left if is_expense_type else alloc
 
             if is_flex:
-                uncovered = spent - alloc
+                uncovered = spent - effective
                 if uncovered > 0.005:
                     status, pill = "partial", f"Cover ${uncovered:,.2f}"
                 elif spent > 0.005:
@@ -255,23 +261,24 @@ def bucket_rows(view_mid: str = None):
                 else:
                     status, pill = "funded", "Open"
             elif budget > 0:
+                eff_needed = max(budget - effective, 0)
                 over = spent - budget
                 if over > 0.005:
                     status, pill = "over", f"Overspent ${over:,.2f}"
-                elif alloc > budget + 0.005:
+                elif effective > budget + 0.005:
                     status, pill = "funded", "Overfunded"
-                elif alloc >= budget - 0.005:
+                elif effective >= budget - 0.005:
                     status, pill = "funded", ("Paid" if spent >= budget - 0.005 else "Funded")
-                elif alloc <= 0.005:
+                elif effective <= 0.005:
                     status, pill = "partial", "Unfunded"
                 else:
-                    status, pill = "partial", f"Funding — ${needed:,.2f} short"
+                    status, pill = "partial", f"Funding — ${eff_needed:,.2f} short"
             else:
                 # No budget target — envelope vs spending
-                over = spent - alloc
+                over = spent - effective
                 if over > 0.005:
                     status, pill = "partial", f"Cover ${over:,.2f}"
-                elif alloc > 0.005:
+                elif effective > 0.005:
                     status, pill = "funded", "Funded"
                 else:
                     status, pill = "funded", "Open"
@@ -319,23 +326,23 @@ def bucket_rows(view_mid: str = None):
                 display_status, bar_pct, bar_cls = status, 0, status
             elif status == "funded" and pill == "Paid":
                 display_status, bar_pct, bar_cls = "paid", 0, "funded"
-            elif status == "partial" and alloc <= 0.005:
+            elif status == "partial" and effective <= 0.005:
                 display_status, bar_pct, bar_cls = "empty", 0, "empty"
             elif status == "over":
                 display_status, bar_cls = "over", "over"
-                denom = budget if budget > 0 else alloc
+                denom = budget if budget > 0 else effective
                 bar_pct = min(100, round(spent / denom * 100)) if denom > 0 else 0
             else:
                 display_status, bar_cls = status, status  # 'funded' or 'partial'
                 if b.get("type") in ("sinking", "goal") and target_amount > 0:
                     bar_pct = progress_pct
                 elif budget > 0:
-                    bar_pct = min(100, round(alloc / budget * 100))
+                    bar_pct = min(100, round(effective / budget * 100))
                 else:
                     bar_pct = 100 if status == "funded" else 0
 
-            if display_status == "partial" and budget > 0 and alloc > 0.005:
-                shortfall_text = f"−${budget - alloc:,.2f} needed"
+            if display_status == "partial" and budget > 0 and effective > 0.005:
+                shortfall_text = f"−${max(budget - effective, 0):,.2f} needed"
             elif display_status == "over":
                 shortfall_text = f"+${spent - budget:,.2f} over"
             else:
@@ -343,7 +350,7 @@ def bucket_rows(view_mid: str = None):
 
             row = {
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
-                "alloc": alloc, "budget": budget, "spent": spent, "left": left,
+                "alloc": alloc, "budget": budget, "spent": spent, "left": left, "carryover": carryover,
                 "status": status, "pill": pill, "needed": needed,
                 "vault_total": vault_total,
                 "due_day": b.get("dueDay"),

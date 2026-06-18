@@ -79,9 +79,12 @@
         <span class="vg-alloc {{ display_status }}">{{ b.left | money }}</span>
         <span class="vg-budget-lbl">/ {{ b.target_amount | money }} goal</span>
       {% else %}
-        {% set avail = (b.alloc - b.spent) | round(2) %}
-        <span class="vg-alloc {{ display_status }}">{{ avail | money }}</span>
+        <span class="vg-alloc {{ display_status }}">{{ b.left | money }}</span>
+        {% if b.carryover > 0 %}
+        <span class="vg-budget-lbl">left <span class="vg-carryover">↩ {{ b.carryover | money }}</span></span>
+        {% else %}
         <span class="vg-budget-lbl">left · {{ b.alloc | money }} alloc</span>
+        {% endif %}
       {% endif %}
       {% if shortfall_text %}
         <span class="vg-shortfall {{ display_status }}">{{ shortfall_text }}</span>
