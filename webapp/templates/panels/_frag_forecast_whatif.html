@@ -80,7 +80,7 @@
   <div class="fc-kpi">
     <div class="fc-kpi-lbl">Safe to Spend</div>
     <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
-    <div style="font-size:9px;color:var(--text3);text-align:center">won't break any bill</div>
+    <div style="font-size:9px;color:var(--text3);text-align:center">{% if forecast.safe_to_spend_trough %}floor {{ forecast.safe_to_spend_trough }}{% else %}won't break any bill{% endif %}</div>
   </div>
   {% if forecast.save_opportunity %}
   <div class="fc-kpi">

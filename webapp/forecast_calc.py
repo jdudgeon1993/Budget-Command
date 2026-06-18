@@ -687,6 +687,12 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     # Global STS = cushion in first period (amount above the forward floor right now)
     if period_results:
         safe_to_spend = max(0.0, period_results[0]["end_bal_raw"] - fwd_mins[0])
+        # Find which period holds the trough (fwd_mins[0])
+        trough_label = ""
+        for p in period_results:
+            if abs(p["end_bal_raw"] - fwd_mins[0]) < 0.005:
+                trough_label = p.get("label") or p.get("date_range", "")
+                break
     else:
         safe_to_spend = 0.0
 
@@ -727,12 +733,16 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             break
 
     # ── Months of runway — REMOVED, replaced with save_opportunity ──────────────
+    if not period_results:
+        trough_label = ""
     save_opportunity = round(safe_to_spend * 0.5, 2) if safe_to_spend > 0.5 else 0.0
 
     return {
         "start_balance":      _fmt(start_balance),
         "safe_to_spend":      _fmt(safe_to_spend),
         "safe_to_spend_raw":  safe_to_spend,
+        "safe_to_spend_floor_fmt": _fmt(fwd_mins[0]) if period_results else "",
+        "safe_to_spend_trough": trough_label if period_results else "",
         "sts_color":          _sts_class(safe_to_spend),
         "total_income":       _fmt(grand_income),
         "total_unfunded":     _fmt(grand_unfunded),
