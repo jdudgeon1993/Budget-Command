@@ -245,12 +245,12 @@ def bucket_rows(view_mid: str = None):
             btype = b.get("type", "expense")
             is_flex = b.get("flex", False) and btype == "expense"
             is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
-            # carryover: prior months' unspent that carries into this bucket
-            carryover = round(max(0.0, left - (alloc - spent)), 2) if is_regular_expense else 0.0
-            # committed: total money dedicated to this bucket (carryover + this-month alloc).
-            # Used for status/funded checks — tells you if the bucket is "full" regardless of spending.
-            # left: what remains after spending — used only for display.
-            committed = round(alloc + carryover, 2) if is_regular_expense else alloc
+            # committed = left + spent (= carryover + alloc), always consistent with left.
+            # Deriving it as left+spent avoids any edge case where the intermediate
+            # carryover value could drift from the actual accumulated balance.
+            # carryover is kept separately for display only (the "↩ $X carried" label).
+            committed = round(left + spent, 2) if is_regular_expense else alloc
+            carryover = round(committed - alloc, 2) if is_regular_expense else 0.0
             needed = max(budget - committed, 0)
 
             if is_flex:

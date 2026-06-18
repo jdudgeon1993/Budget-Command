@@ -268,10 +268,13 @@ def _bucket_alloc_set(u, t, f, data):
     if is_regular_expense:
         txs = data.get("txs", [])
         months = data.get("months", [])
-        left = D.F.bucket_available(bucket, month, months, txs)
-        spent = D.F.b_spent(mid, bid, txs)
-        cur_alloc = D.F.b_alloc(month, bid)
-        carryover = max(0.0, left - (cur_alloc - spent))
+        # Derive carryover from prior months only — avoids depending on the
+        # in-memory month object which may be mid-mutation in chained actions.
+        prior_months = D.F.months_before(mid, months)
+        carryover = sum(
+            max(0.0, D.F.b_alloc(m, bid) - D.F.b_spent(m["id"], bid, txs))
+            for m in prior_months
+        )
         amount = max(0.0, round(submitted - carryover, 2))
     else:
         amount = submitted
