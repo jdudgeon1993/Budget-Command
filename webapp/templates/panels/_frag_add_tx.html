@@ -75,9 +75,18 @@
   </template>
   <div class="tx-field" id="tf-incomeType" style="{{ '' if tx_type == 'in' else 'display:none' }}">
     <label>Income type</label>
-    <select name="incomeType">
+    <select name="incomeType" id="add-incomeType" onchange="togglePaycheckField(this,'add-paycheckId')">
       <option value="paycheck">Paycheck</option>
       <option value="other">Other income</option>
+    </select>
+  </div>
+  <div class="tx-field" id="tf-paycheckId" style="{{ '' if tx_type == 'in' else 'display:none' }}">
+    <label>Which paycheck?</label>
+    <select name="paycheckId" id="add-paycheckId">
+      <option value="">— select —</option>
+      {% for pc in paychecks %}
+      <option value="{{ pc.id }}">{{ pc.label }}</option>
+      {% endfor %}
     </select>
   </div>
   <div class="tx-field">
@@ -129,6 +138,10 @@ function updateSplitRemaining(){
   el.style.color=rem===0?'var(--green)':(rem<0?'var(--red)':'var(--text3)');
 }
 document.querySelector('[name=amount]').addEventListener('input',updateSplitRemaining);
+function togglePaycheckField(sel, fieldId){
+  var field = document.getElementById(fieldId);
+  if(field) field.closest('.tx-field').style.display = sel.value === 'paycheck' ? '' : 'none';
+}
 function updateDebtHint(sel){
   var opt=sel.options[sel.selectedIndex];
   var hint=document.getElementById('tf-debt-hint');

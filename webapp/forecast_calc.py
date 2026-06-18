@@ -285,6 +285,29 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     bname = {b["id"]: b["name"] for b in buckets}
     btype = {b["id"]: b.get("type", "expense") for b in buckets}
 
+    # Build received-paycheck lookup from income transactions tagged with paycheckId.
+    # Key: paycheck_id → sorted list of received dates. Used to skip pay dates
+    # that are already reflected in the account balance (avoids double-counting).
+    received_dates: dict[str, list[date]] = {}
+    for tx in txs:
+        if tx.get("type") != "in":
+            continue
+        pcid = tx.get("paycheckId") or ""
+        if not pcid:
+            continue
+        try:
+            d = date.fromisoformat(str(tx["date"])[:10])
+        except (ValueError, KeyError):
+            continue
+        received_dates.setdefault(pcid, []).append(d)
+
+    def _is_received(pc_id: str, pay_date: date) -> bool:
+        """True if a tagged income transaction exists within ±3 days of pay_date."""
+        for rd in received_dates.get(pc_id, []):
+            if abs((rd - pay_date).days) <= 3:
+                return True
+        return False
+
     pay_events: dict[date, list] = {}
     for pc in paychecks:
         anchor = pc.get("anchor_date") or pc.get("anchorDate")
@@ -309,6 +332,8 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                 bid = r.get("bucket_id") or r.get("bucketId", "")
                 allocs.append({"name": bname.get(bid, ""), "amount": computed,
                                "is_vault": btype.get(bid, "expense") == "vault"})
+            if _is_received(pc_id, pd):
+                continue  # already in account balance — don't double-count
             pay_events[pd].append({"label": pc.get("label", "Paycheck"),
                                    "amount": round(amt, 2),
                                    "transfers": transfers, "allocs": allocs})

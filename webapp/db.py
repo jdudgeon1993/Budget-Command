@@ -207,6 +207,7 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "toAccountId": t.get("to_account_id") or "",
         "debtPaymentAccountId": t.get("debt_payment_account_id") or "",
         "incomeType": t.get("income_type") or "paycheck",
+        "paycheckId": t.get("paycheck_id") or "",
         "reconciled": bool(t.get("reconciled")),
         "planned": t.get("planned", True),
     } for t in txs_raw]
@@ -254,6 +255,7 @@ def insert_transaction(uid: str, token: str, tx: dict) -> str:
         "bucket_id": tx.get("bucketId") or None,
         "to_account_id": tx.get("toAccountId") or None,
         "income_type": tx.get("incomeType") or None,
+        "paycheck_id": tx.get("paycheckId") or None,
         "debt_payment_account_id": tx.get("debtPaymentAccountId") or None,
         "planned": tx.get("planned", True),
     }).execute()

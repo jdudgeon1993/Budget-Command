@@ -560,6 +560,7 @@ def _tx_update(u, t, f, data):
             "to_account_id": f.get("toAccountId") or None,
             "reconciled": f.get("reconciled") == "1",
             "income_type": f.get("incomeType") or None,
+            "paycheck_id": f.get("paycheckId") or None,
             "planned": f.get("planned", "1") == "1",
         })
         return ("Transaction updated.", "ok")
@@ -600,6 +601,7 @@ def _tx_create(u, t, f, data):
         "desc": f.get("desc", ""), "bucketId": f.get("bucketId") or "",
         "toAccountId": f.get("toAccountId") or "",
         "incomeType": f.get("incomeType") or "paycheck",
+        "paycheckId": f.get("paycheckId") or "",
         "planned": f.get("planned", "1") == "1",
     }
     back_panel = _tx_back_panel(f)

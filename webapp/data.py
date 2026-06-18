@@ -1221,9 +1221,11 @@ def tx_form_ctx():
         t.get("desc", "").strip()
         for t in data.get("txs", []) if t.get("desc") and t.get("type") not in ("opening",)
     ), key=str.lower)
+    paychecks = [{"id": p["id"], "label": p.get("label", "Paycheck")}
+                 for p in data.get("paychecks", [])]
     return {"accounts": accounts, "buckets_by_cat": buckets_by_cat,
             "today": _date.today().isoformat(), "mid": active_mid(),
-            "payees": payees}
+            "payees": payees, "paychecks": paychecks}
 
 
 def tx_by_id(tid: str) -> dict | None:

@@ -49,9 +49,18 @@
   </div>
   <div class="tx-field" id="tf-incomeType" style="{{ '' if tx.type == 'in' else 'display:none' }}">
     <label>Income type</label>
-    <select name="incomeType">
+    <select name="incomeType" onchange="togglePaycheckField(this,'edit-paycheckId')">
       <option value="paycheck" {{ 'selected' if tx.incomeType == 'paycheck' or not tx.incomeType }}>Paycheck</option>
       <option value="other" {{ 'selected' if tx.incomeType == 'other' }}>Other income</option>
+    </select>
+  </div>
+  <div class="tx-field" id="tf-paycheckId-edit" style="{{ '' if tx.type == 'in' else 'display:none' }}">
+    <label>Which paycheck?</label>
+    <select name="paycheckId" id="edit-paycheckId">
+      <option value="">— select —</option>
+      {% for pc in paychecks %}
+      <option value="{{ pc.id }}" {{ 'selected' if tx.paycheckId == pc.id }}>{{ pc.label }}</option>
+      {% endfor %}
     </select>
   </div>
   <div class="tx-field">
