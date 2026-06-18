@@ -143,7 +143,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
         "pending_distribute_tid": session.pop("pending_distribute_tid", None),
-        "forecast_sts": _forecast_sts(data),
+        "forecast_danger": _forecast_danger(data),
     }
 
 
@@ -176,18 +176,24 @@ def forecast_move_suggestions(free_amount: float) -> dict:
     return {"suggestions": suggestions, "free_amount": free_amount, "mid": mid}
 
 
-def _forecast_sts(data: dict) -> float:
-    """30-day Safe to Spend — the balance cushion within the next ~30 days.
+def _forecast_danger(data: dict) -> dict | None:
+    """Return danger info if a cash floor dip exists within the next 30 days.
 
-    Runs forecast for 1 month only so a dip 8 months out doesn't pollute
-    the number. Returns the global STS chip value directly from the engine.
+    Runs a 1-month forecast. If a danger_date exists (balance dips below
+    start), returns {date_range, balance_fmt} for the sidebar warning.
+    Returns None if no dip — all clear.
     """
     try:
         from . import forecast_calc as FC
         fc = FC.compute_forecast(data, n_months=1)
-        return fc.get("safe_to_spend_raw", 0.0)
+        if fc.get("danger_date"):
+            return {
+                "date_range": fc["danger_date"],
+                "balance_fmt": fc["danger_balance_fmt"],
+            }
+        return None
     except Exception:
-        return 0.0
+        return None
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────

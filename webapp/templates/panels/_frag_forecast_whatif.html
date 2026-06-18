@@ -77,29 +77,23 @@
     <div class="fc-kpi-lbl">Unfunded ({{ n_months }} mo)</div>
     <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
   </div>
-  <div class="fc-kpi">
-    <div class="fc-kpi-lbl">Safe to Spend</div>
-    <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
-    <div style="font-size:9px;color:var(--text3);text-align:center">{% if forecast.safe_to_spend_trough %}floor {{ forecast.safe_to_spend_trough }}{% else %}won't break any bill{% endif %}</div>
+  {% if forecast.danger_date %}
+  <div class="fc-kpi fc-kpi-alert">
+    <div class="fc-kpi-lbl">Cash Floor</div>
+    <div class="fc-kpi-val mono c-red">{{ forecast.danger_balance_fmt }}</div>
+    <div style="font-size:9px;color:var(--text3);text-align:center">{{ forecast.danger_date }}</div>
   </div>
-  {% if forecast.save_opportunity %}
+  {% else %}
   <div class="fc-kpi">
-    <div class="fc-kpi-lbl">Save Opportunity</div>
-    <div class="fc-kpi-val mono c-green">{{ forecast.save_opportunity }}</div>
-    <div style="font-size:9px;color:var(--text3);text-align:center">50% of headroom</div>
+    <div class="fc-kpi-lbl">Cash Floor</div>
+    <div class="fc-kpi-val mono c-green">{{ forecast.safe_to_spend_floor_fmt }}</div>
+    <div style="font-size:9px;color:var(--text3);text-align:center">no dip · {{ forecast.safe_to_spend_trough }}</div>
   </div>
   {% endif %}
   {% if forecast.shortfall_count > 0 %}
   <div class="fc-kpi fc-kpi-alert">
     <div class="fc-kpi-lbl">Shortfalls</div>
     <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
-  </div>
-  {% endif %}
-  {% if forecast.danger_date %}
-  <div class="fc-kpi">
-    <div class="fc-kpi-lbl">Danger Date</div>
-    <div class="fc-kpi-val mono c-red" style="font-size:11px">{{ forecast.danger_date }}</div>
-    <div style="font-size:9px;color:var(--text3);text-align:center">Low: {{ forecast.danger_balance_fmt }}</div>
   </div>
   {% endif %}
   {% if forecast.break_even_label %}

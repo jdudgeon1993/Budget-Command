@@ -1,8 +1,8 @@
 <div class="sidebar-rts" id="rts-sidebar" hx-swap-oob="true">
   <div class="sidebar-rts-lbl">Ready to assign</div>
   <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
-  {% if shell.forecast_sts and shell.forecast_sts > 0.5 %}
-  <div class="sidebar-rts-forecast">{{ shell.forecast_sts | money }} safe to spend · 30 days</div>
+  {% if shell.forecast_danger %}
+  <div class="sidebar-rts-forecast">⚠ Low {{ shell.forecast_danger.balance_fmt }} · {{ shell.forecast_danger.date_range }}</div>
   {% endif %}
   <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
   <div class="sidebar-total-cash">
