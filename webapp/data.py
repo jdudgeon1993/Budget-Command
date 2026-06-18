@@ -143,7 +143,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
         "pending_distribute_tid": session.pop("pending_distribute_tid", None),
-        "forecast_sts": min(rts, _forecast_sts(data)),
+        "forecast_sts": _forecast_sts(data, rts),
     }
 
 
@@ -176,19 +176,28 @@ def forecast_move_suggestions(free_amount: float) -> dict:
     return {"suggestions": suggestions, "free_amount": free_amount, "mid": mid}
 
 
-def _forecast_sts(data: dict) -> float:
-    """Compute global Safe to Spend from the forecast for sidebar display."""
+def _forecast_sts(data: dict, rts: float) -> float:
+    """How much of current RTS is truly free after upcoming obligations.
+
+    Logic: paycheck income absorbs unfunded bills first. Only what the
+    paycheck cannot cover needs to come from current RTS. Everything else is free.
+
+      needed_from_rts = max(0, period1_unfunded - period1_income)
+      free_rts        = max(0, rts - needed_from_rts)
+    """
     try:
         from . import forecast_calc as FC
-        fc = FC.compute_forecast(data, n_months=3)
-        periods = fc.get("periods", [])
+        fc = FC.compute_forecast(data, n_months=2)
+        periods = [p for p in fc.get("periods", []) if not p.get("is_gap")]
         if not periods:
-            return 0.0
-        fwd_min = min(p["end_bal_raw"] for p in periods)
-        first_end = periods[0]["end_bal_raw"]
-        return round(max(0.0, first_end - fwd_min), 2)
+            return rts
+        p1 = periods[0]
+        income    = p1.get("income_total_raw", 0.0)
+        unfunded  = p1.get("unfunded_total_raw", 0.0)
+        needed    = max(0.0, unfunded - income)
+        return round(max(0.0, rts - needed), 2)
     except Exception:
-        return 0.0
+        return rts
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
