@@ -290,7 +290,8 @@ def _bucket_fill(u, t, f, data):
     bid = f.get("id", "")
     mid = D.active_mid()
     month = D.active_month(data)
-    budget = D.F.b_budget(month, bid)
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), {})
+    budget = D.F.b_budget(month, bid, float(bucket.get("defaultBudget") or 0))
     spent = D.F.b_spent(mid, bid, data.get("txs", []))
     new_alloc = max(budget, spent)
     month.setdefault("allocations", {})[bid] = new_alloc
@@ -323,14 +324,16 @@ def _bucket_budget_set(u, t, f, data):
     bid = f.get("id", "")
     amount = D.parse_amount(f.get("budget", "0"))
     month = D.active_month(data)
+    # Write month-specific override so this month reflects the value immediately.
     month.setdefault("budgets", {})[bid] = amount
-    saving_mid = D.active_mid()
+    # Also update the bucket-level default so all future months without an
+    # explicit override naturally inherit this value via b_budget() fallback.
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), {})
+    if bucket:
+        bucket["defaultBudget"] = amount
     if not current_app.config["DEV_SEED"]:
-        DB.upsert_budget(u, t, saving_mid, bid, amount)
-        if saving_mid == D.F.current_month_id():
-            for m in data.get("months", []):
-                if D.F.month_status(m["id"]) == "future":
-                    DB.upsert_budget(u, t, m["id"], bid, amount)
+        DB.upsert_budget(u, t, D.active_mid(), bid, amount)
+        DB.upsert_bucket(u, t, bid, {"default_budget": amount})
 
 
 register(Action("bucket_budget_set", _bucket_budget_set, "buckets", always_run=True, dev_seed_msg=None))

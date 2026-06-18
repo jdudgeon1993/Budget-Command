@@ -257,17 +257,22 @@ def b_alloc(month: dict, bucket_id: str) -> float:
     return float((month.get("allocations") or {}).get(bucket_id) or 0)
 
 
-def b_budget(month: dict, bucket_id: str) -> float:
+def b_budget(month: dict, bucket_id: str, default_budget: float = 0.0) -> float:
     """Target amount for this bucket/month.
 
-    A bucket marked "handled" for this month has its effective target
-    collapsed to its allocation — the user has manually confirmed this
-    bucket is squared away, so it reads as 100% funded everywhere
-    (reports, funding rate, BvA) without leaving a permanent "short" gap.
+    Resolution order:
+      1. If bucket is marked "handled" this month → collapse to allocation
+         (user confirmed it's squared away, reads as 100% funded everywhere)
+      2. Month-specific budget override (set via inline drawer for this month)
+      3. Bucket-level default_budget (set in Settings, applies to all months)
+      4. Zero
     """
     if (month.get("handledBuckets") or {}).get(bucket_id):
         return b_alloc(month, bucket_id)
-    return float((month.get("budgets") or {}).get(bucket_id) or 0)
+    month_val = float((month.get("budgets") or {}).get(bucket_id) or 0)
+    if month_val:
+        return month_val
+    return default_budget or 0.0
 
 
 # ── 3.6 Bucket Spent ─────────────────────────────────────────────────────────

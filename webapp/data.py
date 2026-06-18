@@ -160,7 +160,7 @@ def forecast_move_suggestions(free_amount: float) -> dict:
         btype = b.get("type", "expense")
         if btype not in ("vault", "goal", "sinking"):
             continue
-        budget = F.b_budget(month, b["id"])
+        budget = F.b_budget(month, b["id"], float(b.get("defaultBudget") or 0))
         alloc = F.b_alloc(month, b["id"])
         gap = round(budget - alloc, 2)
         if gap > 0.005:
@@ -237,7 +237,7 @@ def bucket_rows(view_mid: str = None):
         for b in cat_bkts:
             bid = b["id"]
             alloc = F.b_alloc(month, bid)
-            budget = F.b_budget(month, bid)
+            budget = F.b_budget(month, bid, float(b.get("defaultBudget") or 0))
             spent = F.b_spent(mid, bid, txs)
             left = F.bucket_available(b, month, months, txs)
             vault_total = F.vault_accumulated(bid, months) if b.get("type") == "vault" else 0.0
@@ -909,7 +909,7 @@ def reports_view(view_mid: str = None):
         rows, c_budget, c_spent = [], 0.0, 0.0
         for b in sorted([b for b in buckets if b.get("catId") == cat["id"]],
                         key=lambda b: b.get("order", 0)):
-            budget = F.b_budget(month, b["id"])
+            budget = F.b_budget(month, b["id"], float(b.get("defaultBudget") or 0))
             spent = F.b_spent(mid, b["id"], txs)
             c_budget += budget
             c_spent += spent
@@ -950,7 +950,7 @@ def reports_view(view_mid: str = None):
     expense_bkts = [b for b in buckets if b.get("type", "expense") != "vault" and not b.get("flex")]
     funded_count = sum(
         1 for b in expense_bkts
-        if F.b_alloc(month, b["id"]) >= max(F.b_budget(month, b["id"]) - 0.005, 0.005)
+        if F.b_alloc(month, b["id"]) >= max(F.b_budget(month, b["id"], float(b.get("defaultBudget") or 0)) - 0.005, 0.005)
     )
     funding_rate = {"funded": funded_count, "total": max(len(expense_bkts), 1),
                     "pct": round(funded_count / max(len(expense_bkts), 1) * 100)}
@@ -1022,7 +1022,7 @@ def reports_view(view_mid: str = None):
         for i in range(5, -1, -1):
             m_id = F.month_offset(mid, -i)
             m_month = active_month(data, m_id)
-            c_budget = sum(F.b_budget(m_month, b["id"]) for b in cat_bkts)
+            c_budget = sum(F.b_budget(m_month, b["id"], float(b.get("defaultBudget") or 0)) for b in cat_bkts)
             c_spent = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
             hit = c_budget > 0 and c_spent > c_budget + 0.005
             dots.append(hit)
@@ -1093,7 +1093,7 @@ def reports_view(view_mid: str = None):
             months_data = []
             for m_id in m_ids:
                 m_mo = active_month(data, m_id)
-                c_bud = sum(F.b_budget(m_mo, b["id"]) for b in cat_bkts)
+                c_bud = sum(F.b_budget(m_mo, b["id"], float(b.get("defaultBudget") or 0)) for b in cat_bkts)
                 c_sp = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
                 months_data.append({"label": month_label(m_id)[:3],
                                     "variance": c_bud - c_sp,
