@@ -179,20 +179,13 @@ def forecast_move_suggestions(free_amount: float) -> dict:
 def _forecast_sts(data: dict, rts: float) -> float:
     """Truly free RTS: min(rts, forecast global STS).
 
-    Global STS = first_period_end - forward_minimum across all periods.
-    That cushion tells us how much of total balance can be safely removed.
-    Capping at RTS means: if the total balance has plenty of headroom,
-    all RTS is free (no line shown); if headroom < RTS, only headroom is free.
+    Reads safe_to_spend_raw directly from compute_forecast — same value
+    the Forecast panel displays — so sidebar and panel always agree.
     """
     try:
         from . import forecast_calc as FC
         fc = FC.compute_forecast(data, n_months=3)
-        periods = [p for p in fc.get("periods", []) if not p.get("is_gap")]
-        if not periods:
-            return rts
-        first_end = periods[0]["end_bal_raw"]
-        fwd_min   = min(p["end_bal_raw"] for p in periods)
-        global_sts = max(0.0, first_end - fwd_min)
+        global_sts = fc.get("safe_to_spend_raw", 0.0)
         return round(min(rts, global_sts), 2)
     except Exception:
         return rts

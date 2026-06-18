@@ -707,6 +707,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
     return {
         "start_balance":      _fmt(start_balance),
         "safe_to_spend":      _fmt(safe_to_spend),
+        "safe_to_spend_raw":  safe_to_spend,
         "sts_color":          _sts_class(safe_to_spend),
         "total_income":       _fmt(grand_income),
         "total_unfunded":     _fmt(grand_unfunded),
