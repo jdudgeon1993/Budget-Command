@@ -133,7 +133,6 @@ def bucket_settings(bid):
             if btype == "expense":
                 payload.update({
                     "due_day": (f.get("due_day") or "").strip() or None,
-                    "due_amount": _num("due_amount"),
                     "pay_freq": f.get("pay_freq") or None,
                     "recurring": f.get("recurring") == "1",
                     "flex": f.get("flex") == "1",
@@ -603,7 +602,7 @@ def _build_fc_params(allocs: dict, data: dict, n_months: int = 12):
             continue
         if b.get("dueDay") is not None or b.get("payFreq") in _FREQ_BILL_TYPES:
             continue
-        amt = float(bucket_overrides.get(bid) or b.get("dueAmount") or b.get("defaultBudget") or 0)
+        amt = float(bucket_overrides.get(bid) or b.get("defaultBudget") or 0)
         if amt <= 0:
             continue
         phantom_monthly.append({"id": bid, "name": b["name"], "amount": amt})

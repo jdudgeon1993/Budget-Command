@@ -372,7 +372,7 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
 
     def _effective_bill_amt(b: dict, for_year: int = 0, for_month: int = 0) -> float:
         bid = b["id"]
-        base = float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        base = float(b.get("defaultBudget") or 0)
         if timeline and for_year and for_month:
             rule = get_timeline_rule(timeline, bid, for_year, for_month)
             if rule is not None:
@@ -417,7 +417,7 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
         bkt = bkt_map.get(bid_)
         if not bkt or bkt.get("archived"):
             continue
-        bill_amt = float(bkt.get("dueAmount") or bkt.get("defaultBudget") or 0)
+        bill_amt = float(bkt.get("defaultBudget") or 0)
         if bill_amt > 0 and spent_ >= bill_amt * 0.99:
             paid_bids.add(bid_)
 
@@ -452,7 +452,7 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
         freq_bills.append({
             "id": b["id"], "name": b["name"],
             "dueDay": None, "payFreq": "monthly",
-            "dueAmount": needed, "defaultBudget": needed,
+            "defaultBudget": needed,
         })
         already_in.add(b["id"])
 
@@ -462,13 +462,13 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
             continue
         if b["id"] in already_in:
             continue
-        amt = float(b.get("defaultBudget") or b.get("dueAmount") or 0)
+        amt = float(b.get("defaultBudget") or 0)
         if amt <= 0:
             continue
         freq_bills.append({
             "id": b["id"], "name": b["name"],
             "dueDay": None, "payFreq": "monthly",
-            "dueAmount": amt, "defaultBudget": amt,
+            "defaultBudget": amt,
         })
         already_in.add(b["id"])
     # Scenario-injected buckets with no due date — treated as monthly on the 1st
@@ -481,7 +481,7 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
         dated_bills.append({
             "id": ph["id"], "name": ph["name"],
             "dueDay": 1, "payFreq": "monthly",
-            "dueAmount": amt, "defaultBudget": amt,
+            "defaultBudget": amt,
         })
 
     # ── Build periods ─────────────────────────────────────────────────────────
@@ -791,7 +791,7 @@ def compute_simple_timeline(data: dict, n_days: int = 60,
             })
 
     def _bill_amt(b: dict) -> float:
-        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        return float(b.get("defaultBudget") or 0)
 
     def _is_paid(b: dict, bd: date, occurrence: int = 1) -> bool:
         """
@@ -930,7 +930,7 @@ def compute_calendar_data(data: dict, n_days: int = 60,
             })
 
     def _bill_amt(b: dict) -> float:
-        return float(b.get("dueAmount") or b.get("defaultBudget") or 0)
+        return float(b.get("defaultBudget") or 0)
 
     def _is_paid(b: dict, bd: date, occurrence: int = 1) -> bool:
         mid = _mid(bd)
