@@ -19,6 +19,9 @@
       {% if b.flex %}<span class="vg-type-tag flex">Flex</span>{% endif %}
     </span>
 
+    {% if b.due_day and b.btype not in ('vault','sinking','goal') %}
+    <span class="vg-due-tag">due {{ b.due_day }}</span>
+    {% endif %}
     <span class="vg-badge {{ display_status }}">{{ b.pill }}</span>
 
     <div class="vg-row-actions">
@@ -76,8 +79,9 @@
         <span class="vg-alloc {{ display_status }}">{{ b.left | money }}</span>
         <span class="vg-budget-lbl">/ {{ b.target_amount | money }} goal</span>
       {% else %}
-        <span class="vg-alloc {{ display_status }}">{{ b.alloc | money }}</span>
-        <span class="vg-budget-lbl">/ {{ b.budget | money }}</span>
+        {% set avail = (b.alloc - b.spent) | round(2) %}
+        <span class="vg-alloc {{ display_status }}">{{ avail | money }}</span>
+        <span class="vg-budget-lbl">left · {{ b.alloc | money }} alloc</span>
       {% endif %}
       {% if shortfall_text %}
         <span class="vg-shortfall {{ display_status }}">{{ shortfall_text }}</span>
