@@ -156,19 +156,33 @@ def urgency_score(gap: float, horizon_days: int | None) -> float:
     return gap / horizon
 
 
-def distribute_obligations(buckets: list[dict], month: dict) -> list[dict]:
+def distribute_obligations(
+    buckets: list[dict],
+    month: dict,
+    all_months: list[dict] | None = None,
+    transactions: list[dict] | None = None,
+) -> list[dict]:
     """Underfunded buckets ranked by urgency (funding gap weighted by due date).
 
     Each entry carries enough to both rank it and explain the ranking:
-    the dollar gap between budget and current allocation, days until its
-    next due date (None for buckets with no fixed due day), and its pay
-    frequency label for display.
+    the dollar gap between budget and committed (carryover + this-month alloc),
+    days until its next due date, and its pay frequency label for display.
     """
     obligations = []
     for b in buckets:
-        budget = b_budget(month, b["id"])
-        alloc = b_alloc(month, b["id"])
-        gap = round(budget - alloc, 2)
+        default_bud = float(b.get("defaultBudget") or 0)
+        budget = b_budget(month, b["id"], default_bud)
+        if budget <= 0:
+            continue
+        # Use committed (carryover + alloc) so prior unspent is counted toward
+        # the bucket's funding — avoids double-funding a partially-covered bucket.
+        if all_months is not None and transactions is not None:
+            left = bucket_available(b, month, all_months, transactions)
+            spent_val = b_spent(month["id"], b["id"], transactions)
+            committed = left + spent_val
+        else:
+            committed = b_alloc(month, b["id"])
+        gap = round(budget - committed, 2)
         if gap <= 0.005:
             continue
         due_in = days_until_due(b)

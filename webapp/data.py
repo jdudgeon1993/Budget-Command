@@ -430,7 +430,7 @@ def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = Non
 
     rts = F.ready_to_spend(month, months, accounts, buckets, txs)
 
-    obligations = F.distribute_obligations(buckets, month)
+    obligations = F.distribute_obligations(buckets, month, months, txs)
     for o in obligations:
         o["reason"] = _due_reason(o)
     all_ob_ids = {o["id"] for o in obligations}
@@ -763,7 +763,7 @@ def paycheck_distribute_ctx(
 
     # Step 2 — obligations fill from RTS remaining after rules are claimed
     rts_after_rules = round(rts - total_rules, 2)
-    obligations = F.distribute_obligations(buckets, month)
+    obligations = F.distribute_obligations(buckets, month, months, txs)
     for o in obligations:
         o["reason"] = _due_reason(o)
     all_ob_ids = {o["id"] for o in obligations}
@@ -812,7 +812,7 @@ def paycheck_distribute_ctx(
             "id": next_mid, "allocations": {}, "budgets": this_budgets,
             "handledBuckets": {}, "vaultWithdrawals": {},
         }
-    next_obligations = F.distribute_obligations(buckets, next_month)
+    next_obligations = F.distribute_obligations(buckets, next_month, months, txs)
     for o in next_obligations:
         o["reason"] = _due_reason(o)
         o["next_mid"] = next_mid  # carry forward so apply route knows which month

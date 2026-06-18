@@ -280,6 +280,7 @@ def _bucket_alloc_set(u, t, f, data):
         amount = submitted
     month.setdefault("allocations", {})[bid] = amount
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(u, t, mid)
         DB.upsert_alloc(u, t, mid, bid, amount)
 
 
@@ -291,11 +292,28 @@ def _bucket_fill(u, t, f, data):
     mid = D.active_mid()
     month = D.active_month(data)
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), {})
+    txs = data.get("txs", [])
+    months = data.get("months", [])
     budget = D.F.b_budget(month, bid, float(bucket.get("defaultBudget") or 0))
-    spent = D.F.b_spent(mid, bid, data.get("txs", []))
-    new_alloc = max(budget, spent)
+    spent = D.F.b_spent(mid, bid, txs)
+    # Compute carryover so Fill doesn't over-allocate: we need committed=budget,
+    # and committed = carryover + alloc, so store alloc = max(0, target - carryover).
+    btype = bucket.get("type", "expense")
+    is_flex = bucket.get("flex", False) and btype == "expense"
+    is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
+    if is_regular_expense:
+        prior_months = D.F.months_before(mid, months)
+        carryover = sum(
+            max(0.0, D.F.b_alloc(m, bid) - D.F.b_spent(m["id"], bid, txs))
+            for m in prior_months
+        )
+        target = max(budget, spent)
+        new_alloc = max(0.0, round(target - carryover, 2))
+    else:
+        new_alloc = max(budget, spent)
     month.setdefault("allocations", {})[bid] = new_alloc
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(u, t, mid)
         DB.upsert_alloc(u, t, mid, bid, new_alloc)
     return ("Covered." if spent > budget else "Filled.", "ok")
 
@@ -332,6 +350,7 @@ def _bucket_budget_set(u, t, f, data):
     if bucket:
         bucket["defaultBudget"] = amount
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(u, t, D.active_mid())
         DB.upsert_budget(u, t, D.active_mid(), bid, amount)
         DB.upsert_bucket(u, t, bid, {"default_budget": amount})
 
