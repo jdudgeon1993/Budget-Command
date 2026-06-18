@@ -143,7 +143,23 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
         "pending_distribute_tid": session.pop("pending_distribute_tid", None),
+        "forecast_sts": _forecast_sts(data),
     }
+
+
+def _forecast_sts(data: dict) -> float:
+    """Compute global Safe to Spend from the forecast for sidebar display."""
+    try:
+        from . import forecast_calc as FC
+        fc = FC.compute_forecast(data, n_months=3)
+        periods = fc.get("periods", [])
+        if not periods:
+            return 0.0
+        fwd_min = min(p["end_bal_raw"] for p in periods)
+        first_end = periods[0]["end_bal_raw"]
+        return round(max(0.0, first_end - fwd_min), 2)
+    except Exception:
+        return 0.0
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
@@ -648,6 +664,7 @@ def paycheck_distribute_ctx(
     checked_ob: set | None = None,
     checked_fund: set | None = None,
     checked_next: set | None = None,
+    checked_forecast_ob: set | None = None,
 ) -> dict:
     """Combined paycheck distribution: rules → obligations → catch-alls → next month.
 
@@ -773,6 +790,39 @@ def paycheck_distribute_ctx(
 
     total_applied = round(total_rules + total_ob + total_fund + total_next, 2)
 
+    # Forecast obligations — unfunded bills in the next 2 pay periods
+    forecast_obligations = []
+    try:
+        from . import forecast_calc as FC
+        fc = FC.compute_forecast(data, n_months=2)
+        seen_bids: set = set()
+        for period in fc.get("periods", []):
+            for ub in period.get("unfunded_lines", []):
+                bid = ub.get("bucket_id", "")
+                if bid and bid not in seen_bids:
+                    seen_bids.add(bid)
+                    due = ub.get("due_date") or ""
+                    forecast_obligations.append({
+                        "bucket_id": bid,
+                        "name": ub.get("name", ""),
+                        "amount_raw": float(ub.get("amount_raw", 0)),
+                        "amount_fmt": ub.get("amount_fmt", ""),
+                        "due_label": due,
+                    })
+    except Exception:
+        pass
+
+    all_fc_bids = {fo["bucket_id"] for fo in forecast_obligations}
+    if checked_forecast_ob is None:
+        checked_forecast_ob = set()
+    else:
+        checked_forecast_ob = checked_forecast_ob & all_fc_bids
+    for fo in forecast_obligations:
+        fo["checked"] = fo["bucket_id"] in checked_forecast_ob
+    total_forecast_ob = round(sum(fo["amount_raw"] for fo in forecast_obligations if fo["checked"]), 2)
+
+    forecast_free = round(max(rts - total_applied - total_forecast_ob, 0), 2)
+
     return {
         "rts": rts, "mid": mid, "next_mid": next_mid,
         "next_month_label": month_label(next_mid),
@@ -784,6 +834,9 @@ def paycheck_distribute_ctx(
         "next_obligations": next_obligations, "total_next": total_next,
         "total_applied": total_applied,
         "remaining_rts": round(max(rts - total_applied, 0), 2),
+        "forecast_obligations": forecast_obligations,
+        "total_forecast_ob": total_forecast_ob,
+        "forecast_free": forecast_free,
     }
 
 

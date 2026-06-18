@@ -77,6 +77,36 @@
     </div>
   </div>
 
+  {# ── Forecast Obligations — upcoming unfunded bills ──────────────────── #}
+  {% if forecast_obligations %}
+  <div class="pd-step pd-step-fc">
+    <div class="pd-step-lbl">
+      <div class="pd-step-num" style="background:var(--red);color:#fff">!</div>
+      <span class="pd-step-title">Upcoming unfunded bills</span>
+      <span class="pd-step-line"></span>
+    </div>
+    <p style="font-size:11px;color:var(--text2);margin:0 0 10px;line-height:1.5">
+      These bills are coming up and aren't fully covered yet. Fund them now so your forecast stays green.
+    </p>
+    {% for fo in forecast_obligations %}
+    <label class="suggest-row {{ 'checked' if fo.checked else 'unchecked' }}">
+      <input type="checkbox" name="forecast_ob" value="{{ fo.bucket_id }}" {{ 'checked' if fo.checked }}
+             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-trigger="change" hx-include="#paycheck-distribute-form"
+             hx-target="#modal-body" hx-swap="innerHTML">
+      <div class="suggest-info">
+        <div class="suggest-name">{{ fo.name }}</div>
+        <div class="suggest-reason">Unfunded{% if fo.due_label %} · due {{ fo.due_label }}{% endif %}</div>
+      </div>
+      <div class="suggest-amt" style="color:var(--red)">{{ fo.amount_fmt }}</div>
+    </label>
+    {% endfor %}
+    <div class="modal-totals" style="margin-top:10px">
+      <div class="total-row"><span>Forecast bills funded</span><b style="color:var(--red)">{{ total_forecast_ob | money }}</b></div>
+    </div>
+  </div>
+  {% endif %}
+
   {# ── Step 3 — Catch remainder (green) ────────────────────────────────── #}
   {% if fund_rules %}
   <div class="pd-step pd-step-3">
@@ -138,6 +168,11 @@
     <div class="total-row"><span>Total being distributed</span><b>{{ total_applied | money }}</b></div>
     <div class="total-row {{ 'warn' if remaining_rts > 0.005 }}"><span>Remaining in Ready to Assign</span><b>{{ remaining_rts | money }}</b></div>
     <div class="total-row grand"><span>Ready to Assign right now</span><b>{{ rts | money }}</b></div>
+    {% if forecast_free > 0.005 %}
+    <div class="total-row" style="color:var(--green);border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;margin-top:4px">
+      <span>Truly free after all bills</span><b style="color:var(--green)">{{ forecast_free | money }}</b>
+    </div>
+    {% endif %}
   </div>
 
   <div class="edit-actions">

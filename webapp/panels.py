@@ -802,6 +802,7 @@ def paycheck_distribute_preview(tid):
         checked_ob=set(f.getlist("ob")),
         checked_fund=set(f.getlist("fund")),
         checked_next=set(f.getlist("next_ob")),
+        checked_forecast_ob=set(f.getlist("forecast_ob")),
     )
     return render_template("panels/_frag_paycheck_distribute.html", tid=tid, **ctx)
 

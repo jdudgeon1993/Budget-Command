@@ -437,6 +437,7 @@ def _tx_paycheck_distribute(u, t, f, data):
         checked_ob=set(f.getlist("ob")),
         checked_fund=set(f.getlist("fund")),
         checked_next=set(f.getlist("next_ob")),
+        checked_forecast_ob=set(f.getlist("forecast_ob")),
     )
     if not current_app.config["DEV_SEED"]:
         month = D.active_month(data, mid)
@@ -458,8 +459,13 @@ def _tx_paycheck_distribute(u, t, f, data):
             if o["checked"] and o["gap"] > 0:
                 new_alloc = round(D.F.b_alloc(next_month, o["id"]) + o["gap"], 2)
                 DB.upsert_alloc(u, t, next_mid, o["id"], new_alloc)
+        for fo in ctx["forecast_obligations"]:
+            if fo["checked"] and fo["amount_raw"] > 0:
+                new_alloc = round(D.F.b_alloc(month, fo["bucket_id"]) + fo["amount_raw"], 2)
+                DB.upsert_alloc(u, t, mid, fo["bucket_id"], new_alloc)
 
-    return (f"Distributed {ctx['total_applied']:,.2f}.", "ok")
+    total_dist = round(ctx["total_applied"] + ctx["total_forecast_ob"], 2)
+    return (f"Distributed {total_dist:,.2f}.", "ok")
 
 
 register(Action("tx_paycheck_distribute", _tx_paycheck_distribute, "buckets",

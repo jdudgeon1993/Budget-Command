@@ -72,6 +72,9 @@ document.addEventListener('htmx:afterSettle',function(e){
     <div class="sidebar-rts" id="rts-sidebar">
       <div class="sidebar-rts-lbl">Ready to assign</div>
       <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
+      {% if shell.forecast_sts is not none and shell.forecast_sts < shell.rts - 0.5 %}
+      <div class="sidebar-rts-forecast">{{ shell.forecast_sts | money }} free after upcoming bills</div>
+      {% endif %}
       <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
       <div class="sidebar-total-cash">
         Total cash: <span>{{ shell.total_cash | money }}</span>

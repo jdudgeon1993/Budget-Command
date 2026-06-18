@@ -517,7 +517,7 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             if amt <= 0:
                 return
             actual = round(spent_by_bid.get(b["id"], 0.0), 2) if is_gap or ps == today else 0.0
-            entry = {"name": b["name"], "amount": amt, "actual": actual}
+            entry = {"name": b["name"], "amount": amt, "actual": actual, "bucket_id": b["id"], "due_date": bd}
             if _funded(b["id"], bd):
                 funded_by_day.setdefault(bd, []).append(entry)
             else:
@@ -541,7 +541,9 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                 running_balance -= bill["amount"]
                 actual = bill.get("actual", 0.0) if is_current_period else 0.0
                 funded_lines.append({"row_type": "bill", "text": bill["name"],
+                                     "bucket_id": bill.get("bucket_id", ""),
                                      "amount_fmt": _fmt(bill["amount"]),
+                                     "amount_raw": bill["amount"],
                                      "actual_fmt": _fmt(actual) if actual else "",
                                      "variance_fmt": _fmt(actual - bill["amount"]) if actual else "",
                                      "variance_over": actual > bill["amount"] + 0.005 if actual else False})
@@ -558,7 +560,10 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                 grand_unfunded  += bill["amount"]
                 actual = bill.get("actual", 0.0) if is_current_period else 0.0
                 unfunded_lines.append({"row_type": "bill", "text": bill["name"],
+                                       "bucket_id": bill.get("bucket_id", ""),
                                        "amount_fmt": _fmt(bill["amount"]),
+                                       "amount_raw": bill["amount"],
+                                       "due_date": bill.get("due_date"),
                                        "actual_fmt": _fmt(actual) if actual else "",
                                        "variance_fmt": _fmt(actual - bill["amount"]) if actual else "",
                                        "variance_over": actual > bill["amount"] + 0.005 if actual else False})
