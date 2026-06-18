@@ -64,97 +64,100 @@
     </div>
   </div>
 
-  <!-- Paycheck Check -->
+  <!-- Purchase Check (3-in-1 calculator) -->
   <div id="fc-pcheck" class="fc-tab-pane" style="display:none">
     <div class="pchk-card">
-      <div class="pchk-header">
-        <div class="pchk-title">Paycheck Check</div>
-        <div class="pchk-subtitle">Enter a purchase price to see how many paychecks it costs.</div>
+
+      {# Derive estimated hourly rate from first paycheck: amount / (freq_days/7 * 40hrs) #}
+      {% if paychecks %}
+        {% set _p0 = paychecks[0] %}
+        {% set _freq = (_p0.freq | float) if _p0.freq else 14 %}
+        {% set _hourly_est = ((_p0.amount | float) / (_freq / 7 * 40)) | round(2) %}
+      {% endif %}
+
+      <!-- Sub-tabs -->
+      <div class="pchk-subtabs">
+        <button class="pchk-subtab active" id="pchk-st-paycheck" onclick="pchkSubTab(this,'pchk-pane-paycheck')" type="button">Paycheck</button>
+        <button class="pchk-subtab" id="pchk-st-hours" onclick="pchkSubTab(this,'pchk-pane-hours')" type="button">Hours Worked</button>
+        <button class="pchk-subtab" id="pchk-st-cpu" onclick="pchkSubTab(this,'pchk-pane-cpu')" type="button">Cost Per Use</button>
       </div>
 
-      {% if paychecks %}
-      <div class="pchk-inputs">
-        <div class="pchk-field">
-          <label class="pchk-lbl">Purchase price</label>
-          <div class="pchk-input-wrap">
-            <span class="pchk-prefix">$</span>
-            <input class="pchk-input mono" id="pchk-amount" type="number" min="0" step="0.01"
-                   placeholder="0.00" oninput="pchkCalc()" autofocus>
+      <!-- ① Paycheck Check -->
+      <div id="pchk-pane-paycheck" class="pchk-pane">
+        <div class="pchk-desc">How many paychecks does this cost?</div>
+        {% if paychecks %}
+        <div class="pchk-inputs">
+          <div class="pchk-field">
+            <label class="pchk-lbl">Purchase price</label>
+            <div class="pchk-input-wrap">
+              <span class="pchk-prefix">$</span>
+              <input class="pchk-input mono" id="pchk-pc-amount" type="number" min="0" step="0.01" placeholder="0.00" oninput="pchkCalcPaycheck()">
+            </div>
+          </div>
+          {% if paychecks | length > 1 %}
+          <div class="pchk-field">
+            <label class="pchk-lbl">Paycheck</label>
+            <select class="pchk-select" id="pchk-pc-select" onchange="pchkCalcPaycheck()">
+              {% for p in paychecks %}
+              <option value="{{ p.amount | float }}">{{ p.label }} — ${{ '{:,.2f}'.format(p.amount | float) }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+        </div>
+        <div class="pchk-result" id="pchk-pc-result"><div class="pchk-result-empty">Enter an amount above</div></div>
+        {% else %}
+        <div class="pchk-no-paychecks">No paychecks set up yet. Add one in <a href="{{ url_for('panels.setup') }}" hx-get="{{ url_for('panels.setup') }}" hx-target="#panel" hx-push-url="true">Setup</a>.</div>
+        {% endif %}
+      </div>
+
+      <!-- ② Hours Worked -->
+      <div id="pchk-pane-hours" class="pchk-pane" style="display:none">
+        <div class="pchk-desc">How many hours of your life does this cost?</div>
+        <div class="pchk-inputs">
+          <div class="pchk-field">
+            <label class="pchk-lbl">Purchase price</label>
+            <div class="pchk-input-wrap">
+              <span class="pchk-prefix">$</span>
+              <input class="pchk-input mono" id="pchk-hw-amount" type="number" min="0" step="0.01" placeholder="0.00" oninput="pchkCalcHours()">
+            </div>
+          </div>
+          <div class="pchk-field">
+            <label class="pchk-lbl">Your hourly take-home
+              {% if paychecks %}<span class="pchk-hint">est. from your paycheck</span>{% endif %}
+            </label>
+            <div class="pchk-input-wrap">
+              <span class="pchk-prefix">$</span>
+              <input class="pchk-input mono" id="pchk-hw-rate" type="number" min="0" step="0.01"
+                     placeholder="0.00" value="{{ _hourly_est if paychecks else '' }}" oninput="pchkCalcHours()">
+            </div>
           </div>
         </div>
-        {% if paychecks | length > 1 %}
-        <div class="pchk-field">
-          <label class="pchk-lbl">Paycheck</label>
-          <select class="pchk-select" id="pchk-select" onchange="pchkCalc()">
-            {% for p in paychecks %}
-            <option value="{{ p.amount }}">{{ p.label }} — ${{ '{:,.2f}'.format(p.amount | float) }}</option>
-            {% endfor %}
-          </select>
+        <div class="pchk-result" id="pchk-hw-result"><div class="pchk-result-empty">Enter an amount above</div></div>
+      </div>
+
+      <!-- ③ Cost Per Use -->
+      <div id="pchk-pane-cpu" class="pchk-pane" style="display:none">
+        <div class="pchk-desc">What does each use actually cost?</div>
+        <div class="pchk-inputs">
+          <div class="pchk-field">
+            <label class="pchk-lbl">Purchase price</label>
+            <div class="pchk-input-wrap">
+              <span class="pchk-prefix">$</span>
+              <input class="pchk-input mono" id="pchk-cpu-amount" type="number" min="0" step="0.01" placeholder="0.00" oninput="pchkCalcCpu()">
+            </div>
+          </div>
+          <div class="pchk-field">
+            <label class="pchk-lbl">Estimated uses</label>
+            <div class="pchk-input-wrap">
+              <span class="pchk-prefix">#</span>
+              <input class="pchk-input mono" id="pchk-cpu-uses" type="number" min="1" step="1" placeholder="0" oninput="pchkCalcCpu()">
+            </div>
+          </div>
         </div>
-        {% endif %}
+        <div class="pchk-result" id="pchk-cpu-result"><div class="pchk-result-empty">Enter an amount above</div></div>
       </div>
 
-      <div class="pchk-result" id="pchk-result">
-        <div class="pchk-result-empty">Enter an amount above</div>
-      </div>
-
-      <script>
-      (function() {
-        {% if paychecks | length == 1 %}
-        var _pchkAmt = {{ paychecks[0].amount | float }};
-        function _getPaycheck() { return _pchkAmt; }
-        {% else %}
-        function _getPaycheck() {
-          var sel = document.getElementById('pchk-select');
-          return sel ? parseFloat(sel.value) || 0 : 0;
-        }
-        {% endif %}
-        window.pchkCalc = function() {
-          var raw = document.getElementById('pchk-amount').value;
-          var purchase = parseFloat(raw) || 0;
-          var paycheck = _getPaycheck();
-          var res = document.getElementById('pchk-result');
-          if (!purchase || purchase <= 0 || !paycheck) {
-            res.innerHTML = '<div class="pchk-result-empty">Enter an amount above</div>';
-            return;
-          }
-          var ratio = purchase / paycheck;
-          var tier, label, cls;
-          if (ratio < 1) {
-            tier = 'green';
-            cls = 'pchk-green';
-            if (ratio < 0.1) label = 'Pocket change — go for it';
-            else if (ratio < 0.5) label = 'Less than half a paycheck — reasonable';
-            else label = 'Under one paycheck — manageable';
-          } else if (ratio <= 2) {
-            tier = 'yellow';
-            cls = 'pchk-yellow';
-            label = 'One to two paychecks — think it over';
-          } else {
-            tier = 'red';
-            cls = 'pchk-red';
-            label = ratio >= 6 ? 'More than a month of income — major purchase' : 'Multiple paychecks — sleep on it';
-          }
-          var pct = Math.round(ratio * 100);
-          var fracStr = ratio < 10 ? ratio.toFixed(2) : Math.round(ratio).toString();
-          res.innerHTML =
-            '<div class="pchk-tier ' + cls + '">' +
-              '<div class="pchk-count">' + fracStr + '<span class="pchk-unit"> paychecks</span></div>' +
-              '<div class="pchk-verdict">' + label + '</div>' +
-            '</div>' +
-            '<div class="pchk-breakdown">' +
-              '$' + purchase.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) +
-              ' ÷ $' + paycheck.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) +
-              ' per paycheck' +
-            '</div>';
-        };
-      })();
-      </script>
-      {% else %}
-      <div class="pchk-no-paychecks">
-        No paychecks set up yet. Add one in <a href="{{ url_for('panels.setup') }}" hx-get="{{ url_for('panels.setup') }}" hx-target="#panel" hx-push-url="true">Setup</a> to use this calculator.
-      </div>
-      {% endif %}
     </div>
   </div>
 
@@ -174,6 +177,86 @@ function fcTab(btn, paneId) {
   if (btn) fcTab(btn, saved);
   else { var b = document.getElementById('fc-tab-whatif'); if(b) fcTab(b,'fc-whatif'); }
 })();
+
+// ── Purchase Check sub-tabs ──
+function pchkSubTab(btn, paneId) {
+  btn.closest('.pchk-card').querySelectorAll('.pchk-subtab').forEach(b => b.classList.remove('active'));
+  btn.closest('.pchk-card').querySelectorAll('.pchk-pane').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  document.getElementById(paneId).style.display = '';
+}
+
+// ── Shared helpers ──
+function _fmt(n) { return n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function _tier(ratio, unit) {
+  var cls, label;
+  if (ratio < 1)        { cls='pchk-green';  label = ratio<0.1 ? 'Pocket change — go for it' : ratio<0.5 ? 'Less than half a '+unit+' — reasonable' : 'Under one '+unit+' — manageable'; }
+  else if (ratio <= 2)  { cls='pchk-yellow'; label = 'One to two '+unit+'s — think it over'; }
+  else                  { cls='pchk-red';    label = ratio>=6 ? 'More than a month\'s income — major purchase' : 'Multiple '+unit+'s — sleep on it'; }
+  return {cls:cls, label:label};
+}
+function _resultHTML(cls, count, unit, label, breakdown) {
+  var str = count < 10 ? count.toFixed(2) : Math.round(count).toString();
+  return '<div class="pchk-tier '+cls+'"><div class="pchk-count">'+str+'<span class="pchk-unit"> '+unit+'</span></div><div class="pchk-verdict">'+label+'</div></div><div class="pchk-breakdown">'+breakdown+'</div>';
+}
+function _empty(id) { document.getElementById(id).innerHTML='<div class="pchk-result-empty">Enter an amount above</div>'; }
+
+// ① Paycheck
+{% if paychecks %}
+(function(){
+  {% if paychecks | length == 1 %}
+  var _pcAmt = {{ paychecks[0].amount | float }};
+  function _getPC() { return _pcAmt; }
+  {% else %}
+  function _getPC() { var s=document.getElementById('pchk-pc-select'); return s?parseFloat(s.value)||0:0; }
+  {% endif %}
+  window.pchkCalcPaycheck = function() {
+    var purchase = parseFloat(document.getElementById('pchk-pc-amount').value)||0;
+    var paycheck = _getPC();
+    if (!purchase||!paycheck) { _empty('pchk-pc-result'); return; }
+    var ratio = purchase/paycheck;
+    var t = _tier(ratio,'paycheck');
+    document.getElementById('pchk-pc-result').innerHTML = _resultHTML(t.cls, ratio, 'paychecks', t.label,
+      '$'+_fmt(purchase)+' ÷ $'+_fmt(paycheck)+' per paycheck');
+  };
+})();
+{% endif %}
+
+// ② Hours Worked
+window.pchkCalcHours = function() {
+  var purchase = parseFloat(document.getElementById('pchk-hw-amount').value)||0;
+  var rate     = parseFloat(document.getElementById('pchk-hw-rate').value)||0;
+  if (!purchase||!rate) { _empty('pchk-hw-result'); return; }
+  var hours = purchase/rate;
+  var t = _tier(hours/8,'day'); // tier on work-days for better labels
+  var cls, label;
+  if (hours < 1)        { cls='pchk-green';  label='Less than an hour — no sweat'; }
+  else if (hours < 4)   { cls='pchk-green';  label='A few hours — easily earned'; }
+  else if (hours < 8)   { cls='pchk-yellow'; label='Most of a workday — worth considering'; }
+  else if (hours < 40)  { cls='pchk-yellow'; label='Multiple days of work — think it over'; }
+  else                  { cls='pchk-red';    label='Weeks of work — sleep on it'; }
+  var str = hours < 10 ? hours.toFixed(1) : Math.round(hours).toString();
+  document.getElementById('pchk-hw-result').innerHTML =
+    '<div class="pchk-tier '+cls+'"><div class="pchk-count">'+str+'<span class="pchk-unit"> hours</span></div><div class="pchk-verdict">'+label+'</div></div>'+
+    '<div class="pchk-breakdown">$'+_fmt(purchase)+' ÷ $'+_fmt(rate)+'/hr take-home</div>';
+};
+
+// ③ Cost Per Use
+window.pchkCalcCpu = function() {
+  var price = parseFloat(document.getElementById('pchk-cpu-amount').value)||0;
+  var uses  = parseFloat(document.getElementById('pchk-cpu-uses').value)||0;
+  if (!price||!uses) { _empty('pchk-cpu-result'); return; }
+  var cpu = price/uses;
+  var cls, label;
+  if (cpu < 1)       { cls='pchk-green';  label='Under $1 per use — great value'; }
+  else if (cpu < 5)  { cls='pchk-green';  label='A few dollars per use — solid investment'; }
+  else if (cpu < 20) { cls='pchk-yellow'; label='Getting pricey per use — use it often'; }
+  else               { cls='pchk-red';    label='High cost per use — reconsider'; }
+  var str = cpu < 10 ? '$'+cpu.toFixed(2) : '$'+Math.round(cpu).toString();
+  document.getElementById('pchk-cpu-result').innerHTML =
+    '<div class="pchk-tier '+cls+'"><div class="pchk-count">'+str+'<span class="pchk-unit"> / use</span></div><div class="pchk-verdict">'+label+'</div></div>'+
+    '<div class="pchk-breakdown">$'+_fmt(price)+' ÷ '+Math.round(uses)+' uses</div>';
+};
 
 function fcSkipToggle(dateStr) {
   const form = document.getElementById('fc-whatif-form');
