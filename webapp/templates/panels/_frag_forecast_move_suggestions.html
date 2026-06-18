@@ -1,0 +1,25 @@
+<div class="fc-move-popup" id="fc-move-popup">
+  <div class="fc-move-hdr">
+    <span>Move {{ free_amount | money }}</span>
+    <button class="tl-dd-close" onclick="document.getElementById('fc-move-popup').remove()">✕</button>
+  </div>
+  <p class="fc-move-sub">These buckets have unfilled gaps — put your free money to work.</p>
+  {% if suggestions %}
+  {% for s in suggestions %}
+  <div class="fc-move-row">
+    <div class="fc-move-info">
+      <span class="fc-move-name">{{ s.name }}</span>
+      <span class="fc-move-type">{{ s.type }} · needs {{ s.gap | money }}</span>
+    </div>
+    <button class="fc-move-btn"
+      hx-post="{{ url_for('panels.run_action', name='fc_quick_move') }}"
+      hx-vals='{"bucket_id": "{{ s.id }}", "amount": "{{ s.suggest_amt }}", "mid": "{{ mid }}"}'
+      hx-target="#fc-move-popup" hx-swap="outerHTML">
+      +{{ s.suggest_amt | money }}
+    </button>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p class="fc-move-empty">All vaults and goals are fully funded for this month.</p>
+  {% endif %}
+</div>

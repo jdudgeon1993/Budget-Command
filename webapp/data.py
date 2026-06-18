@@ -143,8 +143,37 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
         "pending_distribute_tid": session.pop("pending_distribute_tid", None),
-        "forecast_sts": _forecast_sts(data),
+        "forecast_sts": min(rts, _forecast_sts(data)),
     }
+
+
+def forecast_move_suggestions(free_amount: float) -> dict:
+    """Return vault/goal/sinking buckets with gaps as move suggestions for the sidebar."""
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data, mid)
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+
+    suggestions = []
+    for b in buckets:
+        btype = b.get("type", "expense")
+        if btype not in ("vault", "goal", "sinking"):
+            continue
+        budget = F.b_budget(month, b["id"])
+        alloc = F.b_alloc(month, b["id"])
+        gap = round(budget - alloc, 2)
+        if gap > 0.005:
+            suggestions.append({
+                "id": b["id"],
+                "name": b["name"],
+                "type": btype,
+                "gap": gap,
+                "suggest_amt": round(min(free_amount, gap), 2),
+            })
+
+    suggestions.sort(key=lambda s: -s["gap"])
+    return {"suggestions": suggestions, "free_amount": free_amount, "mid": mid}
 
 
 def _forecast_sts(data: dict) -> float:

@@ -282,6 +282,23 @@ def _bucket_fill(u, t, f, data):
 register(Action("bucket_fill", _bucket_fill, "buckets", always_run=True))
 
 
+def _fc_quick_move(u, t, f, data):
+    """Add `amount` to a bucket's allocation from forecast sidebar suggestion."""
+    bid = f.get("bucket_id", "")
+    amount = D.parse_amount(f.get("amount", "0"))
+    mid = f.get("mid") or D.active_mid()
+    if not bid or amount <= 0:
+        return ("Nothing to move.", "warn")
+    month = D.active_month(data, mid)
+    new_alloc = round(D.F.b_alloc(month, bid) + amount, 2)
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_alloc(u, t, mid, bid, new_alloc)
+    return ("Moved.", "ok")
+
+
+register(Action("fc_quick_move", _fc_quick_move, "buckets", always_run=True, dev_seed_msg=None))
+
+
 def _bucket_budget_set(u, t, f, data):
     bid = f.get("id", "")
     amount = D.parse_amount(f.get("budget", "0"))

@@ -434,6 +434,17 @@ def insights():
     return render_panel("panels/forecast.html", "insights", **D.forecast_view())
 
 
+@bp.route("/forecast/move-suggestions")
+@login_required
+def forecast_move_suggestions():
+    try:
+        amount = float(request.args.get("amount", 0))
+    except (ValueError, TypeError):
+        amount = 0.0
+    ctx = D.forecast_move_suggestions(amount)
+    return render_template("panels/_frag_forecast_move_suggestions.html", **ctx)
+
+
 @bp.route("/forecast/whatif", methods=["POST"])
 @login_required
 def forecast_whatif():
