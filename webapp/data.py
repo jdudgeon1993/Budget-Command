@@ -178,25 +178,39 @@ def forecast_move_suggestions(free_amount: float) -> dict:
 
 
 def _forecast_sts(data: dict, rts: float) -> tuple:
-    """Returns (free_rts, debug_dict)."""
+    """Returns (free_rts, debug_dict).
+
+    Walk forward through periods (including gap periods) accumulating
+    unfunded bills until we hit the first paycheck. That paycheck absorbs
+    the unfunded bills; only what it can't cover needs to come from RTS.
+    """
     try:
         from . import forecast_calc as FC
         fc = FC.compute_forecast(data, n_months=2)
-        periods = [p for p in fc.get("periods", []) if not p.get("is_gap")]
-        if not periods:
+        all_periods = fc.get("periods", [])
+        if not all_periods:
             return rts, {"error": "no periods"}
-        p1 = periods[0]
-        income   = p1.get("income_total_raw", 0.0)
-        unfunded = p1.get("unfunded_total_raw", 0.0)
-        needed   = max(0.0, unfunded - income)
-        free     = round(max(0.0, rts - needed), 2)
-        debug = {
-            "p1_label": p1.get("label", "?"),
+
+        income = 0.0
+        unfunded = 0.0
+        found_label = "?"
+        for p in all_periods[:6]:
+            unfunded += p.get("unfunded_total_raw", 0.0)
+            p_income = p.get("income_total_raw", 0.0)
+            income += p_income
+            if p_income > 0:
+                found_label = p.get("label", "?")
+                break
+
+        needed = max(0.0, unfunded - income)
+        free   = round(max(0.0, rts - needed), 2)
+        debug  = {
+            "p1_label": found_label,
             "p1_income": income,
             "p1_unfunded": unfunded,
             "needed_from_rts": needed,
             "free_rts": free,
-            "n_periods": len(periods),
+            "n_periods": len(all_periods),
         }
         return free, debug
     except Exception as e:
