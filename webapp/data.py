@@ -143,7 +143,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
         "pending_distribute_tid": session.pop("pending_distribute_tid", None),
-        "forecast_sts": _forecast_sts(data, rts),
+        "forecast_sts": _forecast_sts(data),
     }
 
 
@@ -176,19 +176,18 @@ def forecast_move_suggestions(free_amount: float) -> dict:
     return {"suggestions": suggestions, "free_amount": free_amount, "mid": mid}
 
 
-def _forecast_sts(data: dict, rts: float) -> float:
-    """Truly free RTS: min(rts, forecast global STS).
+def _forecast_sts(data: dict) -> float:
+    """30-day Safe to Spend — the balance cushion within the next ~30 days.
 
-    Reads safe_to_spend_raw directly from compute_forecast — same value
-    the Forecast panel displays — so sidebar and panel always agree.
+    Runs forecast for 1 month only so a dip 8 months out doesn't pollute
+    the number. Returns the global STS chip value directly from the engine.
     """
     try:
         from . import forecast_calc as FC
-        fc = FC.compute_forecast(data, n_months=3)
-        global_sts = fc.get("safe_to_spend_raw", 0.0)
-        return round(min(rts, global_sts), 2)
+        fc = FC.compute_forecast(data, n_months=1)
+        return fc.get("safe_to_spend_raw", 0.0)
     except Exception:
-        return rts
+        return 0.0
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
