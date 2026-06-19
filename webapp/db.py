@@ -162,6 +162,11 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
     for t in threads:
         t.join()
 
+    if errors:
+        import logging
+        for key, exc in errors:
+            logging.error("load_all DB error [%s]: %s: %s", key, type(exc).__name__, exc)
+
     accounts_raw  = results.get("accounts_raw", [])
     cats_raw      = results.get("cats_raw", [])
     buckets_raw   = results.get("buckets_raw", [])

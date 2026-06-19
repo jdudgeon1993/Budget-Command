@@ -885,6 +885,20 @@ def run_action(name):
     return A.dispatch(name)
 
 
+@bp.route("/debug/data")
+@login_required
+def debug_data():
+    """Temporary diagnostic — shows raw load_all counts and any DB errors."""
+    import json as _json
+    from . import db as _DB
+    try:
+        raw = _DB.load_all(session["user_id"], session["access_token"])
+        summary = {k: len(v) if isinstance(v, list) else v for k, v in raw.items()}
+        return _json.dumps({"ok": True, "counts": summary}, indent=2), 200, {"Content-Type": "application/json"}
+    except Exception as e:
+        return _json.dumps({"ok": False, "error": str(e), "type": type(e).__name__}), 500, {"Content-Type": "application/json"}
+
+
 # ── Quick Add — standalone, home-screen-installable transaction entry ───────
 
 @bp.route("/quick", methods=["GET", "POST"])
