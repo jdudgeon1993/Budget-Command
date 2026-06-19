@@ -234,6 +234,23 @@ def accounts():
     return render_panel("panels/accounts.html", "accounts", **D.accounts_view())
 
 
+@bp.route("/accounts/month/<direction>")
+@login_required
+def accounts_month_nav(direction):
+    from .formulas import parse_month_id
+    y, m0 = parse_month_id(D.acct_mid())
+    total = y * 12 + m0 + (1 if direction == "next" else -1)
+    session["acct_mid"] = f"m_{total // 12}_{total % 12}"
+    return redirect(url_for("panels.accounts"))
+
+
+@bp.route("/accounts/month/today")
+@login_required
+def accounts_month_today():
+    session.pop("acct_mid", None)
+    return redirect(url_for("panels.accounts"))
+
+
 # ── Add / edit account ────────────────────────────────────────────────────────
 
 @bp.route("/accounts/new", methods=["GET", "POST"])

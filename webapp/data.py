@@ -497,10 +497,15 @@ def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = Non
 
 # ── Accounts panel view-model ─────────────────────────────────────────────────
 
+def acct_mid() -> str:
+    """Active month for the Accounts panel — independent of the Buckets month."""
+    return session.get("acct_mid") or F.current_month_id()
+
+
 def accounts_view():
     """Account cards (with live balances) + month summary + a grouped ledger."""
     data = load_data()
-    mid = active_mid()
+    mid = acct_mid()
     txs = data.get("txs", [])
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
     bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
@@ -516,24 +521,15 @@ def accounts_view():
     } for a in accounts]
 
     month_txs = [t for t in txs if t.get("monthId") == mid]
-    # Summary stats are scoped to the active month
-    posted_month_txs = [t for t in month_txs if not F.is_scheduled(t)]
-    sched_txs = [t for t in month_txs if F.is_scheduled(t)]
+    posted_txs = [t for t in month_txs if not F.is_scheduled(t)]
+    sched_txs  = [t for t in month_txs if F.is_scheduled(t)]
 
     summary = {
         "income": F.month_income(mid, txs, accounts),
-        "spent": sum(t["amount"] for t in posted_month_txs if t.get("type") == "out"),
+        "spent": sum(t["amount"] for t in posted_txs if t.get("type") == "out"),
         "scheduled": sum(t["amount"] for t in sched_txs if t.get("type") == "out"),
-        "transferred": sum(t["amount"] for t in posted_month_txs if t.get("type") == "xfr"),
+        "transferred": sum(t["amount"] for t in posted_txs if t.get("type") == "xfr"),
     }
-
-    # Ledger shows all posted (non-scheduled, non-opening) transactions across
-    # all loaded months so the user sees their full recent history, not just the
-    # current month.
-    posted_txs = [
-        t for t in txs
-        if not F.is_scheduled(t) and t.get("type") not in ("opening",)
-    ]
 
     def _shape_row(t):
         ttype = t.get("type", "out")
@@ -592,6 +588,7 @@ def accounts_view():
     acct_balances = {a["id"]: round(F.acct_balance(a, txs), 2) for a in accounts}
     acct_types = {a["id"]: a.get("type", "budget") for a in accounts}
 
+    today_mid = F.current_month_id()
     return {
         "cards": cards, "summary": summary,
         "ledger": _group(posted_txs),
@@ -599,6 +596,9 @@ def accounts_view():
         "payees": payees,
         "acct_balances": acct_balances,
         "acct_types": acct_types,
+        "acct_mid": mid,
+        "acct_month_label": month_label(mid),
+        "acct_is_current": mid == today_mid,
     }
 
 

@@ -2,6 +2,16 @@
 {% block panel %}
 <div class="panel-grid">
   <div>
+    {# ── Accounts-panel month nav (independent of the Buckets month) ── #}
+    <div class="acct-month-nav">
+      <a class="month-arrow" href="{{ url_for('panels.accounts_month_nav', direction='prev') }}">←</a>
+      <span class="acct-month-pill">{{ acct_month_label }}</span>
+      <a class="month-arrow" href="{{ url_for('panels.accounts_month_nav', direction='next') }}">→</a>
+      {% if not acct_is_current %}
+      <a class="tx-edit-link" href="{{ url_for('panels.accounts_month_today') }}" style="margin-left:6px;font-size:11px">Today</a>
+      {% endif %}
+    </div>
+
     <div class="sum-grid">
       <div class="sum-card"><div class="sum-label">Income</div><div class="sum-val c-green">{{ summary.income | money }}</div></div>
       <div class="sum-card"><div class="sum-label">Upcoming</div><div class="sum-val" style="color:var(--amber)">{{ summary.scheduled | money }}</div></div>
@@ -86,7 +96,7 @@
     {% endif %}
 
     {# ── Posted transactions ── #}
-    <div class="statement-label">Transactions</div>
+    <div class="statement-label">Current Statement</div>
     {# RB pinpoint — shown when filtering to a single account #}
     <div id="stmt-rb-pin" class="stmt-rb-pin" style="display:none">
       <span class="stmt-rb-pin-lbl">Current Balance</span>
@@ -136,7 +146,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="stub">No transactions yet.</div>
+    <div class="stub">No transactions this month.</div>
     {% endfor %}
   </div>
 
