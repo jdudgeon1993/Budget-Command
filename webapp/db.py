@@ -251,6 +251,7 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "budgets": budget_by_mid.get(m["id"], {}),
         "handledBuckets": handled_by_mid.get(m["id"], {}),
         "vaultWithdrawals": vault_by_mid.get(m["id"], {}),
+        "closed": bool(m.get("closed")),
     } for m in months_raw]
 
     return {
@@ -304,6 +305,17 @@ def ensure_month(uid: str, token: str, mid: str) -> None:
             "id": mid, "user_id": uid,
             "year": y, "month": m0, "label": label,
         }).execute()
+
+
+def close_month(uid: str, token: str, mid: str, accounts: list = None, txs: list = None) -> None:
+    """Mark a month as closed."""
+    ensure_month(uid, token, mid)
+    client(token).table("bcc_months").update({"closed": True}).eq("id", mid).eq("user_id", uid).execute()
+
+
+def reopen_month(uid: str, token: str, mid: str) -> None:
+    """Remove the closed flag from a month."""
+    client(token).table("bcc_months").update({"closed": False}).eq("id", mid).eq("user_id", uid).execute()
 
 
 def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
@@ -494,6 +506,7 @@ def vault_transfer(uid: str, token: str, mid: str, from_bid: str, to_bid: str,
 def vault_release_to_pool(uid: str, token: str, mid: str, bid: str,
                           amount: float, current_alloc: float) -> None:
     """Release vault savings back to RTS pool."""
+    ensure_month(uid, token, mid)
     db = client(token)
     # Drain current month alloc first
     from_alloc = min(amount, current_alloc)

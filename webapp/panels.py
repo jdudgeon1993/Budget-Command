@@ -237,6 +237,8 @@ def accounts():
 @bp.route("/accounts/month/<direction>")
 @login_required
 def accounts_month_nav(direction):
+    if direction not in ("next", "prev"):
+        return redirect(url_for("panels.accounts"))
     from .formulas import parse_month_id
     y, m0 = parse_month_id(D.acct_mid())
     total = y * 12 + m0 + (1 if direction == "next" else -1)
@@ -410,7 +412,7 @@ def post_interest(aid):
         pay_date = f.get("date") or D.tx_form_ctx()["today"]
         if amount > 0:
             if not current_app.config["DEV_SEED"]:
-                DB.insert_tx(session["user_id"], session["access_token"], {
+                DB.insert_transaction(session["user_id"], session["access_token"], {
                     "accountId": aid, "type": "out", "amount": amount,
                     "desc": desc, "date": pay_date, "monthId": D.active_mid(),
                 })
@@ -902,18 +904,193 @@ def run_action(name):
     return A.dispatch(name)
 
 
-@bp.route("/debug/data")
+@bp.route("/health")
 @login_required
-def debug_data():
-    """Temporary diagnostic — shows raw load_all counts and any DB errors."""
+def health():
+    """Full app health check and diagnostics page."""
     import json as _json
+    from datetime import datetime as _dt
     from . import db as _DB
+    from . import formulas as _F
+    from collections import defaultdict as _dd
+
+    generated_at = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    issues, hints = [], []
+    db_errors = ""
+
     try:
         raw = _DB.load_all(session["user_id"], session["access_token"])
-        summary = {k: len(v) if isinstance(v, list) else v for k, v in raw.items()}
-        return _json.dumps({"ok": True, "counts": summary}, indent=2), 200, {"Content-Type": "application/json"}
     except Exception as e:
-        return _json.dumps({"ok": False, "error": str(e), "type": type(e).__name__}), 500, {"Content-Type": "application/json"}
+        raw = {"accounts": [], "cats": [], "buckets": [], "txs": [], "months": [],
+               "paychecks": [], "allocationRules": []}
+        db_errors = f"{type(e).__name__}: {e}"
+        issues.append("DB load failed")
+
+    accounts = raw.get("accounts", [])
+    buckets  = raw.get("buckets", [])
+    txs      = raw.get("txs", [])
+    months   = raw.get("months", [])
+    cats     = raw.get("cats", [])
+
+    # ── Data counts ──────────────────────────────────────────────────────────
+    data_counts = [
+        {"label": "Accounts",         "count": len(accounts)},
+        {"label": "Categories",       "count": len(cats)},
+        {"label": "Buckets",          "count": len(buckets)},
+        {"label": "Transactions",     "count": len(txs)},
+        {"label": "Month records",    "count": len(months)},
+        {"label": "Paychecks",        "count": len(raw.get("paychecks", []))},
+        {"label": "Allocation rules", "count": len(raw.get("allocationRules", []))},
+    ]
+    if len(accounts) == 0:   issues.append("No accounts")
+    if len(txs) == 0:        hints.append("No transactions loaded")
+    if len(buckets) == 0:    issues.append("No buckets")
+    if len(cats) == 0:       issues.append("No categories")
+
+    # ── Session info ─────────────────────────────────────────────────────────
+    today_mid = _F.current_month_id()
+    acct_mid_val = session.get("acct_mid") or today_mid
+    active_mid_val = session.get("active_mid") or today_mid
+    session_info = [
+        {"label": "Logged in as",    "value": session.get("email", "—")},
+        {"label": "Today's month",   "value": today_mid},
+        {"label": "Buckets month",   "value": active_mid_val},
+        {"label": "Accounts month",  "value": acct_mid_val},
+        {"label": "DEV_SEED",        "value": "yes" if current_app.config.get("DEV_SEED") else "no"},
+    ]
+
+    # ── Account health ────────────────────────────────────────────────────────
+    tx_by_acct = _dd(int)
+    opening_accts = set()
+    for t in txs:
+        tx_by_acct[t.get("accountId", "")] += 1
+        if t.get("type") == "opening":
+            opening_accts.add(t.get("accountId", ""))
+
+    account_health = []
+    for a in accounts:
+        if a.get("archived"):
+            continue
+        bal = _F.acct_balance(a, txs)
+        has_opening = a["id"] in opening_accts
+        if not has_opening:
+            hints.append(f"No opening tx for '{a['name']}'")
+        account_health.append({
+            "name": a["name"], "type": a.get("type", "budget"),
+            "balance": bal, "tx_count": tx_by_acct[a["id"]],
+            "has_opening": has_opening,
+        })
+
+    # ── Tx by type ────────────────────────────────────────────────────────────
+    type_counts = _dd(int)
+    for t in txs:
+        type_counts[t.get("type", "out")] += 1
+    tx_by_type = [{"type": k, "count": v}
+                  for k, v in sorted(type_counts.items(), key=lambda x: -x[1])]
+
+    # ── Tx by month (last 6) ──────────────────────────────────────────────────
+    mid_counts = _dd(int)
+    for t in txs:
+        mid_counts[t.get("monthId", "")] += 1
+    recent_mids = [_F.month_offset(today_mid, -i) for i in range(6)]
+    from . import data as _D
+    tx_by_month = [
+        {"label": _D.month_label(m), "count": mid_counts.get(m, 0)}
+        for m in recent_mids
+    ]
+    if all(r["count"] == 0 for r in tx_by_month):
+        issues.append(f"No recent transactions in any of the last 6 months (oldest loaded: {min((t['monthId'] for t in txs if t.get('monthId')), default='none')})")
+
+    # ── Bucket issues ─────────────────────────────────────────────────────────
+    bkt_map = {b["id"]: b for b in buckets}
+    bucket_issues = []
+    for b in buckets:
+        if b.get("archived"):
+            continue
+        if not b.get("catId"):
+            bucket_issues.append({"name": b["name"], "issue": "No category assigned", "value": "—"})
+        if b.get("type") == "expense" and not b.get("defaultBudget"):
+            pass  # fine — open-ended expense bucket
+    # Check for orphaned bucket references in txs
+    orphaned_bids = set()
+    for t in txs:
+        bid = t.get("bucketId")
+        if bid and bid not in bkt_map:
+            orphaned_bids.add(bid)
+    if orphaned_bids:
+        bucket_issues.append({"name": "—", "issue": f"Transactions reference {len(orphaned_bids)} deleted bucket(s)", "value": ", ".join(list(orphaned_bids)[:3])})
+
+    # ── Month health ──────────────────────────────────────────────────────────
+    def _mlabel(mid):
+        try:
+            y, m0 = _F.parse_month_id(mid)
+            import calendar as _cal
+            return f"{_cal.month_name[m0+1][:3]} {y}"
+        except Exception:
+            return mid
+
+    month_health = sorted([{
+        "label": _mlabel(m["id"]),
+        "alloc_count": len(m.get("allocations", {})),
+        "budget_count": len(m.get("budgets", {})),
+        "closed": bool(m.get("closed")),
+    } for m in months], key=lambda x: x["label"], reverse=True)[:12]
+
+    # ── Budget metrics ────────────────────────────────────────────────────────
+    try:
+        today_month = next((m for m in months if m["id"] == today_mid),
+                           {"id": today_mid, "allocations": {}, "budgets": {}})
+        active_buckets = [b for b in buckets if not b.get("archived")]
+        rts = _F.ready_to_spend(today_month, months, accounts, active_buckets, txs)
+        total_cash = _F.total_cash(accounts, txs)
+        income = _F.month_income(today_mid, txs, accounts)
+        allocated = _F.total_allocated(today_month, active_buckets)
+        spent = sum(_F.b_spent(today_mid, b["id"], txs) for b in active_buckets)
+        budget_metrics = [
+            {"label": "Ready to Spend",   "value": f"${rts:,.2f}",        "alert": rts < 0},
+            {"label": "Total Cash",       "value": f"${total_cash:,.2f}",  "alert": total_cash < 0},
+            {"label": "Month Income",     "value": f"${income:,.2f}",      "alert": False},
+            {"label": "Month Allocated",  "value": f"${allocated:,.2f}",   "alert": False},
+            {"label": "Month Spent",      "value": f"${spent:,.2f}",       "alert": False},
+        ]
+        if rts < 0:
+            issues.append(f"Negative RTS (${rts:,.2f})")
+        if total_cash < 0:
+            hints.append(f"Total cash is negative (${total_cash:,.2f})")
+    except Exception as e:
+        budget_metrics = [{"label": "Error computing metrics", "value": str(e), "alert": True}]
+        issues.append("Budget metrics error")
+
+    # ── Unassigned expense transactions ──────────────────────────────────────
+    unassigned_txs = sorted([
+        {"date": t.get("date",""), "desc": t.get("desc","Transaction"),
+         "amount": float(t.get("amount") or 0)}
+        for t in txs
+        if t.get("type") == "out" and not t.get("bucketId")
+        and not _F.is_scheduled(t)
+    ], key=lambda x: x["date"], reverse=True)
+    if unassigned_txs:
+        hints.append(f"{len(unassigned_txs)} expense transaction(s) not assigned to a bucket")
+
+    # ── Raw JSON ──────────────────────────────────────────────────────────────
+    raw_summary = {k: len(v) if isinstance(v, list) else str(v) for k, v in raw.items()}
+    raw_json = _json.dumps(raw_summary, indent=2)
+
+    return render_template("panels/health.html",
+        generated_at=generated_at,
+        issues=issues, hints=hints,
+        data_counts=data_counts,
+        session_info=session_info,
+        account_health=account_health,
+        tx_by_type=tx_by_type,
+        tx_by_month=tx_by_month,
+        bucket_issues=bucket_issues,
+        month_health=month_health,
+        budget_metrics=budget_metrics,
+        unassigned_txs=unassigned_txs,
+        db_errors=db_errors,
+        raw_json=raw_json,
+    )
 
 
 # ── Quick Add — standalone, home-screen-installable transaction entry ───────
