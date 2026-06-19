@@ -339,9 +339,15 @@ def bucket_available(
     is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
 
     if is_regular_expense:
+        # Only accumulate carryover for months present in the transaction window.
+        # bcc_month_allocations loads all history but transactions are windowed to
+        # ~13 months. For months outside that window b_spent() returns 0 (no txs),
+        # so including them produces phantom carryover that craters RTS.
+        tx_mid_set = {t["monthId"] for t in transactions if t.get("monthId")}
         carried = sum(
             max(0.0, b_alloc(m, bid) - b_spent(m["id"], bid, transactions))
             for m in months_before(month["id"], all_months)
+            if m["id"] in tx_mid_set
         )
         return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
     elif is_flex:

@@ -268,9 +268,11 @@ def _bucket_alloc_set(u, t, f, data):
     if is_regular_expense:
         txs = data.get("txs", [])
         months = data.get("months", [])
-        # Derive carryover from prior months only — avoids depending on the
-        # in-memory month object which may be mid-mutation in chained actions.
-        prior_months = D.F.months_before(mid, months)
+        # Only count carryover from months inside the transaction window.
+        # Months outside the window have allocs loaded but spent=0 (no txs),
+        # producing phantom carryover that makes the stored amount too small.
+        tx_mid_set = {t.get("monthId") for t in txs if t.get("monthId")}
+        prior_months = [m for m in D.F.months_before(mid, months) if m["id"] in tx_mid_set]
         carryover = sum(
             max(0.0, D.F.b_alloc(m, bid) - D.F.b_spent(m["id"], bid, txs))
             for m in prior_months
@@ -302,7 +304,8 @@ def _bucket_fill(u, t, f, data):
     is_flex = bucket.get("flex", False) and btype == "expense"
     is_regular_expense = btype not in ("vault", "sinking", "goal") and not is_flex
     if is_regular_expense:
-        prior_months = D.F.months_before(mid, months)
+        tx_mid_set = {t.get("monthId") for t in txs if t.get("monthId")}
+        prior_months = [m for m in D.F.months_before(mid, months) if m["id"] in tx_mid_set]
         carryover = sum(
             max(0.0, D.F.b_alloc(m, bid) - D.F.b_spent(m["id"], bid, txs))
             for m in prior_months
