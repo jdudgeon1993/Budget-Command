@@ -960,6 +960,27 @@ def compute_calendar_data(data: dict, n_days: int = 60,
     occ_count: dict[tuple, int] = {}
     bill_by_date: dict[date, list] = {}
 
+    # Scan for bills due earlier this month (before today) that are still unpaid.
+    # Start from month start so past-due bills aren't silently skipped.
+    month_start = date(today.year, today.month, 1)
+    past_due: list[dict] = []
+    for b in dated:
+        for bd in _bill_dates(b.get("dueDay"), b.get("payFreq"), month_start, today - timedelta(days=1)):
+            if handled_by_mid.get(_mid(bd), {}).get(b["id"]):
+                continue
+            key = (b["id"], _mid(bd))
+            occ_count[key] = occ_count.get(key, 0) + 1
+            occ = occ_count[key]
+            if not _is_paid(b, bd, occ):
+                past_due.append({
+                    "name": b["name"],
+                    "amount": _bill_amt(b),
+                    "amount_fmt": _fmt(_bill_amt(b)),
+                    "due_date": str(bd),
+                    "due_label": _date_label(bd),
+                    "scheduled": _has_scheduled(b, bd),
+                })
+
     for b in dated:
         for bd in _bill_dates(b.get("dueDay"), b.get("payFreq"), today, end):
             if handled_by_mid.get(_mid(bd), {}).get(b["id"]):
@@ -1052,7 +1073,7 @@ def compute_calendar_data(data: dict, n_days: int = 60,
         })
         cur = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
 
-    return {"heat_days": heat_days, "months": months_out}
+    return {"heat_days": heat_days, "months": months_out, "past_due": past_due}
 
 
 # ── Balance trajectory SVG ────────────────────────────────────────────────────

@@ -1,5 +1,19 @@
 {% if cal_data %}
 
+{% if cal_data.past_due %}
+<div class="tl-past-due-banner">
+  <div class="tl-past-due-hdr">⚠ Past Due — Unpaid bills from earlier this month</div>
+  {% for b in cal_data.past_due %}
+  <div class="tl-past-due-row">
+    <span class="tl-past-due-name">{{ b.name }}</span>
+    <span class="tl-past-due-date">was due {{ b.due_label }}</span>
+    {% if b.scheduled %}<span class="fc-sched-badge">Scheduled</span>{% endif %}
+    <span class="mono tl-past-due-amt">{{ b.amount_fmt }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% for month in cal_data.months %}
 <div class="tl-month">
   <div class="tl-month-hdr">{{ month.name }}</div>

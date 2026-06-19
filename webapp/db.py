@@ -126,7 +126,12 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         try:
             q = db.table("bcc_transactions").select("*").eq("user_id", uid)
             if cutoff_mid:
-                q = q.gte("month_id", cutoff_mid)
+                # Use date comparison instead of month_id string comparison.
+                # month_id strings sort lexicographically: "m_2025_10" < "m_2025_5"
+                # which incorrectly excludes October and November from the window.
+                cutoff_year, cutoff_m0 = parse_month_id(cutoff_mid)
+                cutoff_date_str = f"{cutoff_year}-{cutoff_m0 + 1:02d}-01"
+                q = q.gte("date", cutoff_date_str)
             windowed = q.order("date", desc=True).execute().data or []
             # Opening transactions must always load regardless of the window —
             # acct_balance() uses them to establish the starting balance.
