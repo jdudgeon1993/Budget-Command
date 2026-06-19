@@ -126,15 +126,20 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         try:
             q = db.table("bcc_transactions").select("*").eq("user_id", uid)
             if cutoff_mid:
-                # Filter by date (real DATE column) not month_id string — month_id
-                # strings sort lexicographically wrong ("m_2025_10" < "m_2025_5").
-                # Always include opening transactions regardless of age: they carry
-                # the account's starting balance and must never be windowed out.
-                from .formulas import parse_month_id as _pmid
-                cy2, cm2 = _pmid(cutoff_mid)
-                cutoff_date = f"{cy2}-{cm2+1:02d}-01"
-                q = q.or_(f"date.gte.{cutoff_date},type.eq.opening")
-            results["txs_raw"] = q.order("date", desc=True).execute().data or []
+                q = q.gte("month_id", cutoff_mid)
+            windowed = q.order("date", desc=True).execute().data or []
+            # Opening transactions must always load regardless of the window —
+            # acct_balance() uses them to establish the starting balance.
+            # Run a separate small query and merge rather than risk .or_() syntax issues.
+            if cutoff_mid:
+                opening_raw = (
+                    db.table("bcc_transactions").select("*")
+                    .eq("user_id", uid).eq("type", "opening")
+                    .execute().data or []
+                )
+                seen_ids = {t["id"] for t in windowed}
+                windowed = windowed + [t for t in opening_raw if t["id"] not in seen_ids]
+            results["txs_raw"] = windowed
         except Exception as e:
             errors.append(("txs_raw", e))
             results["txs_raw"] = []
