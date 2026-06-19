@@ -1031,10 +1031,11 @@ def health():
 
     month_health = sorted([{
         "label": _mlabel(m["id"]),
+        "sort_key": _F.parse_month_id(m["id"]) if "_" in m["id"] else (0, 0),
         "alloc_count": len(m.get("allocations", {})),
         "budget_count": len(m.get("budgets", {})),
         "closed": bool(m.get("closed")),
-    } for m in months], key=lambda x: x["label"], reverse=True)[:12]
+    } for m in months], key=lambda x: x["sort_key"], reverse=True)[:12]
 
     # ── Budget metrics ────────────────────────────────────────────────────────
     try:
@@ -1062,12 +1063,15 @@ def health():
         issues.append("Budget metrics error")
 
     # ── Unassigned expense transactions ──────────────────────────────────────
+    # Exclude debt accounts — interest charges legitimately have no bucket
+    debt_aid_set = {a["id"] for a in accounts if a.get("type") == "debt"}
     unassigned_txs = sorted([
         {"date": t.get("date",""), "desc": t.get("desc","Transaction"),
          "amount": float(t.get("amount") or 0)}
         for t in txs
         if t.get("type") == "out" and not t.get("bucketId")
         and not _F.is_scheduled(t)
+        and t.get("accountId") not in debt_aid_set
     ], key=lambda x: x["date"], reverse=True)
     if unassigned_txs:
         hints.append(f"{len(unassigned_txs)} expense transaction(s) not assigned to a bucket")
