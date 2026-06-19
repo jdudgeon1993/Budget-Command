@@ -516,15 +516,24 @@ def accounts_view():
     } for a in accounts]
 
     month_txs = [t for t in txs if t.get("monthId") == mid]
-    posted_txs = [t for t in month_txs if not F.is_scheduled(t)]
-    sched_txs  = [t for t in month_txs if F.is_scheduled(t)]
+    # Summary stats are scoped to the active month
+    posted_month_txs = [t for t in month_txs if not F.is_scheduled(t)]
+    sched_txs = [t for t in month_txs if F.is_scheduled(t)]
 
     summary = {
         "income": F.month_income(mid, txs, accounts),
-        "spent": sum(t["amount"] for t in posted_txs if t.get("type") == "out"),
+        "spent": sum(t["amount"] for t in posted_month_txs if t.get("type") == "out"),
         "scheduled": sum(t["amount"] for t in sched_txs if t.get("type") == "out"),
-        "transferred": sum(t["amount"] for t in posted_txs if t.get("type") == "xfr"),
+        "transferred": sum(t["amount"] for t in posted_month_txs if t.get("type") == "xfr"),
     }
+
+    # Ledger shows all posted (non-scheduled, non-opening) transactions across
+    # all loaded months so the user sees their full recent history, not just the
+    # current month.
+    posted_txs = [
+        t for t in txs
+        if not F.is_scheduled(t) and t.get("type") not in ("opening",)
+    ]
 
     def _shape_row(t):
         ttype = t.get("type", "out")
