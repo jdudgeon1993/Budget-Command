@@ -126,13 +126,14 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         try:
             q = db.table("bcc_transactions").select("*").eq("user_id", uid)
             if cutoff_mid:
-                # Use date column (a real DATE) instead of month_id string comparison.
-                # month_id strings like "m_2025_10" don't sort lexicographically —
-                # "m_2025_10" < "m_2025_5" as strings, which silently drops Oct/Nov.
+                # Filter by date (real DATE column) not month_id string — month_id
+                # strings sort lexicographically wrong ("m_2025_10" < "m_2025_5").
+                # Always include opening transactions regardless of age: they carry
+                # the account's starting balance and must never be windowed out.
                 from .formulas import parse_month_id as _pmid
                 cy2, cm2 = _pmid(cutoff_mid)
                 cutoff_date = f"{cy2}-{cm2+1:02d}-01"
-                q = q.gte("date", cutoff_date)
+                q = q.or_(f"date.gte.{cutoff_date},type.eq.opening")
             results["txs_raw"] = q.order("date", desc=True).execute().data or []
         except Exception as e:
             errors.append(("txs_raw", e))
