@@ -220,7 +220,7 @@ def vault_ledger(bid):
                 "withdrawal": wd, "withdrawal_fmt": f"${wd:,.2f}" if wd > 0 else "—",
                 "net": net, "net_fmt": f"${net:,.2f}",
             })
-    history = DB.fetch_vault_history(session["user_id"], session["access_token"], bid)
+    history = DB.fetch_vault_history(session.get("user_id"), session.get("access_token"), bid)
     vault_accum = D.F.vault_accumulated(bid, months)
     return render_template("panels/_frag_vault_ledger.html",
                            bucket=bucket, month_history=month_history,

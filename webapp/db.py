@@ -524,8 +524,9 @@ def vault_transfer(uid: str, token: str, mid: str, from_bid: str, to_bid: str,
             "from_bucket_id": from_bid, "to_bucket_id": to_bid,
             "amount": amount, "month_id": mid, "reason": "planned",
         }).execute()
-    except Exception:
-        pass  # bcc_vault_transfers may not exist in all deploys
+    except Exception as _e:
+        import logging as _logging
+        _logging.getLogger(__name__).debug("vault_transfer audit skipped: %s", _e)
 
 
 def vault_set_state(uid: str, token: str, bid: str,

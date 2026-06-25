@@ -205,6 +205,8 @@ def bucket_rows(view_mid: str = None):
     mid = view_mid or current_mid
     month = active_month(data, mid)
     months = data.get("months", [])
+    # Pre-sort once (newest-first) so vault_streak() doesn't re-sort per vault
+    months_desc = sorted(months, key=lambda m: F.parse_month_id(m["id"]), reverse=True)
     txs = data.get("txs", [])
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
@@ -356,7 +358,7 @@ def bucket_rows(view_mid: str = None):
                 "vault_total": vault_total,
                 "locked": b.get("locked", False),
                 "paused": b.get("paused", False),
-                "streak": F.vault_streak(bid, months) if b.get("type") == "vault" else 0,
+                "streak": F.vault_streak(bid, months_desc) if b.get("type") == "vault" else 0,
                 "due_day": b.get("dueDay"),
                 "pay_freq": b.get("payFreq") or "",
                 "target_amount": target_amount,

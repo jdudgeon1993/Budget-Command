@@ -382,8 +382,18 @@ def vault_accumulated(bucket_id: str, all_months: list[dict]) -> float:
 
 
 def vault_streak(bucket_id: str, all_months: list[dict]) -> int:
-    """Consecutive months going backwards with alloc > 0 for this vault."""
-    sorted_months = sorted(all_months, key=lambda m: parse_month_id(m["id"]), reverse=True)
+    """Consecutive months going backwards with alloc > 0 for this vault.
+
+    all_months should already be sorted newest-first; if not, it will be sorted here.
+    Pass pre-sorted months (desc by parse_month_id) from bucket_rows() to avoid
+    O(V*M log M) re-sorting for every vault on the page.
+    """
+    if len(all_months) >= 2:
+        first_id = parse_month_id(all_months[0]["id"])
+        last_id = parse_month_id(all_months[-1]["id"])
+        sorted_months = all_months if first_id >= last_id else sorted(all_months, key=lambda m: parse_month_id(m["id"]), reverse=True)
+    else:
+        sorted_months = all_months
     streak = 0
     for m in sorted_months:
         alloc = float((m.get("allocations") or {}).get(bucket_id) or 0)

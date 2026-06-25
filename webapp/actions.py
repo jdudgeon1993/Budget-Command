@@ -553,10 +553,12 @@ def _vault_transfer(u, t, f, data):
         return (f"Transfer exceeds vault balance (${vault_accum:,.2f}).", "error")
 
     amount = min(amount, vault_accum)
+    if amount <= 0.005:
+        return None
     # Drain this month's allocation first; remainder comes from prior savings
     month_portion = min(amount, from_alloc)
     prior_portion = round(amount - month_portion, 2)
-    new_from = round(from_alloc - month_portion, 2)
+    new_from = max(0.0, round(from_alloc - month_portion, 2))
     new_to = round(to_alloc + amount, 2)
     if not current_app.config["DEV_SEED"]:
         DB.vault_transfer(u, t, mid, bid, to_bid, amount, new_from, new_to, prior_portion)
