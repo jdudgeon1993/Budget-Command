@@ -170,6 +170,8 @@ def distribute_obligations(
     """
     obligations = []
     for b in buckets:
+        if b.get("type") == "vault" and (b.get("locked") or b.get("paused")):
+            continue
         default_bud = float(b.get("defaultBudget") or 0)
         budget = b_budget(month, b["id"], default_bud)
         if budget <= 0:
@@ -377,6 +379,19 @@ def vault_accumulated(bucket_id: str, all_months: list[dict]) -> float:
         withdrawn = float((m.get("vaultWithdrawals") or {}).get(bucket_id) or 0)
         total += alloc - withdrawn
     return total
+
+
+def vault_streak(bucket_id: str, all_months: list[dict]) -> int:
+    """Consecutive months going backwards with alloc > 0 for this vault."""
+    sorted_months = sorted(all_months, key=lambda m: parse_month_id(m["id"]), reverse=True)
+    streak = 0
+    for m in sorted_months:
+        alloc = float((m.get("allocations") or {}).get(bucket_id) or 0)
+        if alloc > 0:
+            streak += 1
+        else:
+            break
+    return streak
 
 
 # ── Age of Money ─────────────────────────────────────────────────────────────

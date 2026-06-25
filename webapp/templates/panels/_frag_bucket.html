@@ -143,8 +143,28 @@
       <input type="text" name="default_budget" inputmode="decimal"
              value="{{ bucket.defaultBudget or '' }}" placeholder="0.00">
     </div>
-    <p style="font-size:12px;color:var(--text3);margin:4px 0 8px">
-      Vault buckets accumulate savings across months. Use the transfer/release features in the main panel to move funds.
+    <div class="modal-row-2" style="margin-top:8px">
+      <div class="edit-field">
+        <label>Lock vault
+          <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;letter-spacing:0;text-transform:none">Prevents transfers, releases &amp; auto-alloc</span>
+        </label>
+        <select name="vault_locked">
+          <option value="0" {{ 'selected' if not bucket.get('locked', False) }}>Unlocked</option>
+          <option value="1" {{ 'selected' if bucket.get('locked', False) }}>Locked</option>
+        </select>
+      </div>
+      <div class="edit-field">
+        <label>Pause vault
+          <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;letter-spacing:0;text-transform:none">Skips distribution &amp; forecast auto-alloc</span>
+        </label>
+        <select name="vault_paused">
+          <option value="0" {{ 'selected' if not bucket.get('paused', False) }}>Active</option>
+          <option value="1" {{ 'selected' if bucket.get('paused', False) }}>Paused</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin:8px 0 4px">
+      Vault buckets accumulate savings across months.
     </p>
   </div>
 

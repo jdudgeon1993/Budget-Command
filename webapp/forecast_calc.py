@@ -284,6 +284,8 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
     internal_rules = [r for r in rules_raw if r.get("rule_type") != "external" and r.get("active", True) and (r.get("bucket_id") or r.get("bucketId"))]
     bname = {b["id"]: b["name"] for b in buckets}
     btype = {b["id"]: b.get("type", "expense") for b in buckets}
+    blocked_vault_bids = {b["id"] for b in buckets
+                          if b.get("type") == "vault" and (b.get("locked") or b.get("paused"))}
 
     # Build received-paycheck lookup from income transactions tagged with paycheckId.
     # Key: paycheck_id → sorted list of received dates. Used to skip pay dates
@@ -330,8 +332,9 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
                 v   = float(rule_overrides.get(rid, r.get("value") or 0))
                 computed = round(amt * v / 100, 2) if r.get("type") == "pct" or r.get("value_type") == "pct" else v
                 bid = r.get("bucket_id") or r.get("bucketId", "")
+                is_vault_alloc = btype.get(bid, "expense") == "vault" and bid not in blocked_vault_bids
                 allocs.append({"name": bname.get(bid, ""), "amount": computed,
-                               "is_vault": btype.get(bid, "expense") == "vault"})
+                               "is_vault": is_vault_alloc})
             if _is_received(pc_id, pd):
                 continue  # already in account balance — don't double-count
             pay_events[pd].append({"label": pc.get("label", "Paycheck"),

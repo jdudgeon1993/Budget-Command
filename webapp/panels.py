@@ -143,6 +143,11 @@ def bucket_settings(bid):
                     "target_date": f.get("target_date") or None,
                     "contrib_freq": f.get("contrib_freq") or None,
                 })
+            elif btype == "vault":
+                payload.update({
+                    "vault_locked": f.get("vault_locked") == "1",
+                    "vault_paused": f.get("vault_paused") == "1",
+                })
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
             D.invalidate_cache()
             flash("Bucket updated.", "ok")
@@ -169,22 +174,86 @@ def vault_transfer(bid):
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket or bucket.get("type") != "vault":
         return redirect(url_for("panels.buckets"))
-    # GET — render transfer form in modal
-    dest_buckets = [b for b in data.get("buckets", [])
-                    if not b.get("archived") and b.get("type") != "vault"]
+    if bucket.get("locked"):
+        flash("This vault is locked — unlock it first.", "error")
+        return redirect(url_for("panels.buckets"))
+    all_buckets = data.get("buckets", [])
+    dest_non_vault = [b for b in all_buckets
+                      if not b.get("archived") and b.get("type") != "vault"]
+    dest_vaults = [b for b in all_buckets
+                   if not b.get("archived") and b.get("type") == "vault" and b["id"] != bid]
     cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
-    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
     month = D.active_month(data)
     vault_alloc = D.F.b_alloc(month, bid)
     vault_accum = D.F.vault_accumulated(bid, data.get("months", []))
     dest_by_cat = []
     for c in cats:
-        bkts = [b for b in dest_buckets if b.get("catId") == c["id"]]
+        bkts = [b for b in dest_non_vault if b.get("catId") == c["id"]]
         if bkts:
             dest_by_cat.append({"cat": c["name"], "buckets": bkts})
     return render_template("panels/_frag_vault_transfer.html",
                            bucket=bucket, dest_by_cat=dest_by_cat,
+                           dest_vaults=dest_vaults,
                            vault_alloc=vault_alloc, vault_accum=vault_accum)
+
+
+@bp.route("/buckets/<bid>/vault-ledger", methods=["GET"])
+@login_required
+def vault_ledger(bid):
+    data = D.load_data()
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket or bucket.get("type") != "vault":
+        return redirect(url_for("panels.buckets"))
+    months = data.get("months", [])
+    from .formulas import parse_month_id
+    import calendar as _cal
+    month_history = []
+    for m in sorted(months, key=lambda x: parse_month_id(x["id"]), reverse=True):
+        alloc = float((m.get("allocations") or {}).get(bid) or 0)
+        wd = float((m.get("vaultWithdrawals") or {}).get(bid) or 0)
+        if alloc > 0 or wd > 0:
+            y, m0 = parse_month_id(m["id"])
+            label = f"{_cal.month_name[m0 + 1]} {y}"
+            net = round(alloc - wd, 2)
+            month_history.append({
+                "label": label, "alloc": alloc, "alloc_fmt": f"${alloc:,.2f}",
+                "withdrawal": wd, "withdrawal_fmt": f"${wd:,.2f}" if wd > 0 else "—",
+                "net": net, "net_fmt": f"${net:,.2f}",
+            })
+    history = DB.fetch_vault_history(session["user_id"], session["access_token"], bid)
+    vault_accum = D.F.vault_accumulated(bid, months)
+    return render_template("panels/_frag_vault_ledger.html",
+                           bucket=bucket, month_history=month_history,
+                           transfers=history.get("transfers", []),
+                           releases=history.get("releases", []),
+                           vault_accum=vault_accum)
+
+
+@bp.route("/vaults/bulk-rebalance", methods=["GET"])
+@login_required
+def vault_bulk_rebalance_open():
+    data = D.load_data()
+    month = D.active_month(data)
+    months = data.get("months", [])
+    vault_buckets = sorted(
+        [b for b in data.get("buckets", []) if b.get("type") == "vault" and not b.get("archived")],
+        key=lambda b: b.get("order", 0),
+    )
+    vaults = []
+    for b in vault_buckets:
+        bid = b["id"]
+        alloc = D.F.b_alloc(month, bid)
+        accum = D.F.vault_accumulated(bid, months)
+        streak = D.F.vault_streak(bid, months)
+        vaults.append({
+            "id": bid, "name": b["name"],
+            "alloc": alloc, "alloc_fmt": f"{alloc:.2f}",
+            "accum": accum, "accum_fmt": f"${accum:,.2f}",
+            "streak": streak,
+            "locked": b.get("locked", False),
+            "paused": b.get("paused", False),
+        })
+    return render_template("panels/_frag_vault_bulk_rebalance.html", vaults=vaults)
 
 
 @bp.route("/buckets/<bid>/vault-release", methods=["GET"])

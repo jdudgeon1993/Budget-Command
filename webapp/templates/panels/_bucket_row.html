@@ -17,6 +17,9 @@
       {% if b.btype == 'vault' %}<span class="vg-type-tag vault">Vault</span>{% endif %}
       {% if b.btype in ('sinking','goal') %}<span class="vg-type-tag goal">Goal</span>{% endif %}
       {% if b.flex %}<span class="vg-type-tag flex">Flex</span>{% endif %}
+      {% if b.btype == 'vault' and b.locked %}<span class="vault-state-badge locked">Locked</span>{% endif %}
+      {% if b.btype == 'vault' and b.paused and not b.locked %}<span class="vault-state-badge paused">Paused</span>{% endif %}
+      {% if b.btype == 'vault' and b.streak > 0 %}<span class="vault-streak-badge">{{ b.streak }}mo</span>{% endif %}
     </span>
 
     {% if b.due_day and b.btype not in ('vault','sinking','goal') %}
@@ -48,8 +51,12 @@
           <button class="vg-fill-btn" type="submit">Cover {{ b.uncovered | money }}</button>
         </form>
       {% elif display_status == 'vault' %}
+        {% if not b.locked %}
         <a class="vg-act-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
            hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}" hx-target="#modal-body">⇄</a>
+        {% else %}
+        <span class="vg-act-btn" style="opacity:0.35;cursor:default">⇄</span>
+        {% endif %}
       {% endif %}
 
       <button class="vg-expand-btn" type="button" id="settings-{{ b.id }}"
@@ -171,12 +178,19 @@
 
       <div class="bkt-drawer-actions">
         {% if b.btype == 'vault' %}
+          {% if not b.locked %}
           <a class="vault-action-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
              hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}"
              hx-target="#modal-body">⇄ Transfer</a>
           <a class="vault-action-btn" href="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
              hx-get="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
              hx-target="#modal-body">↑ Release</a>
+          {% else %}
+          <span class="vault-action-btn" style="opacity:0.4;cursor:default">Locked</span>
+          {% endif %}
+          <a class="vault-action-btn" href="{{ url_for('panels.vault_ledger', bid=b.id) }}"
+             hx-get="{{ url_for('panels.vault_ledger', bid=b.id) }}"
+             hx-target="#modal-body">History</a>
         {% endif %}
 
         {% if b.due_day or b.pay_freq %}

@@ -111,7 +111,40 @@
 
       {# Tier: Vault #}
       {% if tier_vault %}
-      <div class="vg-tier-sep vault">Vault</div>
+      <div class="vg-tier-sep vault" style="display:flex;align-items:center">
+        Vault
+        <a class="vault-rebalance-link" href="{{ url_for('panels.vault_bulk_rebalance_open') }}"
+           hx-get="{{ url_for('panels.vault_bulk_rebalance_open') }}"
+           hx-target="#modal-body" onclick="openModal()">⇌ Rebalance all</a>
+      </div>
+      {% if vault_portfolio %}
+      <div class="vault-portfolio-card">
+        <div class="vpc-stat">
+          <span class="vpc-lbl">Total saved</span>
+          <span class="vpc-amt mono">{{ vault_portfolio.total | money }}</span>
+        </div>
+        <div class="vpc-stat">
+          <span class="vpc-lbl">This month</span>
+          <span class="vpc-amt mono">{{ vault_portfolio.this_month | money }}</span>
+        </div>
+        <div class="vpc-stat">
+          <span class="vpc-lbl">Vaults</span>
+          <span class="vpc-amt mono">{{ vault_portfolio.count }}</span>
+        </div>
+        {% if vault_portfolio.locked_count %}
+        <div class="vpc-stat">
+          <span class="vpc-lbl">Locked</span>
+          <span class="vpc-amt mono">{{ vault_portfolio.locked_count }}</span>
+        </div>
+        {% endif %}
+        {% if vault_portfolio.paused_count %}
+        <div class="vpc-stat">
+          <span class="vpc-lbl">Paused</span>
+          <span class="vpc-amt mono">{{ vault_portfolio.paused_count }}</span>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
       {% for b in tier_vault %}{% include "panels/_bucket_row.html" %}{% endfor %}
       {% endif %}
 

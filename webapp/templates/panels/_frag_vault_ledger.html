@@ -1,0 +1,60 @@
+<div class="modal-title">{{ bucket.name }} — History</div>
+
+<div class="vault-ledger-hero">
+  <span class="vault-ledger-hero-lbl">Total saved</span>
+  <span class="vault-ledger-hero-amt mono">{{ vault_accum | money }}</span>
+</div>
+
+{% if month_history %}
+<div class="vault-ledger-section-hdr">Monthly contributions</div>
+<div class="vault-ledger-table">
+  <div class="vault-ledger-row vault-ledger-head">
+    <span>Month</span>
+    <span>Contributed</span>
+    <span>Withdrawn</span>
+    <span>Net</span>
+  </div>
+  {% for row in month_history %}
+  <div class="vault-ledger-row">
+    <span class="vault-ledger-month">{{ row.label }}</span>
+    <span class="mono vault-ledger-pos">{{ row.alloc_fmt }}</span>
+    <span class="mono vault-ledger-neg">{{ row.withdrawal_fmt }}</span>
+    <span class="mono {{ 'vault-ledger-net-pos' if row.net >= 0 else 'vault-ledger-net-neg' }}">{{ row.net_fmt }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div style="color:var(--text3);font-size:13px;padding:16px 0">No allocation history yet.</div>
+{% endif %}
+
+{% if transfers %}
+<div class="vault-ledger-section-hdr" style="margin-top:18px">Transfers</div>
+<div class="vault-ledger-table">
+  {% for tr in transfers %}
+  <div class="vault-ledger-row">
+    <span class="vault-ledger-month">{{ tr.month_id or '—' }}</span>
+    <span style="color:var(--text2);font-size:12px">{{ 'Out' if tr.from_bucket_id == bucket.id else 'In' }}</span>
+    <span></span>
+    <span class="mono vault-ledger-pos">${{ "%.2f" | format(tr.amount | float) }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if releases %}
+<div class="vault-ledger-section-hdr" style="margin-top:18px">Releases to pool</div>
+<div class="vault-ledger-table">
+  {% for r in releases %}
+  <div class="vault-ledger-row">
+    <span class="vault-ledger-month">{{ r.month_id or '—' }}</span>
+    <span style="color:var(--text3);font-size:12px">{{ r.reason or '—' }}</span>
+    <span></span>
+    <span class="mono vault-ledger-neg">-${{ "%.2f" | format(r.amount | float) }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div style="margin-top:16px;text-align:center">
+  <button class="toolbar-btn" type="button" onclick="closeModal()">Close</button>
+</div>

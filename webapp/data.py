@@ -354,6 +354,9 @@ def bucket_rows(view_mid: str = None):
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left, "carryover": carryover,
                 "status": status, "pill": pill, "needed": needed, "committed": committed,
                 "vault_total": vault_total,
+                "locked": b.get("locked", False),
+                "paused": b.get("paused", False),
+                "streak": F.vault_streak(bid, months) if b.get("type") == "vault" else 0,
                 "due_day": b.get("dueDay"),
                 "pay_freq": b.get("payFreq") or "",
                 "target_amount": target_amount,
@@ -384,7 +387,16 @@ def bucket_rows(view_mid: str = None):
          "offset": n}
         for n in (0, 1, 2)
     ]
+    vault_bkts = [b for b in buckets if b.get("type") == "vault" and not b.get("archived")]
+    vault_portfolio = {
+        "total": sum(F.vault_accumulated(b["id"], months) for b in vault_bkts),
+        "this_month": sum(F.b_alloc(month, b["id"]) for b in vault_bkts),
+        "count": len(vault_bkts),
+        "locked_count": sum(1 for b in vault_bkts if b.get("locked")),
+        "paused_count": sum(1 for b in vault_bkts if b.get("paused")),
+    } if vault_bkts else None
     return {"groups": groups, "attention": attention, "cats": cats,
+            "vault_portfolio": vault_portfolio,
             "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
             "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
                             for b in buckets if not b.get("archived")]}

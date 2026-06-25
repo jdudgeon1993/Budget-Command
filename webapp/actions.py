@@ -581,6 +581,61 @@ register(Action("vault_release", _vault_release, "buckets",
                  response_mode="close_modal", always_run=True))
 
 
+def _vault_toggle_lock(u, t, f, data):
+    bid = f.get("id", "")
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket or bucket.get("type") != "vault":
+        return None
+    new_state = not bucket.get("locked", False)
+    if not current_app.config["DEV_SEED"]:
+        DB.vault_set_state(u, t, bid, locked=new_state)
+        return (f"Vault {'locked' if new_state else 'unlocked'}.", "ok")
+    return ("Dev mode: not persisted.", "ok")
+
+
+register(Action("vault_toggle_lock", _vault_toggle_lock, "buckets",
+                response_mode="close_modal", always_run=True))
+
+
+def _vault_toggle_pause(u, t, f, data):
+    bid = f.get("id", "")
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket or bucket.get("type") != "vault":
+        return None
+    new_state = not bucket.get("paused", False)
+    if not current_app.config["DEV_SEED"]:
+        DB.vault_set_state(u, t, bid, paused=new_state)
+        return (f"Vault {'paused' if new_state else 'resumed'}.", "ok")
+    return ("Dev mode: not persisted.", "ok")
+
+
+register(Action("vault_toggle_pause", _vault_toggle_pause, "buckets",
+                response_mode="close_modal", always_run=True))
+
+
+def _vault_bulk_rebalance(u, t, f, data):
+    mid = D.active_mid()
+    buckets = data.get("buckets", [])
+    vault_ids = {b["id"] for b in buckets if b.get("type") == "vault" and not b.get("archived")}
+    alloc_map: dict = {}
+    for key, val in f.items():
+        if key.startswith("alloc_") and key[6:] in vault_ids:
+            bid = key[6:]
+            amt = D.parse_amount(str(val))
+            if amt >= 0:
+                alloc_map[bid] = amt
+    if not alloc_map:
+        return None
+    if not current_app.config["DEV_SEED"]:
+        DB.vault_bulk_rebalance(u, t, mid, alloc_map)
+        return ("Vault allocations updated.", "ok")
+    return ("Dev mode: not persisted.", "ok")
+
+
+register(Action("vault_bulk_rebalance", _vault_bulk_rebalance, "buckets",
+                response_mode="close_modal", always_run=True))
+
+
 # ── Transaction actions (Phase 5: dynamic back-panel) ───────────────────────
 
 def _tx_back_panel(f):

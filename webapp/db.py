@@ -61,6 +61,8 @@ def ensure_schema() -> None:
                   FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
               END IF;
             END $$;
+            ALTER TABLE IF EXISTS bcc_buckets ADD COLUMN IF NOT EXISTS vault_locked BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE IF EXISTS bcc_buckets ADD COLUMN IF NOT EXISTS vault_paused BOOLEAN NOT NULL DEFAULT FALSE;
         """}).execute()
     except Exception:
         pass  # best-effort; migration SQL in schema_migrations.sql is the canonical fix
@@ -217,6 +219,8 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "notes": b.get("notes") or "",
         "order": b.get("sort_order", 0),
         "debtAccountId": b.get("debt_account_id") or "",
+        "locked": bool(b.get("vault_locked", False)),
+        "paused": bool(b.get("vault_paused", False)),
     } for b in sorted(buckets_raw, key=lambda x: x.get("sort_order", 0))]
 
     txs = [{
@@ -338,6 +342,8 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         "notes": "notes",
         "sort_order": "sort_order",
         "debt_account_id": "debt_account_id",
+        "vault_locked": "vault_locked",
+        "vault_paused": "vault_paused",
     }
     payload: dict = {"id": bid, "user_id": uid}
     for k, v in fields.items():
@@ -506,6 +512,48 @@ def vault_transfer(uid: str, token: str, mid: str, from_bid: str, to_bid: str,
         }).execute()
     except Exception:
         pass  # bcc_vault_transfers may not exist in all deploys
+
+
+def vault_set_state(uid: str, token: str, bid: str,
+                    locked: bool | None = None, paused: bool | None = None) -> None:
+    """Toggle locked or paused state on a vault bucket."""
+    payload: dict = {}
+    if locked is not None:
+        payload["vault_locked"] = locked
+    if paused is not None:
+        payload["vault_paused"] = paused
+    if payload:
+        client(token).table("bcc_buckets").update(payload).eq("id", bid).eq("user_id", uid).execute()
+
+
+def vault_bulk_rebalance(uid: str, token: str, mid: str, alloc_map: dict) -> None:
+    """Set allocations for multiple vaults in one pass. alloc_map: {bid: amount}"""
+    db = client(token)
+    ensure_month(uid, token, mid)
+    for bid, amount in alloc_map.items():
+        db.table("bcc_month_allocations").upsert({
+            "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
+        }, on_conflict="user_id,month_id,bucket_id").execute()
+
+
+def fetch_vault_history(uid: str, token: str, bid: str) -> dict:
+    """Load transfer and release audit records for a vault bucket. Best-effort."""
+    db = client(token)
+    transfers, releases = [], []
+    try:
+        raw = db.table("bcc_vault_transfers").select("*").eq("user_id", uid) \
+            .or_(f"from_bucket_id.eq.{bid},to_bucket_id.eq.{bid}") \
+            .order("created_at", desc=True).limit(50).execute().data or []
+        transfers = raw
+    except Exception:
+        pass
+    try:
+        raw = db.table("bcc_vault_release_log").select("*").eq("user_id", uid) \
+            .eq("bucket_id", bid).order("created_at", desc=True).limit(50).execute().data or []
+        releases = raw
+    except Exception:
+        pass
+    return {"transfers": transfers, "releases": releases}
 
 
 def vault_release_to_pool(uid: str, token: str, mid: str, bid: str,
