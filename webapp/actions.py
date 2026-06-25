@@ -546,7 +546,17 @@ def _vault_transfer(u, t, f, data):
     mid = D.active_mid()
     from_alloc = D.F.b_alloc(month, bid)
     to_alloc = D.F.b_alloc(month, to_bid)
-    new_from = max(0.0, round(from_alloc - amount, 2))
+
+    # Cap to current month's allocation — transferring more would reduce RTS
+    # because the destination gains the full amount but the vault can only give
+    # what's allocated this month. Accumulated prior-month savings require a
+    # Release first, then re-allocate elsewhere.
+    if amount > from_alloc + 0.005:
+        return (f"Transfer exceeds this month's vault allocation (${from_alloc:,.2f}). "
+                f"Release accumulated savings to pool first, then re-allocate.", "error")
+
+    amount = min(amount, from_alloc)
+    new_from = round(from_alloc - amount, 2)
     new_to = round(to_alloc + amount, 2)
     if not current_app.config["DEV_SEED"]:
         DB.vault_transfer(u, t, mid, bid, to_bid, amount, new_from, new_to)
