@@ -494,8 +494,14 @@ def delete_scenario(uid: str, token: str, sid: str) -> None:
 
 
 def vault_transfer(uid: str, token: str, mid: str, from_bid: str, to_bid: str,
-                   amount: float, new_from_alloc: float, new_to_alloc: float) -> None:
-    """Reduce vault alloc, increase destination bucket alloc, record transfer."""
+                   amount: float, new_from_alloc: float, new_to_alloc: float,
+                   prior_withdrawal: float = 0.0) -> None:
+    """Reduce vault alloc, increase destination bucket alloc, record transfer.
+
+    When transferring more than this month's allocation, prior_withdrawal
+    captures the difference from accumulated prior-month savings so the
+    vault's running total stays accurate.
+    """
     import uuid as _uuid
     db = client(token)
     db.table("bcc_month_allocations").upsert({
@@ -504,6 +510,14 @@ def vault_transfer(uid: str, token: str, mid: str, from_bid: str, to_bid: str,
     db.table("bcc_month_allocations").upsert({
         "user_id": uid, "month_id": mid, "bucket_id": to_bid, "amount": new_to_alloc,
     }, on_conflict="user_id,month_id,bucket_id").execute()
+    if prior_withdrawal > 0:
+        existing = db.table("bcc_month_vault_withdrawals").select("amount") \
+            .eq("user_id", uid).eq("month_id", mid).eq("bucket_id", from_bid).execute().data or []
+        existing_wd = float(existing[0]["amount"]) if existing else 0.0
+        db.table("bcc_month_vault_withdrawals").upsert({
+            "user_id": uid, "month_id": mid, "bucket_id": from_bid,
+            "amount": round(existing_wd + prior_withdrawal, 2),
+        }, on_conflict="user_id,month_id,bucket_id").execute()
     try:
         db.table("bcc_vault_transfers").insert({
             "id": f"vt_{_uuid.uuid4().hex[:10]}", "user_id": uid,

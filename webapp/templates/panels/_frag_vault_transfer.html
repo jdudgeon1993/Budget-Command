@@ -5,7 +5,7 @@
     <div class="rts-kpi"><span class="rts-kpi-lbl">This month's alloc</span><span class="rts-kpi-val mono">{{ vault_alloc | money }}</span></div>
     <div class="rts-kpi"><span class="rts-kpi-lbl">Total accumulated</span><span class="rts-kpi-val mono">{{ vault_accum | money }}</span></div>
   </div>
-  <p style="font-size:12px;color:var(--text3);margin:8px 0 0">Transfers move this month's allocation only — up to <strong style="color:var(--text2)">{{ vault_alloc | money }}</strong>. Net effect on RTS: zero. To move accumulated savings, use Release instead.</p>
+  <p style="font-size:12px;color:var(--text3);margin:8px 0 0">Up to <strong style="color:var(--text2)">{{ vault_accum | money }}</strong> available. Net effect on RTS: zero.</p>
 </div>
 
 <form method="post" action="{{ url_for('panels.run_action', name='vault_transfer') }}"
