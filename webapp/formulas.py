@@ -376,7 +376,13 @@ def bucket_available(
             b_alloc(m, bid) - b_spent(m["id"], bid, transactions) - _vault_wd(m)
             for m in months_before(month["id"], all_months)
         )
-        return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions) - _vault_wd(month)
+        total = carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions) - _vault_wd(month)
+        # Vault savings cannot go below zero — it's a savings vehicle with no debt semantics.
+        # Without this floor, orphaned withdrawal records (e.g. after zeroing alloc while
+        # the bucket was temporarily expense type) inflate RTS by the negative amount.
+        if bucket.get("type") == "vault":
+            return max(0.0, total)
+        return total
 
 
 # ── 3.12 Vault Accumulated ────────────────────────────────────────────────────
@@ -387,7 +393,7 @@ def vault_accumulated(bucket_id: str, all_months: list[dict]) -> float:
         alloc = float((m.get("allocations") or {}).get(bucket_id) or 0)
         withdrawn = float((m.get("vaultWithdrawals") or {}).get(bucket_id) or 0)
         total += alloc - withdrawn
-    return total
+    return max(0.0, total)  # savings balance can't go below zero
 
 
 def vault_streak(bucket_id: str, all_months: list[dict]) -> int:
