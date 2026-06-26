@@ -362,12 +362,21 @@ def bucket_available(
         # Flex: current month only
         return b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
     else:
-        # vault/sinking/goal: full accumulation including negatives
+        # vault/sinking/goal: full accumulation including negatives.
+        # Vault withdrawals (releases / transfers-out) are recorded in
+        # bcc_month_vault_withdrawals and must be subtracted here so the
+        # vault's claim on RTS matches its true balance — otherwise a
+        # transfer that dips into prior savings makes RTS drop by the
+        # prior-month portion (bucket_available would see +amount on the
+        # destination but only -month_portion on the source).
+        def _vault_wd(m: dict) -> float:
+            return float((m.get("vaultWithdrawals") or {}).get(bid, 0))
+
         carried = sum(
-            b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
+            b_alloc(m, bid) - b_spent(m["id"], bid, transactions) - _vault_wd(m)
             for m in months_before(month["id"], all_months)
         )
-        return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
+        return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions) - _vault_wd(month)
 
 
 # ── 3.12 Vault Accumulated ────────────────────────────────────────────────────
