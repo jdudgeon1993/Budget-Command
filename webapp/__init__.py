@@ -14,6 +14,10 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(panels_bp)
 
+    from . import db as DB
+    with app.app_context():
+        DB.ensure_schema()
+
     # Jinja money filter — always 2 decimal places, matches $1,234.56 / -$1,234.56.
     @app.template_filter("money")
     def money(v, compact=False):

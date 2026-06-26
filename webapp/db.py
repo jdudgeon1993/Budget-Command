@@ -349,9 +349,11 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
     for k, v in fields.items():
         if k in col_map:
             payload[col_map[k]] = v
-    client(token).table("bcc_buckets").upsert(
+    resp = client(token).table("bcc_buckets").upsert(
         payload, on_conflict="id"
     ).execute()
+    if hasattr(resp, "error") and resp.error:
+        raise RuntimeError(f"Bucket save failed: {resp.error}")
 
 
 def insert_bucket(uid: str, token: str, name: str, cat_id: str, btype: str = "expense") -> str:
