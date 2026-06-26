@@ -1147,6 +1147,9 @@ def health():
             })
 
         # ── Allocation breakdown ─────────────────────────────────────────────
+        # Use budget_bal (liquid cash in budget accounts) as the denominator,
+        # not month_income — income may be 0 early in the month (paychecks not
+        # yet received) making the rate meaningless / astronomically large.
         vault_bkts   = [b for b in active_buckets if b.get("type") == "vault"]
         expense_bkts = [b for b in active_buckets if b.get("type") not in ("vault", "sinking", "goal")]
         savings_bkts = [b for b in active_buckets if b.get("type") in ("sinking", "goal")]
@@ -1155,29 +1158,30 @@ def health():
         alloc_vault   = sum(_F.b_alloc(today_month, b["id"]) for b in vault_bkts)
         alloc_savings = sum(_F.b_alloc(today_month, b["id"]) for b in savings_bkts)
         vault_total   = sum(_F.vault_accumulated(b["id"], months) for b in vault_bkts)
-        unallocated   = round(income - allocated, 2) if income > 0 else 0.0
-        alloc_rate    = min(100, round(allocated / income * 100)) if income > 0 else 0
 
-        locked_ct  = sum(1 for b in vault_bkts if b.get("locked"))
-        paused_ct  = sum(1 for b in vault_bkts if b.get("paused") and not b.get("locked"))
+        bb            = _F.budget_bal(accounts, txs)
+        # Allocation rate = this month's allocations vs total liquid budget cash.
+        # RTS is exactly the unallocated portion — no need to recompute it.
+        alloc_rate    = round(allocated / bb * 100, 1) if bb > 0 else 0.0
+        locked_ct     = sum(1 for b in vault_bkts if b.get("locked"))
+        paused_ct     = sum(1 for b in vault_bkts if b.get("paused") and not b.get("locked"))
 
         allocation_breakdown = [
-            {"label": "Allocation rate",       "value": f"{alloc_rate}%",          "alert": alloc_rate > 100},
-            {"label": "Unallocated (vs income)","value": f"${unallocated:,.2f}",   "alert": unallocated < 0},
+            {"label": "Month allocated",       "value": f"${allocated:,.2f}",      "alert": False},
+            {"label": "Month income (txns in)","value": f"${income:,.2f}",         "alert": False},
+            {"label": "Alloc rate (vs cash)",  "value": f"{alloc_rate}%",          "alert": alloc_rate > 100},
+            {"label": "Ready to Spend (unalloc)","value": f"${rts:,.2f}",          "alert": rts < 0},
             {"label": "→ Expense buckets",     "value": f"${alloc_expense:,.2f}",  "alert": False},
             {"label": "→ Vault buckets",       "value": f"${alloc_vault:,.2f}",    "alert": False},
             {"label": "→ Sinking / goal",      "value": f"${alloc_savings:,.2f}",  "alert": False},
             {"label": "Vault portfolio total", "value": f"${vault_total:,.2f}",    "alert": False},
             {"label": "Vault count",           "value": f"{len(vault_bkts)} ({locked_ct} locked, {paused_ct} paused)", "alert": False},
         ]
-        if unallocated < 0:
-            issues.append(f"Over-allocated vs income by ${-unallocated:,.2f}")
         if alloc_rate > 100:
-            hints.append(f"Allocation rate {alloc_rate}% exceeds income")
+            issues.append(f"Allocated ${allocated:,.2f} exceeds liquid budget cash ${bb:,.2f}")
 
         # ── RTS verification (ZBB identity) ─────────────────────────────────
-        # bb == RTS + cur_claimed + future_claimed
-        bb = _F.budget_bal(accounts, txs)
+        # bb already computed above; bb == RTS + cur_claimed + future_claimed
         future_mids = _F.months_after(today_mid, months)
         future_claimed = sum(
             _F.b_alloc(fm, b["id"])
