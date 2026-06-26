@@ -35,6 +35,12 @@
       <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
     </div>
     {% endif %}
+    {% if forecast.afford_warnings %}
+    <div class="fc-kpi fc-kpi-alert">
+      <div class="fc-kpi-lbl">Afford Gaps</div>
+      <div class="fc-kpi-val mono c-red">{{ forecast.afford_warnings | length }} paycheck{{ 's' if forecast.afford_warnings | length != 1 }}</div>
+    </div>
+    {% endif %}
     {% if forecast.break_even_label %}
     <div class="fc-kpi">
       <div class="fc-kpi-lbl">Breaks Even</div>

@@ -96,6 +96,12 @@
     <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
   </div>
   {% endif %}
+  {% if forecast.afford_warnings %}
+  <div class="fc-kpi fc-kpi-alert">
+    <div class="fc-kpi-lbl">Afford Gaps</div>
+    <div class="fc-kpi-val mono c-red">{{ forecast.afford_warnings | length }} paycheck{{ 's' if forecast.afford_warnings | length != 1 }}</div>
+  </div>
+  {% endif %}
   {% if forecast.break_even_label %}
   <div class="fc-kpi">
     <div class="fc-kpi-lbl">Breaks Even</div>
@@ -108,6 +114,26 @@
 <!-- Balance trajectory chart -->
 {% if balance_svg %}
 <div class="fc-chart">{{ balance_svg | safe }}</div>
+{% endif %}
+
+<!-- Affordability warnings — paycheck can't cover its own bills -->
+{% if forecast.afford_warnings %}
+<div class="fc-afford-warn">
+  <div class="fc-afford-warn-title">⚠ Paycheck Affordability Alert</div>
+  {% for w in forecast.afford_warnings %}
+  <div class="fc-afford-row">
+    <div class="fc-afford-period">{{ w.label }} · {{ w.date_range }}</div>
+    <div class="fc-afford-detail">
+      <span>Income <span class="mono c-green">{{ w.income_fmt }}</span></span>
+      <span class="fc-afford-sep">vs</span>
+      <span>Bills <span class="mono c-red">{{ w.bills_fmt }}</span></span>
+      <span class="fc-afford-sep">—</span>
+      <span>Gap <span class="mono c-red">{{ w.gap_fmt }}</span></span>
+    </div>
+    <div class="fc-afford-msg">This paycheck alone cannot cover all its obligations. Prior savings or a future paycheck will need to bridge the gap.</div>
+  </div>
+  {% endfor %}
+</div>
 {% endif %}
 
 <!-- Period cards -->
@@ -125,6 +151,7 @@
           {% elif p.is_skipped %}<span class="fc-type-badge fc-badge-skipped">Skipped</span>
           {% elif p.shortfall %}<span class="fc-type-badge fc-badge-shortfall">Shortfall</span>
           {% endif %}
+          {% if p.income_vs_bills_gap > 0 and not p.is_skipped %}<span class="fc-type-badge fc-badge-afford-gap" title="Paycheck (${{ '{:,.2f}'.format(p.income_total_raw) }}) can't cover bills — gap: ${{ '{:,.2f}'.format(p.income_vs_bills_gap) }}">Afford Gap</span>{% endif %}
         </div>
         <div class="fc-period-range">{{ p.date_range }}</div>
       </div>
