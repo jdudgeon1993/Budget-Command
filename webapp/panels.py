@@ -143,11 +143,8 @@ def bucket_settings(bid):
                     "target_date": f.get("target_date") or None,
                     "contrib_freq": f.get("contrib_freq") or None,
                 })
-            elif btype == "vault":
-                payload.update({
-                    "vault_locked": f.get("vault_locked") == "1",
-                    "vault_paused": f.get("vault_paused") == "1",
-                })
+            # vault_locked / vault_paused are managed by dedicated toggle actions,
+            # not by the save form — avoids failing if columns don't exist yet.
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
             D.invalidate_cache()
             flash("Bucket updated.", "ok")
