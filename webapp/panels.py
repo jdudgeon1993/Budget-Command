@@ -1186,27 +1186,42 @@ def health():
     # ── RTS verification (ZBB identity: bb = RTS + cur_claimed + future) ─────
     rts_verify = []
     rts_verify_error = ""
+    bucket_claims_detail = []   # per-bucket breakdown for current claims
+    future_allocs_detail = []   # per-bucket breakdown for future allocations
     try:
-        bb_v          = _F.budget_bal(accounts, txs)
-        future_mids   = _F.months_after(today_mid, months)
-        future_claimed = sum(
-            _F.b_alloc(fm, b["id"])
-            for fm in future_mids
-            for b in active_buckets
-        )
-        cur_claimed = sum(
-            _F.bucket_available(b, today_month, months, txs)
-            for b in active_buckets
-        )
+        bb_v        = _F.budget_bal(accounts, txs)
+        future_mids = _F.months_after(today_mid, months)
+
+        # Per-bucket current claims (non-zero only, sorted largest first)
+        raw_claims = []
+        for b in active_buckets:
+            claim = _F.bucket_available(b, today_month, months, txs)
+            if abs(claim) > 0.005:
+                raw_claims.append({"name": b["name"], "type": b.get("type","expense"), "claim": round(claim, 2)})
+        bucket_claims_detail = sorted(raw_claims, key=lambda x: -x["claim"])
+
+        cur_claimed = sum(c["claim"] for c in raw_claims)
+
+        # Per-bucket future allocations (non-zero only, sorted largest first)
+        raw_future: dict = {}
+        for fm in future_mids:
+            for b in active_buckets:
+                amt = _F.b_alloc(fm, b["id"])
+                if amt > 0.005:
+                    raw_future[b["id"]] = {"name": b["name"], "amount": raw_future.get(b["id"], {}).get("amount", 0.0) + amt}
+        future_allocs_detail = sorted(raw_future.values(), key=lambda x: -x["amount"])
+
+        future_claimed = sum(x["amount"] for x in future_allocs_detail)
+
         zbb_check = round(bb_v - cur_claimed - future_claimed, 2)
         zbb_ok    = abs(zbb_check - rts) < 0.02
         rts_verify = [
-            {"label": "Bank balance (bb)",        "value": f"${bb_v:,.2f}",           "alert": False},
-            {"label": "− Current bucket claims",  "value": f"${cur_claimed:,.2f}",    "alert": False},
-            {"label": "− Future pre-allocations", "value": f"${future_claimed:,.2f}", "alert": False},
-            {"label": "= Calculated RTS",         "value": f"${zbb_check:,.2f}",      "alert": not zbb_ok},
-            {"label": "RTS displayed",            "value": f"${rts:,.2f}",            "alert": not zbb_ok},
-            {"label": "ZBB identity holds",       "value": "✓ Yes" if zbb_ok else f"✗ Drift ${abs(zbb_check - rts):,.2f}", "alert": not zbb_ok},
+            {"label": "Bank balance (bb)",        "value": f"${bb_v:,.2f}",           "alert": False,      "detail": None},
+            {"label": "− Current bucket claims",  "value": f"${cur_claimed:,.2f}",    "alert": False,      "detail": "claims"},
+            {"label": "− Future pre-allocations", "value": f"${future_claimed:,.2f}", "alert": False,      "detail": "future"},
+            {"label": "= Calculated RTS",         "value": f"${zbb_check:,.2f}",      "alert": not zbb_ok, "detail": None},
+            {"label": "RTS displayed",            "value": f"${rts:,.2f}",            "alert": not zbb_ok, "detail": None},
+            {"label": "ZBB identity holds",       "value": "✓ Yes" if zbb_ok else f"✗ Drift ${abs(zbb_check - rts):,.2f}", "alert": not zbb_ok, "detail": None},
         ]
         if not zbb_ok:
             issues.append(f"ZBB identity broken — drift ${abs(zbb_check - rts):,.2f}")
@@ -1248,6 +1263,8 @@ def health():
         allocation_error=allocation_error,
         rts_verify=rts_verify,
         rts_verify_error=rts_verify_error,
+        bucket_claims_detail=bucket_claims_detail,
+        future_allocs_detail=future_allocs_detail,
         unassigned_txs=unassigned_txs,
         db_errors=db_errors,
         raw_json=raw_json,

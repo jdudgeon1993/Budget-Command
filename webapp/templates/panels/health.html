@@ -46,6 +46,20 @@
     .hc-all-ok{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2);border-radius:var(--r-md);padding:10px 14px;font-size:13px;font-weight:600;margin-top:10px;}
     .hc-refresh{background:var(--accent);color:#fff;border:none;border-radius:var(--r-pill);padding:7px 18px;font-size:13px;font-weight:700;cursor:pointer;}
     .hc-refresh:hover{opacity:.85;}
+    /* Expandable detail rows in RTS Verification */
+    .hc-detail{border-bottom:1px solid rgba(255,255,255,.04);}
+    .hc-detail:last-child{border-bottom:none;}
+    .hc-detail summary{list-style:none;}
+    .hc-detail summary::-webkit-details-marker{display:none;}
+    .hc-row-expandable{cursor:pointer;padding:9px 20px;}
+    .hc-row-expandable:hover{background:rgba(255,255,255,.03);}
+    .hc-expand-hint{font-size:9px;opacity:.45;margin-left:4px;transition:transform .2s;display:inline-block;}
+    details[open] .hc-expand-hint{transform:rotate(180deg);}
+    .hc-detail-body{background:rgba(255,255,255,.02);border-top:1px solid rgba(255,255,255,.04);padding:4px 0 6px;}
+    .hc-detail-row{display:flex;justify-content:space-between;align-items:center;padding:5px 28px 5px 32px;gap:10px;}
+    .hc-detail-name{font-size:12px;color:var(--text2);flex:1;}
+    .hc-detail-type{font-size:9px;color:var(--text3);margin-left:6px;text-transform:uppercase;letter-spacing:.06em;}
+    .hc-detail-amt{font-size:12px;font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;color:var(--text);text-align:right;}
   </style>
 </head>
 <body>
@@ -282,12 +296,44 @@
     {% if rts_verify_error %}
     <div class="hc-card"><div style="color:var(--red);font-size:12px;">Error: {{ rts_verify_error }}</div></div>
     {% else %}
-    <div class="hc-card">
+    <div class="hc-card" style="padding:0">
       {% for row in rts_verify %}
-      <div class="hc-row">
-        <span class="hc-label" style="{{ 'font-weight:700' if loop.last or loop.index == 4 }}">{{ row.label }}</span>
+      {% if row.detail == 'claims' and bucket_claims_detail %}
+      <details class="hc-detail">
+        <summary class="hc-row hc-row-expandable">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val {% if row.alert %}c-err{% endif %}">{{ row.value }} <span class="hc-expand-hint">▾</span></span>
+        </summary>
+        <div class="hc-detail-body">
+          {% for b in bucket_claims_detail %}
+          <div class="hc-detail-row">
+            <span class="hc-detail-name">{{ b.name }}<span class="hc-detail-type">{{ b.type }}</span></span>
+            <span class="hc-detail-amt {% if b.claim < 0 %}c-err{% endif %}">{{ b.claim | money }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% elif row.detail == 'future' and future_allocs_detail %}
+      <details class="hc-detail">
+        <summary class="hc-row hc-row-expandable">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val {% if row.alert %}c-err{% endif %}">{{ row.value }} <span class="hc-expand-hint">▾</span></span>
+        </summary>
+        <div class="hc-detail-body">
+          {% for b in future_allocs_detail %}
+          <div class="hc-detail-row">
+            <span class="hc-detail-name">{{ b.name }}</span>
+            <span class="hc-detail-amt">{{ b.amount | money }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% else %}
+      <div class="hc-row" style="padding:9px 20px">
+        <span class="hc-label" style="{{ 'font-weight:700;color:var(--text)' if loop.index == 4 }}">{{ row.label }}</span>
         <span class="hc-val {% if row.alert %}c-err{% elif loop.last %}c-ok{% endif %}">{{ row.value }}</span>
       </div>
+      {% endif %}
       {% endfor %}
     </div>
     {% endif %}
