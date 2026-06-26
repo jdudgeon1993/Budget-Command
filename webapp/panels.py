@@ -1162,7 +1162,15 @@ def health():
         alloc_expense = sum(_F.b_alloc(today_month, b["id"]) for b in expense_bkts)
         alloc_vault   = sum(_F.b_alloc(today_month, b["id"]) for b in vault_bkts)
         alloc_savings = sum(_F.b_alloc(today_month, b["id"]) for b in savings_bkts)
-        vault_total   = sum(_F.vault_accumulated(b["id"], months) for b in vault_bkts)
+        # Single O(M) pass instead of O(V×M) separate vault_accumulated() calls
+        _vault_bid_set = {b["id"] for b in vault_bkts}
+        _vault_accum: dict[str, float] = {}
+        for _m in months:
+            _allocs = _m.get("allocations") or {}
+            _wds    = _m.get("vaultWithdrawals") or {}
+            for _bid in _vault_bid_set:
+                _vault_accum[_bid] = _vault_accum.get(_bid, 0.0) + float(_allocs.get(_bid) or 0) - float(_wds.get(_bid) or 0)
+        vault_total = sum(max(0.0, v) for v in _vault_accum.values())
         bb            = _F.budget_bal(accounts, txs)
         alloc_rate    = round(allocated / bb * 100, 1) if bb > 0 else 0.0
         locked_ct     = sum(1 for b in vault_bkts if b.get("locked"))
@@ -1208,20 +1216,23 @@ def health():
             for b in active_buckets:
                 amt = _F.b_alloc(fm, b["id"])
                 if amt > 0.005:
-                    raw_future[b["id"]] = {"name": b["name"], "amount": raw_future.get(b["id"], {}).get("amount", 0.0) + amt}
+                    raw_future.setdefault(b["id"], {"name": b["name"], "amount": 0.0})["amount"] += amt
         future_allocs_detail = sorted(raw_future.values(), key=lambda x: -x["amount"])
 
         future_claimed = sum(x["amount"] for x in future_allocs_detail)
 
         zbb_check = round(bb_v - cur_claimed - future_claimed, 2)
-        zbb_ok    = abs(zbb_check - rts) < 0.02
+        # Re-compute rts here independently so a budget_metrics failure doesn't
+        # leave us comparing against the 0.0 default and producing a false drift.
+        rts_actual = _F.ready_to_spend(today_month, months, accounts, active_buckets, txs)
+        zbb_ok    = abs(zbb_check - rts_actual) < 0.02
         rts_verify = [
-            {"label": "Bank balance (bb)",        "value": f"${bb_v:,.2f}",           "alert": False,      "detail": None},
-            {"label": "− Current bucket claims",  "value": f"${cur_claimed:,.2f}",    "alert": False,      "detail": "claims"},
-            {"label": "− Future pre-allocations", "value": f"${future_claimed:,.2f}", "alert": False,      "detail": "future"},
-            {"label": "= Calculated RTS",         "value": f"${zbb_check:,.2f}",      "alert": not zbb_ok, "detail": None},
-            {"label": "RTS displayed",            "value": f"${rts:,.2f}",            "alert": not zbb_ok, "detail": None},
-            {"label": "ZBB identity holds",       "value": "✓ Yes" if zbb_ok else f"✗ Drift ${abs(zbb_check - rts):,.2f}", "alert": not zbb_ok, "detail": None},
+            {"label": "Bank balance (bb)",        "value": f"${bb_v:,.2f}",                  "alert": False,      "detail": None},
+            {"label": "− Current bucket claims",  "value": f"${cur_claimed:,.2f}",           "alert": False,      "detail": "claims"},
+            {"label": "− Future pre-allocations", "value": f"${future_claimed:,.2f}",        "alert": False,      "detail": "future"},
+            {"label": "= Calculated RTS",         "value": f"${zbb_check:,.2f}",             "alert": not zbb_ok, "detail": None},
+            {"label": "RTS displayed",            "value": f"${rts_actual:,.2f}",            "alert": not zbb_ok, "detail": None},
+            {"label": "ZBB identity holds",       "value": "✓ Yes" if zbb_ok else f"✗ Drift ${abs(zbb_check - rts_actual):,.2f}", "alert": not zbb_ok, "detail": None},
         ]
         if not zbb_ok:
             issues.append(f"ZBB identity broken — drift ${abs(zbb_check - rts):,.2f}")

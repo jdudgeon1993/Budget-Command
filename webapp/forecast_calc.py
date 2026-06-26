@@ -678,8 +678,10 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
             "bal_after_funded_color": _bal_color(bal_after_funded),
             "safe_to_spend_fmt":      "",  # filled below
             "sts_color":              "",
-            # True when paycheck income alone cannot cover all bills in this period
-            "income_vs_bills_gap":    round(total_bills - period_income, 2) if period_income > 0 and total_bills > period_income + 0.005 else 0.0,
+            # Warn only when UNFUNDED bills (not covered by pre-saved bucket balance)
+            # exceed paycheck income — funded bills are already claimed from prior savings
+            # so comparing income vs total_bills produces false positives for pre-funded users.
+            "income_vs_bills_gap":    max(0.0, round(period_unfunded - period_income, 2)) if period_income > 0 and period_unfunded > 0.005 else 0.0,
         })
 
     # ── Safe to spend (forward minimum) ──────────────────────────────────────
@@ -726,7 +728,7 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
         danger_idx = min(range(len(period_results)),
                          key=lambda i: period_results[i]["end_bal_raw"])
         danger_bal = period_results[danger_idx]["end_bal_raw"]
-        if danger_bal < 0:
+        if danger_bal < 500:
             danger_date         = period_results[danger_idx]["date_range"]
             danger_balance_fmt  = _fmt(danger_bal)
 
@@ -742,13 +744,13 @@ def compute_forecast(data: dict, n_months: int = 1, account_id: str = "",
         trough_label = ""
     save_opportunity = round(safe_to_spend * 0.5, 2) if safe_to_spend > 0.5 else 0.0
 
-    # Affordability warnings: periods where income < total bills
+    # Affordability warnings: periods where paycheck < unfunded bills (real shortfall)
     afford_warnings = [
         {
             "label": p["label"],
             "date_range": p["date_range"],
             "income_fmt": _fmt(p["income_total_raw"]),
-            "bills_fmt": _fmt(p["income_total_raw"] + p["income_vs_bills_gap"]),
+            "unfunded_fmt": _fmt(p["unfunded_total_raw"]),
             "gap_fmt": _fmt(p["income_vs_bills_gap"]),
         }
         for p in period_results

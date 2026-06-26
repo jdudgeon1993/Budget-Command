@@ -579,6 +579,8 @@ def _vault_release(u, t, f, data):
     month = D.active_month(data)
     mid = D.active_mid()
     months = data.get("months", [])
+    if not months:
+        return ("Vault balance unavailable — please reload.", "error")
     vault_accum = D.F.vault_accumulated(bid, months)
 
     if amount > vault_accum + 0.005:
