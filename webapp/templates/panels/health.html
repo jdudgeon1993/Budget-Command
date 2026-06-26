@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Cura — Health Check</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <style>
     body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:0;margin:0;}
@@ -232,6 +232,60 @@
       </div>
     </div>
   </div>
+
+  {# ── Cash flow (last 6 months) ── #}
+  {% if cash_flow_months %}
+  <div class="hc-section">
+    <div class="hc-section-title">Cash Flow — Last 6 Months</div>
+    <div class="hc-card">
+      <table class="hc-table">
+        <thead><tr><th>Month</th><th style="text-align:right">Income</th><th style="text-align:right">Spent</th><th style="text-align:right">Net</th></tr></thead>
+        <tbody>
+        {% for row in cash_flow_months %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td class="mono" style="text-align:right">${{ "{:,.2f}".format(row.income) }}</td>
+          <td class="mono" style="text-align:right">${{ "{:,.2f}".format(row.spent) }}</td>
+          <td class="mono {{ 'c-ok' if row.net_pos else 'c-err' }}" style="text-align:right">
+            {{ '+' if row.net_pos else '' }}${{ "{:,.2f}".format(row.net) }}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Allocation breakdown ── #}
+  {% if allocation_breakdown %}
+  <div class="hc-section">
+    <div class="hc-section-title">Allocation Breakdown</div>
+    <div class="hc-card">
+      {% for row in allocation_breakdown %}
+      <div class="hc-row">
+        <span class="hc-label">{{ row.label }}</span>
+        <span class="hc-val {% if row.alert %}c-err{% endif %}">{{ row.value }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── RTS verification (ZBB identity) ── #}
+  {% if rts_verify %}
+  <div class="hc-section">
+    <div class="hc-section-title">RTS Verification <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px;">bank balance − bucket claims − future allocs = RTS</span></div>
+    <div class="hc-card">
+      {% for row in rts_verify %}
+      <div class="hc-row">
+        <span class="hc-label" style="{{ 'font-weight:700' if loop.last or loop.index == 4 }}">{{ row.label }}</span>
+        <span class="hc-val {% if row.alert %}c-err{% elif loop.last %}{{ 'c-ok' }}{% endif %}">{{ row.value }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   {# ── DB errors if any ── #}
   {% if db_errors %}
