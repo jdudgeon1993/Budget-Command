@@ -97,16 +97,44 @@
       {% for b in tier_over %}{% include "panels/_bucket_row.html" %}{% endfor %}
       {% endif %}
 
-      {# Tier: Funding (partial, has some allocation) #}
+      {# Tier: Funding (partial, has some allocation) — collapsible #}
       {% if tier_partial %}
-      <div class="vg-tier-sep partial">Funding</div>
-      {% for b in tier_partial %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      <div class="vg-tier-wrap" id="tier-partial-{{ grp.id }}">
+        <div class="vg-tier-sep partial collapsible" onclick="toggleTier('tier-partial-{{ grp.id }}')">
+          Funding ({{ tier_partial|length }})<span class="vg-tier-toggle">▾</span>
+        </div>
+        <div class="vg-tier-summary">
+          {% for b in tier_partial %}
+          <span class="vg-tier-chip">
+            <span class="vg-tier-chip-name">{{ b.name }}</span>
+            <span class="vg-tier-chip-amt">{{ b.alloc | money }}</span>
+          </span>
+          {% endfor %}
+        </div>
+        <div class="vg-tier-rows">
+          {% for b in tier_partial %}{% include "panels/_bucket_row.html" %}{% endfor %}
+        </div>
+      </div>
       {% endif %}
 
-      {# Tier: Funded #}
+      {# Tier: Funded — collapsible #}
       {% if tier_funded %}
-      <div class="vg-tier-sep funded">Funded</div>
-      {% for b in tier_funded %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      <div class="vg-tier-wrap" id="tier-funded-{{ grp.id }}">
+        <div class="vg-tier-sep funded collapsible" onclick="toggleTier('tier-funded-{{ grp.id }}')">
+          Funded ({{ tier_funded|length }})<span class="vg-tier-toggle">▾</span>
+        </div>
+        <div class="vg-tier-summary">
+          {% for b in tier_funded %}
+          <span class="vg-tier-chip">
+            <span class="vg-tier-chip-name">{{ b.name }}</span>
+            <span class="vg-tier-chip-amt">{{ b.alloc | money }}</span>
+          </span>
+          {% endfor %}
+        </div>
+        <div class="vg-tier-rows">
+          {% for b in tier_funded %}{% include "panels/_bucket_row.html" %}{% endfor %}
+        </div>
+      </div>
       {% endif %}
 
       {# Tier: Vault #}
@@ -154,10 +182,24 @@
       {% for b in tier_empty %}{% include "panels/_bucket_row.html" %}{% endfor %}
       {% endif %}
 
-      {# Tier: Paid (sinks to bottom) #}
+      {# Tier: Paid — collapsible #}
       {% if tier_paid %}
-      <div class="vg-tier-sep paid">Paid</div>
-      {% for b in tier_paid %}{% include "panels/_bucket_row.html" %}{% endfor %}
+      <div class="vg-tier-wrap" id="tier-paid-{{ grp.id }}">
+        <div class="vg-tier-sep paid collapsible" onclick="toggleTier('tier-paid-{{ grp.id }}')">
+          Paid ({{ tier_paid|length }})<span class="vg-tier-toggle">▾</span>
+        </div>
+        <div class="vg-tier-summary">
+          {% for b in tier_paid %}
+          <span class="vg-tier-chip">
+            <span class="vg-tier-chip-name">{{ b.name }}</span>
+            <span class="vg-tier-chip-amt">{{ b.alloc | money }}</span>
+          </span>
+          {% endfor %}
+        </div>
+        <div class="vg-tier-rows">
+          {% for b in tier_paid %}{% include "panels/_bucket_row.html" %}{% endfor %}
+        </div>
+      </div>
       {% endif %}
 
       {# Per-category add strip #}
@@ -186,6 +228,11 @@
     {% endfor %}
 
     <script>
+    function toggleTier(wrapperId){
+      var wrap = document.getElementById(wrapperId);
+      if (!wrap) return;
+      wrap.classList.toggle('collapsed');
+    }
     function toggleBktRow(id){
       var row=document.getElementById('bkt-'+id);
       if(!row)return;
