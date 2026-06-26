@@ -1106,22 +1106,20 @@ def health():
         "closed": bool(m.get("closed")),
     } for m in months], key=lambda x: x["sort_key"], reverse=True)[:12]
 
-    # ── Budget metrics, cash flow, allocation breakdown, RTS verification ───────
-    cash_flow_months = []
-    allocation_breakdown = []
-    rts_verify = []
+    # ── Shared base values (needed by all sections below) ────────────────────
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    active_buckets = [b for b in buckets if not b.get("archived")]
+
+    # ── Budget metrics ────────────────────────────────────────────────────────
     budget_metrics = []
+    rts = total_cash = income = allocated = spent = 0.0
     try:
-        today_month = next((m for m in months if m["id"] == today_mid),
-                           {"id": today_mid, "allocations": {}, "budgets": {}})
-        active_buckets = [b for b in buckets if not b.get("archived")]
-
-        rts         = _F.ready_to_spend(today_month, months, accounts, active_buckets, txs)
-        total_cash  = _F.total_cash(accounts, txs)
-        income      = _F.month_income(today_mid, txs, accounts)
-        allocated   = _F.total_allocated(today_month, active_buckets)
-        spent       = sum(_F.b_spent(today_mid, b["id"], txs) for b in active_buckets)
-
+        rts        = _F.ready_to_spend(today_month, months, accounts, active_buckets, txs)
+        total_cash = _F.total_cash(accounts, txs)
+        income     = _F.month_income(today_mid, txs, accounts)
+        allocated  = _F.total_allocated(today_month, active_buckets)
+        spent      = sum(_F.b_spent(today_mid, b["id"], txs) for b in active_buckets)
         budget_metrics = [
             {"label": "Ready to Spend",   "value": f"${rts:,.2f}",        "alert": rts < 0},
             {"label": "Total Cash",       "value": f"${total_cash:,.2f}",  "alert": total_cash < 0},
@@ -1133,8 +1131,14 @@ def health():
             issues.append(f"Negative RTS (${rts:,.2f})")
         if total_cash < 0:
             hints.append(f"Total cash is negative (${total_cash:,.2f})")
+    except Exception as e:
+        budget_metrics = [{"label": "Error", "value": str(e), "alert": True}]
+        issues.append(f"Budget metrics error: {e}")
 
-        # ── Cash flow: last 6 months ─────────────────────────────────────────
+    # ── Cash flow: last 6 months ──────────────────────────────────────────────
+    cash_flow_months = []
+    cash_flow_error = ""
+    try:
         recent_6 = [_F.month_offset(today_mid, -i) for i in range(6)]
         for mid_ in recent_6:
             inc_ = _F.month_income(mid_, txs, accounts)
@@ -1145,44 +1149,46 @@ def health():
                 "income": inc_, "spent": sp_, "net": net_,
                 "net_pos": net_ >= 0,
             })
+    except Exception as e:
+        cash_flow_error = str(e)
 
-        # ── Allocation breakdown ─────────────────────────────────────────────
-        # Use budget_bal (liquid cash in budget accounts) as the denominator,
-        # not month_income — income may be 0 early in the month (paychecks not
-        # yet received) making the rate meaningless / astronomically large.
+    # ── Allocation breakdown ──────────────────────────────────────────────────
+    allocation_breakdown = []
+    allocation_error = ""
+    try:
         vault_bkts   = [b for b in active_buckets if b.get("type") == "vault"]
         expense_bkts = [b for b in active_buckets if b.get("type") not in ("vault", "sinking", "goal")]
         savings_bkts = [b for b in active_buckets if b.get("type") in ("sinking", "goal")]
-
         alloc_expense = sum(_F.b_alloc(today_month, b["id"]) for b in expense_bkts)
         alloc_vault   = sum(_F.b_alloc(today_month, b["id"]) for b in vault_bkts)
         alloc_savings = sum(_F.b_alloc(today_month, b["id"]) for b in savings_bkts)
         vault_total   = sum(_F.vault_accumulated(b["id"], months) for b in vault_bkts)
-
         bb            = _F.budget_bal(accounts, txs)
-        # Allocation rate = this month's allocations vs total liquid budget cash.
-        # RTS is exactly the unallocated portion — no need to recompute it.
         alloc_rate    = round(allocated / bb * 100, 1) if bb > 0 else 0.0
         locked_ct     = sum(1 for b in vault_bkts if b.get("locked"))
         paused_ct     = sum(1 for b in vault_bkts if b.get("paused") and not b.get("locked"))
-
         allocation_breakdown = [
-            {"label": "Month allocated",       "value": f"${allocated:,.2f}",      "alert": False},
-            {"label": "Month income (txns in)","value": f"${income:,.2f}",         "alert": False},
-            {"label": "Alloc rate (vs cash)",  "value": f"{alloc_rate}%",          "alert": alloc_rate > 100},
-            {"label": "Ready to Spend (unalloc)","value": f"${rts:,.2f}",          "alert": rts < 0},
-            {"label": "→ Expense buckets",     "value": f"${alloc_expense:,.2f}",  "alert": False},
-            {"label": "→ Vault buckets",       "value": f"${alloc_vault:,.2f}",    "alert": False},
-            {"label": "→ Sinking / goal",      "value": f"${alloc_savings:,.2f}",  "alert": False},
-            {"label": "Vault portfolio total", "value": f"${vault_total:,.2f}",    "alert": False},
-            {"label": "Vault count",           "value": f"{len(vault_bkts)} ({locked_ct} locked, {paused_ct} paused)", "alert": False},
+            {"label": "Month allocated",          "value": f"${allocated:,.2f}",     "alert": False},
+            {"label": "Month income (txns in)",   "value": f"${income:,.2f}",        "alert": False},
+            {"label": "Alloc rate (vs cash)",     "value": f"{alloc_rate}%",         "alert": alloc_rate > 100},
+            {"label": "Ready to Spend (unalloc)", "value": f"${rts:,.2f}",           "alert": rts < 0},
+            {"label": "→ Expense buckets",        "value": f"${alloc_expense:,.2f}", "alert": False},
+            {"label": "→ Vault buckets",          "value": f"${alloc_vault:,.2f}",   "alert": False},
+            {"label": "→ Sinking / goal",         "value": f"${alloc_savings:,.2f}", "alert": False},
+            {"label": "Vault portfolio total",    "value": f"${vault_total:,.2f}",   "alert": False},
+            {"label": "Vault count",              "value": f"{len(vault_bkts)} ({locked_ct} locked, {paused_ct} paused)", "alert": False},
         ]
         if alloc_rate > 100:
-            issues.append(f"Allocated ${allocated:,.2f} exceeds liquid budget cash ${bb:,.2f}")
+            issues.append(f"Allocated ${allocated:,.2f} exceeds liquid cash ${bb:,.2f}")
+    except Exception as e:
+        allocation_error = str(e)
 
-        # ── RTS verification (ZBB identity) ─────────────────────────────────
-        # bb already computed above; bb == RTS + cur_claimed + future_claimed
-        future_mids = _F.months_after(today_mid, months)
+    # ── RTS verification (ZBB identity: bb = RTS + cur_claimed + future) ─────
+    rts_verify = []
+    rts_verify_error = ""
+    try:
+        bb_v          = _F.budget_bal(accounts, txs)
+        future_mids   = _F.months_after(today_mid, months)
         future_claimed = sum(
             _F.b_alloc(fm, b["id"])
             for fm in future_mids
@@ -1192,23 +1198,20 @@ def health():
             _F.bucket_available(b, today_month, months, txs)
             for b in active_buckets
         )
-        zbb_check = round(bb - cur_claimed - future_claimed, 2)
-        zbb_ok = abs(zbb_check - rts) < 0.02
-
+        zbb_check = round(bb_v - cur_claimed - future_claimed, 2)
+        zbb_ok    = abs(zbb_check - rts) < 0.02
         rts_verify = [
-            {"label": "Bank balance (bb)",        "value": f"${bb:,.2f}",             "alert": False},
+            {"label": "Bank balance (bb)",        "value": f"${bb_v:,.2f}",           "alert": False},
             {"label": "− Current bucket claims",  "value": f"${cur_claimed:,.2f}",    "alert": False},
             {"label": "− Future pre-allocations", "value": f"${future_claimed:,.2f}", "alert": False},
             {"label": "= Calculated RTS",         "value": f"${zbb_check:,.2f}",      "alert": not zbb_ok},
             {"label": "RTS displayed",            "value": f"${rts:,.2f}",            "alert": not zbb_ok},
-            {"label": "ZBB identity holds",       "value": "✓ Yes" if zbb_ok else f"✗ Drift ${abs(zbb_check-rts):,.2f}", "alert": not zbb_ok},
+            {"label": "ZBB identity holds",       "value": "✓ Yes" if zbb_ok else f"✗ Drift ${abs(zbb_check - rts):,.2f}", "alert": not zbb_ok},
         ]
         if not zbb_ok:
-            issues.append(f"ZBB identity broken — calculated RTS ${zbb_check:,.2f} vs displayed ${rts:,.2f}")
-
+            issues.append(f"ZBB identity broken — drift ${abs(zbb_check - rts):,.2f}")
     except Exception as e:
-        budget_metrics = [{"label": "Error computing metrics", "value": str(e), "alert": True}]
-        issues.append("Budget metrics error")
+        rts_verify_error = str(e)
 
     # ── Unassigned expense transactions ──────────────────────────────────────
     # Exclude debt accounts — interest charges legitimately have no bucket
@@ -1240,8 +1243,11 @@ def health():
         month_health=month_health,
         budget_metrics=budget_metrics,
         cash_flow_months=cash_flow_months,
+        cash_flow_error=cash_flow_error,
         allocation_breakdown=allocation_breakdown,
+        allocation_error=allocation_error,
         rts_verify=rts_verify,
+        rts_verify_error=rts_verify_error,
         unassigned_txs=unassigned_txs,
         db_errors=db_errors,
         raw_json=raw_json,
