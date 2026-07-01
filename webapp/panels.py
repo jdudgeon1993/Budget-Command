@@ -17,10 +17,21 @@ PANELS = ["buckets", "accounts", "insights", "reports", "setup"]
 
 
 def render_panel(template, active_panel, **ctx):
-    """Full page on normal load, bare fragment on HTMX request."""
+    """Full page on normal load, bare fragment on HTMX request.
+
+    The same view functions are also mounted under the "proto" blueprint
+    (see webapp/__init__.py) at /proto/v4 — a full live mirror used to
+    redesign one section at a time without touching the production routes.
+    request.blueprint tells us which mount served this request so the
+    mirror gets its own full-page shell (nav links stay inside /proto/v4)
+    while the HTMX partial layout is identical either way.
+    """
     session["active_panel"] = active_panel
     htmx = request.headers.get("HX-Request") == "true"
-    layout = "_partial.html" if htmx else "base.html"
+    if htmx:
+        layout = "_partial.html"
+    else:
+        layout = "proto_base.html" if request.blueprint == "proto" else "base.html"
     return render_template(template, layout=layout,
                            shell=D.shell_ctx(active_panel), **ctx)
 
