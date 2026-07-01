@@ -69,19 +69,31 @@ def buckets():
 @bp.route("/buckets/<bid>/alloc", methods=["POST"])
 @login_required
 def set_alloc(bid):
-    """Inline allocation edit -> returns the updated row + OOB shell refresh."""
+    """Inline allocation edit -> returns the updated row + OOB shell refresh.
+
+    Targets the month being viewed (the "m" tab/param), not whatever the
+    sidebar arrows last left session["active_mid"] at — those are two
+    different navigation mechanisms and edits must follow the one the user
+    is actually looking at.
+    """
     try:
         amount = round(float(request.form.get("alloc", "0").replace("$", "").replace(",", "")), 2)
     except ValueError:
         amount = 0.0
+    target_mid = request.values.get("m") or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, target_mid)
     month.setdefault("allocations", {})[bid] = amount
     if not current_app.config["DEV_SEED"]:
+        # A future month tab you've never touched before has no bcc_months
+        # row yet — load_all() only ever attaches allocations to months it
+        # finds there, so writing the allocation without this first creates
+        # an orphaned row that silently vanishes on the next page load.
+        DB.ensure_month(session["user_id"], session["access_token"], target_mid)
         DB.upsert_alloc(session["user_id"], session["access_token"],
-                        D.active_mid(), bid, amount)
+                        target_mid, bid, amount)
         D.invalidate_cache()
-    return _buckets_response()
+    return _buckets_response(view_mid=target_mid)
 
 
 # ── Bucket fill / distribute ─────────────────────────────────────────────────
@@ -89,20 +101,26 @@ def set_alloc(bid):
 @bp.route("/buckets/<bid>/fill", methods=["POST"])
 @login_required
 def fill_bucket(bid):
-    """Set allocation = max(budget, spent) — fills to target or covers actual spend."""
+    """Set allocation = max(budget, spent) — fills to target or covers actual spend.
+
+    Targets the viewed month (see set_alloc) — the "m" hidden field this
+    button already sends was previously never read, so Fill/Cover on a
+    future-month tab was silently applying to the wrong month.
+    """
+    target_mid = request.values.get("m") or D.active_mid()
     data = D.load_data()
-    mid = D.active_mid()
-    month = D.active_month(data)
+    month = D.active_month(data, target_mid)
     budget = D.F.b_budget(month, bid)
-    spent  = D.F.b_spent(mid, bid, data.get("txs", []))
+    spent  = D.F.b_spent(target_mid, bid, data.get("txs", []))
     new_alloc = max(budget, spent)
     month.setdefault("allocations", {})[bid] = new_alloc
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], target_mid)
         DB.upsert_alloc(session["user_id"], session["access_token"],
-                        mid, bid, new_alloc)
+                        target_mid, bid, new_alloc)
         D.invalidate_cache()
     flash("Covered." if spent > budget else "Filled.", "ok")
-    return _buckets_response()
+    return _buckets_response(view_mid=target_mid)
 
 
 def _distribute_checks():
@@ -175,10 +193,14 @@ def distribute_rts():
     return _buckets_response()
 
 
-def _buckets_response():
-    """Return buckets panel for HTMX or redirect for plain requests."""
+def _buckets_response(view_mid: str = None):
+    """Return buckets panel for HTMX or redirect for plain requests.
+
+    Preserves whichever month the user was looking at (view_mid) so an edit
+    to a future month doesn't snap the page back to the current month.
+    """
     if request.headers.get("HX-Request") == "true":
-        return render_panel(_bucket_template(), "buckets", **D.bucket_rows())
+        return render_panel(_bucket_template(), "buckets", **D.bucket_rows(view_mid=view_mid))
     return redirect(url_for(".buckets"))
 
 
@@ -401,15 +423,17 @@ def vault_release_to_pool(bid):
 @bp.route("/buckets/<bid>/budget", methods=["POST"])
 @login_required
 def set_budget(bid):
+    """Targets the viewed month (see set_alloc for why this matters)."""
     try:
         amount = round(float(request.form.get("budget", "0").replace("$", "").replace(",", "")), 2)
     except ValueError:
         amount = 0.0
+    saving_mid = request.values.get("m") or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, saving_mid)
     month.setdefault("budgets", {})[bid] = amount
-    saving_mid = D.active_mid()
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], saving_mid)
         DB.upsert_budget(session["user_id"], session["access_token"],
                          saving_mid, bid, amount)
         if saving_mid == D.F.current_month_id():
@@ -418,7 +442,7 @@ def set_budget(bid):
                     DB.upsert_budget(session["user_id"], session["access_token"],
                                      m["id"], bid, amount)
         D.invalidate_cache()
-    return _buckets_response()
+    return _buckets_response(view_mid=saving_mid)
 
 
 # ── Add bucket ────────────────────────────────────────────────────────────────

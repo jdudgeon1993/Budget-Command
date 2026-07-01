@@ -90,17 +90,36 @@
     {% endfor %}
 
     <script>
-    function v4TogglePanel(id, settingsUrl){
+    function v4TogglePanel(id){
       var panel=document.getElementById('v4-panel-'+id);
       var icon=document.getElementById('v4-toggle-icon-'+id);
       if(!panel)return;
       var open=panel.style.display!=='none';
       panel.style.display=open?'none':'block';
       if(icon)icon.textContent=open?'▾':'▴';
-      var settingsEl=document.getElementById('bkt-settings-'+id);
-      if(!open && settingsEl && !settingsEl.dataset.loaded){
-        settingsEl.dataset.loaded='1';
-        htmx.ajax('GET', settingsUrl, {target:'#'+settingsEl.id, swap:'innerHTML'});
+      if(open){
+        // Closing the row closes whichever sub-panel (ledger/settings) was open too.
+        var ledger=document.getElementById('v4-sub-ledger-'+id);
+        var settings=document.getElementById('v4-sub-settings-'+id);
+        if(ledger)ledger.style.display='none';
+        if(settings)settings.style.display='none';
+      }
+    }
+    function v4ShowSub(id, which, url){
+      var ledger=document.getElementById('v4-sub-ledger-'+id);
+      var settings=document.getElementById('v4-sub-settings-'+id);
+      var target=(which==='ledger')?ledger:settings;
+      var other=(which==='ledger')?settings:ledger;
+      if(!target)return;
+      var opening=target.style.display==='none';
+      if(other)other.style.display='none';
+      target.style.display=opening?'block':'none';
+      if(opening && which==='settings' && url){
+        var el=document.getElementById('bkt-settings-'+id);
+        if(el && !el.dataset.loaded){
+          el.dataset.loaded='1';
+          htmx.ajax('GET', url, {target:'#'+el.id, swap:'innerHTML'});
+        }
       }
     }
     </script>

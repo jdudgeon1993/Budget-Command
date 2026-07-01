@@ -58,11 +58,22 @@ def active_mid() -> str:
 
 
 def active_month(data: dict, mid: str = None) -> dict:
+    """The month object a caller is about to read or mutate.
+
+    If this month has no record yet (e.g. a future month tab nobody has
+    allocated into before), the new dict is appended to data["months"] —
+    not just returned — so a write via this function is actually visible
+    to the rest of this request (the panel re-render right after saving),
+    not silently discarded because it was never linked back in.
+    """
     target = mid or active_mid()
     for m in data.get("months", []):
         if m["id"] == target:
             return m
-    return {"id": target, "allocations": {}, "budgets": {}, "handledBuckets": {}, "vaultWithdrawals": {}}
+    new_month = {"id": target, "allocations": {}, "budgets": {},
+                 "handledBuckets": {}, "vaultWithdrawals": {}}
+    data.setdefault("months", []).append(new_month)
+    return new_month
 
 
 def month_label(mid: str) -> str:

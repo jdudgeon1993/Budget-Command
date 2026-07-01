@@ -2,8 +2,9 @@
    Phase 1 (always visible, no click): name, type, Allocated / Target / Spent /
    Available, status pill + color bar.
    Phase 1 (one click, no drawer): Allocated is a live inline input.
-   Phase 2 (one click via Toggle): flat panel — Handled, Ledger, Settings —
-   no nested sub-toggles.
+   Phase 2 (one click via Toggle): 3 icons — Handled / Ledger / Settings.
+   Each of Ledger/Settings opens its own content on its own click; they don't
+   all dump onto the screen at once.
    ─────────────────────────────────────────────────────────────────────────── #}
 
 {% set btype = b.btype %}
@@ -20,6 +21,7 @@
 
 {% set target_val = b.target_amount if btype in ('sinking', 'goal') else b.budget %}
 {% set target_editable = btype not in ('sinking', 'goal') %}
+{% set is_future_view = view_mid is defined and view_mid != current_mid %}
 
 <div class="v4-row" id="v4-bkt-{{ b.id }}">
   <div class="v4-bar v4-bar-{{ status }}"></div>
@@ -31,7 +33,7 @@
       </div>
       <span class="v4-pill v4-pill-{{ status }}">{{ b.alert_pill }}</span>
       <button class="v4-toggle-btn" type="button" id="v4-toggle-{{ b.id }}"
-              onclick="v4TogglePanel('{{ b.id }}', '{{ url_for('.bucket_settings', bid=b.id) }}')">
+              onclick="v4TogglePanel('{{ b.id }}')">
         Toggle <span id="v4-toggle-icon-{{ b.id }}">▾</span>
       </button>
     </div>
@@ -43,6 +45,7 @@
               hx-post="{{ url_for('.set_alloc', bid=b.id) }}"
               hx-trigger="change from:find input[name=alloc]"
               hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+          {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <input class="v4-input" name="alloc" value="{{ b.alloc | money }}"
                  aria-label="Allocated for {{ b.name }}"
                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
@@ -55,6 +58,7 @@
               hx-post="{{ url_for('.set_budget', bid=b.id) }}"
               hx-trigger="change from:find input[name=budget]"
               hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+          {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <input class="v4-input" name="budget" value="{{ target_val | money }}"
                  aria-label="Target for {{ b.name }}"
                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
@@ -74,21 +78,28 @@
     </div>
   </div>
 
-  {# ── Phase 2: flat panel, everything at once behind one Toggle click ── #}
+  {# ── Phase 2: Toggle reveals 3 icons; each opens its own content, one at a time ── #}
   <div class="v4-panel" id="v4-panel-{{ b.id }}" style="display:none">
-    <div class="v4-panel-actions">
+    <div class="v4-panel-icons">
       {% if b.due_day or b.pay_freq %}
       <form method="post" action="{{ url_for('.toggle_handled', bid=b.id) }}" style="display:inline"
             hx-post="{{ url_for('.toggle_handled', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
-        <button class="handled-btn {{ 'active' if b.handled }}" type="submit">
-          {{ '✓ Handled' if b.handled else 'Handled?' }}
+        <button class="v4-icon-btn {{ 'active' if b.handled }}" type="submit" title="Mark this bill handled">
+          ✓ Handled
         </button>
       </form>
       {% endif %}
+      <button class="v4-icon-btn" type="button" title="Show this month's transactions"
+              onclick="v4ShowSub('{{ b.id }}','ledger')">
+        📒 Ledger · {{ b.txs | length }}
+      </button>
+      <button class="v4-icon-btn" type="button" title="Edit bucket settings"
+              onclick="v4ShowSub('{{ b.id }}','settings','{{ url_for('.bucket_settings', bid=b.id) }}')">
+        ⚙ Settings
+      </button>
     </div>
 
-    <div class="v4-panel-ledger">
-      <div class="v4-panel-sublbl">Ledger — this month ({{ b.txs | length }})</div>
+    <div class="v4-panel-sub" id="v4-sub-ledger-{{ b.id }}" style="display:none">
       {% if b.txs %}
         {% for tx in b.txs %}
         <div class="bkt-tx-row">
@@ -102,7 +113,8 @@
       {% endif %}
     </div>
 
-    <div class="v4-panel-sublbl">Settings</div>
-    <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}"></div>
+    <div class="v4-panel-sub" id="v4-sub-settings-{{ b.id }}" style="display:none">
+      <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}"></div>
+    </div>
   </div>
 </div>
