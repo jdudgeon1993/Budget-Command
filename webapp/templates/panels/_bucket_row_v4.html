@@ -23,7 +23,8 @@
 {% set target_editable = btype not in ('sinking', 'goal') %}
 {% set is_future_view = view_mid is defined and view_mid != current_mid %}
 
-<div class="v4-row" id="v4-bkt-{{ b.id }}">
+<div class="v4-row-wrap" id="v4-bkt-{{ b.id }}">
+ <div class="v4-row">
   <div class="v4-bar v4-bar-{{ status }}"></div>
   <div class="v4-row-body">
     <div class="v4-row-hdr">
@@ -77,8 +78,11 @@
       </div>
     </div>
   </div>
+ </div>
 
-  {# ── Phase 2: Toggle reveals 3 icons; each opens its own content, one at a time ── #}
+  {# ── Phase 2: Toggle reveals 3 icons; each opens its own content, one at a time.
+       Sibling of .v4-row (not nested in its flex layout) so it's a normal block
+       element spanning full width below the row, not a third column. ── #}
   <div class="v4-panel" id="v4-panel-{{ b.id }}" style="display:none">
     <div class="v4-panel-icons">
       {% if b.due_day or b.pay_freq %}
