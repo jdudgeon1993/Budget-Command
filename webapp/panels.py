@@ -38,13 +38,13 @@ def render_panel(template, active_panel, **ctx):
 
 @bp.route("/")
 def index():
-    return redirect(url_for("panels.buckets"))
+    return redirect(url_for(".buckets"))
 
 
 @bp.route("/dashboard")
 @login_required
 def dashboard():
-    return redirect(url_for("panels.buckets"))
+    return redirect(url_for(".buckets"))
 
 
 # ── Buckets ───────────────────────────────────────────────────────────────────
@@ -169,7 +169,7 @@ def _buckets_response():
     """Return buckets panel for HTMX or redirect for plain requests."""
     if request.headers.get("HX-Request") == "true":
         return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+    return redirect(url_for(".buckets"))
 
 
 def _is_modal():
@@ -202,7 +202,7 @@ def bucket_settings(bid):
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket:
         flash("Bucket not found.", "error")
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     cats = data.get("cats", [])
     if request.method == "POST":
         f = request.form
@@ -241,7 +241,7 @@ def bucket_settings(bid):
             flash("Dev mode: change not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     data_ctx = D.load_data()
     debt_accounts = [{"id": a["id"], "name": a["name"]}
                      for a in data_ctx.get("accounts", [])
@@ -264,7 +264,7 @@ def archive_bucket(bid):
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+    return redirect(url_for(".buckets"))
 
 
 @bp.route("/buckets/<bid>/vault-transfer", methods=["GET", "POST"])
@@ -273,7 +273,7 @@ def vault_transfer(bid):
     data = D.load_data()
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket or bucket.get("type") != "vault":
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     if request.method == "POST":
         f = request.form
         to_bid = f.get("to_bid", "")
@@ -297,7 +297,7 @@ def vault_transfer(bid):
                 flash("Dev mode: transfer not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     # GET — render transfer form in modal
     dest_buckets = [b for b in data.get("buckets", [])
                     if not b.get("archived") and b.get("type") != "vault"]
@@ -322,7 +322,7 @@ def vault_release_to_pool(bid):
     data = D.load_data()
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket or bucket.get("type") != "vault":
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     if request.method == "POST":
         f = request.form
         try:
@@ -347,7 +347,7 @@ def vault_release_to_pool(bid):
                 flash("Dev mode: release not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     # GET — render release form in modal
     month = D.active_month(data)
     vault_alloc = D.F.b_alloc(month, bid)
@@ -410,7 +410,7 @@ def move_bucket(bid, direction):
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     this_b = next((b for b in buckets if b["id"] == bid), None)
     if not this_b:
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     siblings = sorted(
         [b for b in buckets if b.get("catId") == this_b.get("catId")],
         key=lambda b: b.get("order", 0)
@@ -498,7 +498,7 @@ def account_new():
             flash("Name is required.", "error")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if _is_modal():
         return render_template("panels/_frag_account.html", account=None)
     return render_panel("panels/edit_account.html", "accounts", account=None)
@@ -511,7 +511,7 @@ def account_edit(aid):
     account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
     if not account:
         flash("Account not found.", "error")
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -547,7 +547,7 @@ def account_edit(aid):
             flash("Dev mode: change not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if _is_modal():
         return render_template("panels/_frag_account.html", account=account)
     return render_panel("panels/edit_account.html", "accounts", account=account)
@@ -564,7 +564,7 @@ def account_archive(aid):
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-    return redirect(url_for("panels.accounts"))
+    return redirect(url_for(".accounts"))
 
 
 @bp.route("/accounts/<aid>/pay", methods=["GET", "POST"])
@@ -573,7 +573,7 @@ def debt_payment(aid):
     data = D.load_data()
     account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
     if not account or account.get("type") != "debt":
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -597,7 +597,7 @@ def debt_payment(aid):
             flash("Dev mode: payment not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     # GET — render payment form
     from_accounts = [{"id": a["id"], "name": a["name"]}
                      for a in data.get("accounts", [])
@@ -620,7 +620,7 @@ def post_interest(aid):
     data = D.load_data()
     account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
     if not account or account.get("type") != "debt":
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -638,7 +638,7 @@ def post_interest(aid):
         flash("Interest posted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     # GET — show form
     balance = abs(D.F.acct_balance(account, data.get("txs", [])))
     apr = account.get("debtAPR") or 0
@@ -1144,7 +1144,7 @@ def apply_paycheck_distribute(tid):
     tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
     if not tx:
         flash("Transaction not found.", "error")
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     amount = float(tx.get("amount") or 0)
     mid = tx.get("monthId") or D.active_mid()
     f = request.form
@@ -1189,7 +1189,7 @@ def apply_rules(tid):
     tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
     if not tx:
         flash("Transaction not found.", "error")
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
 
     amount = float(tx.get("amount") or 0)
     mid = tx.get("monthId") or D.active_mid()
@@ -1225,7 +1225,7 @@ def apply_rules(tid):
     flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+    return redirect(url_for(".buckets"))
 
 
 
@@ -1236,7 +1236,7 @@ def transaction_edit(tid):
     tx = D.tx_by_id(tid)
     if not tx:
         flash("Transaction not found.", "error")
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -1267,7 +1267,7 @@ def transaction_edit(tid):
         if request.headers.get("HX-Request") == "true":
             tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
             return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-        return redirect(url_for("panels." + back_panel))
+        return redirect(url_for("." + back_panel))
     back = session.get("active_panel", "accounts")
     if _is_modal():
         return render_template("panels/_frag_edit_tx.html", tx=tx, back=back,
@@ -1289,7 +1289,7 @@ def transaction_delete(tid):
     if request.headers.get("HX-Request") == "true":
         tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-    return redirect(url_for("panels." + back_panel))
+    return redirect(url_for("." + back_panel))
 
 
 @bp.route("/transaction/new")
@@ -1332,7 +1332,7 @@ def transaction_create():
             if request.headers.get("HX-Request") == "true":
                 tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
                 return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-            return redirect(url_for("panels." + back_panel))
+            return redirect(url_for("." + back_panel))
 
     back_panel = f.get("back") or session.get("active_panel", "buckets")
     if current_app.config["DEV_SEED"]:
@@ -1358,7 +1358,7 @@ def transaction_create():
     if request.headers.get("HX-Request") == "true":
         tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-    return redirect(url_for("panels." + back_panel))
+    return redirect(url_for("." + back_panel))
 
 
 @bp.route("/month/<direction>")
@@ -1367,7 +1367,7 @@ def month_nav(direction):
     y, m0 = D.F.parse_month_id(D.active_mid())
     total = y * 12 + m0 + (1 if direction == "next" else -1)
     session["active_mid"] = f"m_{total // 12}_{total % 12}"
-    return redirect(url_for("panels." + session.get("active_panel", "buckets")))
+    return redirect(url_for("." + session.get("active_panel", "buckets")))
 
 
 @bp.route("/month/today")
@@ -1375,7 +1375,7 @@ def month_nav(direction):
 def month_today():
     """Jump the active month back to today's calendar month."""
     session["active_mid"] = D.F.current_month_id()
-    return redirect(url_for("panels." + session.get("active_panel", "buckets")))
+    return redirect(url_for("." + session.get("active_panel", "buckets")))
 
 
 # ── Stub panels (built in later phases) ───────────────────────────────────────
