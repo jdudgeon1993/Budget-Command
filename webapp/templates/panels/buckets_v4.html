@@ -142,16 +142,17 @@
   </div>
 
   <div class="right-sticky">
-    {# RTS hero #}
-    <div class="rts-hero">
-      <div class="rts-hero-lbl">Ready to assign</div>
-      <div class="rts-hero-amt" id="rts-sidebar">{{ shell.rts | money }}</div>
+    {# RTS breakdown — the number itself lives only in the sidebar now (was
+       shown twice on screen at once); this card is the supporting detail:
+       how much still needs a home, the split, and the action. #}
+    <div class="v4-rts-card">
+      <div class="v4-rts-card-hdr">Ready to Assign — breakdown</div>
       <div class="rts-hero-sub">{{ shell.unhomed | money }} still needs a home</div>
       <div class="rts-progress-track"><div class="rts-progress-fill" style="width:{{ shell.pct }}%"></div></div>
       <div class="rts-kpis">
         <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:var(--green)">{{ shell.income | money }}</span></div>
-        <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:#A5A5FF">{{ shell.allocated | money }}</span></div>
-        <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:#FCA5A5">{{ shell.spent | money }}</span></div>
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:var(--accent)">{{ shell.allocated | money }}</span></div>
+        <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:var(--text2)">{{ shell.spent | money }}</span></div>
       </div>
       {% if shell.rts > 0 %}
       <button class="rts-distribute-btn" type="button"
@@ -160,21 +161,25 @@
       {% endif %}
     </div>
 
-    {# Status legend #}
+    {# Status legend — matches the alert vocabulary from the row (Open/Unfunded/Funding/Funded/Overspent/Vault) #}
     <div class="status-legend">
       <div class="status-legend-title">Status</div>
       <div class="status-legend-rows">
         <div class="status-legend-row">
-          <div class="status-legend-dot" style="background:var(--red)"></div>
-          <span>Red — <strong style="color:var(--red)">Over Budget</strong></span>
+          <div class="status-legend-dot" style="background:var(--text3)"></div>
+          <span>Grey — <strong style="color:var(--text3)">Open</strong> (nothing set yet)</span>
         </div>
         <div class="status-legend-row">
           <div class="status-legend-dot" style="background:var(--amber)"></div>
-          <span>Orange — <strong style="color:var(--amber)">Funding</strong></span>
+          <span>Orange — <strong style="color:var(--amber)">Unfunded / Funding</strong></span>
         </div>
         <div class="status-legend-row">
           <div class="status-legend-dot" style="background:var(--green)"></div>
           <span>Green — <strong style="color:var(--green)">Funded</strong></span>
+        </div>
+        <div class="status-legend-row">
+          <div class="status-legend-dot" style="background:var(--red)"></div>
+          <span>Red — <strong style="color:var(--red)">Overspent</strong></span>
         </div>
         <div class="status-legend-row">
           <div class="status-legend-dot" style="background:var(--accent)"></div>
