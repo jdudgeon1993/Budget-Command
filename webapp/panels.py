@@ -41,6 +41,11 @@ def _bucket_template() -> str:
     return "panels/buckets_v4.html" if request.blueprint == "proto" else "panels/buckets.html"
 
 
+def _bucket_settings_template() -> str:
+    """Settings-form fragment: classic 3-field-group form, or the v4 redesign."""
+    return "panels/_frag_bucket_v4.html" if request.blueprint == "proto" else "panels/_frag_bucket.html"
+
+
 @bp.route("/")
 def index():
     return redirect(url_for(".buckets"))
@@ -232,23 +237,43 @@ def bucket_settings(bid):
                 "name": f.get("name", bucket["name"]).strip(),
                 "cat_id": f.get("catId", bucket.get("catId", "")),
                 "type": btype,
-                "default_budget": _num("default_budget"),
                 "notes": f.get("notes", ""),
             }
-            if btype == "expense":
-                payload.update({
-                    "due_day": (f.get("due_day") or "").strip() or None,
-                    "due_amount": _num("due_amount"),
-                    "pay_freq": f.get("pay_freq") or None,
-                    "recurring": f.get("recurring") == "1",
-                    "flex": f.get("flex") == "1",
-                })
-            elif btype in ("goal", "sinking"):
-                payload.update({
-                    "target_amount": _num("target_amount"),
-                    "target_date": f.get("target_date") or None,
-                    "contrib_freq": f.get("contrib_freq") or None,
-                })
+            if "target_budget" in f:
+                # v4 form: one Target Budget field + one Frequency + one Due
+                # Date, reused across types instead of three field-groups.
+                # No Recurring Bill / Due Amount — dropped as redundant.
+                target_budget = _num("target_budget")
+                if btype in ("goal", "sinking"):
+                    payload.update({
+                        "target_amount": target_budget,
+                        "target_date": f.get("due_date") or None,
+                        "contrib_freq": f.get("frequency") or None,
+                    })
+                else:
+                    payload["default_budget"] = target_budget
+                    if btype == "expense":
+                        payload.update({
+                            "due_day": (f.get("due_date") or "").strip() or None,
+                            "pay_freq": f.get("frequency") or None,
+                            "flex": f.get("flex") == "1",
+                        })
+            else:
+                payload["default_budget"] = _num("default_budget")
+                if btype == "expense":
+                    payload.update({
+                        "due_day": (f.get("due_day") or "").strip() or None,
+                        "due_amount": _num("due_amount"),
+                        "pay_freq": f.get("pay_freq") or None,
+                        "recurring": f.get("recurring") == "1",
+                        "flex": f.get("flex") == "1",
+                    })
+                elif btype in ("goal", "sinking"):
+                    payload.update({
+                        "target_amount": _num("target_amount"),
+                        "target_date": f.get("target_date") or None,
+                        "contrib_freq": f.get("contrib_freq") or None,
+                    })
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
             D.invalidate_cache()
             flash("Bucket updated.", "ok")
@@ -262,7 +287,7 @@ def bucket_settings(bid):
                      for a in data_ctx.get("accounts", [])
                      if a.get("type") == "debt" and not a.get("archived")]
     if _is_modal():
-        return render_template("panels/_frag_bucket.html", bucket=bucket, cats=cats,
+        return render_template(_bucket_settings_template(), bucket=bucket, cats=cats,
                                debt_accounts=debt_accounts)
     return render_panel("panels/edit_bucket.html", "buckets",
                         bucket=bucket, cats=cats, debt_accounts=debt_accounts)

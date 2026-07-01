@@ -7,18 +7,15 @@
    ─────────────────────────────────────────────────────────────────────────── #}
 
 {% set btype = b.btype %}
+{% set status = b.alert_status %}
 {% if btype == 'vault' %}
   {% set type_label = 'Vault' %}
-  {% set status = 'vault' %}
 {% elif btype in ('sinking', 'goal') %}
   {% set type_label = 'Goal' %}
-  {% set status = b.status %}
 {% elif b.flex %}
   {% set type_label = 'Expense · Flex' %}
-  {% set status = b.status %}
 {% else %}
   {% set type_label = 'Expense' %}
-  {% set status = b.status %}
 {% endif %}
 
 {% set target_val = b.target_amount if btype in ('sinking', 'goal') else b.budget %}
@@ -32,7 +29,7 @@
         <span class="v4-name">{{ b.name }}</span>
         <span class="v4-type">{{ type_label }}</span>
       </div>
-      <span class="v4-pill v4-pill-{{ status }}">{{ b.pill }}</span>
+      <span class="v4-pill v4-pill-{{ status }}">{{ b.alert_pill }}</span>
       <button class="v4-toggle-btn" type="button" id="v4-toggle-{{ b.id }}"
               onclick="v4TogglePanel('{{ b.id }}', '{{ url_for('.bucket_settings', bid=b.id) }}')">
         Toggle <span id="v4-toggle-icon-{{ b.id }}">▾</span>

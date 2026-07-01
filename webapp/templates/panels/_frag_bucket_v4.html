@@ -1,0 +1,169 @@
+{# ── v4 settings form — one shape, reused fields, no per-type field groups ──
+   Name / Category+Type / Target Budget / Frequency+Due Date / calculated
+   amount due / Flex / Link Debt / Notes. Recurring Bill and Due Amount are
+   gone — they never fed anything downstream.
+   ─────────────────────────────────────────────────────────────────────────── #}
+{% set btype = bucket.type or 'expense' %}
+{% set is_goal = btype in ('goal', 'sinking') %}
+{% set is_vault = btype == 'vault' %}
+{% set target_val = bucket.targetAmount if is_goal else bucket.defaultBudget %}
+{% set freq_val = bucket.contribFreq if is_goal else bucket.payFreq %}
+
+<form class="edit-form modal-form-bare" method="post"
+      action="{{ url_for('.bucket_settings', bid=bucket.id) }}"
+      hx-post="{{ url_for('.bucket_settings', bid=bucket.id) }}"
+      hx-target="#panel" hx-swap="innerHTML"
+      id="v4-settings-form-{{ bucket.id }}">
+
+  <div class="edit-field">
+    <label>Bucket Name</label>
+    <input type="text" name="name" value="{{ bucket.name }}" required>
+  </div>
+
+  <div class="modal-row-2">
+    <div class="edit-field">
+      <label>Category</label>
+      <select name="catId">
+        {% for c in cats %}
+        <option value="{{ c.id }}" {{ 'selected' if c.id == bucket.catId }}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="edit-field">
+      <label>Type</label>
+      <select name="type" id="v4-bkt-type-{{ bucket.id }}" onchange="v4UpdateBktFields('{{ bucket.id }}')">
+        <option value="expense" {{ 'selected' if btype == 'expense' }}>Expense</option>
+        <option value="goal"    {{ 'selected' if is_goal }}>Goal</option>
+        <option value="vault"   {{ 'selected' if is_vault }}>Vault</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="edit-field">
+    <label id="v4-target-lbl-{{ bucket.id }}">{{ 'Goal Amount' if is_goal else 'Target Budget' }}</label>
+    <input type="text" name="target_budget" id="v4-target-{{ bucket.id }}" inputmode="decimal"
+           value="{{ target_val | money if target_val else '' }}" placeholder="$0.00"
+           oninput="v4RecalcDue('{{ bucket.id }}')">
+  </div>
+
+  <div class="v4-freq-due-fields" id="v4-freq-due-{{ bucket.id }}" style="{{ 'display:none' if is_vault }}">
+    <div class="modal-row-2">
+      <div class="edit-field">
+        <label id="v4-freq-lbl-{{ bucket.id }}">{{ 'Contribution Frequency' if is_goal else 'Bill Frequency' }}</label>
+        <select name="frequency" id="v4-freq-{{ bucket.id }}" onchange="v4RecalcDue('{{ bucket.id }}')">
+          <option value="" {{ 'selected' if not freq_val }}>— None —</option>
+          <option value="monthly"   {{ 'selected' if freq_val == 'monthly' }}>Monthly</option>
+          <option value="biweekly"  {{ 'selected' if freq_val == 'biweekly' }}>Biweekly</option>
+          <option value="weekly"    {{ 'selected' if freq_val == 'weekly' }}>Weekly</option>
+          {% if not is_goal %}<option value="triweekly" {{ 'selected' if freq_val == 'triweekly' }}>Triweekly</option>{% endif %}
+        </select>
+      </div>
+      <div class="edit-field">
+        <label id="v4-due-lbl-{{ bucket.id }}">{{ 'Target Date' if is_goal else 'Due Date' }}</label>
+        {# Day-of-month picker for Expense, month picker for Goal — only one is ever submitted (see v4UpdateBktFields). #}
+        <select name="due_date" id="v4-due-day-{{ bucket.id }}" style="{{ 'display:none' if is_goal }}" {{ 'disabled' if is_goal }}>
+          <option value="" {{ 'selected' if not bucket.dueDay }}>— None —</option>
+          {% for d in range(1, 29) %}
+          <option value="{{ d }}" {{ 'selected' if (bucket.dueDay | string) == (d | string) }}>{{ d }}{{ 'st' if d in (1,21) else ('nd' if d in (2,22) else ('rd' if d in (3,23) else 'th')) }}</option>
+          {% endfor %}
+          <option value="eom" {{ 'selected' if bucket.dueDay == 'eom' }}>End of Month</option>
+        </select>
+        <input type="month" name="due_date" id="v4-due-month-{{ bucket.id }}"
+               value="{{ bucket.targetDate or '' }}" style="{{ '' if is_goal else 'display:none' }}" {{ 'disabled' if not is_goal }}>
+      </div>
+    </div>
+    <div class="edit-field">
+      <span class="v4-calc-due" id="v4-calc-due-{{ bucket.id }}"></span>
+    </div>
+  </div>
+
+  {% if not is_goal and not is_vault %}
+  <div class="edit-field" id="v4-flex-field-{{ bucket.id }}">
+    <label>Flexible spending
+      <span style="display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;letter-spacing:0;text-transform:none">Fund reactively — no fixed target</span>
+    </label>
+    <select name="flex">
+      <option value="0" {{ 'selected' if not bucket.flex }}>No — fixed</option>
+      <option value="1" {{ 'selected' if bucket.flex }}>Yes — flex</option>
+    </select>
+  </div>
+  {% endif %}
+
+  {% if debt_accounts and not is_goal and not is_vault %}
+  <div class="edit-field" id="v4-debt-field-{{ bucket.id }}">
+    <label>Linked debt account <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0;font-weight:400">(payments to this bucket reduce the debt balance)</span></label>
+    <select name="debtAccountId">
+      <option value="">— None —</option>
+      {% for da in debt_accounts %}
+      <option value="{{ da.id }}" {{ 'selected' if da.id == bucket.debtAccountId }}>{{ da.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  <div class="edit-field">
+    <label>Notes</label>
+    <textarea name="notes" rows="2" style="resize:vertical">{{ bucket.notes or '' }}</textarea>
+  </div>
+
+  <div class="edit-actions">
+    <button class="toolbar-btn" type="button" onclick="toggleBktSettings('{{ bucket.id }}', '{{ url_for('.bucket_settings', bid=bucket.id) }}')">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Save Changes</button>
+  </div>
+</form>
+
+<form method="post" action="{{ url_for('.archive_bucket', bid=bucket.id) }}"
+      hx-post="{{ url_for('.archive_bucket', bid=bucket.id) }}"
+      hx-target="#panel" hx-swap="innerHTML"
+      style="margin-top:8px"
+      onsubmit="return confirm('Archive {{ bucket.name }}?')">
+  <button class="edit-delete-btn" style="width:100%" type="submit">Archive Bucket</button>
+</form>
+
+<script>
+(function(){
+  var PERIODS_PER_MONTH = {monthly:1, biweekly:30.44/14, weekly:30.44/7, triweekly:30.44/21};
+
+  window.v4UpdateBktFields = function(id){
+    var typeSel = document.getElementById('v4-bkt-type-'+id);
+    var t = typeSel.value;
+    var isGoal = (t === 'goal');
+    var isVault = (t === 'vault');
+
+    document.getElementById('v4-target-lbl-'+id).textContent = isGoal ? 'Goal Amount' : 'Target Budget';
+    document.getElementById('v4-freq-due-'+id).style.display = isVault ? 'none' : '';
+    var freqLbl = document.getElementById('v4-freq-lbl-'+id);
+    if(freqLbl) freqLbl.textContent = isGoal ? 'Contribution Frequency' : 'Bill Frequency';
+    var dueLbl = document.getElementById('v4-due-lbl-'+id);
+    if(dueLbl) dueLbl.textContent = isGoal ? 'Target Date' : 'Due Date';
+
+    var dayEl = document.getElementById('v4-due-day-'+id);
+    var monthEl = document.getElementById('v4-due-month-'+id);
+    if(dayEl && monthEl){
+      dayEl.style.display = isGoal ? 'none' : '';
+      monthEl.style.display = isGoal ? '' : 'none';
+      dayEl.disabled = isGoal;
+      monthEl.disabled = !isGoal;
+    }
+    var flexField = document.getElementById('v4-flex-field-'+id);
+    if(flexField) flexField.style.display = (isGoal || isVault) ? 'none' : '';
+    var debtField = document.getElementById('v4-debt-field-'+id);
+    if(debtField) debtField.style.display = (isGoal || isVault) ? 'none' : '';
+    v4RecalcDue(id);
+  };
+
+  window.v4RecalcDue = function(id){
+    var out = document.getElementById('v4-calc-due-'+id);
+    if(!out) return;
+    var targetEl = document.getElementById('v4-target-'+id);
+    var freqEl = document.getElementById('v4-freq-'+id);
+    var target = parseFloat(String(targetEl.value||'').replace(/[^0-9.\-]/g,'')) || 0;
+    var freq = freqEl ? freqEl.value : '';
+    if(!target || !freq || !PERIODS_PER_MONTH[freq]){ out.textContent = ''; return; }
+    var perPeriod = target / PERIODS_PER_MONTH[freq];
+    out.textContent = '≈ $' + perPeriod.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' per ' + freq.replace('ly','') + ' period (feeds Forecast)';
+  };
+
+  v4RecalcDue('{{ bucket.id }}');
+})();
+</script>

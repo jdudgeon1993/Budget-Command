@@ -219,6 +219,35 @@ def bucket_rows(view_mid: str = None):
 
             if handled:
                 status, pill = "funded", "✓ Handled"
+
+            # ── Universal bucket alerts (v4 prototype) ──────────────────────
+            # Same five-state rule for every type: Allocated vs Target, no
+            # per-type branching. Target = budget (expense/vault) or
+            # target_amount (goal/sinking) — same field the row already
+            # shows as "Target". Flex opts out (no target by definition) and
+            # compares allocation to actual spend instead. Handled overrides.
+            alert_target = float(b.get("targetAmount") or 0) if b.get("type") in ("sinking", "goal") else budget
+            if is_flex:
+                uncovered = spent - alloc
+                if uncovered > 0.005:
+                    alert_status, alert_pill = "funding", f"Cover ${uncovered:,.2f}"
+                elif spent > 0.005:
+                    alert_status, alert_pill = "funded", f"${spent:,.2f} spent"
+                else:
+                    alert_status, alert_pill = "open", "Open"
+            elif alloc <= 0.005 and alert_target <= 0.005:
+                alert_status, alert_pill = "open", "Open"
+            elif alloc <= 0.005:
+                alert_status, alert_pill = "unfunded", "Unfunded"
+            elif alloc > alert_target + 0.005:
+                alert_status, alert_pill = "overspent", f"Overspent ${alloc - alert_target:,.2f}"
+            elif alloc >= alert_target - 0.005:
+                alert_status, alert_pill = "funded", "Funded"
+            else:
+                alert_status, alert_pill = "funding", f"Funding — ${alert_target - alloc:,.2f} short"
+            if handled:
+                alert_status, alert_pill = "funded", "✓ Handled"
+
             cat_alloc += alloc
             cat_budget += budget
             cat_spent += spent
@@ -256,6 +285,8 @@ def bucket_rows(view_mid: str = None):
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left,
                 "status": status, "pill": pill, "needed": needed,
+                "alert_status": "vault" if b.get("type") == "vault" else alert_status,
+                "alert_pill": "Saving" if b.get("type") == "vault" else alert_pill,
                 "vault_total": vault_total,
                 "due_day": b.get("dueDay"),
                 "pay_freq": b.get("payFreq") or "",
