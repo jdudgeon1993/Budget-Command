@@ -49,12 +49,12 @@
 
 <div class="edit-actions" style="margin-top:20px">
   <a class="toolbar-btn"
-     hx-get="{{ url_for('panels.' + back) }}"
+     hx-get="{{ url_for('.' + back) }}"
      hx-target="#panel" hx-swap="innerHTML"
      onclick="closeModal()">Skip</a>
   {% if internal_rules %}
-  <form method="post" action="{{ url_for('panels.apply_rules', tid=tid) }}"
-        hx-post="{{ url_for('panels.apply_rules', tid=tid) }}"
+  <form method="post" action="{{ url_for('.apply_rules', tid=tid) }}"
+        hx-post="{{ url_for('.apply_rules', tid=tid) }}"
         hx-target="#panel" hx-swap="innerHTML"
         style="display:contents">
     <button class="toolbar-btn primary" type="submit">

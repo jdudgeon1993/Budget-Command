@@ -2,7 +2,7 @@
 {% block panel %}
 <div class="edit-page-wrap">
   <form class="edit-form card" method="post"
-        action="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
+        action="{{ url_for('.bucket_settings', bid=bucket.id) }}"
         id="bkt-settings-form">
     <div class="edit-form-title">{{ bucket.name }}</div>
     <div class="edit-form-sub">Bucket settings</div>
@@ -156,12 +156,12 @@
     </div>
 
     <div class="edit-actions">
-      <a class="toolbar-btn" href="{{ url_for('panels.buckets') }}">Cancel</a>
+      <a class="toolbar-btn" href="{{ url_for('.buckets') }}">Cancel</a>
       <button class="toolbar-btn primary" type="submit">Save Changes</button>
     </div>
   </form>
 
-  <form method="post" action="{{ url_for('panels.archive_bucket', bid=bucket.id) }}"
+  <form method="post" action="{{ url_for('.archive_bucket', bid=bucket.id) }}"
         style="margin-top:8px"
         onsubmit="return confirm('Archive {{ bucket.name }}?')">
     <button class="edit-delete-btn" style="width:100%" type="submit">Archive Bucket</button>

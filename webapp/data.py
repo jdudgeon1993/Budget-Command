@@ -170,7 +170,7 @@ def bucket_rows(view_mid: str = None):
     attention = []
     for cat in cats:
         rows = []
-        cat_alloc = cat_budget = 0.0
+        cat_alloc = cat_budget = cat_spent = cat_available = 0.0
         cat_bkts = sorted(
             [b for b in buckets if b.get("catId") == cat["id"]],
             key=lambda b: b.get("order", 0),
@@ -221,6 +221,8 @@ def bucket_rows(view_mid: str = None):
                 status, pill = "funded", "✓ Handled"
             cat_alloc += alloc
             cat_budget += budget
+            cat_spent += spent
+            cat_available += vault_total if b.get("type") == "vault" else left
             # Current month transactions for inline expand
             bkt_txs = sorted([
                 {"date": t.get("date", "")[:10],
@@ -266,6 +268,11 @@ def bucket_rows(view_mid: str = None):
                 "flex": is_flex, "uncovered": round(max(spent - alloc, 0), 2) if is_flex else 0.0,
                 "handled": handled,
                 "txs": bkt_txs,
+                # Universal 4-column view (v4 prototype): Available is the one
+                # "how much is really in this bucket" number, keyed off the
+                # already-correct per-type formula (cumulative for vault, resets
+                # monthly for plain expense) rather than a new calculation.
+                "available": vault_total if b.get("type") == "vault" else left,
             }
             rows.append(row)
             if status in ("partial", "over"):
@@ -273,6 +280,7 @@ def bucket_rows(view_mid: str = None):
         groups.append({
             "id": cat["id"], "name": cat["name"], "color": cat.get("color", "#888"),
             "alloc": cat_alloc, "budget": cat_budget,
+            "spent": cat_spent, "available": cat_available,
             "pct": min(100, round((cat_alloc / cat_budget) * 100)) if cat_budget else 0,
             "buckets": rows,
         })

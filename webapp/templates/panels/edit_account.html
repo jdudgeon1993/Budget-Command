@@ -2,7 +2,7 @@
 {% block panel %}
 <div class="edit-page-wrap">
   <form class="edit-form card" method="post"
-        action="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}">
+        action="{{ url_for('.account_edit', aid=account.id) if account else url_for('.account_new') }}">
     <div class="edit-form-title">{{ 'Edit Account' if account else 'Add Account' }}</div>
     <div class="edit-form-sub">{{ account.name if account else 'Add a new bank or credit account.' }}</div>
 
@@ -70,13 +70,13 @@
     </div>
 
     <div class="edit-actions">
-      <a class="toolbar-btn" href="{{ url_for('panels.accounts') }}">Cancel</a>
+      <a class="toolbar-btn" href="{{ url_for('.accounts') }}">Cancel</a>
       <button class="toolbar-btn primary" type="submit">{{ 'Save Changes' if account else 'Add Account' }}</button>
     </div>
   </form>
 
   {% if account %}
-  <form method="post" action="{{ url_for('panels.account_archive', aid=account.id) }}"
+  <form method="post" action="{{ url_for('.account_archive', aid=account.id) }}"
         style="margin-top:8px"
         onsubmit="return confirm('Archive this account? It will be hidden from the app.')">
     <button class="edit-delete-btn" style="width:100%" type="submit">Archive Account</button>

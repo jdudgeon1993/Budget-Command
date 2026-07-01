@@ -36,6 +36,11 @@ def render_panel(template, active_panel, **ctx):
                            shell=D.shell_ctx(active_panel), **ctx)
 
 
+def _bucket_template() -> str:
+    """buckets.html normally; the redesigned v4 layout under the proto mirror."""
+    return "panels/buckets_v4.html" if request.blueprint == "proto" else "panels/buckets.html"
+
+
 @bp.route("/")
 def index():
     return redirect(url_for(".buckets"))
@@ -53,7 +58,7 @@ def dashboard():
 @login_required
 def buckets():
     view_mid = request.args.get("m") or None
-    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
+    return render_panel(_bucket_template(), "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
 @bp.route("/buckets/<bid>/alloc", methods=["POST"])
@@ -161,14 +166,14 @@ def distribute_rts():
         D.invalidate_cache()
     flash("Distribution applied.", "ok")
     if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+        return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
     return _buckets_response()
 
 
 def _buckets_response():
     """Return buckets panel for HTMX or redirect for plain requests."""
     if request.headers.get("HX-Request") == "true":
-        return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
+        return render_panel(_bucket_template(), "buckets", **D.bucket_rows())
     return redirect(url_for(".buckets"))
 
 
@@ -187,10 +192,20 @@ def _panel_close_modal(panel_tmpl, active_panel, **ctx):
 
 _PANEL_MAP = {
     "accounts": ("panels/accounts.html", lambda: D.accounts_view()),
-    "buckets":  ("panels/buckets.html",  lambda: D.bucket_rows()),
     "reports":  ("panels/reports.html",  lambda: D.reports_view()),
     "setup":    ("panels/setup.html",    lambda: D.setup_view()),
 }
+
+
+def _panel_lookup(back_panel: str):
+    """Template + context-fn for a "back to panel X" redirect.
+
+    Buckets needs the blueprint-aware template (see _bucket_template);
+    everything else is a fixed 1:1 mapping.
+    """
+    if back_panel == "buckets":
+        return _bucket_template(), (lambda: D.bucket_rows())
+    return _panel_lookup(back_panel)
 
 
 # ── Bucket settings ───────────────────────────────────────────────────────────
@@ -240,7 +255,7 @@ def bucket_settings(bid):
         else:
             flash("Dev mode: change not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+            return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
         return redirect(url_for(".buckets"))
     data_ctx = D.load_data()
     debt_accounts = [{"id": a["id"], "name": a["name"]}
@@ -263,7 +278,7 @@ def archive_bucket(bid):
     else:
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+        return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
     return redirect(url_for(".buckets"))
 
 
@@ -296,7 +311,7 @@ def vault_transfer(bid):
             else:
                 flash("Dev mode: transfer not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+            return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
         return redirect(url_for(".buckets"))
     # GET — render transfer form in modal
     dest_buckets = [b for b in data.get("buckets", [])
@@ -346,7 +361,7 @@ def vault_release_to_pool(bid):
             else:
                 flash("Dev mode: release not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+            return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
         return redirect(url_for(".buckets"))
     # GET — render release form in modal
     month = D.active_month(data)
@@ -1178,7 +1193,7 @@ def apply_paycheck_distribute(tid):
                 DB.upsert_alloc(session["user_id"], session["access_token"], next_mid, o["id"], new_alloc)
         D.invalidate_cache()
     flash(f"Distributed {ctx['total_applied']:,.2f}.", "ok")
-    return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+    return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
 
 
 @bp.route("/transaction/<tid>/apply-rules", methods=["POST"])
@@ -1224,7 +1239,7 @@ def apply_rules(tid):
         D.invalidate_cache()
     flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
     if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+        return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
     return redirect(url_for(".buckets"))
 
 
@@ -1265,7 +1280,7 @@ def transaction_edit(tid):
             flash("Dev mode: change not persisted.", "ok")
         back_panel = f.get("back") or "accounts"
         if request.headers.get("HX-Request") == "true":
-            tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+            tmpl, ctx_fn = _panel_lookup(back_panel)
             return _panel_close_modal(tmpl, back_panel, **ctx_fn())
         return redirect(url_for("." + back_panel))
     back = session.get("active_panel", "accounts")
@@ -1287,7 +1302,7 @@ def transaction_delete(tid):
     else:
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
-        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+        tmpl, ctx_fn = _panel_lookup(back_panel)
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())
     return redirect(url_for("." + back_panel))
 
@@ -1330,7 +1345,7 @@ def transaction_create():
             flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
             back_panel = f.get("back") or session.get("active_panel", "buckets")
             if request.headers.get("HX-Request") == "true":
-                tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+                tmpl, ctx_fn = _panel_lookup(back_panel)
                 return _panel_close_modal(tmpl, back_panel, **ctx_fn())
             return redirect(url_for("." + back_panel))
 
@@ -1356,7 +1371,7 @@ def transaction_create():
     else:
         flash("Amount and account are required.", "error")
     if request.headers.get("HX-Request") == "true":
-        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+        tmpl, ctx_fn = _panel_lookup(back_panel)
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())
     return redirect(url_for("." + back_panel))
 

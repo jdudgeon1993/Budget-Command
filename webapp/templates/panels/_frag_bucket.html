@@ -1,6 +1,6 @@
 <form class="edit-form modal-form-bare" method="post"
-      action="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
-      hx-post="{{ url_for('panels.bucket_settings', bid=bucket.id) }}"
+      action="{{ url_for('.bucket_settings', bid=bucket.id) }}"
+      hx-post="{{ url_for('.bucket_settings', bid=bucket.id) }}"
       hx-target="#panel" hx-swap="innerHTML"
       id="bkt-settings-form-{{ bucket.id }}">
 
@@ -171,13 +171,13 @@
   </div>
 
   <div class="edit-actions">
-    <button class="toolbar-btn" type="button" onclick="toggleBktSettings('{{ bucket.id }}', '{{ url_for('panels.bucket_settings', bid=bucket.id) }}')">Cancel</button>
+    <button class="toolbar-btn" type="button" onclick="toggleBktSettings('{{ bucket.id }}', '{{ url_for('.bucket_settings', bid=bucket.id) }}')">Cancel</button>
     <button class="toolbar-btn primary" type="submit">Save Changes</button>
   </div>
 </form>
 
-<form method="post" action="{{ url_for('panels.archive_bucket', bid=bucket.id) }}"
-      hx-post="{{ url_for('panels.archive_bucket', bid=bucket.id) }}"
+<form method="post" action="{{ url_for('.archive_bucket', bid=bucket.id) }}"
+      hx-post="{{ url_for('.archive_bucket', bid=bucket.id) }}"
       hx-target="#panel" hx-swap="innerHTML"
       style="margin-top:8px"
       onsubmit="return confirm('Archive {{ bucket.name }}?')">

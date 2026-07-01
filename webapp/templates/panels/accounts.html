@@ -56,7 +56,7 @@
               <span class="tx-amt" style="color:var(--amber)">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
               {% if t.id %}
               <button class="tx-edit-link" type="button"
-                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('panels.transaction_edit', tid=t.id) }}')">Edit</button>
+                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('.transaction_edit', tid=t.id) }}')">Edit</button>
               {% endif %}
             </div>
           </div>
@@ -108,7 +108,7 @@
               <span class="tx-amt c-{{ t.color }}">{{ '+' if t.signed > 0 }}{{ t.signed | money }}</span>
               {% if t.id %}
               <button class="tx-edit-link" type="button"
-                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('panels.transaction_edit', tid=t.id) }}')">Edit</button>
+                      onclick="toggleTxEdit('{{ t.id }}', '{{ url_for('.transaction_edit', tid=t.id) }}')">Edit</button>
               {% endif %}
             </div>
           </div>
@@ -134,15 +134,15 @@
     <div class="card card-pad">
       <div class="card-label" style="display:flex;align-items:center;justify-content:space-between">
         <span>Accounts</span>
-        <a class="tx-edit-link" href="{{ url_for('panels.account_new') }}"
-           hx-get="{{ url_for('panels.account_new') }}" hx-target="#modal-body"
+        <a class="tx-edit-link" href="{{ url_for('.account_new') }}"
+           hx-get="{{ url_for('.account_new') }}" hx-target="#modal-body"
            style="font-size:12px">+ Add</a>
       </div>
       {% if not cards %}
       <div class="stub" style="padding:16px 0">
         No accounts yet.
-        <a href="{{ url_for('panels.account_new') }}"
-           hx-get="{{ url_for('panels.account_new') }}" hx-target="#modal-body"
+        <a href="{{ url_for('.account_new') }}"
+           hx-get="{{ url_for('.account_new') }}" hx-target="#modal-body"
            style="color:var(--accent)">Add your first account →</a>
       </div>
       {% endif %}
@@ -167,24 +167,24 @@
         {% if a.type == 'debt' %}
         <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end" onclick="event.stopPropagation()">
           <a class="vault-action-btn" style="font-size:10px;padding:2px 6px"
-             href="{{ url_for('panels.debt_payment', aid=a.id) }}"
-             hx-get="{{ url_for('panels.debt_payment', aid=a.id) }}" hx-target="#modal-body"
+             href="{{ url_for('.debt_payment', aid=a.id) }}"
+             hx-get="{{ url_for('.debt_payment', aid=a.id) }}" hx-target="#modal-body"
              title="Record a payment">Pay</a>
           {% if a.debtAPR %}
           <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--indigo);border-color:rgba(129,140,248,.35)"
-             href="{{ url_for('panels.debt_payoff', aid=a.id) }}"
-             hx-get="{{ url_for('panels.debt_payoff', aid=a.id) }}" hx-target="#modal-body"
+             href="{{ url_for('.debt_payoff', aid=a.id) }}"
+             hx-get="{{ url_for('.debt_payoff', aid=a.id) }}" hx-target="#modal-body"
              title="Payoff timeline & what-if calculator">Payoff</a>
           <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--red);border-color:rgba(255,69,58,.35)"
-             href="{{ url_for('panels.post_interest', aid=a.id) }}"
-             hx-post="{{ url_for('panels.post_interest', aid=a.id) }}" hx-target="#panel" hx-swap="innerHTML"
+             href="{{ url_for('.post_interest', aid=a.id) }}"
+             hx-post="{{ url_for('.post_interest', aid=a.id) }}" hx-target="#panel" hx-swap="innerHTML"
              hx-confirm="Post monthly interest charge for {{ a.name }}?"
              title="Post monthly interest charge">Interest</a>
           {% endif %}
         </div>
         {% endif %}
         <button class="tx-edit-link" type="button" title="Edit account"
-                onclick="event.stopPropagation();toggleAcctSettings('{{ a.id }}', '{{ url_for('panels.account_edit', aid=a.id) }}')">⚙</button>
+                onclick="event.stopPropagation();toggleAcctSettings('{{ a.id }}', '{{ url_for('.account_edit', aid=a.id) }}')">⚙</button>
       </div>
       <div class="bucket-txs acct-settings-inline" id="acct-settings-{{ a.id }}" style="display:none"></div>
       {% endfor %}

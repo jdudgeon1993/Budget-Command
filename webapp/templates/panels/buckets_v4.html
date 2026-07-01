@@ -44,86 +44,27 @@
       {% endif %}
     </div>
 
-    {# ── Category cards ── #}
+    {# ── Category cards — buckets stay in their set order, no status re-sorting ── #}
     {% for grp in groups %}
-    {# Sort buckets into status tiers: over → funding → funded → vault → empty → paid #}
-    {% set tier_over    = [] %}
-    {% set tier_partial = [] %}
-    {% set tier_funded  = [] %}
-    {% set tier_vault   = [] %}
-    {% set tier_empty   = [] %}
-    {% set tier_paid    = [] %}
-    {% for b in grp.buckets %}
-      {% if b.btype == 'vault' %}
-        {% if tier_vault.append(b) %}{% endif %}
-      {% elif b.status == 'over' %}
-        {% if tier_over.append(b) %}{% endif %}
-      {% elif b.status == 'funded' and b.pill == 'Paid' %}
-        {% if tier_paid.append(b) %}{% endif %}
-      {% elif b.status == 'funded' %}
-        {% if tier_funded.append(b) %}{% endif %}
-      {% elif b.alloc <= 0.005 %}
-        {% if tier_empty.append(b) %}{% endif %}
-      {% else %}
-        {% if tier_partial.append(b) %}{% endif %}
-      {% endif %}
-    {% endfor %}
-
-    {# Category bar fill class #}
-    {% if grp.pct >= 100 %}{% set cat_bar_cls = 'full' %}
-    {% elif grp.pct > 0 %}{% set cat_bar_cls = 'partial' %}
-    {% else %}{% set cat_bar_cls = 'empty' %}{% endif %}
-
-    <div class="vg-cat" id="cat-{{ grp.id }}">
-      {# Card header #}
-      <div class="vg-cat-hdr" onclick="this.closest('.vg-cat').classList.toggle('collapsed')">
-        <div class="vg-cat-swatch" style="background:{{ grp.color }}"></div>
-        <span class="vg-cat-name">{{ grp.name }}</span>
-        <span class="vg-cat-amt">{{ grp.alloc | money }} / {{ grp.budget | money }}</span>
-        <span class="vg-cat-pct-pill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}">{{ grp.pct }}%</span>
-        <span class="vg-cat-chevron">▾</span>
+    <div class="v4-cat" id="cat-{{ grp.id }}">
+      <div class="v4-cat-hdr" onclick="this.closest('.v4-cat').classList.toggle('collapsed')">
+        <div class="v4-cat-swatch" style="background:{{ grp.color }}"></div>
+        <span class="v4-cat-name">{{ grp.name }}</span>
+        <div class="v4-cat-fields">
+          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Alloc</span>{{ grp.alloc | money }}</span>
+          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Target</span>{{ grp.budget | money }}</span>
+          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Spent</span>{{ grp.spent | money }}</span>
+          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Avail</span>{{ grp.available | money }}</span>
+        </div>
+        <span class="v4-cat-pct-pill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}">{{ grp.pct }}%</span>
+        <span class="v4-cat-chevron">▾</span>
       </div>
-      <div class="vg-cat-bar">
-        <div class="vg-cat-bar-fill {{ cat_bar_cls }}" style="width:{{ [grp.pct, 100] | min }}%"></div>
+      <div class="v4-cat-bar">
+        <div class="v4-cat-bar-fill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}" style="width:{{ [grp.pct, 100] | min }}%"></div>
       </div>
 
-      {# Tier: Over #}
-      {% if tier_over %}
-      <div class="vg-tier-sep over">Over budget</div>
-      {% for b in tier_over %}{% include "panels/_bucket_row.html" %}{% endfor %}
-      {% endif %}
+      {% for b in grp.buckets %}{% include "panels/_bucket_row_v4.html" %}{% endfor %}
 
-      {# Tier: Funding (partial, has some allocation) #}
-      {% if tier_partial %}
-      <div class="vg-tier-sep partial">Funding</div>
-      {% for b in tier_partial %}{% include "panels/_bucket_row.html" %}{% endfor %}
-      {% endif %}
-
-      {# Tier: Funded #}
-      {% if tier_funded %}
-      <div class="vg-tier-sep funded">Funded</div>
-      {% for b in tier_funded %}{% include "panels/_bucket_row.html" %}{% endfor %}
-      {% endif %}
-
-      {# Tier: Vault #}
-      {% if tier_vault %}
-      <div class="vg-tier-sep vault">Vault</div>
-      {% for b in tier_vault %}{% include "panels/_bucket_row.html" %}{% endfor %}
-      {% endif %}
-
-      {# Tier: Not started (zero alloc) #}
-      {% if tier_empty %}
-      <div class="vg-tier-sep empty">Not started</div>
-      {% for b in tier_empty %}{% include "panels/_bucket_row.html" %}{% endfor %}
-      {% endif %}
-
-      {# Tier: Paid (sinks to bottom) #}
-      {% if tier_paid %}
-      <div class="vg-tier-sep paid">Paid</div>
-      {% for b in tier_paid %}{% include "panels/_bucket_row.html" %}{% endfor %}
-      {% endif %}
-
-      {# Per-category add strip #}
       <div class="vg-add-strip">
         <input type="text" id="new-bkt-name-{{ grp.id }}" placeholder="+ New bucket in {{ grp.name }}…">
         <select id="new-bkt-type-{{ grp.id }}">
@@ -149,36 +90,18 @@
     {% endfor %}
 
     <script>
-    function toggleBktRow(id){
-      var row=document.getElementById('bkt-'+id);
-      if(!row)return;
-      var open=row.classList.toggle('open');
-      var drawer=document.getElementById('vg-drawer-'+id);
-      if(drawer){drawer.style.maxHeight=open?(drawer.scrollHeight+200)+'px':'0';}
-      var btn=row.querySelector('.vg-expand-btn');
-      if(btn)btn.textContent=open?'▴':'▾';
-    }
-    function toggleBktTxs(id){
-      var el=document.getElementById('txs-'+id);
-      var icon=document.getElementById('exp-icon-'+id);
-      if(!el)return;
-      var open=el.style.display!=='none';
-      el.style.display=open?'none':'block';
-      if(icon)icon.textContent=open?'▸':'▾';
-      var row=document.getElementById('bkt-'+id);
-      var drawer=document.getElementById('vg-drawer-'+id);
-      if(row&&row.classList.contains('open')&&drawer){
-        drawer.style.maxHeight=(drawer.scrollHeight+300)+'px';
+    function v4TogglePanel(id, settingsUrl){
+      var panel=document.getElementById('v4-panel-'+id);
+      var icon=document.getElementById('v4-toggle-icon-'+id);
+      if(!panel)return;
+      var open=panel.style.display!=='none';
+      panel.style.display=open?'none':'block';
+      if(icon)icon.textContent=open?'▾':'▴';
+      var settingsEl=document.getElementById('bkt-settings-'+id);
+      if(!open && settingsEl && !settingsEl.dataset.loaded){
+        settingsEl.dataset.loaded='1';
+        htmx.ajax('GET', settingsUrl, {target:'#'+settingsEl.id, swap:'innerHTML'});
       }
-    }
-    function toggleBktSettings(id, url){
-      var el=document.getElementById('bkt-settings-'+id);
-      toggleInlineDrawer('bkt-settings-'+id, url, 'settings-icon-'+id);
-      if(el&&!el._vgRecalcBound){
-        el._vgRecalcBound=true;
-        el.addEventListener('htmx:afterSwap',function(){_recalcVgDrawer(id);});
-      }
-      _recalcVgDrawer(id);
     }
     </script>
 
@@ -237,10 +160,6 @@
         <div class="status-legend-row">
           <div class="status-legend-dot" style="background:var(--accent)"></div>
           <span>Purple — <strong style="color:var(--accent)">Vault</strong></span>
-        </div>
-        <div class="status-legend-row">
-          <div class="status-legend-dot" style="background:rgba(255,255,255,.3)"></div>
-          <span>Grey — <strong style="color:rgba(255,255,255,.4)">Paid ✓</strong></span>
         </div>
       </div>
     </div>

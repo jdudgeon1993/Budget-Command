@@ -6,8 +6,8 @@
   {% if account.debtMinPayment %}<div class="rts-kpi"><span class="rts-kpi-lbl">Min payment</span><span class="rts-kpi-val">{{ account.debtMinPayment | money }}</span></div>{% endif %}
 </div>
 {% endif %}
-<form method="post" action="{{ url_for('panels.debt_payment', aid=account.id) }}"
-      hx-post="{{ url_for('panels.debt_payment', aid=account.id) }}"
+<form method="post" action="{{ url_for('.debt_payment', aid=account.id) }}"
+      hx-post="{{ url_for('.debt_payment', aid=account.id) }}"
       hx-target="#panel" hx-swap="innerHTML">
   <div class="edit-field">
     <label>Payment amount</label>

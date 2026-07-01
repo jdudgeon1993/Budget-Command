@@ -6,7 +6,7 @@
   <div class="rpt-header">
     <div class="rpt-title">Reports</div>
     <select class="rpt-month-select"
-            onchange="htmx.ajax('GET','{{ url_for('panels.reports') }}?m='+this.value,{target:'#panel',swap:'innerHTML'})">
+            onchange="htmx.ajax('GET','{{ url_for('.reports') }}?m='+this.value,{target:'#panel',swap:'innerHTML'})">
       {% for mo in available_months %}
       <option value="{{ mo.mid }}" {{ 'selected' if mo.mid == view_mid }}>{{ mo.label }}</option>
       {% endfor %}

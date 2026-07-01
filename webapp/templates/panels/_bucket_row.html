@@ -73,26 +73,26 @@
     <div class="vg-row-actions">
       {# Fill CTA — prominent, right in the row #}
       {% if display_status == 'over' %}
-        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
-              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+        <form method="post" action="{{ url_for('.fill_bucket', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
           {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <button class="vg-fill-btn over" type="submit">Cover {{ [0, (b.spent - b.alloc)] | max | money }}</button>
         </form>
       {% elif display_status == 'partial' and b.budget > 0 %}
-        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
-              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+        <form method="post" action="{{ url_for('.fill_bucket', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
           {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <button class="vg-fill-btn" type="submit">Fill {{ b.needed | money }}</button>
         </form>
       {% elif b.flex and display_status == 'partial' %}
-        <form method="post" action="{{ url_for('panels.fill_bucket', bid=b.id) }}" style="display:contents"
-              hx-post="{{ url_for('panels.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+        <form method="post" action="{{ url_for('.fill_bucket', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('.fill_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
           {% if view_mid is defined and view_mid != current_mid %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <button class="vg-fill-btn" type="submit">Cover {{ b.uncovered | money }}</button>
         </form>
       {% elif display_status == 'vault' %}
-        <a class="vg-act-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
-           hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}" hx-target="#modal-body">⇄</a>
+        <a class="vg-act-btn" href="{{ url_for('.vault_transfer', bid=b.id) }}"
+           hx-get="{{ url_for('.vault_transfer', bid=b.id) }}" hx-target="#modal-body">⇄</a>
       {% endif %}
 
       <button class="vg-expand-btn" type="button" id="settings-{{ b.id }}"
@@ -143,9 +143,9 @@
   <div class="vg-drawer" id="vg-drawer-{{ b.id }}">
     <div class="vg-drawer-inner">
       <div class="bkt-drawer-inputs">
-        <form method="post" action="{{ url_for('panels.set_alloc', bid=b.id) }}"
+        <form method="post" action="{{ url_for('.set_alloc', bid=b.id) }}"
               style="display:contents"
-              hx-post="{{ url_for('panels.set_alloc', bid=b.id) }}"
+              hx-post="{{ url_for('.set_alloc', bid=b.id) }}"
               hx-trigger="change from:find input[name=alloc]"
               hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
@@ -170,9 +170,9 @@
             </div>
           </label>
         </form>
-        <form method="post" action="{{ url_for('panels.set_budget', bid=b.id) }}"
+        <form method="post" action="{{ url_for('.set_budget', bid=b.id) }}"
               style="display:contents"
-              hx-post="{{ url_for('panels.set_budget', bid=b.id) }}"
+              hx-post="{{ url_for('.set_budget', bid=b.id) }}"
               hx-trigger="change from:find input[name=budget]"
               hx-target="#panel" hx-swap="innerHTML"
               onsubmit="return false">
@@ -201,18 +201,18 @@
 
       <div class="bkt-drawer-actions">
         {% if b.btype == 'vault' %}
-          <a class="vault-action-btn" href="{{ url_for('panels.vault_transfer', bid=b.id) }}"
-             hx-get="{{ url_for('panels.vault_transfer', bid=b.id) }}"
+          <a class="vault-action-btn" href="{{ url_for('.vault_transfer', bid=b.id) }}"
+             hx-get="{{ url_for('.vault_transfer', bid=b.id) }}"
              hx-target="#modal-body">⇄ Transfer</a>
-          <a class="vault-action-btn" href="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
-             hx-get="{{ url_for('panels.vault_release_to_pool', bid=b.id) }}"
+          <a class="vault-action-btn" href="{{ url_for('.vault_release_to_pool', bid=b.id) }}"
+             hx-get="{{ url_for('.vault_release_to_pool', bid=b.id) }}"
              hx-target="#modal-body">↑ Release</a>
         {% endif %}
 
         {% if b.due_day or b.pay_freq %}
-        <form method="post" action="{{ url_for('panels.toggle_handled', bid=b.id) }}"
+        <form method="post" action="{{ url_for('.toggle_handled', bid=b.id) }}"
               style="display:inline"
-              hx-post="{{ url_for('panels.toggle_handled', bid=b.id) }}"
+              hx-post="{{ url_for('.toggle_handled', bid=b.id) }}"
               hx-target="#panel" hx-swap="innerHTML">
           <button class="handled-btn {{ 'active' if b.handled }}" type="submit">
             {{ '✓ Handled' if b.handled else 'Handled?' }}
@@ -225,7 +225,7 @@
           <span id="exp-icon-{{ b.id }}">▸</span> Ledger · {{ b.txs | length }}
         </button>
         <button class="toolbar-btn" type="button"
-                onclick="toggleBktSettings('{{ b.id }}', '{{ url_for('panels.bucket_settings', bid=b.id) }}')"
+                onclick="toggleBktSettings('{{ b.id }}', '{{ url_for('.bucket_settings', bid=b.id) }}')"
                 title="Bucket settings">
           <span id="settings-icon-{{ b.id }}">▸</span> ⚙ Settings
         </button>

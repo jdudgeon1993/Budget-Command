@@ -1,0 +1,111 @@
+{# ── v4 bucket row — universal 4-column layout ────────────────────────────────
+   Phase 1 (always visible, no click): name, type, Allocated / Target / Spent /
+   Available, status pill + color bar.
+   Phase 1 (one click, no drawer): Allocated is a live inline input.
+   Phase 2 (one click via Toggle): flat panel — Handled, Ledger, Settings —
+   no nested sub-toggles.
+   ─────────────────────────────────────────────────────────────────────────── #}
+
+{% set btype = b.btype %}
+{% if btype == 'vault' %}
+  {% set type_label = 'Vault' %}
+  {% set status = 'vault' %}
+{% elif btype in ('sinking', 'goal') %}
+  {% set type_label = 'Goal' %}
+  {% set status = b.status %}
+{% elif b.flex %}
+  {% set type_label = 'Expense · Flex' %}
+  {% set status = b.status %}
+{% else %}
+  {% set type_label = 'Expense' %}
+  {% set status = b.status %}
+{% endif %}
+
+{% set target_val = b.target_amount if btype in ('sinking', 'goal') else b.budget %}
+{% set target_editable = btype not in ('sinking', 'goal') %}
+
+<div class="v4-row" id="v4-bkt-{{ b.id }}">
+  <div class="v4-bar v4-bar-{{ status }}"></div>
+  <div class="v4-row-body">
+    <div class="v4-row-hdr">
+      <div class="v4-name-block">
+        <span class="v4-name">{{ b.name }}</span>
+        <span class="v4-type">{{ type_label }}</span>
+      </div>
+      <span class="v4-pill v4-pill-{{ status }}">{{ b.pill }}</span>
+      <button class="v4-toggle-btn" type="button" id="v4-toggle-{{ b.id }}"
+              onclick="v4TogglePanel('{{ b.id }}', '{{ url_for('.bucket_settings', bid=b.id) }}')">
+        Toggle <span id="v4-toggle-icon-{{ b.id }}">▾</span>
+      </button>
+    </div>
+
+    <div class="v4-fields">
+      <div class="v4-field">
+        <span class="v4-field-lbl">Allocated</span>
+        <form method="post" action="{{ url_for('.set_alloc', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('.set_alloc', bid=b.id) }}"
+              hx-trigger="change from:find input[name=alloc]"
+              hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+          <input class="v4-input" name="alloc" value="{{ b.alloc | money }}"
+                 aria-label="Allocated for {{ b.name }}"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+        </form>
+      </div>
+      <div class="v4-field">
+        <span class="v4-field-lbl">Target</span>
+        {% if target_editable %}
+        <form method="post" action="{{ url_for('.set_budget', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('.set_budget', bid=b.id) }}"
+              hx-trigger="change from:find input[name=budget]"
+              hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+          <input class="v4-input" name="budget" value="{{ target_val | money }}"
+                 aria-label="Target for {{ b.name }}"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+        </form>
+        {% else %}
+        <span class="v4-value" title="Change the goal amount in Settings">{{ target_val | money }}</span>
+        {% endif %}
+      </div>
+      <div class="v4-field">
+        <span class="v4-field-lbl">Spent</span>
+        <span class="v4-value">{{ '—' if btype == 'vault' else (b.spent | money) }}</span>
+      </div>
+      <div class="v4-field">
+        <span class="v4-field-lbl">Available</span>
+        <span class="v4-value v4-avail-{{ status }}">{{ b.available | money }}</span>
+      </div>
+    </div>
+  </div>
+
+  {# ── Phase 2: flat panel, everything at once behind one Toggle click ── #}
+  <div class="v4-panel" id="v4-panel-{{ b.id }}" style="display:none">
+    <div class="v4-panel-actions">
+      {% if b.due_day or b.pay_freq %}
+      <form method="post" action="{{ url_for('.toggle_handled', bid=b.id) }}" style="display:inline"
+            hx-post="{{ url_for('.toggle_handled', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="handled-btn {{ 'active' if b.handled }}" type="submit">
+          {{ '✓ Handled' if b.handled else 'Handled?' }}
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="v4-panel-ledger">
+      <div class="v4-panel-sublbl">Ledger — this month ({{ b.txs | length }})</div>
+      {% if b.txs %}
+        {% for tx in b.txs %}
+        <div class="bkt-tx-row">
+          <span class="bkt-tx-date">{{ tx.date[5:] }}</span>
+          <span class="bkt-tx-desc">{{ tx.desc }}</span>
+          <span class="bkt-tx-amt">{{ tx.amount | money }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="bkt-tx-empty">No transactions this month</div>
+      {% endif %}
+    </div>
+
+    <div class="v4-panel-sublbl">Settings</div>
+    <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}"></div>
+  </div>
+</div>
