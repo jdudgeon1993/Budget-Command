@@ -150,6 +150,28 @@ def shell_ctx(active_panel: str = "") -> dict:
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
 
+# v4 ordering: severity first (things needing action float up), due-date
+# proximity breaks ties within a tier (an objective fact, not a live status,
+# so it doesn't reshuffle unpredictably). No-due-date buckets sort last
+# within their tier, in their existing category order.
+_V4_TIER_ORDER = {"overspent": 0, "unfunded": 1, "funding": 2, "open": 3, "funded": 4, "vault": 5}
+
+
+def _v4_bucket_sort_key(row: dict) -> tuple:
+    tier = _V4_TIER_ORDER.get(row["alert_status"], 3)
+    dd = row.get("due_day")
+    if dd == "eom":
+        date_key = 32
+    elif dd:
+        try:
+            date_key = int(dd)
+        except (TypeError, ValueError):
+            date_key = 99
+    else:
+        date_key = 99
+    return (tier, date_key)
+
+
 def bucket_rows(view_mid: str = None):
     """Category-grouped bucket rows with alloc/budget/spent/left + status."""
     data = load_data()
@@ -359,6 +381,11 @@ def bucket_rows(view_mid: str = None):
             "spent": cat_spent, "available": cat_available,
             "pct": min(100, round((cat_alloc / cat_budget) * 100)) if cat_budget else 0,
             "buckets": rows,
+            # v4 prototype only — severity tier first, due-date proximity
+            # breaks ties within a tier. A separate copy so classic's own
+            # tier-grouping in buckets.html (which relies on the original
+            # category/manual order for its own sub-ordering) is untouched.
+            "buckets_v4": sorted(rows, key=_v4_bucket_sort_key),
         })
     # Month tabs for the future-planning toggle
     month_tabs = [

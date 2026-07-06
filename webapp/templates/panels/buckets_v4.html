@@ -63,7 +63,7 @@
         <div class="v4-cat-bar-fill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}" style="width:{{ [grp.pct, 100] | min }}%"></div>
       </div>
 
-      {% for b in grp.buckets %}{% include "panels/_bucket_row_v4.html" %}{% endfor %}
+      {% for b in grp.buckets_v4 %}{% include "panels/_bucket_row_v4.html" %}{% endfor %}
 
       <div class="vg-add-strip">
         <input type="text" id="new-bkt-name-{{ grp.id }}" placeholder="+ New bucket in {{ grp.name }}…">
@@ -124,6 +124,42 @@
           htmx.ajax('GET', url, {target:'#'+el.id, swap:'innerHTML'});
         }
       }
+    }
+
+    // Live reordering (severity + due-date) is animated, not a jump cut —
+    // classic FLIP: capture each row's position before the #panel swap,
+    // then transform-offset it back to that spot and transition to zero
+    // once the new order has landed. Guarded so navigating to Buckets
+    // repeatedly doesn't stack duplicate listeners on <body>.
+    if(!window._v4FlipBound){
+      window._v4FlipBound = true;
+      var _v4Positions = {};
+      document.body.addEventListener('htmx:beforeSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        _v4Positions = {};
+        document.querySelectorAll('[id^="v4-bkt-"]').forEach(function(el){
+          _v4Positions[el.id] = el.getBoundingClientRect().top;
+        });
+      });
+      document.body.addEventListener('htmx:afterSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var positions = _v4Positions;
+        requestAnimationFrame(function(){
+          document.querySelectorAll('[id^="v4-bkt-"]').forEach(function(el){
+            var oldTop = positions[el.id];
+            if(oldTop == null) return;
+            var delta = oldTop - el.getBoundingClientRect().top;
+            if(Math.abs(delta) < 2) return;
+            el.style.transition = 'none';
+            el.style.transform = 'translateY(' + delta + 'px)';
+            requestAnimationFrame(function(){
+              el.style.transition = 'transform .28s ease';
+              el.style.transform = '';
+            });
+          });
+        });
+      });
     }
     </script>
   </div>
