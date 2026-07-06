@@ -6,7 +6,7 @@ through formulas.py — never reimplemented in templates or JS.
 """
 
 import calendar
-from flask import g, session, current_app
+from flask import g, session, current_app, request
 
 from . import db as DB
 from . import formulas as F
@@ -127,7 +127,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         if bkts:
             tx_buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
 
-    return {
+    result = {
         "active_panel": active_panel,
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
@@ -145,7 +145,25 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_accounts": tx_accounts,
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
+        "sts_amt": None,
+        "sts_qualifier": "",
     }
+    # v4 only: RTS + Safe-to-Spend shown together, everywhere, per the
+    # design-session plan. Read-only call into the same compute_forecast()
+    # the live Forecast page uses — nothing about it changes or is at risk.
+    # Gated to the proto blueprint so classic panels never pay this cost.
+    if request.blueprint == "proto":
+        from . import forecast_calc as FC
+        from datetime import timedelta as _timedelta
+        horizon_months = 2
+        try:
+            fc = FC.compute_forecast(data, n_months=horizon_months)
+            result["sts_amt"] = fc["safe_to_spend"]
+            horizon_end = (_date.today() + _timedelta(days=30 * horizon_months)).strftime("%b %-d")
+            result["sts_qualifier"] = f"through {horizon_end}"
+        except Exception:
+            pass
+    return result
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
@@ -394,10 +412,28 @@ def bucket_rows(view_mid: str = None):
          "offset": n}
         for n in (0, 1, 2)
     ]
-    return {"groups": groups, "attention": attention, "cats": cats,
-            "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
-            "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
-                            for b in buckets if not b.get("archived")]}
+    result = {"groups": groups, "attention": attention, "cats": cats,
+              "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
+              "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
+                              for b in buckets if not b.get("archived")]}
+    # v4 combined Ledger+Buckets view only — classic Buckets never pays this
+    # cost. Gated on request.blueprint so every existing call site (write
+    # actions re-rendering the panel, not just the initial GET) picks it up
+    # automatically without having to remember to merge it in separately.
+    if request.blueprint == "proto":
+        result.update(ledger_companion_ctx())
+    return result
+
+
+def ledger_companion_ctx() -> dict:
+    """Slim transaction feed for the v4 combined Ledger+Buckets view.
+
+    Reuses accounts_view()'s already-correct ledger grouping rather than
+    reimplementing transaction shaping — same data, same shape, just a
+    shorter slice for a companion column instead of the full Ledger.
+    """
+    acc = accounts_view()
+    return {"ledger_groups": acc["ledger"][:8]}
 
 
 # ── Distribute modal view-model ───────────────────────────────────────────────

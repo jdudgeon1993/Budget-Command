@@ -1,6 +1,32 @@
 {% extends layout %}
 {% block panel %}
-<div class="panel-grid">
+<div class="v4-combined">
+  <div class="v4-mobile-seg">
+    <button class="v4-seg-btn active" type="button" onclick="v4SwitchMobile(this,'buckets')">Buckets</button>
+    <button class="v4-seg-btn" type="button" onclick="v4SwitchMobile(this,'ledger')">Ledger</button>
+  </div>
+
+  <div class="v4-ledger-col" id="v4-ledger-col">
+    <div class="v4-ledger-hdr">Ledger</div>
+    {% if ledger_groups %}
+      {% for grp in ledger_groups %}
+      <div class="v4-ledger-daylbl">{{ grp.label }}</div>
+      {% for r in grp.rows %}
+      <div class="v4-ledger-row">
+        <div class="v4-ledger-row-main">
+          <span class="v4-ledger-desc">{{ r.desc }}</span>
+          {% if r.sub %}<span class="v4-ledger-sub">{{ r.sub }}</span>{% endif %}
+        </div>
+        <span class="v4-ledger-amt" style="color:var(--{{ r.color }})">{{ r.signed | money }}</span>
+      </div>
+      {% endfor %}
+      {% endfor %}
+    {% else %}
+      <div class="v4-ledger-empty">No transactions yet this month.</div>
+    {% endif %}
+  </div>
+
+<div class="panel-grid v4-buckets-col v4-mobile-show" id="v4-buckets-col">
   <div>
     {# ── Month planning tabs ── #}
     <div class="month-tabs">
@@ -227,4 +253,15 @@
     </div>
   </div>
 </div>
+</div>
+<script>
+function v4SwitchMobile(btn, which){
+  document.querySelectorAll('.v4-seg-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  var ledger=document.getElementById('v4-ledger-col');
+  var buckets=document.getElementById('v4-buckets-col');
+  if(ledger)ledger.classList.toggle('v4-mobile-show', which==='ledger');
+  if(buckets)buckets.classList.toggle('v4-mobile-show', which==='buckets');
+}
+</script>
 {% endblock %}

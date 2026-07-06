@@ -1115,3 +1115,41 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 @media (prefers-reduced-motion:reduce){
   .v4-row-wrap,.v4-cat-bar,.vg-add-strip,.v4-panel,.v4-panel-sub,.v4-cat-chevron{transition:none !important}
 }
+
+/* v4: RTS + STS shown side by side in the persistent sidebar.
+   .sidebar-rts-cell always wraps the RTS amount now (paired or not), so
+   this smaller size replaces the old 28px unconditionally — 28px only
+   ever fit when RTS had the full sidebar width to itself. */
+.sidebar-rts-pair{display:flex;gap:12px;align-items:flex-start}
+.sidebar-rts-cell{flex:1;min-width:0}
+.sidebar-rts-cell .sidebar-rts-amt{font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-sts-cell{padding-left:12px;border-left:1px solid var(--sidebar-border)}
+.sidebar-sts-amt{font-family:var(--mono);font-size:15.5px;font-weight:600;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-sts-qual{font-size:9.5px;color:rgba(255,255,255,0.28);margin-top:2px;font-family:var(--mono)}
+
+/* v4: combined Ledger + Buckets view */
+.v4-combined{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:20px;align-items:start;padding:24px}
+.v4-buckets-col.panel-grid{padding:0}
+.v4-mobile-seg{display:none}
+
+.v4-ledger-col{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;max-height:calc(100vh - 140px);overflow-y:auto;position:sticky;top:16px}
+.v4-ledger-hdr{font-size:13px;font-weight:700;margin-bottom:10px;letter-spacing:.02em}
+.v4-ledger-daylbl{font-size:10px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:12px 0 4px}
+.v4-ledger-daylbl:first-of-type{margin-top:0}
+.v4-ledger-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.v4-ledger-row:last-child{border-bottom:none}
+.v4-ledger-row-main{min-width:0;display:flex;flex-direction:column}
+.v4-ledger-desc{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.v4-ledger-sub{font-size:10.5px;color:var(--text3)}
+.v4-ledger-amt{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0}
+.v4-ledger-empty{font-size:12px;color:var(--text3);padding:20px 0;text-align:center}
+
+@media(max-width:900px){
+  .v4-combined{grid-template-columns:1fr;padding:14px}
+  .v4-mobile-seg{display:flex;gap:8px;margin-bottom:14px}
+  .v4-seg-btn{flex:1;font-family:var(--mono);font-size:12px;font-weight:700;padding:9px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);cursor:pointer}
+  .v4-seg-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .v4-ledger-col,.v4-buckets-col.panel-grid{display:none;position:static;max-height:none}
+  .v4-ledger-col.v4-mobile-show{display:block}
+  .v4-buckets-col.panel-grid.v4-mobile-show{display:grid;grid-template-columns:1fr}
+}

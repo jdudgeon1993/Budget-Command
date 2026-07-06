@@ -73,8 +73,19 @@ document.addEventListener('htmx:afterSettle',function(e){
       <div class="brand-sub">Personal Finance</div>
     </div>
     <div class="sidebar-rts" id="rts-sidebar">
-      <div class="sidebar-rts-lbl">Ready to assign</div>
-      <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
+      <div class="sidebar-rts-pair">
+        <div class="sidebar-rts-cell">
+          <div class="sidebar-rts-lbl">Ready to assign</div>
+          <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
+        </div>
+        {% if shell.sts_amt %}
+        <div class="sidebar-rts-cell sidebar-sts-cell">
+          <div class="sidebar-rts-lbl">Safe to spend</div>
+          <div class="sidebar-sts-amt">{{ shell.sts_amt }}</div>
+          <div class="sidebar-sts-qual">{{ shell.sts_qualifier }}</div>
+        </div>
+        {% endif %}
+      </div>
       <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
       <div class="sidebar-total-cash">
         Total cash: <span>{{ shell.total_cash | money }}</span>
