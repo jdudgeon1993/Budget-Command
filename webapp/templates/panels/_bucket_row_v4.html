@@ -1,10 +1,13 @@
 {# ── v4 bucket row — universal 4-column layout ────────────────────────────────
    Phase 1 (always visible, no click): name, type, Allocated / Target / Spent /
    Available, status pill + color bar.
-   Phase 1 (one click, no drawer): Allocated is a live inline input.
+   Phase 1 (one click, no drawer): Allocated and Target are both live inputs
+   for every type — Goal's target_amount included (see plan: "Allocated vs
+   Target is the same rule for every type").
    Phase 2 (one click via Toggle): 3 icons — Handled / Ledger / Settings.
    Each of Ledger/Settings opens its own content on its own click; they don't
-   all dump onto the screen at once.
+   all dump onto the screen at once. A pacing dial (Copilot Money study)
+   shows here too, for eligible variable-spend buckets only.
    ─────────────────────────────────────────────────────────────────────────── #}
 
 {% set btype = b.btype %}
@@ -19,8 +22,8 @@
   {% set type_label = 'Expense' %}
 {% endif %}
 
-{% set target_val = b.target_amount if btype in ('sinking', 'goal') else b.budget %}
-{% set target_editable = btype not in ('sinking', 'goal') %}
+{% set is_goal = btype in ('sinking', 'goal') %}
+{% set target_val = b.target_amount if is_goal else b.budget %}
 {% set is_future_view = view_mid is defined and view_mid != current_mid %}
 
 <div class="v4-row-wrap" id="v4-bkt-{{ b.id }}">
@@ -54,7 +57,17 @@
       </div>
       <div class="v4-field">
         <span class="v4-field-lbl">Target</span>
-        {% if target_editable %}
+        {% if is_goal %}
+        <form method="post" action="{{ url_for('.set_target_amount', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('.set_target_amount', bid=b.id) }}"
+              hx-trigger="change from:find input[name=target_amount]"
+              hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+          {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+          <input class="v4-input" name="target_amount" value="{{ target_val | money }}"
+                 aria-label="Goal amount for {{ b.name }}"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+        </form>
+        {% else %}
         <form method="post" action="{{ url_for('.set_budget', bid=b.id) }}" style="display:contents"
               hx-post="{{ url_for('.set_budget', bid=b.id) }}"
               hx-trigger="change from:find input[name=budget]"
@@ -64,8 +77,6 @@
                  aria-label="Target for {{ b.name }}"
                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
         </form>
-        {% else %}
-        <span class="v4-value" title="Change the goal amount in Settings">{{ target_val | money }}</span>
         {% endif %}
       </div>
       <div class="v4-field">
@@ -82,8 +93,30 @@
 
   {# ── Phase 2: Toggle reveals 3 icons; each opens its own content, one at a time.
        Sibling of .v4-row (not nested in its flex layout) so it's a normal block
-       element spanning full width below the row, not a third column. ── #}
-  <div class="v4-panel" id="v4-panel-{{ b.id }}" style="display:none">
+       element spanning full width below the row, not a third column.
+       Visibility is class-driven (.open / .shown), not inline style, so the
+       CSS transitions in app.css actually animate the reveal. ── #}
+  <div class="v4-panel" id="v4-panel-{{ b.id }}">
+    {% if b.pace_eligible %}
+    <div class="v4-pace">
+      <svg class="v4-pace-dial" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="32" fill="none" stroke="var(--track, rgba(255,255,255,.08))" stroke-width="7"/>
+        <circle cx="40" cy="40" r="32" fill="none" stroke="var(--pace-{{ b.pace_status }})" stroke-width="7"
+                stroke-linecap="round" stroke-dasharray="201.06"
+                stroke-dashoffset="{{ (201.06 * (1 - b.pace_used_pct / 100)) | round(2) }}"
+                transform="rotate(-90 40 40)"/>
+      </svg>
+      <div class="v4-pace-body">
+        <div class="v4-pace-pct v4-pace-{{ b.pace_status }}">{{ b.pace_used_pct }}% used</div>
+        <div class="v4-pace-lbl">
+          {% if b.pace_status == 'good' %}On pace
+          {% elif b.pace_status == 'light' %}Slightly ahead of pace
+          {% elif b.pace_status == 'dark' %}Well ahead of pace
+          {% else %}Over budget{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
     <div class="v4-panel-icons">
       {% if b.due_day or b.pay_freq %}
       <form method="post" action="{{ url_for('.toggle_handled', bid=b.id) }}" style="display:inline"
@@ -103,7 +136,7 @@
       </button>
     </div>
 
-    <div class="v4-panel-sub" id="v4-sub-ledger-{{ b.id }}" style="display:none">
+    <div class="v4-panel-sub" id="v4-sub-ledger-{{ b.id }}">
       {% if b.txs %}
         {% for tx in b.txs %}
         <div class="bkt-tx-row">
@@ -117,7 +150,7 @@
       {% endif %}
     </div>
 
-    <div class="v4-panel-sub" id="v4-sub-settings-{{ b.id }}" style="display:none">
+    <div class="v4-panel-sub" id="v4-sub-settings-{{ b.id }}">
       <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}"></div>
     </div>
   </div>

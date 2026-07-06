@@ -18,6 +18,8 @@
   --rts-hero-amt:#E8B4FF;
   --r-xs:4px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:20px;
   --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  --track:rgba(255,255,255,.08);
+  --pace-good:var(--green); --pace-light:var(--amber); --pace-dark:#D2691E; --pace-over:var(--red);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
@@ -1035,7 +1037,8 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 .v4-cat-bar-fill.full{background:var(--green)}
 .v4-cat-bar-fill.partial{background:var(--amber)}
 .v4-cat-bar-fill.empty{background:var(--text3)}
-.v4-cat.collapsed .v4-row-wrap,.v4-cat.collapsed .v4-cat-bar,.v4-cat.collapsed .vg-add-strip{display:none}
+.v4-cat .v4-row-wrap,.v4-cat .v4-cat-bar,.v4-cat .vg-add-strip{overflow:hidden;max-height:4000px;opacity:1;transition:max-height .22s ease,opacity .18s ease}
+.v4-cat.collapsed .v4-row-wrap,.v4-cat.collapsed .v4-cat-bar,.v4-cat.collapsed .vg-add-strip{max-height:0;opacity:0}
 
 .v4-row-wrap{border-bottom:1px solid rgba(255,255,255,.04)}
 .v4-row-wrap:last-child{border-bottom:none}
@@ -1075,14 +1078,40 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 .v4-avail-funded{color:var(--green)}
 .v4-avail-vault{color:var(--accent)}
 
-.v4-panel{padding:12px 14px 14px;border-top:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
+.v4-panel{
+  max-height:0;opacity:0;overflow:hidden;
+  padding-left:14px;padding-right:14px;padding-top:0;padding-bottom:0;
+  border-top:0 solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);
+  transition:max-height .22s ease,opacity .18s ease,padding-top .22s ease,padding-bottom .22s ease,border-top-width .22s ease;
+}
+.v4-panel.open{max-height:3000px;opacity:1;padding-top:12px;padding-bottom:14px;border-top-width:1px}
 .v4-panel-icons{display:flex;gap:8px;flex-wrap:wrap}
 .v4-icon-btn{font-size:11px;font-family:var(--mono);font-weight:600;padding:6px 12px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);cursor:pointer}
 .v4-icon-btn:hover{color:var(--text);border-color:var(--text3)}
 .v4-icon-btn.active{border-color:var(--green);background:var(--green-dim);color:var(--green)}
-.v4-panel-sub{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.04);max-height:220px;overflow-y:auto}
+.v4-panel-sub{
+  max-height:0;opacity:0;overflow:hidden;
+  margin-top:0;padding-top:0;border-top:0 solid rgba(255,255,255,.04);
+  transition:max-height .2s ease,opacity .16s ease,margin-top .2s ease,padding-top .2s ease,border-top-width .2s ease;
+}
+.v4-panel-sub.shown{max-height:220px;opacity:1;margin-top:10px;padding-top:10px;border-top-width:1px;overflow-y:auto}
 .v4-calc-due{font-size:11px;font-family:var(--mono);color:var(--text3)}
+
+/* v4: pacing dial (Copilot Money study) — variable-spend buckets only, shown on expand */
+.v4-pace{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:14px}
+.v4-pace-dial{width:64px;height:64px;flex-shrink:0}
+.v4-pace-body{display:flex;flex-direction:column;gap:3px}
+.v4-pace-pct{font-family:var(--mono);font-size:15px;font-weight:700}
+.v4-pace-pct.good{color:var(--pace-good)}
+.v4-pace-pct.light{color:var(--pace-light)}
+.v4-pace-pct.dark{color:var(--pace-dark)}
+.v4-pace-pct.over{color:var(--pace-over)}
+.v4-pace-lbl{font-size:11.5px;color:var(--text2)}
 
 /* v4: RTS breakdown card — number lives in the sidebar only, this is the detail */
 .v4-rts-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:12px}
 .v4-rts-card-hdr{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:10px;font-weight:600}
+
+@media (prefers-reduced-motion:reduce){
+  .v4-row-wrap,.v4-cat-bar,.vg-add-strip,.v4-panel,.v4-panel-sub,.v4-cat-chevron{transition:none !important}
+}

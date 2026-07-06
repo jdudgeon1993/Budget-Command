@@ -90,19 +90,22 @@
     {% endfor %}
 
     <script>
+    // Visibility here is class-driven (.open / .shown), not inline style —
+    // the CSS transitions on .v4-panel / .v4-panel-sub in app.css only
+    // animate a class change, not a display:none jump cut.
     function v4TogglePanel(id){
       var panel=document.getElementById('v4-panel-'+id);
       var icon=document.getElementById('v4-toggle-icon-'+id);
       if(!panel)return;
-      var open=panel.style.display!=='none';
-      panel.style.display=open?'none':'block';
+      var open=panel.classList.contains('open');
+      panel.classList.toggle('open', !open);
       if(icon)icon.textContent=open?'▾':'▴';
       if(open){
         // Closing the row closes whichever sub-panel (ledger/settings) was open too.
         var ledger=document.getElementById('v4-sub-ledger-'+id);
         var settings=document.getElementById('v4-sub-settings-'+id);
-        if(ledger)ledger.style.display='none';
-        if(settings)settings.style.display='none';
+        if(ledger)ledger.classList.remove('shown');
+        if(settings)settings.classList.remove('shown');
       }
     }
     function v4ShowSub(id, which, url){
@@ -111,9 +114,9 @@
       var target=(which==='ledger')?ledger:settings;
       var other=(which==='ledger')?settings:ledger;
       if(!target)return;
-      var opening=target.style.display==='none';
-      if(other)other.style.display='none';
-      target.style.display=opening?'block':'none';
+      var opening=!target.classList.contains('shown');
+      if(other)other.classList.remove('shown');
+      target.classList.toggle('shown', opening);
       if(opening && which==='settings' && url){
         var el=document.getElementById('bkt-settings-'+id);
         if(el && !el.dataset.loaded){
@@ -123,22 +126,6 @@
       }
     }
     </script>
-
-    {# Global add strip (fallback / add to any category) #}
-    <form class="add-strip" method="post" action="{{ url_for('.add_bucket') }}"
-          hx-post="{{ url_for('.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
-      <select name="catId" style="flex:0 0 130px" required>
-        <option value="">— Category —</option>
-        {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
-      </select>
-      <input type="text" name="name" placeholder="Bucket name…" required>
-      <select name="type" style="flex:0 0 110px">
-        <option value="expense">Expense</option>
-        <option value="goal">Goal</option>
-        <option value="vault">Vault</option>
-      </select>
-      <button class="toolbar-btn primary" type="submit">+ Add</button>
-    </form>
   </div>
 
   <div class="right-sticky">

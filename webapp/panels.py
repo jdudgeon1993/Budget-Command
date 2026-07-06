@@ -445,6 +445,27 @@ def set_budget(bid):
     return _buckets_response(view_mid=saving_mid)
 
 
+@bp.route("/buckets/<bid>/target-amount", methods=["POST"])
+@login_required
+def set_target_amount(bid):
+    """Inline edit for a Goal/Sinking bucket's overall target amount.
+
+    Unlike set_budget, this isn't month-scoped — targetAmount lives on the
+    bucket record itself, the same one field editable in Settings. Making
+    it inline too matches the "Allocated vs Target is the same rule for
+    every type" decision (see plan) rather than treating Goal as a special
+    case that needs its own drawer trip just to nudge the number.
+    """
+    try:
+        amount = round(float(request.form.get("target_amount", "0").replace("$", "").replace(",", "")), 2)
+    except ValueError:
+        amount = 0.0
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"target_amount": amount})
+        D.invalidate_cache()
+    return _buckets_response(view_mid=request.values.get("m") or None)
+
+
 # ── Add bucket ────────────────────────────────────────────────────────────────
 
 @bp.route("/buckets", methods=["POST"])

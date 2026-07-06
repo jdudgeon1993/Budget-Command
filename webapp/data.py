@@ -259,6 +259,37 @@ def bucket_rows(view_mid: str = None):
             if handled:
                 alert_status, alert_pill = "funded", "✓ Handled"
 
+            # ── Pacing dial (v4 prototype, Copilot Money study) ─────────────
+            # Only meaningful for variable, non-bill spend: a plain Expense
+            # bucket with no due day (bills are lump-sum, not paced) and not
+            # Flex (no target to pace against). Only for the current month —
+            # "today" has no meaning inside a past or future month view.
+            pace_eligible = (
+                b.get("type", "expense") == "expense"
+                and not is_flex
+                and not b.get("dueDay")
+                and budget > 0.005
+                and mid == current_mid
+            )
+            pace_status = None
+            pace_used_pct = 0
+            if pace_eligible:
+                from datetime import date as _date_cls
+                today = _date_cls.today()
+                days_in_month = calendar.monthrange(today.year, today.month)[1]
+                ideal_pct = (today.day / days_in_month) * 100
+                used_pct = (spent / budget) * 100
+                pace_used_pct = min(100, round(used_pct))
+                diff = used_pct - ideal_pct
+                if used_pct > 100 + 0.5:
+                    pace_status = "over"
+                elif diff <= 0:
+                    pace_status = "good"
+                elif diff <= 20:
+                    pace_status = "light"
+                else:
+                    pace_status = "dark"
+
             cat_alloc += alloc
             cat_budget += budget
             cat_spent += spent
@@ -315,6 +346,9 @@ def bucket_rows(view_mid: str = None):
                 # already-correct per-type formula (cumulative for vault, resets
                 # monthly for plain expense) rather than a new calculation.
                 "available": vault_total if b.get("type") == "vault" else left,
+                "pace_eligible": pace_eligible,
+                "pace_status": pace_status,
+                "pace_used_pct": pace_used_pct,
             }
             rows.append(row)
             if status in ("partial", "over"):
