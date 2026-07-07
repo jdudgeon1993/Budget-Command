@@ -579,28 +579,6 @@ def toggle_handled(bid):
 
 # ── Month workflow ────────────────────────────────────────────────────────────
 
-@bp.route("/month/close", methods=["POST"])
-@login_required
-def month_close():
-    data = D.load_data()
-    if not current_app.config["DEV_SEED"]:
-        DB.close_month(session["user_id"], session["access_token"],
-                       D.active_mid(), data.get("accounts", []), data.get("txs", []))
-        D.invalidate_cache()
-        flash("Month closed.", "ok")
-    return _buckets_response()
-
-
-@bp.route("/month/reopen", methods=["POST"])
-@login_required
-def month_reopen():
-    if not current_app.config["DEV_SEED"]:
-        DB.reopen_month(session["user_id"], session["access_token"], D.active_mid())
-        D.invalidate_cache()
-        flash("Month reopened.", "ok")
-    return _buckets_response()
-
-
 # ── Month navigation ──────────────────────────────────────────────────────────
 
 @bp.route("/accounts")
@@ -795,6 +773,306 @@ def reports():
 @login_required
 def setup():
     return render_panel("panels/setup.html", "setup", **D.setup_view())
+
+
+@bp.route("/health")
+@login_required
+def health():
+    """Full app health check and diagnostics page.
+
+    Restored from history (a56e784, removed at some point without a trace
+    in a later rewrite) after being missed for months — its RTS
+    Verification section independently re-derives Ready to Spend from
+    first principles and flags any drift from the displayed value, which
+    is exactly the kind of check that catches a formula disagreement like
+    the vault/RTS bug found and fixed this session. Bucket Issues now also
+    flags any vault/sinking/goal balance sitting below zero, the concrete
+    symptom that started that whole investigation.
+    """
+    import json as _json
+    from datetime import datetime as _dt
+    from collections import defaultdict as _dd
+
+    generated_at = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    issues, hints = [], []
+    db_errors = ""
+
+    try:
+        # Deliberately bypasses D.load_data()'s DEV_SEED shortcut everywhere
+        # else in the app — this page exists to check the real backend, so
+        # it should hit the real DB, not the sample data. In dev mode there
+        # is no real DB to hit, so fall back to the same sample data the
+        # rest of the app uses — otherwise this page is untestable locally,
+        # which is exactly how the bugs it's meant to catch went unnoticed.
+        raw = D.load_data() if current_app.config.get("DEV_SEED") else \
+              DB.load_all(session["user_id"], session["access_token"])
+    except Exception as e:
+        raw = {"accounts": [], "cats": [], "buckets": [], "txs": [], "months": [],
+               "paychecks": [], "allocationRules": []}
+        db_errors = f"{type(e).__name__}: {e}"
+        issues.append("DB load failed")
+
+    accounts = raw.get("accounts", [])
+    buckets  = raw.get("buckets", [])
+    txs      = raw.get("txs", [])
+    months   = raw.get("months", [])
+    cats     = raw.get("cats", [])
+
+    # ── Data counts ──────────────────────────────────────────────────────────
+    data_counts = [
+        {"label": "Accounts",         "count": len(accounts)},
+        {"label": "Categories",       "count": len(cats)},
+        {"label": "Buckets",          "count": len(buckets)},
+        {"label": "Transactions",     "count": len(txs)},
+        {"label": "Month records",    "count": len(months)},
+        {"label": "Paychecks",        "count": len(raw.get("paychecks", []))},
+        {"label": "Allocation rules", "count": len(raw.get("allocationRules", []))},
+    ]
+    if len(accounts) == 0:   issues.append("No accounts")
+    if len(txs) == 0:        hints.append("No transactions loaded")
+    if len(buckets) == 0:    issues.append("No buckets")
+    if len(cats) == 0:       issues.append("No categories")
+
+    # ── Session info ─────────────────────────────────────────────────────────
+    today_mid = D.F.current_month_id()
+    session_info = [
+        {"label": "Logged in as",    "value": session.get("email", "—")},
+        {"label": "Today's month",   "value": today_mid},
+        {"label": "Active month",    "value": D.active_mid()},
+        {"label": "DEV_SEED",        "value": "yes" if current_app.config.get("DEV_SEED") else "no"},
+    ]
+
+    # ── Account health ────────────────────────────────────────────────────────
+    tx_by_acct = _dd(int)
+    opening_accts = set()
+    for t in txs:
+        tx_by_acct[t.get("accountId", "")] += 1
+        if t.get("type") == "opening":
+            opening_accts.add(t.get("accountId", ""))
+
+    account_health = []
+    for a in accounts:
+        if a.get("archived"):
+            continue
+        bal = D.F.acct_balance(a, txs)
+        has_opening = a["id"] in opening_accts
+        if not has_opening:
+            hints.append(f"No opening tx for '{a['name']}'")
+        account_health.append({
+            "name": a["name"], "type": a.get("type", "budget"),
+            "balance": bal, "tx_count": tx_by_acct[a["id"]],
+            "has_opening": has_opening,
+        })
+
+    # ── Tx by type ────────────────────────────────────────────────────────────
+    type_counts = _dd(int)
+    for t in txs:
+        type_counts[t.get("type", "out")] += 1
+    tx_by_type = [{"type": k, "count": v}
+                  for k, v in sorted(type_counts.items(), key=lambda x: -x[1])]
+
+    # ── Tx by month (last 6) ──────────────────────────────────────────────────
+    mid_counts = _dd(int)
+    for t in txs:
+        mid_counts[t.get("monthId", "")] += 1
+    recent_mids = [D.F.month_offset(today_mid, -i) for i in range(6)]
+    tx_by_month = [
+        {"label": D.month_label(m), "count": mid_counts.get(m, 0)}
+        for m in recent_mids
+    ]
+    if all(r["count"] == 0 for r in tx_by_month):
+        issues.append(f"No recent transactions in any of the last 6 months (oldest loaded: {min((t['monthId'] for t in txs if t.get('monthId')), default='none')})")
+
+    # ── Bucket issues ─────────────────────────────────────────────────────────
+    bkt_map = {b["id"]: b for b in buckets}
+    bucket_issues = []
+    for b in buckets:
+        if b.get("archived"):
+            continue
+        if not b.get("catId"):
+            bucket_issues.append({"name": b["name"], "issue": "No category assigned", "value": "—"})
+        if b.get("type") in ("vault", "sinking", "goal"):
+            accum = D.F.vault_accumulated(b["id"], months) if b.get("type") == "vault" else None
+            if accum is not None and accum < -0.005:
+                bucket_issues.append({"name": b["name"], "issue": "Negative accumulated balance", "value": f"${accum:,.2f}"})
+                issues.append(f"'{b['name']}' has a negative balance (${accum:,.2f}) — use Correct Balance to fix")
+    orphaned_bids = set()
+    for t in txs:
+        bid = t.get("bucketId")
+        if bid and bid not in bkt_map:
+            orphaned_bids.add(bid)
+    if orphaned_bids:
+        bucket_issues.append({"name": "—", "issue": f"Transactions reference {len(orphaned_bids)} deleted bucket(s)", "value": ", ".join(list(orphaned_bids)[:3])})
+
+    # ── Month health ──────────────────────────────────────────────────────────
+    def _mlabel(mid):
+        try:
+            return D.month_label(mid)
+        except Exception:
+            return mid
+    month_health = sorted([{
+        "label": _mlabel(m["id"]),
+        "sort_key": D.F.parse_month_id(m["id"]) if "_" in m["id"] else (0, 0),
+        "alloc_count": len(m.get("allocations", {})),
+        "budget_count": len(m.get("budgets", {})),
+    } for m in months], key=lambda x: x["sort_key"], reverse=True)[:12]
+
+    # ── Shared base values ────────────────────────────────────────────────────
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    active_buckets = [b for b in buckets if not b.get("archived")]
+
+    # ── Budget metrics ────────────────────────────────────────────────────────
+    budget_metrics = []
+    rts = total_cash = income = allocated = spent = 0.0
+    try:
+        rts        = D.F.ready_to_spend(today_month, months, accounts, active_buckets, txs)
+        total_cash = D.F.total_cash(accounts, txs)
+        income     = D.F.month_income(today_mid, txs, accounts)
+        allocated  = D.F.total_allocated(today_month, active_buckets)
+        spent      = sum(D.F.b_spent(today_mid, b["id"], txs) for b in active_buckets)
+        budget_metrics = [
+            {"label": "Ready to Spend",   "value": f"${rts:,.2f}",        "alert": rts < 0},
+            {"label": "Total Cash",       "value": f"${total_cash:,.2f}",  "alert": total_cash < 0},
+            {"label": "Month Income",     "value": f"${income:,.2f}",      "alert": False},
+            {"label": "Month Allocated",  "value": f"${allocated:,.2f}",   "alert": False},
+            {"label": "Month Spent",      "value": f"${spent:,.2f}",       "alert": False},
+        ]
+        if rts < 0:
+            issues.append(f"Negative RTS (${rts:,.2f})")
+        if total_cash < 0:
+            hints.append(f"Total cash is negative (${total_cash:,.2f})")
+    except Exception as e:
+        budget_metrics = [{"label": "Error", "value": str(e), "alert": True}]
+        issues.append(f"Budget metrics error: {e}")
+
+    # ── Cash flow: last 6 months ──────────────────────────────────────────────
+    cash_flow_months = []
+    cash_flow_error = ""
+    try:
+        recent_6 = [D.F.month_offset(today_mid, -i) for i in range(6)]
+        for mid_ in recent_6:
+            inc_ = D.F.month_income(mid_, txs, accounts)
+            sp_  = sum(D.F.b_spent(mid_, b["id"], txs) for b in active_buckets)
+            net_ = round(inc_ - sp_, 2)
+            cash_flow_months.append({
+                "label": D.month_label(mid_),
+                "income": inc_, "spent": sp_, "net": net_,
+                "net_pos": net_ >= 0,
+            })
+    except Exception as e:
+        cash_flow_error = str(e)
+
+    # ── Allocation breakdown ──────────────────────────────────────────────────
+    allocation_breakdown = []
+    allocation_error = ""
+    try:
+        vault_bkts   = [b for b in active_buckets if b.get("type") == "vault"]
+        expense_bkts = [b for b in active_buckets if b.get("type") not in ("vault", "sinking", "goal")]
+        savings_bkts = [b for b in active_buckets if b.get("type") in ("sinking", "goal")]
+        alloc_expense = sum(D.F.b_alloc(today_month, b["id"]) for b in expense_bkts)
+        alloc_vault   = sum(D.F.b_alloc(today_month, b["id"]) for b in vault_bkts)
+        alloc_savings = sum(D.F.b_alloc(today_month, b["id"]) for b in savings_bkts)
+        vault_total   = sum(D.F.vault_accumulated(b["id"], months) for b in vault_bkts)
+        bb            = D.F.budget_bal(accounts, txs)
+        alloc_rate    = round(allocated / bb * 100, 1) if bb > 0 else 0.0
+        allocation_breakdown = [
+            {"label": "Month allocated",          "value": f"${allocated:,.2f}",     "alert": False},
+            {"label": "Month income (txns in)",   "value": f"${income:,.2f}",        "alert": False},
+            {"label": "Alloc rate (vs cash)",     "value": f"{alloc_rate}%",         "alert": alloc_rate > 100},
+            {"label": "Ready to Spend (unalloc)", "value": f"${rts:,.2f}",           "alert": rts < 0},
+            {"label": "→ Expense buckets",        "value": f"${alloc_expense:,.2f}", "alert": False},
+            {"label": "→ Vault buckets",          "value": f"${alloc_vault:,.2f}",   "alert": False},
+            {"label": "→ Sinking / goal",         "value": f"${alloc_savings:,.2f}", "alert": False},
+            {"label": "Vault portfolio total",    "value": f"${vault_total:,.2f}",   "alert": vault_total < 0},
+            {"label": "Vault count",              "value": f"{len(vault_bkts)}",     "alert": False},
+        ]
+        if alloc_rate > 100:
+            issues.append(f"Allocated ${allocated:,.2f} exceeds liquid cash ${bb:,.2f}")
+    except Exception as e:
+        allocation_error = str(e)
+
+    # ── RTS verification (ZBB identity: bb = RTS + cur_claimed + future) ─────
+    rts_verify = []
+    rts_verify_error = ""
+    bucket_claims_detail = []
+    future_allocs_detail = []
+    try:
+        bb_v        = D.F.budget_bal(accounts, txs)
+        future_mids = D.F.months_after(today_mid, months)
+
+        raw_claims = []
+        for b in active_buckets:
+            claim = D.F.bucket_available(b, today_month, months, txs)
+            if abs(claim) > 0.005:
+                raw_claims.append({"name": b["name"], "type": b.get("type", "expense"), "claim": round(claim, 2)})
+        bucket_claims_detail = sorted(raw_claims, key=lambda x: -x["claim"])
+        cur_claimed = sum(c["claim"] for c in raw_claims)
+
+        raw_future: dict = {}
+        for fm in future_mids:
+            for b in active_buckets:
+                amt = D.F.b_alloc(fm, b["id"])
+                if amt > 0.005:
+                    raw_future[b["id"]] = {"name": b["name"], "amount": raw_future.get(b["id"], {}).get("amount", 0.0) + amt}
+        future_allocs_detail = sorted(raw_future.values(), key=lambda x: -x["amount"])
+        future_claimed = sum(x["amount"] for x in future_allocs_detail)
+
+        zbb_check = round(bb_v - cur_claimed - future_claimed, 2)
+        zbb_ok    = abs(zbb_check - rts) < 0.02
+        rts_verify = [
+            {"label": "Bank balance (bb)",        "value": f"${bb_v:,.2f}",           "alert": False,      "detail": None},
+            {"label": "− Current bucket claims",  "value": f"${cur_claimed:,.2f}",    "alert": False,      "detail": "claims"},
+            {"label": "− Future pre-allocations", "value": f"${future_claimed:,.2f}", "alert": False,      "detail": "future"},
+            {"label": "= Calculated RTS",         "value": f"${zbb_check:,.2f}",      "alert": not zbb_ok, "detail": None},
+            {"label": "RTS displayed",            "value": f"${rts:,.2f}",            "alert": not zbb_ok, "detail": None},
+            {"label": "ZBB identity holds",       "value": "✓ Yes" if zbb_ok else f"✗ Drift ${abs(zbb_check - rts):,.2f}", "alert": not zbb_ok, "detail": None},
+        ]
+        if not zbb_ok:
+            issues.append(f"ZBB identity broken — drift ${abs(zbb_check - rts):,.2f}")
+    except Exception as e:
+        rts_verify_error = str(e)
+
+    # ── Unassigned expense transactions ──────────────────────────────────────
+    debt_aid_set = {a["id"] for a in accounts if a.get("type") == "debt"}
+    unassigned_txs = sorted([
+        {"date": t.get("date", ""), "desc": t.get("desc", "Transaction"),
+         "amount": float(t.get("amount") or 0)}
+        for t in txs
+        if t.get("type") == "out" and not t.get("bucketId")
+        and not D.F.is_scheduled(t)
+        and t.get("accountId") not in debt_aid_set
+    ], key=lambda x: x["date"], reverse=True)
+    if unassigned_txs:
+        hints.append(f"{len(unassigned_txs)} expense transaction(s) not assigned to a bucket")
+
+    # ── Raw JSON ──────────────────────────────────────────────────────────────
+    raw_summary = {k: len(v) if isinstance(v, list) else str(v) for k, v in raw.items()}
+    raw_json = _json.dumps(raw_summary, indent=2)
+
+    return render_template("panels/health.html",
+        generated_at=generated_at,
+        issues=issues, hints=hints,
+        data_counts=data_counts,
+        session_info=session_info,
+        account_health=account_health,
+        tx_by_type=tx_by_type,
+        tx_by_month=tx_by_month,
+        bucket_issues=bucket_issues,
+        month_health=month_health,
+        budget_metrics=budget_metrics,
+        cash_flow_months=cash_flow_months,
+        cash_flow_error=cash_flow_error,
+        allocation_breakdown=allocation_breakdown,
+        allocation_error=allocation_error,
+        rts_verify=rts_verify,
+        rts_verify_error=rts_verify_error,
+        bucket_claims_detail=bucket_claims_detail,
+        future_allocs_detail=future_allocs_detail,
+        unassigned_txs=unassigned_txs,
+        db_errors=db_errors,
+        raw_json=raw_json,
+    )
 
 
 @bp.route("/insights")

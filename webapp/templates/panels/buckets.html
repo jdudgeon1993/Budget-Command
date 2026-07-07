@@ -29,21 +29,6 @@
     </div>
     {% endif %}
 
-    <div class="workflow-bar">
-      {% if shell.month_closed %}
-      <span class="wf-closed-badge">🔒 Closed</span>
-      <form method="post" action="{{ url_for('.month_reopen') }}" style="display:contents"
-            hx-post="{{ url_for('.month_reopen') }}" hx-target="#panel" hx-swap="innerHTML">
-        <button class="wf-btn" type="submit">Reopen</button>
-      </form>
-      {% else %}
-      <form method="post" action="{{ url_for('.month_close') }}" style="display:contents"
-            hx-post="{{ url_for('.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
-        <button class="wf-btn" type="submit">Close Month</button>
-      </form>
-      {% endif %}
-    </div>
-
     {# ── Category cards ── #}
     {% for grp in groups %}
     {# Sort buckets into status tiers: over → funding → funded → vault → empty → paid #}

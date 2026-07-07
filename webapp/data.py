@@ -133,7 +133,6 @@ def shell_ctx(active_panel: str = "") -> dict:
     _available = allocated + max(rts, 0)
     pct = min(100, round((allocated / _available) * 100)) if _available > 0 else 0
 
-    month_closed = bool(month.get("closed"))
     is_past_month = F.month_status(mid) == "past"
     today_month_label = month_label(today_mid)
 
@@ -154,7 +153,6 @@ def shell_ctx(active_panel: str = "") -> dict:
         "month_label": month_label(mid),
         "today_month_label": today_month_label,
         "is_past_month": is_past_month,
-        "month_closed": month_closed,
         "rts": rts,
         "total_cash": total_cash,
         "age_of_money": aom,
