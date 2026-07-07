@@ -17,7 +17,7 @@
   --hero-bg:linear-gradient(135deg,#1A0028 0%,#2A003C 100%); --hero-glow:rgba(191,90,242,0.40);
   --rts-hero-amt:#E8B4FF;
   --r-xs:4px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:20px;
-  --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace; --display:var(--sans);
   --track:rgba(255,255,255,.08);
   --pace-good:var(--green); --pace-light:var(--amber); --pace-dark:#D2691E; --pace-over:var(--red);
 }
@@ -48,6 +48,10 @@
   --rts-hero-amt:#d1543f;
   --track:rgba(43,31,26,0.08);
   --pace-good:var(--green); --pace-light:var(--amber); --pace-dark:#b5651d; --pace-over:var(--red);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --display:ui-rounded,-apple-system,BlinkMacSystemFont,"SF Pro Rounded","Segoe UI Rounded","Nunito",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --r-xs:6px; --r-sm:9px; --r-md:14px; --r-lg:20px; --r-pill:99px;
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1264,3 +1268,69 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
   .sheet{left:50%;right:auto;width:min(100%,1040px);transform:translate(-50%,calc(100% - 58px))}
   .sheet.open{transform:translate(-50%,0)}
 }
+
+/* ── Morning: one shared visual language across every section ──────────────
+   Everything in v4 so far (Buckets, Ledger/Accounts, Reports, Setup) still
+   carried its old standalone-page card/radius/type treatment — just
+   recolored by the token swap above, not actually unified. This section
+   makes the *shape* consistent too: one card language, one type role
+   (--display for names/titles, --mono stays for figures), applied via the
+   existing class names so no template/markup changes are needed anywhere,
+   and — because every rule is scoped under [data-theme="morning"] — none
+   of it can ever reach classic or the shared Reports/Accounts/Setup
+   templates when rendered outside the v4 mirror. */
+
+/* Section-level surfaces: one consistent "card" language site-wide */
+[data-theme="morning"] .rpt-card,
+[data-theme="morning"] .v4-cat,
+[data-theme="morning"] .vg-cat,
+[data-theme="morning"] .status-legend,
+[data-theme="morning"] .v4-rts-card,
+[data-theme="morning"] .v4-ledger-col,
+[data-theme="morning"] .setup-card{
+  background:var(--surface);
+  border-radius:var(--r-lg);
+  border-color:var(--border);
+}
+
+/* Inner tiles/sub-blocks: one step down from section surfaces */
+[data-theme="morning"] .rpt-kpi,
+[data-theme="morning"] .rpt-stat-pill,
+[data-theme="morning"] .rpt-spend-block,
+[data-theme="morning"] .rpt-goal-card,
+[data-theme="morning"] .rpt-nw-block,
+[data-theme="morning"] .rpt-debt-block,
+[data-theme="morning"] .rpt-spark-block,
+[data-theme="morning"] .rpt-disc-stat,
+[data-theme="morning"] .dash-acct-chip,
+[data-theme="morning"] .acct-card{
+  background:var(--surface2);
+  border-radius:var(--r-md);
+  border-color:var(--border);
+}
+
+/* Names/titles read as the friendly display face; figures stay mono */
+[data-theme="morning"] .dash-brand-name,
+[data-theme="morning"] .dash-pie-lbl,
+[data-theme="morning"] .dash-tile,
+[data-theme="morning"] .dash-acct-chip-name,
+[data-theme="morning"] .dash-report-cta,
+[data-theme="morning"] .v4-cat-name,
+[data-theme="morning"] .v4-name,
+[data-theme="morning"] .vg-bkt-name,
+[data-theme="morning"] .acct-name,
+[data-theme="morning"] .tx-name,
+[data-theme="morning"] .rpt-title,
+[data-theme="morning"] .rpt-card-title,
+[data-theme="morning"] .v4-ledger-hdr,
+[data-theme="morning"] .setup-name,
+[data-theme="morning"] .brand-name{
+  font-family:var(--display);
+}
+
+/* Modal: fixes a pre-existing undefined-token bug (--surface1/--text1 were
+   never defined anywhere, so the modal background/hover silently fell back
+   to transparent) — surfaced now because the modal is load-bearing in the
+   sheet flow (Add Transaction, every inline edit form). */
+[data-theme="morning"] .modal-box{background:var(--surface);border-radius:var(--r-lg)}
+[data-theme="morning"] .modal-close:hover{color:var(--text);background:var(--surface2)}
