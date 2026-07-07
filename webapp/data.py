@@ -83,6 +83,27 @@ def month_label(mid: str) -> str:
 
 # ── Shell view-model (sidebar RTS, header, month) ─────────────────────────────
 
+def _safe_to_spend(data: dict, horizon_months: int = 2) -> tuple[float | None, str]:
+    """Read-only Safe-to-Spend pull from the live Forecast engine.
+
+    compute_forecast() returns every figure pre-formatted as a display
+    string (e.g. "$2,258.00") for forecast.html's own use — never a raw
+    number — so it has to be parsed back to a float here rather than
+    handed straight to the `money` filter (which would silently choke on
+    the "$"/"," and render $0.00). forecast_calc.py itself is never
+    modified; this only reads its already-public return shape.
+    """
+    from datetime import date as _date, timedelta as _timedelta
+    try:
+        from . import forecast_calc as FC
+        fc = FC.compute_forecast(data, n_months=horizon_months)
+        amt = float(fc["safe_to_spend"].replace("$", "").replace(",", ""))
+        horizon_end = (_date.today() + _timedelta(days=30 * horizon_months)).strftime("%b %-d")
+        return amt, f"through {horizon_end}"
+    except Exception:
+        return None, ""
+
+
 def shell_ctx(active_panel: str = "") -> dict:
     from datetime import date as _date
     data = load_data()
@@ -153,16 +174,7 @@ def shell_ctx(active_panel: str = "") -> dict:
     # the live Forecast page uses — nothing about it changes or is at risk.
     # Gated to the proto blueprint so classic panels never pay this cost.
     if request.blueprint == "proto":
-        from . import forecast_calc as FC
-        from datetime import timedelta as _timedelta
-        horizon_months = 2
-        try:
-            fc = FC.compute_forecast(data, n_months=horizon_months)
-            result["sts_amt"] = fc["safe_to_spend"]
-            horizon_end = (_date.today() + _timedelta(days=30 * horizon_months)).strftime("%b %-d")
-            result["sts_qualifier"] = f"through {horizon_end}"
-        except Exception:
-            pass
+        result["sts_amt"], result["sts_qualifier"] = _safe_to_spend(data)
     return result
 
 
@@ -452,22 +464,16 @@ def dashboard_ctx() -> dict:
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     txs = data.get("txs", [])
 
-    balance = F.total_cash(accounts, txs)
+    # Same account slice RTS itself is anchored to (budget accounts only) —
+    # savings isn't part of what RTS claims against, so it shouldn't be
+    # folded into the headline "Balance" figure sitting right next to RTS.
+    balance = F.budget_bal(accounts, txs)
     today_mid = F.current_month_id()
     today_month = next((m for m in data.get("months", []) if m["id"] == today_mid),
                        {"id": today_mid, "allocations": {}, "budgets": {}})
     rts = F.ready_to_spend(today_month, data.get("months", []), accounts, buckets, txs)
 
-    sts_amt, sts_qualifier = None, ""
-    try:
-        from . import forecast_calc as FC
-        from datetime import date as _date, timedelta as _timedelta
-        fc = FC.compute_forecast(data, n_months=2)
-        sts_amt = fc["safe_to_spend"]
-        horizon_end = (_date.today() + _timedelta(days=60)).strftime("%b %-d")
-        sts_qualifier = f"through {horizon_end}"
-    except Exception:
-        pass
+    sts_amt, sts_qualifier = _safe_to_spend(data)
 
     rows = bucket_rows(view_mid=mid)
     groups = rows["groups"]
