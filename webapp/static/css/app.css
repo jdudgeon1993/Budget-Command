@@ -21,6 +21,35 @@
   --track:rgba(255,255,255,.08);
   --pace-good:var(--green); --pace-light:var(--amber); --pace-dark:#D2691E; --pace-over:var(--red);
 }
+
+/* ── v4 prototype only: "Morning" warm palette ──────────────────────────
+   Token-level reskin — every rule in this file already routes color
+   through the custom properties above, so overriding them here (scoped to
+   proto_base.html's <html data-theme="morning">) reskins every v4 screen,
+   including untouched content like Forecast, without touching a single
+   component rule. Classic's base.html keeps data-theme="electric" and is
+   completely unaffected. */
+:root[data-theme="morning"]{
+  --sidebar:#fbf3ec; --sidebar-hover:rgba(43,31,26,0.05);
+  --sidebar-active-bg:rgba(255,111,89,0.14); --sidebar-border:#ecdccb;
+  --nav-active:#d1543f; --rts-sidebar:#ff6f59;
+  --bg:#fbf3ec; --surface:#ffffff; --surface2:#f5e6da;
+  --border:#ecdccb;
+  --shadow-sm:0 1px 0 rgba(43,31,26,0.04),0 4px 20px rgba(43,31,26,0.06);
+  --shadow-md:0 8px 32px rgba(43,31,26,0.12);
+  --text:#2b1f1a; --text2:#8a7568; --text3:#b3a191;
+  --accent:#ff6f59; --accent-dim:#ffe4de; --accent-glow:rgba(255,111,89,0.35);
+  --alloc:#ff6f59;
+  --green:#2f9e5b; --green-dim:#e2f3e7;
+  --red:#e14f4f; --red-dim:#fce3e3;
+  --amber:#dd8a17; --amber-dim:#fbedd7;
+  --indigo:#8a6fb8;
+  --hero-bg:linear-gradient(135deg,#fff1ea 0%,#ffe4de 100%); --hero-glow:rgba(255,111,89,0.25);
+  --rts-hero-amt:#d1543f;
+  --track:rgba(43,31,26,0.08);
+  --pace-good:var(--green); --pace-light:var(--amber); --pace-dark:#b5651d; --pace-over:var(--red);
+}
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 .mono{font-family:var(--mono)}
