@@ -1,7 +1,7 @@
 {% extends layout %}
 {% block panel %}
 <div class="tx-form-wrap">
-  <form class="tx-form card" method="post" action="{{ url_for('panels.transaction_edit', tid=tx.id) }}">
+  <form class="tx-form card" method="post" action="{{ url_for('.transaction_edit', tid=tx.id) }}">
     <input type="hidden" name="back" value="{{ back }}">
     <div class="tx-form-title">Edit Transaction</div>
 
@@ -51,12 +51,12 @@
     </div>
 
     <div class="tx-actions">
-      <a class="toolbar-btn" href="{{ url_for('panels.' + back) }}">Cancel</a>
+      <a class="toolbar-btn" href="{{ url_for('.' + back) }}">Cancel</a>
       <button class="toolbar-btn primary" type="submit">Save Changes</button>
     </div>
   </form>
 
-  <form method="post" action="{{ url_for('panels.transaction_delete', tid=tx.id) }}"
+  <form method="post" action="{{ url_for('.transaction_delete', tid=tx.id) }}"
         style="margin-top:8px"
         onsubmit="return confirm('Delete this transaction?')">
     <input type="hidden" name="back" value="{{ back }}">

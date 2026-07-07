@@ -6,7 +6,7 @@ through formulas.py — never reimplemented in templates or JS.
 """
 
 import calendar
-from flask import g, session, current_app
+from flask import g, session, current_app, request
 
 from . import db as DB
 from . import formulas as F
@@ -58,11 +58,22 @@ def active_mid() -> str:
 
 
 def active_month(data: dict, mid: str = None) -> dict:
+    """The month object a caller is about to read or mutate.
+
+    If this month has no record yet (e.g. a future month tab nobody has
+    allocated into before), the new dict is appended to data["months"] —
+    not just returned — so a write via this function is actually visible
+    to the rest of this request (the panel re-render right after saving),
+    not silently discarded because it was never linked back in.
+    """
     target = mid or active_mid()
     for m in data.get("months", []):
         if m["id"] == target:
             return m
-    return {"id": target, "allocations": {}, "budgets": {}, "handledBuckets": {}, "vaultWithdrawals": {}}
+    new_month = {"id": target, "allocations": {}, "budgets": {},
+                 "handledBuckets": {}, "vaultWithdrawals": {}}
+    data.setdefault("months", []).append(new_month)
+    return new_month
 
 
 def month_label(mid: str) -> str:
@@ -71,6 +82,27 @@ def month_label(mid: str) -> str:
 
 
 # ── Shell view-model (sidebar RTS, header, month) ─────────────────────────────
+
+def _safe_to_spend(data: dict, horizon_months: int = 2) -> tuple[float | None, str]:
+    """Read-only Safe-to-Spend pull from the live Forecast engine.
+
+    compute_forecast() returns every figure pre-formatted as a display
+    string (e.g. "$2,258.00") for forecast.html's own use — never a raw
+    number — so it has to be parsed back to a float here rather than
+    handed straight to the `money` filter (which would silently choke on
+    the "$"/"," and render $0.00). forecast_calc.py itself is never
+    modified; this only reads its already-public return shape.
+    """
+    from datetime import date as _date, timedelta as _timedelta
+    try:
+        from . import forecast_calc as FC
+        fc = FC.compute_forecast(data, n_months=horizon_months)
+        amt = float(fc["safe_to_spend"].replace("$", "").replace(",", ""))
+        horizon_end = (_date.today() + _timedelta(days=30 * horizon_months)).strftime("%b %-d")
+        return amt, f"through {horizon_end}"
+    except Exception:
+        return None, ""
+
 
 def shell_ctx(active_panel: str = "") -> dict:
     from datetime import date as _date
@@ -116,7 +148,7 @@ def shell_ctx(active_panel: str = "") -> dict:
         if bkts:
             tx_buckets_by_cat.append({"cat": c["name"], "buckets": bkts})
 
-    return {
+    result = {
         "active_panel": active_panel,
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
@@ -134,10 +166,41 @@ def shell_ctx(active_panel: str = "") -> dict:
         "tx_accounts": tx_accounts,
         "tx_buckets_by_cat": tx_buckets_by_cat,
         "tx_today": _date.today().isoformat(),
+        "sts_amt": None,
+        "sts_qualifier": "",
     }
+    # v4 only: RTS + Safe-to-Spend shown together, everywhere, per the
+    # design-session plan. Read-only call into the same compute_forecast()
+    # the live Forecast page uses — nothing about it changes or is at risk.
+    # Gated to the proto blueprint so classic panels never pay this cost.
+    if request.blueprint == "proto":
+        result["sts_amt"], result["sts_qualifier"] = _safe_to_spend(data)
+    return result
 
 
 # ── Buckets panel view-model ──────────────────────────────────────────────────
+
+# v4 ordering: severity first (things needing action float up), due-date
+# proximity breaks ties within a tier (an objective fact, not a live status,
+# so it doesn't reshuffle unpredictably). No-due-date buckets sort last
+# within their tier, in their existing category order.
+_V4_TIER_ORDER = {"overspent": 0, "unfunded": 1, "funding": 2, "open": 3, "funded": 4, "vault": 5}
+
+
+def _v4_bucket_sort_key(row: dict) -> tuple:
+    tier = _V4_TIER_ORDER.get(row["alert_status"], 3)
+    dd = row.get("due_day")
+    if dd == "eom":
+        date_key = 32
+    elif dd:
+        try:
+            date_key = int(dd)
+        except (TypeError, ValueError):
+            date_key = 99
+    else:
+        date_key = 99
+    return (tier, date_key)
+
 
 def bucket_rows(view_mid: str = None):
     """Category-grouped bucket rows with alloc/budget/spent/left + status."""
@@ -170,7 +233,7 @@ def bucket_rows(view_mid: str = None):
     attention = []
     for cat in cats:
         rows = []
-        cat_alloc = cat_budget = 0.0
+        cat_alloc = cat_budget = cat_spent = cat_available = 0.0
         cat_bkts = sorted(
             [b for b in buckets if b.get("catId") == cat["id"]],
             key=lambda b: b.get("order", 0),
@@ -219,8 +282,70 @@ def bucket_rows(view_mid: str = None):
 
             if handled:
                 status, pill = "funded", "✓ Handled"
+
+            # ── Universal bucket alerts (v4 prototype) ──────────────────────
+            # Same five-state rule for every type: Allocated vs Target, no
+            # per-type branching. Target = budget (expense/vault) or
+            # target_amount (goal/sinking) — same field the row already
+            # shows as "Target". Flex opts out (no target by definition) and
+            # compares allocation to actual spend instead. Handled overrides.
+            alert_target = float(b.get("targetAmount") or 0) if b.get("type") in ("sinking", "goal") else budget
+            if is_flex:
+                uncovered = spent - alloc
+                if uncovered > 0.005:
+                    alert_status, alert_pill = "funding", f"Cover ${uncovered:,.2f}"
+                elif spent > 0.005:
+                    alert_status, alert_pill = "funded", f"${spent:,.2f} spent"
+                else:
+                    alert_status, alert_pill = "open", "Open"
+            elif alloc <= 0.005 and alert_target <= 0.005:
+                alert_status, alert_pill = "open", "Open"
+            elif alloc <= 0.005:
+                alert_status, alert_pill = "unfunded", "Unfunded"
+            elif alloc > alert_target + 0.005:
+                alert_status, alert_pill = "overspent", f"Overspent ${alloc - alert_target:,.2f}"
+            elif alloc >= alert_target - 0.005:
+                alert_status, alert_pill = "funded", "Funded"
+            else:
+                alert_status, alert_pill = "funding", f"Funding — ${alert_target - alloc:,.2f} short"
+            if handled:
+                alert_status, alert_pill = "funded", "✓ Handled"
+
+            # ── Pacing dial (v4 prototype, Copilot Money study) ─────────────
+            # Only meaningful for variable, non-bill spend: a plain Expense
+            # bucket with no due day (bills are lump-sum, not paced) and not
+            # Flex (no target to pace against). Only for the current month —
+            # "today" has no meaning inside a past or future month view.
+            pace_eligible = (
+                b.get("type", "expense") == "expense"
+                and not is_flex
+                and not b.get("dueDay")
+                and budget > 0.005
+                and mid == current_mid
+            )
+            pace_status = None
+            pace_used_pct = 0
+            if pace_eligible:
+                from datetime import date as _date_cls
+                today = _date_cls.today()
+                days_in_month = calendar.monthrange(today.year, today.month)[1]
+                ideal_pct = (today.day / days_in_month) * 100
+                used_pct = (spent / budget) * 100
+                pace_used_pct = min(100, round(used_pct))
+                diff = used_pct - ideal_pct
+                if used_pct > 100 + 0.5:
+                    pace_status = "over"
+                elif diff <= 0:
+                    pace_status = "good"
+                elif diff <= 20:
+                    pace_status = "light"
+                else:
+                    pace_status = "dark"
+
             cat_alloc += alloc
             cat_budget += budget
+            cat_spent += spent
+            cat_available += vault_total if b.get("type") == "vault" else left
             # Current month transactions for inline expand
             bkt_txs = sorted([
                 {"date": t.get("date", "")[:10],
@@ -254,6 +379,8 @@ def bucket_rows(view_mid: str = None):
                 "id": bid, "name": b["name"], "btype": b.get("type", "expense"),
                 "alloc": alloc, "budget": budget, "spent": spent, "left": left,
                 "status": status, "pill": pill, "needed": needed,
+                "alert_status": "vault" if b.get("type") == "vault" else alert_status,
+                "alert_pill": "Saving" if b.get("type") == "vault" else alert_pill,
                 "vault_total": vault_total,
                 "due_day": b.get("dueDay"),
                 "pay_freq": b.get("payFreq") or "",
@@ -266,6 +393,14 @@ def bucket_rows(view_mid: str = None):
                 "flex": is_flex, "uncovered": round(max(spent - alloc, 0), 2) if is_flex else 0.0,
                 "handled": handled,
                 "txs": bkt_txs,
+                # Universal 4-column view (v4 prototype): Available is the one
+                # "how much is really in this bucket" number, keyed off the
+                # already-correct per-type formula (cumulative for vault, resets
+                # monthly for plain expense) rather than a new calculation.
+                "available": vault_total if b.get("type") == "vault" else left,
+                "pace_eligible": pace_eligible,
+                "pace_status": pace_status,
+                "pace_used_pct": pace_used_pct,
             }
             rows.append(row)
             if status in ("partial", "over"):
@@ -273,8 +408,14 @@ def bucket_rows(view_mid: str = None):
         groups.append({
             "id": cat["id"], "name": cat["name"], "color": cat.get("color", "#888"),
             "alloc": cat_alloc, "budget": cat_budget,
+            "spent": cat_spent, "available": cat_available,
             "pct": min(100, round((cat_alloc / cat_budget) * 100)) if cat_budget else 0,
             "buckets": rows,
+            # v4 prototype only — severity tier first, due-date proximity
+            # breaks ties within a tier. A separate copy so classic's own
+            # tier-grouping in buckets.html (which relies on the original
+            # category/manual order for its own sub-ordering) is untouched.
+            "buckets_v4": sorted(rows, key=_v4_bucket_sort_key),
         })
     # Month tabs for the future-planning toggle
     month_tabs = [
@@ -283,10 +424,124 @@ def bucket_rows(view_mid: str = None):
          "offset": n}
         for n in (0, 1, 2)
     ]
-    return {"groups": groups, "attention": attention, "cats": cats,
-            "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
-            "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
-                            for b in buckets if not b.get("archived")]}
+    result = {"groups": groups, "attention": attention, "cats": cats,
+              "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
+              "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
+                              for b in buckets if not b.get("archived")]}
+    # v4 combined Ledger+Buckets view only — classic Buckets never pays this
+    # cost. Gated on request.blueprint so every existing call site (write
+    # actions re-rendering the panel, not just the initial GET) picks it up
+    # automatically without having to remember to merge it in separately.
+    if request.blueprint == "proto":
+        result.update(ledger_companion_ctx())
+    return result
+
+
+def ledger_companion_ctx() -> dict:
+    """Slim transaction feed for the v4 combined Ledger+Buckets view.
+
+    Reuses accounts_view()'s already-correct ledger grouping rather than
+    reimplementing transaction shaping — same data, same shape, just
+    filtered to one account (the primary budget account, same slice RTS
+    itself is anchored to) with a daily end-of-day running balance added,
+    matching what Accounts already shows when you filter to a single
+    account there.
+    """
+    data = load_data()
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    default_acct = next((a for a in accounts if a.get("type") == "budget"), None)
+    if not default_acct:
+        return {"ledger_groups": [], "ledger_acct_name": ""}
+
+    aid = default_acct["id"]
+    acc = accounts_view()
+    groups = []
+    for day in acc["ledger"]:
+        rows = [r for r in day["rows"]
+                if r["account_id"] == aid or (r["type"] == "xfr" and r["toAccountId"] == aid)]
+        if rows:
+            groups.append({**day, "rows": rows})
+    groups = groups[:8]
+
+    # Walk backward from today's balance (newest day first, matching
+    # accounts.html's own running-balance convention) so each day shows its
+    # own end-of-day balance, not just that day's net.
+    bal = F.acct_balance(default_acct, data.get("txs", []))
+    for day in groups:
+        day["end_balance"] = bal
+        effect = 0.0
+        for r in day["rows"]:
+            if r["account_id"] == aid:
+                effect += r["amount"] if r["type"] == "in" else (-r["amount"] if r["type"] in ("out", "xfr") else 0)
+            elif r["type"] == "xfr" and r["toAccountId"] == aid:
+                effect += r["amount"]
+        bal = round(bal - effect, 2)
+
+    return {"ledger_groups": groups, "ledger_acct_name": default_acct["name"]}
+
+
+# ── Dashboard (v4 prototype) — layer 1 of the map+sheet redesign ──────────────
+
+def dashboard_ctx() -> dict:
+    """Glanceable, tappable summary — layer 1 of the dashboard+sheet redesign.
+
+    Every number here is a doorway, not a destination: detail lives in the
+    sheet (existing panel routes, reused as-is). Pure aggregation of
+    bucket_rows()/accounts_view() totals that already exist.
+    """
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data, mid)
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+
+    # Same account slice RTS itself is anchored to (budget accounts only) —
+    # savings isn't part of what RTS claims against, so it shouldn't be
+    # folded into the headline "Balance" figure sitting right next to RTS.
+    balance = F.budget_bal(accounts, txs)
+    today_mid = F.current_month_id()
+    today_month = next((m for m in data.get("months", []) if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    rts = F.ready_to_spend(today_month, data.get("months", []), accounts, buckets, txs)
+
+    sts_amt, sts_qualifier = _safe_to_spend(data)
+
+    rows = bucket_rows(view_mid=mid)
+    groups = rows["groups"]
+    total_budget = sum(g["budget"] for g in groups)
+    total_spent = sum(g["spent"] for g in groups)
+    budget_pct = min(100, round((total_spent / total_budget) * 100)) if total_budget > 0 else 0
+    over_budget = total_spent > total_budget > 0
+
+    cat_trends = sorted(
+        [{"name": g["name"], "color": g["color"], "spent": g["spent"],
+          "pct": round((g["spent"] / total_spent) * 100) if total_spent > 0 else 0}
+         for g in groups if g["spent"] > 0.005],
+        key=lambda c: c["spent"], reverse=True,
+    )
+    # Multi-slice donut, precomputed server-side (cumulative running-angle math
+    # is awkward in Jinja) — a single ready-to-use conic-gradient CSS value.
+    cat_pie_css = "var(--track)"
+    if cat_trends:
+        stops, angle = [], 0.0
+        for c in cat_trends:
+            span = (c["spent"] / total_spent) * 360 if total_spent > 0 else 0
+            stops.append(f"{c['color']} {angle:.1f}deg {angle + span:.1f}deg")
+            angle += span
+        cat_pie_css = "conic-gradient(" + ", ".join(stops) + ")"
+
+    acc = accounts_view()
+    cash_cards = [c for c in acc["cards"] if c["type"] != "debt"]
+    debt_cards = [c for c in acc["cards"] if c["type"] == "debt"]
+
+    return {
+        "balance": balance, "rts": rts, "sts_amt": sts_amt, "sts_qualifier": sts_qualifier,
+        "total_budget": total_budget, "total_spent": total_spent,
+        "budget_pct": budget_pct, "over_budget": over_budget,
+        "cat_trends": cat_trends, "cat_pie_css": cat_pie_css,
+        "cash_cards": cash_cards, "debt_cards": debt_cards,
+    }
 
 
 # ── Distribute modal view-model ───────────────────────────────────────────────

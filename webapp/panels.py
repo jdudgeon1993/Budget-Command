@@ -17,23 +17,58 @@ PANELS = ["buckets", "accounts", "insights", "reports", "setup"]
 
 
 def render_panel(template, active_panel, **ctx):
-    """Full page on normal load, bare fragment on HTMX request."""
+    """Full page on normal load, bare fragment on HTMX request.
+
+    The same view functions are also mounted under the "proto" blueprint
+    (see webapp/__init__.py) at /proto/v4 — a full live mirror used to
+    redesign one section at a time without touching the production routes.
+    request.blueprint tells us which mount served this request so the
+    mirror gets its own full-page shell (nav links stay inside /proto/v4)
+    while the HTMX partial layout is identical either way.
+    """
     session["active_panel"] = active_panel
     htmx = request.headers.get("HX-Request") == "true"
-    layout = "_partial.html" if htmx else "base.html"
-    return render_template(template, layout=layout,
+    dash = None
+    if htmx:
+        layout = "_partial.html"
+    else:
+        layout = "proto_base.html" if request.blueprint == "proto" else "base.html"
+        # Dashboard (layer 1) is part of the persistent v4 shell, rendered on
+        # every hard page load — not recomputed for htmx fragment swaps,
+        # which only ever replace #panel and never touch the shell around it.
+        if request.blueprint == "proto":
+            dash = D.dashboard_ctx()
+    return render_template(template, layout=layout, dash=dash,
                            shell=D.shell_ctx(active_panel), **ctx)
+
+
+def _bucket_template() -> str:
+    """buckets.html normally; the redesigned v4 layout under the proto mirror."""
+    return "panels/buckets_v4.html" if request.blueprint == "proto" else "panels/buckets.html"
+
+
+def _bucket_settings_template() -> str:
+    """Settings-form fragment: classic 3-field-group form, or the v4 redesign."""
+    return "panels/_frag_bucket_v4.html" if request.blueprint == "proto" else "panels/_frag_bucket.html"
 
 
 @bp.route("/")
 def index():
-    return redirect(url_for("panels.buckets"))
+    if request.blueprint == "proto":
+        return redirect(url_for(".dashboard"))
+    return redirect(url_for(".buckets"))
 
 
 @bp.route("/dashboard")
 @login_required
 def dashboard():
-    return redirect(url_for("panels.buckets"))
+    """Layer 1 of the map+sheet redesign — v4 prototype only.
+
+    Classic keeps its old behavior (redirect straight to Buckets) untouched.
+    """
+    if request.blueprint != "proto":
+        return redirect(url_for(".buckets"))
+    return render_panel("panels/dashboard_v4.html", "buckets", sheet_open=False)
 
 
 # ── Buckets ───────────────────────────────────────────────────────────────────
@@ -42,25 +77,37 @@ def dashboard():
 @login_required
 def buckets():
     view_mid = request.args.get("m") or None
-    return render_panel("panels/buckets.html", "buckets", **D.bucket_rows(view_mid=view_mid))
+    return render_panel(_bucket_template(), "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
 @bp.route("/buckets/<bid>/alloc", methods=["POST"])
 @login_required
 def set_alloc(bid):
-    """Inline allocation edit -> returns the updated row + OOB shell refresh."""
+    """Inline allocation edit -> returns the updated row + OOB shell refresh.
+
+    Targets the month being viewed (the "m" tab/param), not whatever the
+    sidebar arrows last left session["active_mid"] at — those are two
+    different navigation mechanisms and edits must follow the one the user
+    is actually looking at.
+    """
     try:
         amount = round(float(request.form.get("alloc", "0").replace("$", "").replace(",", "")), 2)
     except ValueError:
         amount = 0.0
+    target_mid = request.values.get("m") or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, target_mid)
     month.setdefault("allocations", {})[bid] = amount
     if not current_app.config["DEV_SEED"]:
+        # A future month tab you've never touched before has no bcc_months
+        # row yet — load_all() only ever attaches allocations to months it
+        # finds there, so writing the allocation without this first creates
+        # an orphaned row that silently vanishes on the next page load.
+        DB.ensure_month(session["user_id"], session["access_token"], target_mid)
         DB.upsert_alloc(session["user_id"], session["access_token"],
-                        D.active_mid(), bid, amount)
+                        target_mid, bid, amount)
         D.invalidate_cache()
-    return _buckets_response()
+    return _buckets_response(view_mid=target_mid)
 
 
 # ── Bucket fill / distribute ─────────────────────────────────────────────────
@@ -68,20 +115,26 @@ def set_alloc(bid):
 @bp.route("/buckets/<bid>/fill", methods=["POST"])
 @login_required
 def fill_bucket(bid):
-    """Set allocation = max(budget, spent) — fills to target or covers actual spend."""
+    """Set allocation = max(budget, spent) — fills to target or covers actual spend.
+
+    Targets the viewed month (see set_alloc) — the "m" hidden field this
+    button already sends was previously never read, so Fill/Cover on a
+    future-month tab was silently applying to the wrong month.
+    """
+    target_mid = request.values.get("m") or D.active_mid()
     data = D.load_data()
-    mid = D.active_mid()
-    month = D.active_month(data)
+    month = D.active_month(data, target_mid)
     budget = D.F.b_budget(month, bid)
-    spent  = D.F.b_spent(mid, bid, data.get("txs", []))
+    spent  = D.F.b_spent(target_mid, bid, data.get("txs", []))
     new_alloc = max(budget, spent)
     month.setdefault("allocations", {})[bid] = new_alloc
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], target_mid)
         DB.upsert_alloc(session["user_id"], session["access_token"],
-                        mid, bid, new_alloc)
+                        target_mid, bid, new_alloc)
         D.invalidate_cache()
     flash("Covered." if spent > budget else "Filled.", "ok")
-    return _buckets_response()
+    return _buckets_response(view_mid=target_mid)
 
 
 def _distribute_checks():
@@ -150,15 +203,19 @@ def distribute_rts():
         D.invalidate_cache()
     flash("Distribution applied.", "ok")
     if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
+        return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
     return _buckets_response()
 
 
-def _buckets_response():
-    """Return buckets panel for HTMX or redirect for plain requests."""
+def _buckets_response(view_mid: str = None):
+    """Return buckets panel for HTMX or redirect for plain requests.
+
+    Preserves whichever month the user was looking at (view_mid) so an edit
+    to a future month doesn't snap the page back to the current month.
+    """
     if request.headers.get("HX-Request") == "true":
-        return render_panel("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+        return render_panel(_bucket_template(), "buckets", **D.bucket_rows(view_mid=view_mid))
+    return redirect(url_for(".buckets"))
 
 
 def _is_modal():
@@ -176,10 +233,20 @@ def _panel_close_modal(panel_tmpl, active_panel, **ctx):
 
 _PANEL_MAP = {
     "accounts": ("panels/accounts.html", lambda: D.accounts_view()),
-    "buckets":  ("panels/buckets.html",  lambda: D.bucket_rows()),
     "reports":  ("panels/reports.html",  lambda: D.reports_view()),
     "setup":    ("panels/setup.html",    lambda: D.setup_view()),
 }
+
+
+def _panel_lookup(back_panel: str):
+    """Template + context-fn for a "back to panel X" redirect.
+
+    Buckets needs the blueprint-aware template (see _bucket_template);
+    everything else is a fixed 1:1 mapping via _PANEL_MAP.
+    """
+    if back_panel == "buckets":
+        return _bucket_template(), (lambda: D.bucket_rows())
+    return _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
 
 
 # ── Bucket settings ───────────────────────────────────────────────────────────
@@ -191,7 +258,7 @@ def bucket_settings(bid):
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket:
         flash("Bucket not found.", "error")
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     cats = data.get("cats", [])
     if request.method == "POST":
         f = request.form
@@ -206,37 +273,57 @@ def bucket_settings(bid):
                 "name": f.get("name", bucket["name"]).strip(),
                 "cat_id": f.get("catId", bucket.get("catId", "")),
                 "type": btype,
-                "default_budget": _num("default_budget"),
                 "notes": f.get("notes", ""),
             }
-            if btype == "expense":
-                payload.update({
-                    "due_day": (f.get("due_day") or "").strip() or None,
-                    "due_amount": _num("due_amount"),
-                    "pay_freq": f.get("pay_freq") or None,
-                    "recurring": f.get("recurring") == "1",
-                    "flex": f.get("flex") == "1",
-                })
-            elif btype in ("goal", "sinking"):
-                payload.update({
-                    "target_amount": _num("target_amount"),
-                    "target_date": f.get("target_date") or None,
-                    "contrib_freq": f.get("contrib_freq") or None,
-                })
+            if "target_budget" in f:
+                # v4 form: one Target Budget field + one Frequency + one Due
+                # Date, reused across types instead of three field-groups.
+                # No Recurring Bill / Due Amount — dropped as redundant.
+                target_budget = _num("target_budget")
+                if btype in ("goal", "sinking"):
+                    payload.update({
+                        "target_amount": target_budget,
+                        "target_date": f.get("due_date") or None,
+                        "contrib_freq": f.get("frequency") or None,
+                    })
+                else:
+                    payload["default_budget"] = target_budget
+                    if btype == "expense":
+                        payload.update({
+                            "due_day": (f.get("due_date") or "").strip() or None,
+                            "pay_freq": f.get("frequency") or None,
+                            "flex": f.get("flex") == "1",
+                        })
+            else:
+                payload["default_budget"] = _num("default_budget")
+                if btype == "expense":
+                    payload.update({
+                        "due_day": (f.get("due_day") or "").strip() or None,
+                        "due_amount": _num("due_amount"),
+                        "pay_freq": f.get("pay_freq") or None,
+                        "recurring": f.get("recurring") == "1",
+                        "flex": f.get("flex") == "1",
+                    })
+                elif btype in ("goal", "sinking"):
+                    payload.update({
+                        "target_amount": _num("target_amount"),
+                        "target_date": f.get("target_date") or None,
+                        "contrib_freq": f.get("contrib_freq") or None,
+                    })
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
             D.invalidate_cache()
             flash("Bucket updated.", "ok")
         else:
             flash("Dev mode: change not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-        return redirect(url_for("panels.buckets"))
+            return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
+        return redirect(url_for(".buckets"))
     data_ctx = D.load_data()
     debt_accounts = [{"id": a["id"], "name": a["name"]}
                      for a in data_ctx.get("accounts", [])
                      if a.get("type") == "debt" and not a.get("archived")]
     if _is_modal():
-        return render_template("panels/_frag_bucket.html", bucket=bucket, cats=cats,
+        return render_template(_bucket_settings_template(), bucket=bucket, cats=cats,
                                debt_accounts=debt_accounts)
     return render_panel("panels/edit_bucket.html", "buckets",
                         bucket=bucket, cats=cats, debt_accounts=debt_accounts)
@@ -252,8 +339,8 @@ def archive_bucket(bid):
     else:
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+        return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
+    return redirect(url_for(".buckets"))
 
 
 @bp.route("/buckets/<bid>/vault-transfer", methods=["GET", "POST"])
@@ -262,7 +349,7 @@ def vault_transfer(bid):
     data = D.load_data()
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket or bucket.get("type") != "vault":
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     if request.method == "POST":
         f = request.form
         to_bid = f.get("to_bid", "")
@@ -275,6 +362,14 @@ def vault_transfer(bid):
             mid = D.active_mid()
             from_alloc = D.F.b_alloc(month, bid)
             to_alloc = D.F.b_alloc(month, to_bid)
+            # This route only ever touches the current month's own allocation
+            # (it doesn't reach into prior-month accumulation the way vault
+            # release does) — so the amount actually available to move is
+            # capped at from_alloc. Both sides need to use that same clamped
+            # figure; crediting the destination with the original, unclamped
+            # amount while the source silently clamped to 0 would credit more
+            # than was ever actually drained from the vault.
+            amount = min(amount, from_alloc)
             new_from = max(0.0, round(from_alloc - amount, 2))
             new_to = round(to_alloc + amount, 2)
             if not current_app.config["DEV_SEED"]:
@@ -285,8 +380,8 @@ def vault_transfer(bid):
             else:
                 flash("Dev mode: transfer not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-        return redirect(url_for("panels.buckets"))
+            return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
+        return redirect(url_for(".buckets"))
     # GET — render transfer form in modal
     dest_buckets = [b for b in data.get("buckets", [])
                     if not b.get("archived") and b.get("type") != "vault"]
@@ -311,13 +406,22 @@ def vault_release_to_pool(bid):
     data = D.load_data()
     bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
     if not bucket or bucket.get("type") != "vault":
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     if request.method == "POST":
         f = request.form
         try:
             amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
         except ValueError:
             amount = 0.0
+        # The form pre-fills this with the accumulated total, but it's a
+        # plain editable text field the client can submit anything through
+        # (including a stale/duplicate figure from a modal that wasn't
+        # refreshed between two release attempts). Never trust it past what
+        # the vault actually holds right now — clamping here is what stops
+        # a double-submit from draining the same savings twice and going
+        # negative.
+        true_accum = max(D.F.vault_accumulated(bid, data.get("months", [])), 0.0)
+        amount = min(amount, true_accum)
         if amount > 0:
             month = D.active_month(data)
             mid = D.active_mid()
@@ -335,8 +439,8 @@ def vault_release_to_pool(bid):
             else:
                 flash("Dev mode: release not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-        return redirect(url_for("panels.buckets"))
+            return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
+        return redirect(url_for(".buckets"))
     # GET — render release form in modal
     month = D.active_month(data)
     vault_alloc = D.F.b_alloc(month, bid)
@@ -350,15 +454,17 @@ def vault_release_to_pool(bid):
 @bp.route("/buckets/<bid>/budget", methods=["POST"])
 @login_required
 def set_budget(bid):
+    """Targets the viewed month (see set_alloc for why this matters)."""
     try:
         amount = round(float(request.form.get("budget", "0").replace("$", "").replace(",", "")), 2)
     except ValueError:
         amount = 0.0
+    saving_mid = request.values.get("m") or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, saving_mid)
     month.setdefault("budgets", {})[bid] = amount
-    saving_mid = D.active_mid()
     if not current_app.config["DEV_SEED"]:
+        DB.ensure_month(session["user_id"], session["access_token"], saving_mid)
         DB.upsert_budget(session["user_id"], session["access_token"],
                          saving_mid, bid, amount)
         if saving_mid == D.F.current_month_id():
@@ -367,7 +473,28 @@ def set_budget(bid):
                     DB.upsert_budget(session["user_id"], session["access_token"],
                                      m["id"], bid, amount)
         D.invalidate_cache()
-    return _buckets_response()
+    return _buckets_response(view_mid=saving_mid)
+
+
+@bp.route("/buckets/<bid>/target-amount", methods=["POST"])
+@login_required
+def set_target_amount(bid):
+    """Inline edit for a Goal/Sinking bucket's overall target amount.
+
+    Unlike set_budget, this isn't month-scoped — targetAmount lives on the
+    bucket record itself, the same one field editable in Settings. Making
+    it inline too matches the "Allocated vs Target is the same rule for
+    every type" decision (see plan) rather than treating Goal as a special
+    case that needs its own drawer trip just to nudge the number.
+    """
+    try:
+        amount = round(float(request.form.get("target_amount", "0").replace("$", "").replace(",", "")), 2)
+    except ValueError:
+        amount = 0.0
+    if not current_app.config["DEV_SEED"]:
+        DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"target_amount": amount})
+        D.invalidate_cache()
+    return _buckets_response(view_mid=request.values.get("m") or None)
 
 
 # ── Add bucket ────────────────────────────────────────────────────────────────
@@ -391,31 +518,6 @@ def add_bucket():
 
 
 # ── Bucket reorder ────────────────────────────────────────────────────────────
-
-@bp.route("/buckets/<bid>/move/<direction>", methods=["POST"])
-@login_required
-def move_bucket(bid, direction):
-    data = D.load_data()
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    this_b = next((b for b in buckets if b["id"] == bid), None)
-    if not this_b:
-        return redirect(url_for("panels.buckets"))
-    siblings = sorted(
-        [b for b in buckets if b.get("catId") == this_b.get("catId")],
-        key=lambda b: b.get("order", 0)
-    )
-    idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), -1)
-    swap_idx = idx - 1 if direction == "up" else idx + 1
-    if 0 <= idx < len(siblings) and 0 <= swap_idx < len(siblings):
-        b1, b2 = siblings[idx], siblings[swap_idx]
-        o1 = b1.get("order", idx)
-        o2 = b2.get("order", swap_idx)
-        if not current_app.config["DEV_SEED"]:
-            DB.update_bucket_order(session["user_id"], session["access_token"], b1["id"], o2)
-            DB.update_bucket_order(session["user_id"], session["access_token"], b2["id"], o1)
-            D.invalidate_cache()
-    return _buckets_response()
-
 
 @bp.route("/buckets/<bid>/handled", methods=["POST"])
 @login_required
@@ -487,7 +589,7 @@ def account_new():
             flash("Name is required.", "error")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if _is_modal():
         return render_template("panels/_frag_account.html", account=None)
     return render_panel("panels/edit_account.html", "accounts", account=None)
@@ -500,7 +602,7 @@ def account_edit(aid):
     account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
     if not account:
         flash("Account not found.", "error")
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -536,7 +638,7 @@ def account_edit(aid):
             flash("Dev mode: change not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if _is_modal():
         return render_template("panels/_frag_account.html", account=account)
     return render_panel("panels/edit_account.html", "accounts", account=account)
@@ -553,7 +655,7 @@ def account_archive(aid):
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-    return redirect(url_for("panels.accounts"))
+    return redirect(url_for(".accounts"))
 
 
 @bp.route("/accounts/<aid>/pay", methods=["GET", "POST"])
@@ -562,7 +664,7 @@ def debt_payment(aid):
     data = D.load_data()
     account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
     if not account or account.get("type") != "debt":
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -586,7 +688,7 @@ def debt_payment(aid):
             flash("Dev mode: payment not persisted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     # GET — render payment form
     from_accounts = [{"id": a["id"], "name": a["name"]}
                      for a in data.get("accounts", [])
@@ -609,7 +711,7 @@ def post_interest(aid):
     data = D.load_data()
     account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
     if not account or account.get("type") != "debt":
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -627,7 +729,7 @@ def post_interest(aid):
         flash("Interest posted.", "ok")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     # GET — show form
     balance = abs(D.F.acct_balance(account, data.get("txs", [])))
     apr = account.get("debtAPR") or 0
@@ -1133,7 +1235,7 @@ def apply_paycheck_distribute(tid):
     tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
     if not tx:
         flash("Transaction not found.", "error")
-        return redirect(url_for("panels.buckets"))
+        return redirect(url_for(".buckets"))
     amount = float(tx.get("amount") or 0)
     mid = tx.get("monthId") or D.active_mid()
     f = request.form
@@ -1167,54 +1269,7 @@ def apply_paycheck_distribute(tid):
                 DB.upsert_alloc(session["user_id"], session["access_token"], next_mid, o["id"], new_alloc)
         D.invalidate_cache()
     flash(f"Distributed {ctx['total_applied']:,.2f}.", "ok")
-    return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-
-
-@bp.route("/transaction/<tid>/apply-rules", methods=["POST"])
-@login_required
-def apply_rules(tid):
-    """Apply active internal allocation rules to bucket allocations for this income tx."""
-    data = D.load_data()
-    tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
-    if not tx:
-        flash("Transaction not found.", "error")
-        return redirect(url_for("panels.buckets"))
-
-    amount = float(tx.get("amount") or 0)
-    mid = tx.get("monthId") or D.active_mid()
-    month = next((m for m in data.get("months", []) if m.get("id") == mid),
-                 {"id": mid, "allocations": {}})
-    rules_raw = sorted(
-        [r for r in data.get("allocationRules", []) if r.get("active", True)],
-        key=lambda r: r.get("sort_order", 0))
-
-    applied = 0
-    remaining = amount
-    for r in rules_raw:
-        v = float(r.get("value") or 0)
-        vtype = r.get("value_type", "fixed")
-        if vtype == "fund":
-            computed = round(max(0.0, remaining), 2)
-        else:
-            computed = round(amount * v / 100, 2) if vtype == "pct" else v
-        remaining = round(remaining - computed, 2)
-
-        if r.get("rule_type", "internal") == "external":
-            continue
-        bid = r.get("bucket_id") or r.get("bucketId") or ""
-        if not bid or computed <= 0:
-            continue
-        new_alloc = round(D.F.b_alloc(month, bid) + computed, 2)
-        if not current_app.config["DEV_SEED"]:
-            DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, new_alloc)
-        applied += 1
-
-    if applied and not current_app.config["DEV_SEED"]:
-        D.invalidate_cache()
-    flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
-    if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal("panels/buckets.html", "buckets", **D.bucket_rows())
-    return redirect(url_for("panels.buckets"))
+    return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
 
 
 
@@ -1225,7 +1280,7 @@ def transaction_edit(tid):
     tx = D.tx_by_id(tid)
     if not tx:
         flash("Transaction not found.", "error")
-        return redirect(url_for("panels.accounts"))
+        return redirect(url_for(".accounts"))
     if request.method == "POST":
         f = request.form
         try:
@@ -1254,9 +1309,9 @@ def transaction_edit(tid):
             flash("Dev mode: change not persisted.", "ok")
         back_panel = f.get("back") or "accounts"
         if request.headers.get("HX-Request") == "true":
-            tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+            tmpl, ctx_fn = _panel_lookup(back_panel)
             return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-        return redirect(url_for("panels." + back_panel))
+        return redirect(url_for("." + back_panel))
     back = session.get("active_panel", "accounts")
     if _is_modal():
         return render_template("panels/_frag_edit_tx.html", tx=tx, back=back,
@@ -1276,9 +1331,9 @@ def transaction_delete(tid):
     else:
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
-        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+        tmpl, ctx_fn = _panel_lookup(back_panel)
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-    return redirect(url_for("panels." + back_panel))
+    return redirect(url_for("." + back_panel))
 
 
 @bp.route("/transaction/new")
@@ -1319,9 +1374,9 @@ def transaction_create():
             flash("Vault buckets cannot hold transactions. Use Transfer instead.", "error")
             back_panel = f.get("back") or session.get("active_panel", "buckets")
             if request.headers.get("HX-Request") == "true":
-                tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+                tmpl, ctx_fn = _panel_lookup(back_panel)
                 return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-            return redirect(url_for("panels." + back_panel))
+            return redirect(url_for("." + back_panel))
 
     back_panel = f.get("back") or session.get("active_panel", "buckets")
     if current_app.config["DEV_SEED"]:
@@ -1345,9 +1400,9 @@ def transaction_create():
     else:
         flash("Amount and account are required.", "error")
     if request.headers.get("HX-Request") == "true":
-        tmpl, ctx_fn = _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
+        tmpl, ctx_fn = _panel_lookup(back_panel)
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())
-    return redirect(url_for("panels." + back_panel))
+    return redirect(url_for("." + back_panel))
 
 
 @bp.route("/month/<direction>")
@@ -1356,7 +1411,7 @@ def month_nav(direction):
     y, m0 = D.F.parse_month_id(D.active_mid())
     total = y * 12 + m0 + (1 if direction == "next" else -1)
     session["active_mid"] = f"m_{total // 12}_{total % 12}"
-    return redirect(url_for("panels." + session.get("active_panel", "buckets")))
+    return redirect(url_for("." + session.get("active_panel", "buckets")))
 
 
 @bp.route("/month/today")
@@ -1364,7 +1419,7 @@ def month_nav(direction):
 def month_today():
     """Jump the active month back to today's calendar month."""
     session["active_mid"] = D.F.current_month_id()
-    return redirect(url_for("panels." + session.get("active_panel", "buckets")))
+    return redirect(url_for("." + session.get("active_panel", "buckets")))
 
 
 # ── Stub panels (built in later phases) ───────────────────────────────────────

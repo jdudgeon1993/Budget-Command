@@ -1,0 +1,257 @@
+{% extends layout %}
+{% block panel %}
+<div class="v4-combined">
+  <div class="v4-mobile-seg">
+    <button class="v4-seg-btn active" type="button" onclick="v4SwitchMobile(this,'buckets')">Buckets</button>
+    <button class="v4-seg-btn" type="button" onclick="v4SwitchMobile(this,'ledger')">Ledger</button>
+  </div>
+
+  <div class="v4-ledger-col" id="v4-ledger-col">
+    <div class="v4-ledger-hdr">Ledger{% if ledger_acct_name %} <span class="v4-ledger-acct">· {{ ledger_acct_name }}</span>{% endif %}</div>
+    {% if ledger_groups %}
+      {% for grp in ledger_groups %}
+      <div class="v4-ledger-daylbl">
+        <span>{{ grp.label }}</span>
+        <span class="v4-ledger-rb">{{ grp.end_balance | money }}</span>
+      </div>
+      {% for r in grp.rows %}
+      <div class="v4-ledger-row">
+        <div class="v4-ledger-row-main">
+          <span class="v4-ledger-desc">{{ r.desc }}</span>
+          {% if r.sub %}<span class="v4-ledger-sub">{{ r.sub }}</span>{% endif %}
+        </div>
+        <span class="v4-ledger-amt" style="color:var(--{{ r.color }})">{{ r.signed | money }}</span>
+      </div>
+      {% endfor %}
+      {% endfor %}
+    {% else %}
+      <div class="v4-ledger-empty">No transactions yet this month.</div>
+    {% endif %}
+  </div>
+
+<div class="panel-grid v4-buckets-col v4-mobile-show" id="v4-buckets-col">
+  <div>
+    {# ── Month planning tabs ── #}
+    <div class="month-tabs">
+      {% for tab in month_tabs %}
+      <a class="month-tab {% if tab.mid == view_mid %}active{% elif tab.offset > 0 %}future{% endif %}"
+         href="{{ url_for('.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         hx-get="{{ url_for('.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         hx-target="#panel" hx-swap="innerHTML">
+        {{ tab.label }}{% if tab.offset > 0 %} <span style="font-size:9px;opacity:.6;vertical-align:middle">▸</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+
+    {% if shell.is_past_month %}
+    <div class="month-banner past-month-banner">
+      <span>You're viewing a past month — changes here won't affect your current budget.</span>
+      <a class="month-banner-cta" href="{{ url_for('.month_today') }}">
+        Go to {{ shell.today_month_label }} →
+      </a>
+    </div>
+    {% endif %}
+
+    {% if view_mid != current_mid %}
+    <div style="background:rgba(129,140,248,0.10);border:1px solid rgba(129,140,248,0.25);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--indigo)">
+      Planning allocations for <strong>{{ month_tabs | selectattr('mid','equalto',view_mid) | map(attribute='label') | first | default(view_mid) }}</strong> — spending data not available yet.
+    </div>
+    {% endif %}
+
+    <div class="workflow-bar">
+      {% if shell.rts > 0 %}
+      <button class="wf-btn wf-btn-primary" type="button"
+              hx-get="{{ url_for('.distribute_modal') }}" hx-target="#modal-body" hx-swap="innerHTML"
+              onclick="openModal()">Distribute {{ shell.rts | money }} →</button>
+      {% endif %}
+      {% if shell.month_closed %}
+      <span class="wf-closed-badge">🔒 Closed</span>
+      <form method="post" action="{{ url_for('.month_reopen') }}" style="display:contents"
+            hx-post="{{ url_for('.month_reopen') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="wf-btn" type="submit">Reopen</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('.month_close') }}" style="display:contents"
+            hx-post="{{ url_for('.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
+        <button class="wf-btn" type="submit">Close Month</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {# ── Category cards — collapsed by default (tap to expand); same data as
+       before, just not all dumped on screen at once. Background tint on the
+       header stands in for the old separate progress-bar element — one
+       glance at the color says the status, no bar needed. ── #}
+    {% for grp in groups %}
+    {% set has_over = grp.buckets_v4 | selectattr('alert_status', 'equalto', 'overspent') | list | length > 0 %}
+    {% set cat_tier = 'over' if has_over else ('full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty')) %}
+    <div class="v4-cat v4-cat-{{ cat_tier }} collapsed" id="cat-{{ grp.id }}">
+      <div class="v4-cat-hdr" onclick="this.closest('.v4-cat').classList.toggle('collapsed')">
+        <div class="v4-cat-swatch" style="background:{{ grp.color }}"></div>
+        <span class="v4-cat-name">{{ grp.name }}</span>
+        <span class="v4-cat-pct-pill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}">{{ grp.pct }}%</span>
+        <span class="v4-cat-chevron">▾</span>
+      </div>
+      <div class="v4-cat-figs">
+        <span>{{ grp.alloc | money }} / {{ grp.budget | money }}</span>
+        <span>{{ grp.spent | money }} spent</span>
+        <span class="v4-cat-figs-avail">{{ grp.available | money }} avail</span>
+      </div>
+
+      {% for b in grp.buckets_v4 %}{% include "panels/_bucket_row_v4.html" %}{% endfor %}
+
+      <div class="vg-add-strip">
+        <input type="text" id="new-bkt-name-{{ grp.id }}" placeholder="+ New bucket in {{ grp.name }}…">
+        <select id="new-bkt-type-{{ grp.id }}">
+          <option value="expense">Expense</option>
+          <option value="goal">Goal</option>
+          <option value="vault">Vault</option>
+        </select>
+        <form method="post" action="{{ url_for('.add_bucket') }}" style="display:contents"
+              hx-post="{{ url_for('.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML"
+              onsubmit="
+                var n=document.getElementById('new-bkt-name-{{ grp.id }}');
+                var t=document.getElementById('new-bkt-type-{{ grp.id }}');
+                this.querySelector('[name=name]').value=n.value;
+                this.querySelector('[name=type]').value=t.value;
+              ">
+          <input type="hidden" name="catId" value="{{ grp.id }}">
+          <input type="hidden" name="name" value="">
+          <input type="hidden" name="type" value="expense">
+          <button class="vg-add-strip button" type="submit" style="font-size:11px;font-family:var(--mono);font-weight:700;padding:5px 12px;border-radius:var(--r-sm);background:rgba(191,90,242,.10);color:var(--accent);border:1px solid rgba(191,90,242,.3);cursor:pointer">Add</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+
+    <script>
+    // Visibility here is class-driven (.shown), not inline style — the CSS
+    // transition on .v4-panel-sub in app.css only animates a class change,
+    // not a display:none jump cut. Each row icon opens its own sub-panel
+    // directly (no wrapping "Toggle" step anymore) and lights up while its
+    // content is showing.
+    function v4ShowSub(id, which, url){
+      var ledger=document.getElementById('v4-sub-ledger-'+id);
+      var settings=document.getElementById('v4-sub-settings-'+id);
+      var iconL=document.getElementById('v4-icon-ledger-'+id);
+      var iconS=document.getElementById('v4-icon-settings-'+id);
+      var target=(which==='ledger')?ledger:settings;
+      var other=(which==='ledger')?settings:ledger;
+      var targetIcon=(which==='ledger')?iconL:iconS;
+      var otherIcon=(which==='ledger')?iconS:iconL;
+      if(!target)return;
+      var opening=!target.classList.contains('shown');
+      if(other)other.classList.remove('shown');
+      if(otherIcon)otherIcon.classList.remove('active');
+      target.classList.toggle('shown', opening);
+      if(targetIcon)targetIcon.classList.toggle('active', opening);
+      if(opening && which==='settings' && url){
+        var el=document.getElementById('bkt-settings-'+id);
+        if(el && !el.dataset.loaded){
+          el.dataset.loaded='1';
+          htmx.ajax('GET', url, {target:'#'+el.id, swap:'innerHTML'});
+        }
+      }
+    }
+
+    // Live reordering (severity + due-date) is animated, not a jump cut —
+    // classic FLIP: capture each row's position before the #panel swap,
+    // then transform-offset it back to that spot and transition to zero
+    // once the new order has landed. Guarded so navigating to Buckets
+    // repeatedly doesn't stack duplicate listeners on <body>.
+    if(!window._v4FlipBound){
+      window._v4FlipBound = true;
+      var _v4Positions = {};
+      document.body.addEventListener('htmx:beforeSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        _v4Positions = {};
+        document.querySelectorAll('[id^="v4-bkt-"]').forEach(function(el){
+          _v4Positions[el.id] = el.getBoundingClientRect().top;
+        });
+      });
+      document.body.addEventListener('htmx:afterSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var positions = _v4Positions;
+        requestAnimationFrame(function(){
+          document.querySelectorAll('[id^="v4-bkt-"]').forEach(function(el){
+            var oldTop = positions[el.id];
+            if(oldTop == null) return;
+            var delta = oldTop - el.getBoundingClientRect().top;
+            if(Math.abs(delta) < 2) return;
+            el.style.transition = 'none';
+            el.style.transform = 'translateY(' + delta + 'px)';
+            requestAnimationFrame(function(){
+              el.style.transition = 'transform .28s ease';
+              el.style.transform = '';
+            });
+          });
+        });
+      });
+    }
+
+    // Every panel-targeted HTMX swap re-renders from scratch, and categories
+    // default to collapsed in the template — so without this, editing a
+    // bucket mid-category snaps the whole category shut on every single
+    // edit. Remember which categories were open before the swap, reopen the
+    // same ones after.
+    if(!window._v4CatStateBound){
+      window._v4CatStateBound = true;
+      var _v4OpenCats = [];
+      document.body.addEventListener('htmx:beforeSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        _v4OpenCats = [];
+        document.querySelectorAll('.v4-cat:not(.collapsed)').forEach(function(el){
+          _v4OpenCats.push(el.id);
+        });
+      });
+      // Restoring on afterSettle, not afterSwap: htmx re-processes the
+      // embedded <script> tag (allowScriptTags) between those two events,
+      // which re-inserts this category's original (still-collapsed)
+      // markup — afterSwap is too early and gets clobbered a moment later.
+      document.body.addEventListener('htmx:afterSettle', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        _v4OpenCats.forEach(function(id){
+          var el = document.getElementById(id);
+          if(el) el.classList.remove('collapsed');
+        });
+      });
+    }
+
+    // Live-edit feedback: editing Allocated/Target silently swaps the whole
+    // panel via HTMX, which is correct but invisible — nothing marks that
+    // your edit is what just happened. Capture which row's input triggered
+    // the request, then briefly pulse that same row once the new HTML lands.
+    if(!window._v4PulseBound){
+      window._v4PulseBound = true;
+      document.body.addEventListener('htmx:beforeRequest', function(e){
+        var row = e.detail.elt && e.detail.elt.closest && e.detail.elt.closest('[id^="v4-bkt-"]');
+        window._v4EditedRowId = row ? row.id : null;
+      });
+      document.body.addEventListener('htmx:afterSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        var id = window._v4EditedRowId;
+        window._v4EditedRowId = null;
+        if(!id) return;
+        if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var el = document.getElementById(id);
+        if(!el) return;
+        el.classList.add('v4-just-edited');
+        setTimeout(function(){ el.classList.remove('v4-just-edited'); }, 900);
+      });
+    }
+    </script>
+  </div>
+</div>
+</div>
+<script>
+function v4SwitchMobile(btn, which){
+  document.querySelectorAll('.v4-seg-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  var ledger=document.getElementById('v4-ledger-col');
+  var buckets=document.getElementById('v4-buckets-col');
+  if(ledger)ledger.classList.toggle('v4-mobile-show', which==='ledger');
+  if(buckets)buckets.classList.toggle('v4-mobile-show', which==='buckets');
+}
+</script>
+{% endblock %}

@@ -3,15 +3,15 @@
   Ranked by urgency — due date, frequency, and funding gap. Uncheck anything you'd rather handle yourself.
 </p>
 
-<form method="post" action="{{ url_for('panels.distribute_rts') }}"
-      hx-post="{{ url_for('panels.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML"
+<form method="post" action="{{ url_for('.distribute_rts') }}"
+      hx-post="{{ url_for('.distribute_rts') }}" hx-target="#panel" hx-swap="innerHTML"
       id="distribute-form">
 
   <div class="modal-section-lbl"><span>Step 1 — Fill what's due</span><span class="line"></span></div>
   {% for o in obligations %}
   <label class="suggest-row {{ 'checked' if o.checked else 'unchecked' }}">
     <input type="checkbox" name="ob" value="{{ o.id }}" {{ 'checked' if o.checked }}
-           hx-post="{{ url_for('panels.distribute_preview') }}" hx-trigger="change"
+           hx-post="{{ url_for('.distribute_preview') }}" hx-trigger="change"
            hx-include="#distribute-form" hx-target="#modal-body" hx-swap="innerHTML">
     <div class="suggest-info">
       <div class="suggest-name">{{ o.name }}</div>
@@ -32,7 +32,7 @@
   {% for r in rule_suggestions %}
   <label class="suggest-row rule-suggest-row {{ 'checked' if r.checked else 'unchecked' }}">
     <input type="checkbox" name="rule" value="{{ r.id }}" {{ 'checked' if r.checked }}
-           hx-post="{{ url_for('panels.distribute_preview') }}" hx-trigger="change"
+           hx-post="{{ url_for('.distribute_preview') }}" hx-trigger="change"
            hx-include="#distribute-form" hx-target="#modal-body" hx-swap="innerHTML">
     <div class="suggest-info">
       <div class="suggest-name">{{ r.name }}

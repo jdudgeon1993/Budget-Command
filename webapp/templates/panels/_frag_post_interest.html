@@ -5,8 +5,8 @@
   {% if suggested %}<div class="rts-kpi"><span class="rts-kpi-lbl">Suggested (monthly)</span><span class="rts-kpi-val">{{ suggested | money }}</span></div>{% endif %}
 </div>
 {% endif %}
-<form method="post" action="{{ url_for('panels.post_interest', aid=account.id) }}"
-      hx-post="{{ url_for('panels.post_interest', aid=account.id) }}"
+<form method="post" action="{{ url_for('.post_interest', aid=account.id) }}"
+      hx-post="{{ url_for('.post_interest', aid=account.id) }}"
       hx-target="#panel" hx-swap="innerHTML">
   <div class="edit-field">
     <label>Interest amount</label>

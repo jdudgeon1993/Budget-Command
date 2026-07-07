@@ -1,6 +1,6 @@
 <form class="edit-form modal-form-bare" method="post"
-      action="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
-      hx-post="{{ url_for('panels.account_edit', aid=account.id) if account else url_for('panels.account_new') }}"
+      action="{{ url_for('.account_edit', aid=account.id) if account else url_for('.account_new') }}"
+      hx-post="{{ url_for('.account_edit', aid=account.id) if account else url_for('.account_new') }}"
       hx-target="#panel" hx-swap="innerHTML">
 
   <div class="edit-field">
@@ -68,7 +68,7 @@
 
   <div class="edit-actions">
     {% if account %}
-    <button class="toolbar-btn" type="button" onclick="toggleAcctSettings('{{ account.id }}', '{{ url_for('panels.account_edit', aid=account.id) }}')">Cancel</button>
+    <button class="toolbar-btn" type="button" onclick="toggleAcctSettings('{{ account.id }}', '{{ url_for('.account_edit', aid=account.id) }}')">Cancel</button>
     {% else %}
     <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
     {% endif %}
@@ -77,8 +77,8 @@
 </form>
 
 {% if account %}
-<form method="post" action="{{ url_for('panels.account_archive', aid=account.id) }}"
-      hx-post="{{ url_for('panels.account_archive', aid=account.id) }}"
+<form method="post" action="{{ url_for('.account_archive', aid=account.id) }}"
+      hx-post="{{ url_for('.account_archive', aid=account.id) }}"
       hx-target="#panel" hx-swap="innerHTML"
       style="margin-top:8px"
       onsubmit="return confirm('Archive this account?')">

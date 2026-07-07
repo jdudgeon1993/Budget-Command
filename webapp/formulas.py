@@ -286,6 +286,10 @@ def total_allocated(month: dict, buckets: list[dict]) -> float:
 
 # ── 3.10 Bucket Available ─────────────────────────────────────────────────────
 
+def _vault_withdrawn(month: dict, bucket_id: str) -> float:
+    return float((month.get("vaultWithdrawals") or {}).get(bucket_id) or 0)
+
+
 def bucket_available(
     bucket: dict,
     month: dict,
@@ -302,6 +306,15 @@ def bucket_available(
     expense category). Overspending on non-accumulating buckets still
     shows as a negative balance within the month, feeding correctly into
     the RTS calculation via the cash-conservation identity.
+
+    Vault withdrawals (money released back to the pool without ever being
+    "spent" — vault buckets can't hold transactions) must be subtracted
+    here too, the same way vault_accumulated() already does for the number
+    displayed on the row. This function feeds ready_to_spend() directly, so
+    without this a vault release beyond the current month's own
+    contribution would correctly zero out the vault's own display while
+    Ready to Spend kept treating that money as still locked away — RTS
+    silently understated by exactly the amount released from prior months.
     """
     bid = bucket["id"]
     btype = bucket.get("type", "expense")
@@ -309,10 +322,11 @@ def bucket_available(
     if not accumulates:
         return b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
     carried = sum(
-        b_alloc(m, bid) - b_spent(m["id"], bid, transactions)
+        b_alloc(m, bid) - b_spent(m["id"], bid, transactions) - _vault_withdrawn(m, bid)
         for m in months_before(month["id"], all_months)
     )
-    return carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
+    return (carried + b_alloc(month, bid) - b_spent(month["id"], bid, transactions)
+            - _vault_withdrawn(month, bid))
 
 
 # ── 3.12 Vault Accumulated ────────────────────────────────────────────────────

@@ -1,0 +1,114 @@
+{# ── v4 bucket row — universal, hand-polished layout ──────────────────────────
+   One header line (name/type, mini pace ring, status pill, 3 icon buttons —
+   no generic "Toggle", each icon opens its own content directly) + one
+   compact figs line (Alloc/Target inline-editable, Spent/Available plain
+   text) — same data and same edit affordances as before, just not boxed
+   into a 4-column form grid. Icons open their sub-panel (ledger tx list or
+   settings) independently; no wrapping "phase 2 panel" toggle anymore.
+   ─────────────────────────────────────────────────────────────────────────── #}
+
+{% set btype = b.btype %}
+{% set status = b.alert_status %}
+{% if btype == 'vault' %}
+  {% set type_label = 'Vault' %}
+{% elif btype in ('sinking', 'goal') %}
+  {% set type_label = 'Goal' %}
+{% elif b.flex %}
+  {% set type_label = 'Expense · Flex' %}
+{% else %}
+  {% set type_label = 'Expense' %}
+{% endif %}
+
+{% set is_goal = btype in ('sinking', 'goal') %}
+{% set target_val = b.target_amount if is_goal else b.budget %}
+{% set is_future_view = view_mid is defined and view_mid != current_mid %}
+
+<div class="v4-row-wrap" id="v4-bkt-{{ b.id }}">
+ <div class="v4-row">
+  <div class="v4-bar v4-bar-{{ status }}"></div>
+  <div class="v4-row-body">
+    <div class="v4-row-hdr">
+      <div class="v4-name-block">
+        <span class="v4-name">{{ b.name }}</span>
+        <span class="v4-type">{{ type_label }}</span>
+      </div>
+      {% if b.pace_eligible %}
+      <div class="v4-pace-mini" style="--pct:{{ b.pace_used_pct }};--ring-color:var(--pace-{{ b.pace_status }})"
+           title="{{ b.pace_used_pct }}% of budget used — {% if b.pace_status == 'good' %}on pace{% elif b.pace_status == 'light' %}slightly ahead of pace{% elif b.pace_status == 'dark' %}well ahead of pace{% else %}over budget{% endif %}"></div>
+      {% endif %}
+      <span class="v4-pill v4-pill-{{ status }}">{{ b.alert_pill }}</span>
+      <div class="v4-row-icons">
+        {% if b.due_day or b.pay_freq %}
+        <form method="post" action="{{ url_for('.toggle_handled', bid=b.id) }}" style="display:contents"
+              hx-post="{{ url_for('.toggle_handled', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          <button class="v4-icon-sm {{ 'active' if b.handled }}" type="submit" title="Mark this bill handled">✓</button>
+        </form>
+        {% endif %}
+        <button class="v4-icon-sm" type="button" id="v4-icon-ledger-{{ b.id }}"
+                title="This month's transactions ({{ b.txs | length }})"
+                onclick="v4ShowSub('{{ b.id }}','ledger')">📒</button>
+        <button class="v4-icon-sm" type="button" id="v4-icon-settings-{{ b.id }}"
+                title="Bucket settings"
+                onclick="v4ShowSub('{{ b.id }}','settings','{{ url_for('.bucket_settings', bid=b.id) }}')">⚙</button>
+      </div>
+    </div>
+
+    <div class="v4-row-figs">
+      <form method="post" action="{{ url_for('.set_alloc', bid=b.id) }}" style="display:contents"
+            hx-post="{{ url_for('.set_alloc', bid=b.id) }}"
+            hx-trigger="change from:find input[name=alloc]"
+            hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+        {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+        <input class="v4-input" name="alloc" value="{{ b.alloc | money }}"
+               aria-label="Allocated for {{ b.name }}"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+      </form>
+      <span class="v4-fig-sep">/</span>
+      {% if is_goal %}
+      <form method="post" action="{{ url_for('.set_target_amount', bid=b.id) }}" style="display:contents"
+            hx-post="{{ url_for('.set_target_amount', bid=b.id) }}"
+            hx-trigger="change from:find input[name=target_amount]"
+            hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+        {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+        <input class="v4-input" name="target_amount" value="{{ target_val | money }}"
+               aria-label="Goal amount for {{ b.name }}"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('.set_budget', bid=b.id) }}" style="display:contents"
+            hx-post="{{ url_for('.set_budget', bid=b.id) }}"
+            hx-trigger="change from:find input[name=budget]"
+            hx-target="#panel" hx-swap="innerHTML" onsubmit="return false">
+        {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
+        <input class="v4-input" name="budget" value="{{ target_val | money }}"
+               aria-label="Target for {{ b.name }}"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+      </form>
+      {% endif %}
+      <span class="v4-fig-static">{{ '—' if btype == 'vault' else (b.spent | money) }} spent</span>
+      <span class="v4-fig-static v4-fig-avail v4-avail-{{ status }}">{{ b.available | money }} avail</span>
+    </div>
+  </div>
+ </div>
+
+  {# Sub-panels open directly from their row icon — no wrapping toggle. #}
+  <div class="v4-panel">
+    <div class="v4-panel-sub" id="v4-sub-ledger-{{ b.id }}">
+      {% if b.txs %}
+        {% for tx in b.txs %}
+        <div class="bkt-tx-row">
+          <span class="bkt-tx-date">{{ tx.date[5:] }}</span>
+          <span class="bkt-tx-desc">{{ tx.desc }}</span>
+          <span class="bkt-tx-amt">{{ tx.amount | money }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="bkt-tx-empty">No transactions this month</div>
+      {% endif %}
+    </div>
+
+    <div class="v4-panel-sub" id="v4-sub-settings-{{ b.id }}">
+      <div class="bucket-txs bkt-settings-inline" id="bkt-settings-{{ b.id }}"></div>
+    </div>
+  </div>
+</div>

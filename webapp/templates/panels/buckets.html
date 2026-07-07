@@ -6,8 +6,8 @@
     <div class="month-tabs">
       {% for tab in month_tabs %}
       <a class="month-tab {% if tab.mid == view_mid %}active{% elif tab.offset > 0 %}future{% endif %}"
-         href="{{ url_for('panels.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
-         hx-get="{{ url_for('panels.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         href="{{ url_for('.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+         hx-get="{{ url_for('.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
          hx-target="#panel" hx-swap="innerHTML">
         {{ tab.label }}{% if tab.offset > 0 %} <span style="font-size:9px;opacity:.6;vertical-align:middle">▸</span>{% endif %}
       </a>
@@ -17,7 +17,7 @@
     {% if shell.is_past_month %}
     <div class="month-banner past-month-banner">
       <span>You're viewing a past month — changes here won't affect your current budget.</span>
-      <a class="month-banner-cta" href="{{ url_for('panels.month_today') }}">
+      <a class="month-banner-cta" href="{{ url_for('.month_today') }}">
         Go to {{ shell.today_month_label }} →
       </a>
     </div>
@@ -32,13 +32,13 @@
     <div class="workflow-bar">
       {% if shell.month_closed %}
       <span class="wf-closed-badge">🔒 Closed</span>
-      <form method="post" action="{{ url_for('panels.month_reopen') }}" style="display:contents"
-            hx-post="{{ url_for('panels.month_reopen') }}" hx-target="#panel" hx-swap="innerHTML">
+      <form method="post" action="{{ url_for('.month_reopen') }}" style="display:contents"
+            hx-post="{{ url_for('.month_reopen') }}" hx-target="#panel" hx-swap="innerHTML">
         <button class="wf-btn" type="submit">Reopen</button>
       </form>
       {% else %}
-      <form method="post" action="{{ url_for('panels.month_close') }}" style="display:contents"
-            hx-post="{{ url_for('panels.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
+      <form method="post" action="{{ url_for('.month_close') }}" style="display:contents"
+            hx-post="{{ url_for('.month_close') }}" hx-target="#panel" hx-swap="innerHTML">
         <button class="wf-btn" type="submit">Close Month</button>
       </form>
       {% endif %}
@@ -131,8 +131,8 @@
           <option value="goal">Goal</option>
           <option value="vault">Vault</option>
         </select>
-        <form method="post" action="{{ url_for('panels.add_bucket') }}" style="display:contents"
-              hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML"
+        <form method="post" action="{{ url_for('.add_bucket') }}" style="display:contents"
+              hx-post="{{ url_for('.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML"
               onsubmit="
                 var n=document.getElementById('new-bkt-name-{{ grp.id }}');
                 var t=document.getElementById('new-bkt-type-{{ grp.id }}');
@@ -183,8 +183,8 @@
     </script>
 
     {# Global add strip (fallback / add to any category) #}
-    <form class="add-strip" method="post" action="{{ url_for('panels.add_bucket') }}"
-          hx-post="{{ url_for('panels.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
+    <form class="add-strip" method="post" action="{{ url_for('.add_bucket') }}"
+          hx-post="{{ url_for('.add_bucket') }}" hx-target="#panel" hx-swap="innerHTML">
       <select name="catId" style="flex:0 0 130px" required>
         <option value="">— Category —</option>
         {% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
@@ -213,7 +213,7 @@
       </div>
       {% if shell.rts > 0 %}
       <button class="rts-distribute-btn" type="button"
-              hx-get="{{ url_for('panels.distribute_modal') }}" hx-target="#modal-body" hx-swap="innerHTML"
+              hx-get="{{ url_for('.distribute_modal') }}" hx-target="#modal-body" hx-swap="innerHTML"
               onclick="openModal()">DISTRIBUTE RTS →</button>
       {% endif %}
     </div>

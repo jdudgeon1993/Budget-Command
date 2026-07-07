@@ -3,8 +3,8 @@
   Rules fire first, then obligations are filled in urgency order. Catch-all rules absorb whatever remains.
 </p>
 
-<form method="post" action="{{ url_for('panels.apply_paycheck_distribute', tid=tid) }}"
-      hx-post="{{ url_for('panels.apply_paycheck_distribute', tid=tid) }}"
+<form method="post" action="{{ url_for('.apply_paycheck_distribute', tid=tid) }}"
+      hx-post="{{ url_for('.apply_paycheck_distribute', tid=tid) }}"
       hx-target="#panel" hx-swap="innerHTML"
       id="paycheck-distribute-form">
 
@@ -31,7 +31,7 @@
     {% for r in internal_rules %}
     <label class="suggest-row {{ 'checked' if r.checked else 'unchecked' }}">
       <input type="checkbox" name="rule" value="{{ r.id }}" {{ 'checked' if r.checked }}
-             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-post="{{ url_for('.paycheck_distribute_preview', tid=tid) }}"
              hx-trigger="change" hx-include="#paycheck-distribute-form"
              hx-target="#modal-body" hx-swap="innerHTML">
       <div class="suggest-info">
@@ -59,7 +59,7 @@
     {% for o in obligations %}
     <label class="suggest-row {{ 'checked' if o.checked else 'unchecked' }}">
       <input type="checkbox" name="ob" value="{{ o.id }}" {{ 'checked' if o.checked }}
-             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-post="{{ url_for('.paycheck_distribute_preview', tid=tid) }}"
              hx-trigger="change" hx-include="#paycheck-distribute-form"
              hx-target="#modal-body" hx-swap="innerHTML">
       <div class="suggest-info">
@@ -87,7 +87,7 @@
     {% for r in fund_rules %}
     <label class="suggest-row {{ 'checked' if r.checked else 'unchecked' }}">
       <input type="checkbox" name="fund" value="{{ r.id }}" {{ 'checked' if r.checked }}
-             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-post="{{ url_for('.paycheck_distribute_preview', tid=tid) }}"
              hx-trigger="change" hx-include="#paycheck-distribute-form"
              hx-target="#modal-body" hx-swap="innerHTML">
       <div class="suggest-info">
@@ -114,7 +114,7 @@
     {% for o in next_obligations %}
     <label class="suggest-row {{ 'checked' if o.checked else 'unchecked' }}">
       <input type="checkbox" name="next_ob" value="{{ o.id }}" {{ 'checked' if o.checked }}
-             hx-post="{{ url_for('panels.paycheck_distribute_preview', tid=tid) }}"
+             hx-post="{{ url_for('.paycheck_distribute_preview', tid=tid) }}"
              hx-trigger="change" hx-include="#paycheck-distribute-form"
              hx-target="#modal-body" hx-swap="innerHTML">
       <div class="suggest-info">

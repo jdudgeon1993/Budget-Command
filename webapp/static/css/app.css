@@ -17,8 +17,43 @@
   --hero-bg:linear-gradient(135deg,#1A0028 0%,#2A003C 100%); --hero-glow:rgba(191,90,242,0.40);
   --rts-hero-amt:#E8B4FF;
   --r-xs:4px; --r-sm:6px; --r-md:10px; --r-lg:14px; --r-pill:20px;
-  --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace; --display:var(--sans);
+  --track:rgba(255,255,255,.08);
+  --pace-good:var(--green); --pace-light:var(--amber); --pace-dark:#D2691E; --pace-over:var(--red);
 }
+
+/* ── v4 prototype only: "Morning" warm palette ──────────────────────────
+   Token-level reskin — every rule in this file already routes color
+   through the custom properties above, so overriding them here (scoped to
+   proto_base.html's <html data-theme="morning">) reskins every v4 screen,
+   including untouched content like Forecast, without touching a single
+   component rule. Classic's base.html keeps data-theme="electric" and is
+   completely unaffected. */
+:root[data-theme="morning"]{
+  --sidebar:#fbf3ec; --sidebar-hover:rgba(43,31,26,0.05);
+  --sidebar-active-bg:rgba(255,111,89,0.14); --sidebar-border:#ecdccb;
+  --nav-active:#d1543f; --rts-sidebar:#ff6f59;
+  --bg:#fbf3ec; --surface:#ffffff; --surface2:#f5e6da;
+  --border:#ecdccb;
+  --shadow-sm:0 1px 0 rgba(43,31,26,0.04),0 4px 20px rgba(43,31,26,0.06);
+  --shadow-md:0 8px 32px rgba(43,31,26,0.12);
+  --text:#2b1f1a; --text2:#8a7568; --text3:#b3a191;
+  --accent:#ff6f59; --accent-dim:#ffe4de; --accent-glow:rgba(255,111,89,0.35);
+  --alloc:#ff6f59;
+  --green:#2f9e5b; --green-dim:#e2f3e7;
+  --red:#e14f4f; --red-dim:#fce3e3;
+  --amber:#dd8a17; --amber-dim:#fbedd7;
+  --indigo:#8a6fb8;
+  --hero-bg:linear-gradient(135deg,#fff1ea 0%,#ffe4de 100%); --hero-glow:rgba(255,111,89,0.25);
+  --rts-hero-amt:#d1543f;
+  --track:rgba(43,31,26,0.08);
+  --pace-good:var(--green); --pace-light:var(--amber); --pace-dark:#b5651d; --pace-over:var(--red);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --display:ui-rounded,-apple-system,BlinkMacSystemFont,"SF Pro Rounded","Segoe UI Rounded","Nunito",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --r-xs:6px; --r-sm:9px; --r-md:14px; --r-lg:20px; --r-pill:99px;
+}
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 .mono{font-family:var(--mono)}
@@ -85,6 +120,7 @@ svg{display:block}
 .wf-closed-badge{font-size:11px;font-family:var(--mono);font-weight:700;color:var(--text2);padding:5px 10px;border-radius:var(--r-sm);background:var(--surface2);border:1px solid var(--border)}
 .workflow-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .wf-btn{font-size:11px;font-family:var(--mono);padding:5px 12px;border-radius:var(--r-sm);border:1px solid var(--border);color:var(--text2);cursor:pointer;background:var(--surface)}
+.wf-btn-primary{font-family:var(--display);font-weight:700;font-size:12.5px;padding:8px 16px;border-radius:var(--r-pill);border:1px solid var(--accent);color:var(--accent-ink,#fff);background:var(--accent);box-shadow:0 2px 10px var(--accent-glow);margin-right:auto}
 .month-tabs{display:flex;gap:4px;border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;background:var(--surface);margin-bottom:14px}
 .month-tab{font-size:11px;font-family:var(--mono);padding:4px 12px;border-radius:4px;color:var(--text2);cursor:pointer;text-decoration:none;white-space:nowrap;transition:background 0.15s,color 0.15s}
 .month-tab:hover{color:var(--text);background:var(--surface2)}
@@ -1016,3 +1052,306 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 
 /* Flex bucket type tag */
 .vg-type-tag.flex{background:rgba(99,179,237,.15);color:#63b3ed;border:1px solid rgba(99,179,237,.25)}
+
+/* ── v4 prototype: universal 4-column bucket rows ─────────────────────────── */
+.v4-cat{border-radius:var(--r-lg);overflow:hidden;margin-bottom:8px;border:1px solid var(--border);background:rgba(255,255,255,.03)}
+.v4-cat-hdr{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;user-select:none;flex-wrap:wrap;transition:background .2s}
+.v4-cat:not(.collapsed) .v4-cat-hdr{border-bottom:1px solid rgba(255,255,255,.04)}
+.v4-cat-swatch{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.v4-cat-name{font-size:12.5px;font-weight:700;letter-spacing:.01em;margin-right:auto}
+.v4-cat-pct-pill{font-size:10px;font-family:var(--mono);font-weight:700;padding:2px 7px;border-radius:var(--r-pill);letter-spacing:.04em}
+.v4-cat-pct-pill.full{background:rgba(48,209,88,.10);color:var(--green);border:1px solid rgba(48,209,88,.25)}
+.v4-cat-pct-pill.partial{background:rgba(255,159,10,.10);color:var(--amber);border:1px solid rgba(255,159,10,.25)}
+.v4-cat-pct-pill.empty{background:rgba(255,255,255,.05);color:var(--text3);border:1px solid var(--border)}
+.v4-cat-chevron{font-size:10px;color:var(--text3);transition:transform .2s}
+.v4-cat.collapsed .v4-cat-chevron{transform:rotate(-90deg)}
+/* Category-level totals — glanceable before you ever expand, one compact
+   line rather than the old labeled 4-column grid (that cost two rows of
+   height per category; this costs one, at a small readability trade). */
+.v4-cat-figs{display:flex;gap:10px;padding:0 12px 9px;font-family:var(--mono);font-size:11px;color:var(--text2)}
+.v4-cat-figs-avail{margin-left:auto;font-weight:700;color:var(--text)}
+/* Category-level status tint on the collapsed header — stands in for the
+   old separate progress-bar element. One glance at the color says the
+   status; worst-tier bucket inside wins (an overspent bucket always shows
+   red at the category level, even if the category's overall pct looks fine). */
+.v4-cat-over.collapsed{background:var(--red-dim)}
+.v4-cat-full.collapsed{background:var(--green-dim)}
+.v4-cat-partial.collapsed{background:var(--amber-dim)}
+.v4-cat-bar-fill.full{background:var(--green)}
+.v4-cat-bar-fill.partial{background:var(--amber)}
+.v4-cat-bar-fill.empty{background:var(--text3)}
+.v4-cat .v4-row-wrap,.v4-cat .v4-cat-bar,.v4-cat .vg-add-strip{overflow:hidden;max-height:4000px;opacity:1;transition:max-height .22s ease,opacity .18s ease}
+.v4-cat.collapsed .v4-row-wrap,.v4-cat.collapsed .v4-cat-bar,.v4-cat.collapsed .vg-add-strip{max-height:0;opacity:0}
+
+.v4-row-wrap{border-bottom:1px solid rgba(255,255,255,.04);transition:background .5s ease}
+.v4-row-wrap:last-child{border-bottom:none}
+.v4-row{display:flex}
+.v4-bar{width:4px;flex-shrink:0}
+.v4-bar-open{background:var(--text3)}
+.v4-bar-unfunded{background:var(--amber)}
+.v4-bar-funding{background:var(--amber)}
+.v4-bar-overspent{background:var(--red)}
+.v4-bar-funded{background:var(--green)}
+.v4-bar-vault{background:var(--accent)}
+.v4-row-body{flex:1;padding:9px 12px 10px;min-width:0}
+.v4-row-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.v4-name-block{display:flex;flex-direction:column;margin-right:auto}
+.v4-name{font-size:12.5px;font-weight:700;color:var(--text)}
+.v4-type{font-size:9.5px;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
+.v4-pill{font-size:10px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:var(--r-pill);letter-spacing:.03em;white-space:nowrap}
+.v4-pill-open{background:rgba(255,255,255,.05);color:var(--text3);border:1px solid var(--border)}
+.v4-pill-unfunded{background:rgba(255,159,10,.10);color:var(--amber);border:1px solid rgba(255,159,10,.3)}
+.v4-pill-funding{background:rgba(255,159,10,.10);color:var(--amber);border:1px solid rgba(255,159,10,.3)}
+.v4-pill-overspent{background:rgba(255,69,58,.10);color:var(--red);border:1px solid rgba(255,69,58,.3)}
+.v4-pill-funded{background:rgba(48,209,88,.10);color:var(--green);border:1px solid rgba(48,209,88,.3)}
+.v4-pill-vault{background:rgba(191,90,242,.10);color:var(--accent);border:1px solid rgba(191,90,242,.3)}
+
+/* Row icons — Handled/Ledger/Settings, each opens its own content in one
+   tap (no more generic "Toggle" step to find them behind). */
+.v4-row-icons{display:flex;gap:4px;flex-shrink:0}
+.v4-icon-sm{width:24px;height:24px;padding:0;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);cursor:pointer}
+.v4-icon-sm:hover{color:var(--text);border-color:var(--text3)}
+.v4-icon-sm.active{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
+
+/* Mini pacing ring — ambient on the row itself, not hidden behind a click;
+   the one figure on this row that genuinely changes day to day. */
+.v4-pace-mini{width:18px;height:18px;border-radius:50%;flex-shrink:0;position:relative;background:conic-gradient(var(--ring-color,var(--accent)) calc(var(--pct,0)*3.6deg),var(--track) 0)}
+.v4-pace-mini::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--surface)}
+
+/* Figs line — Alloc/Target inline-editable, Spent/Available plain text.
+   Inputs read as text until touched (no permanent box), replacing the old
+   4-column labeled grid that made every row look like a form. */
+.v4-row-figs{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--text2)}
+.v4-fig-sep{color:var(--text3)}
+.v4-fig-static{margin-left:3px}
+.v4-fig-avail{margin-left:auto;font-weight:700}
+.v4-input{width:62px;background:transparent;border:none;border-bottom:1px dashed var(--border);color:var(--text);font-family:var(--mono);font-size:12px;font-weight:700;padding:0 0 1px;outline:none}
+.v4-input:hover{border-bottom-color:var(--text3)}
+.v4-input:focus{border-bottom:1px solid var(--accent)}
+.v4-avail-open{color:var(--text3)}
+.v4-avail-unfunded{color:var(--amber)}
+.v4-avail-funding{color:var(--amber)}
+.v4-avail-overspent{color:var(--red)}
+.v4-avail-funded{color:var(--green)}
+.v4-avail-vault{color:var(--accent)}
+
+/* Live-edit feedback: a brief warm flash on the row an edit just landed
+   on, so the swap feels like a response to you, not a silent number
+   change. */
+@keyframes v4EditPulse{0%{background:var(--accent-dim)}100%{background:transparent}}
+.v4-just-edited{animation:v4EditPulse .9s ease}
+
+/* Sub-panels (ledger tx list / settings form) open directly from their row
+   icon. No wrapping "phase 2 panel" box anymore — one less layer. */
+.v4-panel{padding:0 12px}
+.v4-panel-sub{
+  max-height:0;opacity:0;overflow:hidden;
+  margin-top:0;padding-top:0;border-top:0 solid rgba(255,255,255,.04);
+  transition:max-height .2s ease,opacity .16s ease,margin-top .2s ease,padding-top .2s ease,border-top-width .2s ease;
+}
+.v4-panel-sub.shown{max-height:220px;opacity:1;margin-top:8px;padding-top:9px;padding-bottom:10px;border-top-width:1px;overflow-y:auto}
+.v4-calc-due{font-size:11px;font-family:var(--mono);color:var(--text3)}
+
+/* v4: RTS breakdown card — number lives in the sidebar only, this is the detail */
+.v4-rts-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:12px}
+.v4-rts-card-hdr{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:10px;font-weight:600}
+
+@media (prefers-reduced-motion:reduce){
+  .v4-row-wrap,.v4-cat-bar,.vg-add-strip,.v4-panel,.v4-panel-sub,.v4-cat-chevron{transition:none !important}
+  .v4-just-edited{animation:none !important}
+}
+
+/* v4: RTS + STS shown side by side in the persistent sidebar.
+   .sidebar-rts-cell always wraps the RTS amount now (paired or not), so
+   this smaller size replaces the old 28px unconditionally — 28px only
+   ever fit when RTS had the full sidebar width to itself. */
+.sidebar-rts-pair{display:flex;gap:12px;align-items:flex-start}
+.sidebar-rts-cell{flex:1;min-width:0}
+.sidebar-rts-cell .sidebar-rts-amt{font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-sts-cell{padding-left:12px;border-left:1px solid var(--sidebar-border)}
+.sidebar-sts-amt{font-family:var(--mono);font-size:15.5px;font-weight:600;color:var(--text);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-sts-qual{font-size:9.5px;color:rgba(255,255,255,0.28);margin-top:2px;font-family:var(--mono)}
+
+/* v4: combined Ledger + Buckets view */
+.v4-combined{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:20px;align-items:start;padding:24px}
+.v4-buckets-col.panel-grid{padding:0;grid-template-columns:1fr}
+.v4-mobile-seg{display:none}
+
+.v4-ledger-col{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;max-height:calc(100vh - 140px);overflow-y:auto;position:sticky;top:16px}
+.v4-ledger-hdr{font-size:13px;font-weight:700;margin-bottom:10px;letter-spacing:.02em}
+.v4-ledger-acct{font-weight:500;color:var(--text3);text-transform:none;letter-spacing:0}
+.v4-ledger-daylbl{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:12px 0 4px}
+.v4-ledger-daylbl:first-of-type{margin-top:0}
+.v4-ledger-rb{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--text2)}
+.v4-ledger-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.v4-ledger-row:last-child{border-bottom:none}
+.v4-ledger-row-main{min-width:0;display:flex;flex-direction:column}
+.v4-ledger-desc{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.v4-ledger-sub{font-size:10.5px;color:var(--text3)}
+.v4-ledger-amt{font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0}
+.v4-ledger-empty{font-size:12px;color:var(--text3);padding:20px 0;text-align:center}
+
+@media(max-width:900px){
+  .v4-combined{grid-template-columns:1fr;padding:14px}
+  .v4-mobile-seg{display:flex;gap:8px;margin-bottom:14px}
+  .v4-seg-btn{flex:1;font-family:var(--mono);font-size:12px;font-weight:700;padding:9px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);cursor:pointer}
+  .v4-seg-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .v4-ledger-col,.v4-buckets-col.panel-grid{display:none;position:static;max-height:none}
+  .v4-ledger-col.v4-mobile-show{display:block}
+  .v4-buckets-col.panel-grid.v4-mobile-show{display:grid;grid-template-columns:1fr}
+}
+
+/* ── v4: dashboard + expanding sheet (layer 1 / layer 2 redesign) ──────────
+   Mobile-first, on purpose: this is the actual shape of the app. Desktop
+   (below) just widens/centers the same structure rather than branching
+   into a different layout. */
+
+.dash-shell{min-height:100dvh;min-height:100vh;display:flex;flex-direction:column;position:relative;background:var(--bg)}
+
+.dash-header{display:flex;align-items:center;gap:14px;padding:14px 16px;flex-wrap:wrap}
+.dash-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.dash-brand-icon{width:26px;height:26px;border-radius:var(--r-sm);background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dash-brand-name{font-weight:800;font-size:15px;letter-spacing:-0.01em}
+.dash-stats{display:flex;gap:10px;flex:1;min-width:0}
+.dash-stat{flex:1;min-width:0}
+.dash-stat-amt{font-family:var(--mono);font-size:15px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-stat-lbl{font-size:9.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.dash-stat-lbl .l{display:none}
+.dash-stat-qual{color:var(--text3)}
+.dash-stat-sts{opacity:.85}
+.dash-header.condensed .dash-stat-sts{display:none}
+.dash-avatar{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font:700 11px/1 var(--mono);color:var(--text2);text-decoration:none;cursor:pointer}
+.dash-avatar:hover{color:var(--text);border-color:var(--accent)}
+
+.dash-body{padding:4px 16px 24px;overflow-y:auto}
+.dash-hidden{display:none}
+
+.dash-report-card{display:block;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;cursor:pointer;font:inherit;color:inherit;text-align:left;margin-bottom:16px}
+.dash-report-card:hover{border-color:var(--accent)}
+.dash-report-pies{display:flex;gap:10px}
+.dash-pie-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.dash-pie{width:76px;height:76px;border-radius:50%;background:conic-gradient(var(--ring-color,var(--accent)) calc(var(--pct,0)*3.6deg),var(--track) 0);display:flex;align-items:center;justify-content:center;position:relative}
+.dash-pie::before{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--bg)}
+.dash-pie-pct{position:relative;z-index:1;font:700 14px/1 var(--mono)}
+.dash-pie-lbl{font-size:11.5px;font-weight:700}
+.dash-pie-figs{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--text3)}
+.dash-pie-figs i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.dash-pie-figs-empty{font-style:italic}
+.dash-report-cta{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px}
+
+.dash-accts{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.dash-acct-hdr{font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--text3);font-family:var(--mono);margin-bottom:6px}
+.dash-acct-chips{display:flex;flex-wrap:wrap;gap:8px}
+.dash-acct-chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--chip-color,var(--accent));cursor:pointer;font:inherit;color:inherit}
+.dash-acct-chip:hover{border-color:var(--accent)}
+.dash-acct-chip-name{font-size:11.5px;font-weight:600}
+.dash-acct-chip-bal{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--green)}
+.dash-acct-chip-bal.neg{color:var(--red)}
+.dash-acct-empty{font-size:11.5px;color:var(--text3)}
+
+.dash-tiles{display:flex;flex-direction:column;gap:8px}
+.dash-tile{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border);font:600 13px/1 inherit;color:var(--text);cursor:pointer}
+.dash-tile:hover{border-color:var(--accent)}
+.dash-tile-arrow{color:var(--text3)}
+
+.sheet{position:fixed;left:0;right:0;bottom:0;height:88dvh;height:88vh;max-height:88vh;background:var(--bg);border:1px solid var(--border);border-bottom:none;border-top-left-radius:20px;border-top-right-radius:20px;box-shadow:0 -12px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden;z-index:40;transform:translateY(calc(100% - 58px));transition:transform .32s cubic-bezier(.22,.8,.2,1)}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{flex:0 0 auto;width:100%;padding:10px 0 8px;background:transparent;border:0;border-bottom:1px solid transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;font:inherit;color:var(--text3)}
+.sheet.open .sheet-handle{border-bottom-color:var(--border)}
+.sheet-handle-bar{width:36px;height:4px;border-radius:2px;background:var(--text3)}
+.sheet-handle-label{display:none;font-size:12px}
+.sheet:not(.open) .sheet-handle-label{display:block}
+.sheet #panel{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+.dash-fab{position:fixed;right:16px;bottom:calc(58px + 16px);z-index:41;width:52px;height:52px;border-radius:50%;background:var(--accent);border:none;box-shadow:0 6px 20px var(--accent-glow);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.dash-fab:hover{filter:brightness(1.08)}
+
+@media (prefers-reduced-motion:reduce){
+  .sheet{transition:none !important}
+}
+
+@media(min-width:900px){
+  /* Desktop mirrors mobile — same structure, just wider and centered,
+     not a separate layout. */
+  .dash-header,.dash-body{max-width:720px;margin:0 auto;width:100%}
+  .dash-stats{gap:28px}
+  .dash-stat-amt{font-size:18px}
+  .dash-stat-lbl .s{display:none}
+  .dash-stat-lbl .l{display:inline}
+  .dash-report-pies{gap:20px}
+  .sheet{left:50%;right:auto;width:min(100%,1040px);transform:translate(-50%,calc(100% - 58px))}
+  .sheet.open{transform:translate(-50%,0)}
+}
+
+/* ── Morning: one shared visual language across every section ──────────────
+   Everything in v4 so far (Buckets, Ledger/Accounts, Reports, Setup) still
+   carried its old standalone-page card/radius/type treatment — just
+   recolored by the token swap above, not actually unified. This section
+   makes the *shape* consistent too: one card language, one type role
+   (--display for names/titles, --mono stays for figures), applied via the
+   existing class names so no template/markup changes are needed anywhere,
+   and — because every rule is scoped under [data-theme="morning"] — none
+   of it can ever reach classic or the shared Reports/Accounts/Setup
+   templates when rendered outside the v4 mirror. */
+
+/* Section-level surfaces: one consistent "card" language site-wide */
+[data-theme="morning"] .rpt-card,
+[data-theme="morning"] .v4-cat,
+[data-theme="morning"] .vg-cat,
+[data-theme="morning"] .status-legend,
+[data-theme="morning"] .v4-rts-card,
+[data-theme="morning"] .v4-ledger-col,
+[data-theme="morning"] .setup-card{
+  background:var(--surface);
+  border-radius:var(--r-lg);
+  border-color:var(--border);
+}
+
+/* Collapsed category status tint wins over the flat surface color above
+   (same selector specificity, so it has to be explicit here rather than
+   relying on source order). */
+[data-theme="morning"] .v4-cat-over.collapsed{background:var(--red-dim)}
+[data-theme="morning"] .v4-cat-full.collapsed{background:var(--green-dim)}
+[data-theme="morning"] .v4-cat-partial.collapsed{background:var(--amber-dim)}
+
+/* Inner tiles/sub-blocks: one step down from section surfaces */
+[data-theme="morning"] .rpt-kpi,
+[data-theme="morning"] .rpt-stat-pill,
+[data-theme="morning"] .rpt-spend-block,
+[data-theme="morning"] .rpt-goal-card,
+[data-theme="morning"] .rpt-nw-block,
+[data-theme="morning"] .rpt-debt-block,
+[data-theme="morning"] .rpt-spark-block,
+[data-theme="morning"] .rpt-disc-stat,
+[data-theme="morning"] .dash-acct-chip,
+[data-theme="morning"] .acct-card{
+  background:var(--surface2);
+  border-radius:var(--r-md);
+  border-color:var(--border);
+}
+
+/* Names/titles read as the friendly display face; figures stay mono */
+[data-theme="morning"] .dash-brand-name,
+[data-theme="morning"] .dash-pie-lbl,
+[data-theme="morning"] .dash-tile,
+[data-theme="morning"] .dash-acct-chip-name,
+[data-theme="morning"] .dash-report-cta,
+[data-theme="morning"] .v4-cat-name,
+[data-theme="morning"] .v4-name,
+[data-theme="morning"] .vg-bkt-name,
+[data-theme="morning"] .acct-name,
+[data-theme="morning"] .tx-name,
+[data-theme="morning"] .rpt-title,
+[data-theme="morning"] .rpt-card-title,
+[data-theme="morning"] .v4-ledger-hdr,
+[data-theme="morning"] .setup-name,
+[data-theme="morning"] .brand-name{
+  font-family:var(--display);
+}
+
+/* Modal: fixes a pre-existing undefined-token bug (--surface1/--text1 were
+   never defined anywhere, so the modal background/hover silently fell back
+   to transparent) — surfaced now because the modal is load-bearing in the
+   sheet flow (Add Transaction, every inline edit form). */
+[data-theme="morning"] .modal-box{background:var(--surface);border-radius:var(--r-lg)}
+[data-theme="morning"] .modal-close:hover{color:var(--text);background:var(--surface2)}
