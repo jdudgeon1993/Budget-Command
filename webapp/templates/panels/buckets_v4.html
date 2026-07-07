@@ -92,6 +92,11 @@
         <span class="v4-cat-pct-pill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}">{{ grp.pct }}%</span>
         <span class="v4-cat-chevron">▾</span>
       </div>
+      <div class="v4-cat-figs">
+        <span>{{ grp.alloc | money }} / {{ grp.budget | money }}</span>
+        <span>{{ grp.spent | money }} spent</span>
+        <span class="v4-cat-figs-avail">{{ grp.available | money }} avail</span>
+      </div>
 
       {% for b in grp.buckets_v4 %}{% include "panels/_bucket_row_v4.html" %}{% endfor %}
 
