@@ -441,11 +441,43 @@ def ledger_companion_ctx() -> dict:
     """Slim transaction feed for the v4 combined Ledger+Buckets view.
 
     Reuses accounts_view()'s already-correct ledger grouping rather than
-    reimplementing transaction shaping — same data, same shape, just a
-    shorter slice for a companion column instead of the full Ledger.
+    reimplementing transaction shaping — same data, same shape, just
+    filtered to one account (the primary budget account, same slice RTS
+    itself is anchored to) with a daily end-of-day running balance added,
+    matching what Accounts already shows when you filter to a single
+    account there.
     """
+    data = load_data()
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    default_acct = next((a for a in accounts if a.get("type") == "budget"), None)
+    if not default_acct:
+        return {"ledger_groups": [], "ledger_acct_name": ""}
+
+    aid = default_acct["id"]
     acc = accounts_view()
-    return {"ledger_groups": acc["ledger"][:8]}
+    groups = []
+    for day in acc["ledger"]:
+        rows = [r for r in day["rows"]
+                if r["account_id"] == aid or (r["type"] == "xfr" and r["toAccountId"] == aid)]
+        if rows:
+            groups.append({**day, "rows": rows})
+    groups = groups[:8]
+
+    # Walk backward from today's balance (newest day first, matching
+    # accounts.html's own running-balance convention) so each day shows its
+    # own end-of-day balance, not just that day's net.
+    bal = F.acct_balance(default_acct, data.get("txs", []))
+    for day in groups:
+        day["end_balance"] = bal
+        effect = 0.0
+        for r in day["rows"]:
+            if r["account_id"] == aid:
+                effect += r["amount"] if r["type"] == "in" else (-r["amount"] if r["type"] in ("out", "xfr") else 0)
+            elif r["type"] == "xfr" and r["toAccountId"] == aid:
+                effect += r["amount"]
+        bal = round(bal - effect, 2)
+
+    return {"ledger_groups": groups, "ledger_acct_name": default_acct["name"]}
 
 
 # ── Dashboard (v4 prototype) — layer 1 of the map+sheet redesign ──────────────

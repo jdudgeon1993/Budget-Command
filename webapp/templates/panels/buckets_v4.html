@@ -7,10 +7,13 @@
   </div>
 
   <div class="v4-ledger-col" id="v4-ledger-col">
-    <div class="v4-ledger-hdr">Ledger</div>
+    <div class="v4-ledger-hdr">Ledger{% if ledger_acct_name %} <span class="v4-ledger-acct">· {{ ledger_acct_name }}</span>{% endif %}</div>
     {% if ledger_groups %}
       {% for grp in ledger_groups %}
-      <div class="v4-ledger-daylbl">{{ grp.label }}</div>
+      <div class="v4-ledger-daylbl">
+        <span>{{ grp.label }}</span>
+        <span class="v4-ledger-rb">{{ grp.end_balance | money }}</span>
+      </div>
       {% for r in grp.rows %}
       <div class="v4-ledger-row">
         <div class="v4-ledger-row-main">
@@ -56,6 +59,11 @@
     {% endif %}
 
     <div class="workflow-bar">
+      {% if shell.rts > 0 %}
+      <button class="wf-btn wf-btn-primary" type="button"
+              hx-get="{{ url_for('.distribute_modal') }}" hx-target="#modal-body" hx-swap="innerHTML"
+              onclick="openModal()">Distribute {{ shell.rts | money }} →</button>
+      {% endif %}
       {% if shell.month_closed %}
       <span class="wf-closed-badge">🔒 Closed</span>
       <form method="post" action="{{ url_for('.month_reopen') }}" style="display:contents"
@@ -70,23 +78,19 @@
       {% endif %}
     </div>
 
-    {# ── Category cards — buckets stay in their set order, no status re-sorting ── #}
+    {# ── Category cards — collapsed by default (tap to expand); same data as
+       before, just not all dumped on screen at once. Background tint on the
+       header stands in for the old separate progress-bar element — one
+       glance at the color says the status, no bar needed. ── #}
     {% for grp in groups %}
-    <div class="v4-cat" id="cat-{{ grp.id }}">
+    {% set has_over = grp.buckets_v4 | selectattr('alert_status', 'equalto', 'overspent') | list | length > 0 %}
+    {% set cat_tier = 'over' if has_over else ('full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty')) %}
+    <div class="v4-cat v4-cat-{{ cat_tier }} collapsed" id="cat-{{ grp.id }}">
       <div class="v4-cat-hdr" onclick="this.closest('.v4-cat').classList.toggle('collapsed')">
         <div class="v4-cat-swatch" style="background:{{ grp.color }}"></div>
         <span class="v4-cat-name">{{ grp.name }}</span>
-        <div class="v4-cat-fields">
-          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Alloc</span>{{ grp.alloc | money }}</span>
-          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Target</span>{{ grp.budget | money }}</span>
-          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Spent</span>{{ grp.spent | money }}</span>
-          <span class="v4-cat-field"><span class="v4-cat-field-lbl">Avail</span>{{ grp.available | money }}</span>
-        </div>
         <span class="v4-cat-pct-pill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}">{{ grp.pct }}%</span>
         <span class="v4-cat-chevron">▾</span>
-      </div>
-      <div class="v4-cat-bar">
-        <div class="v4-cat-bar-fill {{ 'full' if grp.pct >= 100 else ('partial' if grp.pct > 0 else 'empty') }}" style="width:{{ [grp.pct, 100] | min }}%"></div>
       </div>
 
       {% for b in grp.buckets_v4 %}{% include "panels/_bucket_row_v4.html" %}{% endfor %}
@@ -188,69 +192,6 @@
       });
     }
     </script>
-  </div>
-
-  <div class="right-sticky">
-    {# RTS breakdown — the number itself lives only in the sidebar now (was
-       shown twice on screen at once); this card is the supporting detail:
-       how much still needs a home, the split, and the action. #}
-    <div class="v4-rts-card">
-      <div class="v4-rts-card-hdr">Ready to Assign — breakdown</div>
-      <div class="rts-hero-sub">{{ shell.unhomed | money }} still needs a home</div>
-      <div class="rts-progress-track"><div class="rts-progress-fill" style="width:{{ shell.pct }}%"></div></div>
-      <div class="rts-kpis">
-        <div class="rts-kpi"><span class="rts-kpi-lbl">Income</span><span class="rts-kpi-val" style="color:var(--green)">{{ shell.income | money }}</span></div>
-        <div class="rts-kpi"><span class="rts-kpi-lbl">Alloc'd</span><span class="rts-kpi-val" style="color:var(--accent)">{{ shell.allocated | money }}</span></div>
-        <div class="rts-kpi"><span class="rts-kpi-lbl">Spent</span><span class="rts-kpi-val" style="color:var(--text2)">{{ shell.spent | money }}</span></div>
-      </div>
-      {% if shell.rts > 0 %}
-      <button class="rts-distribute-btn" type="button"
-              hx-get="{{ url_for('.distribute_modal') }}" hx-target="#modal-body" hx-swap="innerHTML"
-              onclick="openModal()">DISTRIBUTE RTS →</button>
-      {% endif %}
-    </div>
-
-    {# Status legend — matches the alert vocabulary from the row (Open/Unfunded/Funding/Funded/Overspent/Vault) #}
-    <div class="status-legend">
-      <div class="status-legend-title">Status</div>
-      <div class="status-legend-rows">
-        <div class="status-legend-row">
-          <div class="status-legend-dot" style="background:var(--text3)"></div>
-          <span>Grey — <strong style="color:var(--text3)">Open</strong> (nothing set yet)</span>
-        </div>
-        <div class="status-legend-row">
-          <div class="status-legend-dot" style="background:var(--amber)"></div>
-          <span>Orange — <strong style="color:var(--amber)">Unfunded / Funding</strong></span>
-        </div>
-        <div class="status-legend-row">
-          <div class="status-legend-dot" style="background:var(--green)"></div>
-          <span>Green — <strong style="color:var(--green)">Funded</strong></span>
-        </div>
-        <div class="status-legend-row">
-          <div class="status-legend-dot" style="background:var(--red)"></div>
-          <span>Red — <strong style="color:var(--red)">Overspent</strong></span>
-        </div>
-        <div class="status-legend-row">
-          <div class="status-legend-dot" style="background:var(--accent)"></div>
-          <span>Purple — <strong style="color:var(--accent)">Vault</strong></span>
-        </div>
-      </div>
-    </div>
-
-    {# Category summary bars #}
-    <div class="card card-pad" style="margin-top:12px">
-      <div class="card-label">Categories</div>
-      {% for grp in groups %}
-      <div class="cat-bar-row">
-        <div class="cat-bar-hdr">
-          <div class="cat-dot" style="background:{{ grp.color }}"></div>
-          <span class="cat-bar-name">{{ grp.name }}</span>
-          <span class="cat-bar-pct" style="color:{{ 'var(--green)' if grp.pct >= 100 else 'var(--amber)' }}">{{ grp.pct }}%</span>
-        </div>
-        <div class="cat-bar-track"><div class="cat-bar-fill" style="width:{{ grp.pct }}%;background:{{ grp.color }}"></div></div>
-      </div>
-      {% endfor %}
-    </div>
   </div>
 </div>
 </div>
