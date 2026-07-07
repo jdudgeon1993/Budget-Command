@@ -65,107 +65,14 @@ document.addEventListener('htmx:afterSettle',function(e){
       </div>
       <span class="dash-brand-name">Cura</span>
     </div>
-    <div class="dash-stats">
-      <div class="dash-stat">
-        <div class="dash-stat-amt">{{ dash.balance | money }}</div>
-        <div class="dash-stat-lbl"><span class="s">Balance</span><span class="l">Available Balance</span></div>
-      </div>
-      <div class="dash-stat">
-        <div class="dash-stat-amt">{{ dash.rts | money }}</div>
-        <div class="dash-stat-lbl"><span class="s">Ready</span><span class="l">Ready to Spend</span></div>
-      </div>
-      {% if dash.sts_amt is not none %}
-      <div class="dash-stat dash-stat-sts">
-        <div class="dash-stat-amt">{{ dash.sts_amt | money }}</div>
-        <div class="dash-stat-lbl"><span class="s">Safe</span><span class="l">Safe to Spend</span> <span class="dash-stat-qual">{{ dash.sts_qualifier }}</span></div>
-      </div>
-      {% endif %}
-    </div>
+    <div class="dash-stats" id="dash-stats">{% include "panels/_dash_stats.html" %}</div>
     <a class="dash-avatar" href="{{ url_for('.setup') }}"
        hx-get="{{ url_for('.setup') }}" hx-target="#panel" onclick="dashExpand()"
        aria-label="Setup &amp; account">{{ (shell.user_email[:2] or 'JD') | upper }}</a>
   </header>
 
   <div class="dash-body {{ 'dash-hidden' if sheet_is_open }}" id="dash-body">
-    <button class="dash-report-card" type="button"
-            hx-get="{{ url_for('.reports') }}" hx-target="#panel" onclick="dashExpand()">
-      <div class="dash-report-pies">
-        <div class="dash-pie-item">
-          <div class="dash-pie" style="--pct:{{ dash.budget_pct }};--ring-color:{{ 'var(--red)' if dash.over_budget else ('var(--amber)' if dash.budget_pct >= 90 else 'var(--green)') }}">
-            <span class="dash-pie-pct">{{ dash.budget_pct }}%</span>
-          </div>
-          <div class="dash-pie-lbl">Target vs Spent</div>
-          <div class="dash-pie-figs">
-            <span>{{ dash.total_budget | money }} target</span>
-            <span>{{ dash.total_spent | money }} spent</span>
-          </div>
-        </div>
-        <div class="dash-pie-item">
-          <div class="dash-pie dash-pie-multi" style="background:{{ dash.cat_pie_css }}"></div>
-          <div class="dash-pie-lbl">Category Trends</div>
-          <div class="dash-pie-figs">
-            {% if dash.cat_trends %}
-            {% for c in dash.cat_trends[:3] %}
-            <span><i style="background:{{ c.color }}"></i>{{ c.name }} {{ c.pct }}%</span>
-            {% endfor %}
-            {% else %}
-            <span class="dash-pie-figs-empty">Nothing spent yet</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-      <div class="dash-report-cta">Full report <span class="dash-tile-arrow">→</span></div>
-    </button>
-
-    <div class="dash-accts">
-      <div class="dash-acct-group">
-        <div class="dash-acct-hdr">Cash Accounts</div>
-        {% if dash.cash_cards %}
-        <div class="dash-acct-chips">
-          {% for a in dash.cash_cards %}
-          <button class="dash-acct-chip" type="button" style="--chip-color:{{ a.color }}"
-                  hx-get="{{ url_for('.accounts') }}" hx-target="#panel"
-                  onclick="dashExpand();dashFilterAcct('{{ a.id }}')">
-            <span class="dash-acct-chip-name">{{ a.name }}</span>
-            <span class="dash-acct-chip-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</span>
-          </button>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="dash-acct-empty">No cash accounts yet.</div>
-        {% endif %}
-      </div>
-      {% if dash.debt_cards %}
-      <div class="dash-acct-group">
-        <div class="dash-acct-hdr">Debt Accounts</div>
-        <div class="dash-acct-chips">
-          {% for a in dash.debt_cards %}
-          <button class="dash-acct-chip dash-acct-chip-debt" type="button" style="--chip-color:{{ a.color }}"
-                  hx-get="{{ url_for('.accounts') }}" hx-target="#panel"
-                  onclick="dashExpand();dashFilterAcct('{{ a.id }}')">
-            <span class="dash-acct-chip-name">{{ a.name }}</span>
-            <span class="dash-acct-chip-bal neg">{{ a.balance | money }}</span>
-          </button>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-    </div>
-
-    <div class="dash-tiles">
-      <button class="dash-tile" type="button"
-              hx-get="{{ url_for('.buckets') }}" hx-target="#panel" onclick="dashExpand()">
-        <span>Categories</span><span class="dash-tile-arrow">→</span>
-      </button>
-      <button class="dash-tile" type="button"
-              hx-get="{{ url_for('.insights') }}" hx-target="#panel" onclick="dashExpand()">
-        <span>Forecast</span><span class="dash-tile-arrow">→</span>
-      </button>
-      <button class="dash-tile" type="button"
-              hx-get="{{ url_for('.reports') }}" hx-target="#panel" onclick="dashExpand()">
-        <span>Reports</span><span class="dash-tile-arrow">→</span>
-      </button>
-    </div>
+    <div id="dash-body-inner">{% include "panels/_dash_body.html" %}</div>
   </div>
 
   <div class="sheet {{ 'open' if sheet_is_open }}" id="sheet">

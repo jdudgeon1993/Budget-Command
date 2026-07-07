@@ -526,12 +526,18 @@ def dashboard_ctx() -> dict:
     cash_cards = [c for c in acc["cards"] if c["type"] != "debt"]
     debt_cards = [c for c in acc["cards"] if c["type"] == "debt"]
 
+    attention_count = sum(
+        1 for g in groups for b in g["buckets"]
+        if b["alert_status"] in ("overspent", "unfunded", "funding")
+    )
+
     return {
         "balance": balance, "rts": rts, "sts_amt": sts_amt, "sts_qualifier": sts_qualifier,
         "total_budget": total_budget, "total_spent": total_spent,
         "budget_pct": budget_pct, "over_budget": over_budget,
         "cat_trends": cat_trends, "cat_pie_css": cat_pie_css,
         "cash_cards": cash_cards, "debt_cards": debt_cards,
+        "attention_count": attention_count,
     }
 
 

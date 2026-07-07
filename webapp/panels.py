@@ -17,19 +17,18 @@ PANELS = ["buckets", "accounts", "insights", "reports", "setup"]
 
 
 def render_panel(template, active_panel, **ctx):
-    """Full page on normal load, bare fragment on HTMX request."""
+    """Full page on normal load, bare fragment on HTMX request.
+
+    dash (the dashboard shell's header stats + body tiles) is computed on
+    every render, hard load or HTMX fragment alike — on a hard load it
+    feeds the shell markup directly, on an HTMX swap it feeds the OOB
+    refresh in _partial.html (see panels/_oob_dash.html) so the dashboard
+    behind the sheet never goes stale after a write.
+    """
     session["active_panel"] = active_panel
     htmx = request.headers.get("HX-Request") == "true"
-    dash = None
-    if htmx:
-        layout = "_partial.html"
-    else:
-        layout = "base.html"
-        # Dashboard (layer 1) is part of the persistent shell, rendered on
-        # every hard page load — not recomputed for htmx fragment swaps,
-        # which only ever replace #panel and never touch the shell around it.
-        dash = D.dashboard_ctx()
-    return render_template(template, layout=layout, dash=dash,
+    layout = "_partial.html" if htmx else "base.html"
+    return render_template(template, layout=layout, dash=D.dashboard_ctx(),
                            shell=D.shell_ctx(active_panel), **ctx)
 
 
@@ -1689,11 +1688,10 @@ def transaction_create():
         if (tx["type"] == "in" and tx.get("incomeType") == "paycheck"
                 and request.headers.get("HX-Request") == "true"):
             ctx = D.paycheck_distribute_ctx(amount, mid)
-            shell = D.shell_ctx(back_panel)
             resp = make_response(
                 render_template("panels/_frag_paycheck_distribute.html",
                                 tid=new_tid, back=back_panel, **ctx)
-                + render_template("panels/_oob_rts.html", shell=shell))
+                + render_template("panels/_oob_dash.html", dash=D.dashboard_ctx()))
             resp.headers["HX-Retarget"] = "#modal-body"
             resp.headers["HX-Reswap"] = "innerHTML"
             return resp
@@ -1703,15 +1701,6 @@ def transaction_create():
         tmpl, ctx_fn = _panel_lookup(back_panel)
         return _panel_close_modal(tmpl, back_panel, **ctx_fn())
     return redirect(url_for("." + back_panel))
-
-
-@bp.route("/month/<direction>")
-@login_required
-def month_nav(direction):
-    y, m0 = D.F.parse_month_id(D.active_mid())
-    total = y * 12 + m0 + (1 if direction == "next" else -1)
-    session["active_mid"] = f"m_{total // 12}_{total % 12}"
-    return redirect(url_for("." + session.get("active_panel", "buckets")))
 
 
 @bp.route("/month/today")
