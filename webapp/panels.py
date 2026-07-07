@@ -449,6 +449,50 @@ def vault_release_to_pool(bid):
                            bucket=bucket, vault_alloc=vault_alloc, vault_accum=vault_accum)
 
 
+@bp.route("/buckets/<bid>/vault-adjust", methods=["GET", "POST"])
+@login_required
+def vault_adjust_balance(bid):
+    """Correct a vault's accumulated total to a true value.
+
+    Not a normal contribution or release — this exists for fixing bad
+    historical data (e.g. a bug that let a release overshoot what the
+    vault actually held), recorded as an explicit, audited adjustment
+    rather than quietly hand-editing a month's numbers.
+    """
+    data = D.load_data()
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket or bucket.get("type") != "vault":
+        return redirect(url_for(".buckets"))
+    current_accum = D.F.vault_accumulated(bid, data.get("months", []))
+    if request.method == "POST":
+        f = request.form
+        try:
+            target = round(float(f.get("target", "0").replace("$", "").replace(",", "")), 2)
+        except ValueError:
+            target = current_accum
+        target = max(target, 0.0)
+        delta = round(target - current_accum, 2)
+        if abs(delta) > 0.005:
+            mid = D.active_mid()
+            if not current_app.config["DEV_SEED"]:
+                DB.ensure_month(session["user_id"], session["access_token"], mid)
+                DB.vault_adjust_balance(session["user_id"], session["access_token"],
+                                        mid, bid, delta)
+                reason = f.get("reason", "").strip() or "Balance correction"
+                DB.log_vault_release(session["user_id"], session["access_token"],
+                                     mid, bid, abs(delta), f"Correction: {reason}", True)
+                D.invalidate_cache()
+                flash(f"Corrected {bucket['name']} to ${target:,.2f}.", "ok")
+            else:
+                flash("Dev mode: correction not persisted.", "ok")
+        if request.headers.get("HX-Request") == "true":
+            return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
+        return redirect(url_for(".buckets"))
+    # GET — render correction form in modal
+    return render_template("panels/_frag_vault_adjust.html",
+                           bucket=bucket, current_accum=current_accum)
+
+
 # ── Budget inline edit ───────────────────────────────────────────────────────
 
 @bp.route("/buckets/<bid>/budget", methods=["POST"])

@@ -485,6 +485,27 @@ def vault_release_to_pool(uid: str, token: str, mid: str, bid: str,
         }, on_conflict="user_id,month_id,bucket_id").execute()
 
 
+def vault_adjust_balance(uid: str, token: str, mid: str, bid: str, delta: float) -> None:
+    """Correct a vault's accumulated total by `delta` (positive = add back,
+    negative = remove) via a same-month vaultWithdrawals adjustment.
+
+    Deliberately routed through the withdrawals field, not allocations —
+    a correction isn't a real contribution, and folding it into `alloc`
+    would misrepresent it in this month's own contribution figure (used
+    elsewhere for pacing/category totals). vault_accumulated() and
+    bucket_available() both read vaultWithdrawals identically, so this
+    corrects the displayed total and Ready to Spend together, in one write.
+    """
+    db = client(token)
+    existing = db.table("bcc_month_vault_withdrawals").select("amount") \
+        .eq("user_id", uid).eq("month_id", mid).eq("bucket_id", bid).execute().data or []
+    existing_wd = float(existing[0]["amount"]) if existing else 0.0
+    db.table("bcc_month_vault_withdrawals").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": bid,
+        "amount": round(existing_wd - delta, 2),
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+
+
 def log_vault_release(uid: str, token: str, mid: str, bid: str,
                       amount: float, reason: str, is_planned: bool) -> None:
     """Log a vault release reason for reporting. Best-effort — table may not exist."""
