@@ -17,57 +17,39 @@ PANELS = ["buckets", "accounts", "insights", "reports", "setup"]
 
 
 def render_panel(template, active_panel, **ctx):
-    """Full page on normal load, bare fragment on HTMX request.
-
-    The same view functions are also mounted under the "proto" blueprint
-    (see webapp/__init__.py) at /proto/v4 — a full live mirror used to
-    redesign one section at a time without touching the production routes.
-    request.blueprint tells us which mount served this request so the
-    mirror gets its own full-page shell (nav links stay inside /proto/v4)
-    while the HTMX partial layout is identical either way.
-    """
+    """Full page on normal load, bare fragment on HTMX request."""
     session["active_panel"] = active_panel
     htmx = request.headers.get("HX-Request") == "true"
     dash = None
     if htmx:
         layout = "_partial.html"
     else:
-        layout = "proto_base.html" if request.blueprint == "proto" else "base.html"
-        # Dashboard (layer 1) is part of the persistent v4 shell, rendered on
+        layout = "base.html"
+        # Dashboard (layer 1) is part of the persistent shell, rendered on
         # every hard page load — not recomputed for htmx fragment swaps,
         # which only ever replace #panel and never touch the shell around it.
-        if request.blueprint == "proto":
-            dash = D.dashboard_ctx()
+        dash = D.dashboard_ctx()
     return render_template(template, layout=layout, dash=dash,
                            shell=D.shell_ctx(active_panel), **ctx)
 
 
 def _bucket_template() -> str:
-    """buckets.html normally; the redesigned v4 layout under the proto mirror."""
-    return "panels/buckets_v4.html" if request.blueprint == "proto" else "panels/buckets.html"
+    return "panels/buckets_v4.html"
 
 
 def _bucket_settings_template() -> str:
-    """Settings-form fragment: classic 3-field-group form, or the v4 redesign."""
-    return "panels/_frag_bucket_v4.html" if request.blueprint == "proto" else "panels/_frag_bucket.html"
+    return "panels/_frag_bucket_v4.html"
 
 
 @bp.route("/")
 def index():
-    if request.blueprint == "proto":
-        return redirect(url_for(".dashboard"))
-    return redirect(url_for(".buckets"))
+    return redirect(url_for(".dashboard"))
 
 
 @bp.route("/dashboard")
 @login_required
 def dashboard():
-    """Layer 1 of the map+sheet redesign — v4 prototype only.
-
-    Classic keeps its old behavior (redirect straight to Buckets) untouched.
-    """
-    if request.blueprint != "proto":
-        return redirect(url_for(".buckets"))
+    """Layer 1 of the dashboard+sheet shell."""
     return render_panel("panels/dashboard_v4.html", "buckets", sheet_open=False)
 
 
@@ -239,11 +221,7 @@ _PANEL_MAP = {
 
 
 def _panel_lookup(back_panel: str):
-    """Template + context-fn for a "back to panel X" redirect.
-
-    Buckets needs the blueprint-aware template (see _bucket_template);
-    everything else is a fixed 1:1 mapping via _PANEL_MAP.
-    """
+    """Template + context-fn for a "back to panel X" redirect."""
     if back_panel == "buckets":
         return _bucket_template(), (lambda: D.bucket_rows())
     return _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])

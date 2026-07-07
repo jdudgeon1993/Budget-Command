@@ -95,7 +95,7 @@ def login():
             session["expires_at"]    = res["expires_at"]
             session["user_id"]       = res["user_id"]
             session["email"]         = res.get("user_email", request.form["email"])
-            return redirect(url_for("panels.buckets"))
+            return redirect(url_for("panels.dashboard"))
         except Exception as e:
             from flask import flash
             flash(str(e), "error")

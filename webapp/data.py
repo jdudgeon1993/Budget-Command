@@ -167,12 +167,10 @@ def shell_ctx(active_panel: str = "") -> dict:
         "sts_amt": None,
         "sts_qualifier": "",
     }
-    # v4 only: RTS + Safe-to-Spend shown together, everywhere, per the
-    # design-session plan. Read-only call into the same compute_forecast()
-    # the live Forecast page uses — nothing about it changes or is at risk.
-    # Gated to the proto blueprint so classic panels never pay this cost.
-    if request.blueprint == "proto":
-        result["sts_amt"], result["sts_qualifier"] = _safe_to_spend(data)
+    # RTS + Safe-to-Spend shown together, everywhere. Read-only call into the
+    # same compute_forecast() the live Forecast page uses — nothing about it
+    # changes or is at risk.
+    result["sts_amt"], result["sts_qualifier"] = _safe_to_spend(data)
     return result
 
 
@@ -409,10 +407,10 @@ def bucket_rows(view_mid: str = None):
             "spent": cat_spent, "available": cat_available,
             "pct": min(100, round((cat_alloc / cat_budget) * 100)) if cat_budget else 0,
             "buckets": rows,
-            # v4 prototype only — severity tier first, due-date proximity
-            # breaks ties within a tier. A separate copy so classic's own
-            # tier-grouping in buckets.html (which relies on the original
-            # category/manual order for its own sub-ordering) is untouched.
+            # Severity tier first, due-date proximity breaks ties within a
+            # tier. A separate sorted copy — "buckets" keeps its original
+            # category/manual order for the other views that reuse it
+            # (transaction forms, scenario editor, vault transfer picker).
             "buckets_v4": sorted(rows, key=_v4_bucket_sort_key),
         })
     # Month tabs for the future-planning toggle
@@ -426,12 +424,7 @@ def bucket_rows(view_mid: str = None):
               "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
               "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
                               for b in buckets if not b.get("archived")]}
-    # v4 combined Ledger+Buckets view only — classic Buckets never pays this
-    # cost. Gated on request.blueprint so every existing call site (write
-    # actions re-rendering the panel, not just the initial GET) picks it up
-    # automatically without having to remember to merge it in separately.
-    if request.blueprint == "proto":
-        result.update(ledger_companion_ctx())
+    result.update(ledger_companion_ctx())
     return result
 
 
