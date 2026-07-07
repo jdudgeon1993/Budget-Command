@@ -125,33 +125,26 @@
     {% endfor %}
 
     <script>
-    // Visibility here is class-driven (.open / .shown), not inline style —
-    // the CSS transitions on .v4-panel / .v4-panel-sub in app.css only
-    // animate a class change, not a display:none jump cut.
-    function v4TogglePanel(id){
-      var panel=document.getElementById('v4-panel-'+id);
-      var icon=document.getElementById('v4-toggle-icon-'+id);
-      if(!panel)return;
-      var open=panel.classList.contains('open');
-      panel.classList.toggle('open', !open);
-      if(icon)icon.textContent=open?'▾':'▴';
-      if(open){
-        // Closing the row closes whichever sub-panel (ledger/settings) was open too.
-        var ledger=document.getElementById('v4-sub-ledger-'+id);
-        var settings=document.getElementById('v4-sub-settings-'+id);
-        if(ledger)ledger.classList.remove('shown');
-        if(settings)settings.classList.remove('shown');
-      }
-    }
+    // Visibility here is class-driven (.shown), not inline style — the CSS
+    // transition on .v4-panel-sub in app.css only animates a class change,
+    // not a display:none jump cut. Each row icon opens its own sub-panel
+    // directly (no wrapping "Toggle" step anymore) and lights up while its
+    // content is showing.
     function v4ShowSub(id, which, url){
       var ledger=document.getElementById('v4-sub-ledger-'+id);
       var settings=document.getElementById('v4-sub-settings-'+id);
+      var iconL=document.getElementById('v4-icon-ledger-'+id);
+      var iconS=document.getElementById('v4-icon-settings-'+id);
       var target=(which==='ledger')?ledger:settings;
       var other=(which==='ledger')?settings:ledger;
+      var targetIcon=(which==='ledger')?iconL:iconS;
+      var otherIcon=(which==='ledger')?iconS:iconL;
       if(!target)return;
       var opening=!target.classList.contains('shown');
       if(other)other.classList.remove('shown');
+      if(otherIcon)otherIcon.classList.remove('active');
       target.classList.toggle('shown', opening);
+      if(targetIcon)targetIcon.classList.toggle('active', opening);
       if(opening && which==='settings' && url){
         var el=document.getElementById('bkt-settings-'+id);
         if(el && !el.dataset.loaded){
@@ -194,6 +187,57 @@
             });
           });
         });
+      });
+    }
+
+    // Every panel-targeted HTMX swap re-renders from scratch, and categories
+    // default to collapsed in the template — so without this, editing a
+    // bucket mid-category snaps the whole category shut on every single
+    // edit. Remember which categories were open before the swap, reopen the
+    // same ones after.
+    if(!window._v4CatStateBound){
+      window._v4CatStateBound = true;
+      var _v4OpenCats = [];
+      document.body.addEventListener('htmx:beforeSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        _v4OpenCats = [];
+        document.querySelectorAll('.v4-cat:not(.collapsed)').forEach(function(el){
+          _v4OpenCats.push(el.id);
+        });
+      });
+      // Restoring on afterSettle, not afterSwap: htmx re-processes the
+      // embedded <script> tag (allowScriptTags) between those two events,
+      // which re-inserts this category's original (still-collapsed)
+      // markup — afterSwap is too early and gets clobbered a moment later.
+      document.body.addEventListener('htmx:afterSettle', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        _v4OpenCats.forEach(function(id){
+          var el = document.getElementById(id);
+          if(el) el.classList.remove('collapsed');
+        });
+      });
+    }
+
+    // Live-edit feedback: editing Allocated/Target silently swaps the whole
+    // panel via HTMX, which is correct but invisible — nothing marks that
+    // your edit is what just happened. Capture which row's input triggered
+    // the request, then briefly pulse that same row once the new HTML lands.
+    if(!window._v4PulseBound){
+      window._v4PulseBound = true;
+      document.body.addEventListener('htmx:beforeRequest', function(e){
+        var row = e.detail.elt && e.detail.elt.closest && e.detail.elt.closest('[id^="v4-bkt-"]');
+        window._v4EditedRowId = row ? row.id : null;
+      });
+      document.body.addEventListener('htmx:afterSwap', function(e){
+        if(!e.detail.target || e.detail.target.id !== 'panel') return;
+        var id = window._v4EditedRowId;
+        window._v4EditedRowId = null;
+        if(!id) return;
+        if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        var el = document.getElementById(id);
+        if(!el) return;
+        el.classList.add('v4-just-edited');
+        setTimeout(function(){ el.classList.remove('v4-just-edited'); }, 900);
       });
     }
     </script>

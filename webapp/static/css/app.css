@@ -1083,7 +1083,7 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 .v4-cat .v4-row-wrap,.v4-cat .v4-cat-bar,.v4-cat .vg-add-strip{overflow:hidden;max-height:4000px;opacity:1;transition:max-height .22s ease,opacity .18s ease}
 .v4-cat.collapsed .v4-row-wrap,.v4-cat.collapsed .v4-cat-bar,.v4-cat.collapsed .vg-add-strip{max-height:0;opacity:0}
 
-.v4-row-wrap{border-bottom:1px solid rgba(255,255,255,.04)}
+.v4-row-wrap{border-bottom:1px solid rgba(255,255,255,.04);transition:background .5s ease}
 .v4-row-wrap:last-child{border-bottom:none}
 .v4-row{display:flex}
 .v4-bar{width:4px;flex-shrink:0}
@@ -1093,11 +1093,11 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 .v4-bar-overspent{background:var(--red)}
 .v4-bar-funded{background:var(--green)}
 .v4-bar-vault{background:var(--accent)}
-.v4-row-body{flex:1;padding:10px 14px 12px;min-width:0}
-.v4-row-hdr{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.v4-row-body{flex:1;padding:9px 12px 10px;min-width:0}
+.v4-row-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
 .v4-name-block{display:flex;flex-direction:column;margin-right:auto}
-.v4-name{font-size:13px;font-weight:700;color:var(--text)}
-.v4-type{font-size:10px;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
+.v4-name{font-size:12.5px;font-weight:700;color:var(--text)}
+.v4-type{font-size:9.5px;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
 .v4-pill{font-size:10px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:var(--r-pill);letter-spacing:.03em;white-space:nowrap}
 .v4-pill-open{background:rgba(255,255,255,.05);color:var(--text3);border:1px solid var(--border)}
 .v4-pill-unfunded{background:rgba(255,159,10,.10);color:var(--amber);border:1px solid rgba(255,159,10,.3)}
@@ -1105,15 +1105,29 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 .v4-pill-overspent{background:rgba(255,69,58,.10);color:var(--red);border:1px solid rgba(255,69,58,.3)}
 .v4-pill-funded{background:rgba(48,209,88,.10);color:var(--green);border:1px solid rgba(48,209,88,.3)}
 .v4-pill-vault{background:rgba(191,90,242,.10);color:var(--accent);border:1px solid rgba(191,90,242,.3)}
-.v4-toggle-btn{font-size:11px;font-family:var(--mono);font-weight:600;padding:4px 10px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);cursor:pointer}
-.v4-toggle-btn:hover{color:var(--text);border-color:var(--text3)}
 
-.v4-fields{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.v4-field{display:flex;flex-direction:column;gap:2px}
-.v4-field-lbl{font-size:9px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
-.v4-input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;font-weight:600;padding:5px 7px;border-radius:var(--r-sm);outline:none}
-.v4-input:focus{border-color:var(--accent)}
-.v4-value{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text);padding:5px 0}
+/* Row icons — Handled/Ledger/Settings, each opens its own content in one
+   tap (no more generic "Toggle" step to find them behind). */
+.v4-row-icons{display:flex;gap:4px;flex-shrink:0}
+.v4-icon-sm{width:24px;height:24px;padding:0;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);cursor:pointer}
+.v4-icon-sm:hover{color:var(--text);border-color:var(--text3)}
+.v4-icon-sm.active{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
+
+/* Mini pacing ring — ambient on the row itself, not hidden behind a click;
+   the one figure on this row that genuinely changes day to day. */
+.v4-pace-mini{width:18px;height:18px;border-radius:50%;flex-shrink:0;position:relative;background:conic-gradient(var(--ring-color,var(--accent)) calc(var(--pct,0)*3.6deg),var(--track) 0)}
+.v4-pace-mini::before{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--surface)}
+
+/* Figs line — Alloc/Target inline-editable, Spent/Available plain text.
+   Inputs read as text until touched (no permanent box), replacing the old
+   4-column labeled grid that made every row look like a form. */
+.v4-row-figs{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;color:var(--text2)}
+.v4-fig-sep{color:var(--text3)}
+.v4-fig-static{margin-left:3px}
+.v4-fig-avail{margin-left:auto;font-weight:700}
+.v4-input{width:62px;background:transparent;border:none;border-bottom:1px dashed var(--border);color:var(--text);font-family:var(--mono);font-size:12px;font-weight:700;padding:0 0 1px;outline:none}
+.v4-input:hover{border-bottom-color:var(--text3)}
+.v4-input:focus{border-bottom:1px solid var(--accent)}
 .v4-avail-open{color:var(--text3)}
 .v4-avail-unfunded{color:var(--amber)}
 .v4-avail-funding{color:var(--amber)}
@@ -1121,35 +1135,22 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 .v4-avail-funded{color:var(--green)}
 .v4-avail-vault{color:var(--accent)}
 
-.v4-panel{
-  max-height:0;opacity:0;overflow:hidden;
-  padding-left:14px;padding-right:14px;padding-top:0;padding-bottom:0;
-  border-top:0 solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);
-  transition:max-height .22s ease,opacity .18s ease,padding-top .22s ease,padding-bottom .22s ease,border-top-width .22s ease;
-}
-.v4-panel.open{max-height:3000px;opacity:1;padding-top:12px;padding-bottom:14px;border-top-width:1px}
-.v4-panel-icons{display:flex;gap:8px;flex-wrap:wrap}
-.v4-icon-btn{font-size:11px;font-family:var(--mono);font-weight:600;padding:6px 12px;border-radius:var(--r-sm);background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text2);cursor:pointer}
-.v4-icon-btn:hover{color:var(--text);border-color:var(--text3)}
-.v4-icon-btn.active{border-color:var(--green);background:var(--green-dim);color:var(--green)}
+/* Live-edit feedback: a brief warm flash on the row an edit just landed
+   on, so the swap feels like a response to you, not a silent number
+   change. */
+@keyframes v4EditPulse{0%{background:var(--accent-dim)}100%{background:transparent}}
+.v4-just-edited{animation:v4EditPulse .9s ease}
+
+/* Sub-panels (ledger tx list / settings form) open directly from their row
+   icon. No wrapping "phase 2 panel" box anymore — one less layer. */
+.v4-panel{padding:0 12px}
 .v4-panel-sub{
   max-height:0;opacity:0;overflow:hidden;
   margin-top:0;padding-top:0;border-top:0 solid rgba(255,255,255,.04);
   transition:max-height .2s ease,opacity .16s ease,margin-top .2s ease,padding-top .2s ease,border-top-width .2s ease;
 }
-.v4-panel-sub.shown{max-height:220px;opacity:1;margin-top:10px;padding-top:10px;border-top-width:1px;overflow-y:auto}
+.v4-panel-sub.shown{max-height:220px;opacity:1;margin-top:8px;padding-top:9px;padding-bottom:10px;border-top-width:1px;overflow-y:auto}
 .v4-calc-due{font-size:11px;font-family:var(--mono);color:var(--text3)}
-
-/* v4: pacing dial (Copilot Money study) — variable-spend buckets only, shown on expand */
-.v4-pace{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:14px}
-.v4-pace-dial{width:64px;height:64px;flex-shrink:0}
-.v4-pace-body{display:flex;flex-direction:column;gap:3px}
-.v4-pace-pct{font-family:var(--mono);font-size:15px;font-weight:700}
-.v4-pace-pct.good{color:var(--pace-good)}
-.v4-pace-pct.light{color:var(--pace-light)}
-.v4-pace-pct.dark{color:var(--pace-dark)}
-.v4-pace-pct.over{color:var(--pace-over)}
-.v4-pace-lbl{font-size:11.5px;color:var(--text2)}
 
 /* v4: RTS breakdown card — number lives in the sidebar only, this is the detail */
 .v4-rts-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:12px}
@@ -1157,6 +1158,7 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
 
 @media (prefers-reduced-motion:reduce){
   .v4-row-wrap,.v4-cat-bar,.vg-add-strip,.v4-panel,.v4-panel-sub,.v4-cat-chevron{transition:none !important}
+  .v4-just-edited{animation:none !important}
 }
 
 /* v4: RTS + STS shown side by side in the persistent sidebar.
