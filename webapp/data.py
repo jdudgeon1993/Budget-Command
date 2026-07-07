@@ -436,6 +436,76 @@ def ledger_companion_ctx() -> dict:
     return {"ledger_groups": acc["ledger"][:8]}
 
 
+# ── Dashboard (v4 prototype) — layer 1 of the map+sheet redesign ──────────────
+
+def dashboard_ctx() -> dict:
+    """Glanceable, tappable summary — layer 1 of the dashboard+sheet redesign.
+
+    Every number here is a doorway, not a destination: detail lives in the
+    sheet (existing panel routes, reused as-is). Pure aggregation of
+    bucket_rows()/accounts_view() totals that already exist.
+    """
+    data = load_data()
+    mid = active_mid()
+    month = active_month(data, mid)
+    accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
+    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
+    txs = data.get("txs", [])
+
+    balance = F.total_cash(accounts, txs)
+    today_mid = F.current_month_id()
+    today_month = next((m for m in data.get("months", []) if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    rts = F.ready_to_spend(today_month, data.get("months", []), accounts, buckets, txs)
+
+    sts_amt, sts_qualifier = None, ""
+    try:
+        from . import forecast_calc as FC
+        from datetime import date as _date, timedelta as _timedelta
+        fc = FC.compute_forecast(data, n_months=2)
+        sts_amt = fc["safe_to_spend"]
+        horizon_end = (_date.today() + _timedelta(days=60)).strftime("%b %-d")
+        sts_qualifier = f"through {horizon_end}"
+    except Exception:
+        pass
+
+    rows = bucket_rows(view_mid=mid)
+    groups = rows["groups"]
+    total_budget = sum(g["budget"] for g in groups)
+    total_spent = sum(g["spent"] for g in groups)
+    budget_pct = min(100, round((total_spent / total_budget) * 100)) if total_budget > 0 else 0
+    over_budget = total_spent > total_budget > 0
+
+    cat_trends = sorted(
+        [{"name": g["name"], "color": g["color"], "spent": g["spent"],
+          "pct": round((g["spent"] / total_spent) * 100) if total_spent > 0 else 0}
+         for g in groups if g["spent"] > 0.005],
+        key=lambda c: c["spent"], reverse=True,
+    )
+    # Multi-slice donut, precomputed server-side (cumulative running-angle math
+    # is awkward in Jinja) — a single ready-to-use conic-gradient CSS value.
+    cat_pie_css = "var(--track)"
+    if cat_trends:
+        stops, angle = [], 0.0
+        for c in cat_trends:
+            span = (c["spent"] / total_spent) * 360 if total_spent > 0 else 0
+            stops.append(f"{c['color']} {angle:.1f}deg {angle + span:.1f}deg")
+            angle += span
+        cat_pie_css = "conic-gradient(" + ", ".join(stops) + ")"
+
+    acc = accounts_view()
+    cash_cards = [c for c in acc["cards"] if c["type"] != "debt"]
+    debt_cards = [c for c in acc["cards"] if c["type"] == "debt"]
+
+    return {
+        "balance": balance, "rts": rts, "sts_amt": sts_amt, "sts_qualifier": sts_qualifier,
+        "total_budget": total_budget, "total_spent": total_spent,
+        "budget_pct": budget_pct, "over_budget": over_budget,
+        "cat_trends": cat_trends, "cat_pie_css": cat_pie_css,
+        "cash_cards": cash_cards, "debt_cards": debt_cards,
+    }
+
+
 # ── Distribute modal view-model ───────────────────────────────────────────────
 
 def _due_reason(o: dict) -> str:

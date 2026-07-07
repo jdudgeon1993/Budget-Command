@@ -28,11 +28,17 @@ def render_panel(template, active_panel, **ctx):
     """
     session["active_panel"] = active_panel
     htmx = request.headers.get("HX-Request") == "true"
+    dash = None
     if htmx:
         layout = "_partial.html"
     else:
         layout = "proto_base.html" if request.blueprint == "proto" else "base.html"
-    return render_template(template, layout=layout,
+        # Dashboard (layer 1) is part of the persistent v4 shell, rendered on
+        # every hard page load — not recomputed for htmx fragment swaps,
+        # which only ever replace #panel and never touch the shell around it.
+        if request.blueprint == "proto":
+            dash = D.dashboard_ctx()
+    return render_template(template, layout=layout, dash=dash,
                            shell=D.shell_ctx(active_panel), **ctx)
 
 
@@ -48,13 +54,21 @@ def _bucket_settings_template() -> str:
 
 @bp.route("/")
 def index():
+    if request.blueprint == "proto":
+        return redirect(url_for(".dashboard"))
     return redirect(url_for(".buckets"))
 
 
 @bp.route("/dashboard")
 @login_required
 def dashboard():
-    return redirect(url_for(".buckets"))
+    """Layer 1 of the map+sheet redesign — v4 prototype only.
+
+    Classic keeps its old behavior (redirect straight to Buckets) untouched.
+    """
+    if request.blueprint != "proto":
+        return redirect(url_for(".buckets"))
+    return render_panel("panels/dashboard_v4.html", "buckets", sheet_open=False)
 
 
 # ── Buckets ───────────────────────────────────────────────────────────────────
@@ -228,11 +242,11 @@ def _panel_lookup(back_panel: str):
     """Template + context-fn for a "back to panel X" redirect.
 
     Buckets needs the blueprint-aware template (see _bucket_template);
-    everything else is a fixed 1:1 mapping.
+    everything else is a fixed 1:1 mapping via _PANEL_MAP.
     """
     if back_panel == "buckets":
         return _bucket_template(), (lambda: D.bucket_rows())
-    return _panel_lookup(back_panel)
+    return _PANEL_MAP.get(back_panel, _PANEL_MAP["accounts"])
 
 
 # ── Bucket settings ───────────────────────────────────────────────────────────

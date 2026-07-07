@@ -1153,3 +1153,83 @@ table.rpt-tbl tr.rpt-bkt-row td:first-child{padding-left:28px;font-family:var(--
   .v4-ledger-col.v4-mobile-show{display:block}
   .v4-buckets-col.panel-grid.v4-mobile-show{display:grid;grid-template-columns:1fr}
 }
+
+/* ── v4: dashboard + expanding sheet (layer 1 / layer 2 redesign) ──────────
+   Mobile-first, on purpose: this is the actual shape of the app. Desktop
+   (below) just widens/centers the same structure rather than branching
+   into a different layout. */
+
+.dash-shell{min-height:100dvh;min-height:100vh;display:flex;flex-direction:column;position:relative;background:var(--bg)}
+
+.dash-header{display:flex;align-items:center;gap:14px;padding:14px 16px;flex-wrap:wrap}
+.dash-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.dash-brand-icon{width:26px;height:26px;border-radius:var(--r-sm);background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dash-brand-name{font-weight:800;font-size:15px;letter-spacing:-0.01em}
+.dash-stats{display:flex;gap:10px;flex:1;min-width:0}
+.dash-stat{flex:1;min-width:0}
+.dash-stat-amt{font-family:var(--mono);font-size:15px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-stat-lbl{font-size:9.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.dash-stat-lbl .l{display:none}
+.dash-stat-qual{color:rgba(255,255,255,0.28)}
+.dash-stat-sts{opacity:.85}
+.dash-header.condensed .dash-stat-sts{display:none}
+.dash-avatar{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font:700 11px/1 var(--mono);color:var(--text2);text-decoration:none;cursor:pointer}
+.dash-avatar:hover{color:var(--text);border-color:var(--accent)}
+
+.dash-body{padding:4px 16px 24px;overflow-y:auto}
+.dash-hidden{display:none}
+
+.dash-pies{display:flex;gap:12px;margin-bottom:16px}
+.dash-pie-card{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 10px;cursor:pointer;font:inherit;color:inherit;text-align:center}
+.dash-pie-card:hover{border-color:var(--accent)}
+.dash-pie{width:76px;height:76px;border-radius:50%;background:conic-gradient(var(--ring-color,var(--accent)) calc(var(--pct,0)*3.6deg),var(--track) 0);display:flex;align-items:center;justify-content:center;position:relative}
+.dash-pie::before{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--bg)}
+.dash-pie-pct{position:relative;z-index:1;font:700 14px/1 var(--mono)}
+.dash-pie-lbl{font-size:11.5px;font-weight:700}
+.dash-pie-figs{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--text3)}
+.dash-pie-figs i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.dash-pie-figs-empty{font-style:italic}
+
+.dash-accts{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.dash-acct-hdr{font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--text3);font-family:var(--mono);margin-bottom:6px}
+.dash-acct-chips{display:flex;flex-wrap:wrap;gap:8px}
+.dash-acct-chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--chip-color,var(--accent));cursor:pointer;font:inherit;color:inherit}
+.dash-acct-chip:hover{border-color:var(--accent)}
+.dash-acct-chip-name{font-size:11.5px;font-weight:600}
+.dash-acct-chip-bal{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--green)}
+.dash-acct-chip-bal.neg{color:var(--red)}
+.dash-acct-empty{font-size:11.5px;color:var(--text3)}
+
+.dash-tiles{display:flex;flex-direction:column;gap:8px}
+.dash-tile{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border);font:600 13px/1 inherit;color:var(--text);cursor:pointer}
+.dash-tile:hover{border-color:var(--accent)}
+.dash-tile-arrow{color:var(--text3)}
+
+.sheet{position:fixed;left:0;right:0;bottom:0;height:88dvh;height:88vh;max-height:88vh;background:var(--bg);border:1px solid var(--border);border-bottom:none;border-top-left-radius:20px;border-top-right-radius:20px;box-shadow:0 -12px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden;z-index:40;transform:translateY(calc(100% - 58px));transition:transform .32s cubic-bezier(.22,.8,.2,1)}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{flex:0 0 auto;width:100%;padding:10px 0 8px;background:transparent;border:0;border-bottom:1px solid transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;font:inherit;color:var(--text3)}
+.sheet.open .sheet-handle{border-bottom-color:var(--border)}
+.sheet-handle-bar{width:36px;height:4px;border-radius:2px;background:var(--text3)}
+.sheet-handle-label{display:none;font-size:12px}
+.sheet:not(.open) .sheet-handle-label{display:block}
+.sheet #panel{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+.dash-fab{position:fixed;right:16px;bottom:calc(58px + 16px);z-index:41;width:52px;height:52px;border-radius:50%;background:var(--accent);border:none;box-shadow:0 6px 20px var(--accent-glow);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.dash-fab:hover{filter:brightness(1.08)}
+
+@media (prefers-reduced-motion:reduce){
+  .sheet{transition:none !important}
+}
+
+@media(min-width:900px){
+  /* Desktop mirrors mobile — same structure, just wider and centered,
+     not a separate layout. */
+  .dash-header,.dash-body{max-width:720px;margin:0 auto;width:100%}
+  .dash-stats{gap:28px}
+  .dash-stat-amt{font-size:18px}
+  .dash-stat-lbl .s{display:none}
+  .dash-stat-lbl .l{display:inline}
+  .dash-pies{gap:16px}
+  .sheet{left:50%;right:auto;width:min(100%,1040px);transform:translate(-50%,calc(100% - 58px))}
+  .sheet.open{transform:translate(-50%,0)}
+}
