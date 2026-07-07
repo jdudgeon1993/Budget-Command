@@ -488,31 +488,6 @@ def add_bucket():
 
 # ── Bucket reorder ────────────────────────────────────────────────────────────
 
-@bp.route("/buckets/<bid>/move/<direction>", methods=["POST"])
-@login_required
-def move_bucket(bid, direction):
-    data = D.load_data()
-    buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    this_b = next((b for b in buckets if b["id"] == bid), None)
-    if not this_b:
-        return redirect(url_for(".buckets"))
-    siblings = sorted(
-        [b for b in buckets if b.get("catId") == this_b.get("catId")],
-        key=lambda b: b.get("order", 0)
-    )
-    idx = next((i for i, b in enumerate(siblings) if b["id"] == bid), -1)
-    swap_idx = idx - 1 if direction == "up" else idx + 1
-    if 0 <= idx < len(siblings) and 0 <= swap_idx < len(siblings):
-        b1, b2 = siblings[idx], siblings[swap_idx]
-        o1 = b1.get("order", idx)
-        o2 = b2.get("order", swap_idx)
-        if not current_app.config["DEV_SEED"]:
-            DB.update_bucket_order(session["user_id"], session["access_token"], b1["id"], o2)
-            DB.update_bucket_order(session["user_id"], session["access_token"], b2["id"], o1)
-            D.invalidate_cache()
-    return _buckets_response()
-
-
 @bp.route("/buckets/<bid>/handled", methods=["POST"])
 @login_required
 def toggle_handled(bid):
@@ -1264,53 +1239,6 @@ def apply_paycheck_distribute(tid):
         D.invalidate_cache()
     flash(f"Distributed {ctx['total_applied']:,.2f}.", "ok")
     return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
-
-
-@bp.route("/transaction/<tid>/apply-rules", methods=["POST"])
-@login_required
-def apply_rules(tid):
-    """Apply active internal allocation rules to bucket allocations for this income tx."""
-    data = D.load_data()
-    tx = next((t for t in data.get("txs", []) if t.get("id") == tid), None)
-    if not tx:
-        flash("Transaction not found.", "error")
-        return redirect(url_for(".buckets"))
-
-    amount = float(tx.get("amount") or 0)
-    mid = tx.get("monthId") or D.active_mid()
-    month = next((m for m in data.get("months", []) if m.get("id") == mid),
-                 {"id": mid, "allocations": {}})
-    rules_raw = sorted(
-        [r for r in data.get("allocationRules", []) if r.get("active", True)],
-        key=lambda r: r.get("sort_order", 0))
-
-    applied = 0
-    remaining = amount
-    for r in rules_raw:
-        v = float(r.get("value") or 0)
-        vtype = r.get("value_type", "fixed")
-        if vtype == "fund":
-            computed = round(max(0.0, remaining), 2)
-        else:
-            computed = round(amount * v / 100, 2) if vtype == "pct" else v
-        remaining = round(remaining - computed, 2)
-
-        if r.get("rule_type", "internal") == "external":
-            continue
-        bid = r.get("bucket_id") or r.get("bucketId") or ""
-        if not bid or computed <= 0:
-            continue
-        new_alloc = round(D.F.b_alloc(month, bid) + computed, 2)
-        if not current_app.config["DEV_SEED"]:
-            DB.upsert_alloc(session["user_id"], session["access_token"], mid, bid, new_alloc)
-        applied += 1
-
-    if applied and not current_app.config["DEV_SEED"]:
-        D.invalidate_cache()
-    flash(f"Applied {applied} allocation rule{'s' if applied != 1 else ''}.", "ok")
-    if request.headers.get("HX-Request") == "true":
-        return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
-    return redirect(url_for(".buckets"))
 
 
 
