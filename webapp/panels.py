@@ -362,6 +362,14 @@ def vault_transfer(bid):
             mid = D.active_mid()
             from_alloc = D.F.b_alloc(month, bid)
             to_alloc = D.F.b_alloc(month, to_bid)
+            # This route only ever touches the current month's own allocation
+            # (it doesn't reach into prior-month accumulation the way vault
+            # release does) — so the amount actually available to move is
+            # capped at from_alloc. Both sides need to use that same clamped
+            # figure; crediting the destination with the original, unclamped
+            # amount while the source silently clamped to 0 would credit more
+            # than was ever actually drained from the vault.
+            amount = min(amount, from_alloc)
             new_from = max(0.0, round(from_alloc - amount, 2))
             new_to = round(to_alloc + amount, 2)
             if not current_app.config["DEV_SEED"]:
@@ -405,6 +413,15 @@ def vault_release_to_pool(bid):
             amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
         except ValueError:
             amount = 0.0
+        # The form pre-fills this with the accumulated total, but it's a
+        # plain editable text field the client can submit anything through
+        # (including a stale/duplicate figure from a modal that wasn't
+        # refreshed between two release attempts). Never trust it past what
+        # the vault actually holds right now — clamping here is what stops
+        # a double-submit from draining the same savings twice and going
+        # negative.
+        true_accum = max(D.F.vault_accumulated(bid, data.get("months", [])), 0.0)
+        amount = min(amount, true_accum)
         if amount > 0:
             month = D.active_month(data)
             mid = D.active_mid()
