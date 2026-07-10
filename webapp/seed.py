@@ -1,7 +1,6 @@
 """DEV-only sample data, shaped exactly like db.load_all() output.
 
 Lets us build and screenshot the UI locally without Supabase credentials.
-The numbers loosely mirror proto.html so visual parity is easy to judge.
 """
 
 from .formulas import current_month_id, parse_month_id

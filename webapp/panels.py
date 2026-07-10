@@ -13,8 +13,6 @@ from .auth import login_required
 
 bp = Blueprint("panels", __name__)
 
-PANELS = ["buckets", "accounts", "insights", "reports", "setup"]
-
 
 def render_panel(template, active_panel, **ctx):
     """Full page on normal load, bare fragment on HTMX request.
@@ -1709,16 +1707,3 @@ def month_today():
     """Jump the active month back to today's calendar month."""
     session["active_mid"] = D.F.current_month_id()
     return redirect(url_for("." + session.get("active_panel", "buckets")))
-
-
-# ── Stub panels (built in later phases) ───────────────────────────────────────
-
-def _stub(name, title):
-    @login_required
-    def view():
-        return render_panel("panels/_stub.html", name, title=title)
-    view.__name__ = name
-    return view
-
-
-# (all panels now have real routes)

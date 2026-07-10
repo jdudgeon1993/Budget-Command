@@ -14,7 +14,6 @@ load_dotenv()
 
 SUPABASE_URL         = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY    = os.environ.get("SUPABASE_ANON_KEY", "")
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 
 def client(token: str = "") -> Client:
@@ -22,48 +21,6 @@ def client(token: str = "") -> Client:
     if token:
         c.postgrest.auth(token)
     return c
-
-
-def _service_client() -> Client:
-    """Service-role client — bypasses RLS. Only for schema migrations."""
-    key = SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY
-    return create_client(SUPABASE_URL, key)
-
-
-def ensure_schema() -> None:
-    """
-    Idempotent — ensures bcc_scenarios table + RLS policy exist.
-    Called once on app startup when SUPABASE_SERVICE_KEY is set.
-    """
-    if not SUPABASE_SERVICE_KEY:
-        return
-    try:
-        sc = _service_client()
-        sc.rpc("exec_sql", {"sql": """
-            CREATE TABLE IF NOT EXISTS bcc_scenarios (
-                id              TEXT PRIMARY KEY,
-                user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-                name            TEXT NOT NULL,
-                allocations     JSONB NOT NULL DEFAULT '{}',
-                income_override NUMERIC(12,2),
-                schedule        JSONB NOT NULL DEFAULT '{}',
-                sort_order      INTEGER NOT NULL DEFAULT 0,
-                created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-            ALTER TABLE bcc_scenarios ENABLE ROW LEVEL SECURITY;
-            DO $$ BEGIN
-              IF NOT EXISTS (
-                SELECT 1 FROM pg_policies
-                WHERE tablename = 'bcc_scenarios' AND policyname = 'bcc_scenarios_user_policy'
-              ) THEN
-                CREATE POLICY bcc_scenarios_user_policy ON bcc_scenarios
-                  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-              END IF;
-            END $$;
-        """}).execute()
-    except Exception:
-        pass  # best-effort; migration SQL in schema_migrations.sql is the canonical fix
 
 
 def sign_in(email: str, password: str) -> dict:
@@ -340,12 +297,6 @@ def insert_category(uid: str, token: str, name: str, color: str) -> str:
     return cid
 
 
-def upsert_vault_withdrawal(uid: str, token: str, mid: str, bid: str, amount: float) -> None:
-    client(token).table("bcc_month_vault_withdrawals").upsert({
-        "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
-    }, on_conflict="user_id,month_id,bucket_id").execute()
-
-
 def insert_paycheck(uid: str, token: str, label: str, amount: float, freq: int, anchor_date: str) -> str:
     pc_id = f"pc_{uuid.uuid4().hex[:10]}"
     existing = client(token).table("bcc_paychecks").select("sort_order").eq("user_id", uid).order("sort_order", desc=True).limit(1).execute().data or []
@@ -401,11 +352,6 @@ def toggle_alloc_rule(uid: str, token: str, rule_id: str) -> bool:
 
 def delete_alloc_rule(uid: str, token: str, rule_id: str) -> None:
     client(token).table("bcc_allocation_rules").delete().eq("id", rule_id).eq("user_id", uid).execute()
-
-
-def is_auth_error(e: Exception) -> bool:
-    keywords = ("jwt", "expired", "invalid token", "401", "unauthorized", "not authenticated")
-    return any(k in str(e).lower() for k in keywords)
 
 
 # ── What-If Scenarios ─────────────────────────────────────────────────────────
@@ -600,22 +546,4 @@ def update_category(uid: str, token: str, cid: str, fields: dict) -> None:
 def update_category_order(uid: str, token: str, cid: str, sort_order: int) -> None:
     client(token).table("bcc_categories").update({"sort_order": sort_order}) \
         .eq("id", cid).eq("user_id", uid).execute()
-
-
-# ── Month workflow ────────────────────────────────────────────────────────────
-
-
-
-# ── Payees ────────────────────────────────────────────────────────────────────
-
-def get_payees(uid: str, token: str) -> list:
-    rows = client(token).table("bcc_transactions").select("description") \
-        .eq("user_id", uid).execute().data or []
-    seen, result = set(), []
-    for r in rows:
-        d = (r.get("description") or "").strip()
-        if d and d not in seen:
-            seen.add(d)
-            result.append(d)
-    return sorted(result, key=str.lower)
 

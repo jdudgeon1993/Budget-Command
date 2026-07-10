@@ -21,14 +21,6 @@ def _safe_date(v) -> "date | None":
         return None
 
 
-def _money(v) -> float:
-    """Coerce any value to a non-negative float rounded to 2dp."""
-    try:
-        return round(float(v or 0), 2)
-    except (ValueError, TypeError):
-        return 0.0
-
-
 # ── Month ID helpers ──────────────────────────────────────────────────────────
 
 def month_id(year: int, month: int) -> str:
