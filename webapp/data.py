@@ -139,7 +139,7 @@ def shell_ctx(active_panel: str = "") -> dict:
     # Pre-render context for add-transaction modal (so it can be instant, no round-trip)
     tx_accounts = [{"id": a["id"], "name": a["name"]}
                    for a in accounts if not a.get("archived")]
-    cats_sorted = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats_sorted = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
     tx_buckets_by_cat = []
     for c in cats_sorted:
         bkts = [{"id": b["id"], "name": b["name"]} for b in buckets
@@ -207,7 +207,7 @@ def bucket_rows(view_mid: str = None):
     months = data.get("months", [])
     txs = data.get("txs", [])
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
 
     # Future months always show today's budget targets. Today is the source of
     # truth for what each bucket costs — stale DB entries in future months are
@@ -757,8 +757,9 @@ def setup_view():
     } for p in data.get("paychecks", [])]
     cats = [{
         "id": c["id"], "name": c["name"], "color": c.get("color", "#888"),
-        "count": sum(1 for b in data.get("buckets", []) if b.get("catId") == c["id"]),
-    } for c in sorted(data.get("cats", []), key=lambda c: c.get("order", 0))]
+        "count": sum(1 for b in data.get("buckets", [])
+                    if b.get("catId") == c["id"] and not b.get("archived")),
+    } for c in sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))]
     rules = [{
         "id": r["id"], "name": r.get("name", "Rule"),
         "bucket": bkt_name.get(r.get("bucket_id") or r.get("bucketId"), "—"),
@@ -942,7 +943,7 @@ def reports_view(view_mid: str = None):
     all_months = data.get("months", [])
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
 
     # ── Available months for dropdown ─────────────────────────────────────────
     seen = {m["id"] for m in all_months} | {F.current_month_id()}
@@ -1205,7 +1206,7 @@ def tx_form_ctx():
     acct_name = {a["id"]: a["name"] for a in data.get("accounts", [])}
     accounts = [{"id": a["id"], "name": a["name"]}
                 for a in data.get("accounts", []) if not a.get("archived")]
-    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
     buckets_by_cat = []
     for c in cats:
         bkts = [{"id": b["id"], "name": b["name"],

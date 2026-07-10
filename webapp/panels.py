@@ -234,7 +234,7 @@ def bucket_settings(bid):
     if not bucket:
         flash("Bucket not found.", "error")
         return redirect(url_for(".buckets"))
-    cats = data.get("cats", [])
+    cats = [c for c in data.get("cats", []) if not c.get("archived")]
     if request.method == "POST":
         f = request.form
         def _num(key, default=0.0):

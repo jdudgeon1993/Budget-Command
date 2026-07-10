@@ -156,8 +156,11 @@ def distribute_obligations(buckets: list[dict], month: dict) -> list[dict]:
     next due date (None for buckets with no fixed due day), and its pay
     frequency label for display.
     """
+    handled = month.get("handledBuckets") or {}
     obligations = []
     for b in buckets:
+        if handled.get(b["id"]):
+            continue
         budget = b_budget(month, b["id"])
         alloc = b_alloc(month, b["id"])
         gap = round(budget - alloc, 2)
