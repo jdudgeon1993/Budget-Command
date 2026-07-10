@@ -29,7 +29,10 @@
   <div class="v4-row-body">
     <div class="v4-row-hdr">
       <div class="v4-name-block">
-        <span class="v4-name">{{ b.name }}</span>
+        <div class="v4-name-row">
+          <span class="v4-name">{{ b.name }}</span>
+          {% if b.due_label %}<span class="v4-due-pill">{{ b.due_label }}</span>{% endif %}
+        </div>
         <span class="v4-type">{{ type_label }}</span>
       </div>
       {% if b.pace_eligible %}

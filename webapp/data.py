@@ -198,6 +198,30 @@ def _v4_bucket_sort_key(row: dict) -> tuple:
     return (tier, date_key)
 
 
+def _ordinal(n: int) -> str:
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _due_label(due_day, pay_freq: str) -> str:
+    """Compact due-date pill text — a fixed day wins over a bare frequency
+    (a bill can be both "biweekly" and "due the 15th"; the day is the more
+    useful glanceable fact). Frequency-only bills (no fixed day) fall back
+    to their cadence so recurring-but-undated spends still show something.
+    """
+    if due_day == "eom":
+        return "Due EOM"
+    if due_day:
+        try:
+            return f"Due {_ordinal(int(due_day))}"
+        except (TypeError, ValueError):
+            pass
+    return F.freq_label(pay_freq) if pay_freq else ""
+
+
 def bucket_rows(view_mid: str = None):
     """Category-grouped bucket rows with alloc/budget/spent/left + status."""
     data = load_data()
@@ -380,6 +404,7 @@ def bucket_rows(view_mid: str = None):
                 "vault_total": vault_total,
                 "due_day": b.get("dueDay"),
                 "pay_freq": b.get("payFreq") or "",
+                "due_label": _due_label(b.get("dueDay"), b.get("payFreq")),
                 "target_amount": target_amount,
                 "target_date": target_date,
                 "contrib_freq": contrib_freq,
@@ -1002,8 +1027,16 @@ def reports_view(view_mid: str = None):
                     "pct": round(funded_count / max(len(expense_bkts), 1) * 100)}
 
     # ── Allocation rate + RTS ─────────────────────────────────────────────────
+    # RTS here must be the same anchored-to-today figure shown everywhere else
+    # in the app (header, Buckets, Health Check) — not a viewed-month-local
+    # "income minus allocated" figure, which can go negative the moment
+    # allocations are funded from carried-forward surplus rather than this
+    # month's own income, even though real Ready to Spend is healthy.
     total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets)
-    rts_val = round(income - total_alloc, 2)
+    today_mid = F.current_month_id()
+    today_month = next((m for m in all_months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    rts_val = F.ready_to_spend(today_month, all_months, accounts, buckets, txs)
     alloc_pct = min(100, round(total_alloc / income * 100) if income > 0 else 0)
     allocation_rate = {"allocated": total_alloc, "income": income,
                        "pct": alloc_pct, "rts": rts_val}
