@@ -969,6 +969,15 @@ def reports_view(view_mid: str = None):
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
     cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
+    # Archiving a bucket/category hides it from anywhere you'd allocate NEW
+    # money (Buckets page, Setup, transaction picker, Distribute) — but its
+    # real historical spending already happened and shouldn't disappear from
+    # past reports just because the bucket is gone today. Every section below
+    # that describes a specific month (current or historical) uses these
+    # unfiltered lists; only "current state" sections (funding rate, RTS,
+    # active goals) use the filtered buckets/cats above.
+    buckets_all = data.get("buckets", [])
+    cats_all = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
 
     # ── Available months for dropdown ─────────────────────────────────────────
     seen = {m["id"] for m in all_months} | {F.current_month_id()}
@@ -978,9 +987,9 @@ def reports_view(view_mid: str = None):
     # ── BvA (current month) ───────────────────────────────────────────────────
     bva, cat_spend = [], []
     grand_budget = grand_spent = 0.0
-    for cat in cats:
+    for cat in cats_all:
         rows, c_budget, c_spent = [], 0.0, 0.0
-        for b in sorted([b for b in buckets if b.get("catId") == cat["id"]],
+        for b in sorted([b for b in buckets_all if b.get("catId") == cat["id"]],
                         key=lambda b: b.get("order", 0)):
             budget = F.b_budget(month, b["id"])
             spent = F.b_spent(mid, b["id"], txs)
@@ -1031,8 +1040,13 @@ def reports_view(view_mid: str = None):
     # in the app (header, Buckets, Health Check) — not a viewed-month-local
     # "income minus allocated" figure, which can go negative the moment
     # allocations are funded from carried-forward surplus rather than this
-    # month's own income, even though real Ready to Spend is healthy.
-    total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets)
+    # month's own income, even though real Ready to Spend is healthy. It's
+    # also deliberately scoped to currently-active buckets (buckets, not
+    # buckets_all) — an archived bucket can't claim RTS going forward.
+    # total_alloc, by contrast, describes the *viewed* month's own historical
+    # allocation and should include buckets archived since — that money was
+    # genuinely allocated at the time either way.
+    total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets_all)
     today_mid = F.current_month_id()
     today_month = next((m for m in all_months if m["id"] == today_mid),
                        {"id": today_mid, "allocations": {}, "budgets": {}})
@@ -1044,7 +1058,7 @@ def reports_view(view_mid: str = None):
     # ── Fixed vs variable ─────────────────────────────────────────────────────
     fixed_spent = sum(
         F.b_spent(mid, b["id"], txs)
-        for b in buckets
+        for b in buckets_all
         if not b.get("flex") and b.get("type", "expense") == "expense"
            and (b.get("recurring") or b.get("dueDay") or (b.get("defaultBudget") or 0) > 0)
     )
@@ -1065,7 +1079,7 @@ def reports_view(view_mid: str = None):
                                         key=lambda x: x[1], reverse=True)[:8]]
 
     # ── Top transactions ──────────────────────────────────────────────────────
-    bkt_name = {b["id"]: b["name"] for b in buckets}
+    bkt_name = {b["id"]: b["name"] for b in buckets_all}
     out_txs = sorted(
         [t for t in txs if t.get("monthId") == mid and t.get("type") == "out"
          and not F.is_scheduled(t)],
@@ -1082,7 +1096,7 @@ def reports_view(view_mid: str = None):
     for i in range(11, -1, -1):
         m_id = F.month_offset(mid, -i)
         m_income = F.month_income(m_id, txs, accounts)
-        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets)
+        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets_all)
         trend_12mo.append({"mid": m_id, "label": month_label(m_id)[:3],
                            "income": m_income, "spent": m_spent,
                            "net": m_income - m_spent})
@@ -1093,8 +1107,8 @@ def reports_view(view_mid: str = None):
 
     # ── Over-budget frequency by category (last 6 months) ────────────────────
     over_freq = []
-    for cat in cats:
-        cat_bkts = [b for b in buckets if b.get("catId") == cat["id"]]
+    for cat in cats_all:
+        cat_bkts = [b for b in buckets_all if b.get("catId") == cat["id"]]
         if not cat_bkts:
             continue
         dots, over_count = [], 0
@@ -1165,8 +1179,8 @@ def reports_view(view_mid: str = None):
     def _bva_multi(n):
         m_ids = [F.month_offset(mid, -(n - 1 - i)) for i in range(n)]
         rows = []
-        for cat in cats:
-            cat_bkts = [b for b in buckets if b.get("catId") == cat["id"]]
+        for cat in cats_all:
+            cat_bkts = [b for b in buckets_all if b.get("catId") == cat["id"]]
             if not cat_bkts:
                 continue
             months_data = []
@@ -1191,7 +1205,7 @@ def reports_view(view_mid: str = None):
         m_id = F.month_offset(mid, -i)
         m_mo = active_month(data, m_id)
         m_income = F.month_income(m_id, txs, accounts)
-        m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets)
+        m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets_all)
         rts_m = m_income - m_alloc
         if m_income > 0:
             alloc_rate = min(m_alloc / m_income, 1.0)
