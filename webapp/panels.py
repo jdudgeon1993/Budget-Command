@@ -1056,6 +1056,20 @@ def insights():
     return render_panel("panels/forecast.html", "insights", **D.forecast_view())
 
 
+@bp.route("/proto/v5/insights")
+@login_required
+def insights_v5():
+    """Month-grouped Forecast preview — see plan file for scope.
+
+    Reuses forecast_view() completely unmodified (same real data, same
+    compute_forecast() call) and only post-processes its "forecast" key
+    for display grouping. The real /insights route above is untouched.
+    """
+    ctx = D.forecast_view()
+    ctx["forecast"] = D.attach_forecast_month_groups(ctx["forecast"])
+    return render_panel("panels/forecast_v5.html", "insights", **ctx)
+
+
 @bp.route("/forecast/whatif", methods=["POST"])
 @login_required
 def forecast_whatif():
@@ -1103,6 +1117,68 @@ def forecast_whatif():
                              phantom_monthly=phantom_monthly)
     svg = FC.build_balance_svg(fc["periods"])
     return render_template("panels/_frag_forecast_whatif.html",
+                           forecast=fc, balance_svg=svg,
+                           n_months=n_months, income_override=income_override,
+                           skipped_pay_dates=skip_dates,
+                           skip_dates_str=",".join(skip_dates),
+                           no_accrue_dates=no_accrue_dates,
+                           no_accrue_dates_str=",".join(no_accrue_dates),
+                           scenarios=scenarios,
+                           active_scenario_id=active_sid)
+
+
+@bp.route("/proto/v5/forecast/whatif", methods=["POST"])
+@login_required
+def forecast_whatif_v5():
+    """Month-grouped preview's what-if refresh — mirrors forecast_whatif()
+    exactly (see plan file), rendering _frag_forecast_whatif_v5.html instead.
+    forecast_whatif() above is untouched.
+    """
+    f = request.form
+    try:
+        n_months = max(1, min(12, int(f.get("n_months", 3))))
+    except (ValueError, TypeError):
+        n_months = 3
+    try:
+        inc_raw = (f.get("income_override") or "0").replace("$", "").replace(",", "").strip()
+        income_override = max(0.0, float(inc_raw or 0))
+    except (ValueError, TypeError):
+        income_override = 0.0
+    skip_raw = f.get("skip_dates", "")
+    skip_dates = [s.strip() for s in skip_raw.split(",") if s.strip()]
+    toggle_skip = (f.get("toggle_skip_date") or "").strip()
+    if toggle_skip:
+        if toggle_skip in skip_dates:
+            skip_dates.remove(toggle_skip)
+        else:
+            skip_dates.append(toggle_skip)
+
+    no_accrue_raw = f.get("no_accrue_dates", "")
+    no_accrue_dates = [s.strip() for s in no_accrue_raw.split(",") if s.strip()]
+    toggle_na = (f.get("toggle_no_accrue_date") or "").strip()
+    if toggle_na:
+        if toggle_na in no_accrue_dates:
+            no_accrue_dates.remove(toggle_na)
+        else:
+            no_accrue_dates.append(toggle_na)
+
+    active_sid = (f.get("active_scenario_id") or "").strip()
+    data = D.load_data()
+    scenarios = _load_scenarios()
+    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+        _scenario_fc_params(scenarios, active_sid, n_months, data)
+
+    from . import forecast_calc as FC
+    fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
+                             skipped_pay_dates=skip_dates,
+                             no_accrue_dates=no_accrue_dates,
+                             bucket_overrides=bucket_overrides,
+                             off_buckets=off_buckets,
+                             schedule=schedule,
+                             phantom_monthly=phantom_monthly)
+    svg = FC.build_balance_svg(fc["periods"])
+    fc = D.attach_forecast_month_groups(fc)
+    return render_template("panels/_frag_forecast_whatif_v5.html",
                            forecast=fc, balance_svg=svg,
                            n_months=n_months, income_override=income_override,
                            skipped_pay_dates=skip_dates,
@@ -1308,15 +1384,59 @@ def _fc_frag_response(active_sid: str = "", skip_dates: list = None,
     return resp
 
 
+def _fc_frag_response_v5(active_sid: str = "", skip_dates: list = None,
+                          no_accrue_dates: list = None, n_months: int = 3,
+                          income_override: float = 0.0):
+    """v5 preview's version of _fc_frag_response() — same OOB mechanism,
+    renders _frag_forecast_whatif_v5.html. _fc_frag_response() above is
+    untouched; the real scenario-save flow still calls it unchanged.
+    """
+    skip_dates = skip_dates or []
+    no_accrue_dates = no_accrue_dates or []
+    data = D.load_data()
+    scenarios = _load_scenarios()
+    bucket_overrides, off_buckets, schedule, phantom_monthly = \
+        _scenario_fc_params(scenarios, active_sid, n_months, data)
+    from . import forecast_calc as FC
+    fc = FC.compute_forecast(data, n_months=n_months, income_override=income_override,
+                             skipped_pay_dates=skip_dates,
+                             no_accrue_dates=no_accrue_dates,
+                             bucket_overrides=bucket_overrides,
+                             off_buckets=off_buckets,
+                             schedule=schedule,
+                             phantom_monthly=phantom_monthly)
+    svg = FC.build_balance_svg(fc["periods"])
+    fc = D.attach_forecast_month_groups(fc)
+    fragment = render_template("panels/_frag_forecast_whatif_v5.html",
+                               forecast=fc, balance_svg=svg,
+                               n_months=n_months, income_override=income_override,
+                               skipped_pay_dates=skip_dates,
+                               skip_dates_str=",".join(skip_dates),
+                               no_accrue_dates=no_accrue_dates,
+                               no_accrue_dates_str=",".join(no_accrue_dates),
+                               scenarios=scenarios,
+                               active_scenario_id=active_sid)
+    oob = f'<div id="fc-whatif-content" hx-swap-oob="innerHTML">{fragment}</div>'
+    resp = make_response(oob)
+    resp.headers["HX-Trigger"] = "closeModal"
+    return resp
+
+
 # ── Scenario routes ───────────────────────────────────────────────────────────
+# The editor is shared by the real Forecast tab and the /proto/v5 preview —
+# an "origin" query param (set only by v5's own links) round-trips through
+# the editor form as a hidden field so save/update/delete know whether to
+# refresh the real fragment or the v5 one. Blank/missing origin (the real
+# tab's own links never set it) preserves today's exact behavior.
 
 @bp.route("/scenarios/editor", methods=["GET"])
 @login_required
 def scenario_editor_new():
     data = D.load_data()
     n_months = _safe_n_months(request.args.get("n_months"))
+    origin = request.args.get("origin", "")
     ctx = _scenario_editor_ctx(data)
-    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, **ctx)
+    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, origin=origin, **ctx)
 
 
 @bp.route("/scenarios/<sid>/editor", methods=["GET"])
@@ -1326,8 +1446,9 @@ def scenario_editor_edit(sid):
     scenarios = _load_scenarios()
     sc = next((s for s in scenarios if s["id"] == sid), None)
     n_months = _safe_n_months(request.args.get("n_months"))
+    origin = request.args.get("origin", "")
     ctx = _scenario_editor_ctx(data, sc)
-    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, **ctx)
+    return render_template("panels/_frag_scenario_editor.html", n_months=n_months, origin=origin, **ctx)
 
 
 @bp.route("/scenarios", methods=["POST"])
@@ -1342,6 +1463,8 @@ def scenario_create():
         sid = DB.save_scenario(session["user_id"], session["access_token"], name, allocs)
     else:
         sid = ""
+    if f.get("origin") == "v5":
+        return _fc_frag_response_v5(active_sid=sid, n_months=n_months)
     return _fc_frag_response(active_sid=sid, n_months=n_months)
 
 
@@ -1355,6 +1478,8 @@ def scenario_update(sid):
     n_months = _safe_n_months(f.get("n_months"))
     if not current_app.config.get("DEV_SEED"):
         DB.update_scenario(session["user_id"], session["access_token"], sid, name, allocs)
+    if f.get("origin") == "v5":
+        return _fc_frag_response_v5(active_sid=sid, n_months=n_months)
     return _fc_frag_response(active_sid=sid, n_months=n_months)
 
 
@@ -1365,6 +1490,8 @@ def scenario_delete(sid):
     n_months = _safe_n_months(f.get("n_months"))
     if not current_app.config.get("DEV_SEED"):
         DB.delete_scenario(session["user_id"], session["access_token"], sid)
+    if f.get("origin") == "v5":
+        return _fc_frag_response_v5(active_sid="", n_months=n_months)
     return _fc_frag_response(active_sid="", n_months=n_months)
 
 

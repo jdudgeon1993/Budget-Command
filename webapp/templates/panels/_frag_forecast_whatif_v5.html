@@ -1,0 +1,230 @@
+<!-- Controls -->
+<form id="fc-whatif-form"
+      hx-post="{{ url_for('.forecast_whatif_v5') }}"
+      hx-target="#fc-whatif-content"
+      hx-swap="innerHTML"
+      class="fc-controls">
+  <input type="hidden" name="skip_dates"           value="{{ skip_dates_str }}">
+  <input type="hidden" name="toggle_skip_date"     value="">
+  <input type="hidden" name="no_accrue_dates"      value="{{ no_accrue_dates_str }}">
+  <input type="hidden" name="toggle_no_accrue_date" value="">
+  <input type="hidden" name="active_scenario_id"   value="{{ active_scenario_id }}">
+  <span class="fc-controls-lbl">Periods:</span>
+  <select name="n_months" onchange="this.form.dispatchEvent(new Event('submit',{bubbles:true}))">
+    {% for n in [1,2,3,4,6,9,12] %}
+    <option value="{{ n }}" {{ 'selected' if n_months == n }}>{{ n }} month{{ 's' if n != 1 }}</option>
+    {% endfor %}
+  </select>
+  <span class="fc-controls-lbl">Income Override:</span>
+  <input name="income_override" type="text" inputmode="decimal"
+         placeholder="e.g. 5000" value="{{ income_override if income_override else '' }}"
+         style="width:110px">
+  <button class="toolbar-btn primary" type="submit">Refresh</button>
+</form>
+
+<!-- Scenario bar -->
+<div class="fc-scenario-bar">
+  <button class="fc-sc-chip {{ 'active' if not active_scenario_id }}"
+          type="button" onclick="fcSetScenario('')">Baseline</button>
+  {% for sc in scenarios %}
+  <button class="fc-sc-chip {{ 'active' if active_scenario_id == sc.id }}"
+          type="button" onclick="fcSetScenario('{{ sc.id }}')">
+    {{ sc.name }}
+    <a class="fc-sc-edit" hx-get="{{ url_for('.scenario_editor_edit', sid=sc.id, origin='v5') }}"
+       hx-target="#modal-body" hx-include="[name='n_months']"
+       onclick="openModal();event.stopPropagation();return false;">✏</a>
+  </button>
+  {% endfor %}
+  {% if scenarios|length < 6 %}
+  <a class="fc-sc-new" hx-get="{{ url_for('.scenario_editor_new', origin='v5') }}"
+     hx-target="#modal-body" hx-include="[name='n_months']" onclick="openModal()">+ New Scenario</a>
+  {% endif %}
+</div>
+
+<!-- OOB: keep KPI bar in sync with active scenario numbers -->
+{% set _active_sc_name = (scenarios | selectattr('id', 'equalto', active_scenario_id) | map(attribute='name') | first) if active_scenario_id else '' %}
+<div id="fc-kpi-bar" class="fc-kpi-bar" hx-swap-oob="outerHTML">
+  {% if _active_sc_name %}
+  <div class="fc-kpi fc-kpi-scenario-active">
+    <div class="fc-kpi-lbl">Scenario</div>
+    <div class="fc-kpi-val" style="font-size:13px;font-weight:700;color:var(--accent)">{{ _active_sc_name }}</div>
+  </div>
+  {% endif %}
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Current Balance</div>
+    <div class="fc-kpi-val mono">{{ forecast.start_balance }}</div>
+  </div>
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Projected Income</div>
+    <div class="fc-kpi-val mono c-green">{{ forecast.total_income }}</div>
+  </div>
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Unfunded Bills</div>
+    <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
+  </div>
+  <div class="fc-kpi">
+    <div class="fc-kpi-lbl">Safe to Spend</div>
+    <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
+  </div>
+  {% if forecast.shortfall_count > 0 %}
+  <div class="fc-kpi fc-kpi-alert">
+    <div class="fc-kpi-lbl">Shortfalls</div>
+    <div class="fc-kpi-val mono c-red">{{ forecast.shortfall_count }} period{{ 's' if forecast.shortfall_count != 1 }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Balance trajectory chart -->
+{% if balance_svg %}
+<div class="fc-chart">{{ balance_svg | safe }}</div>
+{% endif %}
+
+<!-- Month-grouped period cards -->
+<div class="fc-periods">
+  {% for g in forecast.month_groups %}
+  <div class="fc-month">
+    <div class="fc-month-hdr">{{ g.label }}</div>
+    {% for p in g.periods %}
+    <div class="fc-period {{ 'fc-period-skipped' if p.is_skipped }} {{ 'fc-period-gap' if p.type == 'gap' }} {{ 'fc-period-shortfall' if p.shortfall and not p.is_skipped }}">
+
+      <!-- Period header -->
+      <div class="fc-period-hdr">
+        <div>
+          <div class="fc-period-label">
+            {{ p.label }}
+            {% if p.type == 'gap' %}<span class="fc-type-badge fc-badge-gap">Gap</span>
+            {% elif p.is_skipped %}<span class="fc-type-badge fc-badge-skipped">Skipped</span>
+            {% elif p.shortfall %}<span class="fc-type-badge fc-badge-shortfall">Shortfall</span>
+            {% endif %}
+          </div>
+          <div class="fc-period-range">{{ p.date_range }}{% if p.bleeds_next_month %}<span class="fc-bleed-cue" title="Continues into next month">→</span>{% endif %}</div>
+        </div>
+        <div class="fc-period-hdr-right">
+          <div style="text-align:right">
+            <div class="fc-kpi-lbl">Safe to Spend</div>
+            <div class="fc-period-sts {{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
+          </div>
+          {% if p.type == 'paycheck' %}
+          <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+            <button class="fc-skip-btn {{ 'active' if p.is_skipped }}"
+                    type="button" onclick="fcSkipToggle('{{ p.id }}')">
+              {{ 'Unskip' if p.is_skipped else 'Skip Period' }}
+            </button>
+            {% if not p.is_skipped %}
+            <button class="fc-skip-btn fc-no-accrue-btn {{ 'active' if p.is_no_accrue }}"
+                    type="button" onclick="fcNoAccrueToggle('{{ p.id }}')">
+              {{ 'Accrue Paycheck' if p.is_no_accrue else "Don't Accrue" }}
+            </button>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if not p.is_skipped %}
+
+      <!-- Block 1: Income / current balance flow -->
+      <div class="fc-block fc-block-income {{ 'fc-block-no-accrue' if p.is_no_accrue }}">
+        <div class="fc-brow fc-brow-hdr">
+          <span>{% if p.type == 'gap' %}Current Balance{% else %}Start{% endif %}</span>
+          <span class="mono c-green">{{ p.start_bal_fmt }}</span>
+        </div>
+        {% if not p.is_no_accrue and p.type != 'gap' %}
+        {% for line in p.income_lines %}
+        <div class="fc-brow">
+          <span>{{ line.label }}</span>
+          <span class="mono c-green">{{ line.amount_fmt }}</span>
+        </div>
+        {% endfor %}
+        {% if p.has_vault_alloc %}
+        <div class="fc-brow">
+          <span>Internal</span>
+          <span class="mono" style="color:var(--accent)">{{ p.vault_alloc_total_fmt }}</span>
+        </div>
+        {% endif %}
+        {% if p.has_transfers %}
+        <div class="fc-brow">
+          <span>External</span>
+          <span class="mono" style="color:var(--amber)">{{ p.ext_xfr_total_fmt }}</span>
+        </div>
+        {% endif %}
+        {% endif %}
+        {% if p.type != 'gap' %}<div class="fc-brow fc-brow-bal">
+          <span>Running Balance</span>
+          <span class="mono" style="color:{{ p.bal_after_xfr_color }}">{{ p.bal_after_xfr_fmt }}</span>
+        </div>{% endif %}
+      </div>
+
+      <!-- Block 2: Funded Bills -->
+      {% if p.has_funded %}
+      <div class="fc-block fc-block-funded">
+        <div class="fc-brow fc-brow-hdr">
+          <span>Funded Bills ({{ p.funded_count }})</span>
+          <span class="mono" style="font-size:11px;opacity:.7">{{ p.funded_total_fmt }}</span>
+        </div>
+        {% for line in p.funded_lines %}
+          {% if line.row_type == 'date' %}
+          <div class="fc-brow fc-brow-date">{{ line.text }}</div>
+          {% elif line.row_type == 'bill' %}
+          <div class="fc-brow fc-brow-bill">
+            <span>{{ line.text }}</span>
+            <span class="mono">{{ line.amount_fmt }}</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+        <div class="fc-brow fc-brow-bal">
+          <span>Running Balance</span>
+          <span class="mono" style="color:{{ p.bal_after_funded_color }}">{{ p.bal_after_funded_fmt }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Block 3: Unfunded Bills -->
+      {% if p.has_unfunded %}
+      <div class="fc-block fc-block-unfunded">
+        <div class="fc-brow fc-brow-hdr">
+          <span>Unfunded Bills ({{ p.total_count - p.funded_count }})</span>
+          <span class="mono" style="font-size:11px;opacity:.7">{{ p.unfunded_total_fmt }}</span>
+        </div>
+        {% for line in p.unfunded_lines %}
+          {% if line.row_type == 'date' %}
+          <div class="fc-brow fc-brow-date">{{ line.text }}</div>
+          {% elif line.row_type == 'bill' %}
+          <div class="fc-brow fc-brow-bill">
+            <span>{{ line.text }}</span>
+            <span class="mono c-red">{{ line.amount_fmt }}</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+        <div class="fc-brow fc-brow-bal">
+          <span>Running Balance</span>
+          {% if p.end_bal_negative %}
+          <span class="mono c-red">({{ p.end_bal_fmt }})</span>
+          {% else %}
+          <span class="mono" style="color:{{ p.end_bal_color }}">{{ p.end_bal_fmt }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% endif %}{# end not is_skipped #}
+
+      <!-- Period footer -->
+      <div class="fc-period-footer">
+        <div class="fc-footer-lbl">
+          {% if p.is_skipped %}No income this period
+          {% else %}Net {{ p.net_sign }}{{ p.net_fmt }}{% endif %}
+        </div>
+        <div>
+          <span class="fc-footer-lbl" style="margin-right:8px;opacity:0.5">End Balance</span>
+          <span class="mono fc-period-sts" style="color:{{ p.end_bal_color }}">{{ p.end_bal_fmt }}</span>
+        </div>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="fc-empty">No forecast periods — add paychecks in Setup to get started.</div>
+  {% endfor %}
+</div>
