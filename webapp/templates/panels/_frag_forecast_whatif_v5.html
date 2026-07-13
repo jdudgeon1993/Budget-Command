@@ -81,46 +81,40 @@
 
 {% macro fc_stmt_bills(p) %}
   {% if p.has_funded %}
-  <details class="fc-stmt-summary fc-stmt-summary-funded">
-    <summary class="fc-stmt-summary-row">
-      <span>{{ p.funded_count }} bill{{ 's' if p.funded_count != 1 }} funded</span>
-      <span class="mono c-green">{{ p.funded_total_fmt }}</span>
-    </summary>
-    <div class="fc-stmt-summary-body">
-      {% for line in p.funded_lines %}
-        {% if line.row_type == 'date' %}
-        <div class="fc-stmt-line-date">{{ line.text }}</div>
-        {% else %}
-        <div class="fc-stmt-line">
-          <span class="fc-stmt-line-desc">{{ line.text }}</span>
-          <span class="mono fc-stmt-line-amt">{{ line.amount_fmt }}</span>
-        </div>
-        {% endif %}
-      {% endfor %}
+  <div class="fc-stmt-section-lbl fc-stmt-section-funded">
+    <span>Funded</span>
+    <span class="mono">{{ p.funded_total_fmt }}</span>
+  </div>
+  {% for line in p.funded_lines %}
+    {% if line.row_type == 'date' %}
+    <div class="fc-stmt-line-date">{{ line.text }}</div>
+    {% else %}
+    <div class="fc-stmt-line">
+      <span class="fc-stmt-line-desc">{{ line.text }}</span>
+      <span class="mono fc-stmt-line-amt">{{ line.amount_fmt }}</span>
     </div>
-  </details>
+    {% endif %}
+  {% endfor %}
+  <div class="fc-stmt-close">
+    <span class="fc-stmt-close-lbl">Balance</span>
+    <span class="mono fc-stmt-close-val" style="color:{{ p.bal_after_funded_color }}">{{ p.bal_after_funded_fmt }}</span>
+  </div>
   {% endif %}
   {% if p.has_unfunded %}
-  <details class="fc-stmt-summary fc-stmt-summary-unfunded">
-    <summary class="fc-stmt-summary-row">
-      <span>{{ p.total_count - p.funded_count }} bill{{ 's' if (p.total_count - p.funded_count) != 1 }} unfunded</span>
-      <span class="mono c-red">{{ p.unfunded_total_fmt }}</span>
-    </summary>
-    <div class="fc-stmt-summary-body">
-      {% for line in p.unfunded_lines %}
-        {% if line.row_type == 'date' %}
-        <div class="fc-stmt-line-date">{{ line.text }}</div>
-        {% else %}
-        <div class="fc-stmt-line">
-          <span class="fc-stmt-line-desc">{{ line.text }}</span>
-          <span class="mono c-red fc-stmt-line-amt">{{ line.amount_fmt }}</span>
-        </div>
-        {% endif %}
-      {% endfor %}
+  <div class="fc-stmt-section-lbl fc-stmt-section-unfunded">
+    <span>Unfunded</span>
+    <span class="mono">{{ p.unfunded_total_fmt }}</span>
+  </div>
+  {% for line in p.unfunded_lines %}
+    {% if line.row_type == 'date' %}
+    <div class="fc-stmt-line-date">{{ line.text }}</div>
+    {% else %}
+    <div class="fc-stmt-line">
+      <span class="fc-stmt-line-desc">{{ line.text }}</span>
+      <span class="mono c-red fc-stmt-line-amt">{{ line.amount_fmt }}</span>
     </div>
-  </details>
-  {% endif %}
-  {% if p.has_funded or p.has_unfunded %}
+    {% endif %}
+  {% endfor %}
   <div class="fc-stmt-close">
     <span class="fc-stmt-close-lbl">Balance</span>
     {% if p.end_bal_negative %}
