@@ -381,13 +381,16 @@ def month_income(month_id: str, transactions: list[dict], accounts: list[dict]) 
 # ── 9. Ready to Spend ─────────────────────────────────────────────────────────
 
 def ready_to_spend(
-    active_month: dict,
     all_months: list[dict],
     accounts: list[dict],
     buckets: list[dict],
     transactions: list[dict],
 ) -> float:
     """RTS is anchored to today's cash position, not the viewed month.
+
+    Deliberately takes no month argument — RTS cannot be month-scoped, and
+    a parameter that looked like it did (but was silently ignored) misled
+    callers for a while before being removed.
 
     bb is always live (all transactions). Claims are always measured from
     today's calendar month — expense buckets reset monthly, vault/savings

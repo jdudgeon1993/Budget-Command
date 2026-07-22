@@ -177,8 +177,7 @@
              title="Payoff timeline & what-if calculator">Payoff</a>
           <a class="vault-action-btn" style="font-size:10px;padding:2px 6px;color:var(--red);border-color:rgba(255,69,58,.35)"
              href="{{ url_for('.post_interest', aid=a.id) }}"
-             hx-post="{{ url_for('.post_interest', aid=a.id) }}" hx-target="#panel" hx-swap="innerHTML"
-             hx-confirm="Post monthly interest charge for {{ a.name }}?"
+             hx-get="{{ url_for('.post_interest', aid=a.id) }}" hx-target="#modal-body"
              title="Post monthly interest charge">Interest</a>
           {% endif %}
         </div>

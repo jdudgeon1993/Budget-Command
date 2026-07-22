@@ -41,7 +41,10 @@
   {% endif %}
 </div>
 
-<!-- OOB: keep KPI bar in sync with active scenario numbers -->
+<!-- OOB: keep KPI bar in sync with active scenario numbers.
+     Skipped on the initial full-page render (see forecast_v5.html) where it
+     would show as a duplicate visible bar instead of an OOB swap. -->
+{% if not initial_render %}
 {% set _active_sc_name = (scenarios | selectattr('id', 'equalto', active_scenario_id) | map(attribute='name') | first) if active_scenario_id else '' %}
 <div id="fc-kpi-bar" class="fc-kpi-bar" hx-swap-oob="outerHTML">
   {% if _active_sc_name %}
@@ -73,6 +76,7 @@
   </div>
   {% endif %}
 </div>
+{% endif %}
 
 <!-- Balance trajectory chart -->
 {% if balance_svg %}
@@ -129,12 +133,6 @@
 <!-- Month statement cards -->
 <div class="fc-periods">
   {% for g in forecast.month_groups %}
-  {% set ns = namespace(income=0.0, bills=0.0) %}
-  {% for p in g.periods %}
-    {% set ns.income = ns.income + (p.income_total_fmt | replace('$','') | replace(',','') | float) %}
-    {% set ns.bills  = ns.bills  + (p.funded_total_fmt | replace('$','') | replace(',','') | float)
-                                  + (p.unfunded_total_fmt | replace('$','') | replace(',','') | float) %}
-  {% endfor %}
   {% set last_p = g.periods[-1] %}
   <div class="fc-stmt-month">
 
@@ -147,11 +145,11 @@
         </span>
         <span class="fc-stmt-mt-item">
           <span class="fc-stmt-mt-lbl">Income</span>
-          <span class="mono c-green">{{ ns.income | money }}</span>
+          <span class="mono c-green">{{ g.income_total_fmt }}</span>
         </span>
         <span class="fc-stmt-mt-item">
           <span class="fc-stmt-mt-lbl">Bills</span>
-          <span class="mono c-red">{{ ns.bills | money }}</span>
+          <span class="mono c-red">{{ g.bills_total_fmt }}</span>
         </span>
       </div>
     </div>

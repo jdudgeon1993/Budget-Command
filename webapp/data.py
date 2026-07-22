@@ -104,12 +104,21 @@ def attach_forecast_month_groups(fc: dict) -> dict:
     groups: list[dict] = []
     by_mid: dict[str, dict] = {}
 
+    def _amt(s: str) -> float:
+        # compute_forecast() only exposes pre-formatted strings; parse here
+        # (testable Python) rather than in Jinja per-cell.
+        try:
+            return float(str(s or "0").replace("$", "").replace(",", ""))
+        except ValueError:
+            return 0.0
+
     for i, p in enumerate(periods):
         d = date.fromisoformat(p["id"])
         mid = F.month_id(d.year, d.month - 1)
         g = by_mid.get(mid)
         if g is None:
-            g = {"mid": mid, "label": month_label(mid), "periods": []}
+            g = {"mid": mid, "label": month_label(mid), "periods": [],
+                 "_income": 0.0, "_bills": 0.0}
             by_mid[mid] = g
             groups.append(g)
         bleeds = False
@@ -117,7 +126,13 @@ def attach_forecast_month_groups(fc: dict) -> dict:
             d_next = date.fromisoformat(periods[i + 1]["id"])
             bleeds = (d_next - timedelta(days=1)).month != d.month
         p["bleeds_next_month"] = bleeds
+        g["_income"] += _amt(p.get("income_total_fmt"))
+        g["_bills"] += _amt(p.get("funded_total_fmt")) + _amt(p.get("unfunded_total_fmt"))
         g["periods"].append(p)
+
+    for g in groups:
+        g["income_total_fmt"] = f"${g.pop('_income'):,.2f}"
+        g["bills_total_fmt"] = f"${g.pop('_bills'):,.2f}"
 
     fc["month_groups"] = groups
     return fc
@@ -160,16 +175,16 @@ def shell_ctx(active_panel: str = "") -> dict:
     # regardless of which month the user is browsing. Viewing July does not
     # suddenly inflate RTS by dropping June's claims from the calculation.
     today_mid = F.current_month_id()
-    today_month = next((m for m in months if m["id"] == today_mid),
-                       {"id": today_mid, "allocations": {}, "budgets": {}})
-    rts = F.ready_to_spend(today_month, months, accounts, buckets, txs)
+    rts = F.ready_to_spend(months, accounts, buckets, txs)
 
     total_cash = F.total_cash(accounts, txs)
     aom = F.age_of_money(accounts, txs)
     # Income/allocated/spent are scoped to the VIEWED month for context
     income = F.month_income(mid, txs, accounts)
     allocated = F.total_allocated(month, buckets)
-    spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
+    # Spent is historical fact for the viewed month — include buckets
+    # archived since, or past months undercount (matches reports_view).
+    spent = sum(F.b_spent(mid, b["id"], txs) for b in data.get("buckets", []))
     # Denominator is total available to assign (allocated + unassigned), not
     # just income — in ZBB you also allocate from prior-month carry-forward.
     _available = allocated + max(rts, 0)
@@ -558,10 +573,7 @@ def dashboard_ctx() -> dict:
     # savings isn't part of what RTS claims against, so it shouldn't be
     # folded into the headline "Balance" figure sitting right next to RTS.
     balance = F.budget_bal(accounts, txs)
-    today_mid = F.current_month_id()
-    today_month = next((m for m in data.get("months", []) if m["id"] == today_mid),
-                       {"id": today_mid, "allocations": {}, "budgets": {}})
-    rts = F.ready_to_spend(today_month, data.get("months", []), accounts, buckets, txs)
+    rts = F.ready_to_spend(data.get("months", []), accounts, buckets, txs)
 
     sts_amt, sts_qualifier = _safe_to_spend(data)
 
@@ -647,7 +659,7 @@ def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = Non
     txs = data.get("txs", [])
     bkt_name = {b["id"]: b["name"] for b in buckets}
 
-    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+    rts = F.ready_to_spend(months, accounts, buckets, txs)
 
     obligations = F.distribute_obligations(buckets, month)
     for o in obligations:
@@ -877,7 +889,7 @@ def paycheck_distribute_ctx(
     txs = data.get("txs", [])
     bkt_name = {b["id"]: b["name"] for b in buckets}
 
-    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+    rts = F.ready_to_spend(months, accounts, buckets, txs)
 
     # Partition rules into three groups
     rules_raw = sorted(
@@ -1069,7 +1081,13 @@ def reports_view(view_mid: str = None):
     net_worth = sum(s["net_worth_bal"] for s in snapshot)
 
     # ── Funding rate ──────────────────────────────────────────────────────────
-    expense_bkts = [b for b in buckets if b.get("type", "expense") != "vault"]
+    # Handled buckets are dealt with outside the app this month — they need
+    # no funding, so they belong in neither the funded count nor the
+    # denominator (same rule distribute_obligations applies).
+    _handled = month.get("handledBuckets") or {}
+    expense_bkts = [b for b in buckets
+                    if b.get("type", "expense") != "vault"
+                    and b["id"] not in _handled]
     funded_count = sum(
         1 for b in expense_bkts
         if F.b_alloc(month, b["id"]) >= max(F.b_budget(month, b["id"]) - 0.005, 0.005)
@@ -1089,10 +1107,7 @@ def reports_view(view_mid: str = None):
     # allocation and should include buckets archived since — that money was
     # genuinely allocated at the time either way.
     total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets_all)
-    today_mid = F.current_month_id()
-    today_month = next((m for m in all_months if m["id"] == today_mid),
-                       {"id": today_mid, "allocations": {}, "budgets": {}})
-    rts_val = F.ready_to_spend(today_month, all_months, accounts, buckets, txs)
+    rts_val = F.ready_to_spend(all_months, accounts, buckets, txs)
     alloc_pct = min(100, round(total_alloc / income * 100) if income > 0 else 0)
     allocation_rate = {"allocated": total_alloc, "income": income,
                        "pct": alloc_pct, "rts": rts_val}
@@ -1242,18 +1257,23 @@ def reports_view(view_mid: str = None):
     bva_6mo = _bva_multi(6)
 
     # ── Discipline heatmap (12 months) ────────────────────────────────────────
-    heatmap, neg_rts_months = [], []
+    # net_alloc is month-local "income minus allocated" — it is NOT RTS (see
+    # the allocation_rate comment above). A negative value only means the
+    # month's allocations were funded from carried-forward surplus, which is
+    # normal ZBB behavior, not a deficit — so it's labeled "carryover", never
+    # "negative RTS".
+    heatmap, carryover_months = [], []
     for i in range(11, -1, -1):
         m_id = F.month_offset(mid, -i)
         m_mo = active_month(data, m_id)
         m_income = F.month_income(m_id, txs, accounts)
         m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets_all)
-        rts_m = m_income - m_alloc
+        net_alloc = m_income - m_alloc
         if m_income > 0:
             alloc_rate = min(m_alloc / m_income, 1.0)
-            if rts_m < -0.005:
-                status = "deficit"
-                neg_rts_months.append(month_label(m_id))
+            if net_alloc < -0.005:
+                status = "carryover"
+                carryover_months.append(month_label(m_id))
             elif alloc_rate >= 0.90:
                 status = "full"
             else:
@@ -1262,14 +1282,14 @@ def reports_view(view_mid: str = None):
             alloc_rate = 0.0
             status = "empty"
         heatmap.append({"mid": m_id, "label": month_label(m_id)[:3],
-                        "status": status, "rts": round(rts_m, 2),
+                        "status": status, "net_alloc": round(net_alloc, 2),
                         "alloc_rate": round(alloc_rate * 100)})
 
     active_hm = [h for h in heatmap if h["status"] != "empty"]
     disc_score = round(sum(h["alloc_rate"] for h in active_hm) / max(len(active_hm), 1))
     avg_surplus = round(
-        sum(h["rts"] for h in heatmap if h["rts"] > 0) /
-        max(sum(1 for h in heatmap if h["rts"] > 0), 1), 2
+        sum(h["net_alloc"] for h in heatmap if h["net_alloc"] > 0) /
+        max(sum(1 for h in heatmap if h["net_alloc"] > 0), 1), 2
     )
 
     return {
@@ -1284,7 +1304,7 @@ def reports_view(view_mid: str = None):
         "goals": goals, "nw_trend": nw_trend,
         "debt_accounts": debt_accounts,
         "heatmap": heatmap, "disc_score": disc_score,
-        "neg_rts_months": neg_rts_months, "avg_surplus": avg_surplus,
+        "carryover_months": carryover_months, "avg_surplus": avg_surplus,
     }
 
 

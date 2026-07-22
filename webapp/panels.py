@@ -89,32 +89,7 @@ def set_alloc(bid):
     return _buckets_response(view_mid=target_mid)
 
 
-# ── Bucket fill / distribute ─────────────────────────────────────────────────
-
-@bp.route("/buckets/<bid>/fill", methods=["POST"])
-@login_required
-def fill_bucket(bid):
-    """Set allocation = max(budget, spent) — fills to target or covers actual spend.
-
-    Targets the viewed month (see set_alloc) — the "m" hidden field this
-    button already sends was previously never read, so Fill/Cover on a
-    future-month tab was silently applying to the wrong month.
-    """
-    target_mid = request.values.get("m") or D.active_mid()
-    data = D.load_data()
-    month = D.active_month(data, target_mid)
-    budget = D.F.b_budget(month, bid)
-    spent  = D.F.b_spent(target_mid, bid, data.get("txs", []))
-    new_alloc = max(budget, spent)
-    month.setdefault("allocations", {})[bid] = new_alloc
-    if not current_app.config["DEV_SEED"]:
-        DB.ensure_month(session["user_id"], session["access_token"], target_mid)
-        DB.upsert_alloc(session["user_id"], session["access_token"],
-                        target_mid, bid, new_alloc)
-        D.invalidate_cache()
-    flash("Covered." if spent > budget else "Filled.", "ok")
-    return _buckets_response(view_mid=target_mid)
-
+# ── Bucket distribute ────────────────────────────────────────────────────────
 
 def _distribute_checks():
     """Checkbox state from the Distribute form, or None for the un-submitted default."""
@@ -285,6 +260,10 @@ def bucket_settings(bid):
                         "target_date": f.get("target_date") or None,
                         "contrib_freq": f.get("contrib_freq") or None,
                     })
+            # Presence-guarded: forms without the select (goal/vault types)
+            # must not clear an existing link.
+            if "debtAccountId" in f:
+                payload["debt_account_id"] = f.get("debtAccountId") or None
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
             D.invalidate_cache()
             flash("Bucket updated.", "ok")
@@ -541,15 +520,17 @@ def add_bucket():
 @bp.route("/buckets/<bid>/handled", methods=["POST"])
 @login_required
 def toggle_handled(bid):
-    mid = D.active_mid()
+    # Follow the month tab the user is viewing, same as set_alloc — marking
+    # a future month's bill handled must not write to the current month.
+    mid = request.values.get("m") or D.active_mid()
     data = D.load_data()
-    month = D.active_month(data)
+    month = D.active_month(data, mid)
     currently = bool((month.get("handledBuckets") or {}).get(bid))
     if not current_app.config["DEV_SEED"]:
         DB.ensure_month(session["user_id"], session["access_token"], mid)
         DB.toggle_handled(session["user_id"], session["access_token"], mid, bid, currently)
         D.invalidate_cache()
-    return _buckets_response()
+    return _buckets_response(view_mid=request.values.get("m") or None)
 
 
 # ── Month workflow ────────────────────────────────────────────────────────────
@@ -690,9 +671,13 @@ def debt_payment(aid):
     from_accounts = [{"id": a["id"], "name": a["name"]}
                      for a in data.get("accounts", [])
                      if a.get("type") != "debt" and not a.get("archived")]
+    linked_buckets = [{"id": b["id"], "name": b["name"]}
+                      for b in data.get("buckets", [])
+                      if b.get("debtAccountId") == aid and not b.get("archived")]
     from datetime import date as _date
     return render_template("panels/_frag_debt_payment.html",
                            account=account, from_accounts=from_accounts,
+                           linked_buckets=linked_buckets,
                            today=_date.today().isoformat())
 
 
@@ -717,13 +702,16 @@ def post_interest(aid):
             amount = 0.0
         desc = f.get("desc", "").strip() or "Interest charge"
         pay_date = f.get("date") or D.tx_form_ctx()["today"]
-        if amount > 0 and not current_app.config["DEV_SEED"]:
-            DB.insert_tx(session["user_id"], session["access_token"], {
-                "accountId": aid, "type": "out", "amount": amount,
-                "desc": desc, "date": pay_date, "monthId": D.active_mid(),
-            })
-            D.invalidate_cache()
-        flash("Interest posted.", "ok")
+        if amount > 0:
+            if not current_app.config["DEV_SEED"]:
+                DB.insert_tx(session["user_id"], session["access_token"], {
+                    "accountId": aid, "type": "out", "amount": amount,
+                    "desc": desc, "date": pay_date, "monthId": D.active_mid(),
+                })
+                D.invalidate_cache()
+            flash("Interest posted.", "ok")
+        else:
+            flash("Enter an interest amount greater than zero.", "error")
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
         return redirect(url_for(".accounts"))
@@ -901,7 +889,7 @@ def health():
     budget_metrics = []
     rts = total_cash = income = allocated = spent = 0.0
     try:
-        rts        = D.F.ready_to_spend(today_month, months, accounts, active_buckets, txs)
+        rts        = D.F.ready_to_spend(months, accounts, active_buckets, txs)
         total_cash = D.F.total_cash(accounts, txs)
         income     = D.F.month_income(today_mid, txs, accounts)
         allocated  = D.F.total_allocated(today_month, active_buckets)
@@ -1724,8 +1712,13 @@ def transaction_edit(tid):
                 "description": f.get("desc", ""),
                 "bucket_id": f.get("bucketId") or None,
                 "to_account_id": f.get("toAccountId") or None,
-                "reconciled": f.get("reconciled") == "1",
-                "income_type": f.get("incomeType") or None,
+                # Presence-guarded: a form variant lacking these fields must
+                # not silently reset them (both are selects, always present
+                # when the form includes them).
+                "reconciled": (f.get("reconciled") == "1") if "reconciled" in f
+                              else bool(tx.get("reconciled")),
+                "income_type": (f.get("incomeType") or None) if "incomeType" in f
+                               else tx.get("incomeType"),
             })
             D.invalidate_cache()
             flash("Transaction updated.", "ok")

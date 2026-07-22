@@ -71,6 +71,10 @@
   <!-- What-If Forecast (month-grouped) -->
   <div id="fc-whatif" class="fc-tab-pane">
     <div id="fc-whatif-content">
+      {# On a hard page load the fragment's OOB KPI block would render as a
+         second visible #fc-kpi-bar (hx-swap-oob only applies to htmx
+         responses) — suppress it here; htmx refreshes render it normally. #}
+      {% set initial_render = true %}
       {% include "panels/_frag_forecast_whatif_v5.html" %}
     </div>
   </div>

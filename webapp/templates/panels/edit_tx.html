@@ -49,6 +49,20 @@
       <label>Payee / note</label>
       <input type="text" name="desc" value="{{ tx.desc or '' }}">
     </div>
+    <div class="tx-field">
+      <label>Income type <span class="tx-hint">(income)</span></label>
+      <select name="incomeType">
+        <option value="paycheck" {{ 'selected' if tx.incomeType == 'paycheck' or not tx.incomeType }}>Paycheck</option>
+        <option value="other" {{ 'selected' if tx.incomeType == 'other' }}>Other income</option>
+      </select>
+    </div>
+    <div class="tx-field">
+      <label>Reconciled</label>
+      <select name="reconciled">
+        <option value="1" {{ 'selected' if tx.reconciled }}>✓ Yes — reconciled</option>
+        <option value="0" {{ 'selected' if not tx.reconciled }}>Not reconciled</option>
+      </select>
+    </div>
 
     <div class="tx-actions">
       <a class="toolbar-btn" href="{{ url_for('.' + back) }}">Cancel</a>

@@ -44,6 +44,7 @@
         {% if b.due_day or b.pay_freq %}
         <form method="post" action="{{ url_for('.toggle_handled', bid=b.id) }}" style="display:contents"
               hx-post="{{ url_for('.toggle_handled', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <button class="v4-icon-sm {{ 'active' if b.handled }}" type="submit" title="Mark this bill handled">✓</button>
         </form>
         {% endif %}
