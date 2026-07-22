@@ -318,8 +318,12 @@ CREATE TABLE IF NOT EXISTS bcc_month_handled (
 );
 ALTER TABLE bcc_month_handled ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS bcc_month_handled_user_policy ON bcc_month_handled;
+-- Cast both sides to text so the policy works whether user_id is text or
+-- uuid (older bcc_ tables were created with a text user_id, and CREATE TABLE
+-- IF NOT EXISTS leaves that pre-existing type in place) — avoids the
+-- "operator does not exist: text = uuid" error.
 CREATE POLICY bcc_month_handled_user_policy ON bcc_month_handled
-    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+    FOR ALL USING (user_id::text = (auth.uid())::text) WITH CHECK (user_id::text = (auth.uid())::text);
 
 -- ─── RETIRED QUARANTINE TABLES ───────────────────────────────────────────────
 -- Retiring a bucket/category MOVES its full row here (out of the live table)
@@ -354,7 +358,7 @@ CREATE TABLE IF NOT EXISTS bcc_retired_buckets (
 ALTER TABLE bcc_retired_buckets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS bcc_retired_buckets_user_policy ON bcc_retired_buckets;
 CREATE POLICY bcc_retired_buckets_user_policy ON bcc_retired_buckets
-    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+    FOR ALL USING (user_id::text = (auth.uid())::text) WITH CHECK (user_id::text = (auth.uid())::text);
 
 CREATE TABLE IF NOT EXISTS bcc_retired_categories (
     id          TEXT PRIMARY KEY,
@@ -369,7 +373,7 @@ CREATE TABLE IF NOT EXISTS bcc_retired_categories (
 ALTER TABLE bcc_retired_categories ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS bcc_retired_categories_user_policy ON bcc_retired_categories;
 CREATE POLICY bcc_retired_categories_user_policy ON bcc_retired_categories
-    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+    FOR ALL USING (user_id::text = (auth.uid())::text) WITH CHECK (user_id::text = (auth.uid())::text);
 
 -- ─── ONE-TIME SWEEP: existing archived rows → quarantine ──────────────────────
 -- Migrates anything archived under the OLD model into the new quarantine
