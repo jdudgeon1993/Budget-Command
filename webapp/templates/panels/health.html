@@ -81,6 +81,33 @@
   {% endif %}
 
   <div class="hc-section">
+    <div class="hc-section-title">Schema</div>
+    <div class="hc-card">
+      {% if schema_check_error %}
+      <div class="hc-row"><span class="hc-label">Probe failed</span><span class="hc-val c-warn">{{ schema_check_error }}</span></div>
+      {% elif schema_missing %}
+      <div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px">
+        {{ schema_missing|length }} column{{ 's' if schema_missing|length != 1 }} missing from the live database —
+        every write touching one fails, and the button appears to do nothing.
+      </div>
+      {% for m in schema_missing %}
+      <div class="hc-row">
+        <span class="hc-label">{{ m.table }}.{{ m.column }}</span>
+        <span class="hc-val c-warn">missing</span>
+      </div>
+      {% endfor %}
+      <div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5">
+        Fix: open the Supabase SQL editor and run the
+        <strong>MIGRATIONS (safe to re-run)</strong> block at the bottom of
+        <code>schema.sql</code> — it only adds what's missing.
+      </div>
+      {% else %}
+      <div class="hc-row"><span class="hc-label">All columns the app writes exist in the live DB</span><span class="hc-val" style="color:var(--green)">✓</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="hc-section">
     <div class="hc-grid">
       <div class="hc-card">
         <div class="hc-card-title">Data Loaded</div>

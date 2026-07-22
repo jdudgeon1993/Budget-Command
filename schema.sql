@@ -277,3 +277,31 @@ CREATE INDEX IF NOT EXISTS idx_bcc_buckets_user_cat
 
 CREATE INDEX IF NOT EXISTS idx_bcc_scenarios_user
     ON bcc_scenarios(user_id, sort_order);
+
+-- ─── MIGRATIONS (safe to re-run) ─────────────────────────────────────────────
+-- CREATE TABLE IF NOT EXISTS never adds columns to a table that already
+-- exists, so databases created from an older schema silently drift. Every
+-- statement below is idempotent — run this whole block in the Supabase SQL
+-- editor any time; existing columns are left untouched. A missing column
+-- makes the corresponding write 500 (e.g. archiving a bucket/category doing
+-- "nothing") — the /health page's Schema section detects exactly this.
+
+ALTER TABLE bcc_categories ADD COLUMN IF NOT EXISTS archived   BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE bcc_categories ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS archived        BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS flex            BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS recurring       BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS notes           TEXT;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS due_day         TEXT;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS due_amount      NUMERIC(12,2);
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS pay_freq        TEXT;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS debt_account_id TEXT;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS target_amount   NUMERIC(12,2);
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS target_date     TEXT;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS contrib_freq    TEXT;
+ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS sort_order      INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS income_type TEXT;
+ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS reconciled  BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS debt_payment_account_id TEXT;

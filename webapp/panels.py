@@ -287,9 +287,13 @@ def bucket_settings(bid):
 @login_required
 def archive_bucket(bid):
     if not current_app.config["DEV_SEED"]:
-        DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"archived": True})
-        D.invalidate_cache()
-        flash("Bucket archived.", "ok")
+        try:
+            DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"archived": True})
+            D.invalidate_cache()
+            flash("Bucket archived.", "ok")
+        except Exception as e:
+            # See _dev_or — surface the DB error rather than a silent 500.
+            flash(f"Archive failed: {str(e)[:200]}", "error")
     else:
         flash("Dev mode: change not persisted.", "ok")
     if request.headers.get("HX-Request") == "true":
@@ -1009,11 +1013,46 @@ def health():
     if unassigned_txs:
         hints.append(f"{len(unassigned_txs)} expense transaction(s) not assigned to a bucket")
 
+    # ── Schema drift ──────────────────────────────────────────────────────────
+    # CREATE TABLE IF NOT EXISTS never adds columns to an existing table, so
+    # a live DB created from an older schema silently lacks newer columns and
+    # every write touching one 500s (e.g. archive doing "nothing"). Probe the
+    # exact columns the app writes; anything missing gets a copy-paste fix
+    # (the full idempotent block lives at the bottom of schema.sql).
+    schema_missing, schema_check_error = [], ""
+    if not current_app.config.get("DEV_SEED"):
+        _write_cols = {
+            "bcc_categories": ["archived", "sort_order", "name", "color"],
+            "bcc_buckets": ["archived", "flex", "recurring", "notes", "due_day",
+                            "due_amount", "pay_freq", "debt_account_id",
+                            "target_amount", "target_date", "contrib_freq",
+                            "sort_order", "default_budget"],
+            "bcc_transactions": ["income_type", "reconciled",
+                                 "debt_payment_account_id"],
+            "bcc_accounts": ["archived"],
+        }
+        try:
+            _probe = DB.client(session["access_token"])
+            for _tbl, _cols in _write_cols.items():
+                for _col in _cols:
+                    try:
+                        _probe.table(_tbl).select(_col).limit(1).execute()
+                    except Exception:
+                        schema_missing.append({"table": _tbl, "column": _col})
+        except Exception as e:
+            schema_check_error = str(e)
+    if schema_missing:
+        issues.append(f"{len(schema_missing)} column(s) missing from the live "
+                      "database — writes touching them fail silently. Run the "
+                      "MIGRATIONS block at the bottom of schema.sql.")
+
     # ── Raw JSON ──────────────────────────────────────────────────────────────
     raw_summary = {k: len(v) if isinstance(v, list) else str(v) for k, v in raw.items()}
     raw_json = _json.dumps(raw_summary, indent=2)
 
     return render_template("panels/health.html",
+        schema_missing=schema_missing,
+        schema_check_error=schema_check_error,
         generated_at=generated_at,
         issues=issues, hints=hints,
         data_counts=data_counts,
@@ -1496,8 +1535,14 @@ def _setup_panel():
 
 def _dev_or(fn):
     if not current_app.config["DEV_SEED"]:
-        fn(session["user_id"], session["access_token"])
-        D.invalidate_cache()
+        try:
+            fn(session["user_id"], session["access_token"])
+            D.invalidate_cache()
+        except Exception as e:
+            # Surface the real DB error instead of 500ing — a 500 renders
+            # nothing in htmx, which reads as "the button does nothing."
+            # Missing-column schema drift lands here (see /health → Schema).
+            flash(f"Save failed: {str(e)[:200]}", "error")
     return _setup_panel()
 
 

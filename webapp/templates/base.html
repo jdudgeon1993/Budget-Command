@@ -40,6 +40,15 @@ document.addEventListener('htmx:afterSettle',function(e){
     el.parentNode&&el.parentNode.removeChild(el);
   });
 });
+// A failed htmx request otherwise does NOTHING visible (no swap, no toast) —
+// the "click all day and nothing happens" failure mode. Always say so.
+document.addEventListener('htmx:responseError',function(e){
+  var s=e.detail&&e.detail.xhr?e.detail.xhr.status:0;
+  showToast('Save failed (HTTP '+s+') — the change was not applied. See /health → Schema for diagnostics.','error',8000);
+});
+document.addEventListener('htmx:sendError',function(){
+  showToast('Network error — the change was not applied.','error',8000);
+});
 </script>
 {% with msgs = get_flashed_messages(with_categories=true) %}
 {% if msgs %}<script>{% for cat, msg in msgs %}showToast({{ msg | tojson }},{{ cat | tojson }});{% endfor %}</script>{% endif %}
