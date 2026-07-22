@@ -1,0 +1,40 @@
+<div class="modal-title">Retire {{ bucket.name }}</div>
+
+<form method="post" action="{{ url_for('.retire_bucket', bid=bucket.id) }}"
+      hx-post="{{ url_for('.retire_bucket', bid=bucket.id) }}"
+      hx-target="#panel" hx-swap="innerHTML">
+
+  {% if money_holding %}
+  <div class="retire-note">
+    This bucket is holding <strong class="mono">{{ balance | money }}</strong>. Decide where
+    that money goes — it can't just disappear.
+  </div>
+  <div class="edit-field">
+    <label>Move the balance to</label>
+    <select name="disposition" onchange="document.getElementById('retire-xfer').style.display = (this.value === 'transfer') ? '' : 'none'">
+      <option value="release">Ready to Spend (release it)</option>
+      <option value="transfer">Another bucket (transfer it)</option>
+    </select>
+  </div>
+  <div class="edit-field" id="retire-xfer" style="display:none">
+    <label>Transfer into</label>
+    <select name="transfer_to">
+      {% for t in transfer_targets %}
+      <option value="{{ t.id }}">{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% else %}
+  <input type="hidden" name="disposition" value="release">
+  <div class="retire-note">
+    Retiring removes <strong>{{ bucket.name }}</strong> from your budget going forward — its
+    allocation rules and any future allocations are cleared. Its past transactions stay in your
+    reports, and you can restore it any time from <strong>Setup → Retired</strong>.
+  </div>
+  {% endif %}
+
+  <div class="edit-actions">
+    <button class="toolbar-btn" type="button" onclick="closeModal()">Cancel</button>
+    <button class="toolbar-btn primary" type="submit">Retire Bucket</button>
+  </div>
+</form>

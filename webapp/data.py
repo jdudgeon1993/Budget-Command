@@ -46,7 +46,7 @@ def invalidate_cache() -> None:
     panel re-rendered for the response will show stale values until the
     user manually reloads the page.
     """
-    for key in ("data", "data_full"):
+    for key in ("data", "data_full", "_retired"):
         try:
             delattr(g, key)
         except AttributeError:
@@ -79,6 +79,149 @@ def active_month(data: dict, mid: str = None) -> dict:
 def month_label(mid: str) -> str:
     y, m0 = F.parse_month_id(mid)
     return f"{calendar.month_name[m0 + 1]} {y}"
+
+
+# ── Retire / Restore support ──────────────────────────────────────────────────
+
+def retired_view() -> dict:
+    """Retired buckets + categories, request-cached.
+
+    Retired rows live in quarantine tables, out of the live bcc_buckets/
+    bcc_categories that load_data() returns. This is the one place that reads
+    them, so retirement can never leak into a live budgeting surface. Buckets
+    come back full-shape (drop-in for data["buckets"]) so historical reports
+    and name resolution can fold them in. DEV_SEED has no real DB; sample_data
+    may inject `retiredBuckets`/`retiredCats` for render tests.
+    """
+    cached = getattr(g, "_retired", None)
+    if cached is not None:
+        return cached
+    if current_app.config["DEV_SEED"]:
+        data = load_data()
+        buckets = data.get("retiredBuckets", [])
+        cats = data.get("retiredCats", [])
+    else:
+        buckets = DB.list_retired_buckets(session["user_id"], session["access_token"])
+        cats = DB.list_retired_categories(session["user_id"], session["access_token"])
+    result = {
+        "buckets": buckets, "cats": cats,
+        "bucket_names": {b["id"]: b["name"] for b in buckets},
+        "cat_names": {c["id"]: c["name"] for c in cats},
+    }
+    g._retired = result
+    return result
+
+
+def bucket_name_map(data: dict) -> dict:
+    """{id: name} for every bucket the user has ever had — live plus retired.
+    Used wherever a historical transaction/report must still show a name after
+    its bucket was retired out of the live table. Live names win on any clash."""
+    m = dict(retired_view()["bucket_names"])
+    m.update({b["id"]: b["name"] for b in data.get("buckets", [])})
+    return m
+
+
+def cat_name_map(data: dict) -> dict:
+    m = dict(retired_view()["cat_names"])
+    m.update({c["id"]: c["name"] for c in data.get("cats", [])})
+    return m
+
+
+def _forward_month_ids(data: dict) -> list:
+    """Month ids strictly after the current calendar month. Pure — testable
+    without a DB. (month_id is m_{y}_{m0}, which does NOT sort lexically, so
+    this filters by F.month_status rather than string comparison.)"""
+    return [m["id"] for m in data.get("months", [])
+            if F.month_status(m["id"]) == "future"]
+
+
+def _accumulating(bucket: dict) -> bool:
+    """Bucket types that carry a real balance across months (so retiring one
+    needs an explicit money disposition)."""
+    return (bucket.get("type") in ("vault", "sinking", "goal")
+            or bool(bucket.get("rollover")))
+
+
+def bucket_retire_info(bid: str) -> dict:
+    """What the retire route needs to decide the flow: the bucket, whether it
+    holds an accumulating balance, and that balance (the amount a disposition
+    must move). Delisting a bucket already returns its claim to RTS; the
+    disposition exists to zero an *accumulating* balance first so retire and
+    restore stay money-neutral."""
+    data = load_data()
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket:
+        return {"bucket": None, "money_holding": False, "balance": 0.0, "today_mid": F.current_month_id()}
+    today_mid = F.current_month_id()
+    months = data.get("months", [])
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    bal = 0.0
+    if _accumulating(bucket):
+        bal = round(F.bucket_available(bucket, today_month, months, data.get("txs", [])), 2)
+    return {"bucket": bucket, "money_holding": _accumulating(bucket) and bal > 0.005,
+            "balance": bal, "today_mid": today_mid}
+
+
+def perform_bucket_retire(bid: str, disposition: str = "release", transfer_to: str = "") -> bool:
+    """Retire one bucket. Does NOT invalidate the cache — callers do, once.
+
+    Steps (order matters for money-neutrality and no-data-loss):
+    1. If it holds an accumulating balance, zero it via release (record a
+       withdrawal) or transfer (release source + fund destination).
+    2. Delete forward commitments — future-month rows, allocation rules,
+       scenario references. Current/past rows stay as historical fact; the
+       bucket's current available returns to RTS automatically once it leaves
+       the live table (ready_to_spend only sums live buckets).
+    3. Move the bucket row to quarantine (copy first, delete live last).
+    """
+    info = bucket_retire_info(bid)
+    if not info["bucket"]:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True  # writes don't persist in dev
+    uid, token = session["user_id"], session["access_token"]
+    data = load_data()
+    months = data.get("months", [])
+    today_mid = info["today_mid"]
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+
+    if info["money_holding"]:
+        bal = info["balance"]
+        cur_alloc = F.b_alloc(today_month, bid)
+        DB.ensure_month(uid, token, today_mid)
+        if disposition == "transfer" and transfer_to:
+            DB.vault_release_to_pool(uid, token, today_mid, bid, bal, cur_alloc)
+            dest_alloc = F.b_alloc(today_month, transfer_to)
+            DB.upsert_alloc(uid, token, today_mid, transfer_to, round(dest_alloc + bal, 2))
+        else:
+            DB.vault_release_to_pool(uid, token, today_mid, bid, bal, cur_alloc)
+
+    future_mids = _forward_month_ids(data)
+    DB.delete_bucket_month_rows(uid, token, bid, future_mids)
+    DB.delete_bucket_alloc_rules(uid, token, bid)
+    DB.scrub_scenarios_for_bucket(uid, token, bid)
+    DB.move_bucket_to_retired(uid, token, bid)
+    return True
+
+
+def perform_category_retire(cid: str) -> bool:
+    """Retire a category and cascade-retire its live buckets. Cascade uses the
+    release disposition for any money-holding bucket (no per-bucket modal is
+    possible mid-cascade) — the confirm dialog states balances return to RTS.
+    Does NOT invalidate the cache — the caller does."""
+    data = load_data()
+    cat = next((c for c in data.get("cats", []) if c["id"] == cid), None)
+    if not cat:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True
+    uid, token = session["user_id"], session["access_token"]
+    for b in [b for b in data.get("buckets", []) if b.get("catId") == cid]:
+        perform_bucket_retire(b["id"], disposition="release")
+    DB.move_category_to_retired(uid, token, cid)
+    return True
 
 
 def attach_forecast_month_groups(fc: dict) -> dict:
@@ -734,7 +877,8 @@ def accounts_view():
     mid = active_mid()
     txs = data.get("txs", [])
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
-    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
+    # live + retired, so a transaction whose bucket was retired still shows its name
+    bkt_name = bucket_name_map(data)
     acct_map = {a["id"]: a for a in accounts}
 
     cards = [{
@@ -856,11 +1000,22 @@ def setup_view():
     rules_total_pct   = sum(r["value"] for r in active_internal if r["is_pct"])
     rules_total_fixed = sum(r["value"] for r in active_internal if not r["is_pct"])
     paycheck_total = sum(p["amount"] for p in paychecks)
+    # Retired buckets/categories for the nestled "Retired" section (Restore).
+    _ret = retired_view()
+    _live_cat_name = {c["id"]: c["name"] for c in cats}
+    retired_buckets = [{
+        "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
+        "cat": _ret["cat_names"].get(b.get("catId"))
+               or _live_cat_name.get(b.get("catId"), "—"),
+    } for b in _ret["buckets"]]
+    retired_cats = [{"id": c["id"], "name": c["name"]} for c in _ret["cats"]]
+
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
             "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"},
             "rules_total_pct": rules_total_pct,
             "rules_total_fixed": rules_total_fixed,
-            "paycheck_total": paycheck_total}
+            "paycheck_total": paycheck_total,
+            "retired_buckets": retired_buckets, "retired_cats": retired_cats}
 
 
 def paycheck_distribute_ctx(
@@ -1030,8 +1185,15 @@ def reports_view(view_mid: str = None):
     # that describes a specific month (current or historical) uses these
     # unfiltered lists; only "current state" sections (funding rate, RTS,
     # active goals) use the filtered buckets/cats above.
-    buckets_all = data.get("buckets", [])
-    cats_all = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    # Historical sections must include RETIRED buckets/cats too — retiring
+    # moves the row out of the live table, but its past transactions and
+    # allocations are still real and belong in past-month reports (same reason
+    # archived buckets were kept here before retirement replaced archiving).
+    _ret = retired_view()
+    buckets_all = list(data.get("buckets", [])) + list(_ret["buckets"])
+    cats_all = sorted(
+        list(data.get("cats", [])) + list(_ret["cats"]),
+        key=lambda c: c.get("order", 0))
 
     # ── Available months for dropdown ─────────────────────────────────────────
     seen = {m["id"] for m in all_months} | {F.current_month_id()}

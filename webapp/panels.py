@@ -283,22 +283,42 @@ def bucket_settings(bid):
                         bucket=bucket, cats=cats, debt_accounts=debt_accounts)
 
 
-@bp.route("/buckets/<bid>/archive", methods=["POST"])
+@bp.route("/buckets/<bid>/retire", methods=["GET", "POST"])
 @login_required
-def archive_bucket(bid):
-    if not current_app.config["DEV_SEED"]:
-        try:
-            DB.upsert_bucket(session["user_id"], session["access_token"], bid, {"archived": True})
-            D.invalidate_cache()
-            flash("Bucket archived.", "ok")
-        except Exception as e:
-            # See _dev_or — surface the DB error rather than a silent 500.
-            flash(f"Archive failed: {str(e)[:200]}", "error")
-    else:
-        flash("Dev mode: change not persisted.", "ok")
-    if request.headers.get("HX-Request") == "true":
+def retire_bucket(bid):
+    """Retire a bucket (replaces archive). GET renders the confirm/disposition
+    modal; POST performs it. A bucket holding an accumulating balance must
+    dispose of that money first (release to RTS or transfer) so retire/restore
+    stays money-neutral — see D.perform_bucket_retire."""
+    info = D.bucket_retire_info(bid)
+    if not info["bucket"]:
+        flash("Bucket not found.", "error")
         return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
-    return redirect(url_for(".buckets"))
+
+    if request.method == "POST":
+        f = request.form
+        disposition = f.get("disposition", "release")
+        transfer_to = f.get("transfer_to", "")
+        try:
+            D.perform_bucket_retire(bid, disposition=disposition, transfer_to=transfer_to)
+            D.invalidate_cache()
+            if current_app.config["DEV_SEED"]:
+                flash("Dev mode: change not persisted.", "ok")
+            else:
+                flash(f"'{info['bucket']['name']}' retired.", "ok")
+        except Exception as e:
+            flash(f"Retire failed: {str(e)[:200]}", "error")
+        return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
+
+    # GET — disposition/confirm modal
+    data = D.load_data()
+    transfer_targets = [{"id": b["id"], "name": b["name"]}
+                        for b in data.get("buckets", []) if b["id"] != bid]
+    return render_template("panels/_frag_retire_bucket.html",
+                           bucket=info["bucket"],
+                           money_holding=info["money_holding"],
+                           balance=info["balance"],
+                           transfer_targets=transfer_targets)
 
 
 @bp.route("/buckets/<bid>/vault-transfer", methods=["GET", "POST"])
@@ -863,10 +883,13 @@ def health():
             if accum is not None and accum < -0.005:
                 bucket_issues.append({"name": b["name"], "issue": "Negative accumulated balance", "value": f"${accum:,.2f}"})
                 issues.append(f"'{b['name']}' has a negative balance (${accum:,.2f}) — use Correct Balance to fix")
+    # Retired buckets resolve fine (their name lives in quarantine) — only a
+    # bucket that is in neither live nor retired is a genuine orphan.
+    _retired_bids = set(D.retired_view()["bucket_names"].keys())
     orphaned_bids = set()
     for t in txs:
         bid = t.get("bucketId")
-        if bid and bid not in bkt_map:
+        if bid and bid not in bkt_map and bid not in _retired_bids:
             orphaned_bids.add(bid)
     if orphaned_bids:
         bucket_issues.append({"name": "—", "issue": f"Transactions reference {len(orphaned_bids)} deleted bucket(s)", "value": ", ".join(list(orphaned_bids)[:3])})
@@ -1592,10 +1615,51 @@ def edit_category(cid):
         u, t, cid, {"name": f.get("name", ""), "color": f.get("color", "#818cf8")}))
 
 
-@bp.route("/setup/category/<cid>/delete", methods=["POST"])
+@bp.route("/setup/category/<cid>/retire", methods=["POST"])
 @login_required
-def del_category(cid):
-    return _dev_or(lambda u, t: DB.update_category(u, t, cid, {"archived": True}))
+def retire_category(cid):
+    """Retire a category and cascade-retire its live buckets (money-holding
+    buckets release their balance to RTS — stated in the confirm dialog)."""
+    if current_app.config["DEV_SEED"]:
+        flash("Dev mode: change not persisted.", "ok")
+        return _setup_panel()
+    try:
+        D.perform_category_retire(cid)
+        D.invalidate_cache()
+        flash("Category retired.", "ok")
+    except Exception as e:
+        flash(f"Retire failed: {str(e)[:200]}", "error")
+    return _setup_panel()
+
+
+@bp.route("/buckets/<bid>/restore", methods=["POST"])
+@login_required
+def restore_bucket(bid):
+    if not current_app.config["DEV_SEED"]:
+        try:
+            DB.restore_bucket(session["user_id"], session["access_token"], bid)
+            D.invalidate_cache()
+            flash("Bucket restored.", "ok")
+        except Exception as e:
+            flash(f"Restore failed: {str(e)[:200]}", "error")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return _setup_panel()
+
+
+@bp.route("/setup/category/<cid>/restore", methods=["POST"])
+@login_required
+def restore_category(cid):
+    if not current_app.config["DEV_SEED"]:
+        try:
+            DB.restore_category(session["user_id"], session["access_token"], cid)
+            D.invalidate_cache()
+            flash("Category restored.", "ok")
+        except Exception as e:
+            flash(f"Restore failed: {str(e)[:200]}", "error")
+    else:
+        flash("Dev mode: change not persisted.", "ok")
+    return _setup_panel()
 
 
 @bp.route("/setup/category/<cid>/move/<direction>", methods=["POST"])

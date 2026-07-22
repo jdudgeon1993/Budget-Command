@@ -16,6 +16,29 @@ SUPABASE_URL         = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY    = os.environ.get("SUPABASE_ANON_KEY", "")
 
 
+def _shape_bucket(b: dict) -> dict:
+    """Raw bcc_buckets/bcc_retired_buckets row → the app's bucket dict shape.
+    Shared so retired buckets are drop-in compatible with live ones."""
+    return {
+        "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
+        "catId": b.get("cat_id", ""),
+        "archived": b.get("archived", False),
+        "openingBalance": float(b.get("opening_balance") or 0),
+        "defaultBudget": float(b.get("default_budget") or 0),
+        "dueDay": b.get("due_day"), "payFreq": b.get("pay_freq"),
+        "dueAmount": float(b.get("due_amount") or 0),
+        "targetAmount": float(b.get("target_amount") or 0),
+        "targetDate": b.get("target_date") or "",
+        "contribFreq": b.get("contrib_freq") or "",
+        "recurring": bool(b.get("recurring")),
+        "flex": bool(b.get("flex")),
+        "notes": b.get("notes") or "",
+        "order": b.get("sort_order", 0),
+        "debtAccountId": b.get("debt_account_id") or "",
+        "retiredAt": b.get("retired_at") or "",
+    }
+
+
 def client(token: str = "") -> Client:
     c = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
     if token:
@@ -137,23 +160,8 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "archived": bool(c.get("archived")),
     } for c in cats_raw]
 
-    buckets = [{
-        "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
-        "catId": b.get("cat_id", ""),
-        "archived": b.get("archived", False),
-        "openingBalance": float(b.get("opening_balance") or 0),
-        "defaultBudget": float(b.get("default_budget") or 0),
-        "dueDay": b.get("due_day"), "payFreq": b.get("pay_freq"),
-        "dueAmount": float(b.get("due_amount") or 0),
-        "targetAmount": float(b.get("target_amount") or 0),
-        "targetDate": b.get("target_date") or "",
-        "contribFreq": b.get("contrib_freq") or "",
-        "recurring": bool(b.get("recurring")),
-        "flex": bool(b.get("flex")),
-        "notes": b.get("notes") or "",
-        "order": b.get("sort_order", 0),
-        "debtAccountId": b.get("debt_account_id") or "",
-    } for b in sorted(buckets_raw, key=lambda x: x.get("sort_order", 0))]
+    buckets = [_shape_bucket(b) for b in
+               sorted(buckets_raw, key=lambda x: x.get("sort_order", 0))]
 
     txs = [{
         "id": t["id"], "accountId": t.get("account_id", ""),
@@ -237,7 +245,14 @@ def ensure_month(uid: str, token: str, mid: str) -> None:
 
 
 def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
-    """Patch one or more columns on a bucket row."""
+    """Patch one or more columns on an EXISTING bucket row.
+
+    Uses UPDATE, not upsert: a partial patch (e.g. {"target_amount": x}) via
+    upsert would send an insert row missing NOT-NULL `name` and fail with
+    23502 *before* Postgres notices the row already exists. Buckets are only
+    ever created through insert_bucket(), so nothing needs the insert path.
+    Mirrors the safe update_category/update_account pattern.
+    """
     col_map = {
         "name": "name", "type": "type", "cat_id": "cat_id",
         "archived": "archived",
@@ -252,13 +267,10 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         "sort_order": "sort_order",
         "debt_account_id": "debt_account_id",
     }
-    payload: dict = {"id": bid, "user_id": uid}
-    for k, v in fields.items():
-        if k in col_map:
-            payload[col_map[k]] = v
-    client(token).table("bcc_buckets").upsert(
-        payload, on_conflict="id"
-    ).execute()
+    payload = {col_map[k]: v for k, v in fields.items() if k in col_map}
+    if payload:
+        client(token).table("bcc_buckets").update(payload) \
+            .eq("id", bid).eq("user_id", uid).execute()
 
 
 def insert_bucket(uid: str, token: str, name: str, cat_id: str, btype: str = "expense") -> str:
@@ -546,4 +558,123 @@ def update_category(uid: str, token: str, cid: str, fields: dict) -> None:
 def update_category_order(uid: str, token: str, cid: str, sort_order: int) -> None:
     client(token).table("bcc_categories").update({"sort_order": sort_order}) \
         .eq("id", cid).eq("user_id", uid).execute()
+
+
+# ── Retire / Restore ──────────────────────────────────────────────────────────
+# Retiring moves a bucket/category's whole row out of the live table into a
+# quarantine table. The live tables stay live-only, so a retired row can never
+# leak into a budgeting surface. Copy-first / delete-last ordering means no
+# failure ever loses data — the worst case is a benign duplicate that a re-run
+# heals (PostgREST can't wrap the two-table move in one transaction).
+
+def list_retired_buckets(uid: str, token: str) -> list[dict]:
+    """Full-shape retired buckets (drop-in compatible with live buckets) so
+    reports history, name resolution, and the Setup list all share them."""
+    rows = client(token).table("bcc_retired_buckets").select("*") \
+        .eq("user_id", uid).order("retired_at", desc=True).execute().data or []
+    return [_shape_bucket(b) for b in rows]
+
+
+def list_retired_categories(uid: str, token: str) -> list[dict]:
+    rows = client(token).table("bcc_retired_categories").select("*") \
+        .eq("user_id", uid).order("retired_at", desc=True).execute().data or []
+    return [{
+        "id": c["id"], "name": c["name"], "color": c.get("color", ""),
+        "retiredAt": c.get("retired_at") or "",
+    } for c in rows]
+
+
+def delete_bucket_month_rows(uid: str, token: str, bid: str, mids: list) -> None:
+    """Delete this bucket's alloc/budget/handled/skipped rows in the given
+    months (used for the future-month + expense-current-month forward cleanup).
+    Historical withdrawal/rollover rows are never touched here."""
+    if not mids:
+        return
+    db = client(token)
+    for tbl in ("bcc_month_allocations", "bcc_month_budgets",
+                "bcc_month_handled", "bcc_month_skipped"):
+        db.table(tbl).delete().eq("user_id", uid).eq("bucket_id", bid) \
+            .in_("month_id", mids).execute()
+
+
+def delete_bucket_alloc_rules(uid: str, token: str, bid: str) -> None:
+    """Delete every allocation rule that funds this bucket (forward commitment)."""
+    client(token).table("bcc_allocation_rules").delete() \
+        .eq("user_id", uid).eq("bucket_id", bid).execute()
+
+
+def scrub_scenarios_for_bucket(uid: str, token: str, bid: str) -> None:
+    """Remove all references to a bucket from every scenario's allocations blob."""
+    for s in list_scenarios(uid, token):
+        allocs = dict(s.get("allocations") or {})
+        new_allocs = scrub_scenario_allocs(allocs, bid)
+        if new_allocs != allocs:
+            update_scenario(uid, token, s["id"], s["name"], new_allocs)
+
+
+def move_bucket_to_retired(uid: str, token: str, bid: str) -> None:
+    """Copy the live bucket row into quarantine (first), then delete the live
+    row (last). Idempotent via upsert on the quarantine side."""
+    db = client(token)
+    rows = db.table("bcc_buckets").select("*").eq("id", bid) \
+        .eq("user_id", uid).execute().data or []
+    if not rows:
+        return
+    db.table("bcc_retired_buckets").upsert(rows[0], on_conflict="id").execute()
+    db.table("bcc_buckets").delete().eq("id", bid).eq("user_id", uid).execute()
+
+
+def restore_bucket(uid: str, token: str, bid: str) -> None:
+    """Copy the quarantined bucket row back into the live table (clearing the
+    vestigial archived flag), then delete it from quarantine."""
+    db = client(token)
+    rows = db.table("bcc_retired_buckets").select("*").eq("id", bid) \
+        .eq("user_id", uid).execute().data or []
+    if not rows:
+        return
+    row = {k: v for k, v in rows[0].items() if k != "retired_at"}
+    row["archived"] = False
+    db.table("bcc_buckets").upsert(row, on_conflict="id").execute()
+    db.table("bcc_retired_buckets").delete().eq("id", bid).eq("user_id", uid).execute()
+
+
+def move_category_to_retired(uid: str, token: str, cid: str) -> None:
+    db = client(token)
+    rows = db.table("bcc_categories").select("*").eq("id", cid) \
+        .eq("user_id", uid).execute().data or []
+    if not rows:
+        return
+    db.table("bcc_retired_categories").upsert(rows[0], on_conflict="id").execute()
+    db.table("bcc_categories").delete().eq("id", cid).eq("user_id", uid).execute()
+
+
+def restore_category(uid: str, token: str, cid: str) -> None:
+    db = client(token)
+    rows = db.table("bcc_retired_categories").select("*").eq("id", cid) \
+        .eq("user_id", uid).execute().data or []
+    if not rows:
+        return
+    row = {k: v for k, v in rows[0].items() if k != "retired_at"}
+    row["archived"] = False
+    db.table("bcc_categories").upsert(row, on_conflict="id").execute()
+    db.table("bcc_retired_categories").delete().eq("id", cid).eq("user_id", uid).execute()
+
+
+def scrub_scenario_allocs(allocs: dict, bid: str) -> dict:
+    """Pure transform: return a copy of a scenario allocations blob with every
+    reference to `bid` removed (off_buckets / bucket_overrides / changes).
+    Kept pure + module-level so it's unit-testable without a DB."""
+    out = dict(allocs)
+    offs = out.get("off_buckets")
+    if isinstance(offs, list) and bid in offs:
+        out["off_buckets"] = [b for b in offs if b != bid]
+    ovr = out.get("bucket_overrides")
+    if isinstance(ovr, dict) and bid in ovr:
+        out["bucket_overrides"] = {k: v for k, v in ovr.items() if k != bid}
+    chgs = out.get("changes")
+    if isinstance(chgs, list):
+        filtered = [c for c in chgs if c.get("bid") != bid]
+        if len(filtered) != len(chgs):
+            out["changes"] = filtered
+    return out
 

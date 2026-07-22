@@ -305,3 +305,92 @@ ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS sort_order      INTEGER NOT NUL
 ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS income_type TEXT;
 ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS reconciled  BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS debt_payment_account_id TEXT;
+
+-- ─── MONTH HANDLED (was missing) ─────────────────────────────────────────────
+-- db.py has always read/written this table (load_all, toggle_handled) but it
+-- was never defined here, so a fresh DB silently lacked it and the ✓ handled
+-- toggle failed. Idempotent create.
+CREATE TABLE IF NOT EXISTS bcc_month_handled (
+    user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    month_id    TEXT NOT NULL,
+    bucket_id   TEXT NOT NULL,
+    PRIMARY KEY (user_id, month_id, bucket_id)
+);
+ALTER TABLE bcc_month_handled ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS bcc_month_handled_user_policy ON bcc_month_handled;
+CREATE POLICY bcc_month_handled_user_policy ON bcc_month_handled
+    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- ─── RETIRED QUARANTINE TABLES ───────────────────────────────────────────────
+-- Retiring a bucket/category MOVES its full row here (out of the live table)
+-- rather than flagging it archived. The live bcc_buckets/bcc_categories tables
+-- become live-only by definition — impossible to leak a retired row into a
+-- budgeting surface because it isn't a row there anymore. These tables also
+-- supply the display name for old transactions of a retired bucket, and back
+-- the Restore action. Same column shape as the live tables + retired_at.
+CREATE TABLE IF NOT EXISTS bcc_retired_buckets (
+    id              TEXT PRIMARY KEY,
+    user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    cat_id          TEXT,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL DEFAULT 'expense',
+    rollover        BOOLEAN NOT NULL DEFAULT FALSE,
+    recurring       BOOLEAN NOT NULL DEFAULT FALSE,
+    due_day         TEXT,
+    due_amount      NUMERIC(12,2),
+    pay_freq        TEXT,
+    debt_account_id TEXT,
+    default_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
+    target_amount   NUMERIC(12,2),
+    target_date     TEXT,
+    contrib_freq    TEXT,
+    notes           TEXT,
+    flex            BOOLEAN NOT NULL DEFAULT FALSE,
+    archived        BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    retired_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE bcc_retired_buckets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS bcc_retired_buckets_user_policy ON bcc_retired_buckets;
+CREATE POLICY bcc_retired_buckets_user_policy ON bcc_retired_buckets
+    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+CREATE TABLE IF NOT EXISTS bcc_retired_categories (
+    id          TEXT PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    color       TEXT NOT NULL DEFAULT '',
+    archived    BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    retired_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE bcc_retired_categories ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS bcc_retired_categories_user_policy ON bcc_retired_categories;
+CREATE POLICY bcc_retired_categories_user_policy ON bcc_retired_categories
+    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- ─── ONE-TIME SWEEP: existing archived rows → quarantine ──────────────────────
+-- Migrates anything archived under the OLD model into the new quarantine
+-- tables so only one model is ever live. Safe to re-run: the INSERT ... ON
+-- CONFLICT DO NOTHING skips rows already swept, and the DELETE then clears
+-- them from the live tables. After this runs once, `archived = true` rows no
+-- longer exist in bcc_buckets/bcc_categories.
+INSERT INTO bcc_retired_buckets (
+    id, user_id, cat_id, name, type, rollover, recurring, due_day, due_amount,
+    pay_freq, debt_account_id, default_budget, target_amount, target_date,
+    contrib_freq, notes, flex, archived, sort_order, created_at)
+SELECT id, user_id, cat_id, name, type, rollover, recurring, due_day, due_amount,
+    pay_freq, debt_account_id, default_budget, target_amount, target_date,
+    contrib_freq, notes, flex, archived, sort_order, created_at
+FROM bcc_buckets WHERE archived = true
+ON CONFLICT (id) DO NOTHING;
+DELETE FROM bcc_buckets WHERE archived = true;
+
+INSERT INTO bcc_retired_categories (
+    id, user_id, name, color, archived, sort_order, created_at)
+SELECT id, user_id, name, color, archived, sort_order, created_at
+FROM bcc_categories WHERE archived = true
+ON CONFLICT (id) DO NOTHING;
+DELETE FROM bcc_categories WHERE archived = true;

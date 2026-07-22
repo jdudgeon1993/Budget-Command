@@ -161,10 +161,8 @@
     </div>
   </form>
 
-  <form method="post" action="{{ url_for('.archive_bucket', bid=bucket.id) }}"
-        style="margin-top:8px"
-        onsubmit="return confirm('Archive {{ bucket.name }}?')">
-    <button class="edit-delete-btn" style="width:100%" type="submit">Archive Bucket</button>
-  </form>
+  <button class="edit-delete-btn" style="width:100%;margin-top:8px" type="button"
+          hx-get="{{ url_for('.retire_bucket', bid=bucket.id) }}" hx-target="#modal-body"
+          onclick="openModal()">Retire Bucket</button>
 </div>
 {% endblock %}
