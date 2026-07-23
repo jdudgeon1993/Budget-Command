@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="electric">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cura — Health Check</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <style>
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:0;margin:0;}
+    .hc-wrap{max-width:900px;margin:0 auto;padding:32px 20px 80px;}
+    .hc-header{display:flex;align-items:center;gap:14px;margin-bottom:28px;}
+    .hc-title{font-size:22px;font-weight:800;letter-spacing:-.5px;}
+    .hc-back{font-size:12px;color:var(--text3);text-decoration:none;padding:5px 10px;border:1px solid var(--border);border-radius:var(--r-pill);transition:color .15s,border-color .15s;}
+    .hc-back:hover{color:var(--accent);border-color:var(--accent);}
+    .hc-ts{font-size:11px;color:var(--text3);margin-left:auto;}
+    .hc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    @media(max-width:600px){.hc-grid{grid-template-columns:1fr;}}
+    .hc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;}
+    .hc-card-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+    .hc-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
+    .hc-row:last-child{border-bottom:none;}
+    .hc-label{font-size:13px;color:var(--text2);flex:1;}
+    .hc-val{font-size:13px;font-weight:600;font-family:var(--mono);text-align:right;}
+    .hc-section{margin-top:24px;}
+    .hc-section-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+    .hc-table{width:100%;border-collapse:collapse;font-size:12px;}
+    .hc-table th{text-align:left;color:var(--text3);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.05em;text-transform:uppercase;}
+    .hc-table td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text2);}
+    .hc-table tr:last-child td{border-bottom:none;}
+    .hc-table td.mono{font-family:var(--mono);color:var(--text);}
+    .hc-table td.c-ok{color:var(--green);}
+    .hc-table td.c-err{color:var(--red);}
+    .hc-table td.c-warn{color:var(--amber);}
+    .hc-errors{background:rgba(255,69,58,.07);border:1px solid rgba(255,69,58,.25);border-radius:var(--r-md);padding:14px 16px;margin-top:12px;}
+    .hc-errors pre{font-size:11px;font-family:var(--mono);color:var(--red);white-space:pre-wrap;word-break:break-all;margin:0;}
+    .hc-pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+    .hc-issue{background:rgba(255,69,58,.1);color:var(--red);border:1px solid rgba(255,69,58,.2);border-radius:var(--r-pill);font-size:11px;padding:3px 10px;}
+    .hc-hint{background:rgba(251,191,36,.1);color:var(--amber);border:1px solid rgba(251,191,36,.2);border-radius:var(--r-pill);font-size:11px;padding:3px 10px;}
+    .hc-all-ok{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2);border-radius:var(--r-md);padding:10px 14px;font-size:13px;font-weight:600;margin-top:10px;}
+    .hc-refresh{background:var(--accent);color:#fff;border:none;border-radius:var(--r-pill);padding:7px 18px;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;}
+    .hc-refresh:hover{opacity:.85;}
+    .hc-detail{border-bottom:1px solid rgba(255,255,255,.04);}
+    .hc-detail:last-child{border-bottom:none;}
+    .hc-detail summary{list-style:none;}
+    .hc-detail summary::-webkit-details-marker{display:none;}
+    .hc-row-expandable{cursor:pointer;padding:9px 20px;}
+    .hc-row-expandable:hover{background:rgba(255,255,255,.03);}
+    .hc-expand-hint{font-size:9px;opacity:.45;margin-left:4px;transition:transform .2s;display:inline-block;}
+    details[open] .hc-expand-hint{transform:rotate(180deg);}
+    .hc-detail-body{background:rgba(255,255,255,.02);border-top:1px solid rgba(255,255,255,.04);padding:4px 0 6px;}
+    .hc-detail-row{display:flex;justify-content:space-between;align-items:center;padding:5px 28px 5px 32px;gap:10px;}
+    .hc-detail-name{font-size:12px;color:var(--text2);flex:1;}
+    .hc-detail-type{font-size:9px;color:var(--text3);margin-left:6px;text-transform:uppercase;letter-spacing:.06em;}
+    .hc-detail-amt{font-size:12px;font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;color:var(--text);text-align:right;}
+  </style>
+</head>
+<body>
+<div class="hc-wrap">
+  <div class="hc-header">
+    <a class="hc-back" href="{{ url_for('.buckets') }}">← App</a>
+    <div class="hc-title">🩺 Health Check</div>
+    <div class="hc-ts">{{ generated_at }}</div>
+    <a href="{{ url_for('.health') }}" class="hc-refresh">↻ Refresh</a>
+  </div>
+
+  {% if issues %}
+  <div class="hc-errors">
+    <div style="font-weight:700;color:var(--red);margin-bottom:8px;">{{ issues|length }} issue{{ 's' if issues|length != 1 }} detected</div>
+    <div class="hc-pill-row">
+      {% for iss in issues %}<span class="hc-issue">{{ iss }}</span>{% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="hc-all-ok">✓ All systems healthy — no issues detected</div>
+  {% endif %}
+
+  {% if hints %}
+  <div class="hc-pill-row" style="margin-top:10px;">
+    {% for h in hints %}<span class="hc-hint">⚠ {{ h }}</span>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="hc-section">
+    <div class="hc-section-title">Recent Errors</div>
+    <div class="hc-card">
+      {% if recent_errors %}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:12px;color:var(--red);font-weight:700">The last write(s) failed. These persist until the next success or you clear them.</span>
+        <form method="post" action="{{ url_for('.health_clear_errors') }}" style="margin:0">
+          <button class="hc-refresh" type="submit" style="background:var(--surface2);color:var(--text2)">Clear</button>
+        </form>
+      </div>
+      {% for e in recent_errors %}
+      <div class="hc-row" style="align-items:flex-start;gap:12px">
+        <span class="hc-label" style="font-family:var(--mono);color:var(--red);white-space:normal;word-break:break-word;flex:1">{{ e.msg }}</span>
+        <span class="hc-val" style="color:var(--text3);white-space:nowrap">{{ e.at }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="hc-row"><span class="hc-label">No recent write errors</span><span class="hc-val" style="color:var(--green)">✓</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Schema</div>
+    <div class="hc-card">
+      {% if schema_check_error %}
+      <div class="hc-row"><span class="hc-label">Probe failed</span><span class="hc-val c-warn">{{ schema_check_error }}</span></div>
+      {% elif schema_missing %}
+      <div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px">
+        {{ schema_missing|length }} column{{ 's' if schema_missing|length != 1 }} missing from the live database —
+        every write touching one fails, and the button appears to do nothing.
+      </div>
+      {% for m in schema_missing %}
+      <div class="hc-row">
+        <span class="hc-label">{{ m.table }}.{{ m.column }}</span>
+        <span class="hc-val c-warn">missing</span>
+      </div>
+      {% endfor %}
+      <div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.5">
+        Fix: open the Supabase SQL editor and run the
+        <strong>MIGRATIONS (safe to re-run)</strong> block at the bottom of
+        <code>schema.sql</code> — it only adds what's missing.
+      </div>
+      {% else %}
+      <div class="hc-row"><span class="hc-label">All columns the app writes exist in the live DB</span><span class="hc-val" style="color:var(--green)">✓</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-grid">
+      <div class="hc-card">
+        <div class="hc-card-title">Data Loaded</div>
+        {% for row in data_counts %}
+        <div class="hc-row">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val {% if row.count == 0 %}c-warn{% endif %}">{{ row.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="hc-card">
+        <div class="hc-card-title">Session &amp; Config</div>
+        {% for row in session_info %}
+        <div class="hc-row">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val">{{ row.value }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Account Balances</div>
+    <div class="hc-card">
+      <table class="hc-table">
+        <thead><tr><th>Account</th><th>Type</th><th>Balance</th><th>TX Count</th><th>Has Opening</th></tr></thead>
+        <tbody>
+        {% for a in account_health %}
+        <tr>
+          <td>{{ a.name }}</td>
+          <td>{{ a.type }}</td>
+          <td class="mono {% if a.balance < 0 and a.type != 'debt' %}c-warn{% endif %}">{{ a.balance | money }}</td>
+          <td class="mono">{{ a.tx_count }}</td>
+          <td class="{% if a.has_opening %}c-ok{% else %}c-warn{% endif %}">{{ '✓' if a.has_opening else '✗ missing' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not account_health %}
+        <tr><td colspan="5" style="color:var(--text3);text-align:center;padding:16px">No accounts</td></tr>
+        {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Transaction Summary</div>
+    <div class="hc-grid">
+      <div class="hc-card">
+        <div class="hc-card-title">By Type</div>
+        {% for row in tx_by_type %}
+        <div class="hc-row">
+          <span class="hc-label">{{ row.type }}</span>
+          <span class="hc-val">{{ row.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="hc-card">
+        <div class="hc-card-title">By Month (last 6)</div>
+        {% for row in tx_by_month %}
+        <div class="hc-row">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val {% if row.count == 0 %}c-warn{% endif %}">{{ row.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Bucket Issues</div>
+    <div class="hc-card">
+      {% if bucket_issues %}
+      <table class="hc-table">
+        <thead><tr><th>Bucket</th><th>Issue</th><th>Value</th></tr></thead>
+        <tbody>
+        {% for b in bucket_issues %}
+        <tr>
+          <td>{{ b.name }}</td>
+          <td class="c-warn">{{ b.issue }}</td>
+          <td class="mono">{{ b.value }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="color:var(--green);font-size:13px;padding:4px 0;">✓ No bucket issues found</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Month Records</div>
+    <div class="hc-card">
+      <table class="hc-table">
+        <thead><tr><th>Month</th><th>Allocations</th><th>Budgets</th></tr></thead>
+        <tbody>
+        {% for m in month_health %}
+        <tr>
+          <td>{{ m.label }}</td>
+          <td class="mono">{{ m.alloc_count }}</td>
+          <td class="mono">{{ m.budget_count }}</td>
+        </tr>
+        {% endfor %}
+        {% if not month_health %}
+        <tr><td colspan="3" style="color:var(--text3);text-align:center;padding:16px">No month records</td></tr>
+        {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Budget Health</div>
+    <div class="hc-grid">
+      <div class="hc-card">
+        <div class="hc-card-title">Key Metrics</div>
+        {% for row in budget_metrics %}
+        <div class="hc-row">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val {% if row.alert %}c-err{% endif %}">{{ row.value }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="hc-card">
+        <div class="hc-card-title">Unassigned Transactions</div>
+        {% if unassigned_txs %}
+        <table class="hc-table">
+          <thead><tr><th>Date</th><th>Desc</th><th>Amount</th></tr></thead>
+          <tbody>
+          {% for t in unassigned_txs[:10] %}
+          <tr>
+            <td>{{ t.date[:10] }}</td>
+            <td>{{ t.desc[:30] }}</td>
+            <td class="mono c-warn">{{ t.amount | money }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% if unassigned_txs|length > 10 %}
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">+ {{ unassigned_txs|length - 10 }} more</div>
+        {% endif %}
+        {% else %}
+        <div style="color:var(--green);font-size:13px;padding:4px 0;">✓ All expenses assigned to buckets</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Cash Flow — Last 6 Months</div>
+    {% if cash_flow_error %}
+    <div class="hc-card"><div style="color:var(--red);font-size:12px;">Error: {{ cash_flow_error }}</div></div>
+    {% else %}
+    <div class="hc-card">
+      <table class="hc-table">
+        <thead><tr><th>Month</th><th style="text-align:right">Income</th><th style="text-align:right">Spent</th><th style="text-align:right">Net</th></tr></thead>
+        <tbody>
+        {% for row in cash_flow_months %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td class="mono" style="text-align:right">{{ row.income | money }}</td>
+          <td class="mono" style="text-align:right">{{ row.spent | money }}</td>
+          <td class="mono {{ 'c-ok' if row.net_pos else 'c-err' }}" style="text-align:right">
+            {{ '+' if row.net_pos }}{{ row.net | money }}
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">Allocation Breakdown</div>
+    {% if allocation_error %}
+    <div class="hc-card"><div style="color:var(--red);font-size:12px;">Error: {{ allocation_error }}</div></div>
+    {% else %}
+    <div class="hc-card">
+      {% for row in allocation_breakdown %}
+      <div class="hc-row">
+        <span class="hc-label">{{ row.label }}</span>
+        <span class="hc-val {% if row.alert %}c-err{% endif %}">{{ row.value }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="hc-section">
+    <div class="hc-section-title">RTS Verification <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px;">bank balance − bucket claims − future allocs = RTS</span></div>
+    {% if rts_verify_error %}
+    <div class="hc-card"><div style="color:var(--red);font-size:12px;">Error: {{ rts_verify_error }}</div></div>
+    {% else %}
+    <div class="hc-card" style="padding:0">
+      {% for row in rts_verify %}
+      {% if row.detail == 'claims' and bucket_claims_detail %}
+      <details class="hc-detail">
+        <summary class="hc-row hc-row-expandable">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val {% if row.alert %}c-err{% endif %}">{{ row.value }} <span class="hc-expand-hint">▾</span></span>
+        </summary>
+        <div class="hc-detail-body">
+          {% for b in bucket_claims_detail %}
+          <div class="hc-detail-row">
+            <span class="hc-detail-name">{{ b.name }}<span class="hc-detail-type">{{ b.type }}</span></span>
+            <span class="hc-detail-amt {% if b.claim < 0 %}c-err{% endif %}">{{ b.claim | money }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% elif row.detail == 'future' and future_allocs_detail %}
+      <details class="hc-detail">
+        <summary class="hc-row hc-row-expandable">
+          <span class="hc-label">{{ row.label }}</span>
+          <span class="hc-val {% if row.alert %}c-err{% endif %}">{{ row.value }} <span class="hc-expand-hint">▾</span></span>
+        </summary>
+        <div class="hc-detail-body">
+          {% for b in future_allocs_detail %}
+          <div class="hc-detail-row">
+            <span class="hc-detail-name">{{ b.name }}</span>
+            <span class="hc-detail-amt">{{ b.amount | money }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% else %}
+      <div class="hc-row" style="padding:9px 20px">
+        <span class="hc-label" style="{{ 'font-weight:700;color:var(--text)' if loop.index == 4 }}">{{ row.label }}</span>
+        <span class="hc-val {% if row.alert %}c-err{% elif loop.last %}c-ok{% endif %}">{{ row.value }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if db_errors %}
+  <div class="hc-section">
+    <div class="hc-section-title" style="color:var(--red)">⚠ DB Load Errors</div>
+    <div class="hc-errors">
+      <pre>{{ db_errors }}</pre>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="hc-section">
+    <details>
+      <summary style="cursor:pointer;font-size:12px;color:var(--text3);margin-bottom:8px;">Raw data counts (JSON)</summary>
+      <div class="hc-card" style="margin-top:8px;">
+        <pre style="font-size:11px;font-family:var(--mono);color:var(--text2);white-space:pre-wrap;margin:0;">{{ raw_json }}</pre>
+      </div>
+    </details>
+  </div>
+
+</div>
+</body>
+</html>

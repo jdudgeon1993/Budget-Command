@@ -2,6 +2,19 @@
 {% block panel %}
 <div class="setup-wrap">
 
+  <!-- ── Health check ── -->
+  <div class="card card-pad setup-card">
+    <div class="card-label">🩺 App Health Check</div>
+    <p style="font-size:12px;color:var(--text3);margin:6px 0 12px">
+      Diagnose data loading, account balances, transaction counts, and budget health.
+      Run this if something looks wrong.
+    </p>
+    <a class="toolbar-btn" href="{{ url_for('.health') }}" target="_blank" rel="noopener"
+       style="color:var(--indigo);border-color:rgba(129,140,248,.35)">
+      Open Health Check →
+    </a>
+  </div>
+
   <!-- ── Paychecks ── -->
   <div class="card card-pad setup-card">
     <div class="card-label">Paychecks
@@ -74,10 +87,10 @@
           </form>
         </div>
         <span class="setup-edit-toggle">Edit ▾</span>
-        <form method="post" action="{{ url_for('.del_category', cid=c.id) }}" style="display:contents"
-              hx-post="{{ url_for('.del_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML"
-              onsubmit="return confirm('Archive this category?');event.stopPropagation()">
-          <button class="setup-del" type="submit" title="Archive" onclick="event.stopPropagation()">✕</button>
+        <form method="post" action="{{ url_for('.retire_category', cid=c.id) }}" style="display:contents"
+              hx-post="{{ url_for('.retire_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML"
+              onsubmit="event.stopPropagation();return confirm('Retire {{ c.name }} and its buckets? Any saved balances return to Ready to Spend. Restore it any time from the Retired section below.')">
+          <button class="setup-del" type="submit" title="Retire" onclick="event.stopPropagation()">✕</button>
         </form>
       </summary>
       <form class="setup-edit-form" method="post" action="{{ url_for('.edit_category', cid=c.id) }}"
@@ -210,6 +223,43 @@
       across your buckets.
     </p>
   </div>
+
+  <!-- ── Retired (nestled) ── -->
+  {% if retired_cats or retired_buckets %}
+  <div class="card card-pad setup-card">
+    <details class="setup-retired">
+      <summary class="setup-retired-summary">
+        <span class="card-label" style="margin:0">Retired</span>
+        <span class="setup-meta">{{ retired_cats|length + retired_buckets|length }} item{{ '' if (retired_cats|length + retired_buckets|length) == 1 else 's' }}</span>
+      </summary>
+      <div class="setup-retired-body">
+        <p class="setup-help" style="margin-top:8px">
+          Retired categories and buckets are out of your live budget and forecasts. Their past
+          transactions still appear in reports. Restore brings the envelope back — its old
+          allocation rules are not restored.
+        </p>
+        {% for c in retired_cats %}
+        <div class="setup-retired-row">
+          <span class="setup-name">{{ c.name }} <span class="meta-badge" style="background:rgba(129,140,248,.12);color:var(--indigo)">Category</span></span>
+          <form method="post" action="{{ url_for('.restore_category', cid=c.id) }}" style="display:contents"
+                hx-post="{{ url_for('.restore_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML">
+            <button class="toolbar-btn" type="submit">Restore</button>
+          </form>
+        </div>
+        {% endfor %}
+        {% for b in retired_buckets %}
+        <div class="setup-retired-row">
+          <span class="setup-name">{{ b.name }} <span class="setup-meta">{{ b.cat }}</span></span>
+          <form method="post" action="{{ url_for('.restore_bucket', bid=b.id) }}" style="display:contents"
+                hx-post="{{ url_for('.restore_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+            <button class="toolbar-btn" type="submit">Restore</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+  {% endif %}
 
 </div>
 

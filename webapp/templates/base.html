@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="electric">
+<html lang="en" data-theme="morning">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="htmx-config" content='{"allowScriptTags":true}'>
   <title>Cura</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- No webfont link: the Morning theme uses native system font stacks
+       (ui-rounded / -apple-system / system-ui) — zero network fetch,
+       renders instantly, no flash of unstyled text. -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
 </head>
@@ -16,15 +17,36 @@
 function showToast(msg,type,dur){
   var stack=document.getElementById('toast-stack');
   if(!stack)return;
+  var isErr=(type==='error');
   var el=document.createElement('div');
   el.className='toast '+(type||'ok');
   el.style.setProperty('--toast-dur',(dur||4000)+'ms');
   var safe=String(msg).replace(/[<>&"]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];});
-  el.innerHTML='<div class="toast-msg">'+safe+'</div><div class="toast-bar"></div>';
-  el.addEventListener('click',function(){_dismissToast(el);});
+  // Errors are sticky (no auto-dismiss) and carry Copy + Close so the message
+  // can actually be read and grabbed instead of vanishing in 4 seconds.
+  if(isErr){
+    el.innerHTML='<div class="toast-msg">'+safe+'</div>'
+      +'<div class="toast-actions"><button type="button" class="toast-btn toast-copy">Copy</button>'
+      +'<button type="button" class="toast-btn toast-close">Dismiss</button></div>';
+    el.querySelector('.toast-copy').addEventListener('click',function(e){
+      e.stopPropagation();
+      var btn=this;
+      var done=function(){btn.textContent='Copied ✓';setTimeout(function(){btn.textContent='Copy';},1500);};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(msg).then(done,function(){fallbackCopy(msg);done();});}
+      else{fallbackCopy(msg);done();}
+    });
+    el.querySelector('.toast-close').addEventListener('click',function(e){e.stopPropagation();_dismissToast(el);});
+  }else{
+    el.innerHTML='<div class="toast-msg">'+safe+'</div><div class="toast-bar"></div>';
+    el.addEventListener('click',function(){_dismissToast(el);});
+    el._tt=setTimeout(function(){_dismissToast(el);},dur||4000);
+  }
   stack.appendChild(el);
   requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('show');});});
-  el._tt=setTimeout(function(){_dismissToast(el);},dur||4000);
+}
+function fallbackCopy(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);
 }
 function _dismissToast(el){
   if(el._tt)clearTimeout(el._tt);
@@ -39,6 +61,15 @@ document.addEventListener('htmx:afterSettle',function(e){
     el.parentNode&&el.parentNode.removeChild(el);
   });
 });
+// A failed htmx request otherwise does NOTHING visible (no swap, no toast) —
+// the "click all day and nothing happens" failure mode. Always say so.
+document.addEventListener('htmx:responseError',function(e){
+  var s=e.detail&&e.detail.xhr?e.detail.xhr.status:0;
+  showToast('Save failed (HTTP '+s+') — the change was not applied. See /health → Schema for diagnostics.','error',8000);
+});
+document.addEventListener('htmx:sendError',function(){
+  showToast('Network error — the change was not applied.','error',8000);
+});
 </script>
 {% with msgs = get_flashed_messages(with_categories=true) %}
 {% if msgs %}<script>{% for cat, msg in msgs %}showToast({{ msg | tojson }},{{ cat | tojson }});{% endfor %}</script>{% endif %}
@@ -50,110 +81,65 @@ document.addEventListener('htmx:afterSettle',function(e){
     <div id="modal-body"></div>
   </div>
 </div>
-{% set p = shell.active_panel %}
-{% macro icon(name) -%}
-  {% if name == 'buckets' %}<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-  {% elif name == 'accounts' %}<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
-  {% elif name == 'insights' %}<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-  {% elif name == 'reports' %}<rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="17" width="15" height="4" rx="1"/>
-  {% elif name == 'setup' %}<circle cx="12" cy="12" r="3"/><path d="M19.1 12a7.1 7.1 0 0 0-.1-1l2.2-1.7-2.1-3.6-2.6 1a7 7 0 0 0-1.7-1l-.4-2.7h-4.2l-.4 2.7a7 7 0 0 0-1.7 1l-2.6-1-2.1 3.6 2.2 1.7a7.1 7.1 0 0 0 0 2l-2.2 1.7 2.1 3.6 2.6-1a7 7 0 0 0 1.7 1l.4 2.7h4.2l.4-2.7a7 7 0 0 0 1.7-1l2.6 1 2.1-3.6-2.2-1.7a7.1 7.1 0 0 0 .1-1z"/>{% endif %}
-{%- endmacro %}
-{% set navitems = [('buckets','Buckets'),('accounts','Accounts'),('insights','Forecast'),('reports','Reports'),('setup','Setup')] %}
 
-<div class="app">
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-row">
-        <div class="brand-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">{{ icon('buckets') }}</svg></div>
-        <span class="brand-name">Cura</span>
+{% set sheet_is_open = sheet_open | default(true) %}
+
+<div class="dash-shell">
+  <header class="dash-header {{ 'condensed' if sheet_is_open }}" id="dash-header">
+    <div class="dash-brand">
+      <div class="dash-brand-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
       </div>
-      <div class="brand-sub">Personal Finance</div>
+      <span class="dash-brand-name">Cura</span>
     </div>
-    <div class="sidebar-rts" id="rts-sidebar">
-      <div class="sidebar-rts-lbl">Ready to assign</div>
-      <div class="sidebar-rts-amt">{{ shell.rts | money }}</div>
-      <div class="sidebar-rts-sub">{{ shell.pct }}% allocated · {{ shell.month_label }}</div>
-      <div class="sidebar-total-cash">
-        Total cash: <span>{{ shell.total_cash | money }}</span>
-        {% if shell.age_of_money is not none %}
-        · <span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="month-nav">
-      <a class="month-arrow" href="{{ url_for('panels.month_nav', direction='prev') }}">←</a>
-      <div class="month-label">{{ shell.month_label }}</div>
-      <a class="month-arrow" href="{{ url_for('panels.month_nav', direction='next') }}">→</a>
-    </div>
-    <nav class="sidebar-nav">
-      {% for key, label in navitems %}
-      <a class="nav-item {{ 'active' if p == key }}" href="{{ url_for('panels.' + key) }}"
-         hx-get="{{ url_for('panels.' + key) }}" hx-target="#panel" hx-push-url="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon(key) }}</svg>{{ label }}
-      </a>
-      {% endfor %}
-    </nav>
-    <button class="sidebar-cta" type="button" onclick="openAddTxModal()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Add Transaction
-    </button>
-    <div class="sidebar-footer">
-      <div class="user-avatar">{{ (shell.user_email[:2] or 'JD') | upper }}</div>
-      <div class="user-email">{{ shell.user_email }}</div>
-      <a class="signout-btn" href="{{ url_for('auth.logout') }}">Sign out</a>
-    </div>
-  </aside>
+    <div class="dash-stats" id="dash-stats">{% include "panels/_dash_stats.html" %}</div>
+    <a class="dash-avatar" href="{{ url_for('.setup') }}"
+       hx-get="{{ url_for('.setup') }}" hx-target="#panel" onclick="dashExpand()"
+       aria-label="Setup &amp; account">{{ (shell.user_email[:2] or 'JD') | upper }}</a>
+  </header>
 
-  <main class="main">
-    <header class="mob-header">
-      <div class="mob-brand">
-        <div class="mob-brand-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">{{ icon('buckets') }}</svg></div>
-        <span class="mob-brand-name">CURA</span>
-      </div>
-      <div class="mob-month"><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='prev') }}">←</a><div class="mob-month-pill">{{ shell.month_label }}</div><a class="mob-arr" href="{{ url_for('panels.month_nav', direction='next') }}">→</a></div>
-    </header>
-    <header class="main-header">
-      <span class="hdr-panel" id="hdr-panel">{{ p }}</span>
-    </header>
-
-    <div id="panel">{% block panel %}{% endblock %}</div>
-  </main>
-
-  <div id="mob-rts-strip" class="mob-rts-strip">
-    <span id="mob-rts-amt" class="mob-strip-amt">{{ shell.rts | money }}</span>
-    <span class="mob-strip-spacer"></span>
-    <span id="mob-aom-badge">{% if shell.age_of_money is not none %}<span class="aom-badge {% if shell.age_of_money >= 30 %}aom-good{% elif shell.age_of_money >= 15 %}aom-ok{% else %}aom-low{% endif %}">{{ shell.age_of_money }}d</span>{% endif %}</span>
-    <a class="mob-strip-setup {{ 'active' if p == 'setup' }}" href="{{ url_for('panels.setup') }}" hx-get="{{ url_for('panels.setup') }}" hx-target="#panel" hx-push-url="true" aria-label="Setup">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('setup') }}</svg>
-    </a>
+  <div class="dash-body {{ 'dash-hidden' if sheet_is_open }}" id="dash-body">
+    <div id="dash-body-inner">{% include "panels/_dash_body.html" %}</div>
   </div>
-  <nav class="mob-nav">
-    <a class="mob-tab {{ 'active' if p == 'buckets' }}" href="{{ url_for('panels.buckets') }}" hx-get="{{ url_for('panels.buckets') }}" hx-target="#panel" hx-push-url="true">
-      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('buckets') }}</svg></div>
-      <span class="mob-tab-lbl">Buckets</span>
-    </a>
-    <a class="mob-tab {{ 'active' if p == 'accounts' }}" href="{{ url_for('panels.accounts') }}" hx-get="{{ url_for('panels.accounts') }}" hx-target="#panel" hx-push-url="true">
-      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('accounts') }}</svg></div>
-      <span class="mob-tab-lbl">Accounts</span>
-    </a>
-    <div class="mob-nav-center">
-      <button class="mob-nav-fab" type="button" onclick="openAddTxModal()" aria-label="Add transaction">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-    </div>
-    <a class="mob-tab {{ 'active' if p == 'insights' }}" href="{{ url_for('panels.insights') }}" hx-get="{{ url_for('panels.insights') }}" hx-target="#panel" hx-push-url="true">
-      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('insights') }}</svg></div>
-      <span class="mob-tab-lbl">Forecast</span>
-    </a>
-    <a class="mob-tab {{ 'active' if p == 'reports' }}" href="{{ url_for('panels.reports') }}" hx-get="{{ url_for('panels.reports') }}" hx-target="#panel" hx-push-url="true">
-      <div class="mob-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">{{ icon('reports') }}</svg></div>
-      <span class="mob-tab-lbl">Reports</span>
-    </a>
-  </nav>
+
+  <div class="sheet {{ 'open' if sheet_is_open }}" id="sheet">
+    <button class="sheet-handle" type="button" onclick="dashToggleSheet()" aria-label="Collapse to dashboard">
+      <span class="sheet-handle-bar"></span>
+      <span class="sheet-handle-label">Choose a selection to expand</span>
+    </button>
+    <div id="panel">{% block panel %}{% endblock %}</div>
+  </div>
+
+  <button class="dash-fab" type="button" onclick="openAddTxModal()" aria-label="Add transaction">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
 </div>
+
 <script>
+function dashExpand(){
+  var s=document.getElementById('sheet'); if(s)s.classList.add('open');
+  var b=document.getElementById('dash-body'); if(b)b.classList.add('dash-hidden');
+  var h=document.getElementById('dash-header'); if(h)h.classList.add('condensed');
+}
+function dashCollapse(){
+  var s=document.getElementById('sheet'); if(s)s.classList.remove('open');
+  var b=document.getElementById('dash-body'); if(b)b.classList.remove('dash-hidden');
+  var h=document.getElementById('dash-header'); if(h)h.classList.remove('condensed');
+}
+function dashToggleSheet(){
+  var s=document.getElementById('sheet');
+  if(s&&s.classList.contains('open')) dashCollapse(); else dashExpand();
+}
+function dashFilterAcct(aid){
+  // accounts.html restores this filter itself on load (see its own IIFE) —
+  // stash it before the htmx request fires so the fragment lands pre-filtered.
+  sessionStorage.setItem('_acctFilter', aid);
+}
 function openModal(){var m=document.getElementById('modal');m.style.display='flex';requestAnimationFrame(function(){m.classList.add('open');});}
-function openAddTxModal(){htmx.ajax('GET',{{ url_for('panels.transaction_new') | tojson }},{target:'#modal-body',swap:'innerHTML'});}
+function openAddTxModal(){htmx.ajax('GET',{{ url_for('.transaction_new') | tojson }},{target:'#modal-body',swap:'innerHTML'});}
 function closeModal(){var m=document.getElementById('modal');m.classList.remove('open');setTimeout(function(){m.style.display='none';document.getElementById('modal-body').innerHTML='';},220);}
 document.body.addEventListener('closeModal',closeModal);
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
@@ -220,18 +206,9 @@ function _recalcVgDrawer(id){
     drawer.style.maxHeight=(drawer.scrollHeight+50)+'px';
   }
 }
-function _syncNav(){
-  var path=location.pathname;
-  document.querySelectorAll('.nav-item,.mob-tab,.mob-strip-setup').forEach(function(a){
-    var href=a.getAttribute('href');
-    a.classList.toggle('active',!!href&&(path===href||path.startsWith(href+'/')));
-  });
-  var h=document.getElementById('hdr-panel');
-  if(h){var seg=path.split('/').filter(Boolean)[0]||'buckets';h.textContent=seg;}
-}
 document.addEventListener('htmx:beforeSwap',function(e){
   if(e.detail.target.id==='panel'){
-    var m=document.querySelector('.main');
+    var m=document.querySelector('.sheet');
     sessionStorage.setItem('_pScroll',m?m.scrollTop:0);
   }
   // Checkpoint scroll before modal-body swaps (checkbox live-previews) so the
@@ -244,7 +221,7 @@ document.addEventListener('htmx:beforeSwap',function(e){
 document.addEventListener('htmx:afterSettle',function(e){
   if(e.detail.target.id==='panel'){
     var y=sessionStorage.getItem('_pScroll');
-    var m=document.querySelector('.main');
+    var m=document.querySelector('.sheet');
     if(y&&m){m.scrollTop=parseInt(y);sessionStorage.removeItem('_pScroll');}
   }
   // Restore scroll position after modal content rerender
@@ -255,7 +232,7 @@ document.addEventListener('htmx:afterSettle',function(e){
 });
 document.addEventListener('htmx:afterSwap',function(e){
   if(e.detail.target.id==='modal-body'){openModal();}
-  if(e.detail.target.id==='panel'){e.detail.target.classList.remove('panel-loading');_syncNav();}
+  if(e.detail.target.id==='panel'){e.detail.target.classList.remove('panel-loading');dashExpand();}
 });
 document.addEventListener('htmx:beforeRequest',function(e){
   var b=document.getElementById('nprogress-bar');
@@ -271,61 +248,6 @@ document.addEventListener('htmx:afterRequest',function(){
   var p=document.getElementById('panel');
   if(p)p.classList.remove('panel-loading');
 });
-// Close fx popovers when clicking outside
-document.addEventListener('click',function(e){
-  if(!e.target.closest('.fx-wrap')){
-    document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
-  }
-});
-function fxOpen(inputId, popId){
-  var pop=document.getElementById(popId);
-  if(!pop)return;
-  var wasOpen=pop.classList.contains('open');
-  document.querySelectorAll('.fx-popover.open').forEach(function(el){el.classList.remove('open');});
-  if(!wasOpen){
-    // Show first (display:block) so we can measure dimensions
-    pop.classList.add('open');
-    // Find the fx button (sibling before the popover)
-    var btn=document.querySelector('[onclick*="'+popId+'"]');
-    if(btn){
-      var r=btn.getBoundingClientRect();
-      var pw=pop.offsetWidth||190;
-      var ph=pop.offsetHeight||100;
-      var top=r.top-ph-6;
-      var left=r.left;
-      // Flip below if not enough space above
-      if(top<8)top=r.bottom+6;
-      // Keep within right edge
-      if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
-      pop.style.top=Math.max(8,top)+'px';
-      pop.style.left=Math.max(8,left)+'px';
-    }
-    var expr=pop.querySelector('.fx-expr-input');
-    if(expr){expr.value='';expr.focus();}
-  }
-}
-function fxApply(inputId, popId, expr){
-  var input=document.getElementById(inputId);
-  var errEl=document.getElementById(popId.replace('fx-pop-','fx-err-'));
-  if(!input||!expr||!expr.trim())return;
-  // Strip currency symbols and parse current value
-  var cur=parseFloat(String(input.value).replace(/[^0-9.\-]/g,''))||0;
-  // Build safe expression: only allow digits, operators, dot, parens, spaces
-  var safe=expr.replace(/[^0-9+\-*/.()\s]/g,'');
-  // If expression starts with operator, prepend current value
-  if(/^[+\-*/]/.test(safe.trim()))safe=cur+safe;
-  var result;
-  try{result=Function('"use strict";return('+safe+')')();}catch(err){result=NaN;}
-  if(typeof result!=='number'||!isFinite(result)||result<0){
-    if(errEl){errEl.textContent='Invalid expression';errEl.style.display='block';}
-    return;
-  }
-  result=Math.round(result*100)/100;
-  input.value=result.toFixed(2);
-  document.getElementById(popId).classList.remove('open');
-  // Trigger HTMX change
-  input.dispatchEvent(new Event('change',{bubbles:true}));
-}
 </script>
 </body>
 </html>

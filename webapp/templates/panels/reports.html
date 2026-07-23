@@ -18,7 +18,7 @@
     <div class="rpt-card-hd" onclick="rptToggle('perf')">
       <span class="rpt-card-icon">📊</span>
       <span class="rpt-card-title">Month Performance</span>
-      <span class="rpt-card-summary">{{ available_months[0].label if available_months else '' }}</span>
+      <span class="rpt-card-summary">{{ view_label }}</span>
       <span class="rpt-arrow open" id="rpt-arr-perf">▾</span>
     </div>
     <div class="rpt-card-body open" id="rpt-body-perf">
@@ -56,10 +56,10 @@
           <div class="rpt-stat-sub">{{ allocation_rate.allocated | money }} of {{ allocation_rate.income | money }} assigned</div>
         </div>
         <div class="rpt-stat-pill">
-          <div class="rpt-stat-lbl">Ready to Assign</div>
-          <div class="rpt-stat-val {{ 'c-red' if allocation_rate.rts < 0 else ('c-green' if allocation_rate.rts == 0 else 'c-amber') }}">{{ allocation_rate.rts | money }}</div>
+          <div class="rpt-stat-lbl">Left to Assign</div>
+          <div class="rpt-stat-val {{ 'c-green' if allocation_rate.unassigned < 0.005 else 'c-amber' }}">{{ allocation_rate.unassigned | money }}</div>
           <div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ [100 - allocation_rate.pct, 0] | max }}%;background:var(--amber)"></div></div>
-          <div class="rpt-stat-sub">{{ 100 - allocation_rate.pct }}% unassigned</div>
+          <div class="rpt-stat-sub">{{ 100 - allocation_rate.pct }}% of income unassigned</div>
         </div>
       </div>
 
@@ -516,10 +516,10 @@
       <div class="rpt-heatmap">
         {% for h in heatmap %}
         <div class="rpt-hm-cell {{ h.status }}"
-             title="{{ h.label }}: {{ 'No data' if h.status == 'empty' else (h.alloc_rate ~ '% allocated' + (' ✓' if h.status == 'full' else (' ⚠ deficit' if h.status == 'deficit' else ''))) }}">
+             title="{{ h.label }}: {{ 'No data' if h.status == 'empty' else (h.alloc_rate ~ '% allocated' + (' ✓' if h.status == 'full' else (' ↩ funded from carry-over' if h.status == 'carryover' else ''))) }}">
           <div class="rpt-hm-icon">
             {% if h.status == 'full' %}✓
-            {% elif h.status == 'deficit' %}!
+            {% elif h.status == 'carryover' %}↩
             {% elif h.status == 'partial' %}~
             {% else %}·{% endif %}
           </div>
@@ -530,7 +530,7 @@
       <div class="rpt-hm-legend">
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot full"></div>90%+ allocated</div>
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot partial"></div>Partially allocated</div>
-        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot deficit"></div>Went negative</div>
+        <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot carryover"></div>Allocated beyond income (carry-over)</div>
         <div class="rpt-hm-leg-item"><div class="rpt-hm-leg-dot empty"></div>No data</div>
       </div>
 
@@ -541,9 +541,9 @@
           <div class="rpt-disc-stat-sub">unassigned at month end</div>
         </div>
         <div class="rpt-disc-stat">
-          <div class="rpt-disc-stat-lbl">Negative RTS Months</div>
-          <div class="mono rpt-disc-stat-val {{ 'c-red' if neg_rts_months else 'c-green' }}">{{ neg_rts_months | length }}</div>
-          <div class="rpt-disc-stat-sub">{{ neg_rts_months | join(', ') if neg_rts_months else 'None — great!' }}</div>
+          <div class="rpt-disc-stat-lbl">Carry-Over Funded Months</div>
+          <div class="mono rpt-disc-stat-val {{ 'c-indigo' if carryover_months else 'c-green' }}">{{ carryover_months | length }}</div>
+          <div class="rpt-disc-stat-sub">{{ (carryover_months | join(', ')) + ' — allocated more than that month\'s income' if carryover_months else 'Every month funded from its own income' }}</div>
         </div>
       </div>
 

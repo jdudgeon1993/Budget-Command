@@ -2,6 +2,7 @@
 <form hx-post="{{ url_for('.scenario_update', sid=scenario.id) if scenario else url_for('.scenario_create') }}"
       hx-target="#modal-body" hx-swap="innerHTML">
   <input type="hidden" name="n_months" value="{{ n_months }}">
+  <input type="hidden" name="origin" value="{{ origin }}">
   <div class="fc-sc-editor-body">
     <div class="edit-field">
       <label class="sf-lbl">Name</label>
@@ -65,7 +66,7 @@
     <button class="toolbar-btn" style="color:var(--red);border-color:rgba(255,69,58,.4)"
             type="button"
             hx-post="{{ url_for('.scenario_delete', sid=scenario.id) }}"
-            hx-vals='{"n_months": "{{ n_months }}"}'
+            hx-vals='{"n_months": "{{ n_months }}", "origin": "{{ origin }}"}'
             hx-target="#modal-body" hx-swap="innerHTML">Delete</button>
     {% endif %}
     <div style="flex:1"></div>

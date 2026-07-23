@@ -107,18 +107,14 @@
   </div>
 
   <div class="edit-actions">
-    <button class="toolbar-btn" type="button" onclick="toggleBktSettings('{{ bucket.id }}', '{{ url_for('.bucket_settings', bid=bucket.id) }}')">Cancel</button>
+    <button class="toolbar-btn" type="button" onclick="v4ShowSub('{{ bucket.id }}','settings')">Cancel</button>
     <button class="toolbar-btn primary" type="submit">Save Changes</button>
   </div>
 </form>
 
-<form method="post" action="{{ url_for('.archive_bucket', bid=bucket.id) }}"
-      hx-post="{{ url_for('.archive_bucket', bid=bucket.id) }}"
-      hx-target="#panel" hx-swap="innerHTML"
-      style="margin-top:8px"
-      onsubmit="return confirm('Archive {{ bucket.name }}?')">
-  <button class="edit-delete-btn" style="width:100%" type="submit">Archive Bucket</button>
-</form>
+<button class="edit-delete-btn" style="width:100%;margin-top:8px" type="button"
+        hx-get="{{ url_for('.retire_bucket', bid=bucket.id) }}" hx-target="#modal-body"
+        onclick="openModal()">Retire Bucket</button>
 
 <script>
 (function(){

@@ -21,14 +21,6 @@ def _safe_date(v) -> "date | None":
         return None
 
 
-def _money(v) -> float:
-    """Coerce any value to a non-negative float rounded to 2dp."""
-    try:
-        return round(float(v or 0), 2)
-    except (ValueError, TypeError):
-        return 0.0
-
-
 # ── Month ID helpers ──────────────────────────────────────────────────────────
 
 def month_id(year: int, month: int) -> str:
@@ -164,8 +156,11 @@ def distribute_obligations(buckets: list[dict], month: dict) -> list[dict]:
     next due date (None for buckets with no fixed due day), and its pay
     frequency label for display.
     """
+    handled = month.get("handledBuckets") or {}
     obligations = []
     for b in buckets:
+        if handled.get(b["id"]):
+            continue
         budget = b_budget(month, b["id"])
         alloc = b_alloc(month, b["id"])
         gap = round(budget - alloc, 2)
@@ -386,13 +381,16 @@ def month_income(month_id: str, transactions: list[dict], accounts: list[dict]) 
 # ── 9. Ready to Spend ─────────────────────────────────────────────────────────
 
 def ready_to_spend(
-    active_month: dict,
     all_months: list[dict],
     accounts: list[dict],
     buckets: list[dict],
     transactions: list[dict],
 ) -> float:
     """RTS is anchored to today's cash position, not the viewed month.
+
+    Deliberately takes no month argument — RTS cannot be month-scoped, and
+    a parameter that looked like it did (but was silently ignored) misled
+    callers for a while before being removed.
 
     bb is always live (all transactions). Claims are always measured from
     today's calendar month — expense buckets reset monthly, vault/savings

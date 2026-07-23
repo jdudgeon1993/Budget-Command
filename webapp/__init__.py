@@ -14,11 +14,6 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(panels_bp)
 
-    # Full live mirror of the same blueprint at /proto/v4 — same routes, same
-    # real data, same writes. Used to redesign one section at a time (see
-    # render_panel() in panels.py) without risking or duplicating production.
-    app.register_blueprint(panels_bp, name="proto", url_prefix="/proto/v4")
-
     # Jinja money filter — always 2 decimal places, matches $1,234.56 / -$1,234.56.
     @app.template_filter("money")
     def money(v, compact=False):

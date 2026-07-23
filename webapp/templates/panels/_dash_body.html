@@ -1,0 +1,79 @@
+<button class="dash-report-card" type="button"
+        hx-get="{{ url_for('.reports') }}" hx-target="#panel" onclick="dashExpand()">
+  <div class="dash-report-pies">
+    <div class="dash-pie-item">
+      <div class="dash-pie" style="--pct:{{ dash.budget_pct }};--ring-color:{{ 'var(--red)' if dash.over_budget else ('var(--amber)' if dash.budget_pct >= 90 else 'var(--green)') }}">
+        <span class="dash-pie-pct">{{ dash.budget_pct }}%</span>
+      </div>
+      <div class="dash-pie-lbl">Target vs Spent</div>
+      <div class="dash-pie-figs">
+        <span>{{ dash.total_budget | money }} target</span>
+        <span>{{ dash.total_spent | money }} spent</span>
+      </div>
+    </div>
+    <div class="dash-pie-item">
+      <div class="dash-pie dash-pie-multi" style="background:{{ dash.cat_pie_css }}"></div>
+      <div class="dash-pie-lbl">Category Trends</div>
+      <div class="dash-pie-figs">
+        {% if dash.cat_trends %}
+        {% for c in dash.cat_trends[:3] %}
+        <span><i style="background:{{ c.color }}"></i>{{ c.name }} {{ c.pct }}%</span>
+        {% endfor %}
+        {% else %}
+        <span class="dash-pie-figs-empty">Nothing spent yet</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="dash-report-cta">Full report <span class="dash-tile-arrow">→</span></div>
+</button>
+
+<div class="dash-accts">
+  <div class="dash-acct-group">
+    <div class="dash-acct-hdr">Cash Accounts</div>
+    {% if dash.cash_cards %}
+    <div class="dash-acct-chips">
+      {% for a in dash.cash_cards %}
+      <button class="dash-acct-chip" type="button" style="--chip-color:{{ a.color }}"
+              hx-get="{{ url_for('.accounts') }}" hx-target="#panel"
+              onclick="dashExpand();dashFilterAcct('{{ a.id }}')">
+        <span class="dash-acct-chip-name">{{ a.name }}</span>
+        <span class="dash-acct-chip-bal {{ 'neg' if a.balance < 0 }}">{{ a.balance | money }}</span>
+      </button>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dash-acct-empty">No cash accounts yet.</div>
+    {% endif %}
+  </div>
+  {% if dash.debt_cards %}
+  <div class="dash-acct-group">
+    <div class="dash-acct-hdr">Debt Accounts</div>
+    <div class="dash-acct-chips">
+      {% for a in dash.debt_cards %}
+      <button class="dash-acct-chip dash-acct-chip-debt" type="button" style="--chip-color:{{ a.color }}"
+              hx-get="{{ url_for('.accounts') }}" hx-target="#panel"
+              onclick="dashExpand();dashFilterAcct('{{ a.id }}')">
+        <span class="dash-acct-chip-name">{{ a.name }}</span>
+        <span class="dash-acct-chip-bal neg">{{ a.balance | money }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="dash-tiles">
+  <button class="dash-tile" type="button"
+          hx-get="{{ url_for('.buckets') }}" hx-target="#panel" onclick="dashExpand()">
+    <span>Categories{% if dash.attention_count %} <span class="dash-tile-badge">{{ dash.attention_count }}</span>{% endif %}</span><span class="dash-tile-arrow">→</span>
+  </button>
+  <button class="dash-tile" type="button"
+          hx-get="{{ url_for('.insights') }}" hx-target="#panel" onclick="dashExpand()">
+    <span>Forecast</span><span class="dash-tile-arrow">→</span>
+  </button>
+  <button class="dash-tile" type="button"
+          hx-get="{{ url_for('.reports') }}" hx-target="#panel" onclick="dashExpand()">
+    <span>Reports</span><span class="dash-tile-arrow">→</span>
+  </button>
+</div>

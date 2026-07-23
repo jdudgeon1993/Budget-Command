@@ -46,7 +46,7 @@ def invalidate_cache() -> None:
     panel re-rendered for the response will show stale values until the
     user manually reloads the page.
     """
-    for key in ("data", "data_full"):
+    for key in ("data", "data_full", "_retired"):
         try:
             delattr(g, key)
         except AttributeError:
@@ -79,6 +79,206 @@ def active_month(data: dict, mid: str = None) -> dict:
 def month_label(mid: str) -> str:
     y, m0 = F.parse_month_id(mid)
     return f"{calendar.month_name[m0 + 1]} {y}"
+
+
+# ── Retire / Restore support ──────────────────────────────────────────────────
+
+def retired_view() -> dict:
+    """Retired buckets + categories, request-cached.
+
+    Retired rows live in quarantine tables, out of the live bcc_buckets/
+    bcc_categories that load_data() returns. This is the one place that reads
+    them, so retirement can never leak into a live budgeting surface. Buckets
+    come back full-shape (drop-in for data["buckets"]) so historical reports
+    and name resolution can fold them in. DEV_SEED has no real DB; sample_data
+    may inject `retiredBuckets`/`retiredCats` for render tests.
+    """
+    cached = getattr(g, "_retired", None)
+    if cached is not None:
+        return cached
+    if current_app.config["DEV_SEED"]:
+        data = load_data()
+        buckets = data.get("retiredBuckets", [])
+        cats = data.get("retiredCats", [])
+    else:
+        buckets = DB.list_retired_buckets(session["user_id"], session["access_token"])
+        cats = DB.list_retired_categories(session["user_id"], session["access_token"])
+    result = {
+        "buckets": buckets, "cats": cats,
+        "bucket_names": {b["id"]: b["name"] for b in buckets},
+        "cat_names": {c["id"]: c["name"] for c in cats},
+    }
+    g._retired = result
+    return result
+
+
+def bucket_name_map(data: dict) -> dict:
+    """{id: name} for every bucket the user has ever had — live plus retired.
+    Used wherever a historical transaction/report must still show a name after
+    its bucket was retired out of the live table. Live names win on any clash."""
+    m = dict(retired_view()["bucket_names"])
+    m.update({b["id"]: b["name"] for b in data.get("buckets", [])})
+    return m
+
+
+def cat_name_map(data: dict) -> dict:
+    m = dict(retired_view()["cat_names"])
+    m.update({c["id"]: c["name"] for c in data.get("cats", [])})
+    return m
+
+
+def _forward_month_ids(data: dict) -> list:
+    """Month ids strictly after the current calendar month. Pure — testable
+    without a DB. (month_id is m_{y}_{m0}, which does NOT sort lexically, so
+    this filters by F.month_status rather than string comparison.)"""
+    return [m["id"] for m in data.get("months", [])
+            if F.month_status(m["id"]) == "future"]
+
+
+def _accumulating(bucket: dict) -> bool:
+    """Bucket types that carry a real balance across months (so retiring one
+    needs an explicit money disposition)."""
+    return (bucket.get("type") in ("vault", "sinking", "goal")
+            or bool(bucket.get("rollover")))
+
+
+def bucket_retire_info(bid: str) -> dict:
+    """What the retire route needs to decide the flow: the bucket, whether it
+    holds an accumulating balance, and that balance (the amount a disposition
+    must move). Delisting a bucket already returns its claim to RTS; the
+    disposition exists to zero an *accumulating* balance first so retire and
+    restore stay money-neutral."""
+    data = load_data()
+    bucket = next((b for b in data.get("buckets", []) if b["id"] == bid), None)
+    if not bucket:
+        return {"bucket": None, "money_holding": False, "balance": 0.0, "today_mid": F.current_month_id()}
+    today_mid = F.current_month_id()
+    months = data.get("months", [])
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+    bal = 0.0
+    if _accumulating(bucket):
+        bal = round(F.bucket_available(bucket, today_month, months, data.get("txs", [])), 2)
+    return {"bucket": bucket, "money_holding": _accumulating(bucket) and bal > 0.005,
+            "balance": bal, "today_mid": today_mid}
+
+
+def perform_bucket_retire(bid: str, disposition: str = "release", transfer_to: str = "") -> bool:
+    """Retire one bucket. Does NOT invalidate the cache — callers do, once.
+
+    Steps (order matters for money-neutrality and no-data-loss):
+    1. If it holds an accumulating balance, zero it via release (record a
+       withdrawal) or transfer (release source + fund destination).
+    2. Delete forward commitments — future-month rows, allocation rules,
+       scenario references. Current/past rows stay as historical fact; the
+       bucket's current available returns to RTS automatically once it leaves
+       the live table (ready_to_spend only sums live buckets).
+    3. Move the bucket row to quarantine (copy first, delete live last).
+    """
+    info = bucket_retire_info(bid)
+    if not info["bucket"]:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True  # writes don't persist in dev
+    uid, token = session["user_id"], session["access_token"]
+    data = load_data()
+    months = data.get("months", [])
+    today_mid = info["today_mid"]
+    today_month = next((m for m in months if m["id"] == today_mid),
+                       {"id": today_mid, "allocations": {}, "budgets": {}})
+
+    if info["money_holding"]:
+        bal = info["balance"]
+        cur_alloc = F.b_alloc(today_month, bid)
+        DB.ensure_month(uid, token, today_mid)
+        if disposition == "transfer" and transfer_to:
+            DB.vault_release_to_pool(uid, token, today_mid, bid, bal, cur_alloc)
+            dest_alloc = F.b_alloc(today_month, transfer_to)
+            DB.upsert_alloc(uid, token, today_mid, transfer_to, round(dest_alloc + bal, 2))
+        else:
+            DB.vault_release_to_pool(uid, token, today_mid, bid, bal, cur_alloc)
+
+    future_mids = _forward_month_ids(data)
+    DB.delete_bucket_month_rows(uid, token, bid, future_mids)
+    DB.delete_bucket_alloc_rules(uid, token, bid)
+    DB.scrub_scenarios_for_bucket(uid, token, bid)
+    DB.move_bucket_to_retired(uid, token, bid)
+    return True
+
+
+def perform_category_retire(cid: str) -> bool:
+    """Retire a category and cascade-retire its live buckets. Cascade uses the
+    release disposition for any money-holding bucket (no per-bucket modal is
+    possible mid-cascade) — the confirm dialog states balances return to RTS.
+    Does NOT invalidate the cache — the caller does."""
+    data = load_data()
+    cat = next((c for c in data.get("cats", []) if c["id"] == cid), None)
+    if not cat:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True
+    uid, token = session["user_id"], session["access_token"]
+    for b in [b for b in data.get("buckets", []) if b.get("catId") == cid]:
+        perform_bucket_retire(b["id"], disposition="release")
+    DB.move_category_to_retired(uid, token, cid)
+    return True
+
+
+def attach_forecast_month_groups(fc: dict) -> dict:
+    """Group fc['periods'] by calendar start-month; attach as fc['month_groups'].
+
+    v5 preview only (see panels.py's insights_v5/forecast_whatif_v5/
+    _fc_frag_response_v5) — the real Forecast tab never calls this.
+
+    forecast_calc.py's periods are built purely from paycheck dates with no
+    month-awareness (a biweekly period can span Jul 28 - Aug 10). Splitting a
+    period's own running-balance math across two months lives entirely inside
+    forecast_calc.py and is out of scope here, so each period is grouped
+    under its own start month only — a period that bleeds into the next
+    month is flagged for display (p["bleeds_next_month"]), not split. A
+    period's real end date is always exactly the next period's start date
+    minus one day (forecast_calc.py builds periods_meta contiguous and
+    non-overlapping), so that flag needs no new data from forecast_calc.py —
+    just a diff between consecutive periods' already-present `id` (ISO
+    start-date string) fields.
+    """
+    from datetime import date, timedelta
+    periods = fc.get("periods", [])
+    groups: list[dict] = []
+    by_mid: dict[str, dict] = {}
+
+    def _amt(s: str) -> float:
+        # compute_forecast() only exposes pre-formatted strings; parse here
+        # (testable Python) rather than in Jinja per-cell.
+        try:
+            return float(str(s or "0").replace("$", "").replace(",", ""))
+        except ValueError:
+            return 0.0
+
+    for i, p in enumerate(periods):
+        d = date.fromisoformat(p["id"])
+        mid = F.month_id(d.year, d.month - 1)
+        g = by_mid.get(mid)
+        if g is None:
+            g = {"mid": mid, "label": month_label(mid), "periods": [],
+                 "_income": 0.0, "_bills": 0.0}
+            by_mid[mid] = g
+            groups.append(g)
+        bleeds = False
+        if i + 1 < len(periods):
+            d_next = date.fromisoformat(periods[i + 1]["id"])
+            bleeds = (d_next - timedelta(days=1)).month != d.month
+        p["bleeds_next_month"] = bleeds
+        g["_income"] += _amt(p.get("income_total_fmt"))
+        g["_bills"] += _amt(p.get("funded_total_fmt")) + _amt(p.get("unfunded_total_fmt"))
+        g["periods"].append(p)
+
+    for g in groups:
+        g["income_total_fmt"] = f"${g.pop('_income'):,.2f}"
+        g["bills_total_fmt"] = f"${g.pop('_bills'):,.2f}"
+
+    fc["month_groups"] = groups
+    return fc
 
 
 # ── Shell view-model (sidebar RTS, header, month) ─────────────────────────────
@@ -118,29 +318,28 @@ def shell_ctx(active_panel: str = "") -> dict:
     # regardless of which month the user is browsing. Viewing July does not
     # suddenly inflate RTS by dropping June's claims from the calculation.
     today_mid = F.current_month_id()
-    today_month = next((m for m in months if m["id"] == today_mid),
-                       {"id": today_mid, "allocations": {}, "budgets": {}})
-    rts = F.ready_to_spend(today_month, months, accounts, buckets, txs)
+    rts = F.ready_to_spend(months, accounts, buckets, txs)
 
     total_cash = F.total_cash(accounts, txs)
     aom = F.age_of_money(accounts, txs)
     # Income/allocated/spent are scoped to the VIEWED month for context
     income = F.month_income(mid, txs, accounts)
     allocated = F.total_allocated(month, buckets)
-    spent = sum(F.b_spent(mid, b["id"], txs) for b in buckets)
+    # Spent is historical fact for the viewed month — include buckets
+    # archived since, or past months undercount (matches reports_view).
+    spent = sum(F.b_spent(mid, b["id"], txs) for b in data.get("buckets", []))
     # Denominator is total available to assign (allocated + unassigned), not
     # just income — in ZBB you also allocate from prior-month carry-forward.
     _available = allocated + max(rts, 0)
     pct = min(100, round((allocated / _available) * 100)) if _available > 0 else 0
 
-    month_closed = bool(month.get("closed"))
     is_past_month = F.month_status(mid) == "past"
     today_month_label = month_label(today_mid)
 
     # Pre-render context for add-transaction modal (so it can be instant, no round-trip)
     tx_accounts = [{"id": a["id"], "name": a["name"]}
                    for a in accounts if not a.get("archived")]
-    cats_sorted = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats_sorted = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
     tx_buckets_by_cat = []
     for c in cats_sorted:
         bkts = [{"id": b["id"], "name": b["name"]} for b in buckets
@@ -154,7 +353,6 @@ def shell_ctx(active_panel: str = "") -> dict:
         "month_label": month_label(mid),
         "today_month_label": today_month_label,
         "is_past_month": is_past_month,
-        "month_closed": month_closed,
         "rts": rts,
         "total_cash": total_cash,
         "age_of_money": aom,
@@ -169,12 +367,10 @@ def shell_ctx(active_panel: str = "") -> dict:
         "sts_amt": None,
         "sts_qualifier": "",
     }
-    # v4 only: RTS + Safe-to-Spend shown together, everywhere, per the
-    # design-session plan. Read-only call into the same compute_forecast()
-    # the live Forecast page uses — nothing about it changes or is at risk.
-    # Gated to the proto blueprint so classic panels never pay this cost.
-    if request.blueprint == "proto":
-        result["sts_amt"], result["sts_qualifier"] = _safe_to_spend(data)
+    # RTS + Safe-to-Spend shown together, everywhere. Read-only call into the
+    # same compute_forecast() the live Forecast page uses — nothing about it
+    # changes or is at risk.
+    result["sts_amt"], result["sts_qualifier"] = _safe_to_spend(data)
     return result
 
 
@@ -202,6 +398,30 @@ def _v4_bucket_sort_key(row: dict) -> tuple:
     return (tier, date_key)
 
 
+def _ordinal(n: int) -> str:
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _due_label(due_day, pay_freq: str) -> str:
+    """Compact due-date pill text — a fixed day wins over a bare frequency
+    (a bill can be both "biweekly" and "due the 15th"; the day is the more
+    useful glanceable fact). Frequency-only bills (no fixed day) fall back
+    to their cadence so recurring-but-undated spends still show something.
+    """
+    if due_day == "eom":
+        return "Due EOM"
+    if due_day:
+        try:
+            return f"Due {_ordinal(int(due_day))}"
+        except (TypeError, ValueError):
+            pass
+    return F.freq_label(pay_freq) if pay_freq else ""
+
+
 def bucket_rows(view_mid: str = None):
     """Category-grouped bucket rows with alloc/budget/spent/left + status."""
     data = load_data()
@@ -211,7 +431,7 @@ def bucket_rows(view_mid: str = None):
     months = data.get("months", [])
     txs = data.get("txs", [])
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
 
     # Future months always show today's budget targets. Today is the source of
     # truth for what each bucket costs — stale DB entries in future months are
@@ -384,6 +604,7 @@ def bucket_rows(view_mid: str = None):
                 "vault_total": vault_total,
                 "due_day": b.get("dueDay"),
                 "pay_freq": b.get("payFreq") or "",
+                "due_label": _due_label(b.get("dueDay"), b.get("payFreq")),
                 "target_amount": target_amount,
                 "target_date": target_date,
                 "contrib_freq": contrib_freq,
@@ -411,10 +632,10 @@ def bucket_rows(view_mid: str = None):
             "spent": cat_spent, "available": cat_available,
             "pct": min(100, round((cat_alloc / cat_budget) * 100)) if cat_budget else 0,
             "buckets": rows,
-            # v4 prototype only — severity tier first, due-date proximity
-            # breaks ties within a tier. A separate copy so classic's own
-            # tier-grouping in buckets.html (which relies on the original
-            # category/manual order for its own sub-ordering) is untouched.
+            # Severity tier first, due-date proximity breaks ties within a
+            # tier. A separate sorted copy — "buckets" keeps its original
+            # category/manual order for the other views that reuse it
+            # (transaction forms, scenario editor, vault transfer picker).
             "buckets_v4": sorted(rows, key=_v4_bucket_sort_key),
         })
     # Month tabs for the future-planning toggle
@@ -428,12 +649,7 @@ def bucket_rows(view_mid: str = None):
               "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
               "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
                               for b in buckets if not b.get("archived")]}
-    # v4 combined Ledger+Buckets view only — classic Buckets never pays this
-    # cost. Gated on request.blueprint so every existing call site (write
-    # actions re-rendering the panel, not just the initial GET) picks it up
-    # automatically without having to remember to merge it in separately.
-    if request.blueprint == "proto":
-        result.update(ledger_companion_ctx())
+    result.update(ledger_companion_ctx())
     return result
 
 
@@ -500,10 +716,7 @@ def dashboard_ctx() -> dict:
     # savings isn't part of what RTS claims against, so it shouldn't be
     # folded into the headline "Balance" figure sitting right next to RTS.
     balance = F.budget_bal(accounts, txs)
-    today_mid = F.current_month_id()
-    today_month = next((m for m in data.get("months", []) if m["id"] == today_mid),
-                       {"id": today_mid, "allocations": {}, "budgets": {}})
-    rts = F.ready_to_spend(today_month, data.get("months", []), accounts, buckets, txs)
+    rts = F.ready_to_spend(data.get("months", []), accounts, buckets, txs)
 
     sts_amt, sts_qualifier = _safe_to_spend(data)
 
@@ -535,12 +748,18 @@ def dashboard_ctx() -> dict:
     cash_cards = [c for c in acc["cards"] if c["type"] != "debt"]
     debt_cards = [c for c in acc["cards"] if c["type"] == "debt"]
 
+    attention_count = sum(
+        1 for g in groups for b in g["buckets"]
+        if b["alert_status"] in ("overspent", "unfunded", "funding")
+    )
+
     return {
         "balance": balance, "rts": rts, "sts_amt": sts_amt, "sts_qualifier": sts_qualifier,
         "total_budget": total_budget, "total_spent": total_spent,
         "budget_pct": budget_pct, "over_budget": over_budget,
         "cat_trends": cat_trends, "cat_pie_css": cat_pie_css,
         "cash_cards": cash_cards, "debt_cards": debt_cards,
+        "attention_count": attention_count,
     }
 
 
@@ -565,7 +784,8 @@ def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = Non
     it's due). Step 2 previews what the active internal allocation rules
     would do with whatever's left over — percentage/fixed rules take their
     cut, "fund this bucket" rules cascade and catch the remainder, exactly
-    like income_rules_ctx but against leftover RTS instead of a paycheck.
+    like paycheck_distribute_ctx's rule cascade but against leftover RTS
+    instead of a paycheck.
 
     `checked_ob`/`checked_rule` reflect the user's current checkbox state
     (None means "default to everything checked" — the initial suggestion).
@@ -582,7 +802,7 @@ def distribute_ctx(checked_ob: set | None = None, checked_rule: set | None = Non
     txs = data.get("txs", [])
     bkt_name = {b["id"]: b["name"] for b in buckets}
 
-    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+    rts = F.ready_to_spend(months, accounts, buckets, txs)
 
     obligations = F.distribute_obligations(buckets, month)
     for o in obligations:
@@ -657,7 +877,8 @@ def accounts_view():
     mid = active_mid()
     txs = data.get("txs", [])
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
-    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
+    # live + retired, so a transaction whose bucket was retired still shows its name
+    bkt_name = bucket_name_map(data)
     acct_map = {a["id"]: a for a in accounts}
 
     cards = [{
@@ -759,8 +980,9 @@ def setup_view():
     } for p in data.get("paychecks", [])]
     cats = [{
         "id": c["id"], "name": c["name"], "color": c.get("color", "#888"),
-        "count": sum(1 for b in data.get("buckets", []) if b.get("catId") == c["id"]),
-    } for c in sorted(data.get("cats", []), key=lambda c: c.get("order", 0))]
+        "count": sum(1 for b in data.get("buckets", [])
+                    if b.get("catId") == c["id"] and not b.get("archived")),
+    } for c in sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))]
     rules = [{
         "id": r["id"], "name": r.get("name", "Rule"),
         "bucket": bkt_name.get(r.get("bucket_id") or r.get("bucketId"), "—"),
@@ -778,65 +1000,22 @@ def setup_view():
     rules_total_pct   = sum(r["value"] for r in active_internal if r["is_pct"])
     rules_total_fixed = sum(r["value"] for r in active_internal if not r["is_pct"])
     paycheck_total = sum(p["amount"] for p in paychecks)
+    # Retired buckets/categories for the nestled "Retired" section (Restore).
+    _ret = retired_view()
+    _live_cat_name = {c["id"]: c["name"] for c in cats}
+    retired_buckets = [{
+        "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
+        "cat": _ret["cat_names"].get(b.get("catId"))
+               or _live_cat_name.get(b.get("catId"), "—"),
+    } for b in _ret["buckets"]]
+    retired_cats = [{"id": c["id"], "name": c["name"]} for c in _ret["cats"]]
+
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
             "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"},
             "rules_total_pct": rules_total_pct,
             "rules_total_fixed": rules_total_fixed,
-            "paycheck_total": paycheck_total}
-
-
-def income_rules_ctx(amount: float, mid: str) -> dict:
-    """Compute what active allocation rules would do for a given income amount.
-
-    Rules fire in order (sort_order). Percentage and fixed-amount rules take
-    their cut from the original paycheck; "fund this bucket" rules have no
-    fixed cut of their own — each one simply claims whatever's left over after
-    every rule before it, like a real envelope catching the remainder.
-    """
-    data = load_data()
-    rules_raw = sorted(data.get("allocationRules", []), key=lambda r: r.get("sort_order", 0))
-    bkt_name = {b["id"]: b["name"] for b in data.get("buckets", [])}
-    month = active_month(data)
-
-    internal, external = [], []
-    remaining = amount
-    for r in rules_raw:
-        if not r.get("active", True):
-            continue
-        v = float(r.get("value") or 0)
-        vtype = r.get("value_type", "fixed")
-        is_fund = (vtype == "fund")
-        if is_fund:
-            computed = round(max(0.0, remaining), 2)
-        else:
-            computed = round(amount * v / 100, 2) if vtype == "pct" else v
-        remaining = round(remaining - computed, 2)
-        rtype = r.get("rule_type", "internal")
-
-        if rtype == "external":
-            external.append({
-                "id": r["id"], "name": r.get("name", "Transfer"),
-                "computed": computed, "value": v, "is_pct": vtype == "pct", "is_fund": is_fund,
-            })
-        else:
-            bid = r.get("bucket_id") or r.get("bucketId") or ""
-            if not bid:
-                continue
-            internal.append({
-                "id": r["id"], "name": r.get("name", "Rule"),
-                "bucket_id": bid, "bucket_name": bkt_name.get(bid, "—"),
-                "computed": computed, "value": v, "is_pct": vtype == "pct", "is_fund": is_fund,
-                "current_alloc": F.b_alloc(month, bid),
-            })
-
-    total_in = sum(r["computed"] for r in internal)
-    total_ex = sum(r["computed"] for r in external)
-    return {
-        "income_amount": amount, "mid": mid,
-        "internal_rules": internal, "external_rules": external,
-        "total_internal": total_in, "total_external": total_ex,
-        "remaining": round(amount - total_in - total_ex, 2),
-    }
+            "paycheck_total": paycheck_total,
+            "retired_buckets": retired_buckets, "retired_cats": retired_cats}
 
 
 def paycheck_distribute_ctx(
@@ -865,7 +1044,7 @@ def paycheck_distribute_ctx(
     txs = data.get("txs", [])
     bkt_name = {b["id"]: b["name"] for b in buckets}
 
-    rts = F.ready_to_spend(month, months, accounts, buckets, txs)
+    rts = F.ready_to_spend(months, accounts, buckets, txs)
 
     # Partition rules into three groups
     rules_raw = sorted(
@@ -998,7 +1177,23 @@ def reports_view(view_mid: str = None):
     all_months = data.get("months", [])
     accounts = [a for a in data.get("accounts", []) if not a.get("archived")]
     buckets = [b for b in data.get("buckets", []) if not b.get("archived")]
-    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
+    # Archiving a bucket/category hides it from anywhere you'd allocate NEW
+    # money (Buckets page, Setup, transaction picker, Distribute) — but its
+    # real historical spending already happened and shouldn't disappear from
+    # past reports just because the bucket is gone today. Every section below
+    # that describes a specific month (current or historical) uses these
+    # unfiltered lists; only "current state" sections (funding rate, RTS,
+    # active goals) use the filtered buckets/cats above.
+    # Historical sections must include RETIRED buckets/cats too — retiring
+    # moves the row out of the live table, but its past transactions and
+    # allocations are still real and belong in past-month reports (same reason
+    # archived buckets were kept here before retirement replaced archiving).
+    _ret = retired_view()
+    buckets_all = list(data.get("buckets", [])) + list(_ret["buckets"])
+    cats_all = sorted(
+        list(data.get("cats", [])) + list(_ret["cats"]),
+        key=lambda c: c.get("order", 0))
 
     # ── Available months for dropdown ─────────────────────────────────────────
     seen = {m["id"] for m in all_months} | {F.current_month_id()}
@@ -1008,9 +1203,9 @@ def reports_view(view_mid: str = None):
     # ── BvA (current month) ───────────────────────────────────────────────────
     bva, cat_spend = [], []
     grand_budget = grand_spent = 0.0
-    for cat in cats:
+    for cat in cats_all:
         rows, c_budget, c_spent = [], 0.0, 0.0
-        for b in sorted([b for b in buckets if b.get("catId") == cat["id"]],
+        for b in sorted([b for b in buckets_all if b.get("catId") == cat["id"]],
                         key=lambda b: b.get("order", 0)):
             budget = F.b_budget(month, b["id"])
             spent = F.b_spent(mid, b["id"], txs)
@@ -1029,14 +1224,33 @@ def reports_view(view_mid: str = None):
                 cat_spend.append({"name": cat["name"], "color": cat.get("color", "#888"),
                                   "spent": c_spent})
 
+    # Uncategorized spending — real out-transactions with no bucket. b_spent
+    # (and therefore grand_spent/BvA) skips these, so without surfacing them
+    # here the "Spent" total understates and "Net" overstates by exactly the
+    # amount of un-bucketed expenses. Show them as their own line so the
+    # category breakdown always reconciles with the true total.
+    def _uncat_spent(m_id):
+        return round(sum(
+            float(t.get("amount") or 0) for t in txs
+            if t.get("monthId") == m_id and t.get("type") == "out"
+            and not F.is_scheduled(t) and not t.get("bucketId")
+        ), 2)
+
+    uncat = _uncat_spent(mid)
+    if uncat > 0.005:
+        cat_spend.append({"name": "Uncategorized", "color": "var(--text3)", "spent": uncat})
+        bva.append({"name": "Uncategorized", "color": "#8a8a8a",
+                    "budget": 0.0, "spent": uncat, "variance": -uncat, "buckets": []})
+
+    total_spent = round(grand_spent + uncat, 2)
     total_spend_cat = sum(c["spent"] for c in cat_spend) or 1
     for c in cat_spend:
         c["pct"] = round((c["spent"] / total_spend_cat) * 100)
     cat_spend.sort(key=lambda c: c["spent"], reverse=True)
 
     income = F.month_income(mid, txs, accounts)
-    totals = {"income": income, "spent": grand_spent, "budget": grand_budget,
-              "net": income - grand_spent}
+    totals = {"income": income, "spent": total_spent, "budget": grand_budget,
+              "net": income - total_spent, "uncategorized": uncat}
 
     # ── Account snapshot / net worth ──────────────────────────────────────────
     snapshot = []
@@ -1048,7 +1262,13 @@ def reports_view(view_mid: str = None):
     net_worth = sum(s["net_worth_bal"] for s in snapshot)
 
     # ── Funding rate ──────────────────────────────────────────────────────────
-    expense_bkts = [b for b in buckets if b.get("type", "expense") != "vault"]
+    # Handled buckets are dealt with outside the app this month — they need
+    # no funding, so they belong in neither the funded count nor the
+    # denominator (same rule distribute_obligations applies).
+    _handled = month.get("handledBuckets") or {}
+    expense_bkts = [b for b in buckets
+                    if b.get("type", "expense") != "vault"
+                    and b["id"] not in _handled]
     funded_count = sum(
         1 for b in expense_bkts
         if F.b_alloc(month, b["id"]) >= max(F.b_budget(month, b["id"]) - 0.005, 0.005)
@@ -1057,16 +1277,34 @@ def reports_view(view_mid: str = None):
                     "pct": round(funded_count / max(len(expense_bkts), 1) * 100)}
 
     # ── Allocation rate + RTS ─────────────────────────────────────────────────
-    total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets)
-    rts_val = round(income - total_alloc, 2)
+    # RTS here must be the same anchored-to-today figure shown everywhere else
+    # in the app (header, Buckets, Health Check) — not a viewed-month-local
+    # "income minus allocated" figure, which can go negative the moment
+    # allocations are funded from carried-forward surplus rather than this
+    # month's own income, even though real Ready to Spend is healthy. It's
+    # also deliberately scoped to currently-active buckets (buckets, not
+    # buckets_all) — an archived bucket can't claim RTS going forward.
+    # total_alloc, by contrast, describes the *viewed* month's own historical
+    # allocation and should include buckets archived since — that money was
+    # genuinely allocated at the time either way.
+    total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets_all)
+    rts_val = F.ready_to_spend(all_months, accounts, buckets, txs)
     alloc_pct = min(100, round(total_alloc / income * 100) if income > 0 else 0)
+    # "unassigned" is THIS viewed-month's own income not yet allocated
+    # (income − allocated). It is a month-local figure and is distinct from
+    # rts_val (the anchored-to-today Ready to Spend shown in the header): the
+    # card's percentage/bar describe unassigned, so the headline value must be
+    # the same quantity or the two contradict each other. Floored at 0 —
+    # allocating from carried-forward surplus makes this negative, which reads
+    # as "fully assigned this month", not a deficit.
+    unassigned = round(max(0.0, income - total_alloc), 2)
     allocation_rate = {"allocated": total_alloc, "income": income,
-                       "pct": alloc_pct, "rts": rts_val}
+                       "pct": alloc_pct, "rts": rts_val, "unassigned": unassigned}
 
     # ── Fixed vs variable ─────────────────────────────────────────────────────
     fixed_spent = sum(
         F.b_spent(mid, b["id"], txs)
-        for b in buckets
+        for b in buckets_all
         if not b.get("flex") and b.get("type", "expense") == "expense"
            and (b.get("recurring") or b.get("dueDay") or (b.get("defaultBudget") or 0) > 0)
     )
@@ -1087,7 +1325,7 @@ def reports_view(view_mid: str = None):
                                         key=lambda x: x[1], reverse=True)[:8]]
 
     # ── Top transactions ──────────────────────────────────────────────────────
-    bkt_name = {b["id"]: b["name"] for b in buckets}
+    bkt_name = {b["id"]: b["name"] for b in buckets_all}
     out_txs = sorted(
         [t for t in txs if t.get("monthId") == mid and t.get("type") == "out"
          and not F.is_scheduled(t)],
@@ -1104,7 +1342,7 @@ def reports_view(view_mid: str = None):
     for i in range(11, -1, -1):
         m_id = F.month_offset(mid, -i)
         m_income = F.month_income(m_id, txs, accounts)
-        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets)
+        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets_all) + _uncat_spent(m_id)
         trend_12mo.append({"mid": m_id, "label": month_label(m_id)[:3],
                            "income": m_income, "spent": m_spent,
                            "net": m_income - m_spent})
@@ -1115,8 +1353,8 @@ def reports_view(view_mid: str = None):
 
     # ── Over-budget frequency by category (last 6 months) ────────────────────
     over_freq = []
-    for cat in cats:
-        cat_bkts = [b for b in buckets if b.get("catId") == cat["id"]]
+    for cat in cats_all:
+        cat_bkts = [b for b in buckets_all if b.get("catId") == cat["id"]]
         if not cat_bkts:
             continue
         dots, over_count = [], 0
@@ -1187,8 +1425,8 @@ def reports_view(view_mid: str = None):
     def _bva_multi(n):
         m_ids = [F.month_offset(mid, -(n - 1 - i)) for i in range(n)]
         rows = []
-        for cat in cats:
-            cat_bkts = [b for b in buckets if b.get("catId") == cat["id"]]
+        for cat in cats_all:
+            cat_bkts = [b for b in buckets_all if b.get("catId") == cat["id"]]
             if not cat_bkts:
                 continue
             months_data = []
@@ -1208,18 +1446,23 @@ def reports_view(view_mid: str = None):
     bva_6mo = _bva_multi(6)
 
     # ── Discipline heatmap (12 months) ────────────────────────────────────────
-    heatmap, neg_rts_months = [], []
+    # net_alloc is month-local "income minus allocated" — it is NOT RTS (see
+    # the allocation_rate comment above). A negative value only means the
+    # month's allocations were funded from carried-forward surplus, which is
+    # normal ZBB behavior, not a deficit — so it's labeled "carryover", never
+    # "negative RTS".
+    heatmap, carryover_months = [], []
     for i in range(11, -1, -1):
         m_id = F.month_offset(mid, -i)
         m_mo = active_month(data, m_id)
         m_income = F.month_income(m_id, txs, accounts)
-        m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets)
-        rts_m = m_income - m_alloc
+        m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets_all)
+        net_alloc = m_income - m_alloc
         if m_income > 0:
             alloc_rate = min(m_alloc / m_income, 1.0)
-            if rts_m < -0.005:
-                status = "deficit"
-                neg_rts_months.append(month_label(m_id))
+            if net_alloc < -0.005:
+                status = "carryover"
+                carryover_months.append(month_label(m_id))
             elif alloc_rate >= 0.90:
                 status = "full"
             else:
@@ -1228,18 +1471,19 @@ def reports_view(view_mid: str = None):
             alloc_rate = 0.0
             status = "empty"
         heatmap.append({"mid": m_id, "label": month_label(m_id)[:3],
-                        "status": status, "rts": round(rts_m, 2),
+                        "status": status, "net_alloc": round(net_alloc, 2),
                         "alloc_rate": round(alloc_rate * 100)})
 
     active_hm = [h for h in heatmap if h["status"] != "empty"]
     disc_score = round(sum(h["alloc_rate"] for h in active_hm) / max(len(active_hm), 1))
     avg_surplus = round(
-        sum(h["rts"] for h in heatmap if h["rts"] > 0) /
-        max(sum(1 for h in heatmap if h["rts"] > 0), 1), 2
+        sum(h["net_alloc"] for h in heatmap if h["net_alloc"] > 0) /
+        max(sum(1 for h in heatmap if h["net_alloc"] > 0), 1), 2
     )
 
     return {
-        "view_mid": mid, "available_months": available_months,
+        "view_mid": mid, "view_label": month_label(mid),
+        "available_months": available_months,
         "bva": bva, "bva_3mo": bva_3mo, "bva_6mo": bva_6mo,
         "cat_spend": cat_spend, "totals": totals,
         "snapshot": snapshot, "net_worth": net_worth,
@@ -1250,7 +1494,7 @@ def reports_view(view_mid: str = None):
         "goals": goals, "nw_trend": nw_trend,
         "debt_accounts": debt_accounts,
         "heatmap": heatmap, "disc_score": disc_score,
-        "neg_rts_months": neg_rts_months, "avg_surplus": avg_surplus,
+        "carryover_months": carryover_months, "avg_surplus": avg_surplus,
     }
 
 
@@ -1261,7 +1505,7 @@ def tx_form_ctx():
     acct_name = {a["id"]: a["name"] for a in data.get("accounts", [])}
     accounts = [{"id": a["id"], "name": a["name"]}
                 for a in data.get("accounts", []) if not a.get("archived")]
-    cats = sorted(data.get("cats", []), key=lambda c: c.get("order", 0))
+    cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
     buckets_by_cat = []
     for c in cats:
         bkts = [{"id": b["id"], "name": b["name"],

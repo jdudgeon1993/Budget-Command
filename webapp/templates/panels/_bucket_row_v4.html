@@ -29,7 +29,10 @@
   <div class="v4-row-body">
     <div class="v4-row-hdr">
       <div class="v4-name-block">
-        <span class="v4-name">{{ b.name }}</span>
+        <div class="v4-name-row">
+          <span class="v4-name">{{ b.name }}</span>
+          {% if b.due_label %}<span class="v4-due-pill">{{ b.due_label }}</span>{% endif %}
+        </div>
         <span class="v4-type">{{ type_label }}</span>
       </div>
       {% if b.pace_eligible %}
@@ -41,12 +44,25 @@
         {% if b.due_day or b.pay_freq %}
         <form method="post" action="{{ url_for('.toggle_handled', bid=b.id) }}" style="display:contents"
               hx-post="{{ url_for('.toggle_handled', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+          {% if is_future_view %}<input type="hidden" name="m" value="{{ view_mid }}">{% endif %}
           <button class="v4-icon-sm {{ 'active' if b.handled }}" type="submit" title="Mark this bill handled">✓</button>
         </form>
         {% endif %}
+        {% if btype == 'vault' %}
+        <button class="v4-icon-sm" type="button" title="Transfer to another bucket"
+                hx-get="{{ url_for('.vault_transfer', bid=b.id) }}" hx-target="#modal-body"
+                onclick="openModal()">⇄</button>
+        <button class="v4-icon-sm" type="button" title="Release to Ready-to-Spend pool"
+                hx-get="{{ url_for('.vault_release_to_pool', bid=b.id) }}" hx-target="#modal-body"
+                onclick="openModal()">↩</button>
+        <button class="v4-icon-sm" type="button" title="Correct balance (fix bad data, not a real transfer)"
+                hx-get="{{ url_for('.vault_adjust_balance', bid=b.id) }}" hx-target="#modal-body"
+                onclick="openModal()">🔧</button>
+        {% else %}
         <button class="v4-icon-sm" type="button" id="v4-icon-ledger-{{ b.id }}"
                 title="This month's transactions ({{ b.txs | length }})"
                 onclick="v4ShowSub('{{ b.id }}','ledger')">📒</button>
+        {% endif %}
         <button class="v4-icon-sm" type="button" id="v4-icon-settings-{{ b.id }}"
                 title="Bucket settings"
                 onclick="v4ShowSub('{{ b.id }}','settings','{{ url_for('.bucket_settings', bid=b.id) }}')">⚙</button>

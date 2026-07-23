@@ -1,0 +1,14 @@
+<div class="dash-stat">
+  <div class="dash-stat-amt">{{ dash.balance | money }}</div>
+  <div class="dash-stat-lbl"><span class="s">Balance</span><span class="l">Available Balance</span></div>
+</div>
+<div class="dash-stat">
+  <div class="dash-stat-amt">{{ dash.rts | money }}</div>
+  <div class="dash-stat-lbl"><span class="s">Ready</span><span class="l">Ready to Spend</span></div>
+</div>
+{% if dash.sts_amt is not none %}
+<div class="dash-stat dash-stat-sts">
+  <div class="dash-stat-amt">{{ dash.sts_amt | money }}</div>
+  <div class="dash-stat-lbl"><span class="s">Safe</span><span class="l">Safe to Spend</span> <span class="dash-stat-qual">{{ dash.sts_qualifier }}</span></div>
+</div>
+{% endif %}
