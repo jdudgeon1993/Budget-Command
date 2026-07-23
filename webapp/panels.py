@@ -283,6 +283,27 @@ def bucket_settings(bid):
                         bucket=bucket, cats=cats, debt_accounts=debt_accounts)
 
 
+def _record_error(msg: str) -> None:
+    """Persist a write error to the session so it survives the vanishing toast
+    and shows up on /health until the next success clears it."""
+    from datetime import datetime as _dt
+    errs = session.get("recent_errors", [])
+    errs.insert(0, {"msg": msg, "at": _dt.now().strftime("%Y-%m-%d %H:%M")})
+    session["recent_errors"] = errs[:10]
+    session.modified = True
+
+
+def _clear_recent_errors() -> None:
+    if session.get("recent_errors"):
+        session["recent_errors"] = []
+        session.modified = True
+
+
+def _flash_error(msg: str) -> None:
+    flash(msg, "error")
+    _record_error(msg)
+
+
 @bp.route("/buckets/<bid>/retire", methods=["GET", "POST"])
 @login_required
 def retire_bucket(bid):
@@ -302,12 +323,13 @@ def retire_bucket(bid):
         try:
             D.perform_bucket_retire(bid, disposition=disposition, transfer_to=transfer_to)
             D.invalidate_cache()
+            _clear_recent_errors()
             if current_app.config["DEV_SEED"]:
                 flash("Dev mode: change not persisted.", "ok")
             else:
                 flash(f"'{info['bucket']['name']}' retired.", "ok")
         except Exception as e:
-            flash(f"Retire failed: {str(e)[:200]}", "error")
+            _flash_error(f"Retire failed ({type(e).__name__}): {str(e)[:400]}")
         return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
 
     # GET — disposition/confirm modal
@@ -1073,9 +1095,14 @@ def health():
     raw_summary = {k: len(v) if isinstance(v, list) else str(v) for k, v in raw.items()}
     raw_json = _json.dumps(raw_summary, indent=2)
 
+    recent_errors = session.get("recent_errors", [])
+    if recent_errors:
+        issues.append(f"{len(recent_errors)} recent write error(s) — see Recent Errors below.")
+
     return render_template("panels/health.html",
         schema_missing=schema_missing,
         schema_check_error=schema_check_error,
+        recent_errors=recent_errors,
         generated_at=generated_at,
         issues=issues, hints=hints,
         data_counts=data_counts,
@@ -1098,6 +1125,14 @@ def health():
         db_errors=db_errors,
         raw_json=raw_json,
     )
+
+
+@bp.route("/health/clear-errors", methods=["POST"])
+@login_required
+def health_clear_errors():
+    _clear_recent_errors()
+    flash("Cleared.", "ok")
+    return redirect(url_for(".health"))
 
 
 @bp.route("/insights")
@@ -1626,9 +1661,10 @@ def retire_category(cid):
     try:
         D.perform_category_retire(cid)
         D.invalidate_cache()
+        _clear_recent_errors()
         flash("Category retired.", "ok")
     except Exception as e:
-        flash(f"Retire failed: {str(e)[:200]}", "error")
+        _flash_error(f"Retire failed ({type(e).__name__}): {str(e)[:400]}")
     return _setup_panel()
 
 
@@ -1639,9 +1675,10 @@ def restore_bucket(bid):
         try:
             DB.restore_bucket(session["user_id"], session["access_token"], bid)
             D.invalidate_cache()
+            _clear_recent_errors()
             flash("Bucket restored.", "ok")
         except Exception as e:
-            flash(f"Restore failed: {str(e)[:200]}", "error")
+            _flash_error(f"Restore failed ({type(e).__name__}): {str(e)[:400]}")
     else:
         flash("Dev mode: change not persisted.", "ok")
     return _setup_panel()
@@ -1654,9 +1691,10 @@ def restore_category(cid):
         try:
             DB.restore_category(session["user_id"], session["access_token"], cid)
             D.invalidate_cache()
+            _clear_recent_errors()
             flash("Category restored.", "ok")
         except Exception as e:
-            flash(f"Restore failed: {str(e)[:200]}", "error")
+            _flash_error(f"Restore failed ({type(e).__name__}): {str(e)[:400]}")
     else:
         flash("Dev mode: change not persisted.", "ok")
     return _setup_panel()

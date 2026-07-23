@@ -16,6 +16,24 @@ SUPABASE_URL         = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY    = os.environ.get("SUPABASE_ANON_KEY", "")
 
 
+# Column allow-lists for moving rows between the live and quarantine tables.
+# The live tables have drifted to carry extra legacy columns (e.g.
+# opening_balance) that the quarantine tables don't; copying a raw SELECT *
+# row across would make PostgREST reject the whole write. These are the
+# columns each destination table actually accepts (retired_at is defaulted).
+_RETIRED_BUCKET_COLS = frozenset({
+    "id", "user_id", "cat_id", "name", "type", "rollover", "recurring",
+    "due_day", "due_amount", "pay_freq", "debt_account_id", "default_budget",
+    "target_amount", "target_date", "contrib_freq", "notes", "flex",
+    "archived", "sort_order", "created_at",
+})
+_LIVE_BUCKET_COLS = _RETIRED_BUCKET_COLS  # same columns on the way back
+_RETIRED_CATEGORY_COLS = frozenset({
+    "id", "user_id", "name", "color", "archived", "sort_order", "created_at",
+})
+_LIVE_CATEGORY_COLS = _RETIRED_CATEGORY_COLS
+
+
 def _shape_bucket(b: dict) -> dict:
     """Raw bcc_buckets/bcc_retired_buckets row → the app's bucket dict shape.
     Shared so retired buckets are drop-in compatible with live ones."""
@@ -620,7 +638,11 @@ def move_bucket_to_retired(uid: str, token: str, bid: str) -> None:
         .eq("user_id", uid).execute().data or []
     if not rows:
         return
-    db.table("bcc_retired_buckets").upsert(rows[0], on_conflict="id").execute()
+    # Copy ONLY the columns the quarantine table has — never the raw SELECT *
+    # row, or a column the live table has drifted to acquire (e.g.
+    # opening_balance) makes PostgREST reject the whole insert.
+    payload = {k: v for k, v in rows[0].items() if k in _RETIRED_BUCKET_COLS}
+    db.table("bcc_retired_buckets").upsert(payload, on_conflict="id").execute()
     db.table("bcc_buckets").delete().eq("id", bid).eq("user_id", uid).execute()
 
 
@@ -632,7 +654,7 @@ def restore_bucket(uid: str, token: str, bid: str) -> None:
         .eq("user_id", uid).execute().data or []
     if not rows:
         return
-    row = {k: v for k, v in rows[0].items() if k != "retired_at"}
+    row = {k: v for k, v in rows[0].items() if k in _LIVE_BUCKET_COLS}
     row["archived"] = False
     db.table("bcc_buckets").upsert(row, on_conflict="id").execute()
     db.table("bcc_retired_buckets").delete().eq("id", bid).eq("user_id", uid).execute()
@@ -644,7 +666,8 @@ def move_category_to_retired(uid: str, token: str, cid: str) -> None:
         .eq("user_id", uid).execute().data or []
     if not rows:
         return
-    db.table("bcc_retired_categories").upsert(rows[0], on_conflict="id").execute()
+    payload = {k: v for k, v in rows[0].items() if k in _RETIRED_CATEGORY_COLS}
+    db.table("bcc_retired_categories").upsert(payload, on_conflict="id").execute()
     db.table("bcc_categories").delete().eq("id", cid).eq("user_id", uid).execute()
 
 
@@ -654,7 +677,7 @@ def restore_category(uid: str, token: str, cid: str) -> None:
         .eq("user_id", uid).execute().data or []
     if not rows:
         return
-    row = {k: v for k, v in rows[0].items() if k != "retired_at"}
+    row = {k: v for k, v in rows[0].items() if k in _LIVE_CATEGORY_COLS}
     row["archived"] = False
     db.table("bcc_categories").upsert(row, on_conflict="id").execute()
     db.table("bcc_retired_categories").delete().eq("id", cid).eq("user_id", uid).execute()

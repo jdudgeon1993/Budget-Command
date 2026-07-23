@@ -81,6 +81,28 @@
   {% endif %}
 
   <div class="hc-section">
+    <div class="hc-section-title">Recent Errors</div>
+    <div class="hc-card">
+      {% if recent_errors %}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:12px;color:var(--red);font-weight:700">The last write(s) failed. These persist until the next success or you clear them.</span>
+        <form method="post" action="{{ url_for('.health_clear_errors') }}" style="margin:0">
+          <button class="hc-refresh" type="submit" style="background:var(--surface2);color:var(--text2)">Clear</button>
+        </form>
+      </div>
+      {% for e in recent_errors %}
+      <div class="hc-row" style="align-items:flex-start;gap:12px">
+        <span class="hc-label" style="font-family:var(--mono);color:var(--red);white-space:normal;word-break:break-word;flex:1">{{ e.msg }}</span>
+        <span class="hc-val" style="color:var(--text3);white-space:nowrap">{{ e.at }}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="hc-row"><span class="hc-label">No recent write errors</span><span class="hc-val" style="color:var(--green)">✓</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="hc-section">
     <div class="hc-section-title">Schema</div>
     <div class="hc-card">
       {% if schema_check_error %}
