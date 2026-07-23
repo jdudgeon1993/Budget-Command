@@ -1224,14 +1224,33 @@ def reports_view(view_mid: str = None):
                 cat_spend.append({"name": cat["name"], "color": cat.get("color", "#888"),
                                   "spent": c_spent})
 
+    # Uncategorized spending — real out-transactions with no bucket. b_spent
+    # (and therefore grand_spent/BvA) skips these, so without surfacing them
+    # here the "Spent" total understates and "Net" overstates by exactly the
+    # amount of un-bucketed expenses. Show them as their own line so the
+    # category breakdown always reconciles with the true total.
+    def _uncat_spent(m_id):
+        return round(sum(
+            float(t.get("amount") or 0) for t in txs
+            if t.get("monthId") == m_id and t.get("type") == "out"
+            and not F.is_scheduled(t) and not t.get("bucketId")
+        ), 2)
+
+    uncat = _uncat_spent(mid)
+    if uncat > 0.005:
+        cat_spend.append({"name": "Uncategorized", "color": "var(--text3)", "spent": uncat})
+        bva.append({"name": "Uncategorized", "color": "#8a8a8a",
+                    "budget": 0.0, "spent": uncat, "variance": -uncat, "buckets": []})
+
+    total_spent = round(grand_spent + uncat, 2)
     total_spend_cat = sum(c["spent"] for c in cat_spend) or 1
     for c in cat_spend:
         c["pct"] = round((c["spent"] / total_spend_cat) * 100)
     cat_spend.sort(key=lambda c: c["spent"], reverse=True)
 
     income = F.month_income(mid, txs, accounts)
-    totals = {"income": income, "spent": grand_spent, "budget": grand_budget,
-              "net": income - grand_spent}
+    totals = {"income": income, "spent": total_spent, "budget": grand_budget,
+              "net": income - total_spent, "uncategorized": uncat}
 
     # ── Account snapshot / net worth ──────────────────────────────────────────
     snapshot = []
@@ -1271,8 +1290,16 @@ def reports_view(view_mid: str = None):
     total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets_all)
     rts_val = F.ready_to_spend(all_months, accounts, buckets, txs)
     alloc_pct = min(100, round(total_alloc / income * 100) if income > 0 else 0)
+    # "unassigned" is THIS viewed-month's own income not yet allocated
+    # (income − allocated). It is a month-local figure and is distinct from
+    # rts_val (the anchored-to-today Ready to Spend shown in the header): the
+    # card's percentage/bar describe unassigned, so the headline value must be
+    # the same quantity or the two contradict each other. Floored at 0 —
+    # allocating from carried-forward surplus makes this negative, which reads
+    # as "fully assigned this month", not a deficit.
+    unassigned = round(max(0.0, income - total_alloc), 2)
     allocation_rate = {"allocated": total_alloc, "income": income,
-                       "pct": alloc_pct, "rts": rts_val}
+                       "pct": alloc_pct, "rts": rts_val, "unassigned": unassigned}
 
     # ── Fixed vs variable ─────────────────────────────────────────────────────
     fixed_spent = sum(
@@ -1315,7 +1342,7 @@ def reports_view(view_mid: str = None):
     for i in range(11, -1, -1):
         m_id = F.month_offset(mid, -i)
         m_income = F.month_income(m_id, txs, accounts)
-        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets_all)
+        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets_all) + _uncat_spent(m_id)
         trend_12mo.append({"mid": m_id, "label": month_label(m_id)[:3],
                            "income": m_income, "spent": m_spent,
                            "net": m_income - m_spent})
@@ -1455,7 +1482,8 @@ def reports_view(view_mid: str = None):
     )
 
     return {
-        "view_mid": mid, "available_months": available_months,
+        "view_mid": mid, "view_label": month_label(mid),
+        "available_months": available_months,
         "bva": bva, "bva_3mo": bva_3mo, "bva_6mo": bva_6mo,
         "cat_spend": cat_spend, "totals": totals,
         "snapshot": snapshot, "net_worth": net_worth,

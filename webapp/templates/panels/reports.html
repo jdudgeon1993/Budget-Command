@@ -18,7 +18,7 @@
     <div class="rpt-card-hd" onclick="rptToggle('perf')">
       <span class="rpt-card-icon">📊</span>
       <span class="rpt-card-title">Month Performance</span>
-      <span class="rpt-card-summary">{{ available_months[0].label if available_months else '' }}</span>
+      <span class="rpt-card-summary">{{ view_label }}</span>
       <span class="rpt-arrow open" id="rpt-arr-perf">▾</span>
     </div>
     <div class="rpt-card-body open" id="rpt-body-perf">
@@ -56,10 +56,10 @@
           <div class="rpt-stat-sub">{{ allocation_rate.allocated | money }} of {{ allocation_rate.income | money }} assigned</div>
         </div>
         <div class="rpt-stat-pill">
-          <div class="rpt-stat-lbl">Ready to Assign</div>
-          <div class="rpt-stat-val {{ 'c-red' if allocation_rate.rts < 0 else ('c-green' if allocation_rate.rts == 0 else 'c-amber') }}">{{ allocation_rate.rts | money }}</div>
+          <div class="rpt-stat-lbl">Left to Assign</div>
+          <div class="rpt-stat-val {{ 'c-green' if allocation_rate.unassigned < 0.005 else 'c-amber' }}">{{ allocation_rate.unassigned | money }}</div>
           <div class="rpt-mini-bar"><div class="rpt-mini-fill" style="width:{{ [100 - allocation_rate.pct, 0] | max }}%;background:var(--amber)"></div></div>
-          <div class="rpt-stat-sub">{{ 100 - allocation_rate.pct }}% unassigned</div>
+          <div class="rpt-stat-sub">{{ 100 - allocation_rate.pct }}% of income unassigned</div>
         </div>
       </div>
 
