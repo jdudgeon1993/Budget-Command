@@ -241,6 +241,7 @@
         {% for c in retired_cats %}
         <div class="setup-retired-row">
           <span class="setup-name">{{ c.name }} <span class="meta-badge" style="background:rgba(129,140,248,.12);color:var(--indigo)">Category</span></span>
+          <span class="setup-retired-when setup-meta">{{ 'Retired ' ~ c.retired if c.retired else 'Retired date unknown' }}</span>
           <form method="post" action="{{ url_for('.restore_category', cid=c.id) }}" style="display:contents"
                 hx-post="{{ url_for('.restore_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML">
             <button class="toolbar-btn" type="submit">Restore</button>
@@ -250,6 +251,7 @@
         {% for b in retired_buckets %}
         <div class="setup-retired-row">
           <span class="setup-name">{{ b.name }} <span class="setup-meta">{{ b.cat }}</span></span>
+          <span class="setup-retired-when setup-meta">{{ 'Retired ' ~ b.retired if b.retired else 'Retired date unknown' }}</span>
           <form method="post" action="{{ url_for('.restore_bucket', bid=b.id) }}" style="display:contents"
                 hx-post="{{ url_for('.restore_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
             <button class="toolbar-btn" type="submit">Restore</button>

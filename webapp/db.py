@@ -590,7 +590,12 @@ def list_retired_buckets(uid: str, token: str) -> list[dict]:
     reports history, name resolution, and the Setup list all share them."""
     rows = client(token).table("bcc_retired_buckets").select("*") \
         .eq("user_id", uid).order("retired_at", desc=True).execute().data or []
-    return [_shape_bucket(b) for b in rows]
+    out = []
+    for b in rows:
+        shaped = _shape_bucket(b)
+        shaped["retiredAt"] = b.get("retired_at") or ""
+        out.append(shaped)
+    return out
 
 
 def list_retired_categories(uid: str, token: str) -> list[dict]:

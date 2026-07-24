@@ -1003,12 +1003,28 @@ def setup_view():
     # Retired buckets/categories for the nestled "Retired" section (Restore).
     _ret = retired_view()
     _live_cat_name = {c["id"]: c["name"] for c in cats}
+
+    def _fmt_retired(iso):
+        # "2026-06-15T12:34:56+00:00" → "Jun 2026". Blank for grandfathered
+        # rows that predate retired_at tracking (they read as "—" so you can
+        # tell them apart from cleanly-retired ones).
+        s = (iso or "")[:7]
+        try:
+            y, m = s.split("-")
+            names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            return f"{names[int(m) - 1]} {y}"
+        except (ValueError, IndexError):
+            return ""
+
     retired_buckets = [{
         "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
         "cat": _ret["cat_names"].get(b.get("catId"))
                or _live_cat_name.get(b.get("catId"), "—"),
+        "retired": _fmt_retired(b.get("retiredAt")),
     } for b in _ret["buckets"]]
-    retired_cats = [{"id": c["id"], "name": c["name"]} for c in _ret["cats"]]
+    retired_cats = [{"id": c["id"], "name": c["name"],
+                     "retired": _fmt_retired(c.get("retiredAt"))} for c in _ret["cats"]]
 
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
             "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"},
@@ -1194,6 +1210,23 @@ def reports_view(view_mid: str = None):
     cats_all = sorted(
         list(data.get("cats", [])) + list(_ret["cats"]),
         key=lambda c: c.get("order", 0))
+    # A retired bucket is out of the plan going forward, but retiring only ever
+    # deleted its *future*-month budget rows (perform_bucket_retire) — and the
+    # one-time archive→retire sweep deleted no month rows at all. So a retired
+    # bucket can still carry a stale budget for the CURRENT month (and, for
+    # grandfathered ones, future months too), which then shows up in this
+    # month's Budget-vs-Actual as an obligation you "never funded". That's
+    # noise: a retired envelope has no live budget. We honor its budget only in
+    # PAST months (real history) and treat it as $0 from the present forward.
+    # Actual spending (b_spent, transaction-based) is always kept — real money
+    # that moved is never hidden. This is read-only; Restore brings everything
+    # back untouched.
+    retired_ids = {b["id"] for b in _ret["buckets"]}
+
+    def _bkt_budget(m_obj, bid, m_id):
+        if bid in retired_ids and F.month_status(m_id) != "past":
+            return 0.0
+        return F.b_budget(m_obj, bid)
 
     # ── Available months for dropdown ─────────────────────────────────────────
     seen = {m["id"] for m in all_months} | {F.current_month_id()}
@@ -1207,7 +1240,7 @@ def reports_view(view_mid: str = None):
         rows, c_budget, c_spent = [], 0.0, 0.0
         for b in sorted([b for b in buckets_all if b.get("catId") == cat["id"]],
                         key=lambda b: b.get("order", 0)):
-            budget = F.b_budget(month, b["id"])
+            budget = _bkt_budget(month, b["id"], mid)
             spent = F.b_spent(mid, b["id"], txs)
             # Budget-vs-Actual is per-viewed-month: a bucket only belongs in a
             # month where it actually had a budget or spending that month.
@@ -1372,7 +1405,7 @@ def reports_view(view_mid: str = None):
         for i in range(5, -1, -1):
             m_id = F.month_offset(mid, -i)
             m_month = active_month(data, m_id)
-            c_budget = sum(F.b_budget(m_month, b["id"]) for b in cat_bkts)
+            c_budget = sum(_bkt_budget(m_month, b["id"], m_id) for b in cat_bkts)
             c_spent = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
             hit = c_budget > 0 and c_spent > c_budget + 0.005
             dots.append(hit)
@@ -1443,7 +1476,7 @@ def reports_view(view_mid: str = None):
             months_data = []
             for m_id in m_ids:
                 m_mo = active_month(data, m_id)
-                c_bud = sum(F.b_budget(m_mo, b["id"]) for b in cat_bkts)
+                c_bud = sum(_bkt_budget(m_mo, b["id"], m_id) for b in cat_bkts)
                 c_sp = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
                 months_data.append({"label": month_label(m_id)[:3],
                                     "variance": c_bud - c_sp,
