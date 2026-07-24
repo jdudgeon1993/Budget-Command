@@ -239,24 +239,53 @@
           allocation rules are not restored.
         </p>
         {% for c in retired_cats %}
-        <div class="setup-retired-row">
-          <span class="setup-name">{{ c.name }} <span class="meta-badge" style="background:rgba(129,140,248,.12);color:var(--indigo)">Category</span></span>
-          <span class="setup-retired-when setup-meta">{{ 'Retired ' ~ c.retired if c.retired else 'Retired date unknown' }}</span>
-          <form method="post" action="{{ url_for('.restore_category', cid=c.id) }}" style="display:contents"
-                hx-post="{{ url_for('.restore_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML">
-            <button class="toolbar-btn" type="submit">Restore</button>
-          </form>
-        </div>
+        <details class="setup-retired-item">
+          <summary class="setup-retired-row">
+            <span class="setup-name">{{ c.name }} <span class="meta-badge" style="background:rgba(129,140,248,.12);color:var(--indigo)">Category</span></span>
+            <span class="setup-retired-when setup-meta {{ 'setup-retired-unknown' if not c.retired }}">{{ 'Retired ' ~ c.retired if c.retired else 'Retired date unknown' }}</span>
+            <span class="setup-retired-edit-cue">Edit</span>
+          </summary>
+          <div class="setup-retired-edit">
+            <form method="post" action="{{ url_for('.finalize_retired_category', cid=c.id) }}" class="setup-retired-form"
+                  hx-post="{{ url_for('.finalize_retired_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML">
+              <label class="setup-retired-lbl">Retired month
+                <input type="month" name="retired_month" value="{{ c.retired_iso }}" required>
+              </label>
+              <button class="btn-primary" type="submit">Save date</button>
+            </form>
+            <form method="post" action="{{ url_for('.restore_category', cid=c.id) }}"
+                  hx-post="{{ url_for('.restore_category', cid=c.id) }}" hx-target="#panel" hx-swap="innerHTML">
+              <button class="toolbar-btn" type="submit">Restore to live</button>
+            </form>
+          </div>
+        </details>
         {% endfor %}
         {% for b in retired_buckets %}
-        <div class="setup-retired-row">
-          <span class="setup-name">{{ b.name }} <span class="setup-meta">{{ b.cat }}</span></span>
-          <span class="setup-retired-when setup-meta">{{ 'Retired ' ~ b.retired if b.retired else 'Retired date unknown' }}</span>
-          <form method="post" action="{{ url_for('.restore_bucket', bid=b.id) }}" style="display:contents"
-                hx-post="{{ url_for('.restore_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
-            <button class="toolbar-btn" type="submit">Restore</button>
-          </form>
-        </div>
+        <details class="setup-retired-item">
+          <summary class="setup-retired-row">
+            <span class="setup-name">{{ b.name }} <span class="setup-meta">{{ b.cat }}</span></span>
+            <span class="setup-retired-when setup-meta {{ 'setup-retired-unknown' if not b.retired }}">{{ 'Retired ' ~ b.retired if b.retired else 'Retired date unknown' }}</span>
+            <span class="setup-retired-edit-cue">Edit</span>
+          </summary>
+          <div class="setup-retired-edit">
+            <form method="post" action="{{ url_for('.finalize_retired_bucket', bid=b.id) }}" class="setup-retired-form"
+                  hx-post="{{ url_for('.finalize_retired_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+              <label class="setup-retired-lbl">Retired month
+                <input type="month" name="retired_month" value="{{ b.retired_iso }}" required>
+              </label>
+              <p class="setup-help" style="margin:0">
+                Sets the retirement date and clears any budget or allocation this bucket
+                still carried from that month forward, so it's fully retired. Earlier months
+                and all transactions are kept.
+              </p>
+              <button class="btn-primary" type="submit">Save &amp; finalize</button>
+            </form>
+            <form method="post" action="{{ url_for('.restore_bucket', bid=b.id) }}"
+                  hx-post="{{ url_for('.restore_bucket', bid=b.id) }}" hx-target="#panel" hx-swap="innerHTML">
+              <button class="toolbar-btn" type="submit">Restore to live</button>
+            </form>
+          </div>
+        </details>
         {% endfor %}
       </div>
     </details>

@@ -607,6 +607,18 @@ def list_retired_categories(uid: str, token: str) -> list[dict]:
     } for c in rows]
 
 
+def update_retired_bucket(uid: str, token: str, bid: str, payload: dict) -> None:
+    """Patch a quarantined bucket in place (e.g. correct its retired_at while
+    finalizing a grandfathered/archived bucket)."""
+    client(token).table("bcc_retired_buckets").update(payload) \
+        .eq("id", bid).eq("user_id", uid).execute()
+
+
+def update_retired_category(uid: str, token: str, cid: str, payload: dict) -> None:
+    client(token).table("bcc_retired_categories").update(payload) \
+        .eq("id", cid).eq("user_id", uid).execute()
+
+
 def delete_bucket_month_rows(uid: str, token: str, bid: str, mids: list) -> None:
     """Delete this bucket's alloc/budget/handled/skipped rows in the given
     months (used for the future-month + expense-current-month forward cleanup).

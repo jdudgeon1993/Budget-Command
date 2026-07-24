@@ -206,6 +206,59 @@ def perform_bucket_retire(bid: str, disposition: str = "release", transfer_to: s
     return True
 
 
+def _parse_retired_month(retired_month: str):
+    """'YYYY-MM' → ((year, month0), 'YYYY-MM-01'). Returns (None, None) on junk
+    so callers can reject bad input instead of writing a garbage date."""
+    try:
+        yy, mm = retired_month.split("-")
+        y, m1 = int(yy), int(mm)
+        if not (1 <= m1 <= 12) or y < 1900 or y > 3000:
+            return None, None
+        return (y, m1 - 1), f"{y:04d}-{m1:02d}-01"
+    except (ValueError, AttributeError):
+        return None, None
+
+
+def finalize_retired_bucket(bid: str, retired_month: str) -> bool:
+    """Finish retiring a grandfathered bucket (one archived under the old model
+    and swept into quarantine without the real retire cleanup ever running).
+
+    Stamps its retirement month and deletes any budget / allocation / handled /
+    skipped rows it still carries from that month FORWARD — plus its allocation
+    rules and scenario references — so it becomes a properly-retired, data-clean
+    bucket. Earlier months and every transaction are left untouched. Returns
+    False on an unparseable month so the route can show a clear error.
+    DEV_SEED: no-op (writes don't persist)."""
+    bound, iso = _parse_retired_month(retired_month)
+    if bound is None:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True
+    uid, token = session["user_id"], session["access_token"]
+    data = load_data(full_history=True)
+    purge_mids = [m["id"] for m in data.get("months", [])
+                  if F.parse_month_id(m["id"]) >= bound]
+    DB.update_retired_bucket(uid, token, bid, {"retired_at": iso})
+    DB.delete_bucket_month_rows(uid, token, bid, purge_mids)
+    DB.delete_bucket_alloc_rules(uid, token, bid)
+    DB.scrub_scenarios_for_bucket(uid, token, bid)
+    return True
+
+
+def finalize_retired_category(cid: str, retired_month: str) -> bool:
+    """Set a quarantined category's retirement month. A category holds no
+    budget/allocation rows of its own (those key off bucket_id), so there is
+    nothing to purge — its buckets are finalized individually. DEV_SEED: no-op."""
+    bound, iso = _parse_retired_month(retired_month)
+    if bound is None:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True
+    uid, token = session["user_id"], session["access_token"]
+    DB.update_retired_category(uid, token, cid, {"retired_at": iso})
+    return True
+
+
 def perform_category_retire(cid: str) -> bool:
     """Retire a category and cascade-retire its live buckets. Cascade uses the
     release disposition for any money-holding bucket (no per-bucket modal is
@@ -1022,9 +1075,11 @@ def setup_view():
         "cat": _ret["cat_names"].get(b.get("catId"))
                or _live_cat_name.get(b.get("catId"), "—"),
         "retired": _fmt_retired(b.get("retiredAt")),
+        "retired_iso": (b.get("retiredAt") or "")[:7],
     } for b in _ret["buckets"]]
     retired_cats = [{"id": c["id"], "name": c["name"],
-                     "retired": _fmt_retired(c.get("retiredAt"))} for c in _ret["cats"]]
+                     "retired": _fmt_retired(c.get("retiredAt")),
+                     "retired_iso": (c.get("retiredAt") or "")[:7]} for c in _ret["cats"]]
 
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
             "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"},
@@ -1222,10 +1277,28 @@ def reports_view(view_mid: str = None):
     # that moved is never hidden. This is read-only; Restore brings everything
     # back untouched.
     retired_ids = {b["id"] for b in _ret["buckets"]}
+    # Boundary month for each retired bucket, from its stored retirement date:
+    # its budget is real history BEFORE this month and $0 from it forward.
+    # Grandfathered buckets with no date fall back to "present" (month_status),
+    # so they still don't pollute the current month until you finalize them
+    # with a real date in Setup → Retired.
+    retired_bound = {}
+    for b in _ret["buckets"]:
+        s = (b.get("retiredAt") or "")[:7]
+        try:
+            yy, mm = s.split("-")
+            retired_bound[b["id"]] = (int(yy), int(mm) - 1)
+        except (ValueError, AttributeError):
+            retired_bound[b["id"]] = None
 
     def _bkt_budget(m_obj, bid, m_id):
-        if bid in retired_ids and F.month_status(m_id) != "past":
-            return 0.0
+        if bid in retired_ids:
+            bound = retired_bound.get(bid)
+            if bound is not None:
+                if F.parse_month_id(m_id) >= bound:
+                    return 0.0
+            elif F.month_status(m_id) != "past":
+                return 0.0
         return F.b_budget(m_obj, bid)
 
     # ── Available months for dropdown ─────────────────────────────────────────

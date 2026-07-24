@@ -1668,6 +1668,46 @@ def retire_category(cid):
     return _setup_panel()
 
 
+@bp.route("/setup/retired/bucket/<bid>/finalize", methods=["POST"])
+@login_required
+def finalize_retired_bucket(bid):
+    """Finish retiring a grandfathered/archived bucket: stamp its retirement
+    month and clear any budget/allocation it still carried from that month on."""
+    rm = request.form.get("retired_month", "").strip()
+    if current_app.config["DEV_SEED"]:
+        flash("Dev mode: change not persisted.", "ok")
+        return _setup_panel()
+    try:
+        if D.finalize_retired_bucket(bid, rm):
+            D.invalidate_cache()
+            _clear_recent_errors()
+            flash("Retirement finalized.", "ok")
+        else:
+            _flash_error("Pick a valid retirement month before finalizing.")
+    except Exception as e:
+        _flash_error(f"Finalize failed ({type(e).__name__}): {str(e)[:400]}")
+    return _setup_panel()
+
+
+@bp.route("/setup/retired/category/<cid>/finalize", methods=["POST"])
+@login_required
+def finalize_retired_category(cid):
+    rm = request.form.get("retired_month", "").strip()
+    if current_app.config["DEV_SEED"]:
+        flash("Dev mode: change not persisted.", "ok")
+        return _setup_panel()
+    try:
+        if D.finalize_retired_category(cid, rm):
+            D.invalidate_cache()
+            _clear_recent_errors()
+            flash("Retirement date saved.", "ok")
+        else:
+            _flash_error("Pick a valid retirement month before saving.")
+    except Exception as e:
+        _flash_error(f"Save failed ({type(e).__name__}): {str(e)[:400]}")
+    return _setup_panel()
+
+
 @bp.route("/buckets/<bid>/restore", methods=["POST"])
 @login_required
 def restore_bucket(bid):
