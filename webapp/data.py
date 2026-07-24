@@ -1209,6 +1209,17 @@ def reports_view(view_mid: str = None):
                         key=lambda b: b.get("order", 0)):
             budget = F.b_budget(month, b["id"])
             spent = F.b_spent(mid, b["id"], txs)
+            # Budget-vs-Actual is per-viewed-month: a bucket only belongs in a
+            # month where it actually had a budget or spending that month.
+            # buckets_all deliberately includes retired buckets so their real
+            # PAST months still report — but in any month where a bucket did
+            # nothing (every retired bucket in the current month, plus dormant
+            # live buckets and un-budgeted vaults), a $0/$0 row is pure noise
+            # that reads as "a dead bucket is polluting my budget". Skip it.
+            # This changes no total: a skipped bucket contributes 0 to
+            # c_budget/c_spent either way.
+            if budget < 0.005 and spent < 0.005:
+                continue
             c_budget += budget
             c_spent += spent
             rows.append({"name": b["name"], "budget": budget, "spent": spent,
@@ -1437,6 +1448,10 @@ def reports_view(view_mid: str = None):
                 months_data.append({"label": month_label(m_id)[:3],
                                     "variance": c_bud - c_sp,
                                     "budget": c_bud, "spent": c_sp})
+            # Drop categories with no budget or spending across the whole
+            # window — e.g. one whose only buckets are long-retired.
+            if not any(md["budget"] > 0.005 or md["spent"] > 0.005 for md in months_data):
+                continue
             rows.append({"name": cat["name"], "color": cat.get("color", "#888"),
                          "months": months_data})
         labels = [month_label(m)[:3] for m in m_ids]
