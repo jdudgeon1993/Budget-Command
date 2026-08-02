@@ -1,6 +1,7 @@
 {% extends layout %}
 {% block panel %}
 <div class="v4-combined">
+  <div class="mnav-wrap" style="grid-column:1/-1">{% include "panels/_month_nav.html" %}</div>
   <div class="v4-mobile-seg">
     <button class="v4-seg-btn active" type="button" onclick="v4SwitchMobile(this,'buckets')">Buckets</button>
     <button class="v4-seg-btn" type="button" onclick="v4SwitchMobile(this,'ledger')">Ledger</button>
@@ -45,20 +46,14 @@
 
     {% if view_rel == 'past' %}
     <div class="month-banner past-month-banner">
-      <span><strong>{{ view_label }}</strong> — you're viewing a previous month. Entries you add here are recorded in {{ view_label }}, not your current budget.</span>
-      <span class="month-banner-actions">
-        <a class="month-banner-cta" href="{{ url_for('.transaction_new', m=view_mid) }}"
-           hx-get="{{ url_for('.transaction_new', m=view_mid) }}" hx-target="#modal-body" hx-swap="innerHTML"
-           onclick="openModal()">+ Add {{ view_label }} transaction</a>
-        <a class="month-banner-cta primary" href="{{ url_for('.buckets') }}"
-           hx-get="{{ url_for('.buckets') }}" hx-target="#panel" hx-swap="innerHTML">Return to {{ current_label }} →</a>
-      </span>
+      <span>Entries you add here are recorded in <strong>{{ view_label }}</strong>, not your current budget.</span>
+      <a class="month-banner-cta" href="{{ url_for('.transaction_new', m=view_mid) }}"
+         hx-get="{{ url_for('.transaction_new', m=view_mid) }}" hx-target="#modal-body" hx-swap="innerHTML"
+         onclick="openModal()">+ Add {{ view_label }} transaction</a>
     </div>
     {% elif view_rel == 'future' %}
     <div class="month-banner future-month-banner">
       <span>Planning allocations for <strong>{{ view_label }}</strong> — spending data not available yet.</span>
-      <a class="month-banner-cta" href="{{ url_for('.buckets') }}"
-         hx-get="{{ url_for('.buckets') }}" hx-target="#panel" hx-swap="innerHTML">Return to {{ current_label }} →</a>
     </div>
     {% endif %}
 

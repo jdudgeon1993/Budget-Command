@@ -55,7 +55,11 @@ def dashboard():
 @bp.route("/buckets")
 @login_required
 def buckets():
+    # A month tab (?m=) sets the app-wide active month too, so the master
+    # month control and Buckets never disagree about which month you're on.
     view_mid = request.args.get("m") or None
+    if view_mid:
+        session["active_mid"] = view_mid
     return render_panel(_bucket_template(), "buckets", **D.bucket_rows(view_mid=view_mid))
 
 
@@ -2015,3 +2019,18 @@ def month_today():
     """Jump the active month back to today's calendar month."""
     session["active_mid"] = D.F.current_month_id()
     return redirect(url_for("." + session.get("active_panel", "buckets")))
+
+
+@bp.route("/month/set")
+@login_required
+def month_set():
+    """Master month control — move the whole app to a month, then re-render the
+    panel you're on. Accounts/Buckets/Dashboard all read session['active_mid'],
+    so this one setter moves them together. Reports keeps its own selector and
+    isn't driven from here (it's never the panel this is triggered from)."""
+    m = request.args.get("m", "")
+    if m.startswith("m_"):
+        session["active_mid"] = m
+    active = session.get("active_panel", "buckets")
+    tmpl, ctx_fn = _panel_lookup(active)
+    return render_panel(tmpl, active, **ctx_fn())

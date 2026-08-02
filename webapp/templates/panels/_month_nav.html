@@ -1,0 +1,21 @@
+{# Master month control. Moves the whole app (Accounts, Buckets) to a month so
+   you can reconcile / finish a prior one. Driven by session active_mid via the
+   .month_set route. Reports keeps its own selector; Buckets keeps its own
+   forward planning tabs — this is the single back-navigation control. #}
+<div class="mnav {{ 'mnav-past' if shell.is_past_month }}">
+  <span class="mnav-lbl">Month</span>
+  <select class="mnav-select"
+          onchange="htmx.ajax('GET','{{ url_for('.month_set') }}?m='+this.value,{target:'#panel',swap:'innerHTML'})"
+          aria-label="Choose which month to view">
+    {% for m in shell.nav_months %}
+    <option value="{{ m.mid }}" {{ 'selected' if m.mid == shell.active_mid }}>{{ m.label }}{% if m.rel == 'future' %} · planning{% endif %}</option>
+    {% endfor %}
+  </select>
+  {% if shell.is_past_month %}<span class="mnav-tag">previous month</span>{% endif %}
+  {% if not shell.is_current_month %}
+  <a class="mnav-today" href="{{ url_for('.month_set') }}?m={{ shell.today_mid }}"
+     hx-get="{{ url_for('.month_set') }}?m={{ shell.today_mid }}" hx-target="#panel" hx-swap="innerHTML">
+    Return to {{ shell.today_month_label }} →
+  </a>
+  {% endif %}
+</div>

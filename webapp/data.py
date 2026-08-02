@@ -389,6 +389,28 @@ def shell_ctx(active_panel: str = "") -> dict:
     is_past_month = F.month_status(mid) == "past"
     today_month_label = month_label(today_mid)
 
+    # Master month navigation — the single app-wide control for moving the
+    # whole app (Accounts, Buckets, Dashboard) to a prior month to reconcile.
+    # It lists the past months you actually have data in, plus the current
+    # month; Buckets keeps its own forward "planning" tabs, and Reports keeps
+    # its own deeper selector. The active month is always included so it stays
+    # selectable even when a Buckets forward tab has parked it in the future.
+    nav_past = set()
+    for m in months:
+        if F.month_status(m["id"]) == "past" and ((m.get("allocations") or {}) or (m.get("budgets") or {})):
+            nav_past.add(m["id"])
+    for t in txs:
+        tm = t.get("monthId")
+        if tm and F.month_status(tm) == "past":
+            nav_past.add(tm)
+    nav_ids = sorted(nav_past, key=F.parse_month_id)[-11:]
+    nav_ids.append(today_mid)
+    if mid not in nav_ids:
+        nav_ids.append(mid)
+    nav_ids = sorted(set(nav_ids), key=F.parse_month_id)
+    nav_months = [{"mid": x, "label": month_label(x), "rel": F.month_status(x)}
+                  for x in nav_ids]
+
     # Pre-render context for add-transaction modal (so it can be instant, no round-trip)
     tx_accounts = [{"id": a["id"], "name": a["name"]}
                    for a in accounts if not a.get("archived")]
@@ -405,6 +427,10 @@ def shell_ctx(active_panel: str = "") -> dict:
         "user_email": session.get("email", ""),
         "month_label": month_label(mid),
         "today_month_label": today_month_label,
+        "today_mid": today_mid,
+        "active_mid": mid,
+        "is_current_month": mid == today_mid,
+        "nav_months": nav_months,
         "is_past_month": is_past_month,
         "rts": rts,
         "total_cash": total_cash,
@@ -691,25 +717,15 @@ def bucket_rows(view_mid: str = None):
             # (transaction forms, scenario editor, vault transfer picker).
             "buckets_v4": sorted(rows, key=_v4_bucket_sort_key),
         })
-    # Month tabs. Forward tabs (current + next two) are for PLANNING ahead;
-    # backward tabs let you return to a prior month you still need to reconcile
-    # — add or finish last month's transactions after the calendar rolls over.
-    # Past tabs are only the months you actually have data in (allocations /
-    # budgets or transactions), newest few, so the bar stays usable; deeper
-    # history lives in Reports.
-    past_ids = set()
-    for m in months:
-        if F.month_status(m["id"]) == "past" and ((m.get("allocations") or {}) or (m.get("budgets") or {})):
-            past_ids.add(m["id"])
-    for t in txs:
-        tmid = t.get("monthId")
-        if tmid and F.month_status(tmid) == "past":
-            past_ids.add(tmid)
-    past_sorted = sorted(past_ids, key=F.parse_month_id)[-6:]
-    month_tabs = [{"mid": pid, "label": month_label(pid), "rel": "past"}
-                  for pid in past_sorted]
+    # Forward "planning" tabs — the current calendar month plus the next two,
+    # for allocating ahead. These are anchored to TODAY (not the viewed month)
+    # so they're stable planning anchors. Moving BACKWARD to reconcile a past
+    # month is handled by the app-wide master month control (the _month_nav
+    # dropdown), so there are no past tabs here — one back-nav control, not two.
+    today_mid = F.current_month_id()
+    month_tabs = []
     for n in (0, 1, 2):
-        m2 = F.month_offset(current_mid, n)
+        m2 = F.month_offset(today_mid, n)
         month_tabs.append({"mid": m2, "label": month_label(m2),
                            "rel": "current" if n == 0 else "future"})
 
