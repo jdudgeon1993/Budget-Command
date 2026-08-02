@@ -691,15 +691,34 @@ def bucket_rows(view_mid: str = None):
             # (transaction forms, scenario editor, vault transfer picker).
             "buckets_v4": sorted(rows, key=_v4_bucket_sort_key),
         })
-    # Month tabs for the future-planning toggle
-    month_tabs = [
-        {"mid": F.month_offset(current_mid, n),
-         "label": month_label(F.month_offset(current_mid, n)),
-         "offset": n}
-        for n in (0, 1, 2)
-    ]
+    # Month tabs. Forward tabs (current + next two) are for PLANNING ahead;
+    # backward tabs let you return to a prior month you still need to reconcile
+    # — add or finish last month's transactions after the calendar rolls over.
+    # Past tabs are only the months you actually have data in (allocations /
+    # budgets or transactions), newest few, so the bar stays usable; deeper
+    # history lives in Reports.
+    past_ids = set()
+    for m in months:
+        if F.month_status(m["id"]) == "past" and ((m.get("allocations") or {}) or (m.get("budgets") or {})):
+            past_ids.add(m["id"])
+    for t in txs:
+        tmid = t.get("monthId")
+        if tmid and F.month_status(tmid) == "past":
+            past_ids.add(tmid)
+    past_sorted = sorted(past_ids, key=F.parse_month_id)[-6:]
+    month_tabs = [{"mid": pid, "label": month_label(pid), "rel": "past"}
+                  for pid in past_sorted]
+    for n in (0, 1, 2):
+        m2 = F.month_offset(current_mid, n)
+        month_tabs.append({"mid": m2, "label": month_label(m2),
+                           "rel": "current" if n == 0 else "future"})
+
+    _vstatus = F.month_status(mid)
+    view_rel = "past" if _vstatus == "past" else ("future" if _vstatus == "future" else "current")
     result = {"groups": groups, "attention": attention, "cats": cats,
               "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
+              "view_rel": view_rel, "view_label": month_label(mid),
+              "current_label": month_label(current_mid),
               "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
                               for b in buckets if not b.get("archived")]}
     result.update(ledger_companion_ctx())
@@ -1619,9 +1638,20 @@ def reports_view(view_mid: str = None):
     }
 
 
-def tx_form_ctx():
-    """Selects + defaults for the Add/Edit Transaction form."""
+def tx_form_ctx(for_mid: str = None):
+    """Selects + defaults for the Add/Edit Transaction form.
+
+    for_mid lets the date default to a month other than today's — when you open
+    the form from a past month you're reconciling, it pre-fills the last day of
+    that month so the entry lands where you're looking (monthId is derived from
+    the date), instead of silently filing into the new current month."""
+    import calendar as _cal
     from datetime import date as _date
+    default_date = _date.today().isoformat()
+    if for_mid and F.month_status(for_mid) == "past":
+        yy, mm0 = F.parse_month_id(for_mid)
+        last = _cal.monthrange(yy, mm0 + 1)[1]
+        default_date = f"{yy:04d}-{mm0 + 1:02d}-{last:02d}"
     data = load_data()
     acct_name = {a["id"]: a["name"] for a in data.get("accounts", [])}
     accounts = [{"id": a["id"], "name": a["name"]}
@@ -1642,7 +1672,7 @@ def tx_form_ctx():
         for t in data.get("txs", []) if t.get("desc") and t.get("type") not in ("opening",)
     ), key=str.lower)
     return {"accounts": accounts, "buckets_by_cat": buckets_by_cat,
-            "today": _date.today().isoformat(), "mid": active_mid(),
+            "today": default_date, "mid": for_mid or active_mid(),
             "payees": payees}
 
 

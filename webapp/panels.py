@@ -1944,12 +1944,13 @@ def transaction_delete(tid):
 @login_required
 def transaction_new():
     tx_type = request.args.get("type", "out")
+    for_mid = request.args.get("m") or None
     back = session.get("active_panel", "buckets")
     if _is_modal():
         return render_template("panels/_frag_add_tx.html", tx_type=tx_type, back=back,
-                               **D.tx_form_ctx())
+                               **D.tx_form_ctx(for_mid))
     return render_panel("panels/add_tx.html", back, tx_type=tx_type, back=back,
-                        **D.tx_form_ctx())
+                        **D.tx_form_ctx(for_mid))
 
 
 @bp.route("/transaction", methods=["POST"])
