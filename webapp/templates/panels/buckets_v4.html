@@ -34,27 +34,31 @@
     {# ── Month planning tabs ── #}
     <div class="month-tabs">
       {% for tab in month_tabs %}
-      <a class="month-tab {% if tab.mid == view_mid %}active{% elif tab.offset > 0 %}future{% endif %}"
-         href="{{ url_for('.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
-         hx-get="{{ url_for('.buckets') }}{% if tab.offset > 0 %}?m={{ tab.mid }}{% endif %}"
+      <a class="month-tab {% if tab.mid == view_mid %}active{% elif tab.rel == 'future' %}future{% elif tab.rel == 'past' %}past{% endif %}"
+         href="{{ url_for('.buckets') }}{% if tab.rel != 'current' %}?m={{ tab.mid }}{% endif %}"
+         hx-get="{{ url_for('.buckets') }}{% if tab.rel != 'current' %}?m={{ tab.mid }}{% endif %}"
          hx-target="#panel" hx-swap="innerHTML">
-        {{ tab.label }}{% if tab.offset > 0 %} <span style="font-size:9px;opacity:.6;vertical-align:middle">▸</span>{% endif %}
+        {% if tab.rel == 'past' %}<span style="font-size:9px;opacity:.6;vertical-align:middle">◂</span> {% endif %}{{ tab.label }}{% if tab.rel == 'future' %} <span style="font-size:9px;opacity:.6;vertical-align:middle">▸</span>{% endif %}
       </a>
       {% endfor %}
     </div>
 
-    {% if shell.is_past_month %}
+    {% if view_rel == 'past' %}
     <div class="month-banner past-month-banner">
-      <span>You're viewing a past month — changes here won't affect your current budget.</span>
-      <a class="month-banner-cta" href="{{ url_for('.month_today') }}">
-        Go to {{ shell.today_month_label }} →
-      </a>
+      <span><strong>{{ view_label }}</strong> — you're viewing a previous month. Entries you add here are recorded in {{ view_label }}, not your current budget.</span>
+      <span class="month-banner-actions">
+        <a class="month-banner-cta" href="{{ url_for('.transaction_new', m=view_mid) }}"
+           hx-get="{{ url_for('.transaction_new', m=view_mid) }}" hx-target="#modal-body" hx-swap="innerHTML"
+           onclick="openModal()">+ Add {{ view_label }} transaction</a>
+        <a class="month-banner-cta primary" href="{{ url_for('.buckets') }}"
+           hx-get="{{ url_for('.buckets') }}" hx-target="#panel" hx-swap="innerHTML">Return to {{ current_label }} →</a>
+      </span>
     </div>
-    {% endif %}
-
-    {% if view_mid != current_mid %}
-    <div style="background:rgba(129,140,248,0.10);border:1px solid rgba(129,140,248,0.25);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--indigo)">
-      Planning allocations for <strong>{{ month_tabs | selectattr('mid','equalto',view_mid) | map(attribute='label') | first | default(view_mid) }}</strong> — spending data not available yet.
+    {% elif view_rel == 'future' %}
+    <div class="month-banner future-month-banner">
+      <span>Planning allocations for <strong>{{ view_label }}</strong> — spending data not available yet.</span>
+      <a class="month-banner-cta" href="{{ url_for('.buckets') }}"
+         hx-get="{{ url_for('.buckets') }}" hx-target="#panel" hx-swap="innerHTML">Return to {{ current_label }} →</a>
     </div>
     {% endif %}
 

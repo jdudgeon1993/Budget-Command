@@ -590,7 +590,12 @@ def list_retired_buckets(uid: str, token: str) -> list[dict]:
     reports history, name resolution, and the Setup list all share them."""
     rows = client(token).table("bcc_retired_buckets").select("*") \
         .eq("user_id", uid).order("retired_at", desc=True).execute().data or []
-    return [_shape_bucket(b) for b in rows]
+    out = []
+    for b in rows:
+        shaped = _shape_bucket(b)
+        shaped["retiredAt"] = b.get("retired_at") or ""
+        out.append(shaped)
+    return out
 
 
 def list_retired_categories(uid: str, token: str) -> list[dict]:
@@ -600,6 +605,18 @@ def list_retired_categories(uid: str, token: str) -> list[dict]:
         "id": c["id"], "name": c["name"], "color": c.get("color", ""),
         "retiredAt": c.get("retired_at") or "",
     } for c in rows]
+
+
+def update_retired_bucket(uid: str, token: str, bid: str, payload: dict) -> None:
+    """Patch a quarantined bucket in place (e.g. correct its retired_at while
+    finalizing a grandfathered/archived bucket)."""
+    client(token).table("bcc_retired_buckets").update(payload) \
+        .eq("id", bid).eq("user_id", uid).execute()
+
+
+def update_retired_category(uid: str, token: str, cid: str, payload: dict) -> None:
+    client(token).table("bcc_retired_categories").update(payload) \
+        .eq("id", cid).eq("user_id", uid).execute()
 
 
 def delete_bucket_month_rows(uid: str, token: str, bid: str, mids: list) -> None:

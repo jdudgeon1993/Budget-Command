@@ -206,6 +206,59 @@ def perform_bucket_retire(bid: str, disposition: str = "release", transfer_to: s
     return True
 
 
+def _parse_retired_month(retired_month: str):
+    """'YYYY-MM' → ((year, month0), 'YYYY-MM-01'). Returns (None, None) on junk
+    so callers can reject bad input instead of writing a garbage date."""
+    try:
+        yy, mm = retired_month.split("-")
+        y, m1 = int(yy), int(mm)
+        if not (1 <= m1 <= 12) or y < 1900 or y > 3000:
+            return None, None
+        return (y, m1 - 1), f"{y:04d}-{m1:02d}-01"
+    except (ValueError, AttributeError):
+        return None, None
+
+
+def finalize_retired_bucket(bid: str, retired_month: str) -> bool:
+    """Finish retiring a grandfathered bucket (one archived under the old model
+    and swept into quarantine without the real retire cleanup ever running).
+
+    Stamps its retirement month and deletes any budget / allocation / handled /
+    skipped rows it still carries from that month FORWARD — plus its allocation
+    rules and scenario references — so it becomes a properly-retired, data-clean
+    bucket. Earlier months and every transaction are left untouched. Returns
+    False on an unparseable month so the route can show a clear error.
+    DEV_SEED: no-op (writes don't persist)."""
+    bound, iso = _parse_retired_month(retired_month)
+    if bound is None:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True
+    uid, token = session["user_id"], session["access_token"]
+    data = load_data(full_history=True)
+    purge_mids = [m["id"] for m in data.get("months", [])
+                  if F.parse_month_id(m["id"]) >= bound]
+    DB.update_retired_bucket(uid, token, bid, {"retired_at": iso})
+    DB.delete_bucket_month_rows(uid, token, bid, purge_mids)
+    DB.delete_bucket_alloc_rules(uid, token, bid)
+    DB.scrub_scenarios_for_bucket(uid, token, bid)
+    return True
+
+
+def finalize_retired_category(cid: str, retired_month: str) -> bool:
+    """Set a quarantined category's retirement month. A category holds no
+    budget/allocation rows of its own (those key off bucket_id), so there is
+    nothing to purge — its buckets are finalized individually. DEV_SEED: no-op."""
+    bound, iso = _parse_retired_month(retired_month)
+    if bound is None:
+        return False
+    if current_app.config["DEV_SEED"]:
+        return True
+    uid, token = session["user_id"], session["access_token"]
+    DB.update_retired_category(uid, token, cid, {"retired_at": iso})
+    return True
+
+
 def perform_category_retire(cid: str) -> bool:
     """Retire a category and cascade-retire its live buckets. Cascade uses the
     release disposition for any money-holding bucket (no per-bucket modal is
@@ -638,15 +691,34 @@ def bucket_rows(view_mid: str = None):
             # (transaction forms, scenario editor, vault transfer picker).
             "buckets_v4": sorted(rows, key=_v4_bucket_sort_key),
         })
-    # Month tabs for the future-planning toggle
-    month_tabs = [
-        {"mid": F.month_offset(current_mid, n),
-         "label": month_label(F.month_offset(current_mid, n)),
-         "offset": n}
-        for n in (0, 1, 2)
-    ]
+    # Month tabs. Forward tabs (current + next two) are for PLANNING ahead;
+    # backward tabs let you return to a prior month you still need to reconcile
+    # — add or finish last month's transactions after the calendar rolls over.
+    # Past tabs are only the months you actually have data in (allocations /
+    # budgets or transactions), newest few, so the bar stays usable; deeper
+    # history lives in Reports.
+    past_ids = set()
+    for m in months:
+        if F.month_status(m["id"]) == "past" and ((m.get("allocations") or {}) or (m.get("budgets") or {})):
+            past_ids.add(m["id"])
+    for t in txs:
+        tmid = t.get("monthId")
+        if tmid and F.month_status(tmid) == "past":
+            past_ids.add(tmid)
+    past_sorted = sorted(past_ids, key=F.parse_month_id)[-6:]
+    month_tabs = [{"mid": pid, "label": month_label(pid), "rel": "past"}
+                  for pid in past_sorted]
+    for n in (0, 1, 2):
+        m2 = F.month_offset(current_mid, n)
+        month_tabs.append({"mid": m2, "label": month_label(m2),
+                           "rel": "current" if n == 0 else "future"})
+
+    _vstatus = F.month_status(mid)
+    view_rel = "past" if _vstatus == "past" else ("future" if _vstatus == "future" else "current")
     result = {"groups": groups, "attention": attention, "cats": cats,
               "view_mid": mid, "current_mid": current_mid, "month_tabs": month_tabs,
+              "view_rel": view_rel, "view_label": month_label(mid),
+              "current_label": month_label(current_mid),
               "all_buckets": [{"id": b["id"], "name": b["name"], "btype": b.get("type","expense")}
                               for b in buckets if not b.get("archived")]}
     result.update(ledger_companion_ctx())
@@ -1003,12 +1075,30 @@ def setup_view():
     # Retired buckets/categories for the nestled "Retired" section (Restore).
     _ret = retired_view()
     _live_cat_name = {c["id"]: c["name"] for c in cats}
+
+    def _fmt_retired(iso):
+        # "2026-06-15T12:34:56+00:00" → "Jun 2026". Blank for grandfathered
+        # rows that predate retired_at tracking (they read as "—" so you can
+        # tell them apart from cleanly-retired ones).
+        s = (iso or "")[:7]
+        try:
+            y, m = s.split("-")
+            names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            return f"{names[int(m) - 1]} {y}"
+        except (ValueError, IndexError):
+            return ""
+
     retired_buckets = [{
         "id": b["id"], "name": b["name"], "type": b.get("type", "expense"),
         "cat": _ret["cat_names"].get(b.get("catId"))
                or _live_cat_name.get(b.get("catId"), "—"),
+        "retired": _fmt_retired(b.get("retiredAt")),
+        "retired_iso": (b.get("retiredAt") or "")[:7],
     } for b in _ret["buckets"]]
-    retired_cats = [{"id": c["id"], "name": c["name"]} for c in _ret["cats"]]
+    retired_cats = [{"id": c["id"], "name": c["name"],
+                     "retired": _fmt_retired(c.get("retiredAt")),
+                     "retired_iso": (c.get("retiredAt") or "")[:7]} for c in _ret["cats"]]
 
     return {"paychecks": paychecks, "cats": cats, "rules": rules, "buckets": buckets,
             "freq_label": {7: "Weekly", 14: "Bi-weekly", 15: "Semi-monthly", 30: "Monthly"},
@@ -1194,6 +1284,41 @@ def reports_view(view_mid: str = None):
     cats_all = sorted(
         list(data.get("cats", [])) + list(_ret["cats"]),
         key=lambda c: c.get("order", 0))
+    # A retired bucket is out of the plan going forward, but retiring only ever
+    # deleted its *future*-month budget rows (perform_bucket_retire) — and the
+    # one-time archive→retire sweep deleted no month rows at all. So a retired
+    # bucket can still carry a stale budget for the CURRENT month (and, for
+    # grandfathered ones, future months too), which then shows up in this
+    # month's Budget-vs-Actual as an obligation you "never funded". That's
+    # noise: a retired envelope has no live budget. We honor its budget only in
+    # PAST months (real history) and treat it as $0 from the present forward.
+    # Actual spending (b_spent, transaction-based) is always kept — real money
+    # that moved is never hidden. This is read-only; Restore brings everything
+    # back untouched.
+    retired_ids = {b["id"] for b in _ret["buckets"]}
+    # Boundary month for each retired bucket, from its stored retirement date:
+    # its budget is real history BEFORE this month and $0 from it forward.
+    # Grandfathered buckets with no date fall back to "present" (month_status),
+    # so they still don't pollute the current month until you finalize them
+    # with a real date in Setup → Retired.
+    retired_bound = {}
+    for b in _ret["buckets"]:
+        s = (b.get("retiredAt") or "")[:7]
+        try:
+            yy, mm = s.split("-")
+            retired_bound[b["id"]] = (int(yy), int(mm) - 1)
+        except (ValueError, AttributeError):
+            retired_bound[b["id"]] = None
+
+    def _bkt_budget(m_obj, bid, m_id):
+        if bid in retired_ids:
+            bound = retired_bound.get(bid)
+            if bound is not None:
+                if F.parse_month_id(m_id) >= bound:
+                    return 0.0
+            elif F.month_status(m_id) != "past":
+                return 0.0
+        return F.b_budget(m_obj, bid)
 
     # ── Available months for dropdown ─────────────────────────────────────────
     seen = {m["id"] for m in all_months} | {F.current_month_id()}
@@ -1207,8 +1332,19 @@ def reports_view(view_mid: str = None):
         rows, c_budget, c_spent = [], 0.0, 0.0
         for b in sorted([b for b in buckets_all if b.get("catId") == cat["id"]],
                         key=lambda b: b.get("order", 0)):
-            budget = F.b_budget(month, b["id"])
+            budget = _bkt_budget(month, b["id"], mid)
             spent = F.b_spent(mid, b["id"], txs)
+            # Budget-vs-Actual is per-viewed-month: a bucket only belongs in a
+            # month where it actually had a budget or spending that month.
+            # buckets_all deliberately includes retired buckets so their real
+            # PAST months still report — but in any month where a bucket did
+            # nothing (every retired bucket in the current month, plus dormant
+            # live buckets and un-budgeted vaults), a $0/$0 row is pure noise
+            # that reads as "a dead bucket is polluting my budget". Skip it.
+            # This changes no total: a skipped bucket contributes 0 to
+            # c_budget/c_spent either way.
+            if budget < 0.005 and spent < 0.005:
+                continue
             c_budget += budget
             c_spent += spent
             rows.append({"name": b["name"], "budget": budget, "spent": spent,
@@ -1361,7 +1497,7 @@ def reports_view(view_mid: str = None):
         for i in range(5, -1, -1):
             m_id = F.month_offset(mid, -i)
             m_month = active_month(data, m_id)
-            c_budget = sum(F.b_budget(m_month, b["id"]) for b in cat_bkts)
+            c_budget = sum(_bkt_budget(m_month, b["id"], m_id) for b in cat_bkts)
             c_spent = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
             hit = c_budget > 0 and c_spent > c_budget + 0.005
             dots.append(hit)
@@ -1432,11 +1568,15 @@ def reports_view(view_mid: str = None):
             months_data = []
             for m_id in m_ids:
                 m_mo = active_month(data, m_id)
-                c_bud = sum(F.b_budget(m_mo, b["id"]) for b in cat_bkts)
+                c_bud = sum(_bkt_budget(m_mo, b["id"], m_id) for b in cat_bkts)
                 c_sp = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
                 months_data.append({"label": month_label(m_id)[:3],
                                     "variance": c_bud - c_sp,
                                     "budget": c_bud, "spent": c_sp})
+            # Drop categories with no budget or spending across the whole
+            # window — e.g. one whose only buckets are long-retired.
+            if not any(md["budget"] > 0.005 or md["spent"] > 0.005 for md in months_data):
+                continue
             rows.append({"name": cat["name"], "color": cat.get("color", "#888"),
                          "months": months_data})
         labels = [month_label(m)[:3] for m in m_ids]
@@ -1498,9 +1638,20 @@ def reports_view(view_mid: str = None):
     }
 
 
-def tx_form_ctx():
-    """Selects + defaults for the Add/Edit Transaction form."""
+def tx_form_ctx(for_mid: str = None):
+    """Selects + defaults for the Add/Edit Transaction form.
+
+    for_mid lets the date default to a month other than today's — when you open
+    the form from a past month you're reconciling, it pre-fills the last day of
+    that month so the entry lands where you're looking (monthId is derived from
+    the date), instead of silently filing into the new current month."""
+    import calendar as _cal
     from datetime import date as _date
+    default_date = _date.today().isoformat()
+    if for_mid and F.month_status(for_mid) == "past":
+        yy, mm0 = F.parse_month_id(for_mid)
+        last = _cal.monthrange(yy, mm0 + 1)[1]
+        default_date = f"{yy:04d}-{mm0 + 1:02d}-{last:02d}"
     data = load_data()
     acct_name = {a["id"]: a["name"] for a in data.get("accounts", [])}
     accounts = [{"id": a["id"], "name": a["name"]}
@@ -1521,7 +1672,7 @@ def tx_form_ctx():
         for t in data.get("txs", []) if t.get("desc") and t.get("type") not in ("opening",)
     ), key=str.lower)
     return {"accounts": accounts, "buckets_by_cat": buckets_by_cat,
-            "today": _date.today().isoformat(), "mid": active_mid(),
+            "today": default_date, "mid": for_mid or active_mid(),
             "payees": payees}
 
 
