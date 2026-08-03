@@ -240,8 +240,10 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
                      phantom_monthly: list = None) -> dict:
     """
     Returns {
-        start_balance, safe_to_spend, total_income, total_unfunded,
-        shortfall_count, periods: [period_dict, ...]
+        start_balance, safe_to_spend (== monthly_runway, legacy alias),
+        monthly_runway, runway_color, remaining_pay_periods,
+        total_income, total_unfunded, shortfall_count,
+        periods: [period_dict, ...]   # each carries period_cap_fmt + fwd-min STS
     }
 
     bucket_overrides: {bid: float_or_expr_str} — override bill amount per bucket
@@ -584,30 +586,63 @@ def compute_forecast(data: dict, n_months: int = 3, account_id: str = "",
             "sts_color":              "",
         })
 
-    # ── Safe to spend (forward minimum) ──────────────────────────────────────
+    # ── Monthly Runway + Period Cap ───────────────────────────────────────────
+    # The forward-minimum end balance is the lowest point the balance ever hits
+    # from a given period onward — i.e. the SHARED cushion that has to survive
+    # every remaining pay period and its bills. Exposed globally as the
+    # "Monthly Runway".
+    #
+    # The flaw we're fixing: that whole shared cushion used to be printed on
+    # every weekly card as "Safe to Spend", which read as "you may spend this
+    # much THIS week" — spend it early and later weeks crater when a big bill
+    # (rent/mortgage) lands. So per card we instead show a "Period Cap": the
+    # still-shared cushion at that block, prorated evenly across the pay periods
+    # that still draw on it. Card 0 is the tightest slice (most periods to share
+    # with, nearest trough), which is the guardrail against early overspending.
     running_min = float("inf")
     fwd_mins    = [0.0] * len(period_results)
     for i in range(len(period_results) - 1, -1, -1):
         running_min = min(running_min, period_results[i]["end_bal_raw"])
         fwd_mins[i] = running_min
 
-    safe_to_spend = fwd_mins[0] if fwd_mins else start_balance
+    # Count of pay-period blocks from each index to the end (skipped periods are
+    # still ~fortnight spending blocks, so they count toward the divisor).
+    pay_remaining = [0] * len(period_results)
+    run_pay = 0
+    for i in range(len(period_results) - 1, -1, -1):
+        if period_results[i]["type"] == "paycheck":
+            run_pay += 1
+        pay_remaining[i] = run_pay
+
+    monthly_runway = fwd_mins[0] if fwd_mins else start_balance
 
     for i, p in enumerate(period_results):
-        sts = fwd_mins[i]
-        p["safe_to_spend_fmt"] = _fmt(sts)
-        p["sts_color"]         = _sts_class(sts)
+        # Legacy Safe-to-Spend fields kept for the dashboard stat + back-compat.
+        p["safe_to_spend_fmt"] = _fmt(fwd_mins[i])
+        p["sts_color"]         = _sts_class(fwd_mins[i])
+        # Period Cap — this block's even share of the still-shared cushion.
+        denom = pay_remaining[i] or 1
+        cap   = max(0.0, fwd_mins[i]) / denom
+        p["period_cap_raw"]    = cap
+        p["period_cap_fmt"]    = _fmt(cap)
+        p["period_cap_color"]  = _sts_class(cap)
+        p["remaining_periods"] = pay_remaining[i]
 
     shortfall_count = sum(1 for p in period_results if p["shortfall"])
 
     return {
-        "start_balance":   _fmt(start_balance),
-        "safe_to_spend":   _fmt(safe_to_spend),
-        "sts_color":       _sts_class(safe_to_spend),
-        "total_income":    _fmt(grand_income),
-        "total_unfunded":  _fmt(grand_unfunded),
-        "shortfall_count": shortfall_count,
-        "periods":         period_results,
+        "start_balance":         _fmt(start_balance),
+        # Legacy keys (dashboard "Safe to Spend" stat parses safe_to_spend).
+        "safe_to_spend":         _fmt(monthly_runway),
+        "sts_color":             _sts_class(monthly_runway),
+        # New dual-level metrics.
+        "monthly_runway":        _fmt(monthly_runway),
+        "runway_color":          _sts_class(monthly_runway),
+        "remaining_pay_periods": pay_remaining[0] if pay_remaining else 0,
+        "total_income":          _fmt(grand_income),
+        "total_unfunded":        _fmt(grand_unfunded),
+        "shortfall_count":       shortfall_count,
+        "periods":               period_results,
     }
 
 

@@ -62,9 +62,9 @@
     <div class="fc-kpi-lbl">Unfunded Bills</div>
     <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
   </div>
-  <div class="fc-kpi">
-    <div class="fc-kpi-lbl">Safe to Spend</div>
-    <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
+  <div class="fc-kpi" title="Shared cushion across all remaining pay periods.">
+    <div class="fc-kpi-lbl">Monthly Runway</div>
+    <div class="fc-kpi-val mono {{ forecast.runway_color }}">{{ forecast.monthly_runway }}</div>
   </div>
   {% if forecast.shortfall_count > 0 %}
   <div class="fc-kpi fc-kpi-alert">
@@ -97,9 +97,10 @@
         <div class="fc-period-range">{{ p.date_range }}</div>
       </div>
       <div class="fc-period-hdr-right">
-        <div style="text-align:right">
-          <div class="fc-kpi-lbl">Safe to Spend</div>
-          <div class="fc-period-sts {{ p.sts_color }}">{{ p.safe_to_spend_fmt }}</div>
+        <div style="text-align:right"
+             title="This period's even share of the shared runway{% if p.remaining_periods %} (÷ {{ p.remaining_periods }} pay period{{ 's' if p.remaining_periods != 1 }}){% endif %}. Spend up to this without starving later periods.">
+          <div class="fc-kpi-lbl">Period Cap</div>
+          <div class="fc-period-sts {{ p.period_cap_color }}">{{ p.period_cap_fmt }}</div>
         </div>
         {% if p.type == 'paycheck' %}
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">

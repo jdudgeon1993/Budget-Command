@@ -16,9 +16,9 @@
       <div class="fc-kpi-lbl">Unfunded Bills</div>
       <div class="fc-kpi-val mono {% if forecast.total_unfunded != '$0.00' %}c-red{% else %}c-green{% endif %}">{{ forecast.total_unfunded }}</div>
     </div>
-    <div class="fc-kpi">
-      <div class="fc-kpi-lbl">Safe to Spend</div>
-      <div class="fc-kpi-val mono {{ forecast.sts_color }}">{{ forecast.safe_to_spend }}</div>
+    <div class="fc-kpi" title="Shared cushion across all remaining pay periods.">
+      <div class="fc-kpi-lbl">Monthly Runway</div>
+      <div class="fc-kpi-val mono {{ forecast.runway_color }}">{{ forecast.monthly_runway }}</div>
     </div>
     {% if forecast.shortfall_count > 0 %}
     <div class="fc-kpi fc-kpi-alert">
