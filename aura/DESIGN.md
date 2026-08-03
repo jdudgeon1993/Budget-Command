@@ -17,23 +17,32 @@ brief asked to raise before the schema is finalized.
   separate Supabase project or homelab Postgres eventually.)
 - **Phased alongside**, not rip-and-replace. Nothing breaks mid-flight.
 
-## The money model (why RTS can't drift)
+## The money model (one cash account; nothing can drift)
+
+There is **one real cash account** (your checking). Envelopes don't hold separate
+money — they're labels partitioning that one balance. Every dollar is either
+Unallocated or funded into an envelope.
 
 ```
-Ready to Spend (RTS)  =  Unallocated  +  Σ over non-vault envelopes (funded − spent)
+Available Balance  =  opening_balance + Σ(income + refund) − Σ(expense)   ← matches the bank
+                   ≡  Unallocated + Σ over ALL envelopes (funded − spent)  ← invariant
+Ready to Spend     =  Unallocated + Σ over NON-VAULT envelopes (funded − spent)
+                   =  Available Balance − Σ over vault envelopes (funded − spent)
 ```
 
-- **Unallocated** — one authoritative scalar per user (`aura_budget.unallocated`),
-  the hero number. Mutated transactionally by income, refund, fund/defund, and
-  rollover. Stored because fund/defund are *silent* (no ledger line to recompute
-  from).
-- **funded** — authoritative per envelope. Fund/defund move money between
-  Unallocated and `funded` and leave no ledger row (the envelope state is the
-  record).
-- **spent** — NOT stored. Derived = Σ cleared expense transactions for that
-  envelope in the current cycle. So editing/deleting a transaction recomputes
-  RTS live; there is nothing cached to drift.
-- **RTS** — always computed from the above, never stored.
+- **Available Balance** — the real cash number, transaction-driven so it can be
+  reconciled against the actual bank. Equals Unallocated + Σ envelope available
+  by construction. (This is Cura's "Available Balance"; RTS is its "Ready to Spend".)
+- **Unallocated** — one authoritative scalar (`aura_budget.unallocated`), the hero
+  number. Mutated transactionally by income, refund, fund/defund, and rollover.
+  Stored because fund/defund are *silent* (no ledger line to recompute from).
+- **funded** — authoritative per envelope; the amount placed in it. Fund/defund
+  move money between Unallocated and `funded` with no ledger row. NOT decremented
+  by spending.
+- **spent** — NOT stored. Derived = Σ cleared expense transactions against the
+  envelope in its active window (current cycle for spend envelopes; lifetime for
+  non-resetting sinking/vault). Editing/deleting a transaction recomputes live.
+- **Available Balance and RTS** — always computed, never stored.
 
 ## Decisions baked into the schema
 
@@ -48,26 +57,31 @@ Ready to Spend (RTS)  =  Unallocated  +  Σ over non-vault envelopes (funded −
 | Allocation rules | `aura_allocation_rules` (internal/external × percent/fixed); evaluated **only** inside the payday modal. |
 | Ledger | One envelope per transaction (no splits). Refunds = income to Unallocated. Fund/defund silent. |
 | Types & keys | uuid PKs, real FKs on every relationship, `DATE`/`NUMERIC(12,2)`/`SMALLINT`, CHECK-enum text. No date-as-text, no id-as-text. |
-| Accounts | **Cut for v1.** Total money = Unallocated + Σ funded; no separate bank/account entity. (Deliberate simplification — flag if you want reconciliation against a real bank balance.) |
+| Cash account | **One main cash account** (folded into `aura_budget`: `account_name` + `opening_balance`). Available Balance reconciles to the bank and equals Unallocated + Σ envelope available. Multiple distinct accounts (checking + savings) deferred to a later `aura_accounts` table if wanted. |
 
-## Flags to confirm before finalizing (the brief's open questions)
+## Decisions locked with owner
 
-1. **Forecast/Ledger unification via `planned` rows — REJECTED (needs your OK).**
-   The legacy schema hinted at making scheduled bills/paychecks be `planned`
-   transaction rows. That **contradicts pillar 3** ("Forecast is never a source
-   of truth, always computed") and the ledger rule ("descriptive/informational
-   only"). So Aura keeps Forecast a pure computation over envelopes + `aura_bills`
-   + `aura_paychecks`; the ledger holds only cleared money. Confirm you agree.
-2. **Cross-cycle transaction edits (open-Q1).** Schema supports it via
-   `tx.cycle_start` + immutable snapshots. Default mechanic: closed-cycle
-   snapshots are immutable; current-cycle edits recompute live. The exact "edit a
-   past tx → ripple a delta into *today*" behavior is left for Phase 3 — flag if
-   you want that delta auto-applied vs. just shown.
-3. **Sinking-fund due date (open-Q2).** Default: **passive milestone**, no
-   automation — the fund just reaches its date; you decide next. No notification
-   engine in v1.
-4. **`bcc_scenarios` / What-If (open-Q7).** 0 rows in Cura, dropped from Aura v1.
-   Say if you want it revived later.
+1. **Forecast is purely computed** — REJECTED the legacy "planned transaction
+   rows" unification (it contradicted pillar 3). Forecast is a pure computation
+   over envelopes + `aura_bills` + `aura_paychecks`; the ledger holds only cleared
+   money. ✔ confirmed.
+2. **One main cash account** — the whole budget reconciles to it (see money
+   model above). ✔ confirmed.
+3. **Sinking-fund due date = passive milestone** — no automation/notifications in
+   v1; the user decides what happens when a fund reaches its date. ✔ confirmed.
+4. **Cross-cycle edits ripple into today** — editing a transaction in a
+   already-closed cycle must keep *today* accurate. Mechanic: Available Balance is
+   transaction-driven across all time, so it self-corrects the instant a past tx
+   changes; the resulting delta lands in **today's Unallocated** (money reappears
+   or vanishes from today's spendable), preserving the invariant. The closed
+   cycle's snapshot stays as the immutable record of what was decided then, marked
+   *amended* — the books are never reopened, but today reflects the truth.
+   ✔ confirmed (resolves open-Q1). Implemented in Phase 3.
+
+## Still open (non-blocking, decide later)
+
+- **What-If / scenarios** (`bcc_scenarios`, 0 rows in Cura) — dropped from v1; say
+  if you want it revived.
 
 ## Rebuild phases
 

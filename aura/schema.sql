@@ -15,24 +15,42 @@
 --   • uuid PKs (gen_random_uuid()), user_id UUID → auth.users, RLS via auth.uid()
 --     — identical to the surrounding Supabase project conventions.
 --
--- Money model (RTS is COMPUTED, never stored — "true by construction"):
---   Unallocated (authoritative scalar on aura_budget)
---     + Σ over non-vault envelopes of (funded − spent)
---     = Ready to Spend (RTS)
---   `funded` is authoritative placed money (fund/defund mutate it silently).
---   `spent` is DERIVED = Σ cleared expense transactions in the current cycle, so
---   editing a transaction recomputes everything live (never stored/cached).
+-- Money model (everything ties to ONE real cash account; nothing cached):
+--   There is a single main cash account (your checking). Envelopes do NOT hold
+--   separate money — they are labels partitioning that one balance. Every dollar
+--   is either Unallocated or funded into some envelope.
+--
+--   Available Balance (must match the bank) — transaction-driven:
+--     = opening_balance + Σ(income + refund) − Σ(expense)
+--     ≡ Unallocated + Σ over ALL envelopes of (funded − spent)      [invariant]
+--
+--   Ready to Spend (RTS) — the same balance minus locked + spoken-for money:
+--     = Unallocated + Σ over NON-VAULT envelopes of (funded − spent)
+--     = Available Balance − Σ over vault envelopes of (funded − spent)
+--
+--   `funded` is authoritative placed money (fund/defund mutate it silently and
+--   are NOT decremented by spending). `spent` is DERIVED = Σ cleared expense
+--   transactions in the envelope's active window, so editing a transaction
+--   recomputes everything live (never stored/cached). Both Available Balance and
+--   RTS are computed, never stored — they cannot drift.
 --
 -- Idempotent: every statement is CREATE ... IF NOT EXISTS; safe to re-run.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 
--- ─── BUDGET (per-user singleton: the authoritative Unallocated + open cycle) ───
+-- ─── BUDGET (per-user singleton: the main cash account + Unallocated + cycle) ──
+--   Folds the single main cash account into the per-user budget row: one real
+--   checking balance the whole envelope system reconciles to (Available Balance
+--   = opening_balance + Σ income/refund − Σ expense ≡ Unallocated + Σ funded−spent).
+--   Multiple distinct reconcilable accounts (e.g. checking + savings) are a
+--   deliberate v1 deferral — envelopes partition this one balance.
 CREATE TABLE IF NOT EXISTS aura_budget (
-    user_id       UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    unallocated   NUMERIC(12,2) NOT NULL DEFAULT 0,   -- the hero number the user watches
-    cycle_start   DATE NOT NULL,                       -- first day of the current open cycle
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    user_id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    account_name     TEXT NOT NULL DEFAULT 'Checking',
+    opening_balance  NUMERIC(12,2) NOT NULL DEFAULT 0,   -- cash-account starting point
+    unallocated      NUMERIC(12,2) NOT NULL DEFAULT 0,   -- the hero number the user watches
+    cycle_start      DATE NOT NULL,                       -- first day of the current open cycle
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE aura_budget ENABLE ROW LEVEL SECURITY;
 CREATE POLICY aura_budget_user ON aura_budget
