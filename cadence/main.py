@@ -7,11 +7,12 @@ No hx-get / hx-target / hx-swap anywhere. You mutate Python state; the pieces
 that depend on it re-render in place over a WebSocket. Scroll and focus never
 jump.
 """
+import os
 from nicegui import ui
 from .store import Store
 
 BRAND = "Cadence"          # rename here — it's the only place the name lives
-PORT = 8110
+PORT = int(os.environ.get("PORT", 8110))   # Railway injects $PORT
 
 
 def money(v: float) -> str:
@@ -166,7 +167,8 @@ def index():
 
 
 def run():
-    ui.run(port=PORT, title=BRAND, reload=False, show=False, favicon="🪙")
+    ui.run(host="0.0.0.0", port=PORT, title=BRAND, reload=False, show=False,
+           favicon="🪙", storage_secret=os.environ.get("SECRET_KEY", "cadence-dev-secret"))
 
 
 if __name__ in {"__main__", "__mp_main__"}:
