@@ -96,6 +96,10 @@ document.addEventListener('htmx:sendError',function(){
       <span class="dash-brand-name">Cura</span>
     </div>
     <div class="dash-stats" id="dash-stats">{% include "panels/_dash_stats.html" %}</div>
+    {% if config.CADENCE_URL %}
+    <a class="cadence-try" href="{{ config.CADENCE_URL }}" target="_blank" rel="noopener"
+       title="Try Cadence — the new, fully-live rebuild">✨ Try the new app</a>
+    {% endif %}
     <a class="dash-avatar" href="{{ url_for('.setup') }}"
        hx-get="{{ url_for('.setup') }}" hx-target="#panel" onclick="dashExpand()"
        aria-label="Setup &amp; account">{{ (shell.user_email[:2] or 'JD') | upper }}</a>
