@@ -277,63 +277,6 @@ def perform_category_retire(cid: str) -> bool:
     return True
 
 
-def attach_forecast_month_groups(fc: dict) -> dict:
-    """Group fc['periods'] by calendar start-month; attach as fc['month_groups'].
-
-    v5 preview only (see panels.py's insights_v5/forecast_whatif_v5/
-    _fc_frag_response_v5) — the real Forecast tab never calls this.
-
-    forecast_calc.py's periods are built purely from paycheck dates with no
-    month-awareness (a biweekly period can span Jul 28 - Aug 10). Splitting a
-    period's own running-balance math across two months lives entirely inside
-    forecast_calc.py and is out of scope here, so each period is grouped
-    under its own start month only — a period that bleeds into the next
-    month is flagged for display (p["bleeds_next_month"]), not split. A
-    period's real end date is always exactly the next period's start date
-    minus one day (forecast_calc.py builds periods_meta contiguous and
-    non-overlapping), so that flag needs no new data from forecast_calc.py —
-    just a diff between consecutive periods' already-present `id` (ISO
-    start-date string) fields.
-    """
-    from datetime import date, timedelta
-    periods = fc.get("periods", [])
-    groups: list[dict] = []
-    by_mid: dict[str, dict] = {}
-
-    def _amt(s: str) -> float:
-        # compute_forecast() only exposes pre-formatted strings; parse here
-        # (testable Python) rather than in Jinja per-cell.
-        try:
-            return float(str(s or "0").replace("$", "").replace(",", ""))
-        except ValueError:
-            return 0.0
-
-    for i, p in enumerate(periods):
-        d = date.fromisoformat(p["id"])
-        mid = F.month_id(d.year, d.month - 1)
-        g = by_mid.get(mid)
-        if g is None:
-            g = {"mid": mid, "label": month_label(mid), "periods": [],
-                 "_income": 0.0, "_bills": 0.0}
-            by_mid[mid] = g
-            groups.append(g)
-        bleeds = False
-        if i + 1 < len(periods):
-            d_next = date.fromisoformat(periods[i + 1]["id"])
-            bleeds = (d_next - timedelta(days=1)).month != d.month
-        p["bleeds_next_month"] = bleeds
-        g["_income"] += _amt(p.get("income_total_fmt"))
-        g["_bills"] += _amt(p.get("funded_total_fmt")) + _amt(p.get("unfunded_total_fmt"))
-        g["periods"].append(p)
-
-    for g in groups:
-        g["income_total_fmt"] = f"${g.pop('_income'):,.2f}"
-        g["bills_total_fmt"] = f"${g.pop('_bills'):,.2f}"
-
-    fc["month_groups"] = groups
-    return fc
-
-
 # ── Shell view-model (sidebar RTS, header, month) ─────────────────────────────
 
 def _safe_to_spend(data: dict, horizon_months: int = 2) -> tuple[float | None, str]:
