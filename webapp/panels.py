@@ -264,10 +264,6 @@ def bucket_settings(bid):
                         "target_date": f.get("target_date") or None,
                         "contrib_freq": f.get("contrib_freq") or None,
                     })
-            # Presence-guarded: forms without the select (goal/vault types)
-            # must not clear an existing link.
-            if "debtAccountId" in f:
-                payload["debt_account_id"] = f.get("debtAccountId") or None
             DB.upsert_bucket(session["user_id"], session["access_token"], bid, payload)
             D.invalidate_cache()
             flash("Bucket updated.", "ok")
@@ -276,15 +272,10 @@ def bucket_settings(bid):
         if request.headers.get("HX-Request") == "true":
             return _panel_close_modal(_bucket_template(), "buckets", **D.bucket_rows())
         return redirect(url_for(".buckets"))
-    data_ctx = D.load_data()
-    debt_accounts = [{"id": a["id"], "name": a["name"]}
-                     for a in data_ctx.get("accounts", [])
-                     if a.get("type") == "debt" and not a.get("archived")]
     if _is_modal():
-        return render_template(_bucket_settings_template(), bucket=bucket, cats=cats,
-                               debt_accounts=debt_accounts)
+        return render_template(_bucket_settings_template(), bucket=bucket, cats=cats)
     return render_panel("panels/edit_bucket.html", "buckets",
-                        bucket=bucket, cats=cats, debt_accounts=debt_accounts)
+                        bucket=bucket, cats=cats)
 
 
 def _record_error(msg: str) -> None:
@@ -637,27 +628,12 @@ def account_edit(aid):
             ob = round(float(f.get("opening_balance", "0").replace("$", "").replace(",", "")), 2)
         except ValueError:
             ob = 0.0
-        def _numf(key):
-            try:
-                v = (f.get(key) or "").replace("$", "").replace(",", "").replace("%", "").strip()
-                return round(float(v), 4) if v else None
-            except ValueError:
-                return None
         fields = {
             "name": f.get("name", "").strip(),
             "type": f.get("type", "budget"),
             "color": f.get("color", "#818cf8"),
             "opening_balance": ob,
         }
-        if f.get("type") == "debt":
-            apr = _numf("debt_apr")
-            min_pay = _numf("debt_min_payment")
-            credit = _numf("credit_limit")
-            if apr is not None: fields["debt_apr"] = apr
-            if min_pay is not None: fields["debt_min_payment"] = min_pay
-            if credit is not None: fields["credit_limit"] = credit
-            fields["is_promo"] = f.get("is_promo") == "1"
-            fields["promo_end_date"] = f.get("promo_end_date") or None
         if not current_app.config["DEV_SEED"]:
             DB.update_account(session["user_id"], session["access_token"], aid, fields)
             D.invalidate_cache()
@@ -684,95 +660,6 @@ def account_archive(aid):
     if request.headers.get("HX-Request") == "true":
         return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
     return redirect(url_for(".accounts"))
-
-
-@bp.route("/accounts/<aid>/pay", methods=["GET", "POST"])
-@login_required
-def debt_payment(aid):
-    data = D.load_data()
-    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
-    if not account or account.get("type") != "debt":
-        return redirect(url_for(".accounts"))
-    if request.method == "POST":
-        f = request.form
-        try:
-            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            amount = 0.0
-        from_aid = f.get("from_aid", "")
-        pay_date = f.get("date") or D.tx_form_ctx()["today"]
-        iso = pay_date[:10]
-        y, m, _ = (iso.split("-") + ["1", "1", "1"])[:3]
-        mid = D.F.month_id(int(y), int(m) - 1)
-        bucket_id = f.get("bucketId") or ""
-        if amount > 0 and from_aid and not current_app.config["DEV_SEED"]:
-            DB.ensure_month(session["user_id"], session["access_token"], mid)
-            DB.insert_debt_payment(session["user_id"], session["access_token"],
-                                   aid, from_aid, amount, iso, mid,
-                                   account["name"], bucket_id)
-            D.invalidate_cache()
-            flash(f"Payment of {amount:,.2f} recorded.", "ok")
-        elif current_app.config["DEV_SEED"]:
-            flash("Dev mode: payment not persisted.", "ok")
-        if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for(".accounts"))
-    # GET — render payment form
-    from_accounts = [{"id": a["id"], "name": a["name"]}
-                     for a in data.get("accounts", [])
-                     if a.get("type") != "debt" and not a.get("archived")]
-    linked_buckets = [{"id": b["id"], "name": b["name"]}
-                      for b in data.get("buckets", [])
-                      if b.get("debtAccountId") == aid and not b.get("archived")]
-    from datetime import date as _date
-    return render_template("panels/_frag_debt_payment.html",
-                           account=account, from_accounts=from_accounts,
-                           linked_buckets=linked_buckets,
-                           today=_date.today().isoformat())
-
-
-@bp.route("/accounts/<aid>/payoff", methods=["GET", "POST"])
-@login_required
-def debt_payoff(aid):
-    return debt_payment(aid)
-
-
-@bp.route("/accounts/<aid>/interest", methods=["GET", "POST"])
-@login_required
-def post_interest(aid):
-    data = D.load_data()
-    account = next((a for a in data.get("accounts", []) if a["id"] == aid), None)
-    if not account or account.get("type") != "debt":
-        return redirect(url_for(".accounts"))
-    if request.method == "POST":
-        f = request.form
-        try:
-            amount = round(float(f.get("amount", "0").replace("$", "").replace(",", "")), 2)
-        except ValueError:
-            amount = 0.0
-        desc = f.get("desc", "").strip() or "Interest charge"
-        pay_date = f.get("date") or D.tx_form_ctx()["today"]
-        if amount > 0:
-            if not current_app.config["DEV_SEED"]:
-                DB.insert_tx(session["user_id"], session["access_token"], {
-                    "accountId": aid, "type": "out", "amount": amount,
-                    "desc": desc, "date": pay_date, "monthId": D.active_mid(),
-                })
-                D.invalidate_cache()
-            flash("Interest posted.", "ok")
-        else:
-            flash("Enter an interest amount greater than zero.", "error")
-        if request.headers.get("HX-Request") == "true":
-            return _panel_close_modal("panels/accounts.html", "accounts", **D.accounts_view())
-        return redirect(url_for(".accounts"))
-    # GET — show form
-    balance = abs(D.F.acct_balance(account, data.get("txs", [])))
-    apr = account.get("debtAPR") or 0
-    suggested = round(balance * (apr / 100) / 12, 2) if apr and balance else None
-    from datetime import date as _date
-    return render_template("panels/_frag_post_interest.html",
-                           account=account, suggested=suggested,
-                           today=_date.today().isoformat())
 
 
 @bp.route("/reports")
@@ -1050,14 +937,12 @@ def health():
         rts_verify_error = str(e)
 
     # ── Unassigned expense transactions ──────────────────────────────────────
-    debt_aid_set = {a["id"] for a in accounts if a.get("type") == "debt"}
     unassigned_txs = sorted([
         {"date": t.get("date", ""), "desc": t.get("desc", "Transaction"),
          "amount": float(t.get("amount") or 0)}
         for t in txs
         if t.get("type") == "out" and not t.get("bucketId")
         and not D.F.is_scheduled(t)
-        and t.get("accountId") not in debt_aid_set
     ], key=lambda x: x["date"], reverse=True)
     if unassigned_txs:
         hints.append(f"{len(unassigned_txs)} expense transaction(s) not assigned to a bucket")
@@ -1073,11 +958,10 @@ def health():
         _write_cols = {
             "bcc_categories": ["archived", "sort_order", "name", "color"],
             "bcc_buckets": ["archived", "flex", "recurring", "notes", "due_day",
-                            "due_amount", "pay_freq", "debt_account_id",
+                            "due_amount", "pay_freq",
                             "target_amount", "target_date", "contrib_freq",
                             "sort_order", "default_budget"],
-            "bcc_transactions": ["income_type", "reconciled",
-                                 "debt_payment_account_id"],
+            "bcc_transactions": ["income_type", "reconciled"],
             "bcc_accounts": ["archived"],
         }
         try:

@@ -186,7 +186,6 @@ def acct_balance_as_of(account: dict, transactions: list[dict], as_of: "date") -
 
 
 def acct_balance(account: dict, transactions: list[dict]) -> float:
-    mult = -1 if account["type"] == "debt" else 1
     acct_id = account["id"]
 
     # Opening balance: sum opening-type transactions if they total > 0, else use field.
@@ -209,19 +208,16 @@ def acct_balance(account: dict, transactions: list[dict]) -> float:
         if t.get("accountId") == acct_id:
             tx_type = t.get("type")
             if tx_type == "in":
-                balance += mult * amount
+                balance += amount
             elif tx_type == "out":
-                balance -= mult * amount
+                balance -= amount
             elif tx_type == "xfr":
-                balance -= mult * amount
+                balance -= amount
             elif tx_type == "adjustment":
-                balance += amount  # raw, no mult
+                balance += amount
 
         elif t.get("toAccountId") == acct_id and t.get("type") == "xfr":
-            balance += mult * amount
-
-        elif t.get("debtPaymentAccountId") == acct_id and t.get("type") == "out":
-            balance -= amount  # reduces debt balance, no mult
+            balance += amount
 
     return balance
 

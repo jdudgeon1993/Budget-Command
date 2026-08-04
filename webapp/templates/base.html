@@ -155,13 +155,6 @@ function updateTxFields(t){
   if(incType)incType.style.display=(t==='in')?'':'none';
   document.querySelectorAll('.tx-type input').forEach(function(r){r.checked=(r.value===t);});
 }
-function updateAcctFields(sel){
-  var t=sel||document.getElementById('acct-type-sel');
-  if(!t)return;
-  var root=t.closest('form')||document;
-  var f=root.querySelector('.acct-debt-fields,#acct-debt-fields');
-  if(f)f.style.display=(t.value==='debt')?'':'none';
-}
 function toggleInlineDrawer(elId, url, iconElId){
   var el=document.getElementById(elId);
   if(!el)return;

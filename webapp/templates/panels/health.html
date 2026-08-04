@@ -163,7 +163,7 @@
         <tr>
           <td>{{ a.name }}</td>
           <td>{{ a.type }}</td>
-          <td class="mono {% if a.balance < 0 and a.type != 'debt' %}c-warn{% endif %}">{{ a.balance | money }}</td>
+          <td class="mono {% if a.balance < 0 %}c-warn{% endif %}">{{ a.balance | money }}</td>
           <td class="mono">{{ a.tx_count }}</td>
           <td class="{% if a.has_opening %}c-ok{% else %}c-warn{% endif %}">{{ '✓' if a.has_opening else '✗ missing' }}</td>
         </tr>

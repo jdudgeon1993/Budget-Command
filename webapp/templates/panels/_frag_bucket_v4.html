@@ -1,6 +1,6 @@
 {# ── v4 settings form — one shape, reused fields, no per-type field groups ──
    Name / Category+Type / Target Budget / Frequency+Due Date / calculated
-   amount due / Flex / Link Debt / Notes. Recurring Bill and Due Amount are
+   amount due / Flex / Notes. Recurring Bill and Due Amount are
    gone — they never fed anything downstream.
    ─────────────────────────────────────────────────────────────────────────── #}
 {% set btype = bucket.type or 'expense' %}
@@ -89,16 +89,6 @@
   </div>
   {% endif %}
 
-  {% if debt_accounts and not is_goal and not is_vault %}
-  <div class="edit-field" id="v4-debt-field-{{ bucket.id }}">
-    <label>Linked debt account <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0;font-weight:400">(payments to this bucket reduce the debt balance)</span></label>
-    <select name="debtAccountId">
-      <option value="">— None —</option>
-      {% for da in debt_accounts %}
-      <option value="{{ da.id }}" {{ 'selected' if da.id == bucket.debtAccountId }}>{{ da.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
   {% endif %}
 
   <div class="edit-field">
@@ -143,8 +133,6 @@
     }
     var flexField = document.getElementById('v4-flex-field-'+id);
     if(flexField) flexField.style.display = (isGoal || isVault) ? 'none' : '';
-    var debtField = document.getElementById('v4-debt-field-'+id);
-    if(debtField) debtField.style.display = (isGoal || isVault) ? 'none' : '';
     v4RecalcDue(id);
   };
 

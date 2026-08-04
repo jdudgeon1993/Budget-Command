@@ -46,21 +46,6 @@
     <div class="dash-acct-empty">No cash accounts yet.</div>
     {% endif %}
   </div>
-  {% if dash.debt_cards %}
-  <div class="dash-acct-group">
-    <div class="dash-acct-hdr">Debt Accounts</div>
-    <div class="dash-acct-chips">
-      {% for a in dash.debt_cards %}
-      <button class="dash-acct-chip dash-acct-chip-debt" type="button" style="--chip-color:{{ a.color }}"
-              hx-get="{{ url_for('.accounts') }}" hx-target="#panel"
-              onclick="dashExpand();dashFilterAcct('{{ a.id }}')">
-        <span class="dash-acct-chip-name">{{ a.name }}</span>
-        <span class="dash-acct-chip-bal neg">{{ a.balance | money }}</span>
-      </button>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
 </div>
 
 <div class="dash-tiles">

@@ -11,8 +11,8 @@
   <div class="modal-row-2">
     <div class="edit-field">
       <label>Type</label>
-      <select name="type" onchange="updateAcctFields(this)">
-        {% for val, label in [('budget','Checking / Cash'),('savings','Savings'),('debt','Credit / Debt')] %}
+      <select name="type">
+        {% for val, label in [('budget','Checking'),('savings','Savings')] %}
         <option value="{{ val }}" {{ 'selected' if account and account.type == val }}>{{ label }}</option>
         {% endfor %}
       </select>
@@ -27,43 +27,6 @@
     <label>Opening balance</label>
     <input type="text" name="opening_balance" inputmode="decimal"
            value="{{ account.openingBalance if account else '0' }}" placeholder="0.00">
-  </div>
-
-  {# Debt-specific fields #}
-  {% set _is_debt = account and account.type == 'debt' %}
-  <div class="acct-debt-fields" style="{{ '' if _is_debt else 'display:none' }}">
-    <div class="modal-row-2">
-      <div class="edit-field">
-        <label>APR <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(%)</span></label>
-        <input type="text" name="debt_apr" inputmode="decimal"
-               value="{{ '%.3f'|format(account.debtAPR) if account and account.debtAPR else '' }}"
-               placeholder="e.g. 24.99">
-      </div>
-      <div class="edit-field">
-        <label>Min payment</label>
-        <input type="text" name="debt_min_payment" inputmode="decimal"
-               value="{{ account.debtMinPayment or '' }}" placeholder="0.00">
-      </div>
-    </div>
-    <div class="modal-row-2">
-      <div class="edit-field">
-        <label>Credit limit</label>
-        <input type="text" name="credit_limit" inputmode="decimal"
-               value="{{ account.creditLimit or '' }}" placeholder="0.00">
-      </div>
-      <div class="edit-field">
-        <label>Promo rate?</label>
-        <select name="is_promo">
-          <option value="0" {{ 'selected' if not (account and account.isPromo) }}>No</option>
-          <option value="1" {{ 'selected' if account and account.isPromo }}>Yes — promo APR</option>
-        </select>
-      </div>
-    </div>
-    <div class="edit-field">
-      <label>Promo end date</label>
-      <input type="date" name="promo_end_date"
-             value="{{ account.promoEndDate if account and account.promoEndDate else '' }}">
-    </div>
   </div>
 
   <div class="edit-actions">

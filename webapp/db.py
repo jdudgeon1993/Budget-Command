@@ -23,7 +23,7 @@ SUPABASE_ANON_KEY    = os.environ.get("SUPABASE_ANON_KEY", "")
 # columns each destination table actually accepts (retired_at is defaulted).
 _RETIRED_BUCKET_COLS = frozenset({
     "id", "user_id", "cat_id", "name", "type", "rollover", "recurring",
-    "due_day", "due_amount", "pay_freq", "debt_account_id", "default_budget",
+    "due_day", "due_amount", "pay_freq", "default_budget",
     "target_amount", "target_date", "contrib_freq", "notes", "flex",
     "archived", "sort_order", "created_at",
 })
@@ -52,7 +52,6 @@ def _shape_bucket(b: dict) -> dict:
         "flex": bool(b.get("flex")),
         "notes": b.get("notes") or "",
         "order": b.get("sort_order", 0),
-        "debtAccountId": b.get("debt_account_id") or "",
         "retiredAt": b.get("retired_at") or "",
     }
 
@@ -165,11 +164,6 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "color": a.get("color", "#3a7fc1"),
         "openingBalance": float(a.get("opening_balance") or 0),
         "archived": a.get("archived", False),
-        "debtAPR": a.get("debt_apr"),
-        "debtMinPayment": a.get("debt_min_payment"),
-        "creditLimit": a.get("credit_limit"),
-        "isPromo": bool(a.get("is_promo")),
-        "promoEndDate": a.get("promo_end_date") or "",
     } for a in sorted(accounts_raw, key=lambda x: x.get("sort_order", 0))]
 
     cats = [{
@@ -188,7 +182,6 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         "date": t.get("date") or "", "desc": t.get("description") or "",
         "bucketId": t.get("bucket_id") or "",
         "toAccountId": t.get("to_account_id") or "",
-        "debtPaymentAccountId": t.get("debt_payment_account_id") or "",
         "incomeType": t.get("income_type") or "paycheck",
         "reconciled": bool(t.get("reconciled")),
     } for t in txs_raw]
@@ -236,7 +229,6 @@ def insert_transaction(uid: str, token: str, tx: dict) -> str:
         "bucket_id": tx.get("bucketId") or None,
         "to_account_id": tx.get("toAccountId") or None,
         "income_type": tx.get("incomeType") or None,
-        "debt_payment_account_id": tx.get("debtPaymentAccountId") or None,
     }).execute()
     return tx_id
 
@@ -283,7 +275,6 @@ def upsert_bucket(uid: str, token: str, bid: str, fields: dict) -> None:
         "flex": "flex",
         "notes": "notes",
         "sort_order": "sort_order",
-        "debt_account_id": "debt_account_id",
     }
     payload = {col_map[k]: v for k, v in fields.items() if k in col_map}
     if payload:
@@ -536,31 +527,12 @@ def update_account(uid: str, token: str, aid: str, fields: dict) -> None:
     col_map = {
         "name": "name", "type": "type", "color": "color",
         "opening_balance": "opening_balance",
-        "debt_apr": "debt_apr", "debt_min_payment": "debt_min_payment",
-        "credit_limit": "credit_limit",
-        "is_promo": "is_promo", "promo_end_date": "promo_end_date",
         "archived": "archived",
     }
     payload = {col_map[k]: v for k, v in fields.items() if k in col_map}
     if payload:
         client(token).table("bcc_accounts").update(payload) \
             .eq("id", aid).eq("user_id", uid).execute()
-
-
-def insert_debt_payment(uid: str, token: str, debt_aid: str, from_aid: str,
-                        amount: float, pay_date: str, mid: str,
-                        debt_name: str, bucket_id: str = "") -> str:
-    tx_id = f"tx_{uuid.uuid4().hex[:12]}"
-    client(token).table("bcc_transactions").insert({
-        "id": tx_id, "user_id": uid,
-        "account_id": from_aid, "month_id": mid,
-        "type": "out", "amount": amount,
-        "date": pay_date,
-        "description": f"Payment — {debt_name}",
-        "bucket_id": bucket_id or None,
-        "debt_payment_account_id": debt_aid,
-    }).execute()
-    return tx_id
 
 
 # ── Categories ────────────────────────────────────────────────────────────────

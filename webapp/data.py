@@ -776,8 +776,7 @@ def dashboard_ctx() -> dict:
         cat_pie_css = "conic-gradient(" + ", ".join(stops) + ")"
 
     acc = accounts_view()
-    cash_cards = [c for c in acc["cards"] if c["type"] != "debt"]
-    debt_cards = [c for c in acc["cards"] if c["type"] == "debt"]
+    cash_cards = acc["cards"]
 
     attention_count = sum(
         1 for g in groups for b in g["buckets"]
@@ -789,7 +788,7 @@ def dashboard_ctx() -> dict:
         "total_budget": total_budget, "total_spent": total_spent,
         "budget_pct": budget_pct, "over_budget": over_budget,
         "cat_trends": cat_trends, "cat_pie_css": cat_pie_css,
-        "cash_cards": cash_cards, "debt_cards": debt_cards,
+        "cash_cards": cash_cards,
         "attention_count": attention_count,
     }
 
@@ -916,9 +915,6 @@ def accounts_view():
         "id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
         "color": a.get("color", "#818cf8"),
         "balance": F.acct_balance(a, txs),
-        "debtAPR": a.get("debtAPR"),
-        "debtMinPayment": a.get("debtMinPayment"),
-        "creditLimit": a.get("creditLimit"),
     } for a in accounts]
 
     month_txs = [t for t in txs if t.get("monthId") == mid]
@@ -959,7 +955,6 @@ def accounts_view():
             "type": ttype, "amount": amt,
             "bucketId": t.get("bucketId", ""),
             "toAccountId": t.get("toAccountId", ""),
-            "debtPaymentAccountId": t.get("debtPaymentAccountId", ""),
         }
 
     _TYPE_ORDER = {"in": 0, "xfr": 1, "out": 2}
@@ -987,7 +982,6 @@ def accounts_view():
     ), key=str.lower)
 
     acct_balances = {a["id"]: round(F.acct_balance(a, txs), 2) for a in accounts}
-    acct_types = {a["id"]: a.get("type", "budget") for a in accounts}
 
     return {
         "cards": cards, "summary": summary,
@@ -995,7 +989,6 @@ def accounts_view():
         "scheduled": _group(sched_txs),
         "payees": payees,
         "acct_balances": acct_balances,
-        "acct_types": acct_types,
     }
 
 
@@ -1612,15 +1605,12 @@ def tx_form_ctx(for_mid: str = None):
         last = _cal.monthrange(yy, mm0 + 1)[1]
         default_date = f"{yy:04d}-{mm0 + 1:02d}-{last:02d}"
     data = load_data()
-    acct_name = {a["id"]: a["name"] for a in data.get("accounts", [])}
     accounts = [{"id": a["id"], "name": a["name"]}
                 for a in data.get("accounts", []) if not a.get("archived")]
     cats = sorted((c for c in data.get("cats", []) if not c.get("archived")), key=lambda c: c.get("order", 0))
     buckets_by_cat = []
     for c in cats:
-        bkts = [{"id": b["id"], "name": b["name"],
-                 "debtAccountId": b.get("debtAccountId", ""),
-                 "debtAccountName": acct_name.get(b.get("debtAccountId", ""), "")}
+        bkts = [{"id": b["id"], "name": b["name"]}
                 for b in data.get("buckets", [])
                 if b.get("catId") == c["id"] and not b.get("archived")
                 and b.get("type") != "vault"]
