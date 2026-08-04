@@ -10,14 +10,9 @@ CREATE TABLE IF NOT EXISTS bcc_accounts (
     id                  TEXT PRIMARY KEY,
     user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     name                TEXT NOT NULL,
-    type                TEXT NOT NULL DEFAULT 'budget',   -- budget | debt | credit
+    type                TEXT NOT NULL DEFAULT 'budget',   -- budget | savings
     color               TEXT NOT NULL DEFAULT '#3a7fc1',
     opening_balance     NUMERIC(12,2) NOT NULL DEFAULT 0,
-    debt_apr            NUMERIC(8,3),
-    debt_min_payment    NUMERIC(12,2),
-    credit_limit        NUMERIC(12,2),
-    is_promo            BOOLEAN NOT NULL DEFAULT FALSE,
-    promo_end_date      TEXT,
     archived            BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order          INTEGER NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -48,13 +43,12 @@ CREATE TABLE IF NOT EXISTS bcc_buckets (
     user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     cat_id          TEXT,
     name            TEXT NOT NULL,
-    type            TEXT NOT NULL DEFAULT 'expense',   -- expense | vault | debt
+    type            TEXT NOT NULL DEFAULT 'expense',   -- expense | vault | goal
     rollover        BOOLEAN NOT NULL DEFAULT FALSE,
     recurring       BOOLEAN NOT NULL DEFAULT FALSE,
     due_day         TEXT,                              -- 1-31 | 'eom' | NULL
     due_amount      NUMERIC(12,2),
     pay_freq        TEXT,                              -- monthly | biweekly | etc.
-    debt_account_id TEXT,
     default_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
     target_amount   NUMERIC(12,2),                     -- goal/sinking: savings target
     target_date     TEXT,                              -- goal/sinking: YYYY-MM deadline
@@ -82,7 +76,6 @@ CREATE TABLE IF NOT EXISTS bcc_transactions (
     bucket_id               TEXT,
     account_id              TEXT,
     to_account_id           TEXT,
-    debt_payment_account_id TEXT,
     reconciled              BOOLEAN NOT NULL DEFAULT FALSE,
     recurring               BOOLEAN NOT NULL DEFAULT FALSE,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -135,19 +128,6 @@ CREATE TABLE IF NOT EXISTS bcc_month_budgets (
 
 ALTER TABLE bcc_month_budgets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY bcc_month_budgets_user_policy ON bcc_month_budgets
-    FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
-
--- ─── MONTH ROLLOVER RELEASED ─────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS bcc_month_rollover_released (
-    user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    month_id    TEXT NOT NULL,
-    bucket_id   TEXT NOT NULL,
-    amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
-    PRIMARY KEY (user_id, month_id, bucket_id)
-);
-
-ALTER TABLE bcc_month_rollover_released ENABLE ROW LEVEL SECURITY;
-CREATE POLICY bcc_month_rollover_released_user_policy ON bcc_month_rollover_released
     FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- ─── MONTH SKIPPED ───────────────────────────────────────────────────────────
@@ -296,7 +276,6 @@ ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS notes           TEXT;
 ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS due_day         TEXT;
 ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS due_amount      NUMERIC(12,2);
 ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS pay_freq        TEXT;
-ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS debt_account_id TEXT;
 ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS target_amount   NUMERIC(12,2);
 ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS target_date     TEXT;
 ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS contrib_freq    TEXT;
@@ -304,7 +283,6 @@ ALTER TABLE bcc_buckets ADD COLUMN IF NOT EXISTS sort_order      INTEGER NOT NUL
 
 ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS income_type TEXT;
 ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS reconciled  BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE bcc_transactions ADD COLUMN IF NOT EXISTS debt_payment_account_id TEXT;
 
 -- ─── MONTH HANDLED (was missing) ─────────────────────────────────────────────
 -- db.py has always read/written this table (load_all, toggle_handled) but it
@@ -343,7 +321,6 @@ CREATE TABLE IF NOT EXISTS bcc_retired_buckets (
     due_day         TEXT,
     due_amount      NUMERIC(12,2),
     pay_freq        TEXT,
-    debt_account_id TEXT,
     default_budget  NUMERIC(12,2) NOT NULL DEFAULT 0,
     target_amount   NUMERIC(12,2),
     target_date     TEXT,
@@ -383,10 +360,10 @@ CREATE POLICY bcc_retired_categories_user_policy ON bcc_retired_categories
 -- longer exist in bcc_buckets/bcc_categories.
 INSERT INTO bcc_retired_buckets (
     id, user_id, cat_id, name, type, rollover, recurring, due_day, due_amount,
-    pay_freq, debt_account_id, default_budget, target_amount, target_date,
+    pay_freq, default_budget, target_amount, target_date,
     contrib_freq, notes, flex, archived, sort_order, created_at)
 SELECT id, user_id, cat_id, name, type, rollover, recurring, due_day, due_amount,
-    pay_freq, debt_account_id, default_budget, target_amount, target_date,
+    pay_freq, default_budget, target_amount, target_date,
     contrib_freq, notes, flex, archived, sort_order, created_at
 FROM bcc_buckets WHERE archived = true
 ON CONFLICT (id) DO NOTHING;
