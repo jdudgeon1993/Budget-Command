@@ -8,8 +8,14 @@ that depend on it re-render in place over a WebSocket. Scroll and focus never
 jump.
 """
 import os
-from nicegui import ui
+from nicegui import ui, app
 from .store import Store
+
+
+@app.get("/healthz")
+def _healthz():
+    """Matches the repo's Railway healthcheck path so this service deploys clean."""
+    return {"status": "ok"}
 
 BRAND = "Cadence"          # rename here — it's the only place the name lives
 PORT = int(os.environ.get("PORT", 8110))   # Railway injects $PORT
