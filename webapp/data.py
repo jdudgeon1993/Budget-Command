@@ -1207,10 +1207,8 @@ def paycheck_distribute_ctx(
 
 
 def reports_view(view_mid: str = None):
-    """Full reports data — BvA, trends, spending analysis, goals, discipline."""
+    """Reports data — Budget vs Actual (1/3/6-mo) + Spending Analysis."""
     from collections import defaultdict
-    from datetime import date as _date
-    import calendar as _cal
 
     data = load_data(full_history=True)
     mid = view_mid or active_mid()
@@ -1340,55 +1338,6 @@ def reports_view(view_mid: str = None):
     totals = {"income": income, "spent": total_spent, "budget": grand_budget,
               "net": income - total_spent, "uncategorized": uncat}
 
-    # ── Account snapshot / net worth ──────────────────────────────────────────
-    snapshot = []
-    for a in accounts:
-        bal = F.acct_balance(a, txs)
-        atype = a.get("type", "budget")
-        snapshot.append({"name": a["name"], "type": atype, "balance": bal,
-                         "net_worth_bal": -bal if atype == "debt" else bal})
-    net_worth = sum(s["net_worth_bal"] for s in snapshot)
-
-    # ── Funding rate ──────────────────────────────────────────────────────────
-    # Handled buckets are dealt with outside the app this month — they need
-    # no funding, so they belong in neither the funded count nor the
-    # denominator (same rule distribute_obligations applies).
-    _handled = month.get("handledBuckets") or {}
-    expense_bkts = [b for b in buckets
-                    if b.get("type", "expense") != "vault"
-                    and b["id"] not in _handled]
-    funded_count = sum(
-        1 for b in expense_bkts
-        if F.b_alloc(month, b["id"]) >= max(F.b_budget(month, b["id"]) - 0.005, 0.005)
-    )
-    funding_rate = {"funded": funded_count, "total": max(len(expense_bkts), 1),
-                    "pct": round(funded_count / max(len(expense_bkts), 1) * 100)}
-
-    # ── Allocation rate + RTS ─────────────────────────────────────────────────
-    # RTS here must be the same anchored-to-today figure shown everywhere else
-    # in the app (header, Buckets, Health Check) — not a viewed-month-local
-    # "income minus allocated" figure, which can go negative the moment
-    # allocations are funded from carried-forward surplus rather than this
-    # month's own income, even though real Ready to Spend is healthy. It's
-    # also deliberately scoped to currently-active buckets (buckets, not
-    # buckets_all) — an archived bucket can't claim RTS going forward.
-    # total_alloc, by contrast, describes the *viewed* month's own historical
-    # allocation and should include buckets archived since — that money was
-    # genuinely allocated at the time either way.
-    total_alloc = sum(F.b_alloc(month, b["id"]) for b in buckets_all)
-    rts_val = F.ready_to_spend(all_months, accounts, buckets, txs)
-    alloc_pct = min(100, round(total_alloc / income * 100) if income > 0 else 0)
-    # "unassigned" is THIS viewed-month's own income not yet allocated
-    # (income − allocated). It is a month-local figure and is distinct from
-    # rts_val (the anchored-to-today Ready to Spend shown in the header): the
-    # card's percentage/bar describe unassigned, so the headline value must be
-    # the same quantity or the two contradict each other. Floored at 0 —
-    # allocating from carried-forward surplus makes this negative, which reads
-    # as "fully assigned this month", not a deficit.
-    unassigned = round(max(0.0, income - total_alloc), 2)
-    allocation_rate = {"allocated": total_alloc, "income": income,
-                       "pct": alloc_pct, "rts": rts_val, "unassigned": unassigned}
-
     # ── Fixed vs variable ─────────────────────────────────────────────────────
     fixed_spent = sum(
         F.b_spent(mid, b["id"], txs)
@@ -1425,90 +1374,6 @@ def reports_view(view_mid: str = None):
                 "amount": float(t.get("amount") or 0)}
                for t in out_txs[:5]]
 
-    # ── 12-month income/expense trend ─────────────────────────────────────────
-    trend_12mo = []
-    for i in range(11, -1, -1):
-        m_id = F.month_offset(mid, -i)
-        m_income = F.month_income(m_id, txs, accounts)
-        m_spent = sum(F.b_spent(m_id, b["id"], txs) for b in buckets_all) + _uncat_spent(m_id)
-        trend_12mo.append({"mid": m_id, "label": month_label(m_id)[:3],
-                           "income": m_income, "spent": m_spent,
-                           "net": m_income - m_spent})
-    max_val = max((max(t["income"], t["spent"]) for t in trend_12mo), default=1) or 1
-    for t in trend_12mo:
-        t["income_pct"] = round(t["income"] / max_val * 100)
-        t["spent_pct"] = round(t["spent"] / max_val * 100)
-
-    # ── Over-budget frequency by category (last 6 months) ────────────────────
-    over_freq = []
-    for cat in cats_all:
-        cat_bkts = [b for b in buckets_all if b.get("catId") == cat["id"]]
-        if not cat_bkts:
-            continue
-        dots, over_count = [], 0
-        for i in range(5, -1, -1):
-            m_id = F.month_offset(mid, -i)
-            m_month = active_month(data, m_id)
-            c_budget = sum(_bkt_budget(m_month, b["id"], m_id) for b in cat_bkts)
-            c_spent = sum(F.b_spent(m_id, b["id"], txs) for b in cat_bkts)
-            hit = c_budget > 0 and c_spent > c_budget + 0.005
-            dots.append(hit)
-            if hit:
-                over_count += 1
-        if over_count > 0:
-            over_freq.append({"name": cat["name"], "count": over_count,
-                              "total": 6, "dots": dots})
-    over_freq.sort(key=lambda x: x["count"], reverse=True)
-    over_freq = over_freq[:6]
-
-    # ── Goals ─────────────────────────────────────────────────────────────────
-    goals = []
-    for b in buckets:
-        btype = b.get("type", "expense")
-        target = float(b.get("targetAmount") or 0)
-        if btype in ("goal", "sinking") and target > 0:
-            saved = F.bucket_available(b, month, all_months, txs)
-            saved = max(0.0, saved)
-            monthly_contrib = float(b.get("defaultBudget") or 0)
-            remaining = max(0.0, target - saved)
-            months_left = (round(remaining / monthly_contrib)
-                          if monthly_contrib > 0 else None)
-            pct = min(100, round(saved / target * 100))
-            goals.append({"name": b["name"], "saved": saved, "target": target,
-                          "pct": pct, "monthly_contrib": monthly_contrib,
-                          "months_left": months_left,
-                          "target_date": b.get("targetDate") or ""})
-
-    # ── Net worth trend (6 months) ────────────────────────────────────────────
-    nw_trend = []
-    for i in range(5, -1, -1):
-        m_id = F.month_offset(mid, -i)
-        y, m0 = F.parse_month_id(m_id)
-        last_day = _date(y, m0 + 1, _cal.monthrange(y, m0 + 1)[1])
-        nw = sum(
-            (-F.acct_balance_as_of(a, txs, last_day) if a.get("type") == "debt"
-             else F.acct_balance_as_of(a, txs, last_day))
-            for a in accounts
-        )
-        nw_trend.append({"mid": m_id, "label": month_label(m_id)[:3], "net_worth": round(nw, 2)})
-    nw_min = min(t["net_worth"] for t in nw_trend) if nw_trend else 0
-    nw_max = max(t["net_worth"] for t in nw_trend) if nw_trend else 1
-    nw_range = (nw_max - nw_min) or 1
-    for t in nw_trend:
-        t["pct"] = round((t["net_worth"] - nw_min) / nw_range * 100)
-
-    # ── Debt accounts with monthly delta ─────────────────────────────────────
-    debt_accounts = []
-    for a in accounts:
-        if a.get("type") == "debt":
-            cur_bal = F.acct_balance(a, txs)
-            prev_mid = F.month_offset(mid, -1)
-            prev_y, prev_m0 = F.parse_month_id(prev_mid)
-            prev_last = _date(prev_y, prev_m0 + 1, _cal.monthrange(prev_y, prev_m0 + 1)[1])
-            prev_bal = F.acct_balance_as_of(a, txs, prev_last)
-            debt_accounts.append({"name": a["name"], "balance": cur_bal,
-                                   "delta": round(prev_bal - cur_bal, 2)})
-
     # ── Multi-month BvA ───────────────────────────────────────────────────────
     def _bva_multi(n):
         m_ids = [F.month_offset(mid, -(n - 1 - i)) for i in range(n)]
@@ -1537,56 +1402,13 @@ def reports_view(view_mid: str = None):
     bva_3mo = _bva_multi(3)
     bva_6mo = _bva_multi(6)
 
-    # ── Discipline heatmap (12 months) ────────────────────────────────────────
-    # net_alloc is month-local "income minus allocated" — it is NOT RTS (see
-    # the allocation_rate comment above). A negative value only means the
-    # month's allocations were funded from carried-forward surplus, which is
-    # normal ZBB behavior, not a deficit — so it's labeled "carryover", never
-    # "negative RTS".
-    heatmap, carryover_months = [], []
-    for i in range(11, -1, -1):
-        m_id = F.month_offset(mid, -i)
-        m_mo = active_month(data, m_id)
-        m_income = F.month_income(m_id, txs, accounts)
-        m_alloc = sum(F.b_alloc(m_mo, b["id"]) for b in buckets_all)
-        net_alloc = m_income - m_alloc
-        if m_income > 0:
-            alloc_rate = min(m_alloc / m_income, 1.0)
-            if net_alloc < -0.005:
-                status = "carryover"
-                carryover_months.append(month_label(m_id))
-            elif alloc_rate >= 0.90:
-                status = "full"
-            else:
-                status = "partial"
-        else:
-            alloc_rate = 0.0
-            status = "empty"
-        heatmap.append({"mid": m_id, "label": month_label(m_id)[:3],
-                        "status": status, "net_alloc": round(net_alloc, 2),
-                        "alloc_rate": round(alloc_rate * 100)})
-
-    active_hm = [h for h in heatmap if h["status"] != "empty"]
-    disc_score = round(sum(h["alloc_rate"] for h in active_hm) / max(len(active_hm), 1))
-    avg_surplus = round(
-        sum(h["net_alloc"] for h in heatmap if h["net_alloc"] > 0) /
-        max(sum(1 for h in heatmap if h["net_alloc"] > 0), 1), 2
-    )
-
     return {
         "view_mid": mid, "view_label": month_label(mid),
         "available_months": available_months,
         "bva": bva, "bva_3mo": bva_3mo, "bva_6mo": bva_6mo,
         "cat_spend": cat_spend, "totals": totals,
-        "snapshot": snapshot, "net_worth": net_worth,
-        "funding_rate": funding_rate, "allocation_rate": allocation_rate,
         "fixed_vs_variable": fixed_vs_variable,
         "top_merchants": top_merchants, "top_txs": top_txs,
-        "trend_12mo": trend_12mo, "over_freq": over_freq,
-        "goals": goals, "nw_trend": nw_trend,
-        "debt_accounts": debt_accounts,
-        "heatmap": heatmap, "disc_score": disc_score,
-        "carryover_months": carryover_months, "avg_surplus": avg_surplus,
     }
 
 
