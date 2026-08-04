@@ -11,11 +11,6 @@ from .formulas import (acct_balance as _acct_balance, is_scheduled as _is_schedu
 
 # ── Timeline helpers ──────────────────────────────────────────────────────────
 
-def ym_key(year: int, month: int) -> str:
-    """Canonical month key used by wi_timeline: '2026-9'."""
-    return f"{year}-{month}"
-
-
 def ym_int(key) -> float:
     """Convert 'YYYY-M' key (or None) to a sortable integer for comparison."""
     if not key:

@@ -1770,14 +1770,6 @@ def transaction_create():
     return redirect(url_for("." + back_panel))
 
 
-@bp.route("/month/today")
-@login_required
-def month_today():
-    """Jump the active month back to today's calendar month."""
-    session["active_mid"] = D.F.current_month_id()
-    return redirect(url_for("." + session.get("active_panel", "buckets")))
-
-
 @bp.route("/month/set")
 @login_required
 def month_set():

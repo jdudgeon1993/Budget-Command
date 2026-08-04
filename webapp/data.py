@@ -121,12 +121,6 @@ def bucket_name_map(data: dict) -> dict:
     return m
 
 
-def cat_name_map(data: dict) -> dict:
-    m = dict(retired_view()["cat_names"])
-    m.update({c["id"]: c["name"] for c in data.get("cats", [])})
-    return m
-
-
 def _forward_month_ids(data: dict) -> list:
     """Month ids strictly after the current calendar month. Pure — testable
     without a DB. (month_id is m_{y}_{m0}, which does NOT sort lexically, so

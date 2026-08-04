@@ -178,13 +178,6 @@ def distribute_obligations(buckets: list[dict], month: dict) -> list[dict]:
 
 # ── 3.1 Account Balance ───────────────────────────────────────────────────────
 
-def acct_balance_as_of(account: dict, transactions: list[dict], as_of: "date") -> float:
-    """Balance including only transactions on or before as_of date."""
-    filtered = [t for t in transactions
-                if (_safe_date(t.get("date")) or date.max) <= as_of]
-    return acct_balance(account, filtered)
-
-
 def acct_balance(account: dict, transactions: list[dict]) -> float:
     acct_id = account["id"]
 
