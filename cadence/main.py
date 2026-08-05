@@ -11,7 +11,7 @@ import os
 from datetime import date
 from html import escape as _esc
 from nicegui import ui, app
-from . import theme
+from . import theme, forecast
 from .store import Store as SeedStore
 
 BRAND = "Cadence"          # rename here — it's the only place the name lives
@@ -182,10 +182,9 @@ def _app(store, demo: bool):
             @ui.refreshable
             def nav():
                 with ui.element("div").classes("cd-nav"):
-                    for key, label in (("buckets", "Buckets"), ("ledger", "Ledger")):
+                    for key, label in (("buckets", "Buckets"), ("ledger", "Ledger"), ("forecast", "Forecast")):
                         cls = "cd-navbtn active" if state["view"] == key else "cd-navbtn"
                         ui.html(f'<div class="{cls}">{label}</div>').on("click", lambda _, k=key: go(k))
-                    ui.html('<div class="cd-navbtn soon">Forecast</div>')
             nav()
 
             with ui.element("div").classes("cd-auth"):
@@ -514,6 +513,8 @@ def _app(store, demo: bool):
         def content():
             if state["view"] == "ledger":
                 _ledger_view(store, refresh_page)
+            elif state["view"] == "forecast":
+                _forecast_view(store, refresh_page)
             elif state["view"] == "settings":
                 _settings_view(store, refresh_page)
             else:
@@ -927,6 +928,152 @@ def _settings_view(store, refresh_bg):
         for r in store.rules():
             _rule_row(r)
         ui.html('<div class="cd-set-add">＋ Add rule</div>').on("click", lambda _: _open_rule())
+
+
+# ── Forecast pillar (forward cash-flow projection) ────────────────────────────
+def _forecast_bills(store) -> list[dict]:
+    """Scheduled spend buckets that hit the calendar (feed the projection)."""
+    out = []
+    for g in store.groups():
+        for r in g["rows"]:
+            if (r["type"] == "spend" and not r["flex"] and not r["handled"] and r["target"] > 0
+                    and (r["due_day"] is not None
+                         or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly"))):
+                out.append({"name": r["name"], "amount": r["target"], "spent": r["spent"],
+                            "available": r["available"], "due_day": r["due_day"],
+                            "frequency": r["frequency"]})
+    return out
+
+
+def _forecast_chart(res: dict) -> str:
+    """A balance-over-time line chart (inline SVG) for the projection."""
+    traj = res["trajectory"]
+    if len(traj) < 2:
+        return ""
+    t0 = date.fromisoformat(res["today"])
+    horizon = max(res["horizon_days"], 1)
+    xs = [(date.fromisoformat(p["date"]) - t0).days for p in traj]
+    ys = [p["balance"] for p in traj]
+    W, H, padL, padR, padT, padB = 820, 210, 10, 12, 16, 22
+    cw, ch = W - padL - padR, H - padT - padB
+    lo, hi = min(ys + [0]), max(ys)
+    rng = (hi - lo) or 1.0
+
+    def X(day):
+        return padL + (day / horizon) * cw
+
+    def Y(v):
+        return padT + (1 - (v - lo) / rng) * ch
+
+    pts = list(zip((X(x) for x in xs), (Y(y) for y in ys)))
+    line = "M " + " L ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    area = (f"M {pts[0][0]:.1f},{Y(0):.1f} L "
+            + " L ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+            + f" L {pts[-1][0]:.1f},{Y(0):.1f} Z")
+    col = "#f43f5e" if res["shortfall"] else "#f59e0b" if res["safe_to_spend"] < 500 else "#10b981"
+    zero_line = ""
+    if lo < 0:
+        zy = Y(0)
+        zero_line = (f'<line x1="{padL}" y1="{zy:.1f}" x2="{padL + cw}" y2="{zy:.1f}" '
+                     f'stroke="#f43f5e" stroke-width="1" stroke-dasharray="4 4" opacity=".6"/>')
+    lx, ly = X((date.fromisoformat(res["low"]["date"]) - t0).days), Y(res["low"]["balance"])
+    lbl_anchor = "start" if lx < W * 0.5 else "end"
+    lbl_dx = 8 if lx < W * 0.5 else -8
+    low_txt = f'${abs(res["low"]["balance"]):,.0f}'
+    end_lbl = date.fromisoformat(res["end_date"]).strftime("%b ") + str(date.fromisoformat(res["end_date"]).day)
+    return f'''<svg viewBox="0 0 {W} {H}" class="cd-fc-svg" preserveAspectRatio="none">
+      <defs><linearGradient id="fcg" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="{col}" stop-opacity=".22"/>
+        <stop offset="1" stop-color="{col}" stop-opacity="0"/>
+      </linearGradient></defs>
+      {zero_line}
+      <path d="{area}" fill="url(#fcg)"/>
+      <path d="{line}" fill="none" stroke="{col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="{lx:.1f}" cy="{ly:.1f}" r="4.5" fill="{col}"/>
+      <text x="{lx + lbl_dx:.1f}" y="{ly - 9:.1f}" text-anchor="{lbl_anchor}" font-size="11" font-weight="700" fill="{col}">low {low_txt}</text>
+      <text x="{padL}" y="{H - 6}" font-size="10" fill="#9aa0b5">today</text>
+      <text x="{padL + cw}" y="{H - 6}" text-anchor="end" font-size="10" fill="#9aa0b5">{end_lbl}</text>
+    </svg>'''
+
+
+def _forecast_view(store, refresh_bg):
+    hz = getattr(store, "_fc_horizon", 90)
+
+    def set_hz(n):
+        store._fc_horizon = n
+        refresh_bg()
+
+    if not store.paychecks():
+        ui.html('<div class="cd-set-title">Forecast</div>'
+                '<div class="cd-empty" style="margin-top:14px"><div class="big">No income set yet.</div>'
+                'Add your paychecks in Settings (⚙, top-right) and your forward projection appears here.</div>')
+        return
+
+    res = forecast.project(store.metrics()["cash"], store.paychecks(), store.rules(),
+                           _forecast_bills(store), horizon_days=hz)
+    low_when = _friendly_date(res["low"]["date"])
+    if res["shortfall"]:
+        vcls, verdict = "red", f"Heads up — you dip below zero around {low_when}"
+    elif res["safe_to_spend"] < 500:
+        vcls, verdict = "amber", f"Cutting it close around {low_when}"
+    else:
+        vcls, verdict = "green", "You're on track"
+
+    # ── hero verdict ──
+    ui.html(f'''
+      <div class="cd-fc-hero {vcls}">
+        <div>
+          <div class="cd-fc-verdict">{verdict}</div>
+          <div class="cd-fc-safe mono">{money(res["safe_to_spend"])}</div>
+          <div class="cd-fc-safe-lbl">safe to spend today · your balance never dips below this</div>
+        </div>
+        <div class="cd-fc-low">
+          <div class="cd-fc-low-lbl">Lowest point</div>
+          <div class="cd-fc-low-val mono">{money(res["low"]["balance"])}</div>
+          <div class="cd-fc-low-lbl">on {low_when}</div>
+        </div>
+      </div>''')
+
+    # ── horizon toggle ──
+    with ui.element("div").classes("cd-fc-hztoggle"):
+        with ui.element("div").classes("cd-seg").style("max-width:280px"):
+            for n, lab in ((30, "30 days"), (60, "60 days"), (90, "90 days")):
+                cls = "cd-segopt" + (" on" if hz == n else "")
+                ui.html(f'<div class="{cls}">{lab}</div>').on("click", lambda _, k=n: set_hz(k)).style("flex:1")
+        ui.html(f'<span class="cd-hint">{money(res["total_income"])} in · {money(res["total_out"])} out over {hz} days</span>').style("margin-left:auto")
+
+    # ── trajectory chart ──
+    with ui.element("div").classes("cd-fc-chart"):
+        ui.html(_forecast_chart(res))
+
+    # ── pay-period breakdown ──
+    for p in res["periods"]:
+        rng = f'{_friendly_date(p["start"])} – {_friendly_date(p["end"])}'
+        ebcol = "var(--neg)" if p["negative"] else "var(--ink)"
+        with ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "")):
+            with ui.element("div").classes("cd-fc-phd"):
+                ui.html(f'<div><div class="cd-fc-pname">{_esc(p["label"])}</div>'
+                        f'<div class="cd-fc-prange">{rng}</div></div>')
+                ui.html(f'<div class="cd-fc-pbal"><div class="cd-sub">projected balance</div>'
+                        f'<div class="mono" style="font-weight:800;font-size:16px;color:{ebcol}">{money(p["end_balance"])}</div></div>').style("margin-left:auto;text-align:right")
+            # flow summary
+            flow = []
+            if p["income"] > 0:
+                flow.append(f'<span style="color:var(--pos)">+{money(p["income"])} income</span>')
+            if p["external"] > 0:
+                flow.append(f'<span style="color:var(--warn-ink)">−{money(p["external"])} transfers</span>')
+            if p["bills_out"] > 0:
+                flow.append(f'<span>−{money(p["bills_out"])} bills</span>')
+            if flow:
+                ui.html('<div class="cd-fc-flow">' + ' · '.join(flow) + '</div>')
+            # bill chips
+            bills = [e for e in p["events"] if e["kind"] == "bill"]
+            if bills:
+                with ui.element("div").classes("cd-fc-bills"):
+                    for e in bills:
+                        warn = "" if e["funded"] else " unfunded"
+                        ui.html(f'<span class="cd-fc-bill{warn}">{_esc(e["name"])} '
+                                f'<b>{money(e["amount"])}</b> · {_friendly_date(e["date"])}</span>')
 
 
 def _login(error: str = ""):
