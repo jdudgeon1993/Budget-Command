@@ -131,19 +131,30 @@ class LiveStore:
 
     def transactions(self, limit: int = 300) -> list[dict]:
         meta = self._bucket_meta()
+        acct = {a["id"]: a["name"] for a in self.data["accounts"]}
         out = []
         for i, t in enumerate(self.data["txs"]):
             typ = t.get("type")
-            if typ == "out":
-                kind, (name, color) = "expense", meta.get(t.get("bucketId"), ("", "#9aa0b5"))
+            bid = t.get("bucketId") or None
+            amt = float(t.get("amount") or 0)
+            if typ == "out" and amt < 0:              # negative out = a refund
+                kind, (name, color) = "refund", meta.get(bid, ("", "#9aa0b5"))
+                amt = -amt
+            elif typ == "out" and bid:
+                kind, (name, color) = "expense", meta.get(bid, ("", "#9aa0b5"))
+            elif typ == "out":                        # no bucket = money left the budget
+                kind, name, color, bid = "transfer", (t.get("desc") or "Transfer"), "#f59e0b", None
             elif typ == "in":
-                kind, name, color = "income", "Income", "#10b981"
+                kind, name, color, bid = "income", "Income", "#10b981", None
+            elif typ == "xfr":                        # a real account-to-account move
+                frm, to = acct.get(t.get("accountId"), "?"), acct.get(t.get("toAccountId"), "?")
+                kind, name, color, bid = "transfer", f"{frm} → {to}", "#f59e0b", None
             else:
-                continue                              # account transfers aren't ledger rows here
-            out.append({"id": t["id"], "kind": kind, "amount": round(float(t.get("amount") or 0), 2),
+                continue
+            out.append({"id": t["id"], "kind": kind, "amount": round(amt, 2),
                         "date": t.get("date") or "", "desc": t.get("desc") or "",
-                        "bucket_id": t.get("bucketId") or None, "bucket_name": name,
-                        "color": color, "_seq": i})
+                        "bucket_id": bid, "bucket_name": name, "color": color,
+                        "from_acct": t.get("accountId"), "to_acct": t.get("toAccountId"), "_seq": i})
         out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
         return out[:limit]
 
@@ -356,6 +367,56 @@ class LiveStore:
     def delete_transaction(self, tid: str):
         DB.delete(self.token, "bcc_transactions", self.uid, "id", tid)
         self._load()
+
+    def accounts(self) -> list[dict]:
+        return [{"id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
+                 "balance": round(F.acct_balance(a, self.data["txs"]), 2)}
+                for a in self.data["accounts"] if not a.get("archived")]
+
+    def add_transfer(self, from_id: str, to_id: str, amount: float, desc: str = "", date: str = ""):
+        from datetime import date as _d
+        when = (date or _d.today().isoformat())[:10]
+        DB.insert(self.token, "bcc_transactions", {
+            "id": DB.new_id(), "user_id": self.uid, "account_id": from_id,
+            "to_account_id": to_id, "month_id": self._mid_for(when), "type": "xfr",
+            "amount": round(float(amount), 2), "date": when,
+            "description": desc or "", "bucket_id": None})
+        self._load()
+
+    def distribute_income(self, amount: float) -> list[dict]:
+        """Auto-apply allocation rules to a paycheck: external → an out that debits
+        the budget, internal → a bucket allocation."""
+        from datetime import date as _d
+        amount = round(float(amount), 2)
+        DB.ensure_month(self.uid, self.token, self._mid)
+        today, acct, applied = _d.today().isoformat(), self._budget_account_id(), []
+        rules = self.rules()
+        for r in rules:
+            if not (r["active"] and r["kind"] == "external"):
+                continue
+            amt = round(amount * r["value"] / 100 if r["value_type"] == "pct"
+                        else (r["value"] if r["value_type"] == "fixed" else 0), 2)
+            if amt > 0.005:
+                DB.insert(self.token, "bcc_transactions", {
+                    "id": DB.new_id(), "user_id": self.uid, "account_id": acct,
+                    "month_id": self._mid, "type": "out", "amount": amt,
+                    "date": today, "description": r["name"], "bucket_id": None})
+                applied.append({"name": r["name"], "kind": "external", "amount": amt})
+        for r in rules:
+            if not (r["active"] and r["kind"] == "internal" and r["bucket_id"]):
+                continue
+            bid = r["bucket_id"]
+            if r["value_type"] == "fund":
+                amt = round(max(0.0, self.bucket(bid)["gap"]), 2)
+            else:
+                amt = round(amount * r["value"] / 100 if r["value_type"] == "pct" else r["value"], 2)
+            if amt > 0.005:
+                new = round(F.b_alloc(self._month, bid) + amt, 2)
+                DB.upsert_alloc(self.uid, self.token, self._mid, bid, new)
+                applied.append({"name": r["name"], "kind": "internal",
+                                "bucket": r["bucket_name"], "amount": amt})
+        self._load()
+        return applied
 
     # settings: paychecks
     def add_paycheck(self, label, amount, freq, anchor):

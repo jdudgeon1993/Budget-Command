@@ -551,8 +551,8 @@ def _bucket_options(store) -> dict:
     return opts
 
 
-_TX_ICON = {"expense": "−", "income": "+", "refund": "↺"}
-_TX_CLASS = {"expense": "out", "income": "in", "refund": "refund"}
+_TX_ICON = {"expense": "−", "income": "+", "refund": "↺", "transfer": "→"}
+_TX_CLASS = {"expense": "out", "income": "in", "refund": "refund", "transfer": "transfer"}
 
 
 def _ledger_view(store, refresh_bg):
@@ -578,13 +578,14 @@ def _ledger_view(store, refresh_bg):
         with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
             ui.html('<div class="cd-hdl"></div>')
             ui.html(f'<div class="cdm-title">{"Edit transaction" if existing else "Add transaction"}</div>')
-            ui.html('<div class="cdm-sub">Expenses draw from a bucket · income lifts Unallocated · '
-                    'a refund returns money to a bucket.</div>')
+            ui.html('<div class="cdm-sub">Expense draws from a bucket · income lifts Unallocated · '
+                    'refund returns money to a bucket · transfer moves it between accounts.</div>')
 
             @ui.refreshable
             def segbar():
                 with ui.element("div").classes("cd-seg"):
-                    for k, label in (("expense", "Expense"), ("income", "Income"), ("refund", "Refund")):
+                    for k, label in (("expense", "Expense"), ("income", "Income"),
+                                     ("refund", "Refund"), ("transfer", "Transfer")):
                         cls = "cd-segopt" + (f" on {_TX_CLASS[k]}" if st["kind"] == k else "")
                         ui.html(f'<div class="{cls}">{label}</div>').on("click", lambda _, kk=k: _set_kind(kk)).style("flex:1")
             segbar()
@@ -601,34 +602,63 @@ def _ledger_view(store, refresh_bg):
                 bucket = ui.select(bopts, label="Bucket", value=bval).props("outlined dense").classes("w-full")
             bucket_row.set_visibility(st["kind"] in ("expense", "refund"))
 
+            # transfer: between two accounts
+            accts = store.accounts()
+            aopts = {a["id"]: f'{a["name"]} · {money(a["balance"])}' for a in accts}
+            chk = next((a["id"] for a in accts if a["type"] == "budget"), next(iter(aopts), None))
+            sav = next((a["id"] for a in accts if a["type"] != "budget"), chk)
+            acct_row = ui.row().classes("w-full q-gutter-sm q-mt-sm")
+            with acct_row:
+                from_sel = ui.select(aopts, label="From", value=(existing.get("from_acct") if existing else chk) or chk).props("outlined dense").classes("cd-half")
+                to_sel = ui.select(aopts, label="To", value=(existing.get("to_acct") if existing else sav) or sav).props("outlined dense").classes("cd-half")
+            acct_row.set_visibility(st["kind"] == "transfer")
+
             payee = ui.select(store.payees(), label="Payee / note", value=existing["desc"] if existing else None,
                               with_input=True, new_value_mode="add-unique").props("outlined dense").classes("w-full q-mt-sm")
+
+            has_rules = any(r["active"] for r in store.rules())
+            auto = ui.switch("Auto-distribute across my rules", value=has_rules and not existing).classes("q-mt-xs")
+            auto.set_visibility(st["kind"] == "income" and has_rules)
 
             def _set_kind(k):
                 st["kind"] = k
                 segbar.refresh()
                 bucket_row.set_visibility(k in ("expense", "refund"))
+                acct_row.set_visibility(k == "transfer")
+                auto.set_visibility(k == "income" and has_rules)
 
             def save():
                 amt = float(amount.value or 0)
                 if amt <= 0:
                     ui.notify("Enter an amount greater than zero.", type="warning"); return
                 kind = st["kind"]
-                bid = bucket.value if kind in ("expense", "refund") else None
-                if kind in ("expense", "refund") and not bid:
-                    ui.notify("Pick a bucket for this transaction.", type="warning"); return
                 desc = (payee.value or "").strip()
                 when = datef.value or _today_iso()
                 try:
-                    if existing and kind == existing["kind"]:
-                        ch = {"amount": amt, "desc": desc, "date": when}
-                        if bid:
-                            ch["envelope_id"] = bid
-                        store.edit_transaction(existing["id"], **ch)
-                    else:
-                        if existing:                       # type changed → replace
+                    if kind == "transfer":
+                        if from_sel.value == to_sel.value:
+                            ui.notify("Pick two different accounts.", type="warning"); return
+                        if existing:
                             store.delete_transaction(existing["id"])
-                        store.add_transaction(kind, amt, bid, desc, when)
+                        store.add_transfer(from_sel.value, to_sel.value, amt, desc, when)
+                    else:
+                        bid = bucket.value if kind in ("expense", "refund") else None
+                        if kind in ("expense", "refund") and not bid:
+                            ui.notify("Pick a bucket for this transaction.", type="warning"); return
+                        if existing and kind == existing["kind"]:
+                            ch = {"amount": amt, "desc": desc, "date": when}
+                            if bid:
+                                ch["envelope_id"] = bid
+                            store.edit_transaction(existing["id"], **ch)
+                        else:
+                            if existing:                   # type changed → replace
+                                store.delete_transaction(existing["id"])
+                            store.add_transaction(kind, amt, bid, desc, when)
+                            if kind == "income" and not existing and auto.value:
+                                applied = store.distribute_income(amt)
+                                if applied:
+                                    summ = ", ".join(f'{a.get("bucket") or a["name"]} {money(a["amount"])}' for a in applied)
+                                    ui.notify(f"Auto-distributed: {summ}", type="positive", timeout=6000)
                 except Exception as e:
                     ui.notify(str(e)[:150], type="warning"); return
                 dlg.close(); refresh_bg()
@@ -651,10 +681,14 @@ def _ledger_view(store, refresh_bg):
         row = ui.element("div").classes("cd-tx")
         with row:
             ui.html(f'<div class="cd-tx-ic {_TX_CLASS[r["kind"]]}">{_TX_ICON[r["kind"]]}</div>')
-            title = _esc(r["desc"] or (r["bucket_name"] if r["kind"] != "income" else "Income"))
-            if r["kind"] == "income":
+            if r["kind"] == "transfer":
+                title = _esc(r["bucket_name"] or "Transfer")
+                meta = f'<span class="cd-tx-tag">{_esc(r["desc"])}</span>' if r["desc"] else '<span class="cd-tx-tag">account transfer</span>'
+            elif r["kind"] == "income":
+                title = _esc(r["desc"] or "Income")
                 meta = '<span class="cd-tx-tag">Income → Unallocated</span>'
             else:
+                title = _esc(r["desc"] or r["bucket_name"])
                 verb = "refund →" if r["kind"] == "refund" else ""
                 meta = (f'<span class="cd-tx-tag">{verb}<i style="background:{r["color"]}"></i>'
                         f'{_esc(r["bucket_name"] or "—")}</span>')

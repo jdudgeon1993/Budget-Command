@@ -134,6 +134,7 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cd-seg .cd-segopt.on.out{color:var(--neg)}
 .cd-seg .cd-segopt.on.in{color:var(--pos)}
 .cd-seg .cd-segopt.on.refund{color:var(--accent)}
+.cd-seg .cd-segopt.on.transfer{color:var(--warn-ink)}
 
 /* ── Ledger ───────────────────────────────────────────────────────────────── */
 .cd-led-hd{display:flex;gap:14px;margin:8px 0 18px}
@@ -167,6 +168,7 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cd-tx-ic.out{background:var(--neg-soft);color:var(--neg)}
 .cd-tx-ic.in{background:var(--pos-soft);color:var(--pos)}
 .cd-tx-ic.refund{background:var(--accent-soft);color:var(--accent)}
+.cd-tx-ic.transfer{background:var(--warn-soft);color:var(--warn-ink)}
 .cd-tx-name{font-weight:600;font-size:14px}
 .cd-tx-meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cd-tx-tag{display:inline-flex;align-items:center;gap:5px}

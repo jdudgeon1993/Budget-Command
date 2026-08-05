@@ -77,7 +77,9 @@ def seed() -> dict:
     # opening into (opening + income) keeps every headline number identical.
     total_funded = sum(r.get("funded", 0) for r in rows)
     total_income = sum(a for a, _, _ in income)
-    s = M.genesis(opening=800.00 + total_funded - total_income)
+    xfer_out = 300.00                                # a checking→savings transfer, below
+    s = M.genesis(opening=800.00 + total_funded - total_income + xfer_out,
+                  savings_opening=6200.00)
 
     cat_color = {"Housing": "#6366f1", "Food": "#10b981", "Transport": "#f59e0b",
                  "Lifestyle": "#ec4899", "Future": "#8b5cf6"}
@@ -96,6 +98,8 @@ def seed() -> dict:
 
     for name, amt, desc, when in expenses:       # real spending → progress bars
         M.add_expense(s, ids[name], amt, desc, when)
+
+    M.add_transfer(s, xfer_out, M.CHECKING, M.SAVINGS, "Move to savings", "2026-08-03")
 
     # Settings: the recurring income + how each paycheck is split (feeds Forecast).
     M.add_paycheck(s, "Northwind Co", 1400.00, "biweekly", "2026-08-14")
@@ -253,13 +257,21 @@ class Store:
     def transactions(self) -> list[dict]:
         """Every ledger row, newest first — the shape the Ledger UI renders."""
         meta = self._env_meta()
+        acct = {a["id"]: a["name"] for a in self.s["accounts"]}
         out = []
         for i, t in enumerate(self.s["transactions"]):
             eid = t.get("envelope_id")
-            name, color = meta.get(eid, ("", "#9aa0b5")) if eid else ("Income", "#10b981")
+            if eid:
+                name, color = meta.get(eid, ("", "#9aa0b5"))
+            elif t["kind"] == M.TRANSFER:
+                frm, to = acct.get(t.get("account_id"), "?"), acct.get(t.get("to_account_id"), "?")
+                name, color = f"{frm} → {to}", "#f59e0b"
+            else:
+                name, color = "Income", "#10b981"
             out.append({"id": t["id"], "kind": t["kind"], "amount": round(t["amount"], 2),
                         "date": t.get("date") or "", "desc": t.get("desc") or "",
-                        "bucket_id": eid, "bucket_name": name, "color": color, "_seq": i})
+                        "bucket_id": eid, "bucket_name": name, "color": color,
+                        "from_acct": t.get("account_id"), "to_acct": t.get("to_account_id"), "_seq": i})
         out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
         return out
 
@@ -295,6 +307,16 @@ class Store:
             M.add_refund(self.s, bucket_id, amount, desc, date)
         else:
             M.add_expense(self.s, bucket_id, amount, desc, date)
+
+    def distribute_income(self, amount: float) -> list[dict]:
+        """Auto-apply the allocation rules to a paycheck (fund buckets, run transfers)."""
+        return M.apply_income_rules(self.s, round(float(amount), 2))
+
+    def accounts(self) -> list[dict]:
+        return M.accounts(self.s)
+
+    def add_transfer(self, from_id: str, to_id: str, amount: float, desc: str = "", date: str = ""):
+        M.add_transfer(self.s, round(float(amount), 2), from_id, to_id, desc, date or _today())
 
     def edit_transaction(self, tid: str, **changes):
         M.edit_transaction(self.s, tid, **changes)

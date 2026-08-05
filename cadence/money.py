@@ -16,13 +16,40 @@ import calendar
 from datetime import date
 
 SPEND, GOAL, VAULT = "spend", "goal", "vault"
-EXPENSE, INCOME, REFUND = "expense", "income", "refund"
+EXPENSE, INCOME, REFUND, TRANSFER = "expense", "income", "refund", "transfer"
 
 
-def genesis(opening: float) -> dict:
+CHECKING, SAVINGS = "acc_checking", "acc_savings"
+
+
+def genesis(opening: float, savings_opening: float = 0.0) -> dict:
     return {"opening": round(opening, 2), "unallocated": round(opening, 2),
             "categories": [], "envelopes": [], "transactions": [],
-            "paychecks": [], "rules": []}
+            "paychecks": [], "rules": [],
+            "accounts": [
+                {"id": CHECKING, "name": "Checking", "type": "budget",
+                 "opening": round(opening, 2)},
+                {"id": SAVINGS, "name": "Savings", "type": "savings",
+                 "opening": round(savings_opening, 2)},
+            ]}
+
+
+def accounts(s: dict) -> list[dict]:
+    return [{**a, "balance": account_balance(s, a["id"])} for a in s["accounts"]]
+
+
+def account_balance(s: dict, acc_id: str) -> float:
+    acc = next((a for a in s["accounts"] if a["id"] == acc_id), None)
+    bal = acc["opening"] if acc else 0.0
+    for t in s["transactions"]:
+        if t.get("account_id", CHECKING) == acc_id:
+            if t["kind"] in (INCOME, REFUND):
+                bal += t["amount"]
+            elif t["kind"] in (EXPENSE, TRANSFER):
+                bal -= t["amount"]
+        if t.get("to_account_id") == acc_id and t["kind"] == TRANSFER:
+            bal += t["amount"]
+    return round(bal, 2)
 
 
 def _id() -> str:
@@ -242,9 +269,59 @@ def add_refund(s: dict, eid: str, amount: float, desc: str = "", date: str = "")
     return _tx(s, REFUND, round(amount, 2), eid, desc, date)
 
 
-def _tx(s: dict, kind: str, amount: float, eid, desc: str, date: str) -> dict:
+def add_transfer(s: dict, amount: float, from_id: str = CHECKING, to_id: str = SAVINGS,
+                 desc: str = "", date: str = "") -> dict:
+    """Move money between two accounts. Moving out of Checking comes from
+    Unallocated (and vice-versa), so the zero-based identity stays intact."""
+    amount = round(amount, 2)
+    tx = _tx(s, TRANSFER, amount, None, desc, date, account_id=from_id, to_account_id=to_id)
+    if from_id == CHECKING:
+        s["unallocated"] = round(s["unallocated"] - amount, 2)
+    if to_id == CHECKING:
+        s["unallocated"] = round(s["unallocated"] + amount, 2)
+    return tx
+
+
+def apply_income_rules(s: dict, income_amount: float) -> list[dict]:
+    """Auto-distribute a paycheck across the active allocation rules: external
+    rules transfer money out, internal rules fund their bucket (by % of the
+    paycheck, a fixed amount, or filling the bucket to target)."""
+    income_amount = round(income_amount, 2)
+    applied: list[dict] = []
+    names = {e["id"]: e["name"] for e in s["envelopes"]}
+
+    def _amt(r):
+        if r["value_type"] == "pct":
+            return round(income_amount * r["value"] / 100.0, 2)
+        if r["value_type"] == "fixed":
+            return round(r["value"], 2)
+        return 0.0
+
+    for r in s["rules"]:                              # external first — money leaves
+        if r["active"] and r["kind"] == "external":
+            amt = round(min(_amt(r), max(0.0, s["unallocated"])), 2)
+            if amt > 0.005:
+                add_transfer(s, amt, CHECKING, SAVINGS, r["name"])
+                applied.append({"name": r["name"], "kind": "external", "amount": amt})
+    for r in s["rules"]:                              # then internal — fund buckets
+        if not (r["active"] and r["kind"] == "internal" and r["bucket_id"]):
+            continue
+        e = next((x for x in s["envelopes"] if x["id"] == r["bucket_id"]), None)
+        if not e:
+            continue
+        want = round(max(0.0, e["target"] - e["funded"]), 2) if r["value_type"] == "fund" else _amt(r)
+        moved = fund(s, r["bucket_id"], want)         # capped at Unallocated, never negative
+        if moved > 0.005:
+            applied.append({"name": r["name"], "kind": "internal",
+                            "bucket": names.get(r["bucket_id"], ""), "amount": moved})
+    return applied
+
+
+def _tx(s: dict, kind: str, amount: float, eid, desc: str, date: str,
+        account_id: str = CHECKING, to_account_id=None) -> dict:
     tx = {"id": _id(), "kind": kind, "amount": amount, "envelope_id": eid,
-          "desc": desc, "date": date}
+          "desc": desc, "date": date,
+          "account_id": account_id, "to_account_id": to_account_id}
     s["transactions"].append(tx)
     return tx
 
@@ -386,10 +463,4 @@ def ready_to_spend(s: dict) -> float:
 
 
 def available_balance(s: dict) -> float:
-    bal = s["opening"]
-    for t in s["transactions"]:
-        if t["kind"] in (INCOME, REFUND):
-            bal += t["amount"]
-        elif t["kind"] == EXPENSE:
-            bal -= t["amount"]
-    return round(bal, 2)
+    return account_balance(s, CHECKING)
