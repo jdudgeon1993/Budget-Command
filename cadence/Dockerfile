@@ -5,11 +5,15 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY cadence/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Cadence reuses webapp's proven Supabase layer (webapp.db) + money math
+# (webapp.formulas), so it needs both dependency sets. No gunicorn — NiceGUI
+# serves its own uvicorn.
+COPY webapp/requirements.txt ./webapp-requirements.txt
+COPY cadence/requirements.txt ./cadence-requirements.txt
+RUN pip install --no-cache-dir -r webapp-requirements.txt -r cadence-requirements.txt
 
+COPY webapp/ ./webapp/
 COPY cadence/ ./cadence/
 
-# NiceGUI serves its own uvicorn server (no gunicorn) and reads $PORT itself.
 ENV PYTHONUNBUFFERED=1
 CMD ["python", "-m", "cadence.main"]

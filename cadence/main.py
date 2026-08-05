@@ -1,24 +1,24 @@
 """
 Cadence — a fully-live, stay-in-place budgeting app built on NiceGUI.
 
-Run:  python -m cadence.main   (serves on :8110)
+Run:  python -m cadence.main   (serves on :8110, or $PORT on Railway)
 
 No hx-get / hx-target / hx-swap anywhere. You mutate Python state; the pieces
 that depend on it re-render in place over a WebSocket. Scroll and focus never
-jump.
+jump. Sign in to see your real Supabase budget, or open the demo for sample data.
 """
 import os
 from nicegui import ui, app
-from .store import Store
+from .store import Store as SeedStore
+
+BRAND = "Cadence"          # rename here — it's the only place the name lives
+PORT = int(os.environ.get("PORT", 8110))   # Railway injects $PORT
 
 
 @app.get("/healthz")
 def _healthz():
     """Matches the repo's Railway healthcheck path so this service deploys clean."""
     return {"status": "ok"}
-
-BRAND = "Cadence"          # rename here — it's the only place the name lives
-PORT = int(os.environ.get("PORT", 8110))   # Railway injects $PORT
 
 
 def money(v: float) -> str:
@@ -40,7 +40,6 @@ def _theme() -> None:
         font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink)}
       .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-feature-settings:"tnum"}
       .cd-shell{max-width:960px;margin:0 auto;padding:0 20px 80px}
-      /* header */
       .cd-top{display:flex;align-items:center;gap:18px;padding:22px 4px 10px}
       .cd-logo{width:34px;height:34px;border-radius:10px;
         background:linear-gradient(135deg,var(--accent),var(--violet));
@@ -52,25 +51,25 @@ def _theme() -> None:
         border-radius:9px;cursor:pointer;transition:.15s}
       .cd-navbtn.active{color:var(--accent);background:var(--accent-soft)}
       .cd-navbtn.soon{opacity:.5;cursor:default}
-      /* hero */
+      .cd-auth{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+      .cd-chip{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+        padding:4px 9px;border-radius:20px;background:var(--accent-soft);color:var(--accent)}
+      .cd-link{color:var(--muted);cursor:pointer;text-decoration:underline;font-weight:500}
       .cd-hero{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin:8px 0 26px}
       .cd-stat{background:var(--card);border:1px solid var(--line);border-radius:18px;
         padding:18px 20px;box-shadow:var(--shadow)}
       .cd-stat.primary{background:linear-gradient(135deg,#5b5ff0,#7c6bf5);border:none;color:#fff;
         box-shadow:0 10px 30px rgba(99,102,241,.35)}
-      .cd-stat-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-        opacity:.75}
+      .cd-stat-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
       .cd-stat.primary .cd-stat-lbl{opacity:.85}
       .cd-stat-val{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:6px}
       .cd-stat-sub{font-size:12px;opacity:.8;margin-top:2px}
-      /* category */
       .cd-cat{margin-bottom:22px}
       .cd-cat-hd{display:flex;align-items:center;gap:10px;padding:0 4px 10px}
       .cd-dot{width:9px;height:9px;border-radius:50%}
       .cd-cat-name{font-weight:700;font-size:15px}
       .cd-cat-avail{margin-left:auto;font-size:13px;color:var(--muted)}
       .cd-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-      /* envelope card */
       .cd-env{background:var(--card);border:1px solid var(--line);border-radius:16px;
         padding:16px 16px 14px;box-shadow:var(--shadow);transition:transform .12s,box-shadow .12s}
       .cd-env:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(16,18,34,.05),0 14px 34px rgba(16,18,34,.10)}
@@ -88,26 +87,45 @@ def _theme() -> None:
       .cd-fbtn{flex:1;font-size:12px;font-weight:600;border-radius:9px;padding:7px 0;text-align:center;
         cursor:pointer;border:1px solid var(--line);color:var(--muted);transition:.14s;user-select:none}
       .cd-fbtn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+      /* login */
+      .cd-login{max-width:400px;margin:12vh auto 0;background:var(--card);border:1px solid var(--line);
+        border-radius:22px;padding:34px 32px;box-shadow:var(--shadow);text-align:center}
+      .cd-login .cd-logo{width:46px;height:46px;border-radius:13px;font-size:20px;margin:0 auto 16px}
+      .cd-login h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+      .cd-login p{color:var(--muted);font-size:13px;margin-bottom:22px}
     </style>
     """)
 
 
-@ui.page("/")
-def index():
-    _theme()
-    store = Store()
+# ── shared UI pieces ──────────────────────────────────────────────────────────
+def _stat(label, value, primary=False, sub=""):
+    cls = "cd-stat primary" if primary else "cd-stat"
+    with ui.element("div").classes(cls):
+        ui.html(f'<div class="cd-stat-lbl">{label}</div>')
+        ui.html(f'<div class="cd-stat-val mono">{money(value)}</div>')
+        if sub:
+            ui.html(f'<div class="cd-stat-sub">{sub}</div>')
 
+
+def _app(store, demo: bool):
     with ui.element("div").classes("cd-shell"):
-        # ── header ────────────────────────────────────────────────────────────
         with ui.element("div").classes("cd-top"):
-            ui.html(f'<div class="cd-logo">C</div>')
+            ui.html('<div class="cd-logo">C</div>')
             ui.html(f'<div class="cd-brand">{BRAND}</div>')
             with ui.element("div").classes("cd-nav"):
                 ui.html('<div class="cd-navbtn active">Buckets</div>')
                 ui.html('<div class="cd-navbtn soon">Ledger</div>')
                 ui.html('<div class="cd-navbtn soon">Forecast</div>')
+            with ui.element("div").classes("cd-auth"):
+                if demo:
+                    ui.html('<span class="cd-chip">Demo · sample data</span>')
+                    signin = ui.html('<span class="cd-link">Sign in</span>')
+                    signin.on("click", lambda _: _logout())
+                else:
+                    ui.html(f'<span>{getattr(store, "email", "") or "Signed in"}</span>')
+                    out = ui.html('<span class="cd-link">Sign out</span>')
+                    out.on("click", lambda _: _logout())
 
-        # ── hero metrics (re-renders live on any change) ──────────────────────
         @ui.refreshable
         def hero():
             m = store.metrics()
@@ -117,10 +135,13 @@ def index():
                 _stat("Ready to Spend", m["ready_to_spend"], sub="Unassigned + what's in your buckets")
                 _stat("Available Balance", m["available_balance"], sub="Real cash in the bank")
 
-        # ── buckets (re-renders live on any change) ───────────────────────────
         @ui.refreshable
         def buckets():
-            for g in store.groups():
+            groups = store.groups()
+            if not groups:
+                ui.html('<div class="cd-sub" style="padding:20px 4px">No buckets yet.</div>')
+                return
+            for g in groups:
                 with ui.element("div").classes("cd-cat"):
                     with ui.element("div").classes("cd-cat-hd"):
                         ui.html(f'<span class="cd-dot" style="background:{g["color"]}"></span>')
@@ -130,19 +151,23 @@ def index():
                         for r in g["rows"]:
                             _envelope(r)
 
-        def adjust(eid: str, delta: float):
-            store.fund(eid, delta) if delta > 0 else store.defund(eid, -delta)
+        def adjust(eid, delta):
+            try:
+                store.fund(eid, delta) if delta > 0 else store.defund(eid, -delta)
+            except Exception as e:
+                ui.notify(f"Couldn't update: {str(e)[:80]}", type="negative")
+                return
             hero.refresh()
             buckets.refresh()
 
-        def _envelope(r: dict):
+        def _envelope(r):
             with ui.element("div").classes("cd-env"):
                 with ui.element("div").classes("cd-env-top"):
                     ui.html(f'<span class="cd-env-name">{r["name"]}</span>')
                     if r["type"] in ("goal", "vault"):
                         ui.html(f'<span class="cd-badge {r["type"]}">{r["type"]}</span>')
-                av_color = "var(--neg)" if r["available"] < 0 else "var(--ink)"
-                ui.html(f'<div class="cd-avail" style="color:{av_color}">{money(r["available"])}'
+                col = "var(--neg)" if r["available"] < 0 else "var(--ink)"
+                ui.html(f'<div class="cd-avail" style="color:{col}">{money(r["available"])}'
                         f'<span class="cd-sub" style="font-weight:500"> available</span></div>')
                 if r["type"] == "spend":
                     sub = f'{money(r["spent"])} spent of {money(r["funded"])} funded'
@@ -155,21 +180,65 @@ def index():
                 ui.html(f'<div class="cd-bar"><div class="cd-bar-fill" '
                         f'style="width:{r["pct"]*100:.0f}%;background:{fill}"></div></div>')
                 with ui.element("div").classes("cd-fund"):
-                    minus = ui.html('<div class="cd-fbtn">− $50</div>')
-                    minus.on("click", lambda _, e=r["id"]: adjust(e, -50))
-                    plus = ui.html('<div class="cd-fbtn">＋ $50</div>')
-                    plus.on("click", lambda _, e=r["id"]: adjust(e, 50))
-
-        def _stat(label: str, value: float, primary: bool = False, sub: str = ""):
-            cls = "cd-stat primary" if primary else "cd-stat"
-            with ui.element("div").classes(cls):
-                ui.html(f'<div class="cd-stat-lbl">{label}</div>')
-                ui.html(f'<div class="cd-stat-val mono">{money(value)}</div>')
-                if sub:
-                    ui.html(f'<div class="cd-stat-sub">{sub}</div>')
+                    m = ui.html('<div class="cd-fbtn">− $50</div>')
+                    m.on("click", lambda _, e=r["id"]: adjust(e, -50))
+                    p = ui.html('<div class="cd-fbtn">＋ $50</div>')
+                    p.on("click", lambda _, e=r["id"]: adjust(e, 50))
 
         hero()
         buckets()
+
+
+def _login(error: str = ""):
+    _theme()
+    with ui.element("div").classes("cd-shell"):
+        with ui.element("div").classes("cd-login"):
+            ui.html('<div class="cd-logo">C</div>')
+            ui.html(f'<h1>{BRAND}</h1>')
+            ui.html('<p>Sign in with your budget account.</p>')
+            email = ui.input("Email").props("outlined dense").classes("w-full")
+            pw = ui.input("Password", password=True).props("outlined dense").classes("w-full")
+
+            def do_login():
+                try:
+                    from .data import sign_in
+                    r = sign_in(email.value.strip(), pw.value)
+                except Exception as e:
+                    ui.notify(f"Sign in failed: {str(e)[:100]}", type="negative")
+                    return
+                app.storage.user.update({"token": r["token"], "uid": r["uid"],
+                                         "email": r["email"], "demo": False})
+                ui.navigate.to("/")
+
+            ui.button("Sign in", on_click=do_login).props("unelevated color=indigo").classes("w-full")
+            ui.button("Open the demo", on_click=lambda: (
+                app.storage.user.update({"demo": True, "token": None}), ui.navigate.to("/"))
+            ).props("flat color=indigo").classes("w-full")
+            if error:
+                ui.notify(error, type="negative")
+
+
+def _logout():
+    app.storage.user.clear()
+    ui.navigate.to("/")
+
+
+@ui.page("/")
+def index():
+    u = app.storage.user
+    if u.get("token"):
+        _theme()
+        try:
+            from .data import LiveStore
+            _app(LiveStore(u["uid"], u["token"], u.get("email", "")), demo=False)
+        except Exception as e:
+            u.clear()
+            _login(error=f"Session expired — please sign in again.")
+    elif u.get("demo"):
+        _theme()
+        _app(SeedStore(), demo=True)
+    else:
+        _login()
 
 
 def run():
