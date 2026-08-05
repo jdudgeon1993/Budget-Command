@@ -996,11 +996,18 @@ def _forecast_chart(res: dict) -> str:
     </svg>'''
 
 
+_FC_ICON = {"income": "+", "transfer": "→", "bill": "−"}
+
+
 def _forecast_view(store, refresh_bg):
     hz = getattr(store, "_fc_horizon", 90)
 
     def set_hz(n):
         store._fc_horizon = n
+        refresh_bg()
+
+    def toggle_p(k):
+        exp.discard(k) if k in exp else exp.add(k)
         refresh_bg()
 
     if not store.paychecks():
@@ -1011,6 +1018,11 @@ def _forecast_view(store, refresh_bg):
 
     res = forecast.project(store.metrics()["cash"], store.paychecks(), store.rules(),
                            _forecast_bills(store), horizon_days=hz)
+    # Which periods are expanded — the current one opens by default.
+    exp = getattr(store, "_fc_expanded", None)
+    if exp is None:
+        exp = {res["periods"][0]["start"]} if res["periods"] else set()
+        store._fc_expanded = exp
     low_when = _friendly_date(res["low"]["date"])
     if res["shortfall"]:
         vcls, verdict = "red", f"Heads up — you dip below zero around {low_when}"
@@ -1046,34 +1058,45 @@ def _forecast_view(store, refresh_bg):
     with ui.element("div").classes("cd-fc-chart"):
         ui.html(_forecast_chart(res))
 
-    # ── pay-period breakdown ──
+    # ── pay-period breakdown — each period is a running register ──
+    ui.html('<div class="cd-fc-seclbl">Pay periods · what comes in, what goes out</div>')
     for p in res["periods"]:
+        is_open = p["start"] in exp
         rng = f'{_friendly_date(p["start"])} – {_friendly_date(p["end"])}'
         ebcol = "var(--neg)" if p["negative"] else "var(--ink)"
-        with ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "")):
-            with ui.element("div").classes("cd-fc-phd"):
-                ui.html(f'<div><div class="cd-fc-pname">{_esc(p["label"])}</div>'
-                        f'<div class="cd-fc-prange">{rng}</div></div>')
+        ins = f'<span class="in">+{money(p["income"])}</span>' if p["income"] > 0 else ''
+        outs = round(p["external"] + p["bills_out"], 2)
+        out_s = f'<span class="out">−{money(outs)}</span>' if outs > 0 else ''
+        flow = ' · '.join(x for x in (ins, out_s) if x)
+        card = ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "") + (" open" if is_open else ""))
+        with card:
+            hd = ui.element("div").classes("cd-fc-phd")
+            with hd:
+                ui.html(f'<span class="cd-fc-chev">▸</span>')
+                ui.html(f'<div style="min-width:0"><div class="cd-fc-pname">{_esc(p["label"])}</div>'
+                        f'<div class="cd-fc-prange">{rng} · {flow}</div></div>')
                 ui.html(f'<div class="cd-fc-pbal"><div class="cd-sub">projected balance</div>'
-                        f'<div class="mono" style="font-weight:800;font-size:16px;color:{ebcol}">{money(p["end_balance"])}</div></div>').style("margin-left:auto;text-align:right")
-            # flow summary
-            flow = []
-            if p["income"] > 0:
-                flow.append(f'<span style="color:var(--pos)">+{money(p["income"])} income</span>')
-            if p["external"] > 0:
-                flow.append(f'<span style="color:var(--warn-ink)">−{money(p["external"])} transfers</span>')
-            if p["bills_out"] > 0:
-                flow.append(f'<span>−{money(p["bills_out"])} bills</span>')
-            if flow:
-                ui.html('<div class="cd-fc-flow">' + ' · '.join(flow) + '</div>')
-            # bill chips
-            bills = [e for e in p["events"] if e["kind"] == "bill"]
-            if bills:
-                with ui.element("div").classes("cd-fc-bills"):
-                    for e in bills:
-                        warn = "" if e["funded"] else " unfunded"
-                        ui.html(f'<span class="cd-fc-bill{warn}">{_esc(e["name"])} '
-                                f'<b>{money(e["amount"])}</b> · {_friendly_date(e["date"])}</span>')
+                        f'<div class="mono" style="font-weight:800;font-size:16px;color:{ebcol}">{money(p["end_balance"])}</div></div>')
+            hd.on("click", lambda _, k=p["start"]: toggle_p(k))
+            if is_open:
+                with ui.element("div").classes("cd-fc-reg"):
+                    ui.html(f'<div class="cd-fc-erow open-bal"><span></span>'
+                            f'<span class="cd-fc-ename">Starting balance</span><span></span>'
+                            f'<span class="cd-fc-ebal mono">{money(p["start_balance"])}</span></div>')
+                    for e in p["events"]:
+                        pos = e["kind"] == "income"
+                        acol = "var(--pos)" if pos else ("var(--neg)" if not e["funded"] else "var(--ink)")
+                        sign = "+" if pos else "−"
+                        cad = f' <span class="cd-fc-cad">{e["cadence"]}</span>' if e.get("cadence") else ''
+                        flag = ' <span class="cd-fc-uf">unfunded</span>' if not e["funded"] else ''
+                        bcol = "var(--neg)" if e["balance"] < 0 else "var(--muted)"
+                        ui.html(
+                            f'<div class="cd-fc-erow">'
+                            f'<span class="cd-fc-edate">{_friendly_date(e["date"])}</span>'
+                            f'<span class="cd-fc-ename"><span class="cd-fc-eic {e["kind"]}">{_FC_ICON[e["kind"]]}</span>'
+                            f'{_esc(e["name"])}{cad}{flag}</span>'
+                            f'<span class="cd-fc-eamt mono" style="color:{acol}">{sign}{money(e["amount"])}</span>'
+                            f'<span class="cd-fc-ebal mono" style="color:{bcol}">{money(e["balance"])}</span></div>')
 
 
 def _login(error: str = ""):

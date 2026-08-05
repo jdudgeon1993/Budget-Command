@@ -48,9 +48,9 @@ def seed() -> dict:
         {"name": "Rent",          "cat": "Housing",   "type": M.SPEND, "target": 1500, "funded": 1500, "due": 1},
         {"name": "Electric",      "cat": "Housing",   "type": M.SPEND, "target": 160,  "funded": 0,    "due": 9},
         {"name": "Utilities",     "cat": "Housing",   "type": M.SPEND, "target": 300,  "funded": 300,  "due": 15},
-        {"name": "Groceries",     "cat": "Food",      "type": M.SPEND, "target": 400,  "funded": 300},
+        {"name": "Groceries",     "cat": "Food",      "type": M.SPEND, "target": 400,  "funded": 300, "freq": "weekly"},
         {"name": "Dining Out",    "cat": "Food",      "type": M.SPEND, "funded": 100,  "flex": True},
-        {"name": "Gas",           "cat": "Transport", "type": M.SPEND, "target": 120,  "funded": 80},
+        {"name": "Gas",           "cat": "Transport", "type": M.SPEND, "target": 120,  "funded": 80,  "freq": "biweekly"},
         {"name": "Car Insurance", "cat": "Transport", "type": M.SPEND, "target": 140,  "funded": 0,    "due": 20},
         {"name": "Subscriptions", "cat": "Lifestyle", "type": M.SPEND, "target": 60,   "funded": 60,   "due": 10},
         {"name": "Fun Money",     "cat": "Lifestyle", "type": M.SPEND, "funded": 200,  "flex": True},
@@ -89,7 +89,8 @@ def seed() -> dict:
     ids = {}
     for r in rows:
         eid = M.add_envelope(s, r["name"], cats[r["cat"]], r["type"], r.get("target", 0.0),
-                             0.0, due_day=r.get("due"), flex=r.get("flex", False))["id"]
+                             0.0, due_day=r.get("due"), frequency=r.get("freq"),
+                             flex=r.get("flex", False))["id"]
         M.fund(s, eid, r.get("funded", 0.0))     # money moves FROM Unallocated (invariant stays true)
         ids[r["name"]] = eid
 

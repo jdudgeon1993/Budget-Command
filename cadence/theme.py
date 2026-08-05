@@ -217,18 +217,33 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cd-fc-hztoggle{display:flex;align-items:center;gap:14px;margin:0 2px 14px}
 .cd-fc-chart{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:16px 14px 8px;margin-bottom:18px}
 .cd-fc-svg{width:100%;height:210px;display:block}
-.cd-fc-period{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:14px 18px;margin-bottom:11px}
-.cd-fc-period.neg{border-color:#f6c9d1;background:#fff8f9}
-.cd-fc-phd{display:flex;align-items:flex-start;gap:12px}
+.cd-fc-seclbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 2px 10px}
+.cd-fc-period{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);margin-bottom:11px;overflow:hidden}
+.cd-fc-period.neg{border-color:#f6c9d1}
+.cd-fc-phd{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none}
+.cd-fc-phd:hover{background:#fafbff}
+.cd-fc-chev{width:14px;text-align:center;color:var(--muted);font-size:11px;transition:transform .18s}
+.cd-fc-period.open .cd-fc-chev{transform:rotate(90deg)}
 .cd-fc-pname{font-weight:700;font-size:14px}
 .cd-fc-prange{font-size:11px;color:var(--muted);margin-top:1px}
+.cd-fc-prange .in{color:var(--pos);font-weight:600}
+.cd-fc-prange .out{color:var(--neg);font-weight:600}
+.cd-fc-pbal{margin-left:auto;text-align:right}
 .cd-fc-pbal .cd-sub{font-size:10px}
-.cd-fc-flow{font-size:12px;color:var(--muted);margin-top:9px;display:flex;flex-wrap:wrap;gap:4px}
-.cd-fc-bills{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
-.cd-fc-bill{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:4px 9px}
-.cd-fc-bill b{color:var(--ink);font-weight:700}
-.cd-fc-bill.unfunded{background:var(--neg-soft);border-color:#f6c9d1;color:var(--neg)}
-.cd-fc-bill.unfunded b{color:var(--neg)}
+/* the per-period running register */
+.cd-fc-reg{padding:2px 18px 12px}
+.cd-fc-erow{display:grid;grid-template-columns:56px 1fr auto 92px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+.cd-fc-erow.open-bal{color:var(--muted);font-size:12px}
+.cd-fc-edate{font-size:11px;color:var(--muted)}
+.cd-fc-ename{font-weight:600;display:flex;align-items:center;gap:7px;min-width:0}
+.cd-fc-eic{width:18px;height:18px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:0 0 auto}
+.cd-fc-eic.income{background:var(--pos-soft);color:var(--pos)}
+.cd-fc-eic.transfer{background:var(--warn-soft);color:var(--warn-ink)}
+.cd-fc-eic.bill{background:var(--bg);color:var(--muted)}
+.cd-fc-cad{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--info-ink);background:var(--info-soft);padding:1px 6px;border-radius:6px}
+.cd-fc-uf{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--neg);background:var(--neg-soft);padding:1px 6px;border-radius:6px}
+.cd-fc-eamt{text-align:right;font-weight:700}
+.cd-fc-ebal{text-align:right;font-size:12px}
 """
 
 

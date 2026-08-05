@@ -21,6 +21,8 @@ import calendar
 from datetime import date, timedelta
 
 _STEP = {"weekly": 7, "biweekly": 14, "triweekly": 21}
+# Periods per month (30.44-day average) — spreads a monthly target across a cadence.
+_PPM = {"weekly": 30.44 / 7, "biweekly": 30.44 / 14, "triweekly": 30.44 / 21}
 
 
 def _day_date(due_day, y: int, m: int) -> date:
@@ -115,31 +117,6 @@ def bill_dates(due_day, frequency, start: date, end: date) -> list[date]:
     return out
 
 
-def _external_out(amount: float, rules: list[dict]) -> float:
-    total = 0.0
-    for r in rules:
-        if r["value_type"] == "pct":
-            total += amount * r["value"] / 100.0
-        elif r["value_type"] == "fixed":
-            total += r["value"]
-    return round(total, 2)
-
-
-def _paycheck_allocs(amount: float, rules: list[dict]) -> list[dict]:
-    """How a paycheck is split, for display (internal amounts may be None when the
-    rule is 'fund to target')."""
-    out = []
-    for r in rules:
-        if r["value_type"] == "pct":
-            val = round(amount * r["value"] / 100.0, 2)
-        elif r["value_type"] == "fixed":
-            val = round(r["value"], 2)
-        else:
-            val = None                               # fund-to-target: amount varies
-        out.append({"name": r["name"], "amount": val, "kind": r["kind"]})
-    return out
-
-
 def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             bills: list[dict], today: date | None = None, horizon_days: int = 90) -> dict:
     """Roll the checking balance forward. See module docstring for the model.
@@ -151,44 +128,56 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
     today = today or date.today()
     end = today + timedelta(days=horizon_days)
     ext_rules = [r for r in rules if r.get("active") and r["kind"] == "external"]
-    int_rules = [r for r in rules if r.get("active") and r["kind"] == "internal"]
 
     events: list[dict] = []
 
+    # Paydays: income lands, then external rules move money out the same day —
+    # each is its own ledger line so the projection reads like a running register.
     for pc in paychecks:
         amt = round(pc["amount"], 2)
-        ext = _external_out(amt, ext_rules)
-        allocs = _paycheck_allocs(amt, ext_rules + int_rules)
         for d in pay_dates(pc.get("anchor", ""), pc.get("freq", "biweekly"), today, end):
-            events.append({"date": d, "kind": "income", "name": pc["label"],
-                           "income": amt, "external": ext, "allocs": allocs})
+            events.append({"date": d, "kind": "income", "name": pc["label"], "amount": amt})
+            for r in ext_rules:
+                v = round(amt * r["value"] / 100.0 if r["value_type"] == "pct" else r["value"], 2)
+                if v > 0.005:
+                    events.append({"date": d, "kind": "transfer", "name": r["name"], "amount": v})
 
+    # Bills. A dated bill (due day, no sub-monthly frequency) hits its full amount
+    # once a month. A bucket with a weekly/bi-weekly/tri-weekly frequency is
+    # ongoing spending: its target is the MONTHLY budget, so we spread it across
+    # the periods — $400/mo weekly ≈ $92 a week (sums back to the month).
     for b in bills:
         target = round(b["amount"], 2)
-        spent = round(b.get("spent", 0.0), 2)
-        for d in bill_dates(b.get("due_day"), b.get("frequency"), today, end):
-            # This month's real obligation is what's left after money already spent.
-            this_month = (d.year, d.month) == (today.year, today.month)
-            amt = max(0.0, round(target - spent, 2)) if this_month else target
-            if amt <= 0.005:
-                continue
-            # "unfunded" only means something for money you should already have set
-            # aside — this cycle. Future bills aren't alarms; the balance line is.
-            funded = (b.get("available", 0.0) >= amt - 0.005) if this_month else True
-            events.append({"date": d, "kind": "bill", "name": b["name"],
-                           "amount": amt, "funded": funded, "this_month": this_month})
+        freq = b.get("frequency")
+        if freq in _PPM:
+            per = round(target / _PPM[freq], 2)
+            if per > 0.005:
+                for d in bill_dates(b.get("due_day"), freq, today, end):
+                    events.append({"date": d, "kind": "bill", "name": b["name"],
+                                   "amount": per, "funded": True, "cadence": freq})
+        else:
+            spent = round(b.get("spent", 0.0), 2)
+            for d in bill_dates(b.get("due_day"), freq, today, end):
+                # This month's real obligation is what's left after money already spent.
+                this_month = (d.year, d.month) == (today.year, today.month)
+                amt = max(0.0, round(target - spent, 2)) if this_month else target
+                if amt <= 0.005:
+                    continue
+                # "unfunded" only flags money you should already have set aside — this
+                # cycle. Future bills aren't alarms; the balance line is the signal.
+                funded = (b.get("available", 0.0) >= amt - 0.005) if this_month else True
+                events.append({"date": d, "kind": "bill", "name": b["name"],
+                               "amount": amt, "funded": funded})
 
-    # income before bills on the same day (you get paid, then bills clear)
-    events.sort(key=lambda e: (e["date"], 0 if e["kind"] == "income" else 1))
+    # Same-day order: income first, then transfers out, then bills clear.
+    _ord = {"income": 0, "transfer": 1, "bill": 2}
+    events.sort(key=lambda e: (e["date"], _ord[e["kind"]]))
 
     running = round(start_balance, 2)
     trajectory = [{"date": today.isoformat(), "balance": running}]
     low = {"balance": running, "date": today.isoformat()}
     for e in events:
-        if e["kind"] == "income":
-            running = round(running + e["income"] - e["external"], 2)
-        else:
-            running = round(running - e["amount"], 2)
+        running = round(running + e["amount"] if e["kind"] == "income" else running - e["amount"], 2)
         e["balance_after"] = running
         trajectory.append({"date": e["date"].isoformat(), "balance": running})
         if running < low["balance"]:
@@ -209,8 +198,8 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
     periods, start_bal = [], round(start_balance, 2)
     for ps, pe in bounds:
         evs = [e for e in events if ps <= e["date"] <= pe]
-        income = round(sum(e["income"] for e in evs if e["kind"] == "income"), 2)
-        external = round(sum(e["external"] for e in evs if e["kind"] == "income"), 2)
+        income = round(sum(e["amount"] for e in evs if e["kind"] == "income"), 2)
+        external = round(sum(e["amount"] for e in evs if e["kind"] == "transfer"), 2)
         bill_evs = [e for e in evs if e["kind"] == "bill"]
         bills_out = round(sum(e["amount"] for e in bill_evs), 2)
         end_bal = evs[-1]["balance_after"] if evs else start_bal
@@ -220,13 +209,11 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
         periods.append({
             "label": label or "Paycheck", "start": ps.isoformat(), "end": pe.isoformat(),
             "is_gap": is_gap, "income": income, "external": external, "bills_out": bills_out,
-            "unfunded": round(sum(e["amount"] for e in bill_evs if not e["funded"]), 2),
+            "unfunded": round(sum(e["amount"] for e in bill_evs if not e.get("funded", True)), 2),
             "start_balance": start_bal, "end_balance": end_bal, "negative": end_bal < 0,
-            "allocs": next((e["allocs"] for e in evs if e["kind"] == "income"), []),
             "events": [{"date": e["date"].isoformat(), "kind": e["kind"], "name": e["name"],
-                        "amount": e.get("income", e.get("amount", 0.0)),
-                        "external": e.get("external", 0.0),
-                        "funded": e.get("funded", True), "balance": e["balance_after"]}
+                        "amount": round(e["amount"], 2), "funded": e.get("funded", True),
+                        "cadence": e.get("cadence"), "balance": e["balance_after"]}
                        for e in evs],
         })
         start_bal = end_bal
