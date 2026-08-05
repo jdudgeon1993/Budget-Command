@@ -7,7 +7,13 @@ implementing the same handful of read/write methods against the DB — the UI
 never changes.
 """
 
+from datetime import date
+
 from . import money as M
+
+
+def _today() -> str:
+    return date.today().isoformat()
 
 
 def _greedy_plan(rows: list[dict], unallocated: float) -> dict:
@@ -51,13 +57,34 @@ def seed() -> dict:
         {"name": "Vacation Fund", "cat": "Future",    "type": M.GOAL,  "target": 3000, "funded": 850},
         {"name": "Emergency",     "cat": "Future",    "type": M.VAULT, "target": 10000, "funded": 2000},
     ]
-    # Bank cash = everything funded into envelopes + a buffer left Unallocated.
+    # This month's paychecks (income) and real spending, dated so the Ledger reads
+    # like a live month-in-progress.
+    income = [
+        (1450.00, "Paycheck · Northwind Co", "2026-08-01"),
+        (1350.00, "Paycheck · Northwind Co", "2026-07-18"),
+    ]
+    expenses = [
+        ("Rent", 1500, "August rent", "2026-08-01"),
+        ("Subscriptions", 46, "Streaming + music", "2026-08-01"),
+        ("Utilities", 142, "Power + water", "2026-08-02"),
+        ("Groceries", 286, "Trader Joe's", "2026-08-02"),
+        ("Gas", 52, "Shell", "2026-08-03"),
+        ("Groceries", 63, "Corner market", "2026-08-04"),
+        ("Fun Money", 120, "Concert tickets", "2026-08-04"),
+        ("Dining Out", 88, "Dinner w/ friends", "2026-08-05"),
+    ]
+    # Bank cash = funded envelopes + an $800 buffer left Unallocated. Splitting the
+    # opening into (opening + income) keeps every headline number identical.
     total_funded = sum(r.get("funded", 0) for r in rows)
-    s = M.genesis(opening=total_funded + 800.00)
+    total_income = sum(a for a, _, _ in income)
+    s = M.genesis(opening=800.00 + total_funded - total_income)
 
     cat_color = {"Housing": "#6366f1", "Food": "#10b981", "Transport": "#f59e0b",
                  "Lifestyle": "#ec4899", "Future": "#8b5cf6"}
     cats = {name: M.add_category(s, name, color)["id"] for name, color in cat_color.items()}
+
+    for amt, desc, when in income:               # income lifts Unallocated
+        M.add_income(s, amt, desc, when)
 
     ids = {}
     for r in rows:
@@ -66,14 +93,8 @@ def seed() -> dict:
         M.fund(s, eid, r.get("funded", 0.0))     # money moves FROM Unallocated (invariant stays true)
         ids[r["name"]] = eid
 
-    # Some real spending so envelopes show progress, not just full bars.
-    for name, amt, desc in [
-        ("Rent", 1500, "August rent"), ("Utilities", 142, "Power + water"),
-        ("Groceries", 286, "Trader Joe's"), ("Groceries", 63, "Corner market"),
-        ("Dining Out", 88, "Dinner w/ friends"), ("Gas", 52, "Shell"),
-        ("Subscriptions", 46, "Streaming"), ("Fun Money", 120, "Concert tickets"),
-    ]:
-        M.add_expense(s, ids[name], amt, desc, "2026-08-14")
+    for name, amt, desc, when in expenses:       # real spending → progress bars
+        M.add_expense(s, ids[name], amt, desc, when)
 
     return s
 
@@ -214,7 +235,65 @@ class Store:
 
     def record_spend(self, eid: str, amount: float, desc: str = ""):
         """Log a real expense against the bucket — spending, not funding."""
-        M.add_expense(self.s, eid, round(float(amount), 2), desc, "")
+        M.add_expense(self.s, eid, round(float(amount), 2), desc, _today())
+
+    # ── ledger (the cleared-money timeline) ───────────────────────────────────
+    def _env_meta(self) -> dict:
+        colors = {c["id"]: c["color"] for c in self.s["categories"]}
+        return {e["id"]: (e["name"], colors.get(e["cat_id"], "#9aa0b5"))
+                for e in self.s["envelopes"]}
+
+    def transactions(self) -> list[dict]:
+        """Every ledger row, newest first — the shape the Ledger UI renders."""
+        meta = self._env_meta()
+        out = []
+        for i, t in enumerate(self.s["transactions"]):
+            eid = t.get("envelope_id")
+            name, color = meta.get(eid, ("", "#9aa0b5")) if eid else ("Income", "#10b981")
+            out.append({"id": t["id"], "kind": t["kind"], "amount": round(t["amount"], 2),
+                        "date": t.get("date") or "", "desc": t.get("desc") or "",
+                        "bucket_id": eid, "bucket_name": name, "color": color, "_seq": i})
+        out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
+        return out
+
+    def ledger_metrics(self) -> dict:
+        mid = _today()[:7]                        # 'YYYY-MM'
+        income = spent = 0.0
+        for t in self.s["transactions"]:
+            if not (t.get("date") or "").startswith(mid):
+                continue
+            if t["kind"] == M.INCOME:
+                income += t["amount"]
+            elif t["kind"] == M.EXPENSE:
+                spent += t["amount"]
+            elif t["kind"] == M.REFUND:
+                spent -= t["amount"]
+        return {"balance": M.available_balance(self.s),
+                "income": round(income, 2), "spent": round(spent, 2)}
+
+    def payees(self) -> list[str]:
+        seen = []
+        for t in self.s["transactions"]:
+            d = (t.get("desc") or "").strip()
+            if d and d not in seen:
+                seen.append(d)
+        return seen
+
+    def add_transaction(self, kind: str, amount: float, bucket_id, desc: str, date: str):
+        amount = round(float(amount), 2)
+        date = date or _today()
+        if kind == M.INCOME:
+            M.add_income(self.s, amount, desc, date)
+        elif kind == M.REFUND:
+            M.add_refund(self.s, bucket_id, amount, desc, date)
+        else:
+            M.add_expense(self.s, bucket_id, amount, desc, date)
+
+    def edit_transaction(self, tid: str, **changes):
+        M.edit_transaction(self.s, tid, **changes)
+
+    def delete_transaction(self, tid: str):
+        M.delete_transaction(self.s, tid)
 
     def delete(self, eid: str):
         M.delete_envelope(self.s, eid)

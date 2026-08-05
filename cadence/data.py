@@ -123,6 +123,51 @@ class LiveStore:
         return [{"id": c["id"], "name": c["name"]}
                 for c in self.data["cats"] if not c.get("archived")]
 
+    # ── ledger (read real transactions; writes land with the rest) ────────────
+    def _bucket_meta(self) -> dict:
+        cc = {c["id"]: (c.get("color") or "#9aa0b5") for c in self.data["cats"]}
+        return {b["id"]: (b["name"], cc.get(b.get("catId", ""), "#9aa0b5"))
+                for b in self.data["buckets"]}
+
+    def transactions(self, limit: int = 300) -> list[dict]:
+        meta = self._bucket_meta()
+        out = []
+        for i, t in enumerate(self.data["txs"]):
+            typ = t.get("type")
+            if typ == "out":
+                kind, (name, color) = "expense", meta.get(t.get("bucketId"), ("", "#9aa0b5"))
+            elif typ == "in":
+                kind, name, color = "income", "Income", "#10b981"
+            else:
+                continue                              # account transfers aren't ledger rows here
+            out.append({"id": t["id"], "kind": kind, "amount": round(float(t.get("amount") or 0), 2),
+                        "date": t.get("date") or "", "desc": t.get("desc") or "",
+                        "bucket_id": t.get("bucketId") or None, "bucket_name": name,
+                        "color": color, "_seq": i})
+        out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
+        return out[:limit]
+
+    def ledger_metrics(self) -> dict:
+        txs = self.data["txs"]
+        income = spent = 0.0
+        for t in txs:
+            if t.get("monthId") != self._mid:
+                continue
+            if t["type"] == "in":
+                income += float(t.get("amount") or 0)
+            elif t["type"] == "out":
+                spent += float(t.get("amount") or 0)
+        return {"balance": round(F.budget_bal(self.data["accounts"], txs), 2),
+                "income": round(income, 2), "spent": round(spent, 2)}
+
+    def payees(self) -> list[str]:
+        seen = []
+        for t in self.data["txs"]:
+            d = (t.get("desc") or "").strip()
+            if d and d not in seen:
+                seen.append(d)
+        return seen[:40]
+
     # ── assignment (writes the month allocation, like Cura's Distribute) ──────
     def fund(self, bid: str, amount: float):
         DB.ensure_month(self.uid, self.token, self._mid)
@@ -154,3 +199,4 @@ class LiveStore:
     rename = set_target = delete = add_bucket = _soon
     set_due_day = set_frequency = set_flex = toggle_handled = record_spend = _soon
     set_target_date = set_notes = _soon
+    add_transaction = edit_transaction = delete_transaction = _soon

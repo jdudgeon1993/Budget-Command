@@ -8,7 +8,10 @@ that depend on it re-render in place over a WebSocket. Scroll and focus never
 jump. Sign in to see your real Supabase budget, or open the demo for sample data.
 """
 import os
+from datetime import date
+from html import escape as _esc
 from nicegui import ui, app
+from . import theme
 from .store import Store as SeedStore
 
 BRAND = "Cadence"          # rename here — it's the only place the name lives
@@ -77,6 +80,24 @@ def _months_until_month(target_date) -> int | None:
         return None
 
 
+def _day_label(iso: str):
+    """(bold label, sub) for a ledger date group. Recent days read relative
+    (Today / Yesterday / weekday); anything older reads as a plain date."""
+    try:
+        d = date.fromisoformat(iso)
+    except (ValueError, TypeError):
+        return (iso or "Undated", "")
+    md = d.strftime("%b ") + str(d.day)
+    delta = (date.today() - d).days
+    if delta == 0:
+        return ("Today", md)
+    if delta == 1:
+        return ("Yesterday", md)
+    if 2 <= delta <= 6:
+        return (d.strftime("%A"), md)
+    return (md, d.strftime("%A"))
+
+
 def _period_hint(r: dict) -> str:
     """A one-line 'feeds the Forecast' hint: goals show the pace to their target
     date; dated/recurring expenses show the per-paycheck slice of the bill."""
@@ -97,132 +118,33 @@ def _period_hint(r: dict) -> str:
 
 
 def _theme() -> None:
-    ui.add_head_html("""
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-    <style>
-      :root{
-        --bg:#f6f7fb; --card:#ffffff; --ink:#0f1222; --muted:#6b7192;
-        --line:#eceef5; --accent:#6366f1; --accent-soft:#eef0ff;
-        --pos:#10b981; --warn:#f59e0b; --neg:#f43f5e; --violet:#8b5cf6;
-        --shadow:0 1px 2px rgba(16,18,34,.04),0 8px 24px rgba(16,18,34,.06);
-      }
-      body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink)}
-      .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-feature-settings:"tnum"}
-      .cd-shell{max-width:960px;margin:0 auto;padding:0 20px 80px}
-      .cd-top{display:flex;align-items:center;gap:18px;padding:22px 4px 10px}
-      .cd-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--violet));
-        display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;box-shadow:0 6px 16px rgba(99,102,241,.35)}
-      .cd-brand{font-weight:800;font-size:19px;letter-spacing:-.02em}
-      .cd-nav{display:flex;gap:4px;margin-left:8px}
-      .cd-navbtn{font-size:13px;font-weight:600;color:var(--muted);padding:7px 14px;border-radius:9px;cursor:pointer;transition:.15s}
-      .cd-navbtn.active{color:var(--accent);background:var(--accent-soft)}
-      .cd-navbtn.soon{opacity:.5;cursor:default}
-      .cd-auth{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
-      .cd-chip{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:20px;background:var(--accent-soft);color:var(--accent)}
-      .cd-link{color:var(--muted);cursor:pointer;text-decoration:underline;font-weight:500}
-      .cd-hero{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin:8px 0 20px}
-      .cd-stat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)}
-      .cd-stat.primary{background:linear-gradient(135deg,#5b5ff0,#7c6bf5);border:none;color:#fff;box-shadow:0 10px 30px rgba(99,102,241,.35)}
-      .cd-stat-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
-      .cd-stat.primary .cd-stat-lbl{opacity:.85}
-      .cd-stat-val{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:6px}
-      .cd-stat-sub{font-size:12px;opacity:.8;margin-top:2px}
-      /* one-number money header */
-      .cd-money{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;
-        background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 26px;
-        box-shadow:var(--shadow);margin:8px 0 22px}
-      .cd-money-lbl{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
-      .cd-money-big{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:4px 0 2px}
-      .cd-money-sub{font-size:12px;color:var(--muted)}
-      .cd-segbar{display:flex;height:12px;border-radius:7px;overflow:hidden;background:var(--line)}
-      .cd-segbar span{display:block;height:100%}
-      .cd-segbar span+span{box-shadow:inset 2px 0 0 #fff}
-      .cd-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px}
-      .cd-legend span{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
-      .cd-legend b{color:var(--ink);font-weight:700}
-      .cd-legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
-      .cd-actionbar{display:flex;align-items:center;margin:6px 4px 18px}
-      .cd-newbtn{font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));
-        padding:9px 16px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,.32)}
-      .cd-distbtn{font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-soft);border:1px solid #dcdefb;
-        padding:8px 15px;border-radius:10px;cursor:pointer;margin-left:10px;display:inline-flex;align-items:center;gap:7px}
-      .cd-distbtn.hot{color:#b7791f;background:#fff4e5;border-color:#f6e2c0}
-      .cd-hint{margin-left:auto;font-size:12px;color:var(--muted)}
-      /* distribute sheet */
-      .cd-drow{display:flex;align-items:center;gap:12px;padding:11px 2px;border-top:1px solid var(--line)}
-      .cd-drow:first-of-type{border-top:none}
-      .cd-dname{font-weight:600;font-size:13px}
-      .cd-dmeta{font-size:11px;color:var(--muted);margin-top:1px}
-      .cd-dleft{position:sticky;bottom:0;background:var(--card);padding:12px 0 2px;border-top:1px solid var(--line);
-        display:flex;align-items:center;font-size:13px;font-weight:600}
-      .cd-cat{margin-bottom:22px}
-      .cd-cat-hd{display:flex;align-items:center;gap:10px;padding:0 4px 10px}
-      .cd-dot{width:9px;height:9px;border-radius:50%}
-      .cd-cat-name{font-weight:700;font-size:15px}
-      .cd-cat-avail{margin-left:auto;font-size:13px;color:var(--muted)}
-      .cd-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-      .cd-env{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;
-        box-shadow:var(--shadow);transition:transform .12s,box-shadow .12s;cursor:pointer}
-      .cd-env:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(16,18,34,.05),0 14px 34px rgba(16,18,34,.10);border-color:#dfe1ee}
-      .cd-env-top{display:flex;align-items:baseline;gap:8px}
-      .cd-env-name{font-weight:600;font-size:14px}
-      .cd-badge{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-left:auto}
-      .cd-badge.goal{background:#f3efff;color:var(--violet)}
-      .cd-badge.vault{background:#eafaf3;color:var(--pos)}
-      .cd-avail{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:8px 0 2px}
-      .cd-sub{font-size:11px;color:var(--muted)}
-      .cd-bar{height:7px;border-radius:6px;background:var(--line);overflow:hidden;margin:12px 0 6px}
-      .cd-bar-fill{height:100%;border-radius:6px;transition:width .35s cubic-bezier(.2,.8,.2,1)}
-      .cd-tap{font-size:11px;color:var(--accent);font-weight:600;margin-top:8px}
-      /* modal */
-      .cd-modal{width:460px;max-width:94vw;padding:22px 22px 18px !important;border-radius:20px !important;box-shadow:0 30px 80px rgba(16,18,34,.3) !important}
-      .cdm-title{font-size:18px;font-weight:800;letter-spacing:-.01em}
-      .cdm-sub{font-size:12px;color:var(--muted);margin:2px 0 14px}
-      .cdm-opt{border:1px solid var(--line);border-radius:13px;padding:11px 13px;margin-bottom:9px}
-      .cdm-ohd{display:flex;align-items:center;gap:8px;margin-bottom:9px}
-      .cdm-num{width:20px;height:20px;border-radius:6px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;
-        display:inline-flex;align-items:center;justify-content:center}
-      .cdm-lbl{font-size:12px;font-weight:700;color:var(--ink)}
-      .cdm-manage{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-top:1px dashed var(--line);margin-top:6px;padding-top:12px}
-      .cdm-input{max-width:150px}
-      .cd-half{flex:1 1 46%;min-width:150px}
-      /* bottom sheet */
-      .cd-sheet{width:100%;max-width:560px;margin:0 auto;padding:14px 22px 20px !important;
-        border-radius:22px 22px 0 0 !important;box-shadow:0 -20px 60px rgba(16,18,34,.25) !important;
-        max-height:92vh;overflow-y:auto}
-      .cd-hdl{width:40px;height:4px;border-radius:3px;background:var(--line);margin:0 auto 14px}
-      .cd-seclbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
-      /* status pills on cards */
-      .cd-pill{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-left:auto}
-      .cd-pill.pastdue,.cd-pill.over{background:#fdecec;color:var(--neg)}
-      .cd-pill.soon{background:#fff4e5;color:#b7791f}
-      .cd-pill.under{background:var(--accent-soft);color:var(--accent)}
-      .cd-pill.flex{background:#eef0f5;color:var(--muted)}
-      .cd-pill.handled{background:#eafaf3;color:var(--pos)}
-      .cd-env.is-handled{opacity:.5}
-    </style>
-    """)
-
-
-def _stat(label, value, primary=False, sub=""):
-    cls = "cd-stat primary" if primary else "cd-stat"
-    with ui.element("div").classes(cls):
-        ui.html(f'<div class="cd-stat-lbl">{label}</div>')
-        ui.html(f'<div class="cd-stat-val mono">{money(value)}</div>')
-        if sub:
-            ui.html(f'<div class="cd-stat-sub">{sub}</div>')
+    theme.apply()
 
 
 def _app(store, demo: bool):
+    state = {"view": "buckets"}          # which pillar is on screen
+
+    def go(view):
+        if view == state["view"]:
+            return
+        state["view"] = view
+        nav.refresh()
+        content.refresh()
+
     with ui.element("div").classes("cd-shell"):
         with ui.element("div").classes("cd-top"):
             ui.html('<div class="cd-logo">C</div>')
             ui.html(f'<div class="cd-brand">{BRAND}</div>')
-            with ui.element("div").classes("cd-nav"):
-                ui.html('<div class="cd-navbtn active">Buckets</div>')
-                ui.html('<div class="cd-navbtn soon">Ledger</div>')
-                ui.html('<div class="cd-navbtn soon">Forecast</div>')
+
+            @ui.refreshable
+            def nav():
+                with ui.element("div").classes("cd-nav"):
+                    for key, label in (("buckets", "Buckets"), ("ledger", "Ledger")):
+                        cls = "cd-navbtn active" if state["view"] == key else "cd-navbtn"
+                        ui.html(f'<div class="{cls}">{label}</div>').on("click", lambda _, k=key: go(k))
+                    ui.html('<div class="cd-navbtn soon">Forecast</div>')
+            nav()
+
             with ui.element("div").classes("cd-auth"):
                 if demo:
                     ui.html('<span class="cd-chip">Demo · sample data</span>')
@@ -231,7 +153,11 @@ def _app(store, demo: bool):
                     ui.html(f'<span>{getattr(store, "email", "") or "Signed in"}</span>')
                     ui.html('<span class="cd-link">Sign out</span>').on("click", lambda _: _logout())
 
-        @ui.refreshable
+        # The whole main area re-renders on view switch; refresh_page() rebuilds the
+        # active view in place after any mutation. Sheets keep their own body refresh.
+        def refresh_page():
+            content.refresh()
+
         def hero():
             m = store.metrics()
             un, cash, inb = m["unallocated"], m["cash"], m["in_buckets"]
@@ -265,7 +191,6 @@ def _app(store, demo: bool):
                 </div>
               </div>''')
 
-        @ui.refreshable
         def buckets():
             groups = store.groups()
             if not groups:
@@ -280,10 +205,6 @@ def _app(store, demo: bool):
                     with ui.element("div").classes("cd-grid"):
                         for r in g["rows"]:
                             _envelope(r)
-
-        def refresh_page():
-            hero.refresh()
-            buckets.refresh()
 
         def _envelope(r):
             card = ui.element("div").classes("cd-env" + (" is-handled" if r["handled"] else ""))
@@ -536,27 +457,193 @@ def _app(store, demo: bool):
                     ui.button("Distribute", on_click=do_distribute).props("unelevated color=indigo no-caps")
             dlg.open()
 
-        hero()
-
-        @ui.refreshable
         def actionbar():
             un = store.metrics()["unallocated"]
             with ui.element("div").classes("cd-actionbar"):
                 ui.html('<div class="cd-newbtn">＋ New bucket</div>').on("click", lambda _: _open_create())
                 if un > 0.005:
                     ui.html(f'<div class="cd-distbtn hot">⚡ Distribute {money(un)}</div>').on("click", lambda _: _open_distribute())
-                    ui.html('<span class="cd-hint">Tap a bucket to manage · or distribute what\'s unallocated</span>')
+                    ui.html('<span class="cd-hint">Tap a bucket to manage · or distribute what\'s unallocated</span>').style("margin-left:auto")
                 else:
-                    ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>')
+                    ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>').style("margin-left:auto")
 
-        # Distribute button reflects live Unallocated after every assignment.
-        _orig_refresh = refresh_page
-        def refresh_page():          # noqa: F811 — extend to also refresh the actionbar
-            _orig_refresh()
-            actionbar.refresh()
+        @ui.refreshable
+        def content():
+            if state["view"] == "ledger":
+                _ledger_view(store, refresh_page)
+            else:
+                hero()
+                actionbar()
+                buckets()
+        content()
 
-        actionbar()
-        buckets()
+
+# ── Ledger pillar ─────────────────────────────────────────────────────────────
+def _today_iso() -> str:
+    return date.today().isoformat()
+
+
+def _bucket_options(store) -> dict:
+    """Non-vault buckets a transaction can point at, {id: name}."""
+    opts = {}
+    for g in store.groups():
+        for r in g["rows"]:
+            if r["type"] != "vault":
+                opts[r["id"]] = r["name"]
+    return opts
+
+
+_TX_ICON = {"expense": "−", "income": "+", "refund": "↺"}
+_TX_CLASS = {"expense": "out", "income": "in", "refund": "refund"}
+
+
+def _ledger_view(store, refresh_bg):
+    """The cleared-money timeline: income, spending and refunds, grouped by day."""
+    q = {"v": ""}
+
+    def _open_tx(tid=None):
+        rows = store.transactions()
+        existing = next((t for t in rows if t["id"] == tid), None) if tid else None
+        st = {"kind": existing["kind"] if existing else "expense"}
+        bopts = _bucket_options(store)
+
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html(f'<div class="cdm-title">{"Edit transaction" if existing else "Add transaction"}</div>')
+            ui.html('<div class="cdm-sub">Expenses draw from a bucket · income lifts Unallocated · '
+                    'a refund returns money to a bucket.</div>')
+
+            @ui.refreshable
+            def segbar():
+                with ui.element("div").classes("cd-seg"):
+                    for k, label in (("expense", "Expense"), ("income", "Income"), ("refund", "Refund")):
+                        cls = "cd-segopt" + (f" on {_TX_CLASS[k]}" if st["kind"] == k else "")
+                        ui.html(f'<div class="{cls}">{label}</div>').on("click", lambda _, kk=k: _set_kind(kk)).style("flex:1")
+            segbar()
+
+            with ui.row().classes("w-full q-gutter-sm q-mt-sm"):
+                amount = ui.number("Amount", value=existing["amount"] if existing else None, format="%.2f") \
+                    .props("outlined dense hide-bottom-space").classes("cd-half")
+                datef = ui.input("Date", value=existing["date"] if existing else _today_iso()) \
+                    .props("outlined dense hide-bottom-space type=date").classes("cd-half")
+
+            bucket_row = ui.row().classes("w-full q-mt-sm")
+            with bucket_row:
+                bval = existing["bucket_id"] if (existing and existing.get("bucket_id") in bopts) else next(iter(bopts), None)
+                bucket = ui.select(bopts, label="Bucket", value=bval).props("outlined dense").classes("w-full")
+            bucket_row.set_visibility(st["kind"] in ("expense", "refund"))
+
+            payee = ui.select(store.payees(), label="Payee / note", value=existing["desc"] if existing else None,
+                              with_input=True, new_value_mode="add-unique").props("outlined dense").classes("w-full q-mt-sm")
+
+            def _set_kind(k):
+                st["kind"] = k
+                segbar.refresh()
+                bucket_row.set_visibility(k in ("expense", "refund"))
+
+            def save():
+                amt = float(amount.value or 0)
+                if amt <= 0:
+                    ui.notify("Enter an amount greater than zero.", type="warning"); return
+                kind = st["kind"]
+                bid = bucket.value if kind in ("expense", "refund") else None
+                if kind in ("expense", "refund") and not bid:
+                    ui.notify("Pick a bucket for this transaction.", type="warning"); return
+                desc = (payee.value or "").strip()
+                when = datef.value or _today_iso()
+                try:
+                    if existing and kind == existing["kind"]:
+                        ch = {"amount": amt, "desc": desc, "date": when}
+                        if bid:
+                            ch["envelope_id"] = bid
+                        store.edit_transaction(existing["id"], **ch)
+                    else:
+                        if existing:                       # type changed → replace
+                            store.delete_transaction(existing["id"])
+                        store.add_transaction(kind, amt, bid, desc, when)
+                except Exception as e:
+                    ui.notify(str(e)[:150], type="warning"); return
+                dlg.close(); refresh_bg()
+
+            with ui.row().classes("w-full items-center q-mt-md"):
+                if existing:
+                    def do_delete():
+                        try:
+                            store.delete_transaction(existing["id"])
+                        except Exception as e:
+                            ui.notify(str(e)[:150], type="warning"); return
+                        dlg.close(); refresh_bg()
+                    ui.button("Delete", on_click=do_delete).props("flat color=red no-caps")
+                ui.space()
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Save" if existing else "Add", on_click=save).props("unelevated color=indigo no-caps")
+        dlg.open()
+
+    def _tx_row(r):
+        row = ui.element("div").classes("cd-tx")
+        with row:
+            ui.html(f'<div class="cd-tx-ic {_TX_CLASS[r["kind"]]}">{_TX_ICON[r["kind"]]}</div>')
+            title = _esc(r["desc"] or (r["bucket_name"] if r["kind"] != "income" else "Income"))
+            if r["kind"] == "income":
+                meta = '<span class="cd-tx-tag">Income → Unallocated</span>'
+            else:
+                verb = "refund →" if r["kind"] == "refund" else ""
+                meta = (f'<span class="cd-tx-tag">{verb}<i style="background:{r["color"]}"></i>'
+                        f'{_esc(r["bucket_name"] or "—")}</span>')
+            with ui.element("div"):
+                ui.html(f'<div class="cd-tx-name">{title}</div>')
+                ui.html(f'<div class="cd-tx-meta">{meta}</div>')
+            pos = r["kind"] in ("income", "refund")
+            signed = ("+" if pos else "−") + money(r["amount"]).lstrip("-")
+            ui.html(f'<div class="cd-tx-amt {"pos" if pos else "neg"} mono">{signed}</div>')
+        row.on("click", lambda _, t=r["id"]: _open_tx(t))
+
+    @ui.refreshable
+    def lst():
+        rows = store.transactions()
+        qv = q["v"].strip().lower()
+        if qv:
+            rows = [r for r in rows if qv in r["desc"].lower() or qv in r["bucket_name"].lower()]
+        if not rows:
+            msg = "No matches." if qv else "No transactions yet."
+            sub = "Try another search." if qv else "Add your first one above to start the timeline."
+            ui.html(f'<div class="cd-empty"><div class="big">{msg}</div>{sub}</div>')
+            return
+        # rows are already newest-first; group consecutive same-day rows
+        groups: list[tuple[str, list]] = []
+        for r in rows:
+            if not groups or groups[-1][0] != r["date"]:
+                groups.append((r["date"], []))
+            groups[-1][1].append(r)
+        for datestr, items in groups:
+            lbl, sub = _day_label(datestr)
+            net = sum((it["amount"] if it["kind"] in ("income", "refund") else -it["amount"]) for it in items)
+            net_txt = ("+" if net >= 0 else "−") + money(abs(net)).lstrip("-")
+            with ui.element("div").classes("cd-daygrp"):
+                with ui.element("div").classes("cd-daylbl"):
+                    ui.html(f'<b>{lbl}</b><span class="d">{sub}</span>'
+                            f'<span class="t">{net_txt} net</span>')
+                with ui.element("div").classes("cd-txcard"):
+                    for r in items:
+                        _tx_row(r)
+
+    # ── render: header stats · action bar · search · list ─────────────────────
+    lm = store.ledger_metrics()
+    with ui.element("div").classes("cd-led-hd"):
+        for label, val, col in (("In checking", lm["balance"], "var(--ink)"),
+                                ("Income · this month", lm["income"], "var(--pos)"),
+                                ("Spent · this month", lm["spent"], "var(--neg)")):
+            with ui.element("div").classes("cd-led-stat"):
+                ui.html(f'<div class="l">{label}</div>'
+                        f'<div class="v mono" style="color:{col}">{money(val)}</div>')
+
+    with ui.element("div").classes("cd-actionbar"):
+        ui.html('<div class="cd-newbtn">＋ Add transaction</div>').on("click", lambda _: _open_tx())
+        ui.html('<span class="cd-hint">Tap any row to edit · income lifts Unallocated</span>').style("margin-left:auto")
+
+    search = ui.input(placeholder="Search payee or bucket…").props("outlined dense clearable").classes("w-full cd-led-search")
+    search.on("update:model-value", lambda: (q.__setitem__("v", search.value or ""), lst.refresh()))
+    lst()
 
 
 def _login(error: str = ""):

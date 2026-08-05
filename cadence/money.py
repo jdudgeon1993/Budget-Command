@@ -233,6 +233,14 @@ def add_income(s: dict, amount: float, desc: str = "", date: str = "") -> dict:
     return tx
 
 
+def add_refund(s: dict, eid: str, amount: float, desc: str = "", date: str = "") -> dict:
+    """Money that came back into an envelope (return, reimbursement) — the inverse
+    of an expense. It lifts the envelope's available and the account balance."""
+    if env(s, eid)["type"] == VAULT:
+        raise ValueError("a vault holds no spending to refund")
+    return _tx(s, REFUND, round(amount, 2), eid, desc, date)
+
+
 def _tx(s: dict, kind: str, amount: float, eid, desc: str, date: str) -> dict:
     tx = {"id": _id(), "kind": kind, "amount": amount, "envelope_id": eid,
           "desc": desc, "date": date}
@@ -240,11 +248,59 @@ def _tx(s: dict, kind: str, amount: float, eid, desc: str, date: str) -> dict:
     return tx
 
 
+def txn(s: dict, tid: str) -> dict:
+    return next(t for t in s["transactions"] if t["id"] == tid)
+
+
+_UNSET = object()
+
+
+def edit_transaction(s: dict, tid: str, amount=_UNSET, desc=_UNSET,
+                     date=_UNSET, envelope_id=_UNSET) -> None:
+    """Edit a ledger row. Everything downstream (spent, available, balance) is
+    derived, so a change recomputes live. Income touches Unallocated, which must
+    never go negative — reducing income already given a job is refused."""
+    t = txn(s, tid)
+    if amount is not _UNSET:
+        amount = round(float(amount), 2)
+        if t["kind"] == INCOME:
+            delta = round(amount - t["amount"], 2)
+            if round(s["unallocated"] + delta, 2) < -0.005:
+                raise ValueError("That income is already assigned to buckets — free it up first.")
+            s["unallocated"] = round(s["unallocated"] + delta, 2)
+        t["amount"] = amount
+    if desc is not _UNSET:
+        t["desc"] = desc
+    if date is not _UNSET:
+        t["date"] = date
+    if envelope_id is not _UNSET and envelope_id and t["kind"] in (EXPENSE, REFUND):
+        if env(s, envelope_id)["type"] == VAULT:
+            raise ValueError("a vault can't be spent from")
+        t["envelope_id"] = envelope_id
+
+
+def delete_transaction(s: dict, tid: str) -> None:
+    t = txn(s, tid)
+    if t["kind"] == INCOME:
+        if round(s["unallocated"] - t["amount"], 2) < -0.005:
+            raise ValueError("That income is already assigned to buckets — free it up first.")
+        s["unallocated"] = round(s["unallocated"] - t["amount"], 2)
+    s["transactions"] = [x for x in s["transactions"] if x["id"] != tid]
+
+
 # ── Derived metrics (computed, never stored) ──────────────────────────────────
 
 def spent(s: dict, eid: str) -> float:
-    return round(sum(t["amount"] for t in s["transactions"]
-                     if t["kind"] == EXPENSE and t["envelope_id"] == eid), 2)
+    """Net spent from an envelope: expenses less any refunds booked against it."""
+    total = 0.0
+    for t in s["transactions"]:
+        if t.get("envelope_id") != eid:
+            continue
+        if t["kind"] == EXPENSE:
+            total += t["amount"]
+        elif t["kind"] == REFUND:
+            total -= t["amount"]
+    return round(total, 2)
 
 
 def available(s: dict, e: dict) -> float:
