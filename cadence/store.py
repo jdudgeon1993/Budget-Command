@@ -63,10 +63,15 @@ class Store:
 
     # ── headline metrics ──────────────────────────────────────────────────────
     def metrics(self) -> dict:
+        un = M.unallocated(self.s)
+        rts = M.ready_to_spend(self.s)
+        bal = M.available_balance(self.s)
         return {
-            "ready_to_spend": M.ready_to_spend(self.s),
-            "unallocated": M.unallocated(self.s),
-            "available_balance": M.available_balance(self.s),
+            "unallocated": un,
+            "available_balance": bal,
+            "in_buckets": round(rts - un, 2),      # non-vault available (assigned, unspent)
+            "in_vaults": round(bal - rts, 2),      # locked savings
+            "ready_to_spend": rts,
         }
 
     # ── buckets grouped by category ───────────────────────────────────────────

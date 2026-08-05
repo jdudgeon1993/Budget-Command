@@ -46,10 +46,18 @@ def env(s: dict, eid: str) -> dict:
 
 # ── Placement (silent — no ledger row) ────────────────────────────────────────
 
-def fund(s: dict, eid: str, amount: float) -> None:
+def fund(s: dict, eid: str, amount: float) -> float:
+    """Move money Unallocated → envelope. RULE: you can never assign more than
+    you have, so Unallocated never goes negative — a positive request is capped
+    at whatever's Unallocated. Returns the amount actually moved."""
     amount = round(amount, 2)
+    if amount > 0:
+        amount = min(amount, round(s["unallocated"], 2))
+    if amount == 0:
+        return 0.0
     env(s, eid)["funded"] = round(env(s, eid)["funded"] + amount, 2)
     s["unallocated"] = round(s["unallocated"] - amount, 2)
+    return amount
 
 
 def defund(s: dict, eid: str, amount: float) -> None:

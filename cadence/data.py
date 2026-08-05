@@ -41,9 +41,12 @@ class LiveStore:
         unalloc = F.ready_to_spend(months, acc, bks, txs)          # money with no job yet
         nonvault = sum(F.bucket_available(b, self._month, months, txs)
                        for b in bks if b.get("type") != "vault")
+        bal = F.total_cash(acc, txs)
         return {
-            "available_balance": round(F.total_cash(acc, txs), 2),
+            "available_balance": round(bal, 2),
             "unallocated": round(unalloc, 2),
+            "in_buckets": round(nonvault, 2),
+            "in_vaults": round(bal - unalloc - nonvault, 2),
             "ready_to_spend": round(unalloc + nonvault, 2),
         }
 

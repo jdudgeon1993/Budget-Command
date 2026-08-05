@@ -56,6 +56,20 @@ def _theme() -> None:
       .cd-stat.primary .cd-stat-lbl{opacity:.85}
       .cd-stat-val{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:6px}
       .cd-stat-sub{font-size:12px;opacity:.8;margin-top:2px}
+      /* one-number money header */
+      .cd-money{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;
+        background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 26px;
+        box-shadow:var(--shadow);margin:8px 0 22px}
+      .cd-money-lbl{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+      .cd-money-big{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:4px 0 2px}
+      .cd-money-sub{font-size:12px;color:var(--muted)}
+      .cd-segbar{display:flex;height:12px;border-radius:7px;overflow:hidden;background:var(--line)}
+      .cd-segbar span{display:block;height:100%}
+      .cd-segbar span+span{box-shadow:inset 2px 0 0 #fff}
+      .cd-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px}
+      .cd-legend span{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+      .cd-legend b{color:var(--ink);font-weight:700}
+      .cd-legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
       .cd-actionbar{display:flex;align-items:center;margin:6px 4px 18px}
       .cd-newbtn{font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));
         padding:9px 16px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,.32)}
@@ -123,10 +137,31 @@ def _app(store, demo: bool):
         @ui.refreshable
         def hero():
             m = store.metrics()
-            with ui.element("div").classes("cd-hero"):
-                _stat("Unallocated", m["unallocated"], primary=True, sub="Money without a job yet — assign it all")
-                _stat("Ready to Spend", m["ready_to_spend"], sub="Unassigned + what's in your buckets")
-                _stat("Available Balance", m["available_balance"], sub="Real cash in the bank")
+            un, bal = m["unallocated"], m["available_balance"]
+            inb, inv = m["in_buckets"], m["in_vaults"]
+            tot = bal if bal > 0 else 1
+            wu, wb, wv = (max(0, un) / tot * 100, max(0, inb) / tot * 100, max(0, inv) / tot * 100)
+            un_col = "var(--neg)" if un < 0 else "var(--accent)"
+            ui.html(f'''
+              <div class="cd-money">
+                <div>
+                  <div class="cd-money-lbl">Unallocated · give it a job</div>
+                  <div class="cd-money-big mono" style="color:{un_col}">{money(un)}</div>
+                  <div class="cd-money-sub">of {money(bal)} total cash in the bank</div>
+                </div>
+                <div>
+                  <div class="cd-segbar">
+                    <span style="width:{wu:.1f}%;background:var(--accent)"></span>
+                    <span style="width:{wb:.1f}%;background:var(--pos)"></span>
+                    <span style="width:{wv:.1f}%;background:var(--violet)"></span>
+                  </div>
+                  <div class="cd-legend">
+                    <span><i style="background:var(--accent)"></i>Unallocated <b>{money(un)}</b></span>
+                    <span><i style="background:var(--pos)"></i>In buckets <b>{money(inb)}</b></span>
+                    <span><i style="background:var(--violet)"></i>In vaults <b>{money(inv)}</b></span>
+                  </div>
+                </div>
+              </div>''')
 
         @ui.refreshable
         def buckets():
@@ -229,6 +264,9 @@ def _app(store, demo: bool):
                         if amt <= 0:
                             ui.notify("Enter an amount (or tap a shortcut).", type="warning")
                             return
+                        un = store.metrics()["unallocated"]
+                        if src.value == "unallocated" and amt > un + 0.005:
+                            ui.notify(f"Only {money(un)} is unallocated — assigning that.", type="info")
                         act(lambda: store.assign(eid, src.value, amt))
                     ui.button("Add to this bucket", on_click=do_assign) \
                         .props("unelevated color=indigo no-caps").classes("w-full q-mt-sm")
@@ -239,12 +277,21 @@ def _app(store, demo: bool):
                         ui.button("Remove", on_click=lambda: act(lambda: store.defund(eid, float(rem.value or 0)))) \
                             .props("flat color=grey no-caps")
 
-                    # manage: rename / target / delete
+                    # manage — edits auto-save on change; no explicit save buttons
+                    def save(fn):
+                        try:
+                            fn()
+                        except Exception as e:
+                            ui.notify(str(e)[:140], type="warning")
+                            return
+                        refresh_page()   # update cards behind; keep the modal steady
+
                     with ui.element("div").classes("cdm-manage"):
-                        rn = ui.input(value=b["name"]).props("dense outlined").classes("cdm-input")
-                        ui.button("Rename", on_click=lambda: act(lambda: store.rename(eid, rn.value))).props("flat color=indigo")
-                        tg = ui.number(value=b["target"]).props("dense outlined").classes("cdm-input")
-                        ui.button("Set target", on_click=lambda: act(lambda: store.set_target(eid, float(tg.value or 0)))).props("flat color=indigo")
+                        rn = ui.input("Name", value=b["name"]).props("dense outlined hide-bottom-space").classes("cdm-input")
+                        rn.on("blur", lambda: save(lambda: store.rename(eid, rn.value)))
+                        tg = ui.number("Target", value=b["target"]).props("dense outlined hide-bottom-space").classes("cdm-input")
+                        tg.on("blur", lambda: save(lambda: store.set_target(eid, float(tg.value or 0))))
+                        ui.space()
 
                         def do_delete():
                             try:
@@ -254,9 +301,8 @@ def _app(store, demo: bool):
                                 return
                             dlg.close()
                             refresh_page()
-                        ui.button("Delete", on_click=do_delete).props("flat color=red")
-                        ui.space()
-                        ui.button("Done", on_click=dlg.close).props("flat")
+                        ui.button("Delete", on_click=do_delete).props("flat color=red no-caps")
+                        ui.button("Done", on_click=dlg.close).props("unelevated color=indigo no-caps")
                 body()
             dlg.open()
 
