@@ -44,6 +44,9 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cd-auth{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
 .cd-chip{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:20px;background:var(--accent-soft);color:var(--accent)}
 .cd-link{color:var(--muted);cursor:pointer;text-decoration:underline;font-weight:500}
+.cd-gear{font-size:18px;cursor:pointer;color:var(--muted);line-height:1;transition:.15s;user-select:none}
+.cd-gear:hover{color:var(--ink);transform:rotate(30deg)}
+.cd-gear.active{color:var(--accent)}
 
 /* ── one-number money header (Buckets) ────────────────────────────────────── */
 .cd-money{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;
@@ -173,6 +176,28 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cd-tx-amt.neg{color:var(--ink)}
 .cd-empty{background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:38px 20px;text-align:center;color:var(--muted)}
 .cd-empty .big{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px}
+
+/* ── Settings ─────────────────────────────────────────────────────────────── */
+.cd-set-title{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:6px 2px 2px}
+.cd-setcard{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:16px}
+.cd-set-seclbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:2px 2px 10px}
+.cd-setrow{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 8px;border-radius:12px;border-top:1px solid var(--line);cursor:pointer;transition:background .12s}
+.cd-setrow:first-of-type{border-top:none}
+.cd-setrow:hover{background:#fafbff}
+.cd-setrow.off{opacity:.5}
+.cd-set-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;background:var(--pos-soft);color:var(--pos)}
+.cd-set-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-set-meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px}
+.cd-set-val{font-weight:700;font-size:14px;white-space:nowrap}
+.cd-toggle{font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 10px;border-radius:8px;background:var(--line);color:var(--muted);cursor:pointer;user-select:none;min-width:44px;text-align:center}
+.cd-toggle.on{background:var(--pos-soft);color:var(--pos)}
+.cd-rule-badge{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:6px}
+.cd-rule-badge.internal{background:var(--accent-soft);color:var(--accent)}
+.cd-rule-badge.external{background:var(--warn-soft);color:var(--warn-ink)}
+.cd-tally{font-size:12px;color:var(--muted);padding:0 2px 12px}
+.cd-tally b{color:var(--ink)}
+.cd-set-add{display:inline-block;margin-top:10px;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:8px 14px;border-radius:10px;cursor:pointer}
+.cd-set-add:hover{filter:brightness(.97)}
 """
 
 

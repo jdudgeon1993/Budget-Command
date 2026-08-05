@@ -171,6 +171,7 @@ def _app(store, demo: bool):
             return
         state["view"] = view
         nav.refresh()
+        gear.refresh()
         content.refresh()
 
     with ui.element("div").classes("cd-shell"):
@@ -188,6 +189,11 @@ def _app(store, demo: bool):
             nav()
 
             with ui.element("div").classes("cd-auth"):
+                @ui.refreshable
+                def gear():
+                    cls = "cd-gear active" if state["view"] == "settings" else "cd-gear"
+                    ui.html(f'<span class="{cls}" title="Settings">⚙</span>').on("click", lambda _: go("settings"))
+                gear()
                 if demo:
                     ui.html('<span class="cd-chip">Demo · sample data</span>')
                     ui.html('<span class="cd-link">Sign in</span>').on("click", lambda _: _logout())
@@ -508,6 +514,8 @@ def _app(store, demo: bool):
         def content():
             if state["view"] == "ledger":
                 _ledger_view(store, refresh_page)
+            elif state["view"] == "settings":
+                _settings_view(store, refresh_page)
             else:
                 hero()
                 actionbar()
@@ -756,6 +764,169 @@ def _ledger_view(store, refresh_bg):
     search = ui.input(placeholder="Search payee or bucket…").props("outlined dense clearable").classes("w-full cd-led-search")
     search.on("update:model-value", lambda: (q.__setitem__("v", search.value or ""), lst.refresh()))
     lst()
+
+
+# ── Settings pillar (income + allocation rules → the Forecast engine) ─────────
+_FREQ_LBL = {"weekly": "Weekly", "biweekly": "Bi-weekly",
+             "semimonthly": "Semi-monthly", "monthly": "Monthly"}
+_RULE_KIND_LBL = {"internal": "Internal — fund a bucket", "external": "External — leaves the budget"}
+_RULE_VT_LBL = {"fund": "Fund to target", "pct": "% of each paycheck", "fixed": "$ fixed amount"}
+
+
+def _friendly_date(iso: str) -> str:
+    try:
+        d = date.fromisoformat(iso[:10])
+        return d.strftime("%b ") + str(d.day)
+    except (ValueError, TypeError):
+        return iso or "—"
+
+
+def _rule_value_text(r: dict) -> str:
+    if r["value_type"] == "fund":
+        return "fund to target"
+    if r["value_type"] == "pct":
+        return f'{r["value"]:g}%'
+    return money(r["value"])
+
+
+def _all_bucket_options(store) -> dict:
+    opts = {}
+    for g in store.groups():
+        for r in g["rows"]:
+            opts[r["id"]] = r["name"]
+    return opts
+
+
+def _settings_view(store, refresh_bg):
+    def _do(fn):
+        try:
+            fn()
+        except Exception as e:
+            ui.notify(str(e)[:150], type="warning"); return
+        refresh_bg()
+
+    # ── paycheck add/edit sheet ──
+    def _open_paycheck(pid=None):
+        existing = next((p for p in store.paychecks() if p["id"] == pid), None) if pid else None
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html(f'<div class="cdm-title">{"Edit paycheck" if existing else "Add paycheck"}</div>')
+            ui.html('<div class="cdm-sub">Recurring income the Forecast lands on your calendar.</div>')
+            label = ui.input("Label", value=existing["label"] if existing else "").props("outlined dense hide-bottom-space").classes("w-full")
+            with ui.row().classes("w-full q-gutter-sm q-mt-sm"):
+                amount = ui.number("Amount", value=existing["amount"] if existing else None, format="%.2f").props("outlined dense hide-bottom-space").classes("cd-half")
+                freq = ui.select(_FREQ_LBL, value=existing["freq"] if existing else "biweekly", label="Frequency").props("outlined dense").classes("cd-half")
+            anchor = ui.input("Next paycheck date", value=existing["anchor"] if existing else _today_iso()).props("outlined dense hide-bottom-space type=date").classes("w-full q-mt-sm")
+
+            def save():
+                if not (label.value or "").strip():
+                    ui.notify("Give the paycheck a label.", type="warning"); return
+                if existing:
+                    store.edit_paycheck(existing["id"], label=label.value, amount=amount.value,
+                                        freq=freq.value, anchor=anchor.value)
+                else:
+                    store.add_paycheck(label.value, amount.value, freq.value, anchor.value)
+                dlg.close(); refresh_bg()
+            with ui.row().classes("w-full items-center q-mt-md"):
+                if existing:
+                    ui.button("Delete", on_click=lambda: (store.delete_paycheck(existing["id"]), dlg.close(), refresh_bg())).props("flat color=red no-caps")
+                ui.space()
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Save" if existing else "Add", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
+        dlg.open()
+
+    # ── rule add/edit sheet ──
+    def _open_rule(rid=None):
+        existing = next((r for r in store.rules() if r["id"] == rid), None) if rid else None
+        allb = _all_bucket_options(store)
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html(f'<div class="cdm-title">{"Edit rule" if existing else "Add allocation rule"}</div>')
+            ui.html('<div class="cdm-sub">Applied to every paycheck — internal rules fund a bucket, '
+                    'external rules move money out of the budget.</div>')
+            name = ui.input("Rule name", value=existing["name"] if existing else "").props("outlined dense hide-bottom-space").classes("w-full")
+            kind = ui.select(_RULE_KIND_LBL, value=existing["kind"] if existing else "internal", label="Type").props("outlined dense").classes("w-full q-mt-sm")
+            bucket_row = ui.row().classes("w-full q-mt-sm")
+            with bucket_row:
+                bval = existing["bucket_id"] if (existing and existing.get("bucket_id") in allb) else next(iter(allb), None)
+                bucket = ui.select(allb, label="Fund which bucket", value=bval).props("outlined dense").classes("w-full")
+            bucket_row.bind_visibility_from(kind, "value", backward=lambda v: v == "internal")
+            with ui.row().classes("w-full q-gutter-sm q-mt-sm"):
+                vtype = ui.select(_RULE_VT_LBL, value=existing["value_type"] if existing else "fund", label="How much").props("outlined dense").classes("cd-half")
+                value = ui.number("Value", value=existing["value"] if existing else None, format="%.2f").props("outlined dense hide-bottom-space").classes("cd-half")
+                value.bind_visibility_from(vtype, "value", backward=lambda v: v != "fund")
+
+            def save():
+                if not (name.value or "").strip():
+                    ui.notify("Name the rule.", type="warning"); return
+                k = kind.value
+                vt = vtype.value
+                bid = bucket.value if k == "internal" else None
+                val = 0 if vt == "fund" else float(value.value or 0)
+                if existing:
+                    store.edit_rule(existing["id"], name=name.value, kind=k, bucket_id=bid,
+                                    value=val, value_type=vt)
+                else:
+                    store.add_rule(name.value, k, bid, val, vt)
+                dlg.close(); refresh_bg()
+            with ui.row().classes("w-full items-center q-mt-md"):
+                if existing:
+                    ui.button("Delete", on_click=lambda: (store.delete_rule(existing["id"]), dlg.close(), refresh_bg())).props("flat color=red no-caps")
+                ui.space()
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Save" if existing else "Add", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
+        dlg.open()
+
+    def _paycheck_row(p):
+        row = ui.element("div").classes("cd-setrow")
+        with row:
+            ui.html('<div class="cd-set-ic in">$</div>')
+            with ui.element("div").style("min-width:0"):
+                ui.html(f'<div class="cd-set-name">{_esc(p["label"])}</div>')
+                ui.html(f'<div class="cd-set-meta">{_FREQ_LBL.get(p["freq"], p["freq"])} · '
+                        f'next {_friendly_date(p["anchor"])}</div>')
+            ui.html(f'<div class="cd-set-val mono">{money(p["amount"])}</div>')
+        row.on("click", lambda _, i=p["id"]: _open_paycheck(i))
+
+    def _rule_row(r):
+        with ui.element("div").classes("cd-setrow" + ("" if r["active"] else " off")):
+            tg = ui.html(f'<div class="cd-toggle {"on" if r["active"] else ""}">{"ON" if r["active"] else "OFF"}</div>')
+            tg.on("click", lambda _, i=r["id"]: _do(lambda: store.toggle_rule(i)))
+            body = ui.element("div").style("min-width:0;cursor:pointer")
+            with body:
+                ui.html(f'<div class="cd-set-name">{_esc(r["name"])}</div>')
+                if r["kind"] == "internal":
+                    tgt = f'→ {_esc(r["bucket_name"] or "—")}'
+                else:
+                    tgt = "leaves the budget"
+                ui.html(f'<div class="cd-set-meta"><span class="cd-rule-badge {r["kind"]}">{r["kind"]}</span> {tgt}</div>')
+            body.on("click", lambda _, i=r["id"]: _open_rule(i))
+            ui.html(f'<div class="cd-set-val mono">{_rule_value_text(r)}</div>')
+
+    # ── render ──
+    ui.html('<div class="cd-set-title">Settings</div>'
+            '<div class="cdm-sub" style="margin-bottom:18px">Your income and how each paycheck is split — '
+            'this is the engine behind the Forecast.</div>')
+
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Income · paychecks</div>')
+        pcs = store.paychecks()
+        if not pcs:
+            ui.html('<div class="cd-sub" style="padding:4px 2px 10px">No paychecks yet — add your income so the Forecast can project forward.</div>')
+        for p in pcs:
+            _paycheck_row(p)
+        ui.html('<div class="cd-set-add">＋ Add paycheck</div>').on("click", lambda _: _open_paycheck())
+
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Allocation rules · applied to each paycheck</div>')
+        summ = store.rules_summary()
+        parts = ([f'{summ["pct"]:g}%'] if summ["pct"] > 0 else []) + ([money(summ["fixed"])] if summ["fixed"] > 0 else [])
+        commit = " + ".join(parts) if parts else "nothing yet"
+        warn = ' · <span style="color:var(--neg);font-weight:700">⚠ over 100%</span>' if summ["over"] else ""
+        ui.html(f'<div class="cd-tally">Commits <b>{commit}</b> of each paycheck{warn}</div>')
+        for r in store.rules():
+            _rule_row(r)
+        ui.html('<div class="cd-set-add">＋ Add rule</div>').on("click", lambda _: _open_rule())
 
 
 def _login(error: str = ""):

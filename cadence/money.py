@@ -21,7 +21,8 @@ EXPENSE, INCOME, REFUND = "expense", "income", "refund"
 
 def genesis(opening: float) -> dict:
     return {"opening": round(opening, 2), "unallocated": round(opening, 2),
-            "categories": [], "envelopes": [], "transactions": []}
+            "categories": [], "envelopes": [], "transactions": [],
+            "paychecks": [], "rules": []}
 
 
 def _id() -> str:
@@ -286,6 +287,74 @@ def delete_transaction(s: dict, tid: str) -> None:
             raise ValueError("That income is already assigned to buckets — free it up first.")
         s["unallocated"] = round(s["unallocated"] - t["amount"], 2)
     s["transactions"] = [x for x in s["transactions"] if x["id"] != tid]
+
+
+# ── Income sources + allocation rules (settings that feed the Forecast) ───────
+
+PAY_FREQS = ("weekly", "biweekly", "semimonthly", "monthly")
+RULE_KINDS = ("internal", "external")
+RULE_VALUE_TYPES = ("fixed", "pct", "fund")
+
+
+def add_paycheck(s: dict, label: str, amount: float, freq: str, anchor: str) -> dict:
+    p = {"id": _id(), "label": (label or "Paycheck").strip(),
+         "amount": round(float(amount or 0), 2),
+         "freq": freq if freq in PAY_FREQS else "biweekly", "anchor": anchor or ""}
+    s["paychecks"].append(p)
+    return p
+
+
+def edit_paycheck(s: dict, pid: str, label=None, amount=None, freq=None, anchor=None) -> None:
+    p = next(x for x in s["paychecks"] if x["id"] == pid)
+    if label is not None:
+        p["label"] = label.strip() or p["label"]
+    if amount is not None:
+        p["amount"] = round(float(amount or 0), 2)
+    if freq is not None and freq in PAY_FREQS:
+        p["freq"] = freq
+    if anchor is not None:
+        p["anchor"] = anchor or ""
+
+
+def delete_paycheck(s: dict, pid: str) -> None:
+    s["paychecks"] = [x for x in s["paychecks"] if x["id"] != pid]
+
+
+def add_rule(s: dict, name: str, kind: str, bucket_id, value: float,
+             value_type: str, active: bool = True) -> dict:
+    r = {"id": _id(), "name": (name or "Rule").strip(),
+         "kind": kind if kind in RULE_KINDS else "internal",
+         "bucket_id": bucket_id or None, "value": round(float(value or 0), 2),
+         "value_type": value_type if value_type in RULE_VALUE_TYPES else "fixed",
+         "active": bool(active)}
+    s["rules"].append(r)
+    return r
+
+
+def edit_rule(s: dict, rid: str, name=None, kind=None, bucket_id=_UNSET,
+              value=None, value_type=None, active=None) -> None:
+    r = next(x for x in s["rules"] if x["id"] == rid)
+    if name is not None:
+        r["name"] = name.strip() or r["name"]
+    if kind is not None and kind in RULE_KINDS:
+        r["kind"] = kind
+    if bucket_id is not _UNSET:
+        r["bucket_id"] = bucket_id or None
+    if value is not None:
+        r["value"] = round(float(value or 0), 2)
+    if value_type is not None and value_type in RULE_VALUE_TYPES:
+        r["value_type"] = value_type
+    if active is not None:
+        r["active"] = bool(active)
+
+
+def delete_rule(s: dict, rid: str) -> None:
+    s["rules"] = [x for x in s["rules"] if x["id"] != rid]
+
+
+def toggle_rule(s: dict, rid: str) -> None:
+    r = next(x for x in s["rules"] if x["id"] == rid)
+    r["active"] = not r["active"]
 
 
 # ── Derived metrics (computed, never stored) ──────────────────────────────────

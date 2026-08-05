@@ -168,6 +168,46 @@ class LiveStore:
                 seen.append(d)
         return seen[:40]
 
+    # ── settings: income + rules (read real data; writes land with the rest) ──
+    def paychecks(self) -> list[dict]:
+        fm = {7: "weekly", 14: "biweekly", 15: "semimonthly", 30: "monthly"}
+        out = []
+        for p in self.data["paychecks"]:
+            try:
+                freq = fm.get(int(p.get("freq", 14)), "biweekly")
+            except (ValueError, TypeError):
+                freq = "biweekly"
+            anchor = p.get("anchor_date") or p.get("anchorDate") or ""
+            out.append({"id": p.get("id", ""), "label": p.get("label", "Paycheck"),
+                        "amount": round(float(p.get("amount") or 0), 2),
+                        "freq": freq, "anchor": str(anchor)[:10]})
+        return out
+
+    def rules(self) -> list[dict]:
+        names = {b["id"]: b["name"] for b in self._buckets()}
+        out = []
+        for r in self.data["allocationRules"]:
+            kind = "external" if r.get("rule_type") == "external" else "internal"
+            bid = r.get("bucket_id") or r.get("bucketId") or None
+            vtype = r.get("value_type") or r.get("type") or "fixed"
+            out.append({"id": r.get("id", ""), "name": r.get("name", "Rule"), "kind": kind,
+                        "bucket_id": bid, "bucket_name": names.get(bid, ""),
+                        "value": round(float(r.get("value") or 0), 2),
+                        "value_type": vtype if vtype in ("fixed", "pct", "fund") else "fixed",
+                        "active": bool(r.get("active", True))})
+        return out
+
+    def rules_summary(self) -> dict:
+        pct = fixed = 0.0
+        for r in self.rules():
+            if not r["active"]:
+                continue
+            if r["value_type"] == "pct":
+                pct += r["value"]
+            elif r["value_type"] == "fixed" and r["kind"] == "internal":
+                fixed += r["value"]
+        return {"pct": round(pct, 2), "fixed": round(fixed, 2), "over": pct > 100}
+
     # ── assignment (writes the month allocation, like Cura's Distribute) ──────
     def fund(self, bid: str, amount: float):
         DB.ensure_month(self.uid, self.token, self._mid)
@@ -200,3 +240,5 @@ class LiveStore:
     set_due_day = set_frequency = set_flex = toggle_handled = record_spend = _soon
     set_target_date = set_notes = _soon
     add_transaction = edit_transaction = delete_transaction = _soon
+    add_paycheck = edit_paycheck = delete_paycheck = _soon
+    add_rule = edit_rule = delete_rule = toggle_rule = _soon

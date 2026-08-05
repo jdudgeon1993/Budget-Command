@@ -96,6 +96,12 @@ def seed() -> dict:
     for name, amt, desc, when in expenses:       # real spending → progress bars
         M.add_expense(s, ids[name], amt, desc, when)
 
+    # Settings: the recurring income + how each paycheck is split (feeds Forecast).
+    M.add_paycheck(s, "Northwind Co", 1400.00, "biweekly", "2026-08-14")
+    M.add_rule(s, "Fill Rent", "internal", ids["Rent"], 0, "fund", True)
+    M.add_rule(s, "Emergency fund", "internal", ids["Emergency"], 10, "pct", True)
+    M.add_rule(s, "401(k) contribution", "external", None, 6, "pct", True)
+
     return s
 
 
@@ -294,6 +300,50 @@ class Store:
 
     def delete_transaction(self, tid: str):
         M.delete_transaction(self.s, tid)
+
+    # ── settings: income + allocation rules (feed the Forecast) ───────────────
+    def paychecks(self) -> list[dict]:
+        return [dict(p) for p in self.s["paychecks"]]
+
+    def add_paycheck(self, label, amount, freq, anchor):
+        return M.add_paycheck(self.s, label, amount, freq, anchor)
+
+    def edit_paycheck(self, pid, **ch):
+        M.edit_paycheck(self.s, pid, **ch)
+
+    def delete_paycheck(self, pid):
+        M.delete_paycheck(self.s, pid)
+
+    def rules(self) -> list[dict]:
+        names = {e["id"]: e["name"] for e in self.s["envelopes"]}
+        return [{**r, "bucket_name": names.get(r["bucket_id"], "")} for r in self.s["rules"]]
+
+    def rules_summary(self) -> dict:
+        pct = fixed = ext = 0.0
+        for r in self.s["rules"]:
+            if not r["active"]:
+                continue
+            if r["kind"] == "external":
+                ext += r["value"] if r["value_type"] == "fixed" else 0.0
+                if r["value_type"] == "pct":
+                    pct += r["value"]
+            elif r["value_type"] == "pct":
+                pct += r["value"]
+            elif r["value_type"] == "fixed":
+                fixed += r["value"]
+        return {"pct": round(pct, 2), "fixed": round(fixed, 2), "over": pct > 100}
+
+    def add_rule(self, name, kind, bucket_id, value, value_type, active=True):
+        return M.add_rule(self.s, name, kind, bucket_id, value, value_type, active)
+
+    def edit_rule(self, rid, **ch):
+        M.edit_rule(self.s, rid, **ch)
+
+    def delete_rule(self, rid):
+        M.delete_rule(self.s, rid)
+
+    def toggle_rule(self, rid):
+        M.toggle_rule(self.s, rid)
 
     def delete(self, eid: str):
         M.delete_envelope(self.s, eid)
