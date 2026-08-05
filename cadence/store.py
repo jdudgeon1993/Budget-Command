@@ -12,21 +12,22 @@ from . import money as M
 
 def seed() -> dict:
     """A believable month-in-progress so every screen has something to show."""
-    # (name, category, type, target, funded)
+    # name, category, type, target, funded, due_day, flex
     rows = [
-        ("Rent",          "Housing",   M.SPEND, 1500, 1500),
-        ("Utilities",     "Housing",   M.SPEND,  300,  300),
-        ("Groceries",     "Food",      M.SPEND,  400,  300),
-        ("Dining Out",    "Food",      M.SPEND,  150,  100),
-        ("Gas",           "Transport", M.SPEND,  120,   80),
-        ("Car Insurance", "Transport", M.SPEND,  140,  140),
-        ("Subscriptions", "Lifestyle", M.SPEND,   60,   60),
-        ("Fun Money",     "Lifestyle", M.SPEND,  200,  200),
-        ("Vacation Fund", "Future",    M.GOAL,  3000,  850),
-        ("Emergency",     "Future",    M.VAULT, 10000, 2000),
+        {"name": "Rent",          "cat": "Housing",   "type": M.SPEND, "target": 1500, "funded": 1500, "due": 1},
+        {"name": "Electric",      "cat": "Housing",   "type": M.SPEND, "target": 160,  "funded": 0,    "due": 9},
+        {"name": "Utilities",     "cat": "Housing",   "type": M.SPEND, "target": 300,  "funded": 300,  "due": 15},
+        {"name": "Groceries",     "cat": "Food",      "type": M.SPEND, "target": 400,  "funded": 300},
+        {"name": "Dining Out",    "cat": "Food",      "type": M.SPEND, "funded": 100,  "flex": True},
+        {"name": "Gas",           "cat": "Transport", "type": M.SPEND, "target": 120,  "funded": 80},
+        {"name": "Car Insurance", "cat": "Transport", "type": M.SPEND, "target": 140,  "funded": 0,    "due": 20},
+        {"name": "Subscriptions", "cat": "Lifestyle", "type": M.SPEND, "target": 60,   "funded": 60,   "due": 10},
+        {"name": "Fun Money",     "cat": "Lifestyle", "type": M.SPEND, "funded": 200,  "flex": True},
+        {"name": "Vacation Fund", "cat": "Future",    "type": M.GOAL,  "target": 3000, "funded": 850},
+        {"name": "Emergency",     "cat": "Future",    "type": M.VAULT, "target": 10000, "funded": 2000},
     ]
     # Bank cash = everything funded into envelopes + a buffer left Unallocated.
-    total_funded = sum(r[4] for r in rows)
+    total_funded = sum(r.get("funded", 0) for r in rows)
     s = M.genesis(opening=total_funded + 800.00)
 
     cat_color = {"Housing": "#6366f1", "Food": "#10b981", "Transport": "#f59e0b",
@@ -34,21 +35,18 @@ def seed() -> dict:
     cats = {name: M.add_category(s, name, color)["id"] for name, color in cat_color.items()}
 
     ids = {}
-    for name, cat, typ, target, funded in rows:
-        eid = M.add_envelope(s, name, cats[cat], typ, target, 0.0)["id"]
-        M.fund(s, eid, funded)          # moves money FROM Unallocated (keeps the invariant true)
-        ids[name] = eid
+    for r in rows:
+        eid = M.add_envelope(s, r["name"], cats[r["cat"]], r["type"], r.get("target", 0.0),
+                             0.0, due_day=r.get("due"), flex=r.get("flex", False))["id"]
+        M.fund(s, eid, r.get("funded", 0.0))     # money moves FROM Unallocated (invariant stays true)
+        ids[r["name"]] = eid
 
     # Some real spending so envelopes show progress, not just full bars.
     for name, amt, desc in [
-        ("Rent", 1500, "August rent"),
-        ("Utilities", 142, "Power + water"),
-        ("Groceries", 286, "Trader Joe's"),
-        ("Groceries", 63, "Corner market"),
-        ("Dining Out", 88, "Dinner w/ friends"),
-        ("Gas", 52, "Shell"),
-        ("Subscriptions", 46, "Streaming"),
-        ("Fun Money", 120, "Concert tickets"),
+        ("Rent", 1500, "August rent"), ("Utilities", 142, "Power + water"),
+        ("Groceries", 286, "Trader Joe's"), ("Groceries", 63, "Corner market"),
+        ("Dining Out", 88, "Dinner w/ friends"), ("Gas", 52, "Shell"),
+        ("Subscriptions", 46, "Streaming"), ("Fun Money", 120, "Concert tickets"),
     ]:
         M.add_expense(s, ids[name], amt, desc, "2026-08-14")
 
@@ -81,18 +79,8 @@ class Store:
             envs = [e for e in self.s["envelopes"] if e["cat_id"] == c["id"]]
             if not envs:
                 continue
-            rows = []
-            for e in envs:
-                sp = M.spent(self.s, e["id"])
-                av = M.available(self.s, e)
-                tgt = e["target"] or e["funded"] or 1
-                rows.append({
-                    "id": e["id"], "name": e["name"], "type": e["type"],
-                    "target": e["target"], "funded": e["funded"],
-                    "spent": sp, "available": av,
-                    "pct": max(0.0, min(1.0, sp / tgt)) if e["type"] == M.SPEND
-                           else max(0.0, min(1.0, e["funded"] / (e["target"] or 1))),
-                })
+            # urgency-first: due-soon/past-due/overspent float up; funded + handled sink
+            rows = sorted((self._row(e) for e in envs), key=lambda r: r["urgency"], reverse=True)
             out.append({
                 "id": c["id"], "name": c["name"], "color": c["color"],
                 "funded": round(sum(r["funded"] for r in rows), 2),
@@ -101,20 +89,28 @@ class Store:
             })
         return out
 
-    # ── single-bucket view (for the assign/manage modal) ──────────────────────
-    def bucket(self, eid: str) -> dict:
-        e = M.env(self.s, eid)
-        sp, av = M.spent(self.s, eid), M.available(self.s, e)
-        if e["type"] == M.SPEND:
+    # ── display row for one envelope (shared by groups() + bucket()) ──────────
+    def _row(self, e: dict) -> dict:
+        sp, av = M.spent(self.s, e["id"]), M.available(self.s, e)
+        typ = e["type"]
+        if typ == M.SPEND:
             funded = e["funded"]
             pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
         else:
             funded, sp = e["funded"], 0.0
             pct = min(1.0, max(0.0, funded / e["target"])) if e["target"] else 0.0
-        return {"id": eid, "name": e["name"], "type": e["type"], "cat_id": e["cat_id"],
-                "target": round(e["target"], 2), "funded": round(funded, 2),
+        d = M.days_until_due(e)
+        gap = round(max(0.0, e.get("target", 0.0) - e["funded"]), 2)
+        status = M.status(av, gap, d, e.get("flex"), e.get("handled"))
+        return {"id": e["id"], "name": e["name"], "type": typ, "cat_id": e["cat_id"],
+                "target": round(e.get("target", 0.0), 2), "funded": round(funded, 2),
                 "spent": round(sp, 2), "available": round(av, 2), "pct": pct,
-                "gap": round(max(0.0, e["target"] - e["funded"]), 2)}
+                "gap": gap, "due_day": e.get("due_day"), "frequency": e.get("frequency"),
+                "flex": bool(e.get("flex")), "handled": bool(e.get("handled")),
+                "days_until_due": d, "status": status, "urgency": M.urgency(self.s, e)}
+
+    def bucket(self, eid: str) -> dict:
+        return self._row(M.env(self.s, eid))
 
     def fund_sources(self, exclude: str) -> list[dict]:
         """Where money can come from: Unallocated first, then other buckets with
@@ -164,8 +160,26 @@ class Store:
     def set_target(self, eid: str, value: float):
         M.set_target(self.s, eid, value)
 
+    def set_due_day(self, eid: str, day):
+        M.set_due_day(self.s, eid, day)
+
+    def set_frequency(self, eid: str, freq):
+        M.set_frequency(self.s, eid, freq)
+
+    def set_flex(self, eid: str, flex: bool):
+        M.set_flex(self.s, eid, flex)
+
+    def toggle_handled(self, eid: str):
+        M.toggle_handled(self.s, eid)
+
+    def record_spend(self, eid: str, amount: float, desc: str = ""):
+        """Log a real expense against the bucket — spending, not funding."""
+        M.add_expense(self.s, eid, round(float(amount), 2), desc, "")
+
     def delete(self, eid: str):
         M.delete_envelope(self.s, eid)
 
-    def add_bucket(self, name: str, cat_id: str, type: str, target: float):
-        return M.add_envelope(self.s, name, cat_id, type, target)
+    def add_bucket(self, name: str, cat_id: str, type: str, target: float,
+                   due_day=None, frequency=None, flex: bool = False):
+        return M.add_envelope(self.s, name, cat_id, type, target,
+                              due_day=due_day, frequency=frequency, flex=flex)

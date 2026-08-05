@@ -12,6 +12,8 @@ Ready to Spend excludes vaults (locked savings). Nothing is cached.
 
 from __future__ import annotations
 import uuid
+import calendar
+from datetime import date
 
 SPEND, GOAL, VAULT = "spend", "goal", "vault"
 EXPENSE, INCOME, REFUND = "expense", "income", "refund"
@@ -33,15 +35,82 @@ def add_category(s: dict, name: str, color: str) -> dict:
 
 
 def add_envelope(s: dict, name: str, cat_id: str, type: str = SPEND,
-                 target: float = 0.0, funded: float = 0.0) -> dict:
+                 target: float = 0.0, funded: float = 0.0,
+                 due_day: int | None = None, frequency: str | None = None,
+                 flex: bool = False) -> dict:
     e = {"id": _id(), "name": name, "cat_id": cat_id, "type": type,
-         "target": round(target, 2), "funded": round(funded, 2)}
+         "target": round(target, 2), "funded": round(funded, 2),
+         "due_day": due_day, "frequency": frequency,
+         "flex": bool(flex), "handled": False}
     s["envelopes"].append(e)
     return e
 
 
 def env(s: dict, eid: str) -> dict:
     return next(e for e in s["envelopes"] if e["id"] == eid)
+
+
+# ── Due dates + urgency (drives sort order and Forecast) ──────────────────────
+
+def days_until(due_day, today: date | None = None) -> int | None:
+    """Days until the next occurrence of a day-of-month, or None."""
+    if not due_day:
+        return None
+    today = today or date.today()
+    y, m = today.year, today.month
+    cand = date(y, m, min(int(due_day), calendar.monthrange(y, m)[1]))
+    if cand < today:                                   # already passed → next month
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+        cand = date(y, m, min(int(due_day), calendar.monthrange(y, m)[1]))
+    return (cand - today).days
+
+
+def days_until_due(e: dict, today: date | None = None) -> int | None:
+    return days_until(e.get("due_day"), today)
+
+
+def urgency_score(available: float, gap: float, days, flex: bool = False,
+                  handled: bool = False, is_vault: bool = False) -> float:
+    """Pure scoring — reused for both the demo and live data. Higher floats up."""
+    if handled:
+        return -100.0
+    if is_vault:
+        return -50.0
+    over = max(0.0, -available)
+    score = 500.0 + over if over > 0 else 0.0          # overspent needs attention now
+    if flex:
+        return score                                    # flex isn't "due"; only urgent if overspent
+    if gap > 0.005:
+        if days is None:
+            score += 10.0 + gap * 0.02                  # no date, mild nudge by size
+        elif days < 0:
+            score += 400.0 + gap                        # past due + unfunded → top
+        else:
+            score += max(0.0, 200.0 - days * 5.0) + gap * 0.03   # sooner/bigger = higher
+    return score
+
+
+def urgency(s: dict, e: dict) -> float:
+    gap = round(max(0.0, e.get("target", 0.0) - e["funded"]), 2)
+    return urgency_score(available(s, e), gap, days_until_due(e),
+                         e.get("flex"), e.get("handled"), e["type"] == VAULT)
+
+
+def status(available: float, gap: float, days, flex: bool = False, handled: bool = False) -> str:
+    """A one-word state used for the badge on each card."""
+    if handled:
+        return "handled"
+    if available < -0.005:
+        return "over"
+    if flex:
+        return "flex"
+    if gap > 0.005 and days is not None and days < 0:
+        return "pastdue"
+    if gap > 0.005 and days is not None and days <= 10:
+        return "soon"
+    if gap > 0.005:
+        return "under"
+    return "ok"
 
 
 # ── Placement (silent — no ledger row) ────────────────────────────────────────
@@ -86,6 +155,27 @@ def rename(s: dict, eid: str, name: str) -> None:
 
 def set_target(s: dict, eid: str, value: float) -> None:
     env(s, eid)["target"] = round(max(0.0, value), 2)
+
+
+def set_due_day(s: dict, eid: str, day) -> None:
+    try:
+        d = int(day)
+        env(s, eid)["due_day"] = d if 1 <= d <= 31 else None
+    except (ValueError, TypeError):
+        env(s, eid)["due_day"] = None
+
+
+def set_frequency(s: dict, eid: str, freq) -> None:
+    env(s, eid)["frequency"] = freq or None
+
+
+def set_flex(s: dict, eid: str, flex: bool) -> None:
+    env(s, eid)["flex"] = bool(flex)
+
+
+def toggle_handled(s: dict, eid: str) -> None:
+    e = env(s, eid)
+    e["handled"] = not e.get("handled")
 
 
 def set_category(s: dict, eid: str, cat_id: str) -> None:

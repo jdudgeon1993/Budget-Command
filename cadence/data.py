@@ -6,7 +6,7 @@ math (formulas) — self-contained so this service deploys from cadence/ alone,
 while still producing exactly the same numbers as Cura. Requires SUPABASE_URL /
 SUPABASE_ANON_KEY in the env.
 """
-from . import supabase_io as DB, formulas as F
+from . import supabase_io as DB, formulas as F, money as MZ
 
 # bcc bucket type → Cadence type
 _TYPE = {"expense": "spend", "vault": "vault", "goal": "goal", "sinking": "goal"}
@@ -50,9 +50,35 @@ class LiveStore:
             "ready_to_spend": round(unalloc + nonvault, 2),
         }
 
-    # ── envelopes grouped by category ─────────────────────────────────────────
+    # ── display row for one real bucket (shared by groups() + bucket()) ───────
+    def _row(self, b: dict) -> dict:
+        typ = _TYPE.get(b.get("type", "expense"), "spend")
+        av = round(F.bucket_available(b, self._month, self.data["months"], self.data["txs"]), 2)
+        sp = round(F.b_spent(self._mid, b["id"], self.data["txs"]), 2)
+        if typ == "spend":
+            funded = round(av + sp, 2)
+            target = F.b_budget(self._month, b["id"]) or float(b.get("defaultBudget") or b.get("dueAmount") or 0)
+            pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
+        else:
+            funded, sp = av, 0.0
+            target = float(b.get("targetAmount") or 0)
+            pct = min(1.0, max(0.0, funded / target)) if target > 0 else 0.0
+        try:
+            due_day = int(b.get("dueDay"))
+        except (ValueError, TypeError):
+            due_day = None
+        flex = bool(b.get("flex"))
+        handled = bool((self._month.get("handledBuckets") or {}).get(b["id"]))
+        gap = round(max(0.0, target - funded), 2)
+        d = MZ.days_until(due_day)
+        return {"id": b["id"], "name": b["name"], "type": typ, "cat_id": b.get("catId", ""),
+                "target": round(target, 2), "funded": funded, "spent": sp, "available": av,
+                "pct": pct, "gap": gap, "due_day": due_day, "frequency": b.get("payFreq"),
+                "flex": flex, "handled": handled, "days_until_due": d,
+                "status": MZ.status(av, gap, d, flex, handled),
+                "urgency": MZ.urgency_score(av, gap, d, flex, handled, typ == "vault")}
+
     def groups(self) -> list[dict]:
-        txs, months = self.data["txs"], self.data["months"]
         cats = sorted((c for c in self.data["cats"] if not c.get("archived")),
                       key=lambda c: c.get("order", 0))
         by_cat: dict[str, list] = {}
@@ -63,22 +89,7 @@ class LiveStore:
             bks = by_cat.get(c["id"], [])
             if not bks:
                 continue
-            rows = []
-            for b in sorted(bks, key=lambda x: x.get("order", 0)):
-                typ = _TYPE.get(b.get("type", "expense"), "spend")
-                avail = round(F.bucket_available(b, self._month, months, txs), 2)
-                sp = round(F.b_spent(self._mid, b["id"], txs), 2)
-                if typ == "spend":
-                    funded = round(avail + sp, 2)
-                    target = F.b_budget(self._month, b["id"]) or float(b.get("defaultBudget") or b.get("dueAmount") or 0)
-                    pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
-                else:
-                    funded, sp = avail, 0.0
-                    target = float(b.get("targetAmount") or 0)
-                    pct = min(1.0, max(0.0, funded / target)) if target > 0 else 0.0
-                rows.append({"id": b["id"], "name": b["name"], "type": typ,
-                             "target": round(target, 2), "funded": funded,
-                             "spent": sp, "available": avail, "pct": pct})
+            rows = sorted((self._row(b) for b in bks), key=lambda r: r["urgency"], reverse=True)
             out.append({"id": c["id"], "name": c["name"],
                         "color": c.get("color") or _FALLBACK[i % len(_FALLBACK)],
                         "funded": round(sum(r["funded"] for r in rows), 2),
@@ -86,23 +97,8 @@ class LiveStore:
                         "rows": rows})
         return out
 
-    # ── single-bucket view (assign/manage modal) ─────────────────────────────
     def bucket(self, bid: str) -> dict:
-        b = next(b for b in self._buckets() if b["id"] == bid)
-        typ = _TYPE.get(b.get("type", "expense"), "spend")
-        av = round(F.bucket_available(b, self._month, self.data["months"], self.data["txs"]), 2)
-        sp = round(F.b_spent(self._mid, bid, self.data["txs"]), 2)
-        if typ == "spend":
-            funded = round(av + sp, 2)
-            target = F.b_budget(self._month, bid) or float(b.get("defaultBudget") or b.get("dueAmount") or 0)
-            pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
-        else:
-            funded, sp = av, 0.0
-            target = float(b.get("targetAmount") or 0)
-            pct = min(1.0, max(0.0, funded / target)) if target > 0 else 0.0
-        return {"id": bid, "name": b["name"], "type": typ, "cat_id": b.get("catId", ""),
-                "target": round(target, 2), "funded": funded, "spent": sp,
-                "available": av, "pct": pct, "gap": round(max(0.0, target - funded), 2)}
+        return self._row(next(b for b in self._buckets() if b["id"] == bid))
 
     def fund_sources(self, exclude: str) -> list[dict]:
         out = [{"id": "unallocated", "name": "Unallocated", "avail": self.metrics()["unallocated"]}]
@@ -150,6 +146,7 @@ class LiveStore:
 
     # Structure edits land next once you pick the flow — safe no-ops in live for now.
     def _soon(self, *a, **k):
-        raise NotImplementedError("Editing buckets (rename/target/delete/new) is coming to "
-                                  "the live app next — it's fully working in the demo.")
+        raise NotImplementedError("Editing buckets (rename/target/due/delete/spend) is coming "
+                                  "to the live app next — it's fully working in the demo.")
     rename = set_target = delete = add_bucket = _soon
+    set_due_day = set_frequency = set_flex = toggle_handled = record_spend = _soon
