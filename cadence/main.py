@@ -89,7 +89,17 @@ def _theme() -> None:
       .cd-actionbar{display:flex;align-items:center;margin:6px 4px 18px}
       .cd-newbtn{font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--violet));
         padding:9px 16px;border-radius:10px;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,.32)}
+      .cd-distbtn{font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-soft);border:1px solid #dcdefb;
+        padding:8px 15px;border-radius:10px;cursor:pointer;margin-left:10px;display:inline-flex;align-items:center;gap:7px}
+      .cd-distbtn.hot{color:#b7791f;background:#fff4e5;border-color:#f6e2c0}
       .cd-hint{margin-left:auto;font-size:12px;color:var(--muted)}
+      /* distribute sheet */
+      .cd-drow{display:flex;align-items:center;gap:12px;padding:11px 2px;border-top:1px solid var(--line)}
+      .cd-drow:first-of-type{border-top:none}
+      .cd-dname{font-weight:600;font-size:13px}
+      .cd-dmeta{font-size:11px;color:var(--muted);margin-top:1px}
+      .cd-dleft{position:sticky;bottom:0;background:var(--card);padding:12px 0 2px;border-top:1px solid var(--line);
+        display:flex;align-items:center;font-size:13px;font-weight:600}
       .cd-cat{margin-bottom:22px}
       .cd-cat-hd{display:flex;align-items:center;gap:10px;padding:0 4px 10px}
       .cd-dot{width:9px;height:9px;border-radius:50%}
@@ -167,28 +177,33 @@ def _app(store, demo: bool):
         @ui.refreshable
         def hero():
             m = store.metrics()
-            un, bal = m["unallocated"], m["available_balance"]
-            inb, inv = m["in_buckets"], m["in_vaults"]
-            tot = bal if bal > 0 else 1
-            wu, wb, wv = (max(0, un) / tot * 100, max(0, inb) / tot * 100, max(0, inv) / tot * 100)
-            un_col = "var(--neg)" if un < 0 else "var(--accent)"
+            un, cash, inb = m["unallocated"], m["cash"], m["in_buckets"]
+            tot = cash if cash > 0 else 1
+            wu, wb = (max(0, un) / tot * 100, max(0, inb) / tot * 100)
+            if un <= 0.005:   # zero-based win — every dollar has a job
+                left = f'''<div>
+                    <div class="cd-money-lbl" style="color:var(--pos)">Every dollar has a job ✨</div>
+                    <div class="cd-money-big mono" style="color:var(--pos)">$0.00</div>
+                    <div class="cd-money-sub">unallocated · {money(cash)} in checking, all assigned</div>
+                  </div>'''
+            else:
+                left = f'''<div>
+                    <div class="cd-money-lbl">Unallocated · give it a job</div>
+                    <div class="cd-money-big mono" style="color:var(--accent)">{money(un)}</div>
+                    <div class="cd-money-sub">of {money(cash)} in your checking account</div>
+                  </div>'''
             ui.html(f'''
               <div class="cd-money">
-                <div>
-                  <div class="cd-money-lbl">Unallocated · give it a job</div>
-                  <div class="cd-money-big mono" style="color:{un_col}">{money(un)}</div>
-                  <div class="cd-money-sub">of {money(bal)} total cash in the bank</div>
-                </div>
+                {left}
                 <div>
                   <div class="cd-segbar">
                     <span style="width:{wu:.1f}%;background:var(--accent)"></span>
                     <span style="width:{wb:.1f}%;background:var(--pos)"></span>
-                    <span style="width:{wv:.1f}%;background:var(--violet)"></span>
                   </div>
                   <div class="cd-legend">
                     <span><i style="background:var(--accent)"></i>Unallocated <b>{money(un)}</b></span>
                     <span><i style="background:var(--pos)"></i>In buckets <b>{money(inb)}</b></span>
-                    <span><i style="background:var(--violet)"></i>In vaults <b>{money(inv)}</b></span>
+                    <span style="margin-left:auto"><i style="background:var(--ink);opacity:.25"></i>Checking <b>{money(cash)}</b></span>
                   </div>
                 </div>
               </div>''')
@@ -376,10 +391,92 @@ def _app(store, demo: bool):
                     ui.button("Create bucket", on_click=create).props("unelevated color=indigo no-caps")
             dlg.open()
 
+        # ── payday / distribute: spread Unallocated across what needs it ───────
+        def _open_distribute():
+            plan = store.distribute_plan()
+            if not plan["plan"]:
+                ui.notify("Nothing needs funding right now — every bucket is on target. ✨", type="positive")
+                return
+            with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+                ui.html('<div class="cd-hdl"></div>')
+                ui.html('<div class="cdm-title">Give every dollar a job</div>')
+                ui.html(f'<div class="cdm-sub">You have <b style="color:var(--accent)">{money(plan["unallocated"])}</b> '
+                        f'unallocated. We\'ve pre-filled the buckets that need it most — soonest due first. '
+                        f'Tweak anything, then distribute.</div>')
+                inputs = []          # (bucket_id, ui.number)
+
+                def clamp_and_total():
+                    """Keep the plan within Unallocated and show what's left to assign."""
+                    cap = plan["unallocated"]
+                    running = 0.0
+                    for _bid, inp in inputs:
+                        v = max(0.0, round(float(inp.value or 0), 2))
+                        if running + v > cap + 0.005:      # never over-assign
+                            v = round(max(0.0, cap - running), 2)
+                            inp.set_value(v)
+                        running = round(running + v, 2)
+                    left = round(cap - running, 2)
+                    left_lbl.set_text(f"{money(left)} left to assign")
+                    left_lbl.style(f'color:{"var(--pos)" if left <= 0.005 else "var(--muted)"}')
+
+                for p in plan["plan"]:
+                    with ui.element("div").classes("cd-drow"):
+                        with ui.element("div").style("flex:1;min-width:0"):
+                            ui.html(f'<div class="cd-dname">{p["name"]}</div>')
+                            d = p["days_until_due"]
+                            when = ("past due" if (d is not None and d < 0)
+                                    else "due today" if d == 0 else f"due in {d}d" if d is not None else "no due date")
+                            ui.html(f'<div class="cd-dmeta">needs {money(p["gap"])} · {when}</div>')
+                        inp = ui.number(value=p["suggested"], format="%.2f").props("dense outlined hide-bottom-space").classes("cdm-input")
+                        inp.on("blur", lambda: clamp_and_total())
+                        inputs.append((p["id"], inp))
+                with ui.element("div").classes("cd-dleft"):
+                    left_lbl = ui.label(f'{money(plan["leftover"])} left to assign').classes("mono")
+                    ui.space()
+                    ui.button("Even it out", on_click=lambda: _reset_plan()).props("flat color=grey no-caps size=sm")
+
+                def _reset_plan():
+                    for (_bid, inp), p in zip(inputs, plan["plan"]):
+                        inp.set_value(p["suggested"])
+                    clamp_and_total()
+
+                def do_distribute():
+                    moved = 0.0
+                    for bid, inp in inputs:
+                        amt = max(0.0, round(float(inp.value or 0), 2))
+                        if amt > 0:
+                            store.assign(bid, "unallocated", amt)
+                            moved += amt
+                    dlg.close()
+                    refresh_page()
+                    ui.notify(f"Distributed {money(round(moved, 2))} across {sum(1 for _b, i in inputs if float(i.value or 0) > 0)} buckets.",
+                              type="positive")
+                with ui.row().classes("w-full items-center q-mt-md"):
+                    ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                    ui.space()
+                    ui.button("Distribute", on_click=do_distribute).props("unelevated color=indigo no-caps")
+            dlg.open()
+
         hero()
-        with ui.element("div").classes("cd-actionbar"):
-            ui.html('<div class="cd-newbtn">＋ New bucket</div>').on("click", lambda _: _open_create())
-            ui.html('<span class="cd-hint">Tap any bucket to assign money or manage it</span>')
+
+        @ui.refreshable
+        def actionbar():
+            un = store.metrics()["unallocated"]
+            with ui.element("div").classes("cd-actionbar"):
+                ui.html('<div class="cd-newbtn">＋ New bucket</div>').on("click", lambda _: _open_create())
+                if un > 0.005:
+                    ui.html(f'<div class="cd-distbtn hot">⚡ Distribute {money(un)}</div>').on("click", lambda _: _open_distribute())
+                    ui.html('<span class="cd-hint">Tap a bucket to manage · or distribute what\'s unallocated</span>')
+                else:
+                    ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>')
+
+        # Distribute button reflects live Unallocated after every assignment.
+        _orig_refresh = refresh_page
+        def refresh_page():          # noqa: F811 — extend to also refresh the actionbar
+            _orig_refresh()
+            actionbar.refresh()
+
+        actionbar()
         buckets()
 
 

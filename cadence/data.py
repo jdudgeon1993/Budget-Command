@@ -38,16 +38,12 @@ class LiveStore:
     # ── headline metrics (identical definitions to Cura) ──────────────────────
     def metrics(self) -> dict:
         acc, txs, months, bks = self.data["accounts"], self.data["txs"], self.data["months"], self._buckets()
+        cash = F.budget_bal(acc, txs)              # CHECKING only — savings excluded
         unalloc = F.ready_to_spend(months, acc, bks, txs)          # money with no job yet
-        nonvault = sum(F.bucket_available(b, self._month, months, txs)
-                       for b in bks if b.get("type") != "vault")
-        bal = F.total_cash(acc, txs)
         return {
-            "available_balance": round(bal, 2),
             "unallocated": round(unalloc, 2),
-            "in_buckets": round(nonvault, 2),
-            "in_vaults": round(bal - unalloc - nonvault, 2),
-            "ready_to_spend": round(unalloc + nonvault, 2),
+            "cash": round(cash, 2),                # the checking account total
+            "in_buckets": round(cash - unalloc, 2),  # everything assigned to a bucket
         }
 
     # ── display row for one real bucket (shared by groups() + bucket()) ───────
@@ -99,6 +95,13 @@ class LiveStore:
 
     def bucket(self, bid: str) -> dict:
         return self._row(next(b for b in self._buckets() if b["id"] == bid))
+
+    def _all_rows(self) -> list[dict]:
+        return [self._row(b) for b in self._buckets()]
+
+    def distribute_plan(self) -> dict:
+        from .store import _greedy_plan
+        return _greedy_plan(self._all_rows(), self.metrics()["unallocated"])
 
     def fund_sources(self, exclude: str) -> list[dict]:
         out = [{"id": "unallocated", "name": "Unallocated", "avail": self.metrics()["unallocated"]}]

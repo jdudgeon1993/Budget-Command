@@ -10,6 +10,31 @@ never changes.
 from . import money as M
 
 
+def _greedy_plan(rows: list[dict], unallocated: float) -> dict:
+    """Payday plan: spread `unallocated` across the buckets that still need money,
+    soonest-due / most-urgent first, filling each to target until the cash runs
+    out. Vaults, handled buckets, and flex (no-target) buckets are skipped —
+    they don't have a "need" to fill. Returns the buckets and each suggested top-up.
+    """
+    need = [r for r in rows
+            if not r["flex"] and not r["handled"]
+            and r["type"] != M.VAULT and r["gap"] > 0.005]
+    need.sort(key=lambda r: r["urgency"], reverse=True)
+    remaining = round(max(0.0, unallocated), 2)
+    plan = []
+    for r in need:
+        give = round(min(r["gap"], remaining), 2)
+        remaining = round(remaining - give, 2)
+        plan.append({"id": r["id"], "name": r["name"], "gap": r["gap"],
+                     "suggested": give, "status": r["status"],
+                     "days_until_due": r["days_until_due"]})
+        if remaining <= 0.005:
+            break
+    covered = round(sum(p["suggested"] for p in plan), 2)
+    return {"unallocated": round(max(0.0, unallocated), 2), "plan": plan,
+            "covered": covered, "leftover": round(max(0.0, unallocated) - covered, 2)}
+
+
 def seed() -> dict:
     """A believable month-in-progress so every screen has something to show."""
     # name, category, type, target, funded, due_day, flex
@@ -60,16 +85,16 @@ class Store:
         self.s = seed()
 
     # ── headline metrics ──────────────────────────────────────────────────────
+    # The header decomposes your CHECKING (cash-flow) account into two slices that
+    # sum to it: Unallocated + In buckets. Vault buckets are still buckets, so
+    # their money is in "In buckets". (No separate savings account in the demo.)
     def metrics(self) -> dict:
         un = M.unallocated(self.s)
-        rts = M.ready_to_spend(self.s)
-        bal = M.available_balance(self.s)
+        cash = M.available_balance(self.s)
         return {
             "unallocated": un,
-            "available_balance": bal,
-            "in_buckets": round(rts - un, 2),      # non-vault available (assigned, unspent)
-            "in_vaults": round(bal - rts, 2),      # locked savings
-            "ready_to_spend": rts,
+            "cash": cash,                          # the checking account total
+            "in_buckets": round(cash - un, 2),     # everything assigned to a bucket
         }
 
     # ── buckets grouped by category ───────────────────────────────────────────
@@ -111,6 +136,14 @@ class Store:
 
     def bucket(self, eid: str) -> dict:
         return self._row(M.env(self.s, eid))
+
+    def _all_rows(self) -> list[dict]:
+        return [self._row(e) for e in self.s["envelopes"]]
+
+    def distribute_plan(self) -> dict:
+        """Greedy payday plan: fill underfunded non-vault buckets soonest-due
+        first with Unallocated, until it runs out."""
+        return _greedy_plan(self._all_rows(), self.metrics()["unallocated"])
 
     def fund_sources(self, exclude: str) -> list[dict]:
         """Where money can come from: Unallocated first, then other buckets with
