@@ -186,51 +186,58 @@ def _app(store, demo: bool):
                         body.refresh()
                         refresh_page()
 
-                    ui.html(f'<div class="cdm-title">{b["name"]}</div>')
-                    ui.html(f'<div class="cdm-sub">{money(b["available"])} available · target {money(b["target"])} · '
-                            f'<b style="color:var(--accent)">{money(m["unallocated"])} unallocated</b></div>')
+                    av_col = "var(--neg)" if b["available"] < 0 else "var(--ink)"
+                    ui.html(f'<div class="cdm-title">Fund {b["name"]}</div>')
+                    ui.html(f'<div class="cdm-sub"><b style="color:{av_col}">{money(b["available"])} available</b>'
+                            f' · {money(b["target"])} target · {money(b["spent"])} spent this month</div>')
 
-                    # ① type an amount
-                    with ui.element("div").classes("cdm-opt"):
-                        ui.html('<div class="cdm-ohd"><span class="cdm-num">1</span><span class="cdm-lbl">Type an amount</span></div>')
-                        with ui.row().classes("items-center"):
-                            amt = ui.number(placeholder="0.00", format="%.2f").props("dense outlined").classes("cdm-input")
-                            ui.button("Assign", on_click=lambda: act(lambda: store.fund(eid, float(amt.value or 0)))).props("unelevated color=indigo")
-                            ui.button("Remove", on_click=lambda: act(lambda: store.defund(eid, float(amt.value or 0)))).props("flat color=grey")
+                    gap = b["gap"]
+                    over = round(max(0.0, -b["available"]), 2)
 
-                    # ② fund to target
-                    with ui.element("div").classes("cdm-opt"):
-                        ui.html('<div class="cdm-ohd"><span class="cdm-num">2</span><span class="cdm-lbl">Fund to target (one tap)</span></div>')
-                        gap = b["gap"]
-                        b2 = ui.button(f"Fill the gap   +{money(gap)}" if gap > 0 else "Already at target",
-                                       on_click=lambda: act(lambda: store.fund_to_target(eid))).props("unelevated color=indigo")
-                        if gap <= 0:
-                            b2.props("disable")
+                    sources = store.fund_sources(eid)
+                    src_avail = {s["id"]: s["avail"] for s in sources}
+                    src_map = {s["id"]: f'{s["name"]}  ·  {money(s["avail"])}' for s in sources}
 
-                    # ③ quick amounts
-                    with ui.element("div").classes("cdm-opt"):
-                        ui.html('<div class="cdm-ohd"><span class="cdm-num">3</span><span class="cdm-lbl">Quick amounts</span></div>')
-                        with ui.row():
-                            for q in (25, 50, 100):
-                                ui.button(f"+${q}", on_click=lambda q=q: act(lambda: store.fund(eid, q))).props("outline color=indigo")
-                            ui.button("−$25", on_click=lambda: act(lambda: store.defund(eid, 25))).props("flat color=grey")
+                    # amount is the single source of truth; slider + presets drive it
+                    amount = ui.number(value=0, format="%.2f").props("outlined dense hide-bottom-space").classes("w-full")
+                    sld = ui.slider(min=0, max=max(src_avail.get("unallocated", 0), 1), step=1) \
+                        .props("label-always color=indigo").classes("q-mt-sm")
+                    sld.bind_value(amount)
 
-                    # ④ slider
-                    with ui.element("div").classes("cdm-opt"):
-                        ui.html('<div class="cdm-ohd"><span class="cdm-num">4</span><span class="cdm-lbl">Slide to set the funded amount</span></div>')
-                        mx = round(b["funded"] + max(0.0, m["unallocated"]), 2) or 100.0
-                        sld = ui.slider(min=0, max=mx, step=5, value=b["funded"]).props("label-always color=indigo")
-                        sld.on("change", lambda: act(lambda: store.set_funded(eid, float(sld.value or 0))))
+                    def set_amt(v):
+                        amount.value = round(v, 2)
 
-                    # ⑤ move from another bucket
-                    with ui.element("div").classes("cdm-opt"):
-                        ui.html('<div class="cdm-ohd"><span class="cdm-num">5</span><span class="cdm-lbl">Move from another bucket</span></div>')
-                        others = store.other_buckets(eid)
-                        with ui.row().classes("items-center"):
-                            src = ui.select({o["id"]: o["name"] for o in others},
-                                            value=(others[0]["id"] if others else None)).props("dense outlined").classes("cdm-input")
-                            mv = ui.number(placeholder="0.00").props("dense outlined").classes("cdm-input")
-                            ui.button("Move here", on_click=lambda: act(lambda: store.move(src.value, eid, float(mv.value or 0)))).props("unelevated color=indigo")
+                    # the three reasons, as one-tap amount setters
+                    with ui.row().classes("q-gutter-xs q-mt-xs"):
+                        if gap > 0:
+                            ui.button(f"Fill to target  +{money(gap)}",
+                                      on_click=lambda: set_amt(gap)).props("outline color=indigo no-caps size=sm")
+                        if over > 0:
+                            ui.button(f"Cover overspend  +{money(over)}",
+                                      on_click=lambda: set_amt(over)).props("outline color=deep-orange no-caps size=sm")
+
+                    # where the money comes from (Unallocated, or another bucket = "move")
+                    src = ui.select(src_map, value="unallocated", label="From").props("outlined dense").classes("w-full q-mt-sm")
+
+                    def on_src():
+                        sld._props["max"] = max(src_avail.get(src.value, 0), 1)
+                        sld.update()
+                    src.on("update:model-value", lambda: on_src())
+
+                    def do_assign():
+                        amt = float(amount.value or 0)
+                        if amt <= 0:
+                            ui.notify("Enter an amount (or tap a shortcut).", type="warning")
+                            return
+                        act(lambda: store.assign(eid, src.value, amt))
+                    ui.button("Add to this bucket", on_click=do_assign) \
+                        .props("unelevated color=indigo no-caps").classes("w-full q-mt-sm")
+
+                    with ui.row().classes("items-center q-mt-xs"):
+                        ui.html('<span class="cd-sub">Pull money back out →</span>')
+                        rem = ui.number(placeholder="0.00").props("dense outlined hide-bottom-space").classes("cdm-input")
+                        ui.button("Remove", on_click=lambda: act(lambda: store.defund(eid, float(rem.value or 0)))) \
+                            .props("flat color=grey no-caps")
 
                     # manage: rename / target / delete
                     with ui.element("div").classes("cdm-manage"):

@@ -101,8 +101,21 @@ class LiveStore:
                 "target": round(target, 2), "funded": funded, "spent": sp,
                 "available": av, "pct": pct, "gap": round(max(0.0, target - funded), 2)}
 
-    def other_buckets(self, exclude: str) -> list[dict]:
-        return [{"id": b["id"], "name": b["name"]} for b in self._buckets() if b["id"] != exclude]
+    def fund_sources(self, exclude: str) -> list[dict]:
+        out = [{"id": "unallocated", "name": "Unallocated", "avail": self.metrics()["unallocated"]}]
+        for b in self._buckets():
+            if b["id"] == exclude:
+                continue
+            av = round(F.bucket_available(b, self._month, self.data["months"], self.data["txs"]), 2)
+            if av > 0.005:
+                out.append({"id": b["id"], "name": b["name"], "avail": av})
+        return out
+
+    def assign(self, dst: str, source_id: str, amount: float):
+        if source_id == "unallocated":
+            self.fund(dst, amount)
+        else:
+            self.move(source_id, dst, amount)
 
     def categories(self) -> list[dict]:
         return [{"id": c["id"], "name": c["name"]}

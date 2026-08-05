@@ -111,8 +111,25 @@ class Store:
                 "spent": round(sp, 2), "available": round(av, 2), "pct": pct,
                 "gap": round(max(0.0, e["target"] - e["funded"]), 2)}
 
-    def other_buckets(self, exclude: str) -> list[dict]:
-        return [{"id": e["id"], "name": e["name"]} for e in self.s["envelopes"] if e["id"] != exclude]
+    def fund_sources(self, exclude: str) -> list[dict]:
+        """Where money can come from: Unallocated first, then other buckets with
+        a positive available balance (you can only move out what's actually there)."""
+        out = [{"id": "unallocated", "name": "Unallocated", "avail": round(self.s["unallocated"], 2)}]
+        for e in self.s["envelopes"]:
+            if e["id"] == exclude:
+                continue
+            av = M.available(self.s, e)
+            if av > 0.005:
+                out.append({"id": e["id"], "name": e["name"], "avail": round(av, 2)})
+        return out
+
+    def assign(self, dst: str, source_id: str, amount: float):
+        """The one funding action: move `amount` from a source into this bucket."""
+        amount = round(amount, 2)
+        if source_id == "unallocated":
+            M.fund(self.s, dst, amount)
+        else:
+            M.move(self.s, source_id, dst, min(amount, M.available(self.s, M.env(self.s, source_id))))
 
     def categories(self) -> list[dict]:
         return [{"id": c["id"], "name": c["name"]} for c in self.s["categories"]]
