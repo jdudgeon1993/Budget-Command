@@ -27,20 +27,62 @@ def money(v: float) -> str:
     return f"-${abs(v):,.2f}" if v < 0 else f"${v:,.2f}"
 
 
-def _pill(r: dict):
-    """(css_class, label) for the status pill on a card, or None."""
-    s, d = r["status"], r["days_until_due"]
-    if s == "handled":
-        return ("handled", "Handled")
-    if s == "over":
-        return ("over", "Overspent")
-    if s == "pastdue":
-        return ("pastdue", "Past due")
-    if s == "soon":
-        return ("soon", "Due today" if d == 0 else "Due tomorrow" if d == 1 else f"Due in {d}d")
-    if s == "flex":
-        return ("flex", "Flexible")
-    return None
+GREEN, AMBER, RED, PURPLE, BLUE = (
+    "var(--pos)", "var(--warn)", "var(--neg)", "var(--violet)", "var(--info)")
+
+
+def _due_word(d) -> str:
+    return "today" if d == 0 else "tomorrow" if d == 1 else f"in {d}d"
+
+
+def _bucket_visual(r: dict) -> dict:
+    """One place that decides a bucket card's colour language:
+
+        green  = done  → Funded (reached target) or Paid (spent it all) or Handled
+        amber  = funding in progress toward a target
+        red    = needs attention → Overspent or Past due (requires allocation)
+        purple = a Vault (savings, set apart)
+        blue   = Flexible (no target — just shows what's been spent, no bar)
+
+    The bar itself changes meaning with the bucket's state: while under-funded it
+    shows *funding* progress (funded/target); once funded it shows *spending*
+    progress (spent/funded). Returns badge=(text, css), bar=(pct, colour)|None, sub.
+    """
+    typ, av, funded, target = r["type"], r["available"], r["funded"], r["target"]
+    spent, gap, d = r["spent"], r["gap"], r["days_until_due"]
+
+    def out(badge, badge_cls, bar, color, sub):
+        return {"badge": badge, "badge_cls": badge_cls,
+                "bar": None if bar is None else max(0.0, min(1.0, bar)),
+                "color": color, "sub": sub}
+
+    if r["handled"]:
+        return out("Handled", "green", 1.0, GREEN, f"{money(spent)} spent · handled this cycle")
+    if typ == "vault":
+        pct = funded / target if target > 0 else 0.0
+        return out("Vault", "purple", pct, PURPLE, f"{money(funded)} of {money(target)} saved")
+    if r["flex"]:
+        return out("Flexible", "blue", None, BLUE, f"{money(spent)} spent this cycle · no set target")
+    if typ == "goal":
+        if gap <= 0.005 and target > 0:
+            return out("Funded", "green", 1.0, GREEN, f"{money(funded)} of {money(target)} · goal reached")
+        pct = funded / target if target > 0 else 0.0
+        return out("Funding", "amber", pct, AMBER, f"{money(funded)} of {money(target)} goal")
+
+    # ── spend buckets ──
+    if av < -0.005:                                   # overspent
+        return out("Overspent", "red", 1.0, RED, f"{money(spent)} spent of {money(funded)} funded")
+    if gap > 0.005:                                   # under-funded → funding progress
+        pct = funded / target if target > 0 else 0.0
+        if d is not None and d < 0:
+            return out("Past due", "red", pct, RED, f"{money(funded)} of {money(target)} · needs {money(gap)}")
+        badge = (f"Due {_due_word(d)}", "amber") if (d is not None and d <= 10) else ("Funding", "amber")
+        return out(badge[0], badge[1], pct, AMBER, f"{money(funded)} of {money(target)} funded · needs {money(gap)}")
+    # ── fully funded → spending progress ──
+    if funded > 0 and spent >= funded - 0.005:        # paid in full
+        return out("Paid", "green", 1.0, GREEN, f"{money(spent)} spent · paid in full")
+    pct = spent / funded if funded > 0 else 0.0
+    return out("Funded", "green", pct, GREEN, f"{money(spent)} spent of {money(funded)} funded")
 
 
 # ── due-day + frequency options (mirrors the old app: 1–28 + End of Month) ────
@@ -207,26 +249,21 @@ def _app(store, demo: bool):
                             _envelope(r)
 
         def _envelope(r):
+            v = _bucket_visual(r)
             card = ui.element("div").classes("cd-env" + (" is-handled" if r["handled"] else ""))
             with card:
                 with ui.element("div").classes("cd-env-top"):
-                    ui.html(f'<span class="cd-env-name">{r["name"]}</span>')
-                    pill = _pill(r)
-                    if pill:
-                        ui.html(f'<span class="cd-pill {pill[0]}">{pill[1]}</span>')
-                    elif r["type"] in ("goal", "vault"):
-                        ui.html(f'<span class="cd-badge {r["type"]}">{r["type"]}</span>')
+                    ui.html(f'<span class="cd-env-name">{_esc(r["name"])}</span>')
+                    ui.html(f'<span class="cd-pill {v["badge_cls"]}">{v["badge"]}</span>')
                 col = "var(--neg)" if r["available"] < 0 else "var(--ink)"
                 ui.html(f'<div class="cd-avail" style="color:{col}">{money(r["available"])}'
                         f'<span class="cd-sub" style="font-weight:500"> available</span></div>')
-                if r["type"] == "spend":
-                    sub = f'{money(r["spent"])} spent of {money(r["funded"])} funded'
-                    fill = ("var(--neg)" if r["pct"] >= 1 else "var(--warn)" if r["pct"] >= 0.85 else "var(--pos)")
+                ui.html(f'<div class="cd-sub">{v["sub"]}</div>')
+                if v["bar"] is None:                  # flex — a flat marker, no progress bar
+                    ui.html('<div class="cd-flexbar"></div>')
                 else:
-                    sub = f'{money(r["funded"])} of {money(r["target"])} goal'
-                    fill = "var(--violet)"
-                ui.html(f'<div class="cd-sub">{sub}</div>')
-                ui.html(f'<div class="cd-bar"><div class="cd-bar-fill" style="width:{r["pct"]*100:.0f}%;background:{fill}"></div></div>')
+                    ui.html(f'<div class="cd-bar"><div class="cd-bar-fill" '
+                            f'style="width:{v["bar"] * 100:.0f}%;background:{v["color"]}"></div></div>')
                 ui.html('<div class="cd-tap">Tap to assign / manage →</div>')
             card.on("click", lambda _, e=r["id"]: _open_assign(e))
 
@@ -483,6 +520,18 @@ def _today_iso() -> str:
     return date.today().isoformat()
 
 
+def _cur_ym() -> str:
+    return date.today().strftime("%Y-%m")
+
+
+def _month_name(ym: str) -> str:
+    try:
+        y, m = ym.split("-")[:2]
+        return date(int(y), int(m), 1).strftime("%B")
+    except (ValueError, TypeError):
+        return ym
+
+
 def _bucket_options(store) -> dict:
     """Non-vault buckets a transaction can point at, {id: name}."""
     opts = {}
@@ -500,6 +549,16 @@ _TX_CLASS = {"expense": "out", "income": "in", "refund": "refund"}
 def _ledger_view(store, refresh_bg):
     """The cleared-money timeline: income, spending and refunds, grouped by day."""
     q = {"v": ""}
+    # Which months are expanded — the current cycle opens by default, the rest stay
+    # collapsed until tapped. Kept on the store so it survives list refreshes.
+    exp = getattr(store, "_led_expanded", None)
+    if exp is None:
+        exp = {_cur_ym()}
+        store._led_expanded = exp
+
+    def _toggle(ym):
+        exp.discard(ym) if ym in exp else exp.add(ym)
+        lst.refresh()
 
     def _open_tx(tid=None):
         rows = store.transactions()
@@ -598,18 +657,9 @@ def _ledger_view(store, refresh_bg):
             ui.html(f'<div class="cd-tx-amt {"pos" if pos else "neg"} mono">{signed}</div>')
         row.on("click", lambda _, t=r["id"]: _open_tx(t))
 
-    @ui.refreshable
-    def lst():
-        rows = store.transactions()
-        qv = q["v"].strip().lower()
-        if qv:
-            rows = [r for r in rows if qv in r["desc"].lower() or qv in r["bucket_name"].lower()]
-        if not rows:
-            msg = "No matches." if qv else "No transactions yet."
-            sub = "Try another search." if qv else "Add your first one above to start the timeline."
-            ui.html(f'<div class="cd-empty"><div class="big">{msg}</div>{sub}</div>')
-            return
-        # rows are already newest-first; group consecutive same-day rows
+    def _render_days(rows, day_end):
+        """A run of day-groups. day_end maps date→end-of-day balance (or None to
+        omit the running balance, e.g. in search results)."""
         groups: list[tuple[str, list]] = []
         for r in rows:
             if not groups or groups[-1][0] != r["date"]:
@@ -617,15 +667,77 @@ def _ledger_view(store, refresh_bg):
             groups[-1][1].append(r)
         for datestr, items in groups:
             lbl, sub = _day_label(datestr)
-            net = sum((it["amount"] if it["kind"] in ("income", "refund") else -it["amount"]) for it in items)
-            net_txt = ("+" if net >= 0 else "−") + money(abs(net)).lstrip("-")
+            right = ""
+            if day_end is not None:
+                bal = day_end.get(datestr, 0.0)
+                bcol = "var(--neg)" if bal < 0 else "var(--muted)"
+                right = f'<span class="t" style="color:{bcol}">balance {money(bal)}</span>'
             with ui.element("div").classes("cd-daygrp"):
                 with ui.element("div").classes("cd-daylbl"):
-                    ui.html(f'<b>{lbl}</b><span class="d">{sub}</span>'
-                            f'<span class="t">{net_txt} net</span>')
+                    ui.html(f'<b>{lbl}</b><span class="d">{sub}</span>{right}')
                 with ui.element("div").classes("cd-txcard"):
                     for r in items:
                         _tx_row(r)
+
+    @ui.refreshable
+    def lst():
+        all_rows = store.transactions()
+        if not all_rows:
+            ui.html('<div class="cd-empty"><div class="big">No transactions yet.</div>'
+                    'Add your first one above to start the timeline.</div>')
+            return
+
+        qv = q["v"].strip().lower()
+        if qv:                                        # search: flat matches, no collapse
+            rows = [r for r in all_rows if qv in r["desc"].lower() or qv in r["bucket_name"].lower()]
+            if not rows:
+                ui.html('<div class="cd-empty"><div class="big">No matches.</div>Try another search.</div>')
+                return
+            _render_days(rows, None)
+            return
+
+        # end-of-day running balances, computed from the full history
+        total = store.ledger_metrics()["balance"]
+        day_sign, dates_desc, seen = {}, [], set()
+        for r in all_rows:
+            s = r["amount"] if r["kind"] in ("income", "refund") else -r["amount"]
+            day_sign[r["date"]] = round(day_sign.get(r["date"], 0.0) + s, 2)
+            if r["date"] not in seen:
+                seen.add(r["date"]); dates_desc.append(r["date"])
+        day_end, running = {}, total
+        for dt in dates_desc:
+            day_end[dt] = round(running, 2)
+            running = round(running - day_sign[dt], 2)
+
+        # year → month → day, all newest-first; collapse months, current one open
+        from collections import OrderedDict
+        tree: "OrderedDict[str, OrderedDict]" = OrderedDict()
+        for r in all_rows:
+            y = r["date"][:4] if len(r["date"]) >= 4 else "—"
+            ym = r["date"][:7] if len(r["date"]) >= 7 else "—"
+            tree.setdefault(y, OrderedDict()).setdefault(ym, OrderedDict()).setdefault(r["date"], []).append(r)
+
+        for year, months in tree.items():
+            ui.html(f'<div class="cd-year">{year}</div>')
+            for ym, days in months.items():
+                is_open = ym in exp
+                n = sum(len(v) for v in days.values())
+                endbal = day_end.get(next(iter(days)), 0.0)
+                inc = sum(r["amount"] for ds in days.values() for r in ds if r["kind"] in ("income", "refund"))
+                out = sum(r["amount"] for ds in days.values() for r in ds if r["kind"] == "expense")
+                card = ui.element("div").classes("cd-month" + (" open" if is_open else ""))
+                with card:
+                    hd = ui.element("div").classes("cd-month-hd")
+                    with hd:
+                        ui.html('<span class="cd-month-chev">▸</span>')
+                        ui.html(f'<span class="cd-month-nm">{_month_name(ym)}</span>')
+                        ui.html(f'<span class="cd-month-meta">{n} txn{"" if n == 1 else "s"} · '
+                                f'{money(inc)} in · {money(out)} out</span>')
+                        ui.html(f'<span class="cd-month-bal mono">{money(endbal)}</span>').style("margin-left:auto")
+                    hd.on("click", lambda _, k=ym: _toggle(k))
+                    if is_open:
+                        with ui.element("div").classes("cd-month-body"):
+                            _render_days([r for ds in days.values() for r in ds], day_end)
 
     # ── render: header stats · action bar · search · list ─────────────────────
     lm = store.ledger_metrics()

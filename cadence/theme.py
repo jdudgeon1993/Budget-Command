@@ -21,6 +21,7 @@ CSS = """
   --line:#eceef5; --accent:#6366f1; --accent-soft:#eef0ff;
   --pos:#10b981; --pos-soft:#eafaf3; --warn:#f59e0b; --warn-ink:#b7791f;
   --warn-soft:#fff4e5; --neg:#f43f5e; --neg-soft:#fdecec; --violet:#8b5cf6;
+  --violet-soft:#f3efff; --info:#3b82f6; --info-soft:#e8f0fe; --info-ink:#2563eb;
   --shadow:0 1px 2px rgba(16,18,34,.04),0 8px 24px rgba(16,18,34,.06);
   --shadow-lift:0 2px 4px rgba(16,18,34,.05),0 14px 34px rgba(16,18,34,.10);
 }
@@ -98,14 +99,18 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cd-bar-fill{height:100%;border-radius:6px;transition:width .35s cubic-bezier(.2,.8,.2,1)}
 .cd-tap{font-size:11px;color:var(--accent);font-weight:600;margin-top:8px}
 
-/* ── status pills (shared: Buckets rows + Ledger) ─────────────────────────── */
-.cd-pill{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-left:auto}
-.cd-pill.pastdue,.cd-pill.over{background:var(--neg-soft);color:var(--neg)}
-.cd-pill.soon{background:var(--warn-soft);color:var(--warn-ink)}
-.cd-pill.under{background:var(--accent-soft);color:var(--accent)}
-.cd-pill.flex{background:#eef0f5;color:var(--muted)}
-.cd-pill.handled{background:var(--pos-soft);color:var(--pos)}
-.cd-env.is-handled{opacity:.5}
+/* ── status badges (Buckets card corner) — one colour language ────────────── */
+.cd-pill{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-left:auto;white-space:nowrap}
+.cd-pill.green{background:var(--pos-soft);color:var(--pos)}
+.cd-pill.amber{background:var(--warn-soft);color:var(--warn-ink)}
+.cd-pill.red{background:var(--neg-soft);color:var(--neg)}
+.cd-pill.purple{background:var(--violet-soft);color:var(--violet)}
+.cd-pill.blue{background:var(--info-soft);color:var(--info-ink)}
+/* flex buckets: a flat marker instead of a progress bar */
+.cd-flexbar{height:7px;border-radius:6px;margin:12px 0 6px;
+  background:repeating-linear-gradient(90deg,var(--info-soft) 0 8px,transparent 8px 14px)}
+.cd-env.is-handled{opacity:.55}
+.cd-env.is-handled .cd-pill.green{opacity:1}
 
 /* ── bottom sheet + form bits (shared by every sheet) ─────────────────────── */
 .cd-sheet{width:100%;max-width:560px;margin:0 auto;padding:14px 22px 20px !important;
@@ -133,6 +138,19 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cd-led-stat .l{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .cd-led-stat .v{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-top:3px}
 .cd-led-search{margin:0 0 14px}
+/* year header + collapsible month cards */
+.cd-year{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:20px 4px 10px}
+.cd-month{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.cd-month-hd{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;user-select:none}
+.cd-month-hd:hover{background:#fafbff}
+.cd-month-chev{width:14px;text-align:center;color:var(--muted);transition:transform .18s;font-size:11px}
+.cd-month.open .cd-month-chev{transform:rotate(90deg)}
+.cd-month-nm{font-weight:700;font-size:14px}
+.cd-month-meta{font-size:11px;color:var(--muted)}
+.cd-month-bal{margin-left:auto;font-weight:700;font-size:14px}
+.cd-month-body{padding:2px 14px 12px}
+.cd-month-body .cd-txcard{border:none;box-shadow:none;border-radius:0;background:transparent}
+.cd-month-body .cd-daygrp:first-child .cd-daylbl{padding-top:2px}
 .cd-daygrp{margin-bottom:16px}
 .cd-daylbl{padding:0 4px 8px;font-size:13px;overflow:hidden}
 .cd-daylbl b{font-weight:700}
