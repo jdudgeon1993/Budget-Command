@@ -59,19 +59,19 @@ class LiveStore:
             funded, sp = av, 0.0
             target = float(b.get("targetAmount") or 0)
             pct = min(1.0, max(0.0, funded / target)) if target > 0 else 0.0
-        try:
-            due_day = int(b.get("dueDay"))
-        except (ValueError, TypeError):
-            due_day = None
+        due_day = MZ._norm_due_day(b.get("dueDay"))   # keeps "eom" as-is; ints pass through
         flex = bool(b.get("flex"))
         handled = bool((self._month.get("handledBuckets") or {}).get(b["id"]))
         gap = round(max(0.0, target - funded), 2)
         d = MZ.days_until(due_day)
+        # Goals carry their own cadence (contribFreq) + a target month; expenses use payFreq.
+        frequency = (b.get("contribFreq") if typ == "goal" else b.get("payFreq")) or None
         return {"id": b["id"], "name": b["name"], "type": typ, "cat_id": b.get("catId", ""),
                 "target": round(target, 2), "funded": funded, "spent": sp, "available": av,
-                "pct": pct, "gap": gap, "due_day": due_day, "frequency": b.get("payFreq"),
-                "flex": flex, "handled": handled, "days_until_due": d,
-                "status": MZ.status(av, gap, d, flex, handled),
+                "pct": pct, "gap": gap, "due_day": due_day, "frequency": frequency,
+                "flex": flex, "handled": handled,
+                "target_date": b.get("targetDate") or None, "notes": b.get("notes") or "",
+                "days_until_due": d, "status": MZ.status(av, gap, d, flex, handled),
                 "urgency": MZ.urgency_score(av, gap, d, flex, handled, typ == "vault")}
 
     def groups(self) -> list[dict]:
@@ -153,3 +153,4 @@ class LiveStore:
                                   "to the live app next — it's fully working in the demo.")
     rename = set_target = delete = add_bucket = _soon
     set_due_day = set_frequency = set_flex = toggle_handled = record_spend = _soon
+    set_target_date = set_notes = _soon

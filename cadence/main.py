@@ -40,6 +40,62 @@ def _pill(r: dict):
     return None
 
 
+# ── due-day + frequency options (mirrors the old app: 1–28 + End of Month) ────
+def _dueday_options() -> dict:
+    opts = {"": "— none —"}
+    for d in range(1, 29):
+        suf = "th" if 11 <= d <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(d % 10, "th")
+        opts[str(d)] = f"{d}{suf}"
+    opts["eom"] = "End of month"
+    return opts
+
+
+def _dueday_key(due_day) -> str:
+    """Current stored due_day (int, 'eom', or None) → select key."""
+    if due_day is None or due_day == "":
+        return ""
+    return "eom" if str(due_day).lower() == "eom" else str(due_day)
+
+
+# Frequency options — triweekly included, for parity with the Forecast engine.
+_FREQ = {"": "— none —", "weekly": "Weekly", "biweekly": "Biweekly",
+         "triweekly": "Triweekly", "monthly": "Monthly"}
+_PERIODS_PER_MONTH = {"weekly": 30.44 / 7, "biweekly": 30.44 / 14,
+                      "triweekly": 30.44 / 21, "monthly": 1.0}
+_PERIOD_WORD = {"weekly": "week", "biweekly": "2 weeks",
+                "triweekly": "3 weeks", "monthly": "month"}
+
+
+def _months_until_month(target_date) -> int | None:
+    """Whole months from this month to a 'YYYY-MM' target, or None."""
+    try:
+        from datetime import date
+        y, m = str(target_date).split("-")[:2]
+        today = date.today()
+        return (int(y) - today.year) * 12 + (int(m) - today.month)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _period_hint(r: dict) -> str:
+    """A one-line 'feeds the Forecast' hint: goals show the pace to their target
+    date; dated/recurring expenses show the per-paycheck slice of the bill."""
+    if r["type"] == "goal":
+        td, gap = r.get("target_date"), r["gap"]
+        if td and gap > 0:
+            months = _months_until_month(td)
+            if months and months > 0:
+                return f"Save ≈ {money(gap / months)}/mo to reach {money(r['target'])} by {td}"
+            if months is not None and months <= 0:
+                return f"Target date {td} has passed — {money(gap)} still to go"
+        return ""
+    freq, target = r["frequency"], r["target"]
+    if freq in _PERIODS_PER_MONTH and target > 0:
+        per = target / _PERIODS_PER_MONTH[freq]
+        return f"≈ {money(per)} per {_PERIOD_WORD[freq]} · feeds Forecast"
+    return ""
+
+
 def _theme() -> None:
     ui.add_head_html("""
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -130,6 +186,7 @@ def _theme() -> None:
       .cdm-lbl{font-size:12px;font-weight:700;color:var(--ink)}
       .cdm-manage{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-top:1px dashed var(--line);margin-top:6px;padding-top:12px}
       .cdm-input{max-width:150px}
+      .cd-half{flex:1 1 46%;min-width:150px}
       /* bottom sheet */
       .cd-sheet{width:100%;max-width:560px;margin:0 auto;padding:14px 22px 20px !important;
         border-radius:22px 22px 0 0 !important;box-shadow:0 -20px 60px rgba(16,18,34,.25) !important;
@@ -252,8 +309,6 @@ def _app(store, demo: bool):
                 ui.html('<div class="cd-tap">Tap to assign / manage →</div>')
             card.on("click", lambda _, e=r["id"]: _open_assign(e))
 
-        _FREQ = {"": "— none —", "weekly": "Weekly", "biweekly": "Biweekly", "monthly": "Monthly"}
-
         # ── bucket sheet: assign · spend · details ────────────────────────────
         def _open_assign(eid):
             with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
@@ -330,21 +385,36 @@ def _app(store, demo: bool):
                             ui.button("Log spend", on_click=do_spend).props("unelevated color=deep-orange no-caps")
 
                     # ── DETAILS (auto-save; feeds the Forecast) ──
+                    is_goal, is_vault = b["type"] == "goal", b["type"] == "vault"
                     ui.html('<div class="cd-seclbl">Details</div>')
                     with ui.row().classes("items-center q-gutter-sm"):
                         rn = ui.input("Name", value=b["name"]).props("dense outlined hide-bottom-space")
                         rn.on("blur", lambda: save(lambda: store.rename(eid, rn.value)))
                         if not b["flex"]:
-                            tg = ui.number("Amount / target", value=b["target"]).props("dense outlined hide-bottom-space").classes("cdm-input")
-                            tg.on("blur", lambda: save(lambda: store.set_target(eid, float(tg.value or 0))))
-                    with ui.row().classes("items-center q-gutter-sm"):
-                        dd = ui.number("Due day (1–31)", value=b["due_day"]).props("dense outlined hide-bottom-space").classes("cdm-input")
-                        dd.on("blur", lambda: act(lambda: store.set_due_day(eid, dd.value)))
-                        fq = ui.select(_FREQ, value=b["frequency"] or "", label="Frequency (if no due day)").props("dense outlined").classes("cdm-input")
-                        fq.on("update:model-value", lambda: save(lambda: store.set_frequency(eid, fq.value)))
+                            tlbl = "Goal amount" if is_goal else "Amount / target"
+                            tg = ui.number(tlbl, value=b["target"]).props("dense outlined hide-bottom-space").classes("cdm-input")
+                            tg.on("blur", lambda: act(lambda: store.set_target(eid, float(tg.value or 0))))
+                    if is_goal:
+                        with ui.row().classes("items-center q-gutter-sm"):
+                            td = ui.input("Target month", value=b.get("target_date") or "").props("dense outlined hide-bottom-space type=month").classes("cd-half")
+                            td.on("blur", lambda: act(lambda: store.set_target_date(eid, td.value)))
+                            fq = ui.select(_FREQ, value=b["frequency"] or "", label="Contribution cadence").props("dense outlined").classes("cd-half")
+                            fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
+                    elif not is_vault:
+                        with ui.row().classes("items-center q-gutter-sm"):
+                            dd = ui.select(_dueday_options(), value=_dueday_key(b["due_day"]), label="Due day").props("dense outlined").classes("cd-half")
+                            dd.on("update:model-value", lambda: act(lambda: store.set_due_day(eid, dd.value)))
+                            fq = ui.select(_FREQ, value=b["frequency"] or "", label="Frequency (if no due day)").props("dense outlined").classes("cd-half")
+                            fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
+                    hint = _period_hint(b)
+                    if hint:
+                        ui.html(f'<div class="cd-sub" style="margin:2px 2px 0;color:var(--accent)">↳ {hint}</div>')
+                    notes = ui.textarea("Notes", value=b.get("notes") or "").props("dense outlined hide-bottom-space autogrow").classes("w-full q-mt-xs")
+                    notes.on("blur", lambda: save(lambda: store.set_notes(eid, notes.value)))
                     with ui.row().classes("items-center q-gutter-md q-mt-xs"):
-                        fx = ui.switch("Flexible (variable, no target)", value=b["flex"])
-                        fx.on("update:model-value", lambda: act(lambda: store.set_flex(eid, fx.value)))
+                        if b["type"] == "spend":
+                            fx = ui.switch("Flexible (variable, no target)", value=b["flex"])
+                            fx.on("update:model-value", lambda: act(lambda: store.set_flex(eid, fx.value)))
                         hd = ui.switch("Handled this month", value=b["handled"])
                         hd.on("update:model-value", lambda: act(lambda: store.toggle_handled(eid)))
 
@@ -372,17 +442,26 @@ def _app(store, demo: bool):
                 cat = ui.select({c["id"]: c["name"] for c in cats}, label="Category",
                                 value=(cats[0]["id"] if cats else None)).props("dense outlined").classes("w-full")
                 typ = ui.select({"spend": "Spend", "goal": "Goal", "vault": "Vault"}, label="Type", value="spend").props("dense outlined").classes("w-full")
-                flex = ui.switch("Flexible — variable spending, no target")
-                tgt = ui.number("Amount / target", value=0).props("dense outlined").classes("w-full").bind_visibility_from(flex, "value", backward=lambda v: not v)
-                with ui.row().classes("w-full q-gutter-sm"):
-                    dd = ui.number("Due day (1–31)").props("dense outlined hide-bottom-space").classes("cdm-input")
-                    fq = ui.select(_FREQ, value="", label="Frequency (if no due day)").props("dense outlined").classes("cdm-input")
+                flex = ui.switch("Flexible — variable spending, no target").bind_visibility_from(typ, "value", backward=lambda v: v == "spend")
+                typ.on("update:model-value", lambda: typ.value != "spend" and flex.set_value(False))
+                tgt = ui.number("Amount / target", value=0).props("dense outlined").classes("w-full") \
+                    .bind_visibility_from(flex, "value", backward=lambda v: not v)
+                with ui.row().classes("w-full q-gutter-sm").bind_visibility_from(typ, "value", backward=lambda v: v != "vault"):
+                    dd = ui.select(_dueday_options(), value="", label="Due day").props("dense outlined").classes("cd-half") \
+                        .bind_visibility_from(typ, "value", backward=lambda v: v == "spend")
+                    tm = ui.input("Target month").props("dense outlined hide-bottom-space type=month").classes("cd-half") \
+                        .bind_visibility_from(typ, "value", backward=lambda v: v == "goal")
+                    fq = ui.select(_FREQ, value="", label="Frequency").props("dense outlined").classes("cd-half")
+                notes = ui.textarea("Notes (optional)").props("dense outlined hide-bottom-space autogrow").classes("w-full")
 
                 def create():
                     try:
                         store.add_bucket((name.value or "New bucket").strip(), cat.value, typ.value,
-                                         float(tgt.value or 0), due_day=dd.value, frequency=(fq.value or None),
-                                         flex=bool(flex.value))
+                                         float(tgt.value or 0),
+                                         due_day=(dd.value if typ.value == "spend" else None),
+                                         frequency=(fq.value or None), flex=bool(flex.value),
+                                         target_date=(tm.value if typ.value == "goal" else None),
+                                         notes=notes.value or "")
                     except Exception as e:
                         ui.notify(str(e)[:140], type="warning"); return
                     dlg.close(); refresh_page()

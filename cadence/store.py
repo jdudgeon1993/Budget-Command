@@ -132,6 +132,7 @@ class Store:
                 "spent": round(sp, 2), "available": round(av, 2), "pct": pct,
                 "gap": gap, "due_day": e.get("due_day"), "frequency": e.get("frequency"),
                 "flex": bool(e.get("flex")), "handled": bool(e.get("handled")),
+                "target_date": e.get("target_date"), "notes": e.get("notes", ""),
                 "days_until_due": d, "status": status, "urgency": M.urgency(self.s, e)}
 
     def bucket(self, eid: str) -> dict:
@@ -199,6 +200,12 @@ class Store:
     def set_frequency(self, eid: str, freq):
         M.set_frequency(self.s, eid, freq)
 
+    def set_target_date(self, eid: str, target_date):
+        M.set_target_date(self.s, eid, target_date)
+
+    def set_notes(self, eid: str, notes):
+        M.set_notes(self.s, eid, notes)
+
     def set_flex(self, eid: str, flex: bool):
         M.set_flex(self.s, eid, flex)
 
@@ -213,6 +220,8 @@ class Store:
         M.delete_envelope(self.s, eid)
 
     def add_bucket(self, name: str, cat_id: str, type: str, target: float,
-                   due_day=None, frequency=None, flex: bool = False):
+                   due_day=None, frequency=None, flex: bool = False,
+                   target_date=None, notes: str = ""):
         return M.add_envelope(self.s, name, cat_id, type, target,
-                              due_day=due_day, frequency=frequency, flex=flex)
+                              due_day=due_day, frequency=frequency, flex=flex,
+                              target_date=target_date, notes=notes)

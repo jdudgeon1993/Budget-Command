@@ -36,12 +36,14 @@ def add_category(s: dict, name: str, color: str) -> dict:
 
 def add_envelope(s: dict, name: str, cat_id: str, type: str = SPEND,
                  target: float = 0.0, funded: float = 0.0,
-                 due_day: int | None = None, frequency: str | None = None,
-                 flex: bool = False) -> dict:
+                 due_day=None, frequency: str | None = None,
+                 flex: bool = False, target_date: str | None = None,
+                 notes: str = "") -> dict:
     e = {"id": _id(), "name": name, "cat_id": cat_id, "type": type,
          "target": round(target, 2), "funded": round(funded, 2),
-         "due_day": due_day, "frequency": frequency,
-         "flex": bool(flex), "handled": False}
+         "due_day": _norm_due_day(due_day), "frequency": frequency or None,
+         "flex": bool(flex), "handled": False,
+         "target_date": target_date or None, "notes": notes or ""}
     s["envelopes"].append(e)
     return e
 
@@ -52,16 +54,38 @@ def env(s: dict, eid: str) -> dict:
 
 # ── Due dates + urgency (drives sort order and Forecast) ──────────────────────
 
+def _norm_due_day(due_day):
+    """Accept 1–31, the sentinel "eom" (end of month), or None."""
+    if due_day is None or due_day == "":
+        return None
+    if isinstance(due_day, str) and due_day.strip().lower() == "eom":
+        return "eom"
+    try:
+        d = int(due_day)
+        return d if 1 <= d <= 31 else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _day_in_month(due_day, y: int, m: int) -> int:
+    """Resolve a due_day (int or "eom") to a real day-of-month for (y, m)."""
+    last = calendar.monthrange(y, m)[1]
+    if isinstance(due_day, str) and due_day.lower() == "eom":
+        return last
+    return min(int(due_day), last)
+
+
 def days_until(due_day, today: date | None = None) -> int | None:
-    """Days until the next occurrence of a day-of-month, or None."""
-    if not due_day:
+    """Days until the next occurrence of a day-of-month (or "eom"), or None."""
+    due_day = _norm_due_day(due_day)
+    if due_day is None:
         return None
     today = today or date.today()
     y, m = today.year, today.month
-    cand = date(y, m, min(int(due_day), calendar.monthrange(y, m)[1]))
+    cand = date(y, m, _day_in_month(due_day, y, m))
     if cand < today:                                   # already passed → next month
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
-        cand = date(y, m, min(int(due_day), calendar.monthrange(y, m)[1]))
+        cand = date(y, m, _day_in_month(due_day, y, m))
     return (cand - today).days
 
 
@@ -158,15 +182,20 @@ def set_target(s: dict, eid: str, value: float) -> None:
 
 
 def set_due_day(s: dict, eid: str, day) -> None:
-    try:
-        d = int(day)
-        env(s, eid)["due_day"] = d if 1 <= d <= 31 else None
-    except (ValueError, TypeError):
-        env(s, eid)["due_day"] = None
+    env(s, eid)["due_day"] = _norm_due_day(day)
 
 
 def set_frequency(s: dict, eid: str, freq) -> None:
     env(s, eid)["frequency"] = freq or None
+
+
+def set_target_date(s: dict, eid: str, target_date) -> None:
+    """A goal's target month (YYYY-MM) — when you want to have saved the target."""
+    env(s, eid)["target_date"] = (str(target_date).strip() or None) if target_date else None
+
+
+def set_notes(s: dict, eid: str, notes) -> None:
+    env(s, eid)["notes"] = (notes or "").strip()
 
 
 def set_flex(s: dict, eid: str, flex: bool) -> None:
