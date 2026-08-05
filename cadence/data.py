@@ -1,12 +1,12 @@
 """
 Cadence live data — the real Supabase budget, read through Cura's proven layer.
 
-We deliberately reuse webapp.db (the tested Supabase queries) and webapp.formulas
-(the tested money math) so Cadence shows exactly the same numbers as the current
-app — this is a new UI on a proven brain, not a reimplementation. Only the
-presentation is new. Requires SUPABASE_URL / SUPABASE_ANON_KEY in the env.
+Uses Cadence's own copies of the proven Supabase queries (supabase_io) and money
+math (formulas) — self-contained so this service deploys from cadence/ alone,
+while still producing exactly the same numbers as Cura. Requires SUPABASE_URL /
+SUPABASE_ANON_KEY in the env.
 """
-from webapp import db as DB, formulas as F
+from . import supabase_io as DB, formulas as F
 
 # bcc bucket type → Cadence type
 _TYPE = {"expense": "spend", "vault": "vault", "goal": "goal", "sinking": "goal"}

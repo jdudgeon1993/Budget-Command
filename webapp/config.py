@@ -14,9 +14,13 @@ class Config:
     DEV_SEED = os.environ.get("DEV_SEED", "").lower() in ("1", "true", "yes")
 
     # URL of the new NiceGUI app (Cadence). When set, a "Try the new app" link
-    # appears in the header. On the homelab this is the Cadence container's
-    # Nginx/Tailscale address; locally it's http://localhost:8110.
-    CADENCE_URL = os.environ.get("CADENCE_URL", "")
+    # appears in the header. A bare domain (no scheme) is normalized to https://
+    # so the link never resolves relative to the current app.
+    _cadence_raw = os.environ.get("CADENCE_URL", "").strip()
+    CADENCE_URL = (
+        _cadence_raw if (not _cadence_raw or _cadence_raw.startswith(("http://", "https://")))
+        else f"https://{_cadence_raw}"
+    )
 
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
