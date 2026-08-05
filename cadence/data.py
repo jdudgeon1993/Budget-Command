@@ -232,13 +232,191 @@ class LiveStore:
         self.defund(src, amount)
         self.fund(dst, amount)
 
-    # Structure edits land next once you pick the flow — safe no-ops in live for now.
-    def _soon(self, *a, **k):
-        raise NotImplementedError("Editing buckets (rename/target/due/delete/spend) is coming "
-                                  "to the live app next — it's fully working in the demo.")
-    rename = set_target = delete = add_bucket = _soon
-    set_due_day = set_frequency = set_flex = toggle_handled = record_spend = _soon
-    set_target_date = set_notes = _soon
-    add_transaction = edit_transaction = delete_transaction = _soon
-    add_paycheck = edit_paycheck = delete_paycheck = _soon
-    add_rule = edit_rule = delete_rule = toggle_rule = _soon
+    # ── live writes ───────────────────────────────────────────────────────────
+    # Cadence type → bcc bucket type. Money columns split by type: expense uses
+    # default_budget/pay_freq; goal & vault use target_amount/contrib_freq.
+    _DB_TYPE = {"spend": "expense", "goal": "goal", "vault": "vault"}
+    _FREQ_TO_INT = {"weekly": 7, "biweekly": 14, "semimonthly": 15, "monthly": 30}
+
+    def _raw_bucket(self, bid: str) -> dict:
+        return next(b for b in self.data["buckets"] if b["id"] == bid)
+
+    def _budget_account_id(self) -> str:
+        for a in self.data["accounts"]:
+            if a.get("type") == "budget" and not a.get("archived"):
+                return a["id"]
+        return self.data["accounts"][0]["id"] if self.data["accounts"] else ""
+
+    @staticmethod
+    def _mid_for(iso: str) -> str:
+        from datetime import date as _d
+        try:
+            d = _d.fromisoformat(str(iso)[:10])
+        except (ValueError, TypeError):
+            d = _d.today()
+        return F.month_id(d.year, d.month - 1)
+
+    def _bucket_update(self, bid: str, fields: dict):
+        DB.update(self.token, "bcc_buckets", self.uid, "id", bid, fields)
+        self._load()
+
+    # bucket structure
+    def rename(self, bid: str, name: str):
+        self._bucket_update(bid, {"name": (name or "").strip() or "Bucket"})
+
+    def set_target(self, bid: str, value: float):
+        col = "default_budget" if self._raw_bucket(bid)["type"] == "expense" else "target_amount"
+        self._bucket_update(bid, {col: round(max(0.0, value), 2)})
+
+    def set_due_day(self, bid: str, day):
+        self._bucket_update(bid, {"due_day": MZ._norm_due_day(day)})
+
+    def set_frequency(self, bid: str, freq):
+        col = "contrib_freq" if self._raw_bucket(bid)["type"] in ("goal", "sinking") else "pay_freq"
+        self._bucket_update(bid, {col: freq or None})
+
+    def set_flex(self, bid: str, flex: bool):
+        self._bucket_update(bid, {"flex": bool(flex)})
+
+    def set_target_date(self, bid: str, target_date):
+        self._bucket_update(bid, {"target_date": (str(target_date).strip() or None) if target_date else None})
+
+    def set_notes(self, bid: str, notes):
+        self._bucket_update(bid, {"notes": (notes or "").strip()})
+
+    def toggle_handled(self, bid: str):
+        cur = bool((self._month.get("handledBuckets") or {}).get(bid))
+        DB.set_handled(self.token, self.uid, self._mid, bid, not cur)
+        self._load()
+
+    def delete(self, bid: str):
+        # Archive (money it held stops being claimed → returns to Ready to Spend).
+        self._bucket_update(bid, {"archived": True})
+
+    def add_bucket(self, name: str, cat_id: str, type: str, target: float,
+                   due_day=None, frequency=None, flex: bool = False,
+                   target_date=None, notes: str = ""):
+        dbtype = self._DB_TYPE.get(type, "expense")
+        row = {"id": DB.new_id(), "user_id": self.uid, "cat_id": cat_id or None,
+               "name": (name or "New bucket").strip(), "type": dbtype,
+               "flex": bool(flex), "notes": notes or "", "archived": False,
+               "sort_order": len(self.data["buckets"]) + 1}
+        if dbtype == "expense":
+            row.update({"default_budget": round(target or 0, 2),
+                        "due_day": MZ._norm_due_day(due_day), "pay_freq": frequency or None})
+        else:
+            row.update({"target_amount": round(target or 0, 2),
+                        "target_date": target_date or None, "contrib_freq": frequency or None})
+        DB.insert(self.token, "bcc_buckets", row)
+        self._load()
+        return {"id": row["id"]}
+
+    # ledger transactions
+    def _insert_tx(self, typ: str, amount: float, bid, desc: str, when: str, income_type=None):
+        row = {"id": DB.new_id(), "user_id": self.uid, "account_id": self._budget_account_id(),
+               "month_id": self._mid_for(when), "type": typ, "amount": round(float(amount), 2),
+               "date": (when or "")[:10], "description": desc or "", "bucket_id": bid or None}
+        if income_type:
+            row["income_type"] = income_type
+        DB.insert(self.token, "bcc_transactions", row)
+        self._load()
+
+    def record_spend(self, bid: str, amount: float, desc: str = ""):
+        from datetime import date as _d
+        self._insert_tx("out", amount, bid, desc, _d.today().isoformat())
+
+    def add_transaction(self, kind: str, amount: float, bucket_id, desc: str, date: str):
+        if kind == "income":
+            self._insert_tx("in", amount, None, desc, date, income_type="other")
+        elif kind == "refund":                       # money back to a bucket = negative spend
+            self._insert_tx("out", -abs(float(amount)), bucket_id, desc, date)
+        else:
+            self._insert_tx("out", amount, bucket_id, desc, date)
+
+    def edit_transaction(self, tid: str, amount=None, desc=None, date=None, envelope_id=None):
+        fields = {}
+        raw = next((t for t in self.data["txs"] if t["id"] == tid), None)
+        if amount is not None:
+            amt = round(float(amount), 2)
+            # keep the sign a refund (negative out) already carries
+            if raw and raw.get("type") == "out" and raw.get("amount", 0) < 0:
+                amt = -abs(amt)
+            fields["amount"] = amt
+        if desc is not None:
+            fields["description"] = desc
+        if date is not None:
+            fields["date"] = str(date)[:10]
+            fields["month_id"] = self._mid_for(date)
+        if envelope_id:
+            fields["bucket_id"] = envelope_id
+        if fields:
+            DB.update(self.token, "bcc_transactions", self.uid, "id", tid, fields)
+            self._load()
+
+    def delete_transaction(self, tid: str):
+        DB.delete(self.token, "bcc_transactions", self.uid, "id", tid)
+        self._load()
+
+    # settings: paychecks
+    def add_paycheck(self, label, amount, freq, anchor):
+        DB.insert(self.token, "bcc_paychecks", {
+            "id": DB.new_id(), "user_id": self.uid, "label": (label or "Paycheck").strip(),
+            "amount": round(float(amount or 0), 2), "freq": self._FREQ_TO_INT.get(freq, 14),
+            "anchor_date": (anchor or "")[:10] or None})
+        self._load()
+
+    def edit_paycheck(self, pid, label=None, amount=None, freq=None, anchor=None):
+        fields = {}
+        if label is not None:
+            fields["label"] = label.strip() or "Paycheck"
+        if amount is not None:
+            fields["amount"] = round(float(amount or 0), 2)
+        if freq is not None:
+            fields["freq"] = self._FREQ_TO_INT.get(freq, 14)
+        if anchor is not None:
+            fields["anchor_date"] = (anchor or "")[:10] or None
+        if fields:
+            DB.update(self.token, "bcc_paychecks", self.uid, "id", pid, fields)
+            self._load()
+
+    def delete_paycheck(self, pid):
+        DB.delete(self.token, "bcc_paychecks", self.uid, "id", pid)
+        self._load()
+
+    # settings: allocation rules
+    def add_rule(self, name, kind, bucket_id, value, value_type, active=True):
+        DB.insert(self.token, "bcc_allocation_rules", {
+            "id": DB.new_id(), "user_id": self.uid, "name": (name or "Rule").strip(),
+            "rule_type": kind if kind in ("internal", "external") else "internal",
+            "bucket_id": bucket_id or None, "value": round(float(value or 0), 2),
+            "value_type": value_type if value_type in ("fixed", "pct", "fund") else "fixed",
+            "active": bool(active)})
+        self._load()
+
+    def edit_rule(self, rid, name=None, kind=None, bucket_id=..., value=None, value_type=None, active=None):
+        fields = {}
+        if name is not None:
+            fields["name"] = name.strip() or "Rule"
+        if kind is not None:
+            fields["rule_type"] = kind if kind in ("internal", "external") else "internal"
+        if bucket_id is not ...:
+            fields["bucket_id"] = bucket_id or None
+        if value is not None:
+            fields["value"] = round(float(value or 0), 2)
+        if value_type is not None:
+            fields["value_type"] = value_type if value_type in ("fixed", "pct", "fund") else "fixed"
+        if active is not None:
+            fields["active"] = bool(active)
+        if fields:
+            DB.update(self.token, "bcc_allocation_rules", self.uid, "id", rid, fields)
+            self._load()
+
+    def delete_rule(self, rid):
+        DB.delete(self.token, "bcc_allocation_rules", self.uid, "id", rid)
+        self._load()
+
+    def toggle_rule(self, rid):
+        cur = next((r for r in self.rules() if r["id"] == rid), None)
+        DB.update(self.token, "bcc_allocation_rules", self.uid, "id", rid,
+                  {"active": not (cur["active"] if cur else True)})
+        self._load()

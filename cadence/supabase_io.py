@@ -223,3 +223,33 @@ def ensure_month(uid: str, token: str, mid: str) -> None:
         c.table("bcc_months").insert({"id": mid, "user_id": uid}).execute()
 
 
+# ── generic writes (user-scoped, RLS-safe) ────────────────────────────────────
+
+def new_id() -> str:
+    return str(uuid.uuid4())
+
+
+def insert(token: str, table: str, row: dict) -> None:
+    client(token).table(table).insert(row).execute()
+
+
+def update(token: str, table: str, uid: str, key: str, val, fields: dict) -> None:
+    client(token).table(table).update(fields).eq("user_id", uid).eq(key, val).execute()
+
+
+def delete(token: str, table: str, uid: str, key: str, val) -> None:
+    client(token).table(table).delete().eq("user_id", uid).eq(key, val).execute()
+
+
+def set_handled(token: str, uid: str, mid: str, bid: str, on: bool) -> None:
+    """Mark/unmark a bucket 'handled' for a month (a row's presence = handled)."""
+    c = client(token)
+    if on:
+        c.table("bcc_month_handled").upsert(
+            {"user_id": uid, "month_id": mid, "bucket_id": bid},
+            on_conflict="user_id,month_id,bucket_id").execute()
+    else:
+        (c.table("bcc_month_handled").delete().eq("user_id", uid)
+         .eq("month_id", mid).eq("bucket_id", bid).execute())
+
+
