@@ -83,7 +83,32 @@ class LiveStore:
                         "rows": rows})
         return out
 
-    # ── live funding (writes the month allocation, like Cura's Distribute) ────
+    # ── single-bucket view (assign/manage modal) ─────────────────────────────
+    def bucket(self, bid: str) -> dict:
+        b = next(b for b in self._buckets() if b["id"] == bid)
+        typ = _TYPE.get(b.get("type", "expense"), "spend")
+        av = round(F.bucket_available(b, self._month, self.data["months"], self.data["txs"]), 2)
+        sp = round(F.b_spent(self._mid, bid, self.data["txs"]), 2)
+        if typ == "spend":
+            funded = round(av + sp, 2)
+            target = F.b_budget(self._month, bid) or float(b.get("defaultBudget") or b.get("dueAmount") or 0)
+            pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
+        else:
+            funded, sp = av, 0.0
+            target = float(b.get("targetAmount") or 0)
+            pct = min(1.0, max(0.0, funded / target)) if target > 0 else 0.0
+        return {"id": bid, "name": b["name"], "type": typ, "cat_id": b.get("catId", ""),
+                "target": round(target, 2), "funded": funded, "spent": sp,
+                "available": av, "pct": pct, "gap": round(max(0.0, target - funded), 2)}
+
+    def other_buckets(self, exclude: str) -> list[dict]:
+        return [{"id": b["id"], "name": b["name"]} for b in self._buckets() if b["id"] != exclude]
+
+    def categories(self) -> list[dict]:
+        return [{"id": c["id"], "name": c["name"]}
+                for c in self.data["cats"] if not c.get("archived")]
+
+    # ── assignment (writes the month allocation, like Cura's Distribute) ──────
     def fund(self, bid: str, amount: float):
         DB.ensure_month(self.uid, self.token, self._mid)
         new = max(0.0, round(F.b_alloc(self._month, bid) + amount, 2))
@@ -92,3 +117,23 @@ class LiveStore:
 
     def defund(self, bid: str, amount: float):
         self.fund(bid, -amount)
+
+    def set_funded(self, bid: str, value: float):
+        cur = F.bucket_available(next(b for b in self._buckets() if b["id"] == bid),
+                                 self._month, self.data["months"], self.data["txs"])
+        self.fund(bid, round(value - cur, 2))
+
+    def fund_to_target(self, bid: str):
+        gap = self.bucket(bid)["gap"]
+        if gap > 0:
+            self.fund(bid, gap)
+
+    def move(self, src: str, dst: str, amount: float):
+        self.defund(src, amount)
+        self.fund(dst, amount)
+
+    # Structure edits land next once you pick the flow — safe no-ops in live for now.
+    def _soon(self, *a, **k):
+        raise NotImplementedError("Editing buckets (rename/target/delete/new) is coming to "
+                                  "the live app next — it's fully working in the demo.")
+    rename = set_target = delete = add_bucket = _soon

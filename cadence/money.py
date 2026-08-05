@@ -56,6 +56,42 @@ def defund(s: dict, eid: str, amount: float) -> None:
     fund(s, eid, -amount)
 
 
+def set_funded(s: dict, eid: str, value: float) -> None:
+    """Assign the envelope to an exact funded level (moves the delta to/from Unallocated)."""
+    fund(s, eid, round(value - env(s, eid)["funded"], 2))
+
+
+def move(s: dict, src_id: str, dst_id: str, amount: float) -> None:
+    """Reallocate between two envelopes without touching Unallocated."""
+    amount = round(amount, 2)
+    env(s, src_id)["funded"] = round(env(s, src_id)["funded"] - amount, 2)
+    env(s, dst_id)["funded"] = round(env(s, dst_id)["funded"] + amount, 2)
+
+
+# ── Structure edits ───────────────────────────────────────────────────────────
+
+def rename(s: dict, eid: str, name: str) -> None:
+    name = (name or "").strip()
+    if name:
+        env(s, eid)["name"] = name
+
+
+def set_target(s: dict, eid: str, value: float) -> None:
+    env(s, eid)["target"] = round(max(0.0, value), 2)
+
+
+def set_category(s: dict, eid: str, cat_id: str) -> None:
+    env(s, eid)["cat_id"] = cat_id
+
+
+def delete_envelope(s: dict, eid: str) -> None:
+    """Remove an envelope. Its unspent balance returns to Unallocated (money is
+    never vaporized); past spending stays on the books."""
+    e = env(s, eid)
+    s["unallocated"] = round(s["unallocated"] + available(s, e), 2)
+    s["envelopes"] = [x for x in s["envelopes"] if x["id"] != eid]
+
+
 # ── Ledger (cleared money) ────────────────────────────────────────────────────
 
 def add_expense(s: dict, eid: str, amount: float, desc: str = "", date: str = "") -> dict:

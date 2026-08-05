@@ -16,9 +16,9 @@ def seed() -> dict:
     rows = [
         ("Rent",          "Housing",   M.SPEND, 1500, 1500),
         ("Utilities",     "Housing",   M.SPEND,  300,  300),
-        ("Groceries",     "Food",      M.SPEND,  400,  400),
-        ("Dining Out",    "Food",      M.SPEND,  150,  150),
-        ("Gas",           "Transport", M.SPEND,  120,  120),
+        ("Groceries",     "Food",      M.SPEND,  400,  300),
+        ("Dining Out",    "Food",      M.SPEND,  150,  100),
+        ("Gas",           "Transport", M.SPEND,  120,   80),
         ("Car Insurance", "Transport", M.SPEND,  140,  140),
         ("Subscriptions", "Lifestyle", M.SPEND,   60,   60),
         ("Fun Money",     "Lifestyle", M.SPEND,  200,  200),
@@ -27,7 +27,7 @@ def seed() -> dict:
     ]
     # Bank cash = everything funded into envelopes + a buffer left Unallocated.
     total_funded = sum(r[4] for r in rows)
-    s = M.genesis(opening=total_funded + 650.00)
+    s = M.genesis(opening=total_funded + 800.00)
 
     cat_color = {"Housing": "#6366f1", "Food": "#10b981", "Transport": "#f59e0b",
                  "Lifestyle": "#ec4899", "Future": "#8b5cf6"}
@@ -96,6 +96,27 @@ class Store:
             })
         return out
 
+    # ── single-bucket view (for the assign/manage modal) ──────────────────────
+    def bucket(self, eid: str) -> dict:
+        e = M.env(self.s, eid)
+        sp, av = M.spent(self.s, eid), M.available(self.s, e)
+        if e["type"] == M.SPEND:
+            funded = e["funded"]
+            pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
+        else:
+            funded, sp = e["funded"], 0.0
+            pct = min(1.0, max(0.0, funded / e["target"])) if e["target"] else 0.0
+        return {"id": eid, "name": e["name"], "type": e["type"], "cat_id": e["cat_id"],
+                "target": round(e["target"], 2), "funded": round(funded, 2),
+                "spent": round(sp, 2), "available": round(av, 2), "pct": pct,
+                "gap": round(max(0.0, e["target"] - e["funded"]), 2)}
+
+    def other_buckets(self, exclude: str) -> list[dict]:
+        return [{"id": e["id"], "name": e["name"]} for e in self.s["envelopes"] if e["id"] != exclude]
+
+    def categories(self) -> list[dict]:
+        return [{"id": c["id"], "name": c["name"]} for c in self.s["categories"]]
+
     # ── live operations ───────────────────────────────────────────────────────
     def fund(self, eid: str, amount: float):
         M.fund(self.s, eid, amount)
@@ -103,8 +124,26 @@ class Store:
     def defund(self, eid: str, amount: float):
         M.defund(self.s, eid, min(amount, M.env(self.s, eid)["funded"]))
 
-    def add_envelope(self, name: str, cat_id: str, type: str, target: float):
-        return M.add_envelope(self.s, name, cat_id, type, target)
+    def set_funded(self, eid: str, value: float):
+        M.set_funded(self.s, eid, value)
 
-    def categories(self) -> list[dict]:
-        return self.s["categories"]
+    def fund_to_target(self, eid: str):
+        e = M.env(self.s, eid)
+        gap = round(max(0.0, e["target"] - e["funded"]), 2)
+        if gap > 0:
+            M.fund(self.s, eid, gap)
+
+    def move(self, src: str, dst: str, amount: float):
+        M.move(self.s, src, dst, min(amount, M.env(self.s, src)["funded"]))
+
+    def rename(self, eid: str, name: str):
+        M.rename(self.s, eid, name)
+
+    def set_target(self, eid: str, value: float):
+        M.set_target(self.s, eid, value)
+
+    def delete(self, eid: str):
+        M.delete_envelope(self.s, eid)
+
+    def add_bucket(self, name: str, cat_id: str, type: str, target: float):
+        return M.add_envelope(self.s, name, cat_id, type, target)
