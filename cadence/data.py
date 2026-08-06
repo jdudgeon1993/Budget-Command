@@ -71,9 +71,19 @@ class LiveStore:
                 "pct": pct, "gap": gap, "due_day": due_day, "frequency": frequency,
                 "flex": flex, "handled": handled,
                 "target_date": b.get("targetDate") or None, "notes": b.get("notes") or "",
-                "split": False, "items": [], "items_total": 0.0, "unspoken": 0.0, "items_paid": 0,
+                **self._split_fields(b, target),
                 "days_until_due": d, "status": MZ.status(av, gap, d, flex, handled),
                 "urgency": MZ.urgency_score(av, gap, d, flex, handled, typ == "vault")}
+
+    @staticmethod
+    def _split_fields(b: dict, target: float) -> dict:
+        its = [{"id": it["id"], "name": it["name"], "amount": round(it["amount"], 2),
+                "due_day": MZ._norm_due_day(it["due_day"]), "paid": bool(it["paid"])}
+               for it in b.get("items", [])]
+        total = round(sum(i["amount"] for i in its), 2)
+        return {"split": bool(b.get("split")), "items": its, "items_total": total,
+                "unspoken": round(max(0.0, target - total), 2),
+                "items_paid": sum(1 for i in its if i["paid"])}
 
     def groups(self) -> list[dict]:
         cats = sorted((c for c in self.data["cats"] if not c.get("archived")),
@@ -483,8 +493,36 @@ class LiveStore:
                   {"active": not (cur["active"] if cur else True)})
         self._load()
 
-    # Split buckets are being proven in the demo first — live persistence next.
-    def _split_soon(self, *a, **k):
-        raise NotImplementedError("Split buckets (bill schedules) are live in the demo — "
-                                  "they land on your real data next.")
-    set_split = add_item = edit_item = remove_item = toggle_item_paid = _split_soon
+    # split buckets (bill schedule) — bcc_buckets.split + bcc_bucket_items
+    def set_split(self, bid: str, on: bool):
+        self._bucket_update(bid, {"split": bool(on)})
+
+    def add_item(self, bid: str, name: str, amount: float, due_day=None):
+        DB.insert(self.token, "bcc_bucket_items", {
+            "id": DB.new_id(), "user_id": self.uid, "bucket_id": bid,
+            "name": (name or "Item").strip(), "amount": round(float(amount or 0), 2),
+            "due_day": MZ._norm_due_day(due_day), "paid": False,
+            "sort_order": sum(len(b.get("items", [])) for b in self._buckets())})
+        self._load()
+
+    def edit_item(self, bid: str, iid: str, name=None, amount=None, due_day=None):
+        fields = {}
+        if name is not None:
+            fields["name"] = name.strip() or "Item"
+        if amount is not None:
+            fields["amount"] = round(float(amount or 0), 2)
+        if due_day is not None:
+            fields["due_day"] = MZ._norm_due_day(due_day)
+        if fields:
+            DB.update(self.token, "bcc_bucket_items", self.uid, "id", iid, fields)
+            self._load()
+
+    def remove_item(self, bid: str, iid: str):
+        DB.delete(self.token, "bcc_bucket_items", self.uid, "id", iid)
+        self._load()
+
+    def toggle_item_paid(self, bid: str, iid: str):
+        it = next((x for b in self._buckets() for x in b.get("items", []) if x["id"] == iid), None)
+        DB.update(self.token, "bcc_bucket_items", self.uid, "id", iid,
+                  {"paid": not (it["paid"] if it else False)})
+        self._load()

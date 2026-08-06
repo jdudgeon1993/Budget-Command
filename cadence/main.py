@@ -163,6 +163,17 @@ def _theme() -> None:
     theme.apply()
 
 
+# Refreshing a list momentarily collapses the page height and the browser snaps
+# scroll to the top. We freeze the page + open-sheet scroll positions *before* the
+# refresh (order-preserved over the socket) and restore them two frames after.
+_CAP_WIN = "window.__wsF=window.scrollY;"
+_RES_WIN = ("[0,60,140,260].forEach(t=>setTimeout(()=>{if(window.__wsF)"
+            "window.scrollTo(0,window.__wsF);},t));")
+_CAP_SHEET = 'window.__ssF=(document.querySelector(".cd-sheet")||{}).scrollTop||0;'
+_RES_SHEET = ('[0,60,140,260].forEach(t=>setTimeout(()=>{const s=document.querySelector(".cd-sheet");'
+              'if(s&&window.__ssF)s.scrollTop=window.__ssF;},t));')
+
+
 def _app(store, demo: bool):
     state = {"view": "buckets"}          # which pillar is on screen
 
@@ -200,10 +211,16 @@ def _app(store, demo: bool):
                     ui.html(f'<span>{getattr(store, "email", "") or "Signed in"}</span>')
                     ui.html('<span class="cd-link">Sign out</span>').on("click", lambda _: _logout())
 
-        # The whole main area re-renders on view switch; refresh_page() rebuilds the
-        # active view in place after any mutation. Sheets keep their own body refresh.
+        # A mutation refreshes only the pieces that changed — never the whole page —
+        # so scroll position is preserved (content.refresh is for view switches only).
+        # A stable home for the bucket sheet — it stays open while the page behind
+        # it refreshes, so it must live outside the `content` refreshable's slot.
+        dialog_host = ui.element("div")
+
         def refresh_page():
+            ui.run_javascript(_CAP_WIN)
             content.refresh()
+            ui.run_javascript(_RES_WIN)
 
         def hero():
             m = store.metrics()
@@ -277,7 +294,10 @@ def _app(store, demo: bool):
 
         # ── bucket sheet: assign · spend · details ────────────────────────────
         def _open_assign(eid):
-            with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            dialog_host.clear()
+            with dialog_host:
+                dlg = ui.dialog().props("position=bottom")
+            with dlg, ui.card().classes("cd-sheet"):
                 @ui.refreshable
                 def body():
                     b = store.bucket(eid)
@@ -287,7 +307,9 @@ def _app(store, demo: bool):
                             fn()
                         except Exception as e:
                             ui.notify(str(e)[:140], type="warning"); return
+                        ui.run_javascript(_CAP_SHEET)     # freeze sheet scroll before rebuild
                         body.refresh(); refresh_page()
+                        ui.run_javascript(_RES_SHEET)
 
                     def save(fn):        # for text fields — persist without rebuilding the sheet
                         try:
@@ -1186,11 +1208,16 @@ def _forecast_view(store, refresh_bg):
 
 def _login(error: str = ""):
     _theme()
-    with ui.element("div").classes("cd-shell"):
+    with ui.element("div").classes("cd-welcome"):
+        ui.html(f'''
+          <div class="cd-wl-brand">
+            <div class="cd-logo" style="width:40px;height:40px;border-radius:12px;font-size:19px">C</div>
+            <div class="cd-brand">{BRAND}</div>
+          </div>
+          <h1 class="cd-wl-h1">Every dollar,<br>a job.</h1>
+          <p class="cd-wl-sub">Zero-based envelope budgeting that stays a step ahead —
+             live buckets, a running ledger, and a forecast that sees the next 90 days.</p>''')
         with ui.element("div").classes("cd-login"):
-            ui.html('<div class="cd-logo" style="width:46px;height:46px;border-radius:13px;font-size:20px;margin:0 auto 16px">C</div>')
-            ui.html(f'<h1 style="font-size:22px;font-weight:800;text-align:center;margin-bottom:4px">{BRAND}</h1>')
-            ui.html('<p style="color:var(--muted);font-size:13px;text-align:center;margin-bottom:22px">Sign in with your budget account.</p>')
             email = ui.input("Email").props("outlined dense").classes("w-full")
             pw = ui.input("Password", password=True).props("outlined dense").classes("w-full")
 
@@ -1204,14 +1231,14 @@ def _login(error: str = ""):
                 app.storage.user.update({"token": r["token"], "uid": r["uid"], "email": r["email"], "demo": False})
                 ui.navigate.reload()
 
+            pw.on("keydown.enter", lambda: do_login())
             ui.button("Sign in", on_click=do_login).props("unelevated color=indigo").classes("w-full")
-            ui.button("Open the demo", on_click=lambda: (
+            ui.html('<div class="cd-wl-or">or</div>')
+            ui.button("Explore the live demo", on_click=lambda: (
                 app.storage.user.update({"demo": True, "token": None}), ui.navigate.reload())
-            ).props("flat color=indigo").classes("w-full")
-            if error:
-                ui.notify(error, type="negative")
-    ui.add_head_html('<style>.cd-login{max-width:400px;margin:12vh auto 0;background:var(--card);'
-                     'border:1px solid var(--line);border-radius:22px;padding:34px 32px;box-shadow:var(--shadow)}</style>')
+            ).props("outline color=indigo").classes("w-full")
+        if error:
+            ui.notify(error, type="negative")
 
 
 def _logout():

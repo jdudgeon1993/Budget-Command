@@ -53,9 +53,11 @@ def _shape_bucket(b: dict) -> dict:
         "contribFreq": b.get("contrib_freq") or "",
         "recurring": bool(b.get("recurring")),
         "flex": bool(b.get("flex")),
+        "split": bool(b.get("split")),
         "notes": b.get("notes") or "",
         "order": b.get("sort_order", 0),
         "retiredAt": b.get("retired_at") or "",
+        "items": [],
     }
 
 
@@ -132,6 +134,7 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
         threading.Thread(target=fetch, args=("vaultwd_raw",   "bcc_month_vault_withdrawals")),
         threading.Thread(target=fetch, args=("paychecks_raw", "bcc_paychecks")),
         threading.Thread(target=fetch, args=("rules_raw",     "bcc_allocation_rules")),
+        threading.Thread(target=fetch, args=("items_raw",     "bcc_bucket_items")),
         threading.Thread(target=fetch_txs),
     ]
     for t in threads:
@@ -166,6 +169,16 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
 
     buckets = [_shape_bucket(b) for b in
                sorted(buckets_raw, key=lambda x: x.get("sort_order", 0))]
+
+    # Attach split line-items (bill schedule) to their bucket.
+    items_by_bucket: dict[str, list] = {}
+    for it in results.get("items_raw", []):
+        items_by_bucket.setdefault(it.get("bucket_id"), []).append({
+            "id": it["id"], "name": it.get("name", "Item"),
+            "amount": float(it.get("amount") or 0), "due_day": it.get("due_day"),
+            "paid": bool(it.get("paid")), "sort": it.get("sort_order", 0)})
+    for b in buckets:
+        b["items"] = sorted(items_by_bucket.get(b["id"], []), key=lambda x: x["sort"])
 
     txs = [{
         "id": t["id"], "accountId": t.get("account_id", ""),

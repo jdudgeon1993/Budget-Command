@@ -25,8 +25,21 @@ CSS = """
   --shadow:0 1px 2px rgba(16,18,34,.04),0 8px 24px rgba(16,18,34,.06);
   --shadow-lift:0 2px 4px rgba(16,18,34,.05),0 14px 34px rgba(16,18,34,.10);
 }
-body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink)}
+html{scroll-behavior:smooth}
+*{-webkit-tap-highlight-color:transparent}
+::selection{background:var(--accent-soft)}
+body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);
+  background:radial-gradient(1100px 460px at 50% -8%, #edeffb 0%, var(--bg) 55%) fixed}
 .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-feature-settings:"tnum"}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:#d3d7e6;border-radius:7px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:#bfc4d8;background-clip:padding-box}
+/* motion — soft, consistent, never on list refresh */
+.cd-navbtn,.cd-gear,.cd-newbtn,.cd-distbtn,.cd-link,.cd-env,.cd-tx,.cd-setrow,.cd-month-hd,.cd-fc-phd,.cd-set-add{transition:background .15s ease,color .15s ease,transform .12s ease,box-shadow .15s ease,filter .15s ease}
+.q-dialog__backdrop{backdrop-filter:blur(2.5px);background:rgba(16,18,34,.30)!important}
+.cd-sheet{animation:cdSheetUp .30s cubic-bezier(.2,.85,.25,1)}
+@keyframes cdSheetUp{from{transform:translateY(26px);opacity:.5}to{transform:translateY(0);opacity:1}}
+.cd-newbtn:active,.cd-distbtn:active{transform:translateY(1px)}
 
 /* ── shell + top nav (shared) ─────────────────────────────────────────────── */
 .cd-shell{max-width:960px;margin:0 auto;padding:0 20px 80px}
@@ -255,6 +268,18 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 """
 
 
+_LOGIN_CSS = """
+.cd-welcome{max-width:430px;margin:0 auto;padding:9vh 22px 40px;text-align:center}
+.cd-wl-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:30px}
+.cd-wl-h1{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:0 0 14px;
+  background:linear-gradient(135deg,var(--accent),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.cd-wl-sub{font-size:14px;line-height:1.5;color:var(--muted);max-width:360px;margin:0 auto 30px}
+.cd-login{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px 24px;
+  box-shadow:var(--shadow);text-align:left}
+.cd-wl-or{text-align:center;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:12px 0}
+"""
+
+
 def apply() -> None:
     """Inject fonts + the shared stylesheet into the current page's <head>."""
-    ui.add_head_html(FONTS + f"<style>{CSS}</style>")
+    ui.add_head_html(FONTS + f"<style>{CSS}{_LOGIN_CSS}</style>")
