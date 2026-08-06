@@ -16,6 +16,18 @@ def _today() -> str:
     return date.today().isoformat()
 
 
+def _effective_days(own_days, split, items):
+    """A split bucket's urgency timing comes from its soonest *unpaid* item, so the
+    whole bucket surfaces when its next bill lands (not just its own due day)."""
+    if not split:
+        return own_days
+    unpaid = [it["days_until_due"] for it in items
+              if not it.get("paid") and it["days_until_due"] is not None]
+    if not unpaid:
+        return own_days
+    return min(unpaid) if own_days is None else min(own_days, min(unpaid))
+
+
 def _greedy_plan(rows: list[dict], unallocated: float) -> dict:
     """Payday plan: spread `unallocated` across the buckets that still need money,
     soonest-due / most-urgent first, filling each to target until the cash runs
@@ -168,19 +180,22 @@ class Store:
         else:
             funded, sp = e["funded"], 0.0
             pct = min(1.0, max(0.0, funded / e["target"])) if e["target"] else 0.0
-        d = M.days_until_due(e)
+        items = M.item_rows(e.get("items", []))
         gap = round(max(0.0, e.get("target", 0.0) - e["funded"]), 2)
-        status = M.status(av, gap, d, e.get("flex"), e.get("handled"))
+        flex, handled = e.get("flex"), e.get("handled")
+        d = _effective_days(M.days_until_due(e), e.get("split"), items)
+        status = M.status(av, gap, d, flex, handled)
         return {"id": e["id"], "name": e["name"], "type": typ, "cat_id": e["cat_id"],
                 "target": round(e.get("target", 0.0), 2), "funded": round(funded, 2),
                 "spent": round(sp, 2), "available": round(av, 2), "pct": pct,
                 "gap": gap, "due_day": e.get("due_day"), "frequency": e.get("frequency"),
-                "flex": bool(e.get("flex")), "handled": bool(e.get("handled")),
+                "flex": bool(flex), "handled": bool(handled),
                 "target_date": e.get("target_date"), "notes": e.get("notes", ""),
-                "split": bool(e.get("split")), "items": M.item_rows(e.get("items", [])),
+                "split": bool(e.get("split")), "items": items,
                 "items_total": M.items_total(e), "unspoken": M.unspoken(e),
                 "items_paid": sum(1 for it in e.get("items", []) if it.get("paid")),
-                "days_until_due": d, "status": status, "urgency": M.urgency(self.s, e)}
+                "days_until_due": d, "status": status,
+                "urgency": M.urgency_score(av, gap, d, flex, handled, typ == M.VAULT)}
 
     def bucket(self, eid: str) -> dict:
         return self._row(M.env(self.s, eid))

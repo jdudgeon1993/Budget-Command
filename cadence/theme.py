@@ -135,7 +135,8 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-hdl{width:40px;height:4px;border-radius:3px;background:var(--line);margin:0 auto 14px}
 .cd-seclbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
 .cdm-title{font-size:18px;font-weight:800;letter-spacing:-.01em}
-.cdm-sub{font-size:12px;color:var(--muted);margin:2px 0 14px}
+.cd-sh-title{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:2px 2px 3px}
+.cdm-sub{font-size:12px;color:var(--muted);margin:2px 0 14px;line-height:1.45}
 .cdm-input{max-width:150px}
 .cd-half{flex:1 1 46%;min-width:150px}
 /* bucket sheet — readable, sectioned layout */

@@ -35,18 +35,24 @@ def _due_word(d) -> str:
     return "today" if d == 0 else "tomorrow" if d == 1 else f"in {d}d"
 
 
+def _days_tag(d):
+    """(label, colour-class) for a days-until-due value."""
+    if d is None:
+        return ("no date", "muted")
+    if d < 0:
+        return ("past due", "red")
+    if d <= 7:
+        return (_due_word(d), "amber")
+    return (f"in {d}d", "muted")
+
+
 def _item_due_tag(it: dict):
     """(label, colour-class, row-class) for a split line-item's timing."""
     if it.get("paid"):
         return ("paid", "green", "paid")
-    d = it.get("days_until_due")
-    if d is None:
-        return ("no date", "muted", "")
-    if d < 0:
-        return ("past due", "red", "past")
-    if d <= 7:
-        return (_due_word(d), "amber", "soon")
-    return (f"in {d}d", "muted", "")
+    txt, cls = _days_tag(it.get("days_until_due"))
+    row = "soon" if cls == "amber" else "past" if cls == "red" else ""
+    return (txt, cls, row)
 
 
 def _bucket_visual(r: dict) -> dict:
@@ -495,7 +501,7 @@ def _app(store, demo: bool):
         def _open_create():
             with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
                 ui.html('<div class="cd-hdl"></div>')
-                ui.html('<div class="cdm-title">New bucket</div>')
+                ui.html('<div class="cd-sh-title">New bucket</div>')
                 ui.html('<div class="cdm-sub">Name it, give it a home, and tell the Forecast when it is due.</div>')
                 name = ui.input("Name").props("dense outlined").classes("w-full")
                 cats = store.categories()
@@ -538,7 +544,7 @@ def _app(store, demo: bool):
                 return
             with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
                 ui.html('<div class="cd-hdl"></div>')
-                ui.html('<div class="cdm-title">Give every dollar a job</div>')
+                ui.html('<div class="cd-sh-title">Give every dollar a job</div>')
                 ui.html(f'<div class="cdm-sub">You have <b style="color:var(--accent)">{money(plan["unallocated"])}</b> '
                         f'unallocated. We\'ve pre-filled the buckets that need it most — soonest due first. '
                         f'Tweak anything, then distribute.</div>')
@@ -559,14 +565,13 @@ def _app(store, demo: bool):
                     left_lbl.style(f'color:{"var(--pos)" if left <= 0.005 else "var(--muted)"}')
 
                 for p in plan["plan"]:
+                    tag_txt, tag_cls = _days_tag(p["days_until_due"])
                     with ui.element("div").classes("cd-drow"):
+                        ui.html(f'<span class="cd-idtag {tag_cls}">{tag_txt}</span>')
                         with ui.element("div").style("flex:1;min-width:0"):
-                            ui.html(f'<div class="cd-dname">{p["name"]}</div>')
-                            d = p["days_until_due"]
-                            when = ("past due" if (d is not None and d < 0)
-                                    else "due today" if d == 0 else f"due in {d}d" if d is not None else "no due date")
-                            ui.html(f'<div class="cd-dmeta">needs {money(p["gap"])} · {when}</div>')
-                        inp = ui.number(value=p["suggested"], format="%.2f").props("dense outlined hide-bottom-space").classes("cdm-input")
+                            ui.html(f'<div class="cd-dname">{_esc(p["name"])}</div>')
+                            ui.html(f'<div class="cd-dmeta">needs {money(p["gap"])}</div>')
+                        inp = ui.number(value=p["suggested"], format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:110px")
                         inp.on("blur", lambda: clamp_and_total())
                         inputs.append((p["id"], inp))
                 with ui.element("div").classes("cd-dleft"):
@@ -674,7 +679,7 @@ def _ledger_view(store, refresh_bg):
 
         with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
             ui.html('<div class="cd-hdl"></div>')
-            ui.html(f'<div class="cdm-title">{"Edit transaction" if existing else "Add transaction"}</div>')
+            ui.html(f'<div class="cd-sh-title">{"Edit transaction" if existing else "Add transaction"}</div>')
             ui.html('<div class="cdm-sub">Expense draws from a bucket · income lifts Unallocated · '
                     'refund returns money to a bucket · transfer moves it between accounts.</div>')
 
@@ -942,7 +947,7 @@ def _settings_view(store, refresh_bg):
         existing = next((p for p in store.paychecks() if p["id"] == pid), None) if pid else None
         with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
             ui.html('<div class="cd-hdl"></div>')
-            ui.html(f'<div class="cdm-title">{"Edit paycheck" if existing else "Add paycheck"}</div>')
+            ui.html(f'<div class="cd-sh-title">{"Edit paycheck" if existing else "Add paycheck"}</div>')
             ui.html('<div class="cdm-sub">Recurring income the Forecast lands on your calendar.</div>')
             label = ui.input("Label", value=existing["label"] if existing else "").props("outlined dense hide-bottom-space").classes("w-full")
             with ui.row().classes("w-full q-gutter-sm q-mt-sm"):
@@ -973,7 +978,7 @@ def _settings_view(store, refresh_bg):
         allb = _all_bucket_options(store)
         with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
             ui.html('<div class="cd-hdl"></div>')
-            ui.html(f'<div class="cdm-title">{"Edit rule" if existing else "Add allocation rule"}</div>')
+            ui.html(f'<div class="cd-sh-title">{"Edit rule" if existing else "Add allocation rule"}</div>')
             ui.html('<div class="cdm-sub">Applied to every paycheck — internal rules fund a bucket, '
                     'external rules move money out of the budget.</div>')
             name = ui.input("Rule name", value=existing["name"] if existing else "").props("outlined dense hide-bottom-space").classes("w-full")

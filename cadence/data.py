@@ -63,15 +63,17 @@ class LiveStore:
         flex = bool(b.get("flex"))
         handled = bool((self._month.get("handledBuckets") or {}).get(b["id"]))
         gap = round(max(0.0, target - funded), 2)
-        d = MZ.days_until(due_day)
         # Goals carry their own cadence (contribFreq) + a target month; expenses use payFreq.
         frequency = (b.get("contribFreq") if typ == "goal" else b.get("payFreq")) or None
+        sf = self._split_fields(b, target)
+        from .store import _effective_days
+        d = _effective_days(MZ.days_until(due_day), sf["split"], sf["items"])
         return {"id": b["id"], "name": b["name"], "type": typ, "cat_id": b.get("catId", ""),
                 "target": round(target, 2), "funded": funded, "spent": sp, "available": av,
                 "pct": pct, "gap": gap, "due_day": due_day, "frequency": frequency,
                 "flex": flex, "handled": handled,
                 "target_date": b.get("targetDate") or None, "notes": b.get("notes") or "",
-                **self._split_fields(b, target),
+                **sf,
                 "days_until_due": d, "status": MZ.status(av, gap, d, flex, handled),
                 "urgency": MZ.urgency_score(av, gap, d, flex, handled, typ == "vault")}
 
