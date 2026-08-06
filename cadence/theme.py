@@ -125,6 +125,12 @@ body{background:var(--bg);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sa
 .cdm-sub{font-size:12px;color:var(--muted);margin:2px 0 14px}
 .cdm-input{max-width:150px}
 .cd-half{flex:1 1 46%;min-width:150px}
+/* split-bucket bill schedule */
+.cd-recon{font-size:12px;color:var(--warn-ink);background:var(--warn-soft);border-radius:8px;padding:8px 11px;margin:2px 0 8px}
+.cd-recon.ok{color:var(--pos);background:var(--pos-soft)}
+.cd-recon b{font-weight:800}
+.cd-item{gap:6px}
+.cd-item .q-field{margin:0}
 
 /* ── segmented control (shared: e.g. Ledger tx type) ──────────────────────── */
 .cd-seg{display:flex;width:100%;gap:4px;background:var(--line);padding:4px;border-radius:12px;margin-top:6px}

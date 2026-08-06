@@ -269,6 +269,9 @@ def _app(store, demo: bool):
                 else:
                     ui.html(f'<div class="cd-bar"><div class="cd-bar-fill" '
                             f'style="width:{v["bar"] * 100:.0f}%;background:{v["color"]}"></div></div>')
+                if r.get("split") and r["items"]:
+                    extra = f' · {money(r["unspoken"])} unspoken' if r["unspoken"] > 0.005 else ''
+                    ui.html(f'<div class="cd-sub" style="margin-top:1px">🗓 {r["items_paid"]}/{len(r["items"])} bills paid{extra}</div>')
                 ui.html('<div class="cd-tap">Tap to assign / manage →</div>')
             card.on("click", lambda _, e=r["id"]: _open_assign(e))
 
@@ -380,6 +383,44 @@ def _app(store, demo: bool):
                             fx.on("update:model-value", lambda: act(lambda: store.set_flex(eid, fx.value)))
                         hd = ui.switch("Handled this month", value=b["handled"])
                         hd.on("update:model-value", lambda: act(lambda: store.toggle_handled(eid)))
+
+                    # ── BILL SCHEDULE (split one pool into scheduled line-items) ──
+                    if b["type"] == "spend" and not b["flex"]:
+                        ui.html('<div class="cd-seclbl">Bill schedule</div>')
+                        sp = ui.switch("Split into scheduled items", value=b["split"])
+                        sp.on("update:model-value", lambda: act(lambda: store.set_split(eid, sp.value)))
+                        if b["split"]:
+                            if b["unspoken"] > 0.005:
+                                ui.html(f'<div class="cd-recon">{money(b["items_total"])} of {money(b["target"])} '
+                                        f'assigned · <b>{money(b["unspoken"])} unspoken for</b> — fine to leave, save anyway</div>')
+                            elif b["items"]:
+                                ui.html(f'<div class="cd-recon ok">Fully assigned ✓ · {money(b["items_total"])} '
+                                        f'across {len(b["items"])} items</div>')
+
+                            def _item_row(it):
+                                with ui.row().classes("w-full items-center no-wrap cd-item"):
+                                    pd = ui.checkbox(value=it["paid"]).props("dense")
+                                    pd.on("update:model-value", lambda i=it["id"]: act(lambda: store.toggle_item_paid(eid, i)))
+                                    nm = ui.input(value=it["name"]).props("dense outlined hide-bottom-space").style("flex:1;min-width:70px")
+                                    nm.on("blur", lambda i=it["id"], el=nm: save(lambda: store.edit_item(eid, i, name=el.value)))
+                                    am = ui.number(value=it["amount"], format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:92px")
+                                    am.on("blur", lambda i=it["id"], el=am: act(lambda: store.edit_item(eid, i, amount=el.value)))
+                                    du = ui.select(_dueday_options(), value=_dueday_key(it["due_day"])).props("dense outlined").style("width:92px")
+                                    du.on("update:model-value", lambda i=it["id"], el=du: act(lambda: store.edit_item(eid, i, due_day=el.value)))
+                                    ui.button(icon="close", on_click=lambda i=it["id"]: act(lambda: store.remove_item(eid, i))).props("flat dense round size=sm color=grey")
+                            for it in b["items"]:
+                                _item_row(it)
+
+                            with ui.row().classes("w-full items-center no-wrap cd-item q-mt-xs"):
+                                inm = ui.input(placeholder="Add item — e.g. Netflix").props("dense outlined hide-bottom-space").style("flex:1;min-width:70px")
+                                iamt = ui.number(placeholder="0.00", format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:92px")
+                                idd = ui.select(_dueday_options(), value="", label="Due").props("dense outlined").style("width:92px")
+
+                                def add_it():
+                                    if not (inm.value or "").strip():
+                                        ui.notify("Name the item.", type="warning"); return
+                                    act(lambda: store.add_item(eid, inm.value, iamt.value or 0, idd.value))
+                                ui.button(icon="add", on_click=add_it).props("flat dense round size=sm color=indigo")
 
                     with ui.row().classes("w-full items-center q-mt-md"):
                         def do_delete():
@@ -966,13 +1007,23 @@ def _settings_view(store, refresh_bg):
 
 # ── Forecast pillar (forward cash-flow projection) ────────────────────────────
 def _forecast_bills(store) -> list[dict]:
-    """Scheduled spend buckets that hit the calendar (feed the projection)."""
+    """Scheduled spend buckets that hit the calendar (feed the projection). A split
+    bucket contributes one dated bill per line-item, so each subscription lands on
+    its own due date; a paid item is skipped for the current cycle."""
     out = []
     for g in store.groups():
         for r in g["rows"]:
-            if (r["type"] == "spend" and not r["flex"] and not r["handled"] and r["target"] > 0
-                    and (r["due_day"] is not None
-                         or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly"))):
+            if r["type"] != "spend" or r["flex"] or r["handled"]:
+                continue
+            if r["split"] and r["items"]:
+                for it in r["items"]:
+                    if it["amount"] > 0.005 and it["due_day"] is not None:
+                        out.append({"name": f'{r["name"]} · {it["name"]}', "amount": it["amount"],
+                                    "spent": it["amount"] if it.get("paid") else 0.0,
+                                    "available": r["available"], "due_day": it["due_day"],
+                                    "frequency": None})
+            elif r["target"] > 0 and (r["due_day"] is not None
+                                      or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly")):
                 out.append({"name": r["name"], "amount": r["target"], "spent": r["spent"],
                             "available": r["available"], "due_day": r["due_day"],
                             "frequency": r["frequency"]})

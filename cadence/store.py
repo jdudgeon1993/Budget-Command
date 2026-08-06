@@ -101,6 +101,18 @@ def seed() -> dict:
 
     M.add_transfer(s, xfer_out, M.CHECKING, M.SAVINGS, "Move to savings", "2026-08-03")
 
+    # Subscriptions is a split bucket: one pool, itemised into individual bills
+    # that feed the Forecast on their own due dates. They sum to $49.46 of the
+    # $60 target — the rest shows as "unspoken for".
+    M.set_split(s, ids["Subscriptions"], True)
+    for nm, amt, due, paid in [
+        ("Netflix", 15.49, 3, True), ("Disney+", 13.99, 12, False),
+        ("Spotify", 11.99, 8, False), ("Peacock", 7.99, 20, False),
+    ]:
+        it = M.add_item(s, ids["Subscriptions"], nm, amt, due)
+        if paid:
+            M.toggle_item_paid(s, ids["Subscriptions"], it["id"])
+
     # Settings: the recurring income + how each paycheck is split (feeds Forecast).
     M.add_paycheck(s, "Northwind Co", 1400.00, "biweekly", "2026-08-14")
     M.add_rule(s, "Fill Rent", "internal", ids["Rent"], 0, "fund", True)
@@ -165,6 +177,9 @@ class Store:
                 "gap": gap, "due_day": e.get("due_day"), "frequency": e.get("frequency"),
                 "flex": bool(e.get("flex")), "handled": bool(e.get("handled")),
                 "target_date": e.get("target_date"), "notes": e.get("notes", ""),
+                "split": bool(e.get("split")), "items": [dict(it) for it in e.get("items", [])],
+                "items_total": M.items_total(e), "unspoken": M.unspoken(e),
+                "items_paid": sum(1 for it in e.get("items", []) if it.get("paid")),
                 "days_until_due": d, "status": status, "urgency": M.urgency(self.s, e)}
 
     def bucket(self, eid: str) -> dict:
@@ -237,6 +252,22 @@ class Store:
 
     def set_notes(self, eid: str, notes):
         M.set_notes(self.s, eid, notes)
+
+    # ── split / bill-schedule ─────────────────────────────────────────────────
+    def set_split(self, eid: str, on: bool):
+        M.set_split(self.s, eid, on)
+
+    def add_item(self, eid: str, name: str, amount: float, due_day=None):
+        return M.add_item(self.s, eid, name, amount, due_day)
+
+    def edit_item(self, eid: str, iid: str, **ch):
+        M.edit_item(self.s, eid, iid, **ch)
+
+    def remove_item(self, eid: str, iid: str):
+        M.remove_item(self.s, eid, iid)
+
+    def toggle_item_paid(self, eid: str, iid: str):
+        M.toggle_item_paid(self.s, eid, iid)
 
     def set_flex(self, eid: str, flex: bool):
         M.set_flex(self.s, eid, flex)

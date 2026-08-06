@@ -71,6 +71,7 @@ class LiveStore:
                 "pct": pct, "gap": gap, "due_day": due_day, "frequency": frequency,
                 "flex": flex, "handled": handled,
                 "target_date": b.get("targetDate") or None, "notes": b.get("notes") or "",
+                "split": False, "items": [], "items_total": 0.0, "unspoken": 0.0, "items_paid": 0,
                 "days_until_due": d, "status": MZ.status(av, gap, d, flex, handled),
                 "urgency": MZ.urgency_score(av, gap, d, flex, handled, typ == "vault")}
 
@@ -481,3 +482,9 @@ class LiveStore:
         DB.update(self.token, "bcc_allocation_rules", self.uid, "id", rid,
                   {"active": not (cur["active"] if cur else True)})
         self._load()
+
+    # Split buckets are being proven in the demo first — live persistence next.
+    def _split_soon(self, *a, **k):
+        raise NotImplementedError("Split buckets (bill schedules) are live in the demo — "
+                                  "they land on your real data next.")
+    set_split = add_item = edit_item = remove_item = toggle_item_paid = _split_soon

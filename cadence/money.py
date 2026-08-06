@@ -71,9 +71,57 @@ def add_envelope(s: dict, name: str, cat_id: str, type: str = SPEND,
          "target": round(target, 2), "funded": round(funded, 2),
          "due_day": _norm_due_day(due_day), "frequency": frequency or None,
          "flex": bool(flex), "handled": False,
-         "target_date": target_date or None, "notes": notes or ""}
+         "target_date": target_date or None, "notes": notes or "",
+         "split": False, "items": []}
     s["envelopes"].append(e)
     return e
+
+
+# ── Split buckets: a bill schedule inside one envelope ────────────────────────
+# One pool of money, itemised into scheduled line-items (name/amount/due) that
+# sum toward the target and feed the Forecast individually. Non-blocking — the
+# items don't have to add up; the shortfall is shown as "unspoken for".
+
+def set_split(s: dict, eid: str, on: bool) -> None:
+    env(s, eid)["split"] = bool(on)
+
+
+def add_item(s: dict, eid: str, name: str, amount: float, due_day=None) -> dict:
+    e = env(s, eid)
+    item = {"id": _id(), "name": (name or "Item").strip(),
+            "amount": round(float(amount or 0), 2), "due_day": _norm_due_day(due_day),
+            "paid": False}
+    e.setdefault("items", []).append(item)
+    return item
+
+
+def edit_item(s: dict, eid: str, iid: str, name=None, amount=None, due_day=None) -> None:
+    it = next(x for x in env(s, eid).get("items", []) if x["id"] == iid)
+    if name is not None:
+        it["name"] = name.strip() or it["name"]
+    if amount is not None:
+        it["amount"] = round(float(amount or 0), 2)
+    if due_day is not None:
+        it["due_day"] = _norm_due_day(due_day)
+
+
+def remove_item(s: dict, eid: str, iid: str) -> None:
+    e = env(s, eid)
+    e["items"] = [x for x in e.get("items", []) if x["id"] != iid]
+
+
+def toggle_item_paid(s: dict, eid: str, iid: str) -> None:
+    it = next(x for x in env(s, eid).get("items", []) if x["id"] == iid)
+    it["paid"] = not it.get("paid")
+
+
+def items_total(e: dict) -> float:
+    return round(sum(i["amount"] for i in e.get("items", [])), 2)
+
+
+def unspoken(e: dict) -> float:
+    """How much of the target hasn't been claimed by a line-item yet."""
+    return round(max(0.0, e.get("target", 0.0) - items_total(e)), 2)
 
 
 def env(s: dict, eid: str) -> dict:
