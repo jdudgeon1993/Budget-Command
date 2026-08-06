@@ -177,7 +177,7 @@ class Store:
                 "gap": gap, "due_day": e.get("due_day"), "frequency": e.get("frequency"),
                 "flex": bool(e.get("flex")), "handled": bool(e.get("handled")),
                 "target_date": e.get("target_date"), "notes": e.get("notes", ""),
-                "split": bool(e.get("split")), "items": [dict(it) for it in e.get("items", [])],
+                "split": bool(e.get("split")), "items": M.item_rows(e.get("items", [])),
                 "items_total": M.items_total(e), "unspoken": M.unspoken(e),
                 "items_paid": sum(1 for it in e.get("items", []) if it.get("paid")),
                 "days_until_due": d, "status": status, "urgency": M.urgency(self.s, e)}

@@ -77,9 +77,9 @@ class LiveStore:
 
     @staticmethod
     def _split_fields(b: dict, target: float) -> dict:
-        its = [{"id": it["id"], "name": it["name"], "amount": round(it["amount"], 2),
-                "due_day": MZ._norm_due_day(it["due_day"]), "paid": bool(it["paid"])}
-               for it in b.get("items", [])]
+        its = MZ.item_rows([{"id": it["id"], "name": it["name"], "amount": round(it["amount"], 2),
+                             "due_day": MZ._norm_due_day(it["due_day"]), "paid": bool(it["paid"])}
+                            for it in b.get("items", [])])
         total = round(sum(i["amount"] for i in its), 2)
         return {"split": bool(b.get("split")), "items": its, "items_total": total,
                 "unspoken": round(max(0.0, target - total), 2),

@@ -138,12 +138,30 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cdm-sub{font-size:12px;color:var(--muted);margin:2px 0 14px}
 .cdm-input{max-width:150px}
 .cd-half{flex:1 1 46%;min-width:150px}
+/* bucket sheet — readable, sectioned layout */
+.cd-sh-head{padding:0 2px 4px}
+.cd-sh-top{display:flex;align-items:center;gap:10px}
+.cd-sh-name{font-size:19px;font-weight:800;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-sh-avail{font-size:32px;font-weight:800;letter-spacing:-.02em;margin:10px 0 1px}
+.cd-sh-avail span{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0}
+.cd-sh-sec{padding:16px 0 6px;margin-top:6px;border-top:1px solid var(--line)}
+.cd-sh-h{font-size:14px;font-weight:800;letter-spacing:-.01em;margin-bottom:12px}
+.cd-pullrow{gap:10px}
+.cd-sh-foot{padding-top:14px;margin-top:6px;border-top:1px solid var(--line)}
 /* split-bucket bill schedule */
-.cd-recon{font-size:12px;color:var(--warn-ink);background:var(--warn-soft);border-radius:8px;padding:8px 11px;margin:2px 0 8px}
+.cd-recon{font-size:12px;color:var(--warn-ink);background:var(--warn-soft);border-radius:10px;padding:9px 12px;margin:0 0 10px;line-height:1.4}
 .cd-recon.ok{color:var(--pos);background:var(--pos-soft)}
 .cd-recon b{font-weight:800}
-.cd-item{gap:6px}
+.cd-item{gap:6px;padding:5px 6px;border-radius:10px;margin:0 -6px}
 .cd-item .q-field{margin:0}
+.cd-item.soon{background:var(--warn-soft)}
+.cd-item.past{background:var(--neg-soft)}
+.cd-item.paid{opacity:.55}
+.cd-idtag{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:2px 6px;border-radius:6px;white-space:nowrap;min-width:52px;text-align:center}
+.cd-idtag.green{background:var(--pos-soft);color:var(--pos)}
+.cd-idtag.amber{background:#fff;color:var(--warn-ink)}
+.cd-idtag.red{background:#fff;color:var(--neg)}
+.cd-idtag.muted{background:var(--line);color:var(--muted)}
 
 /* ── segmented control (shared: e.g. Ledger tx type) ──────────────────────── */
 .cd-seg{display:flex;width:100%;gap:4px;background:var(--line);padding:4px;border-radius:12px;margin-top:6px}

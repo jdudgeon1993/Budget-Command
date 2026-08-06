@@ -115,6 +115,15 @@ def toggle_item_paid(s: dict, eid: str, iid: str) -> None:
     it["paid"] = not it.get("paid")
 
 
+def item_rows(items: list[dict]) -> list[dict]:
+    """Line-items with days-until-due attached, sorted soonest-due first; paid
+    items sink to the bottom (they're handled), no-date items last."""
+    out = [{**it, "days_until_due": days_until(it.get("due_day"))} for it in items]
+    out.sort(key=lambda x: (bool(x.get("paid")), x["days_until_due"] is None,
+                            x["days_until_due"] if x["days_until_due"] is not None else 9999))
+    return out
+
+
 def items_total(e: dict) -> float:
     return round(sum(i["amount"] for i in e.get("items", [])), 2)
 

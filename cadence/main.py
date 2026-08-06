@@ -35,6 +35,20 @@ def _due_word(d) -> str:
     return "today" if d == 0 else "tomorrow" if d == 1 else f"in {d}d"
 
 
+def _item_due_tag(it: dict):
+    """(label, colour-class, row-class) for a split line-item's timing."""
+    if it.get("paid"):
+        return ("paid", "green", "paid")
+    d = it.get("days_until_due")
+    if d is None:
+        return ("no date", "muted", "")
+    if d < 0:
+        return ("past due", "red", "past")
+    if d <= 7:
+        return (_due_word(d), "amber", "soon")
+    return (f"in {d}d", "muted", "")
+
+
 def _bucket_visual(r: dict) -> dict:
     """One place that decides a bucket card's colour language:
 
@@ -318,140 +332,160 @@ def _app(store, demo: bool):
                             ui.notify(str(e)[:140], type="warning"); return
                         refresh_page()
 
-                    ui.html('<div class="cd-hdl"></div>')
+                    # ── HEADER (status at a glance) ──
+                    v = _bucket_visual(b)
                     av_col = "var(--neg)" if b["available"] < 0 else "var(--ink)"
-                    ui.html(f'<div class="cdm-title">{b["name"]}</div>')
-                    ui.html(f'<div class="cdm-sub"><b style="color:{av_col}">{money(b["available"])} available</b>'
-                            f'{"" if b["flex"] else " · " + money(b["target"]) + " target"} · {money(b["spent"])} spent</div>')
+                    tgt_txt = "" if b["flex"] else f'{money(b["target"])} target · '
+                    bar = ('<div class="cd-flexbar" style="margin-top:12px"></div>' if v["bar"] is None
+                           else f'<div class="cd-bar" style="margin:12px 0 0"><div class="cd-bar-fill" '
+                                f'style="width:{v["bar"] * 100:.0f}%;background:{v["color"]}"></div></div>')
+                    ui.html(f'''
+                      <div class="cd-hdl"></div>
+                      <div class="cd-sh-head">
+                        <div class="cd-sh-top"><span class="cd-sh-name">{_esc(b["name"])}</span>
+                          <span class="cd-pill {v["badge_cls"]}">{v["badge"]}</span></div>
+                        <div class="cd-sh-avail" style="color:{av_col}">{money(b["available"])}<span> available</span></div>
+                        <div class="cd-sub">{tgt_txt}{money(b["spent"])} spent</div>
+                        {bar}
+                      </div>''')
 
                     # ── ASSIGN MONEY ──
-                    ui.html('<div class="cd-seclbl">Assign money</div>')
-                    gap, over = b["gap"], round(max(0.0, -b["available"]), 2)
-                    sources = store.fund_sources(eid)
-                    src_avail = {s["id"]: s["avail"] for s in sources}
-                    src_map = {s["id"]: f'{s["name"]}  ·  {money(s["avail"])}' for s in sources}
-                    amount = ui.number(value=0, format="%.2f").props("outlined dense hide-bottom-space").classes("w-full")
-                    sld = ui.slider(min=0, max=max(src_avail.get("unallocated", 0), 1), step=1) \
-                        .props("label-always color=indigo").classes("q-mt-sm")
-                    sld.bind_value(amount)
-                    with ui.row().classes("q-gutter-xs q-mt-xs"):
-                        if gap > 0:
-                            ui.button(f"Fill to target  +{money(gap)}",
-                                      on_click=lambda: amount.set_value(gap)).props("outline color=indigo no-caps size=sm")
-                        if over > 0:
-                            ui.button(f"Cover overspend  +{money(over)}",
-                                      on_click=lambda: amount.set_value(over)).props("outline color=deep-orange no-caps size=sm")
-                    src = ui.select(src_map, value="unallocated", label="From").props("outlined dense").classes("w-full q-mt-sm")
-                    src.on("update:model-value", lambda: (sld._props.__setitem__("max", max(src_avail.get(src.value, 0), 1)), sld.update()))
+                    with ui.element("div").classes("cd-sh-sec"):
+                        ui.html('<div class="cd-sh-h">Assign money</div>')
+                        gap, over = b["gap"], round(max(0.0, -b["available"]), 2)
+                        sources = store.fund_sources(eid)
+                        src_avail = {s["id"]: s["avail"] for s in sources}
+                        src_map = {s["id"]: f'{s["name"]}  ·  {money(s["avail"])}' for s in sources}
+                        amount = ui.number(value=0, format="%.2f", prefix="$").props("outlined hide-bottom-space").classes("w-full")
+                        sld = ui.slider(min=0, max=max(src_avail.get("unallocated", 0), 1), step=1) \
+                            .props("label-always color=indigo").classes("q-mt-xs")
+                        sld.bind_value(amount)
+                        if gap > 0 or over > 0:
+                            with ui.row().classes("q-gutter-xs q-mt-sm"):
+                                if gap > 0:
+                                    ui.button(f"Fill to target · {money(gap)}",
+                                              on_click=lambda: amount.set_value(gap)).props("outline color=indigo no-caps size=sm")
+                                if over > 0:
+                                    ui.button(f"Cover overspend · {money(over)}",
+                                              on_click=lambda: amount.set_value(over)).props("outline color=deep-orange no-caps size=sm")
+                        src = ui.select(src_map, value="unallocated", label="From").props("outlined dense").classes("w-full q-mt-sm")
+                        src.on("update:model-value", lambda: (sld._props.__setitem__("max", max(src_avail.get(src.value, 0), 1)), sld.update()))
 
-                    def do_assign():
-                        amt = float(amount.value or 0)
-                        if amt <= 0:
-                            ui.notify("Enter an amount (or tap a shortcut).", type="warning"); return
-                        un = store.metrics()["unallocated"]
-                        if src.value == "unallocated" and amt > un + 0.005:
-                            ui.notify(f"Only {money(un)} is unallocated — assigning that.", type="info")
-                        act(lambda: store.assign(eid, src.value, amt))
-                    ui.button("Add to this bucket", on_click=do_assign).props("unelevated color=indigo no-caps").classes("w-full q-mt-sm")
-                    with ui.row().classes("items-center q-mt-xs"):
-                        ui.html('<span class="cd-sub">Pull money back out →</span>')
-                        rem = ui.number(placeholder="0.00").props("dense outlined hide-bottom-space").classes("cdm-input")
-                        ui.button("Remove", on_click=lambda: act(lambda: store.defund(eid, float(rem.value or 0)))).props("flat color=grey no-caps")
+                        def do_assign():
+                            amt = float(amount.value or 0)
+                            if amt <= 0:
+                                ui.notify("Enter an amount (or tap a shortcut).", type="warning"); return
+                            un = store.metrics()["unallocated"]
+                            if src.value == "unallocated" and amt > un + 0.005:
+                                ui.notify(f"Only {money(un)} is unallocated — assigning that.", type="info")
+                            act(lambda: store.assign(eid, src.value, amt))
+                        ui.button("Add to bucket", on_click=do_assign).props("unelevated color=indigo no-caps").classes("w-full q-mt-sm")
+                        with ui.row().classes("items-center no-wrap q-mt-sm cd-pullrow"):
+                            ui.html('<span class="cd-sub" style="white-space:nowrap">Pull back out</span>')
+                            rem = ui.number(placeholder="0.00", prefix="$").props("dense outlined hide-bottom-space").style("width:120px")
+                            ui.button("Remove", on_click=lambda: act(lambda: store.defund(eid, float(rem.value or 0)))).props("flat color=grey no-caps size=sm")
 
-                    # ── LOG A SPEND (the reality side — reduces available) ──
+                    # ── LOG A SPEND ──
                     if b["type"] != "vault":
-                        ui.html('<div class="cd-seclbl">Log a spend</div>')
-                        with ui.row().classes("items-center"):
-                            sp = ui.number(placeholder="0.00").props("dense outlined hide-bottom-space").classes("cdm-input")
-                            note = ui.input(placeholder="note (optional)").props("dense outlined hide-bottom-space")
+                        with ui.element("div").classes("cd-sh-sec"):
+                            ui.html('<div class="cd-sh-h">Log a spend</div>')
+                            with ui.row().classes("items-center no-wrap w-full"):
+                                sp = ui.number(placeholder="0.00", prefix="$").props("dense outlined hide-bottom-space").style("width:130px")
+                                note = ui.input(placeholder="note (optional)").props("dense outlined hide-bottom-space").style("flex:1")
 
-                            def do_spend():
-                                amt = float(sp.value or 0)
-                                if amt <= 0:
-                                    ui.notify("Enter a spend amount.", type="warning"); return
-                                act(lambda: store.record_spend(eid, amt, note.value or ""))
-                            ui.button("Log spend", on_click=do_spend).props("unelevated color=deep-orange no-caps")
+                                def do_spend():
+                                    amt = float(sp.value or 0)
+                                    if amt <= 0:
+                                        ui.notify("Enter a spend amount.", type="warning"); return
+                                    act(lambda: store.record_spend(eid, amt, note.value or ""))
+                                ui.button("Log", on_click=do_spend).props("unelevated color=deep-orange no-caps")
 
                     # ── DETAILS (auto-save; feeds the Forecast) ──
                     is_goal, is_vault = b["type"] == "goal", b["type"] == "vault"
-                    ui.html('<div class="cd-seclbl">Details</div>')
-                    with ui.row().classes("items-center q-gutter-sm"):
-                        rn = ui.input("Name", value=b["name"]).props("dense outlined hide-bottom-space")
-                        rn.on("blur", lambda: save(lambda: store.rename(eid, rn.value)))
-                        if not b["flex"]:
-                            tlbl = "Goal amount" if is_goal else "Amount / target"
-                            tg = ui.number(tlbl, value=b["target"]).props("dense outlined hide-bottom-space").classes("cdm-input")
-                            tg.on("blur", lambda: act(lambda: store.set_target(eid, float(tg.value or 0))))
-                    if is_goal:
-                        with ui.row().classes("items-center q-gutter-sm"):
-                            td = ui.input("Target month", value=b.get("target_date") or "").props("dense outlined hide-bottom-space type=month").classes("cd-half")
-                            td.on("blur", lambda: act(lambda: store.set_target_date(eid, td.value)))
-                            fq = ui.select(_FREQ, value=b["frequency"] or "", label="Contribution cadence").props("dense outlined").classes("cd-half")
-                            fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
-                    elif not is_vault:
-                        with ui.row().classes("items-center q-gutter-sm"):
-                            dd = ui.select(_dueday_options(), value=_dueday_key(b["due_day"]), label="Due day").props("dense outlined").classes("cd-half")
-                            dd.on("update:model-value", lambda: act(lambda: store.set_due_day(eid, dd.value)))
-                            fq = ui.select(_FREQ, value=b["frequency"] or "", label="Frequency (if no due day)").props("dense outlined").classes("cd-half")
-                            fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
-                    hint = _period_hint(b)
-                    if hint:
-                        ui.html(f'<div class="cd-sub" style="margin:2px 2px 0;color:var(--accent)">↳ {hint}</div>')
-                    notes = ui.textarea("Notes", value=b.get("notes") or "").props("dense outlined hide-bottom-space autogrow").classes("w-full q-mt-xs")
-                    notes.on("blur", lambda: save(lambda: store.set_notes(eid, notes.value)))
-                    with ui.row().classes("items-center q-gutter-md q-mt-xs"):
-                        if b["type"] == "spend":
-                            fx = ui.switch("Flexible (variable, no target)", value=b["flex"])
-                            fx.on("update:model-value", lambda: act(lambda: store.set_flex(eid, fx.value)))
-                        hd = ui.switch("Handled this month", value=b["handled"])
-                        hd.on("update:model-value", lambda: act(lambda: store.toggle_handled(eid)))
+                    with ui.element("div").classes("cd-sh-sec"):
+                        ui.html('<div class="cd-sh-h">Details</div>')
+                        with ui.row().classes("items-center q-gutter-sm w-full"):
+                            rn = ui.input("Name", value=b["name"]).props("dense outlined hide-bottom-space").classes("cd-half")
+                            rn.on("blur", lambda: save(lambda: store.rename(eid, rn.value)))
+                            if not b["flex"]:
+                                tlbl = "Goal amount" if is_goal else "Amount / target"
+                                tg = ui.number(tlbl, value=b["target"], prefix="$").props("dense outlined hide-bottom-space").classes("cd-half")
+                                tg.on("blur", lambda: act(lambda: store.set_target(eid, float(tg.value or 0))))
+                        if is_goal:
+                            with ui.row().classes("items-center q-gutter-sm w-full"):
+                                td = ui.input("Target month", value=b.get("target_date") or "").props("dense outlined hide-bottom-space type=month").classes("cd-half")
+                                td.on("blur", lambda: act(lambda: store.set_target_date(eid, td.value)))
+                                fq = ui.select(_FREQ, value=b["frequency"] or "", label="Contribution cadence").props("dense outlined").classes("cd-half")
+                                fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
+                        elif not is_vault:
+                            with ui.row().classes("items-center q-gutter-sm w-full"):
+                                dd = ui.select(_dueday_options(), value=_dueday_key(b["due_day"]), label="Due day").props("dense outlined").classes("cd-half")
+                                dd.on("update:model-value", lambda: act(lambda: store.set_due_day(eid, dd.value)))
+                                fq = ui.select(_FREQ, value=b["frequency"] or "", label="Frequency (if no due day)").props("dense outlined").classes("cd-half")
+                                fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
+                        hint = _period_hint(b)
+                        if hint:
+                            ui.html(f'<div class="cd-sub" style="margin:6px 2px 0;color:var(--accent)">↳ {hint}</div>')
+                        notes = ui.textarea("Notes", value=b.get("notes") or "").props("dense outlined hide-bottom-space autogrow").classes("w-full q-mt-sm")
+                        notes.on("blur", lambda: save(lambda: store.set_notes(eid, notes.value)))
+                        with ui.row().classes("items-center q-gutter-md q-mt-sm"):
+                            if b["type"] == "spend":
+                                fx = ui.switch("Flexible", value=b["flex"])
+                                fx.on("update:model-value", lambda: act(lambda: store.set_flex(eid, fx.value)))
+                            hd = ui.switch("Handled this month", value=b["handled"])
+                            hd.on("update:model-value", lambda: act(lambda: store.toggle_handled(eid)))
 
                     # ── BILL SCHEDULE (split one pool into scheduled line-items) ──
                     if b["type"] == "spend" and not b["flex"]:
-                        ui.html('<div class="cd-seclbl">Bill schedule</div>')
-                        sp = ui.switch("Split into scheduled items", value=b["split"])
-                        sp.on("update:model-value", lambda: act(lambda: store.set_split(eid, sp.value)))
-                        if b["split"]:
-                            if b["unspoken"] > 0.005:
-                                ui.html(f'<div class="cd-recon">{money(b["items_total"])} of {money(b["target"])} '
-                                        f'assigned · <b>{money(b["unspoken"])} unspoken for</b> — fine to leave, save anyway</div>')
-                            elif b["items"]:
-                                ui.html(f'<div class="cd-recon ok">Fully assigned ✓ · {money(b["items_total"])} '
-                                        f'across {len(b["items"])} items</div>')
+                        with ui.element("div").classes("cd-sh-sec"):
+                            with ui.row().classes("items-center no-wrap w-full").style("margin-bottom:10px"):
+                                ui.html('<div class="cd-sh-h" style="margin:0">Bill schedule</div>')
+                                ui.space()
+                                sp = ui.switch(value=b["split"]).props("dense")
+                                sp.on("update:model-value", lambda: act(lambda: store.set_split(eid, sp.value)))
+                            if b["split"]:
+                                if b["unspoken"] > 0.005:
+                                    ui.html(f'<div class="cd-recon">{money(b["items_total"])} of {money(b["target"])} '
+                                            f'assigned · <b>{money(b["unspoken"])} unspoken for</b> — fine to leave, save anyway</div>')
+                                elif b["items"]:
+                                    ui.html(f'<div class="cd-recon ok">Fully assigned ✓ · {money(b["items_total"])} '
+                                            f'across {len(b["items"])} items</div>')
 
-                            def _item_row(it):
-                                with ui.row().classes("w-full items-center no-wrap cd-item"):
-                                    pd = ui.checkbox(value=it["paid"]).props("dense")
-                                    pd.on("update:model-value", lambda i=it["id"]: act(lambda: store.toggle_item_paid(eid, i)))
-                                    nm = ui.input(value=it["name"]).props("dense outlined hide-bottom-space").style("flex:1;min-width:70px")
-                                    nm.on("blur", lambda i=it["id"], el=nm: save(lambda: store.edit_item(eid, i, name=el.value)))
-                                    am = ui.number(value=it["amount"], format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:92px")
-                                    am.on("blur", lambda i=it["id"], el=am: act(lambda: store.edit_item(eid, i, amount=el.value)))
-                                    du = ui.select(_dueday_options(), value=_dueday_key(it["due_day"])).props("dense outlined").style("width:92px")
-                                    du.on("update:model-value", lambda i=it["id"], el=du: act(lambda: store.edit_item(eid, i, due_day=el.value)))
-                                    ui.button(icon="close", on_click=lambda i=it["id"]: act(lambda: store.remove_item(eid, i))).props("flat dense round size=sm color=grey")
-                            for it in b["items"]:
-                                _item_row(it)
+                                def _item_row(it):
+                                    tag_txt, tag_cls, row_cls = _item_due_tag(it)
+                                    with ui.row().classes("w-full items-center no-wrap cd-item " + row_cls):
+                                        pd = ui.checkbox(value=it["paid"]).props("dense")
+                                        pd.on("update:model-value", lambda i=it["id"]: act(lambda: store.toggle_item_paid(eid, i)))
+                                        nm = ui.input(value=it["name"]).props("dense outlined hide-bottom-space").style("flex:1;min-width:64px")
+                                        nm.on("blur", lambda i=it["id"], el=nm: save(lambda: store.edit_item(eid, i, name=el.value)))
+                                        am = ui.number(value=it["amount"], format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:88px")
+                                        am.on("blur", lambda i=it["id"], el=am: act(lambda: store.edit_item(eid, i, amount=el.value)))
+                                        du = ui.select(_dueday_options(), value=_dueday_key(it["due_day"])).props("dense outlined").style("width:84px")
+                                        du.on("update:model-value", lambda i=it["id"], el=du: act(lambda: store.edit_item(eid, i, due_day=el.value)))
+                                        ui.html(f'<span class="cd-idtag {tag_cls}">{tag_txt}</span>')
+                                        ui.button(icon="close", on_click=lambda i=it["id"]: act(lambda: store.remove_item(eid, i))).props("flat dense round size=sm color=grey")
+                                for it in b["items"]:
+                                    _item_row(it)
 
-                            with ui.row().classes("w-full items-center no-wrap cd-item q-mt-xs"):
-                                inm = ui.input(placeholder="Add item — e.g. Netflix").props("dense outlined hide-bottom-space").style("flex:1;min-width:70px")
-                                iamt = ui.number(placeholder="0.00", format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:92px")
-                                idd = ui.select(_dueday_options(), value="", label="Due").props("dense outlined").style("width:92px")
+                                with ui.row().classes("w-full items-center no-wrap cd-item q-mt-sm"):
+                                    inm = ui.input(placeholder="Add item — e.g. Netflix").props("dense outlined hide-bottom-space").style("flex:1;min-width:64px")
+                                    iamt = ui.number(placeholder="0.00", format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:88px")
+                                    idd = ui.select(_dueday_options(), value="", label="Due").props("dense outlined").style("width:84px")
 
-                                def add_it():
-                                    if not (inm.value or "").strip():
-                                        ui.notify("Name the item.", type="warning"); return
-                                    act(lambda: store.add_item(eid, inm.value, iamt.value or 0, idd.value))
-                                ui.button(icon="add", on_click=add_it).props("flat dense round size=sm color=indigo")
+                                    def add_it():
+                                        if not (inm.value or "").strip():
+                                            ui.notify("Name the item.", type="warning"); return
+                                        act(lambda: store.add_item(eid, inm.value, iamt.value or 0, idd.value))
+                                    ui.button(icon="add", on_click=add_it).props("flat dense round size=sm color=indigo")
 
-                    with ui.row().classes("w-full items-center q-mt-md"):
+                    with ui.row().classes("w-full items-center cd-sh-foot"):
                         def do_delete():
                             try:
                                 store.delete(eid)
                             except Exception as e:
                                 ui.notify(str(e)[:140], type="warning"); return
                             dlg.close(); refresh_page()
-                        ui.button("Delete", on_click=do_delete).props("flat color=red no-caps")
+                        ui.button("Delete", on_click=do_delete).props("flat color=red no-caps size=sm")
                         ui.space()
                         ui.button("Done", on_click=dlg.close).props("unelevated color=indigo no-caps")
                 body()
