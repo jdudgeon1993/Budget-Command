@@ -7,6 +7,7 @@ while still producing exactly the same numbers as Cura. Requires SUPABASE_URL /
 SUPABASE_ANON_KEY in the env.
 """
 from . import supabase_io as DB, formulas as F, money as MZ
+from .store import _effective_days, _build_steps
 
 # bcc bucket type → Cadence type
 _TYPE = {"expense": "spend", "vault": "vault", "goal": "goal", "sinking": "goal"}
@@ -66,7 +67,6 @@ class LiveStore:
         # Goals carry their own cadence (contribFreq) + a target month; expenses use payFreq.
         frequency = (b.get("contribFreq") if typ == "goal" else b.get("payFreq")) or None
         sf = self._split_fields(b, target)
-        from .store import _effective_days
         d = _effective_days(MZ.days_until(due_day), sf["split"], sf["items"])
         return {"id": b["id"], "name": b["name"], "type": typ, "cat_id": b.get("catId", ""),
                 "target": round(target, 2), "funded": funded, "spent": sp, "available": av,
@@ -112,12 +112,7 @@ class LiveStore:
     def _all_rows(self) -> list[dict]:
         return [self._row(b) for b in self._buckets()]
 
-    def distribute_plan(self) -> dict:
-        from .store import _greedy_plan
-        return _greedy_plan(self._all_rows(), self.metrics()["unallocated"])
-
     def distribute_steps(self, paycheck_amount=None) -> dict:
-        from .store import _build_steps
         return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
 
     def default_transfer_accounts(self):
@@ -157,6 +152,8 @@ class LiveStore:
         acct = {a["id"]: a["name"] for a in self.data["accounts"]}
         out = []
         for i, t in enumerate(self.data["txs"]):
+            if F.is_scheduled(t):                     # future-dated → belongs to the Forecast, not the Ledger
+                continue
             typ = t.get("type")
             bid = t.get("bucketId") or None
             amt = float(t.get("amount") or 0)
@@ -189,8 +186,8 @@ class LiveStore:
                 continue
             if t["type"] == "in":
                 income += float(t.get("amount") or 0)
-            elif t["type"] == "out":
-                spent += float(t.get("amount") or 0)
+            elif t["type"] == "out" and t.get("bucketId"):   # real spending only — not transfers out
+                spent += float(t.get("amount") or 0)          # negative amounts (refunds) net down
         return {"balance": round(F.budget_bal(self.data["accounts"], txs), 2),
                 "income": round(income, 2), "spent": round(spent, 2)}
 
@@ -251,16 +248,6 @@ class LiveStore:
 
     def defund(self, bid: str, amount: float):
         self.fund(bid, -amount)
-
-    def set_funded(self, bid: str, value: float):
-        cur = F.bucket_available(next(b for b in self._buckets() if b["id"] == bid),
-                                 self._month, self.data["months"], self.data["txs"])
-        self.fund(bid, round(value - cur, 2))
-
-    def fund_to_target(self, bid: str):
-        gap = self.bucket(bid)["gap"]
-        if gap > 0:
-            self.fund(bid, gap)
 
     def move(self, src: str, dst: str, amount: float):
         self.defund(src, amount)
@@ -405,41 +392,6 @@ class LiveStore:
             "amount": round(float(amount), 2), "date": when,
             "description": desc or "", "bucket_id": None})
         self._load()
-
-    def distribute_income(self, amount: float) -> list[dict]:
-        """Auto-apply allocation rules to a paycheck: external → an out that debits
-        the budget, internal → a bucket allocation."""
-        from datetime import date as _d
-        amount = round(float(amount), 2)
-        DB.ensure_month(self.uid, self.token, self._mid)
-        today, acct, applied = _d.today().isoformat(), self._budget_account_id(), []
-        rules = self.rules()
-        for r in rules:
-            if not (r["active"] and r["kind"] == "external"):
-                continue
-            amt = round(amount * r["value"] / 100 if r["value_type"] == "pct"
-                        else (r["value"] if r["value_type"] == "fixed" else 0), 2)
-            if amt > 0.005:
-                DB.insert(self.token, "bcc_transactions", {
-                    "id": DB.new_id(), "user_id": self.uid, "account_id": acct,
-                    "month_id": self._mid, "type": "out", "amount": amt,
-                    "date": today, "description": r["name"], "bucket_id": None})
-                applied.append({"name": r["name"], "kind": "external", "amount": amt})
-        for r in rules:
-            if not (r["active"] and r["kind"] == "internal" and r["bucket_id"]):
-                continue
-            bid = r["bucket_id"]
-            if r["value_type"] == "fund":
-                amt = round(max(0.0, self.bucket(bid)["gap"]), 2)
-            else:
-                amt = round(amount * r["value"] / 100 if r["value_type"] == "pct" else r["value"], 2)
-            if amt > 0.005:
-                new = round(F.b_alloc(self._month, bid) + amt, 2)
-                DB.upsert_alloc(self.uid, self.token, self._mid, bid, new)
-                applied.append({"name": r["name"], "kind": "internal",
-                                "bucket": r["bucket_name"], "amount": amt})
-        self._load()
-        return applied
 
     # settings: paychecks
     def add_paycheck(self, label, amount, freq, anchor):

@@ -242,11 +242,6 @@ def defund(s: dict, eid: str, amount: float) -> None:
     fund(s, eid, -amount)
 
 
-def set_funded(s: dict, eid: str, value: float) -> None:
-    """Assign the envelope to an exact funded level (moves the delta to/from Unallocated)."""
-    fund(s, eid, round(value - env(s, eid)["funded"], 2))
-
-
 def move(s: dict, src_id: str, dst_id: str, amount: float) -> None:
     """Reallocate between two envelopes without touching Unallocated."""
     amount = round(amount, 2)
@@ -337,41 +332,6 @@ def add_transfer(s: dict, amount: float, from_id: str = CHECKING, to_id: str = S
     if to_id == CHECKING:
         s["unallocated"] = round(s["unallocated"] + amount, 2)
     return tx
-
-
-def apply_income_rules(s: dict, income_amount: float) -> list[dict]:
-    """Auto-distribute a paycheck across the active allocation rules: external
-    rules transfer money out, internal rules fund their bucket (by % of the
-    paycheck, a fixed amount, or filling the bucket to target)."""
-    income_amount = round(income_amount, 2)
-    applied: list[dict] = []
-    names = {e["id"]: e["name"] for e in s["envelopes"]}
-
-    def _amt(r):
-        if r["value_type"] == "pct":
-            return round(income_amount * r["value"] / 100.0, 2)
-        if r["value_type"] == "fixed":
-            return round(r["value"], 2)
-        return 0.0
-
-    for r in s["rules"]:                              # external first — money leaves
-        if r["active"] and r["kind"] == "external":
-            amt = round(min(_amt(r), max(0.0, s["unallocated"])), 2)
-            if amt > 0.005:
-                add_transfer(s, amt, CHECKING, SAVINGS, r["name"])
-                applied.append({"name": r["name"], "kind": "external", "amount": amt})
-    for r in s["rules"]:                              # then internal — fund buckets
-        if not (r["active"] and r["kind"] == "internal" and r["bucket_id"]):
-            continue
-        e = next((x for x in s["envelopes"] if x["id"] == r["bucket_id"]), None)
-        if not e:
-            continue
-        want = round(max(0.0, e["target"] - e["funded"]), 2) if r["value_type"] == "fund" else _amt(r)
-        moved = fund(s, r["bucket_id"], want)         # capped at Unallocated, never negative
-        if moved > 0.005:
-            applied.append({"name": r["name"], "kind": "internal",
-                            "bucket": names.get(r["bucket_id"], ""), "amount": moved})
-    return applied
 
 
 def _tx(s: dict, kind: str, amount: float, eid, desc: str, date: str,

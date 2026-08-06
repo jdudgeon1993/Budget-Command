@@ -88,31 +88,6 @@ def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
             "internal": internal, "obligations": obligations, "next": nexts}
 
 
-def _greedy_plan(rows: list[dict], unallocated: float) -> dict:
-    """Payday plan: spread `unallocated` across the buckets that still need money,
-    soonest-due / most-urgent first, filling each to target until the cash runs
-    out. Vaults, handled buckets, and flex (no-target) buckets are skipped —
-    they don't have a "need" to fill. Returns the buckets and each suggested top-up.
-    """
-    need = [r for r in rows
-            if not r["flex"] and not r["handled"]
-            and r["type"] != M.VAULT and r["gap"] > 0.005]
-    need.sort(key=lambda r: r["urgency"], reverse=True)
-    remaining = round(max(0.0, unallocated), 2)
-    plan = []
-    for r in need:
-        give = round(min(r["gap"], remaining), 2)
-        remaining = round(remaining - give, 2)
-        plan.append({"id": r["id"], "name": r["name"], "gap": r["gap"],
-                     "suggested": give, "status": r["status"],
-                     "days_until_due": r["days_until_due"]})
-        if remaining <= 0.005:
-            break
-    covered = round(sum(p["suggested"] for p in plan), 2)
-    return {"unallocated": round(max(0.0, unallocated), 2), "plan": plan,
-            "covered": covered, "leftover": round(max(0.0, unallocated) - covered, 2)}
-
-
 def seed() -> dict:
     """A believable month-in-progress so every screen has something to show."""
     # name, category, type, target, funded, due_day, flex
@@ -263,11 +238,6 @@ class Store:
     def _all_rows(self) -> list[dict]:
         return [self._row(e) for e in self.s["envelopes"]]
 
-    def distribute_plan(self) -> dict:
-        """Greedy payday plan: fill underfunded non-vault buckets soonest-due
-        first with Unallocated, until it runs out."""
-        return _greedy_plan(self._all_rows(), self.metrics()["unallocated"])
-
     def distribute_steps(self, paycheck_amount=None) -> dict:
         return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
 
@@ -303,15 +273,6 @@ class Store:
 
     def defund(self, eid: str, amount: float):
         M.defund(self.s, eid, min(amount, M.env(self.s, eid)["funded"]))
-
-    def set_funded(self, eid: str, value: float):
-        M.set_funded(self.s, eid, value)
-
-    def fund_to_target(self, eid: str):
-        e = M.env(self.s, eid)
-        gap = round(max(0.0, e["target"] - e["funded"]), 2)
-        if gap > 0:
-            M.fund(self.s, eid, gap)
 
     def move(self, src: str, dst: str, amount: float):
         M.move(self.s, src, dst, min(amount, M.env(self.s, src)["funded"]))
@@ -419,10 +380,6 @@ class Store:
             M.add_refund(self.s, bucket_id, amount, desc, date)
         else:
             M.add_expense(self.s, bucket_id, amount, desc, date)
-
-    def distribute_income(self, amount: float) -> list[dict]:
-        """Auto-apply the allocation rules to a paycheck (fund buckets, run transfers)."""
-        return M.apply_income_rules(self.s, round(float(amount), 2))
 
     def accounts(self) -> list[dict]:
         return M.accounts(self.s)
