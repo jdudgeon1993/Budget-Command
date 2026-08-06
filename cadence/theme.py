@@ -93,6 +93,19 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-dmeta{font-size:11px;color:var(--muted);margin-top:1px}
 .cd-dleft{position:sticky;bottom:0;background:var(--card);padding:12px 0 2px;border-top:1px solid var(--line);
   display:flex;align-items:center;font-size:13px;font-weight:600}
+/* stepped distribution flow */
+.cd-step-h{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;letter-spacing:-.01em;margin:20px 2px 12px}
+.cd-step-n{width:20px;height:20px;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.cd-srow{gap:10px;padding:8px 6px;border-radius:11px;transition:opacity .12s}
+.cd-srow:hover{background:#fafbff}
+.cd-srow.off{opacity:.5}
+.cd-srow-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-srow-det{font-size:11px;color:var(--muted);margin-top:1px}
+.cd-srow-amt{font-weight:700;font-size:14px;white-space:nowrap}
+.cd-dtot{display:flex;justify-content:space-between;align-items:center;font-size:13px;
+  padding:14px 2px 2px;margin-top:8px;border-top:1px solid var(--line)}
+.cd-dtot b{font-weight:800}
 
 /* ── category groups + envelope cards (Buckets) ───────────────────────────── */
 .cd-cat{margin-bottom:22px}

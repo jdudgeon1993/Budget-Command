@@ -536,69 +536,146 @@ def _app(store, demo: bool):
                     ui.button("Create bucket", on_click=create).props("unelevated color=indigo no-caps")
             dlg.open()
 
-        # ── payday / distribute: spread Unallocated across what needs it ───────
-        def _open_distribute():
-            plan = store.distribute_plan()
-            if not plan["plan"]:
-                ui.notify("Nothing needs funding right now — every bucket is on target. ✨", type="positive")
+        # ── the one distribution flow: rules → fill what's due → get ahead ─────
+        # Shared by the Buckets "Distribute" button and a logged paycheck, so both
+        # read the same. You stay in charge — every line is a checkbox.
+        def _open_distribute(paycheck_amount=None):
+            st = store.distribute_steps(paycheck_amount)
+            has_any = st["external"] or st["internal"] or st["obligations"]
+            if not has_any and st["unallocated"] <= 0.005:
+                ui.notify("Nothing to distribute — every dollar already has a job. ✨", type="positive")
                 return
-            with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
-                ui.html('<div class="cd-hdl"></div>')
-                ui.html('<div class="cd-sh-title">Give every dollar a job</div>')
-                ui.html(f'<div class="cdm-sub">You have <b style="color:var(--accent)">{money(plan["unallocated"])}</b> '
-                        f'unallocated. We\'ve pre-filled the buckets that need it most — soonest due first. '
-                        f'Tweak anything, then distribute.</div>')
-                inputs = []          # (bucket_id, ui.number)
+            checked = ({"ext:" + e["id"] for e in st["external"]}
+                       | {"int:" + r["id"] for r in st["internal"]}
+                       | {"ob:" + o["id"] for o in st["obligations"]})   # get-ahead starts off
 
-                def clamp_and_total():
-                    """Keep the plan within Unallocated and show what's left to assign."""
-                    cap = plan["unallocated"]
-                    running = 0.0
-                    for _bid, inp in inputs:
-                        v = max(0.0, round(float(inp.value or 0), 2))
-                        if running + v > cap + 0.005:      # never over-assign
-                            v = round(max(0.0, cap - running), 2)
-                            inp.set_value(v)
-                        running = round(running + v, 2)
-                    left = round(cap - running, 2)
-                    left_lbl.set_text(f"{money(left)} left to assign")
-                    left_lbl.style(f'color:{"var(--pos)" if left <= 0.005 else "var(--muted)"}')
+            def _compute():
+                cap = st["unallocated"]
+                remaining, total, extra = cap, 0.0, {}
+                amt = {}
+                for e in st["external"]:
+                    if "ext:" + e["id"] in checked:
+                        a = round(min(e["amount"], remaining), 2)
+                        amt["ext:" + e["id"]] = a; remaining = round(remaining - a, 2); total += a
+                for r in st["internal"]:
+                    if "int:" + r["id"] in checked:
+                        a = round(min(r["amount"], remaining), 2)
+                        amt["int:" + r["id"]] = a; remaining = round(remaining - a, 2); total += a
+                        extra[r["bucket_id"]] = round(extra.get(r["bucket_id"], 0) + a, 2)
+                for o in st["obligations"]:
+                    if "ob:" + o["id"] in checked:
+                        gap_now = max(0.0, round(o["gap"] - extra.get(o["id"], 0), 2))
+                        a = round(min(gap_now, remaining), 2)
+                        amt["ob:" + o["id"]] = a; remaining = round(remaining - a, 2); total += a
+                        extra[o["id"]] = round(extra.get(o["id"], 0) + a, 2)
+                for n in st["next"]:
+                    if "next:" + n["id"] in checked:
+                        a = round(min(n["amount"], remaining), 2)
+                        amt["next:" + n["id"]] = a; remaining = round(remaining - a, 2); total += a
+                return amt, round(total, 2), round(remaining, 2)
 
-                for p in plan["plan"]:
-                    tag_txt, tag_cls = _days_tag(p["days_until_due"])
-                    with ui.element("div").classes("cd-drow"):
-                        ui.html(f'<span class="cd-idtag {tag_cls}">{tag_txt}</span>')
-                        with ui.element("div").style("flex:1;min-width:0"):
-                            ui.html(f'<div class="cd-dname">{_esc(p["name"])}</div>')
-                            ui.html(f'<div class="cd-dmeta">needs {money(p["gap"])}</div>')
-                        inp = ui.number(value=p["suggested"], format="%.2f", prefix="$").props("dense outlined hide-bottom-space").style("width:110px")
-                        inp.on("blur", lambda: clamp_and_total())
-                        inputs.append((p["id"], inp))
-                with ui.element("div").classes("cd-dleft"):
-                    left_lbl = ui.label(f'{money(plan["leftover"])} left to assign').classes("mono")
-                    ui.space()
-                    ui.button("Even it out", on_click=lambda: _reset_plan()).props("flat color=grey no-caps size=sm")
+            dialog_host.clear()
+            with dialog_host:
+                dlg = ui.dialog().props("position=bottom")
+            with dlg, ui.card().classes("cd-sheet"):
+                @ui.refreshable
+                def body():
+                    amt, total, remaining = _compute()
 
-                def _reset_plan():
-                    for (_bid, inp), p in zip(inputs, plan["plan"]):
-                        inp.set_value(p["suggested"])
-                    clamp_and_total()
+                    def toggle(k):
+                        checked.discard(k) if k in checked else checked.add(k)
+                        ui.run_javascript(_CAP_SHEET); body.refresh(); ui.run_javascript(_RES_SHEET)
 
-                def do_distribute():
-                    moved = 0.0
-                    for bid, inp in inputs:
-                        amt = max(0.0, round(float(inp.value or 0), 2))
-                        if amt > 0:
-                            store.assign(bid, "unallocated", amt)
-                            moved += amt
-                    dlg.close()
-                    refresh_page()
-                    ui.notify(f"Distributed {money(round(moved, 2))} across {sum(1 for _b, i in inputs if float(i.value or 0) > 0)} buckets.",
-                              type="positive")
-                with ui.row().classes("w-full items-center q-mt-md"):
-                    ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
-                    ui.space()
-                    ui.button("Distribute", on_click=do_distribute).props("unelevated color=indigo no-caps")
+                    def srow(key, name, detail, kind="fund", tag=None):
+                        on = key in checked
+                        a = amt.get(key, 0.0)
+                        with ui.row().classes("w-full items-center no-wrap cd-srow" + ("" if on else " off")):
+                            cb = ui.checkbox(value=on).props("dense")
+                            cb.on("update:model-value", lambda k=key: toggle(k))
+                            if tag:
+                                ui.html(f'<span class="cd-idtag {tag[1]}">{tag[0]}</span>')
+                            with ui.element("div").style("flex:1;min-width:0"):
+                                ui.html(f'<div class="cd-srow-name">{_esc(name)}</div>'
+                                        f'<div class="cd-srow-det">{_esc(detail)}</div>')
+                            if kind == "transfer":
+                                txt, col = (f'−{money(a)}' if on else '—'), "var(--warn-ink)"
+                            else:
+                                txt, col = (f'+{money(a)}' if (on and a > 0.005) else '—'), "var(--pos)"
+                            ui.html(f'<div class="cd-srow-amt" style="color:{col if on else "var(--muted)"}">{txt}</div>')
+
+                    ui.html('<div class="cd-hdl"></div>')
+                    if paycheck_amount:
+                        ui.html(f'<div class="cd-sh-title">Distribute your {money(paycheck_amount)} paycheck</div>')
+                        ui.html(f'<div class="cdm-sub">You\'re in charge — review each step, uncheck anything you\'d '
+                                f'rather handle yourself. <b style="color:var(--accent)">{money(st["unallocated"])}</b> unallocated.</div>')
+                    else:
+                        ui.html('<div class="cd-sh-title">Give every dollar a job</div>')
+                        ui.html(f'<div class="cdm-sub"><b style="color:var(--accent)">{money(st["unallocated"])}</b> unallocated. '
+                                f'Uncheck anything you\'d rather handle yourself.</div>')
+
+                    # Step 1 — rules
+                    if st["external"] or st["internal"]:
+                        ui.html('<div class="cd-step-h"><span class="cd-step-n">1</span>Apply your rules</div>')
+                        for e in st["external"]:
+                            srow("ext:" + e["id"], e["name"], e["detail"] + " → savings", kind="transfer",
+                                 tag=("transfer", "amber"))
+                        for r in st["internal"]:
+                            srow("int:" + r["id"], r["bucket_name"], f'{r["name"]} · {r["detail"]}')
+
+                    # Step 2 — obligations
+                    ui.html('<div class="cd-step-h"><span class="cd-step-n">2</span>Fill what\'s due</div>')
+                    if st["obligations"]:
+                        for o in st["obligations"]:
+                            srow("ob:" + o["id"], o["name"], f'needs {money(o["gap"])}',
+                                 tag=_days_tag(o["days_until_due"]))
+                    else:
+                        ui.html('<div class="cd-sub" style="padding:2px 2px 8px">Nothing underfunded — every bill is covered. ✓</div>')
+
+                    # Step 3 — get ahead (optional)
+                    if st["next"] and remaining > 0.005:
+                        ui.html('<div class="cd-step-h"><span class="cd-step-n">3</span>Get ahead · pre-fund next month</div>')
+                        ui.html('<div class="cd-sub" style="margin:-6px 2px 8px">You\'ve covered what\'s due. Put the rest '
+                                'toward next month\'s bills to build a buffer.</div>')
+                        for n in st["next"]:
+                            srow("next:" + n["id"], n["name"], f'another {money(n["amount"])}',
+                                 tag=_days_tag(n["days_until_due"]))
+
+                    # totals
+                    rcol = "var(--pos)" if remaining <= 0.005 else "var(--muted)"
+                    ui.html(f'<div class="cd-dtot"><span>Distributing <b>{money(total)}</b></span>'
+                            f'<span style="color:{rcol}">{money(remaining)} left unallocated</span></div>')
+
+                    def do_apply():
+                        amt2, _t, _r = _compute()
+                        frm, to = store.default_transfer_accounts()
+                        moved = 0.0
+                        try:
+                            for e in st["external"]:
+                                a = amt2.get("ext:" + e["id"], 0)
+                                if a > 0.005:
+                                    store.add_transfer(frm, to, a, e["name"]); moved += a
+                            for r in st["internal"]:
+                                a = amt2.get("int:" + r["id"], 0)
+                                if a > 0.005:
+                                    store.assign(r["bucket_id"], "unallocated", a); moved += a
+                            for o in st["obligations"]:
+                                a = amt2.get("ob:" + o["id"], 0)
+                                if a > 0.005:
+                                    store.assign(o["id"], "unallocated", a); moved += a
+                            for n in st["next"]:
+                                a = amt2.get("next:" + n["id"], 0)
+                                if a > 0.005:
+                                    store.assign(n["id"], "unallocated", a); moved += a
+                        except Exception as e:
+                            ui.notify(str(e)[:150], type="warning"); return
+                        dlg.close(); refresh_page()
+                        ui.notify(f"Distributed {money(round(moved, 2))}.", type="positive")
+
+                    with ui.row().classes("w-full items-center cd-sh-foot"):
+                        ui.button("Skip", on_click=dlg.close).props("flat color=grey no-caps size=sm")
+                        ui.space()
+                        ui.button("Apply distribution", on_click=do_apply).props("unelevated color=indigo no-caps")
+                body()
             dlg.open()
 
         def actionbar():
@@ -614,7 +691,7 @@ def _app(store, demo: bool):
         @ui.refreshable
         def content():
             if state["view"] == "ledger":
-                _ledger_view(store, refresh_page)
+                _ledger_view(store, refresh_page, _open_distribute)
             elif state["view"] == "forecast":
                 _forecast_view(store, refresh_page)
             elif state["view"] == "settings":
@@ -657,7 +734,7 @@ _TX_ICON = {"expense": "−", "income": "+", "refund": "↺", "transfer": "→"}
 _TX_CLASS = {"expense": "out", "income": "in", "refund": "refund", "transfer": "transfer"}
 
 
-def _ledger_view(store, refresh_bg):
+def _ledger_view(store, refresh_bg, on_paycheck=None):
     """The cleared-money timeline: income, spending and refunds, grouped by day."""
     q = {"v": ""}
     # Which months are expanded — the current cycle opens by default, the rest stay
@@ -736,6 +813,7 @@ def _ledger_view(store, refresh_bg):
                 kind = st["kind"]
                 desc = (payee.value or "").strip()
                 when = datef.value or _today_iso()
+                open_paycheck = None
                 try:
                     if kind == "transfer":
                         if from_sel.value == to_sel.value:
@@ -756,14 +834,13 @@ def _ledger_view(store, refresh_bg):
                             if existing:                   # type changed → replace
                                 store.delete_transaction(existing["id"])
                             store.add_transaction(kind, amt, bid, desc, when)
-                            if kind == "income" and not existing and auto.value:
-                                applied = store.distribute_income(amt)
-                                if applied:
-                                    summ = ", ".join(f'{a.get("bucket") or a["name"]} {money(a["amount"])}' for a in applied)
-                                    ui.notify(f"Auto-distributed: {summ}", type="positive", timeout=6000)
+                            if kind == "income" and not existing and auto.value and on_paycheck:
+                                open_paycheck = amt        # hand off to the distribute flow
                 except Exception as e:
                     ui.notify(str(e)[:150], type="warning"); return
                 dlg.close(); refresh_bg()
+                if open_paycheck is not None:
+                    on_paycheck(open_paycheck)
 
             with ui.row().classes("w-full items-center q-mt-md"):
                 if existing:

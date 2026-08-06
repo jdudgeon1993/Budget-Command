@@ -28,6 +28,66 @@ def _effective_days(own_days, split, items):
     return min(unpaid) if own_days is None else min(own_days, min(unpaid))
 
 
+def _dsort(x):
+    return (x["days_until_due"] is None, x["days_until_due"] if x["days_until_due"] is not None else 9999)
+
+
+def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
+                 paycheck_amount=None) -> dict:
+    """The shared distribution plan behind both the Buckets 'Distribute' and the
+    paycheck flow, so they read the same. Percentages are of the paycheck when
+    distributing one, otherwise of what's unallocated.
+
+    • external  — rule-driven transfers out (checking → savings)
+    • internal  — rule-driven funding suggestions (fund a bucket)
+    • obligations — underfunded bills, soonest-due first; anything already funded
+      OR already paid this cycle drops off the list
+    • next      — the same bills, offered again to pre-fund next month (get ahead)
+    """
+    base = round(paycheck_amount if paycheck_amount else unallocated, 2)
+    by_id = {r["id"]: r for r in rows}
+    external, internal = [], []
+    for r in rules:
+        if not r.get("active"):
+            continue
+        pct = r["value_type"] == "pct"
+        if r["kind"] == "external":
+            amt = round(base * r["value"] / 100, 2) if pct else (round(r["value"], 2) if r["value_type"] == "fixed" else 0.0)
+            if amt > 0.005:
+                external.append({"id": r["id"], "name": r["name"], "amount": amt,
+                                 "detail": f'{r["value"]:g}% of paycheck' if pct else "fixed transfer"})
+        else:
+            bid = r.get("bucket_id")
+            if not bid or bid not in by_id:
+                continue
+            if r["value_type"] == "fund":
+                amt, detail = by_id[bid]["gap"], "fill to target"
+            else:
+                amt = round(base * r["value"] / 100, 2) if pct else round(r["value"], 2)
+                detail = f'{r["value"]:g}% of paycheck' if pct else "fixed"
+            if amt > 0.005:
+                internal.append({"id": r["id"], "name": r["name"], "bucket_id": bid,
+                                 "bucket_name": by_id[bid]["name"], "amount": round(amt, 2), "detail": detail})
+
+    obligations, nexts = [], []
+    for r in rows:
+        if r["type"] != "spend" or r["flex"] or r["handled"]:   # bills only (goals/vaults aren't "due")
+            continue
+        dated = r["due_day"] is not None or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly")
+        paid = ((r["split"] and r["items"] and r["items_paid"] >= len(r["items"]))
+                or (not r["split"] and r["target"] > 0 and r["spent"] >= r["target"] - 0.005))
+        if r["gap"] > 0.005 and not paid:                       # underfunded & not paid → obligation
+            obligations.append({"id": r["id"], "name": r["name"], "gap": r["gap"],
+                                "days_until_due": r["days_until_due"]})
+        if dated and r["target"] > 0:                           # any dated bill → can pre-fund
+            nexts.append({"id": r["id"], "name": r["name"], "amount": round(r["target"], 2),
+                          "days_until_due": r["days_until_due"]})
+    obligations.sort(key=_dsort)
+    nexts.sort(key=_dsort)
+    return {"unallocated": round(unallocated, 2), "base": base, "external": external,
+            "internal": internal, "obligations": obligations, "next": nexts}
+
+
 def _greedy_plan(rows: list[dict], unallocated: float) -> dict:
     """Payday plan: spread `unallocated` across the buckets that still need money,
     soonest-due / most-urgent first, filling each to target until the cash runs
@@ -207,6 +267,12 @@ class Store:
         """Greedy payday plan: fill underfunded non-vault buckets soonest-due
         first with Unallocated, until it runs out."""
         return _greedy_plan(self._all_rows(), self.metrics()["unallocated"])
+
+    def distribute_steps(self, paycheck_amount=None) -> dict:
+        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
+
+    def default_transfer_accounts(self):
+        return (M.CHECKING, M.SAVINGS)
 
     def fund_sources(self, exclude: str) -> list[dict]:
         """Where money can come from: Unallocated first, then other buckets with

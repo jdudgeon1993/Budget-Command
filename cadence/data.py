@@ -116,6 +116,16 @@ class LiveStore:
         from .store import _greedy_plan
         return _greedy_plan(self._all_rows(), self.metrics()["unallocated"])
 
+    def distribute_steps(self, paycheck_amount=None) -> dict:
+        from .store import _build_steps
+        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
+
+    def default_transfer_accounts(self):
+        frm = self._budget_account_id()
+        to = next((a["id"] for a in self.data["accounts"]
+                   if a.get("type") != "budget" and not a.get("archived")), frm)
+        return (frm, to)
+
     def fund_sources(self, exclude: str) -> list[dict]:
         out = [{"id": "unallocated", "name": "Unallocated", "avail": self.metrics()["unallocated"]}]
         for b in self._buckets():
