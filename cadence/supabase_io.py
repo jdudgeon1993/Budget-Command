@@ -81,15 +81,31 @@ def sign_in(email: str, password: str) -> dict:
     }
 
 
-def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
-    """Load every table for this user and assemble the canonical data dict.
+# Raw table map: cache-key → Supabase table. Transactions are fetched separately
+# (windowed + ordered), so they're not in here.
+_RAW_TABLES = {
+    "accounts_raw":  "bcc_accounts",
+    "cats_raw":      "bcc_categories",
+    "buckets_raw":   "bcc_buckets",
+    "months_raw":    "bcc_months",
+    "allocs_raw":    "bcc_month_allocations",
+    "budgets_raw":   "bcc_month_budgets",
+    "handled_raw":   "bcc_month_handled",
+    "vaultwd_raw":   "bcc_month_vault_withdrawals",
+    "paychecks_raw": "bcc_paychecks",
+    "rules_raw":     "bcc_allocation_rules",
+    "items_raw":     "bcc_bucket_items",
+}
+_ALL_RAW_KEYS = tuple(_RAW_TABLES) + ("txs_raw",)
 
-    Queries run in parallel threads to eliminate sequential latency.
-    Transactions are windowed to the most recent tx_months (default 13 — current
-    month + 12 prior) so the payload stays small regardless of account age.
-    Reports that need full history call load_all(tx_months=0).
-    """
+
+def fetch_raw(uid: str, token: str, keys=None, tx_months: int = 13) -> dict:
+    """Fetch the raw rows for the requested cache-keys in parallel (all of them
+    when keys is None). This is the ONLY network step; assemble() turns the result
+    into the canonical data dict with no further I/O — so a targeted reload can
+    refetch just the one table a write touched instead of all twelve."""
     db = client(token)
+    keys = list(_ALL_RAW_KEYS if keys is None else keys)
 
     # Compute the earliest month_id we want transactions for
     from .formulas import current_month_id, parse_month_id, month_id as _mid
@@ -103,12 +119,9 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
     results: dict = {}
     errors: list = []
 
-    def fetch(key: str, tbl: str, extra=None):
+    def fetch(key: str, tbl: str):
         try:
-            q = db.table(tbl).select("*").eq("user_id", uid)
-            if extra:
-                q = extra(q)
-            results[key] = q.execute().data or []
+            results[key] = db.table(tbl).select("*").eq("user_id", uid).execute().data or []
         except Exception as e:
             errors.append((key, e))
             results[key] = []
@@ -123,25 +136,30 @@ def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
             errors.append(("txs_raw", e))
             results["txs_raw"] = []
 
-    threads = [
-        threading.Thread(target=fetch, args=("accounts_raw",  "bcc_accounts")),
-        threading.Thread(target=fetch, args=("cats_raw",      "bcc_categories")),
-        threading.Thread(target=fetch, args=("buckets_raw",   "bcc_buckets")),
-        threading.Thread(target=fetch, args=("months_raw",    "bcc_months")),
-        threading.Thread(target=fetch, args=("allocs_raw",    "bcc_month_allocations")),
-        threading.Thread(target=fetch, args=("budgets_raw",   "bcc_month_budgets")),
-        threading.Thread(target=fetch, args=("handled_raw",   "bcc_month_handled")),
-        threading.Thread(target=fetch, args=("vaultwd_raw",   "bcc_month_vault_withdrawals")),
-        threading.Thread(target=fetch, args=("paychecks_raw", "bcc_paychecks")),
-        threading.Thread(target=fetch, args=("rules_raw",     "bcc_allocation_rules")),
-        threading.Thread(target=fetch, args=("items_raw",     "bcc_bucket_items")),
-        threading.Thread(target=fetch_txs),
-    ]
+    threads = [threading.Thread(target=fetch, args=(k, _RAW_TABLES[k]))
+               for k in keys if k in _RAW_TABLES]
+    if "txs_raw" in keys:
+        threads.append(threading.Thread(target=fetch_txs))
     for t in threads:
         t.start()
     for t in threads:
         t.join()
+    return results
 
+
+def load_all(uid: str, token: str, tx_months: int = 13) -> dict:
+    """Load every table for this user and assemble the canonical data dict.
+
+    Transactions are windowed to the most recent tx_months (default 13 — current
+    month + 12 prior) so the payload stays small regardless of account age.
+    Reports that need full history call load_all(tx_months=0).
+    """
+    return assemble(fetch_raw(uid, token, None, tx_months))
+
+
+def assemble(results: dict) -> dict:
+    """Turn a raw-rows dict (from fetch_raw) into the canonical data dict. Pure —
+    no network — so it's cheap to re-run after a targeted reload."""
     accounts_raw  = results.get("accounts_raw", [])
     cats_raw      = results.get("cats_raw", [])
     buckets_raw   = results.get("buckets_raw", [])

@@ -28,7 +28,21 @@ class LiveStore:
         self._load()
 
     def _load(self):
-        self.data = DB.load_all(self.uid, self.token)
+        """Full load — every table. Caches the raw rows so later writes can refetch
+        just what they touched (see _reload)."""
+        self._raw = DB.fetch_raw(self.uid, self.token)
+        self._assemble()
+
+    def _reload(self, *keys):
+        """Targeted reload after a write: refetch only the table(s) that changed,
+        keeping Supabase the source of truth (the money invariant can't drift) while
+        skipping the other eleven fetches. 'months_raw' is included wherever a write
+        may have created the current month via ensure_month."""
+        self._raw.update(DB.fetch_raw(self.uid, self.token, keys))
+        self._assemble()
+
+    def _assemble(self):
+        self.data = DB.assemble(self._raw)
         self._mid = F.current_month_id()
         self._month = next((m for m in self.data["months"] if m["id"] == self._mid),
                            {"id": self._mid, "allocations": {}, "budgets": {}, "handledBuckets": {}})
@@ -66,7 +80,10 @@ class LiveStore:
         gap = round(max(0.0, target - funded), 2)
         # Goals carry their own cadence (contribFreq) + a target month; expenses use payFreq.
         frequency = (b.get("contribFreq") if typ == "goal" else b.get("payFreq")) or None
-        sf = self._split_fields(b, target)
+        sf = self._split_fields(b, av)
+        if sf["split"]:                          # the schedule drives the number
+            target = sf["items_total"]
+            gap = round(max(0.0, target - funded), 2)
         d = _effective_days(MZ.days_until(due_day), sf["split"], sf["items"])
         return {"id": b["id"], "name": b["name"], "type": typ, "cat_id": b.get("catId", ""),
                 "target": round(target, 2), "funded": funded, "spent": sp, "available": av,
@@ -78,14 +95,16 @@ class LiveStore:
                 "urgency": MZ.urgency_score(av, gap, d, flex, handled, typ == "vault")}
 
     @staticmethod
-    def _split_fields(b: dict, target: float) -> dict:
-        its = MZ.item_rows([{"id": it["id"], "name": it["name"], "amount": round(it["amount"], 2),
-                             "due_day": MZ._norm_due_day(it["due_day"]), "paid": bool(it["paid"])}
-                            for it in b.get("items", [])])
-        total = round(sum(i["amount"] for i in its), 2)
-        return {"split": bool(b.get("split")), "items": its, "items_total": total,
-                "unspoken": round(max(0.0, target - total), 2),
-                "items_paid": sum(1 for i in its if i["paid"])}
+    def _split_fields(b: dict, available: float) -> dict:
+        raw = [{"id": it["id"], "name": it["name"], "amount": round(it["amount"], 2),
+                "due_day": MZ._norm_due_day(it["due_day"]), "paid": bool(it["paid"])}
+               for it in b.get("items", [])]
+        total = round(sum(i["amount"] for i in raw), 2)
+        split = bool(b.get("split"))
+        # split → each bill learns its own funded state from the shared pool
+        items = MZ.item_funding(raw, available) if split else MZ.item_rows(raw)
+        return {"split": split, "items": items, "items_total": total,
+                "items_paid": sum(1 for i in items if i.get("paid"))}
 
     def groups(self) -> list[dict]:
         cats = sorted((c for c in self.data["cats"] if not c.get("archived")),
@@ -244,7 +263,7 @@ class LiveStore:
         DB.ensure_month(self.uid, self.token, self._mid)
         new = max(0.0, round(F.b_alloc(self._month, bid) + amount, 2))
         DB.upsert_alloc(self.uid, self.token, self._mid, bid, new)
-        self._load()
+        self._reload("allocs_raw", "months_raw")
 
     def defund(self, bid: str, amount: float):
         self.fund(bid, -amount)
@@ -279,7 +298,7 @@ class LiveStore:
 
     def _bucket_update(self, bid: str, fields: dict):
         DB.update(self.token, "bcc_buckets", self.uid, "id", bid, fields)
-        self._load()
+        self._reload("buckets_raw")
 
     # bucket structure
     def rename(self, bid: str, name: str):
@@ -308,7 +327,7 @@ class LiveStore:
     def toggle_handled(self, bid: str):
         cur = bool((self._month.get("handledBuckets") or {}).get(bid))
         DB.set_handled(self.token, self.uid, self._mid, bid, not cur)
-        self._load()
+        self._reload("handled_raw", "months_raw")
 
     def delete(self, bid: str):
         # Archive (money it held stops being claimed → returns to Ready to Spend).
@@ -329,7 +348,7 @@ class LiveStore:
             row.update({"target_amount": round(target or 0, 2),
                         "target_date": target_date or None, "contrib_freq": frequency or None})
         DB.insert(self.token, "bcc_buckets", row)
-        self._load()
+        self._reload("buckets_raw")
         return {"id": row["id"]}
 
     # ledger transactions
@@ -340,7 +359,7 @@ class LiveStore:
         if income_type:
             row["income_type"] = income_type
         DB.insert(self.token, "bcc_transactions", row)
-        self._load()
+        self._reload("txs_raw")
 
     def record_spend(self, bid: str, amount: float, desc: str = ""):
         from datetime import date as _d
@@ -372,11 +391,11 @@ class LiveStore:
             fields["bucket_id"] = envelope_id
         if fields:
             DB.update(self.token, "bcc_transactions", self.uid, "id", tid, fields)
-            self._load()
+            self._reload("txs_raw")
 
     def delete_transaction(self, tid: str):
         DB.delete(self.token, "bcc_transactions", self.uid, "id", tid)
-        self._load()
+        self._reload("txs_raw")
 
     def accounts(self) -> list[dict]:
         return [{"id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
@@ -391,7 +410,7 @@ class LiveStore:
             "to_account_id": to_id, "month_id": self._mid_for(when), "type": "xfr",
             "amount": round(float(amount), 2), "date": when,
             "description": desc or "", "bucket_id": None})
-        self._load()
+        self._reload("txs_raw")
 
     # settings: paychecks
     def add_paycheck(self, label, amount, freq, anchor):
@@ -399,7 +418,7 @@ class LiveStore:
             "id": DB.new_id(), "user_id": self.uid, "label": (label or "Paycheck").strip(),
             "amount": round(float(amount or 0), 2), "freq": self._FREQ_TO_INT.get(freq, 14),
             "anchor_date": (anchor or "")[:10] or None})
-        self._load()
+        self._reload("paychecks_raw")
 
     def edit_paycheck(self, pid, label=None, amount=None, freq=None, anchor=None):
         fields = {}
@@ -413,11 +432,11 @@ class LiveStore:
             fields["anchor_date"] = (anchor or "")[:10] or None
         if fields:
             DB.update(self.token, "bcc_paychecks", self.uid, "id", pid, fields)
-            self._load()
+            self._reload("paychecks_raw")
 
     def delete_paycheck(self, pid):
         DB.delete(self.token, "bcc_paychecks", self.uid, "id", pid)
-        self._load()
+        self._reload("paychecks_raw")
 
     # settings: allocation rules
     def add_rule(self, name, kind, bucket_id, value, value_type, active=True):
@@ -427,7 +446,7 @@ class LiveStore:
             "bucket_id": bucket_id or None, "value": round(float(value or 0), 2),
             "value_type": value_type if value_type in ("fixed", "pct", "fund") else "fixed",
             "active": bool(active)})
-        self._load()
+        self._reload("rules_raw")
 
     def edit_rule(self, rid, name=None, kind=None, bucket_id=..., value=None, value_type=None, active=None):
         fields = {}
@@ -445,17 +464,17 @@ class LiveStore:
             fields["active"] = bool(active)
         if fields:
             DB.update(self.token, "bcc_allocation_rules", self.uid, "id", rid, fields)
-            self._load()
+            self._reload("rules_raw")
 
     def delete_rule(self, rid):
         DB.delete(self.token, "bcc_allocation_rules", self.uid, "id", rid)
-        self._load()
+        self._reload("rules_raw")
 
     def toggle_rule(self, rid):
         cur = next((r for r in self.rules() if r["id"] == rid), None)
         DB.update(self.token, "bcc_allocation_rules", self.uid, "id", rid,
                   {"active": not (cur["active"] if cur else True)})
-        self._load()
+        self._reload("rules_raw")
 
     # split buckets (bill schedule) — bcc_buckets.split + bcc_bucket_items
     def set_split(self, bid: str, on: bool):
@@ -467,7 +486,7 @@ class LiveStore:
             "name": (name or "Item").strip(), "amount": round(float(amount or 0), 2),
             "due_day": MZ._norm_due_day(due_day), "paid": False,
             "sort_order": sum(len(b.get("items", [])) for b in self._buckets())})
-        self._load()
+        self._reload("items_raw")
 
     def edit_item(self, bid: str, iid: str, name=None, amount=None, due_day=None):
         fields = {}
@@ -479,14 +498,14 @@ class LiveStore:
             fields["due_day"] = MZ._norm_due_day(due_day)
         if fields:
             DB.update(self.token, "bcc_bucket_items", self.uid, "id", iid, fields)
-            self._load()
+            self._reload("items_raw")
 
     def remove_item(self, bid: str, iid: str):
         DB.delete(self.token, "bcc_bucket_items", self.uid, "id", iid)
-        self._load()
+        self._reload("items_raw")
 
     def toggle_item_paid(self, bid: str, iid: str):
         it = next((x for b in self._buckets() for x in b.get("items", []) if x["id"] == iid), None)
         DB.update(self.token, "bcc_bucket_items", self.uid, "id", iid,
                   {"paid": not (it["paid"] if it else False)})
-        self._load()
+        self._reload("items_raw")

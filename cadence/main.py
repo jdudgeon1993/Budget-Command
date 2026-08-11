@@ -307,7 +307,8 @@ def _app(store, demo: bool):
                     ui.html(f'<div class="cd-bar"><div class="cd-bar-fill" '
                             f'style="width:{v["bar"] * 100:.0f}%;background:{v["color"]}"></div></div>')
                 if r.get("split") and r["items"]:
-                    extra = f' · {money(r["unspoken"])} unspoken' if r["unspoken"] > 0.005 else ''
+                    unfunded = sum(1 for it in r["items"] if not it.get("paid") and it.get("item_gap", 0.0) > 0.005)
+                    extra = f' · {unfunded} to fund' if unfunded else ' · all funded ✓'
                     ui.html(f'<div class="cd-sub" style="margin-top:1px">🗓 {r["items_paid"]}/{len(r["items"])} bills paid{extra}</div>')
                 ui.html('<div class="cd-tap">Tap to assign / manage →</div>')
             card.on("click", lambda _, e=r["id"]: _open_assign(e))
@@ -450,12 +451,14 @@ def _app(store, demo: bool):
                                 sp = ui.switch(value=b["split"]).props("dense")
                                 sp.on("update:model-value", lambda: act(lambda: store.set_split(eid, sp.value)))
                             if b["split"]:
-                                if b["unspoken"] > 0.005:
-                                    ui.html(f'<div class="cd-recon">{money(b["items_total"])} of {money(b["target"])} '
-                                            f'assigned · <b>{money(b["unspoken"])} unspoken for</b> — fine to leave, save anyway</div>')
-                                elif b["items"]:
-                                    ui.html(f'<div class="cd-recon ok">Fully assigned ✓ · {money(b["items_total"])} '
-                                            f'across {len(b["items"])} items</div>')
+                                if b["items"]:
+                                    need = round(sum(it.get("item_gap", 0.0) for it in b["items"] if not it.get("paid")), 2)
+                                    if need > 0.005:
+                                        ui.html(f'<div class="cd-recon">{money(b["items_total"])} scheduled across {len(b["items"])} bills '
+                                                f'· <b>{money(need)} still to fund</b> — nearest bills first</div>')
+                                    else:
+                                        ui.html(f'<div class="cd-recon ok">Every bill funded ✓ · {money(b["items_total"])} '
+                                                f'scheduled across {len(b["items"])}</div>')
 
                                 def _item_row(it):
                                     tag_txt, tag_cls, row_cls = _item_due_tag(it)
@@ -468,6 +471,13 @@ def _app(store, demo: bool):
                                         am.on("blur", lambda i=it["id"], el=am: act(lambda: store.edit_item(eid, i, amount=el.value)))
                                         du = ui.select(_dueday_options(), value=_dueday_key(it["due_day"])).props("dense outlined").style("width:84px")
                                         du.on("update:model-value", lambda i=it["id"], el=du: act(lambda: store.edit_item(eid, i, due_day=el.value)))
+                                        # funded state of this individual bill, from the shared pool
+                                        if it.get("paid"):
+                                            ui.html('<span class="cd-idtag green">paid</span>')
+                                        elif it.get("item_gap", 0.0) > 0.005:
+                                            ui.html(f'<span class="cd-idtag red">needs {money(it["item_gap"])}</span>')
+                                        else:
+                                            ui.html('<span class="cd-idtag green">funded</span>')
                                         ui.html(f'<span class="cd-idtag {tag_cls}">{tag_txt}</span>')
                                         ui.button(icon="close", on_click=lambda i=it["id"]: act(lambda: store.remove_item(eid, i))).props("flat dense round size=sm color=grey")
                                 for it in b["items"]:
@@ -547,7 +557,7 @@ def _app(store, demo: bool):
                 return
             checked = ({"ext:" + e["id"] for e in st["external"]}
                        | {"int:" + r["id"] for r in st["internal"]}
-                       | {"ob:" + o["id"] for o in st["obligations"]})   # get-ahead starts off
+                       | {"ob:" + o["key"] for o in st["obligations"]})   # get-ahead starts off
 
             def _compute():
                 cap = st["unallocated"]
@@ -563,10 +573,12 @@ def _app(store, demo: bool):
                         amt["int:" + r["id"]] = a; remaining = round(remaining - a, 2); total += a
                         extra[r["bucket_id"]] = round(extra.get(r["bucket_id"], 0) + a, 2)
                 for o in st["obligations"]:
-                    if "ob:" + o["id"] in checked:
-                        gap_now = max(0.0, round(o["gap"] - extra.get(o["id"], 0), 2))
+                    if "ob:" + o["key"] in checked:
+                        # split items are distinct bills sharing one pool — each funds its
+                        # own gap; non-split obligations net out any rule already aimed here.
+                        gap_now = o["gap"] if o.get("split_item") else max(0.0, round(o["gap"] - extra.get(o["id"], 0), 2))
                         a = round(min(gap_now, remaining), 2)
-                        amt["ob:" + o["id"]] = a; remaining = round(remaining - a, 2); total += a
+                        amt["ob:" + o["key"]] = a; remaining = round(remaining - a, 2); total += a
                         extra[o["id"]] = round(extra.get(o["id"], 0) + a, 2)
                 for n in st["next"]:
                     if "next:" + n["id"] in checked:
@@ -626,7 +638,7 @@ def _app(store, demo: bool):
                     ui.html('<div class="cd-step-h"><span class="cd-step-n">2</span>Fill what\'s due</div>')
                     if st["obligations"]:
                         for o in st["obligations"]:
-                            srow("ob:" + o["id"], o["name"], f'needs {money(o["gap"])}',
+                            srow("ob:" + o["key"], o["name"], f'needs {money(o["gap"])}',
                                  tag=_days_tag(o["days_until_due"]))
                     else:
                         ui.html('<div class="cd-sub" style="padding:2px 2px 8px">Nothing underfunded — every bill is covered. ✓</div>')
@@ -659,7 +671,7 @@ def _app(store, demo: bool):
                                 if a > 0.005:
                                     store.assign(r["bucket_id"], "unallocated", a); moved += a
                             for o in st["obligations"]:
-                                a = amt2.get("ob:" + o["id"], 0)
+                                a = amt2.get("ob:" + o["key"], 0)
                                 if a > 0.005:
                                     store.assign(o["id"], "unallocated", a); moved += a
                             for n in st["next"]:
@@ -1156,10 +1168,11 @@ def _forecast_bills(store) -> list[dict]:
             if r["split"] and r["items"]:
                 for it in r["items"]:
                     if it["amount"] > 0.005 and it["due_day"] is not None:
+                        # per-item funded state: the slice of the pool that reached this bill
                         out.append({"name": f'{r["name"]} · {it["name"]}', "amount": it["amount"],
                                     "spent": it["amount"] if it.get("paid") else 0.0,
-                                    "available": r["available"], "due_day": it["due_day"],
-                                    "frequency": None})
+                                    "available": round(it["amount"] - it.get("item_gap", 0.0), 2),
+                                    "due_day": it["due_day"], "frequency": None})
             elif r["target"] > 0 and (r["due_day"] is not None
                                       or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly")):
                 out.append({"name": r["name"], "amount": r["target"], "spent": r["spent"],

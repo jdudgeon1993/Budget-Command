@@ -74,11 +74,18 @@ def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
         if r["type"] != "spend" or r["flex"] or r["handled"]:   # bills only (goals/vaults aren't "due")
             continue
         dated = r["due_day"] is not None or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly")
-        paid = ((r["split"] and r["items"] and r["items_paid"] >= len(r["items"]))
-                or (not r["split"] and r["target"] > 0 and r["spent"] >= r["target"] - 0.005))
-        if r["gap"] > 0.005 and not paid:                       # underfunded & not paid → obligation
-            obligations.append({"id": r["id"], "name": r["name"], "gap": r["gap"],
-                                "days_until_due": r["days_until_due"]})
+        if r["split"] and r["items"]:
+            # each unpaid, still-underfunded bill is its own obligation, soonest first
+            for it in r["items"]:
+                if not it.get("paid") and it.get("item_gap", 0.0) > 0.005:
+                    obligations.append({"key": f'{r["id"]}#{it["id"]}', "id": r["id"], "split_item": True,
+                                        "name": f'{r["name"]} · {it["name"]}', "gap": it["item_gap"],
+                                        "days_until_due": it["days_until_due"]})
+        elif r["gap"] > 0.005:                                  # non-split, underfunded & not paid
+            paid = r["target"] > 0 and r["spent"] >= r["target"] - 0.005
+            if not paid:
+                obligations.append({"key": r["id"], "id": r["id"], "name": r["name"],
+                                    "gap": r["gap"], "days_until_due": r["days_until_due"]})
         if dated and r["target"] > 0:                           # any dated bill → can pre-fund
             nexts.append({"id": r["id"], "name": r["name"], "amount": round(r["target"], 2),
                           "days_until_due": r["days_until_due"]})
@@ -149,8 +156,9 @@ def seed() -> dict:
     M.add_transfer(s, xfer_out, M.CHECKING, M.SAVINGS, "Move to savings", "2026-08-03")
 
     # Subscriptions is a split bucket: one pool, itemised into individual bills
-    # that feed the Forecast on their own due dates. They sum to $49.46 of the
-    # $60 target — the rest shows as "unspoken for".
+    # that feed the Forecast on their own due dates. The target becomes the sum of
+    # the items ($49.46); the pool funds the nearest unpaid bills first, so the
+    # sheet shows some bills covered and the furthest-out ones still needing money.
     M.set_split(s, ids["Subscriptions"], True)
     for nm, amt, due, paid in [
         ("Netflix", 15.49, 3, True), ("Disney+", 13.99, 12, False),
@@ -215,7 +223,10 @@ class Store:
         else:
             funded, sp = e["funded"], 0.0
             pct = min(1.0, max(0.0, funded / e["target"])) if e["target"] else 0.0
-        items = M.item_rows(e.get("items", []))
+        # split buckets show each bill's own funded state (pool poured over items,
+        # soonest-due first); plain buckets just carry their raw item list.
+        items = (M.item_funding(e.get("items", []), av) if e.get("split")
+                 else M.item_rows(e.get("items", [])))
         gap = round(max(0.0, e.get("target", 0.0) - e["funded"]), 2)
         flex, handled = e.get("flex"), e.get("handled")
         d = _effective_days(M.days_until_due(e), e.get("split"), items)
@@ -227,7 +238,7 @@ class Store:
                 "flex": bool(flex), "handled": bool(handled),
                 "target_date": e.get("target_date"), "notes": e.get("notes", ""),
                 "split": bool(e.get("split")), "items": items,
-                "items_total": M.items_total(e), "unspoken": M.unspoken(e),
+                "items_total": M.items_total(e),
                 "items_paid": sum(1 for it in e.get("items", []) if it.get("paid")),
                 "days_until_due": d, "status": status,
                 "urgency": M.urgency_score(av, gap, d, flex, handled, typ == M.VAULT)}

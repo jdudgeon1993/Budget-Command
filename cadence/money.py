@@ -78,12 +78,23 @@ def add_envelope(s: dict, name: str, cat_id: str, type: str = SPEND,
 
 
 # ── Split buckets: a bill schedule inside one envelope ────────────────────────
-# One pool of money, itemised into scheduled line-items (name/amount/due) that
-# sum toward the target and feed the Forecast individually. Non-blocking — the
-# items don't have to add up; the shortfall is shown as "unspoken for".
+# One pool of money, itemised into scheduled line-items (name/amount/due). The
+# schedule drives the number: the target IS the sum of the items, so there's
+# nothing to reconcile by hand. Each item feeds the Forecast on its own due date
+# and learns its own funded state as the pool is poured over the bills in due
+# order (see item_funding).
+
+def sync_split_target(e: dict) -> None:
+    """A split bucket's target IS the sum of its line-items — the schedule drives
+    the number, so there's nothing to reconcile by hand."""
+    if e.get("split"):
+        e["target"] = items_total(e)
+
 
 def set_split(s: dict, eid: str, on: bool) -> None:
-    env(s, eid)["split"] = bool(on)
+    e = env(s, eid)
+    e["split"] = bool(on)
+    sync_split_target(e)
 
 
 def add_item(s: dict, eid: str, name: str, amount: float, due_day=None) -> dict:
@@ -92,22 +103,26 @@ def add_item(s: dict, eid: str, name: str, amount: float, due_day=None) -> dict:
             "amount": round(float(amount or 0), 2), "due_day": _norm_due_day(due_day),
             "paid": False}
     e.setdefault("items", []).append(item)
+    sync_split_target(e)
     return item
 
 
 def edit_item(s: dict, eid: str, iid: str, name=None, amount=None, due_day=None) -> None:
-    it = next(x for x in env(s, eid).get("items", []) if x["id"] == iid)
+    e = env(s, eid)
+    it = next(x for x in e.get("items", []) if x["id"] == iid)
     if name is not None:
         it["name"] = name.strip() or it["name"]
     if amount is not None:
         it["amount"] = round(float(amount or 0), 2)
     if due_day is not None:
         it["due_day"] = _norm_due_day(due_day)
+    sync_split_target(e)
 
 
 def remove_item(s: dict, eid: str, iid: str) -> None:
     e = env(s, eid)
     e["items"] = [x for x in e.get("items", []) if x["id"] != iid]
+    sync_split_target(e)
 
 
 def toggle_item_paid(s: dict, eid: str, iid: str) -> None:
@@ -128,9 +143,27 @@ def items_total(e: dict) -> float:
     return round(sum(i["amount"] for i in e.get("items", [])), 2)
 
 
-def unspoken(e: dict) -> float:
-    """How much of the target hasn't been claimed by a line-item yet."""
-    return round(max(0.0, e.get("target", 0.0) - items_total(e)), 2)
+def item_funding(items: list[dict], available: float) -> list[dict]:
+    """Pour the bucket's available pool over the line-items in due order (soonest
+    first, paid items handled) and tell each one whether it's covered. This is how
+    both Distribution and the Forecast reason about a split bucket per-bill instead
+    of as one lump: the nearest bills get funded first, and each item carries the
+    `item_gap` still needed for it.
+
+    `available` is the shared pool (funded − spent). Paid items are done — they
+    don't draw on the pool and never carry a gap."""
+    rows = item_rows(items)                     # sorted soonest-due first; paid sink
+    pool = round(max(0.0, available), 2)
+    out = []
+    for it in rows:
+        if it.get("paid"):
+            out.append({**it, "covered": True, "item_gap": 0.0})
+            continue
+        take = round(min(pool, it["amount"]), 2)
+        pool = round(pool - take, 2)
+        out.append({**it, "covered": take >= it["amount"] - 0.005,
+                    "item_gap": round(max(0.0, it["amount"] - take), 2)})
+    return out
 
 
 def env(s: dict, eid: str) -> dict:
