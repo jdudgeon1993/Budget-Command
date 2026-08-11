@@ -328,6 +328,7 @@ def _app(store, demo: bool):
                 @ui.refreshable
                 def body():
                     b = store.bucket(eid)
+                    is_vault = b["type"] == "vault"
 
                     def act(fn):
                         try:
@@ -362,8 +363,40 @@ def _app(store, demo: bool):
                         {bar}
                       </div>''')
 
-                    # ── ASSIGN MONEY ──
-                    with ui.element("div").classes("cd-sh-sec"):
+                    # ── VAULT: locked savings — Add / Release, never a transaction ──
+                    if is_vault:
+                        with ui.element("div").classes("cd-sh-sec"):
+                            ui.html('<div class="cd-sh-h">🔒 Locked savings</div>')
+                            ui.html('<div class="cd-sub" style="margin:-4px 0 12px">A transaction can never touch a '
+                                    'vault. Grow it by moving money in; the only way out is a deliberate release back '
+                                    'to Ready to Assign.</div>')
+                            sources = store.fund_sources(eid)
+                            src_map = {s["id"]: f'{s["name"]}  ·  {money(s["avail"])}' for s in sources}
+                            # Add
+                            addamt = ui.number(placeholder="0.00", prefix="$").props("dense outlined hide-bottom-space").classes("w-full")
+                            addsrc = ui.select(src_map, value="unallocated", label="From").props("outlined dense").classes("w-full q-mt-sm")
+
+                            def do_add():
+                                amt = float(addamt.value or 0)
+                                if amt <= 0:
+                                    ui.notify("Enter an amount to add.", type="warning"); return
+                                act(lambda: store.assign(eid, addsrc.value, amt))
+                            ui.button("＋ Add to vault", on_click=do_add).props("unelevated color=purple no-caps").classes("w-full q-mt-sm")
+                            # Release
+                            ui.html('<div class="cd-sub" style="margin:14px 0 6px;font-weight:600">Release savings</div>')
+                            with ui.row().classes("items-center no-wrap w-full q-gutter-sm"):
+                                relamt = ui.number(placeholder="0.00", prefix="$", value=round(b["available"], 2)).props("dense outlined hide-bottom-space").style("width:130px")
+
+                                def do_release():
+                                    amt = float(relamt.value or 0)
+                                    if amt <= 0:
+                                        ui.notify("Enter an amount to release.", type="warning"); return
+                                    act(lambda: store.release_vault(eid, amt))
+                                ui.button("Release to Ready to Assign", on_click=do_release).props("outline color=purple no-caps").style("flex:1")
+
+                    # ── ASSIGN MONEY (non-vault) ──
+                    if not is_vault:
+                      with ui.element("div").classes("cd-sh-sec"):
                         ui.html('<div class="cd-sh-h">Assign money</div>')
                         gap, over = b["gap"], round(max(0.0, -b["available"]), 2)
                         sources = store.fund_sources(eid)

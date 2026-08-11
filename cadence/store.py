@@ -303,6 +303,11 @@ class Store:
     def move(self, src: str, dst: str, amount: float):
         M.move(self.s, src, dst, min(amount, M.env(self.s, src)["funded"]))
 
+    def release_vault(self, eid: str, amount: float):
+        """Deliberately move money out of a vault back to Unallocated — the only
+        way a vault gives money up. Clamped to what it holds."""
+        M.defund(self.s, eid, min(round(float(amount or 0), 2), M.env(self.s, eid)["funded"]))
+
     def rename(self, eid: str, name: str):
         M.rename(self.s, eid, name)
 

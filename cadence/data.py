@@ -345,6 +345,22 @@ class LiveStore:
         self.defund(src, amount)
         self.fund(dst, amount)
 
+    def _is_vault(self, bid) -> bool:
+        b = next((x for x in self.data["buckets"] if x["id"] == bid), None)
+        return bool(b) and _TYPE.get(b.get("type", "expense")) == "vault"
+
+    def release_vault(self, bid: str, amount: float):
+        """Deliberately move money OUT of a vault, back to Ready to Assign — the
+        only way a vault ever gives money up. Clamped to what it actually holds."""
+        held = self.bucket(bid)["available"]
+        amount = round(min(float(amount or 0), held), 2)
+        if amount <= 0.005:
+            return
+        DB.ensure_month(self.uid, self.token, self._mid)
+        DB.vault_release_to_pool(self.uid, self.token, self._mid, bid, amount,
+                                 F.b_alloc(self._month, bid))
+        self._reload("allocs_raw", "vaultwd_raw", "months_raw")
+
     # ── live writes ───────────────────────────────────────────────────────────
     # Cadence type → bcc bucket type. Money columns split by type: expense uses
     # default_budget/pay_freq; goal & vault use target_amount/contrib_freq.
@@ -446,9 +462,13 @@ class LiveStore:
         return _d(y, m0 + 1, calendar.monthrange(y, m0 + 1)[1]).isoformat()
 
     def record_spend(self, bid: str, amount: float, desc: str = ""):
+        if self._is_vault(bid):
+            raise ValueError("A vault is locked — no transaction can touch it. Release money to Ready to Assign instead.")
         self._insert_tx("out", amount, bid, desc, self._view_date())
 
     def add_transaction(self, kind: str, amount: float, bucket_id, desc: str, date: str):
+        if kind in ("expense", "refund") and self._is_vault(bucket_id):
+            raise ValueError("A vault is locked — no transaction can touch it. Release money to Ready to Assign instead.")
         if kind == "income":
             self._insert_tx("in", amount, None, desc, date, income_type="other")
         elif kind == "refund":                       # money back to a bucket = negative spend

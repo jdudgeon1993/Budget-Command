@@ -247,6 +247,29 @@ def upsert_alloc(uid: str, token: str, mid: str, bid: str, amount: float) -> Non
     }, on_conflict="user_id,month_id,bucket_id").execute()
 
 
+def vault_release_to_pool(uid: str, token: str, mid: str, bid: str,
+                          amount: float, current_alloc: float) -> None:
+    """Release vault savings back to Ready to Assign. Drains this month's
+    allocation first; any remainder comes from prior-month savings and is booked
+    as a vault withdrawal (which bucket_available subtracts), so accumulated vault
+    money can be released even though allocations never go negative."""
+    db = client(token)
+    from_alloc = min(amount, max(0.0, current_alloc))
+    remaining = round(amount - from_alloc, 2)
+    db.table("bcc_month_allocations").upsert({
+        "user_id": uid, "month_id": mid, "bucket_id": bid,
+        "amount": round(current_alloc - from_alloc, 2),
+    }, on_conflict="user_id,month_id,bucket_id").execute()
+    if remaining > 0:
+        existing = db.table("bcc_month_vault_withdrawals").select("amount") \
+            .eq("user_id", uid).eq("month_id", mid).eq("bucket_id", bid).execute().data or []
+        existing_wd = float(existing[0]["amount"]) if existing else 0.0
+        db.table("bcc_month_vault_withdrawals").upsert({
+            "user_id": uid, "month_id": mid, "bucket_id": bid,
+            "amount": round(existing_wd + remaining, 2),
+        }, on_conflict="user_id,month_id,bucket_id").execute()
+
+
 def ensure_month(uid: str, token: str, mid: str) -> None:
     c = client(token)
     existing = c.table("bcc_months").select("id").eq("id", mid).eq("user_id", uid).execute()
