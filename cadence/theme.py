@@ -80,6 +80,21 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-aom-ic{font-size:13px;filter:grayscale(.1)}
 .cd-aom-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .cd-aom-val{font-size:13px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.cd-monthbar{display:flex;align-items:center;gap:8px;margin:14px 0 2px;padding:6px 10px;
+  border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.cd-monthbar.past{border-color:var(--warn-ink,#b45309);background:var(--warn-soft,rgba(245,158,11,.08))}
+.cd-monthbar.future{border-color:var(--accent);background:var(--accent-soft,rgba(99,102,241,.08))}
+.cd-mb-ic{cursor:pointer;font-size:18px;font-weight:800;color:var(--muted);
+  width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:8px;user-select:none}
+.cd-mb-ic:hover{background:var(--line);color:var(--ink)}
+.cd-mb-sel{min-width:140px;font-weight:700}
+.cd-mb-tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:3px 9px;border-radius:20px}
+.cd-mb-tag.past{background:var(--warn-ink,#b45309);color:#fff}
+.cd-mb-tag.future{background:var(--accent);color:#fff}
+.cd-mb-today{margin-left:auto;cursor:pointer;font-size:12px;font-weight:700;color:var(--accent)}
+.cd-mb-today:hover{text-decoration:underline}
 
 /* ── action bar + buttons (shared) ────────────────────────────────────────── */
 .cd-actionbar{display:flex;align-items:center;margin:6px 4px 18px}

@@ -706,6 +706,29 @@ def _app(store, demo: bool):
                 else:
                     ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>').style("margin-left:auto")
 
+        def monthbar():
+            # Month navigation is a live-data feature — the demo has no month model.
+            if demo or not hasattr(store, "view_month"):
+                return
+            vm = store.view_month()
+            opts, ids = vm["options"], [o["mid"] for o in vm["options"]]
+            labels = {o["mid"]: (o["label"] + (" · planning" if o["rel"] == "future" else "")) for o in opts}
+            i = ids.index(vm["mid"]) if vm["mid"] in ids else len(ids) - 1
+            rel = next((o["rel"] for o in opts if o["mid"] == vm["mid"]), "current")
+
+            def go(mid):
+                store.set_view_month(mid); refresh_page()
+
+            with ui.element("div").classes("cd-monthbar" + ("" if vm["is_current"] else f" {rel}")):
+                ui.html('<span class="cd-mb-ic">‹</span>').on("click", lambda _: go(ids[max(0, i - 1)]))
+                sel = ui.select(labels, value=vm["mid"]).props("dense borderless options-dense").classes("cd-mb-sel")
+                sel.on("update:model-value", lambda: go(sel.value))
+                ui.html('<span class="cd-mb-ic">›</span>').on("click", lambda _: go(ids[min(len(ids) - 1, i + 1)]))
+                if not vm["is_current"]:
+                    tag = "catching up · previous month" if rel == "past" else "planning ahead"
+                    ui.html(f'<span class="cd-mb-tag {rel}">{tag}</span>')
+                    ui.html('<span class="cd-mb-today">Back to today →</span>').on("click", lambda _: go(vm["today"]))
+
         @ui.refreshable
         def content():
             if state["view"] == "ledger":
@@ -716,6 +739,7 @@ def _app(store, demo: bool):
                 _settings_view(store, refresh_page)
             else:
                 hero()
+                monthbar()
                 actionbar()
                 buckets()
         content()

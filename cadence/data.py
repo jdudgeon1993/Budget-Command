@@ -12,6 +12,16 @@ from .store import _effective_days, _build_steps
 # bcc bucket type → Cadence type
 _TYPE = {"expense": "spend", "vault": "vault", "goal": "goal", "sinking": "goal"}
 _FALLBACK = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f43f5e"]
+_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _month_label(mid: str) -> str:
+    """m_2026_7 → 'Aug 2026' (month is 0-indexed)."""
+    try:
+        y, m = F.parse_month_id(mid)
+        return f"{_MONTHS[m]} {y}"
+    except (ValueError, IndexError):
+        return mid
 
 
 def sign_in(email: str, password: str) -> dict:
@@ -25,6 +35,7 @@ class LiveStore:
 
     def __init__(self, uid: str, token: str, email: str = ""):
         self.uid, self.token, self.email = uid, token, email
+        self._view_mid = None          # None = follow today; else a browsed month
         self._load()
 
     def _load(self):
@@ -43,9 +54,33 @@ class LiveStore:
 
     def _assemble(self):
         self.data = DB.assemble(self._raw)
-        self._mid = F.current_month_id()
+        # The browsed month drives Buckets display + where funding/spending lands;
+        # RTS stays anchored to today inside ready_to_spend regardless.
+        self._mid = self._view_mid or F.current_month_id()
         self._month = next((m for m in self.data["months"] if m["id"] == self._mid),
                            {"id": self._mid, "allocations": {}, "budgets": {}, "handledBuckets": {}})
+
+    # ── month navigation ──────────────────────────────────────────────────────
+    def set_view_month(self, mid):
+        """Browse a different month (None returns to today). Re-derives from the
+        already-cached rows — no network — since every month is loaded up front."""
+        self._view_mid = None if (mid is None or mid == F.current_month_id()) else mid
+        self._assemble()
+
+    def view_month(self) -> dict:
+        """Current browse state for the month bar: the viewed month, whether it's
+        today, and the list of months you can jump to (past → a few for planning)."""
+        today = F.current_month_id()
+        known = {m["id"] for m in self.data["months"]}
+        # every real month, today, and 3 months out for forward planning
+        mids = set(known) | {today} | {F.month_offset(today, n) for n in range(1, 4)}
+        ordered = sorted(mids, key=F.month_sort_key)
+        opts = [{"mid": mid, "label": _month_label(mid),
+                 "rel": ("future" if F.month_sort_key(mid) > F.month_sort_key(today)
+                         else "past" if F.month_sort_key(mid) < F.month_sort_key(today) else "current")}
+                for mid in ordered]
+        return {"mid": self._mid, "today": today, "is_current": self._mid == today,
+                "label": _month_label(self._mid), "options": opts}
 
     def _buckets(self):
         return [b for b in self.data["buckets"] if not b.get("archived")]
@@ -362,9 +397,19 @@ class LiveStore:
         DB.insert(self.token, "bcc_transactions", row)
         self._reload("txs_raw")
 
-    def record_spend(self, bid: str, amount: float, desc: str = ""):
+    def _view_date(self) -> str:
+        """A date inside the month you're browsing — today when that's the current
+        month, otherwise the last day of the viewed month, so a spend logged while
+        catching up on a past month lands where you expect."""
         from datetime import date as _d
-        self._insert_tx("out", amount, bid, desc, _d.today().isoformat())
+        import calendar
+        if not self._view_mid or self._view_mid == F.current_month_id():
+            return _d.today().isoformat()
+        y, m0 = F.parse_month_id(self._view_mid)          # m0 is 0-indexed
+        return _d(y, m0 + 1, calendar.monthrange(y, m0 + 1)[1]).isoformat()
+
+    def record_spend(self, bid: str, amount: float, desc: str = ""):
+        self._insert_tx("out", amount, bid, desc, self._view_date())
 
     def add_transaction(self, kind: str, amount: float, bucket_id, desc: str, date: str):
         if kind == "income":
