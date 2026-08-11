@@ -75,6 +75,11 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-legend span{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
 .cd-legend b{color:var(--ink);font-weight:700}
 .cd-legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.cd-aom{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:7px 12px;
+  border-radius:10px;background:var(--accent-soft,rgba(99,102,241,.08));border:1px solid var(--line);width:fit-content}
+.cd-aom-ic{font-size:13px;filter:grayscale(.1)}
+.cd-aom-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.cd-aom-val{font-size:13px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
 
 /* ── action bar + buttons (shared) ────────────────────────────────────────── */
 .cd-actionbar{display:flex;align-items:center;margin:6px 4px 18px}

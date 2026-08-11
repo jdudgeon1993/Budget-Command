@@ -194,6 +194,7 @@ class Store:
             "unallocated": un,
             "cash": cash,                          # the checking account total
             "in_buckets": round(cash - un, 2),     # everything assigned to a bucket
+            "age_of_money": M.age_of_money(self.s),
         }
 
     # ── buckets grouped by category ───────────────────────────────────────────

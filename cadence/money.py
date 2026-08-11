@@ -514,3 +514,37 @@ def ready_to_spend(s: dict) -> float:
 
 def available_balance(s: dict) -> float:
     return account_balance(s, CHECKING)
+
+
+def total_cash(s: dict) -> float:
+    """Every cash-flow account combined — checking + savings."""
+    return round(sum(account_balance(s, a["id"]) for a in s["accounts"]), 2)
+
+
+def age_of_money(s: dict, window_days: int = 30) -> int | None:
+    """Days between earning a dollar and spending it — the signature ZBB metric.
+    Total cash divided by the recent daily spend rate. None when there's no
+    spending to measure against; capped at 99."""
+    from datetime import timedelta
+    today = date.today()
+    cutoff = today - timedelta(days=window_days)
+    spending = 0.0
+    for t in s["transactions"]:
+        if t["kind"] != EXPENSE:
+            continue
+        d = _parse_date(t.get("date"))
+        if d and cutoff <= d <= today:
+            spending += t["amount"]
+    if spending <= 0:
+        return None
+    cash = total_cash(s)
+    if cash <= 0:
+        return 0
+    return min(99, round(cash / (spending / window_days)))
+
+
+def _parse_date(v):
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except (ValueError, TypeError):
+        return None

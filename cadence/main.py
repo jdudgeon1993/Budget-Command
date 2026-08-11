@@ -245,6 +245,7 @@ def _app(store, demo: bool):
         def hero():
             m = store.metrics()
             un, cash, inb = m["unallocated"], m["cash"], m["in_buckets"]
+            aom = m.get("age_of_money")
             tot = cash if cash > 0 else 1
             wu, wb = (max(0, un) / tot * 100, max(0, inb) / tot * 100)
             if un <= 0.005:   # zero-based win — every dollar has a job
@@ -271,6 +272,11 @@ def _app(store, demo: bool):
                     <span><i style="background:var(--accent)"></i>Unallocated <b>{money(un)}</b></span>
                     <span><i style="background:var(--pos)"></i>In buckets <b>{money(inb)}</b></span>
                     <span style="margin-left:auto"><i style="background:var(--ink);opacity:.25"></i>Checking <b>{money(cash)}</b></span>
+                  </div>
+                  <div class="cd-aom" title="Age of Money — days between earning a dollar and spending it. Higher means you're spending last month's money, not this one's.">
+                    <span class="cd-aom-ic">🕰</span>
+                    <span class="cd-aom-lbl">Age of money</span>
+                    <span class="cd-aom-val">{(str(aom) + (" days" if aom != 1 else " day")) if aom is not None else "—"}</span>
                   </div>
                 </div>
               </div>''')

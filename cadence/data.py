@@ -59,6 +59,7 @@ class LiveStore:
             "unallocated": round(unalloc, 2),
             "cash": round(cash, 2),                # the checking account total
             "in_buckets": round(cash - unalloc, 2),  # everything assigned to a bucket
+            "age_of_money": F.age_of_money(acc, txs),
         }
 
     # ── display row for one real bucket (shared by groups() + bucket()) ───────
