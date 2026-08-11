@@ -160,26 +160,42 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-sh-title{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:2px 2px 3px}
 .cdm-sub{font-size:12px;color:var(--muted);margin:2px 0 14px;line-height:1.45}
 .cd-half{flex:1 1 46%;min-width:150px}
-/* bucket sheet — readable, sectioned layout */
-.cd-sh-head{padding:0 2px 4px}
-.cd-sh-top{display:flex;align-items:center;gap:10px}
-.cd-sh-name{font-size:19px;font-weight:800;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cd-sh-avail{font-size:32px;font-weight:800;letter-spacing:-.02em;margin:10px 0 1px}
-.cd-sh-avail span{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0}
-.cd-sh-sec{padding:16px 0 6px;margin-top:6px;border-top:1px solid var(--line)}
-.cd-sh-h{font-size:14px;font-weight:800;letter-spacing:-.01em;margin-bottom:12px}
-.cd-pullrow{gap:10px}
+/* ── bucket sheet (redesigned: hero → primary action → settings) ──────────── */
+.cd-bs-head{padding:0 2px}
+.cd-bs-top{display:flex;align-items:center;gap:10px}
+.cd-bs-name{font-size:21px;font-weight:800;letter-spacing:-.02em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-bs-avail{font-size:37px;font-weight:800;letter-spacing:-.03em;line-height:1.02;margin:12px 0 0}
+.cd-bs-avail span{font-size:13px;font-weight:600;color:var(--muted);margin-left:8px;letter-spacing:0}
+.cd-bs-bar{height:9px;border-radius:6px;background:var(--line);overflow:hidden;margin:15px 0 8px}
+.cd-bs-bar>i{display:block;height:100%;border-radius:6px;transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.cd-bs-flex{height:9px;border-radius:6px;margin:15px 0 8px;background:repeating-linear-gradient(90deg,var(--info-soft) 0 8px,transparent 8px 14px)}
+.cd-bs-meta{font-size:12.5px;color:var(--muted);font-weight:500}
+.cd-bs-sec{margin-top:24px}
+.cd-bs-lbl{display:flex;align-items:baseline;gap:8px;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 2px 11px}
+.cd-bs-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.cd-bs-card.primary{background:linear-gradient(180deg,var(--accent-soft),var(--card) 74%);border-color:#e0e2fb}
+.cd-bs-card.vault{background:linear-gradient(180deg,var(--violet-soft),var(--card) 74%);border-color:#e7defb}
+.cd-bs-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+.cd-bs-out{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.cd-bs-out .l{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.cd-bs-settings{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:6px 16px 10px}
+.cd-bs-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 2px;border-top:1px solid var(--line)}
+.cd-bs-toggle .t{font-size:13.5px;font-weight:600}
+.cd-bs-toggle .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.cd-bs-foot{display:flex;align-items:center;padding-top:18px;margin-top:22px;border-top:1px solid var(--line)}
 .cd-sh-foot{padding-top:14px;margin-top:6px;border-top:1px solid var(--line)}
-/* split-bucket bill schedule */
-.cd-recon{font-size:12px;color:var(--warn-ink);background:var(--warn-soft);border-radius:10px;padding:9px 12px;margin:0 0 10px;line-height:1.4}
+/* split-bucket bill schedule — two-line item cards */
+.cd-recon{font-size:12px;color:var(--warn-ink);background:var(--warn-soft);border-radius:10px;padding:10px 13px;margin:0 0 12px;line-height:1.45}
 .cd-recon.ok{color:var(--pos);background:var(--pos-soft)}
 .cd-recon b{font-weight:800}
-.cd-item{gap:6px;padding:5px 6px;border-radius:10px;margin:0 -6px}
-.cd-item .q-field{margin:0}
-.cd-item.soon{background:var(--warn-soft)}
-.cd-item.past{background:var(--neg-soft)}
-.cd-item.paid{opacity:.55}
-.cd-idtag{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:2px 6px;border-radius:6px;white-space:nowrap;min-width:52px;text-align:center}
+.cd-bill{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:10px 12px 11px;margin-bottom:9px}
+.cd-bill.soon{border-color:#f4dfb8;background:var(--warn-soft)}
+.cd-bill.past{border-color:#f6c9d1;background:var(--neg-soft)}
+.cd-bill.paid{opacity:.6}
+.cd-bill-r1{display:flex;align-items:center;gap:9px}
+.cd-bill-r1 .nm{flex:1;min-width:0;font-weight:700;font-size:14px}
+.cd-bill-r2{display:flex;align-items:center;gap:8px;margin-top:9px}
+.cd-idtag{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:3px 7px;border-radius:6px;white-space:nowrap;text-align:center}
 .cd-idtag.green{background:var(--pos-soft);color:var(--pos)}
 .cd-idtag.amber{background:#fff;color:var(--warn-ink)}
 .cd-idtag.red{background:#fff;color:var(--neg)}
