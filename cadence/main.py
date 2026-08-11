@@ -221,6 +221,8 @@ def _app(store, demo: bool):
             with ui.element("div").classes("cd-auth"):
                 @ui.refreshable
                 def gear():
+                    rcls = "cd-gear active" if state["view"] == "reports" else "cd-gear"
+                    ui.html(f'<span class="{rcls}" title="Reports">📊</span>').on("click", lambda _: go("reports"))
                     cls = "cd-gear active" if state["view"] == "settings" else "cd-gear"
                     ui.html(f'<span class="{cls}" title="Settings">⚙</span>').on("click", lambda _: go("settings"))
                 gear()
@@ -787,6 +789,8 @@ def _app(store, demo: bool):
                 _forecast_view(store, refresh_page)
             elif state["view"] == "settings":
                 _settings_view(store, refresh_page)
+            elif state["view"] == "reports":
+                _reports_view(store, refresh_page, monthbar)
             else:
                 hero()
                 monthbar()
@@ -1328,6 +1332,93 @@ def _settings_view(store, refresh_bg):
         for r in store.rules():
             _rule_row(r)
         ui.html('<div class="cd-set-add">＋ Add rule</div>').on("click", lambda _: _open_rule())
+
+
+# ── Reports (Budget vs Actual + spending mix, for the viewed month) ───────────
+def _reports_view(store, refresh_bg, monthbar=None):
+    """Budget vs Actual and where the money went — computed from the buckets as
+    they stand in the viewed month, so the month bar drives the report too."""
+    groups = store.groups()
+
+    # Budget vs Actual: only spend buckets actually spend. A flex bucket has no
+    # budget line, so it contributes to spending but not to the variance table.
+    bva, grand_b, grand_s = [], 0.0, 0.0
+    spend_by_cat = []
+    for g in groups:
+        rows, cb, cs = [], 0.0, 0.0
+        cat_spent = 0.0
+        for r in g["rows"]:
+            cat_spent += r["spent"]
+            if r["type"] != "spend":
+                continue
+            budget = 0.0 if r["flex"] else round(r["target"], 2)
+            spent = round(r["spent"], 2)
+            if budget < 0.005 and spent < 0.005:
+                continue
+            pct = min(999, round(spent / budget * 100)) if budget > 0.005 else 0
+            rows.append({"name": r["name"], "budget": budget, "spent": spent,
+                         "variance": round(budget - spent, 2), "pct": pct, "flex": r["flex"]})
+            cb += budget; cs += spent
+        if rows:
+            bva.append({"name": g["name"], "color": g["color"], "budget": round(cb, 2),
+                        "spent": round(cs, 2), "variance": round(cb - cs, 2), "buckets": rows})
+            grand_b += cb; grand_s += cs
+        if cat_spent > 0.005:
+            spend_by_cat.append({"name": g["name"], "color": g["color"], "spent": round(cat_spent, 2)})
+
+    ui.html('<div class="cd-set-title">Reports</div>'
+            '<div class="cdm-sub" style="margin-bottom:8px">Budget vs actual and where your money '
+            'went — for the month you\'re viewing.</div>')
+    if monthbar:
+        monthbar()
+
+    # ── Budget vs Actual ──
+    with ui.element("div").classes("cd-setcard"):
+        gv = round(grand_b - grand_s, 2)
+        gcol = "var(--pos)" if gv >= 0 else "var(--neg)"
+        ui.html('<div class="cd-set-seclbl">Budget vs actual</div>')
+        if not bva:
+            ui.html('<div class="cd-sub" style="padding:6px 2px">No budgeted spending in this month yet.</div>')
+        for c in bva:
+            vcol = "var(--pos)" if c["variance"] >= 0 else "var(--neg)"
+            ui.html(f'''<div class="cd-rpt-cat">
+                <span class="cd-dot" style="background:{c['color']}"></span>
+                <span class="cd-rpt-cat-name">{_esc(c['name'])}</span>
+                <span class="cd-rpt-cat-nums">{money(c['spent'])} <span style="color:var(--muted)">of {money(c['budget'])}</span>
+                  · <b style="color:{vcol}">{money(abs(c['variance']))} {'left' if c['variance'] >= 0 else 'over'}</b></span>
+              </div>''')
+            for b in c["buckets"]:
+                if b["flex"]:
+                    meta = f'{money(b["spent"])} spent · flexible'
+                    bar = '<div class="cd-rpt-bar"><div class="cd-rpt-fill flex" style="width:100%"></div></div>'
+                else:
+                    over = b["variance"] < 0
+                    w = min(100, b["pct"])
+                    bar = (f'<div class="cd-rpt-bar"><div class="cd-rpt-fill {"over" if over else ""}" '
+                           f'style="width:{w}%"></div></div>')
+                    meta = f'{money(b["spent"])} of {money(b["budget"])} · {b["pct"]}%'
+                ui.html(f'''<div class="cd-rpt-bkt">
+                    <div class="cd-rpt-bkt-top"><span>{_esc(b['name'])}</span><span class="cd-sub">{meta}</span></div>
+                    {bar}
+                  </div>''')
+        if bva:
+            ui.html(f'<div class="cd-tally">Overall <b>{money(grand_s)}</b> spent of '
+                    f'<b>{money(grand_b)}</b> budgeted · <b style="color:{gcol}">'
+                    f'{money(abs(gv))} {"under" if gv >= 0 else "over"}</b></div>')
+
+    # ── Spending mix ──
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Where the money went</div>')
+        total = sum(c["spent"] for c in spend_by_cat)
+        if total < 0.005:
+            ui.html('<div class="cd-sub" style="padding:6px 2px">No spending recorded in this month.</div>')
+        for c in sorted(spend_by_cat, key=lambda x: x["spent"], reverse=True):
+            share = round(c["spent"] / total * 100) if total > 0 else 0
+            ui.html(f'''<div class="cd-rpt-bkt">
+                <div class="cd-rpt-bkt-top"><span><span class="cd-dot" style="background:{c['color']}"></span>
+                  {_esc(c['name'])}</span><span class="cd-sub">{money(c['spent'])} · {share}%</span></div>
+                <div class="cd-rpt-bar"><div class="cd-rpt-fill" style="width:{share}%;background:{c['color']}"></div></div>
+              </div>''')
 
 
 # ── Forecast pillar (forward cash-flow projection) ────────────────────────────
