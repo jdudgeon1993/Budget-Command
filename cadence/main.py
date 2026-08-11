@@ -87,7 +87,15 @@ def _bucket_visual(r: dict) -> dict:
         if gap <= 0.005 and target > 0:
             return out("Funded", "green", 1.0, GREEN, f"{money(funded)} of {money(target)} · goal reached")
         pct = funded / target if target > 0 else 0.0
-        return out("Funding", "amber", pct, AMBER, f"{money(funded)} of {money(target)} goal")
+        # surface the monthly pace to hit the goal by its target date, right on the card
+        pace, td = "", r.get("target_date")
+        if td and gap > 0:
+            months = _months_until_month(td)
+            if months and months > 0:
+                pace = f" · {money(gap / months)}/mo to stay on pace"
+            elif months is not None and months <= 0:
+                pace = " · target date passed"
+        return out("Funding", "amber", pct, AMBER, f"{money(funded)} of {money(target)} goal{pace}")
 
     # ── spend buckets ──
     if av < -0.005:                                   # overspent
@@ -200,6 +208,10 @@ def _app(store, demo: bool):
     def go(view):
         if view == state["view"]:
             return
+        # Ledger and Forecast are inherently "now / forward" views — they must never
+        # read a browsed past month (Buckets & Reports share that browse state).
+        if view in ("ledger", "forecast") and hasattr(store, "set_view_month"):
+            store.set_view_month(None)
         state["view"] = view
         nav.refresh()
         gear.refresh()
@@ -735,7 +747,7 @@ def _app(store, demo: bool):
                             for n in st["next"]:
                                 a = amt2.get("next:" + n["id"], 0)
                                 if a > 0.005:
-                                    store.assign(n["id"], "unallocated", a); moved += a
+                                    store.prefund(n["id"], a); moved += a   # lands in NEXT month
                         except Exception as e:
                             ui.notify(str(e)[:150], type="warning"); return
                         dlg.close(); refresh_page()

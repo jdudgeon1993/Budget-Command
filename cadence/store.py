@@ -155,6 +155,11 @@ def seed() -> dict:
 
     M.add_transfer(s, xfer_out, M.CHECKING, M.SAVINGS, "Move to savings", "2026-08-03")
 
+    # Give the Vacation Fund a target ~7 months out so the goal shows its monthly pace.
+    _t = date.today()
+    _carry, _m = divmod(_t.month - 1 + 7, 12)
+    M.set_target_date(s, ids["Vacation Fund"], f"{_t.year + _carry}-{_m + 1:02d}")
+
     # Subscriptions is a split bucket: one pool, itemised into individual bills
     # that feed the Forecast on their own due dates. The target becomes the sum of
     # the items ($49.46); the pool funds the nearest unpaid bills first, so the
@@ -307,6 +312,11 @@ class Store:
         """Deliberately move money out of a vault back to Unallocated — the only
         way a vault gives money up. Clamped to what it holds."""
         M.defund(self.s, eid, min(round(float(amount or 0), 2), M.env(self.s, eid)["funded"]))
+
+    def prefund(self, eid: str, amount: float):
+        """Get ahead. The demo has no month model, so this funds from Unallocated
+        like a normal assign — the live app routes it to next month's allocation."""
+        M.fund(self.s, eid, round(float(amount or 0), 2))
 
     def rename(self, eid: str, name: str):
         M.rename(self.s, eid, name)

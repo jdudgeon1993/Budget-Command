@@ -345,6 +345,17 @@ class LiveStore:
         self.defund(src, amount)
         self.fund(dst, amount)
 
+    def prefund(self, bid: str, amount: float):
+        """Get ahead: put money into NEXT month's allocation for this bucket, so it
+        actually carries forward instead of returning to Ready to Assign. RTS today
+        drops by the amount (ready_to_spend subtracts future allocations)."""
+        nxt = F.month_offset(F.current_month_id(), 1)
+        DB.ensure_month(self.uid, self.token, nxt)
+        nxt_month = next((m for m in self.data["months"] if m["id"] == nxt), {"id": nxt, "allocations": {}})
+        new = max(0.0, round(F.b_alloc(nxt_month, bid) + amount, 2))
+        DB.upsert_alloc(self.uid, self.token, nxt, bid, new)
+        self._reload("allocs_raw", "months_raw")
+
     def _is_vault(self, bid) -> bool:
         b = next((x for x in self.data["buckets"] if x["id"] == bid), None)
         return bool(b) and _TYPE.get(b.get("type", "expense")) == "vault"

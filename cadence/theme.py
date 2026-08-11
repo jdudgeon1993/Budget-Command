@@ -52,8 +52,6 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-navbtn:hover{color:var(--ink);background:var(--line)}
 .cd-navbtn.active{color:var(--accent);background:var(--accent-soft)}
 .cd-navbtn.active:hover{color:var(--accent);background:var(--accent-soft)}
-.cd-navbtn.soon{opacity:.5;cursor:default}
-.cd-navbtn.soon:hover{background:none;color:var(--muted)}
 .cd-auth{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
 .cd-chip{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:20px;background:var(--accent-soft);color:var(--accent)}
 .cd-link{color:var(--muted);cursor:pointer;text-decoration:underline;font-weight:500}
@@ -106,14 +104,7 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-distbtn.hot{color:var(--warn-ink);background:var(--warn-soft);border-color:#f6e2c0}
 .cd-hint{margin-left:auto;font-size:12px;color:var(--muted)}
 
-/* ── distribute sheet (Buckets) ───────────────────────────────────────────── */
-.cd-drow{display:flex;align-items:center;gap:12px;padding:11px 2px;border-top:1px solid var(--line)}
-.cd-drow:first-of-type{border-top:none}
-.cd-dname{font-weight:600;font-size:13px}
-.cd-dmeta{font-size:11px;color:var(--muted);margin-top:1px}
-.cd-dleft{position:sticky;bottom:0;background:var(--card);padding:12px 0 2px;border-top:1px solid var(--line);
-  display:flex;align-items:center;font-size:13px;font-weight:600}
-/* stepped distribution flow */
+/* ── distribute sheet (Buckets) — stepped distribution flow ───────────────── */
 .cd-step-h{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;letter-spacing:-.01em;margin:20px 2px 12px}
 .cd-step-n{width:20px;height:20px;border-radius:7px;background:var(--accent);color:#fff;font-size:11px;font-weight:800;
   display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
@@ -166,11 +157,8 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
   border-radius:22px 22px 0 0 !important;box-shadow:0 -20px 60px rgba(16,18,34,.25) !important;
   max-height:92vh;overflow-y:auto}
 .cd-hdl{width:40px;height:4px;border-radius:3px;background:var(--line);margin:0 auto 14px}
-.cd-seclbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
-.cdm-title{font-size:18px;font-weight:800;letter-spacing:-.01em}
 .cd-sh-title{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:2px 2px 3px}
 .cdm-sub{font-size:12px;color:var(--muted);margin:2px 0 14px;line-height:1.45}
-.cdm-input{max-width:150px}
 .cd-half{flex:1 1 46%;min-width:150px}
 /* bucket sheet — readable, sectioned layout */
 .cd-sh-head{padding:0 2px 4px}
@@ -326,6 +314,29 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-fc-uf{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--neg);background:var(--neg-soft);padding:1px 6px;border-radius:6px}
 .cd-fc-eamt{text-align:right;font-weight:700}
 .cd-fc-ebal{text-align:right;font-size:12px}
+
+/* ── phones: stack the multi-column layouts so nothing crowds or overflows ─── */
+@media (max-width:640px){
+  .cd-shell{padding:0 14px 72px}
+  .cd-top{gap:10px 12px;flex-wrap:wrap;padding:16px 2px 6px}
+  .cd-nav{order:3;width:100%;margin-left:0}
+  .cd-nav .cd-navbtn{flex:1;text-align:center;padding:8px 10px}
+  .cd-money{grid-template-columns:1fr;gap:16px;padding:18px 18px}
+  .cd-money-big{font-size:36px}
+  .cd-legend{gap:12px 16px}
+  .cd-grid{grid-template-columns:1fr}
+  .cd-actionbar{flex-wrap:wrap;gap:8px}
+  .cd-actionbar .cd-hint{margin-left:0;width:100%}
+  .cd-led-hd{flex-direction:column;gap:10px}
+  .cd-fc-hero{grid-template-columns:1fr;gap:14px}
+  .cd-fc-low{text-align:left;padding-left:0;border-left:none;
+    border-top:1px solid var(--line);padding-top:14px}
+  .cd-fc-safe{font-size:34px}
+  .cd-fc-erow{grid-template-columns:46px 1fr auto 72px;gap:7px;font-size:12px}
+  .cd-sheet{padding:12px 16px 18px !important;border-radius:20px 20px 0 0 !important}
+  .cd-sh-avail{font-size:28px}
+  .cd-set-title{font-size:21px}
+}
 """
 
 
