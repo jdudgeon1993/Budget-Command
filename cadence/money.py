@@ -86,10 +86,37 @@ def _id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def add_category(s: dict, name: str, color: str) -> dict:
-    c = {"id": _id(), "name": name, "color": color}
+_CAT_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#f43f5e", "#3b82f6"]
+
+
+def add_category(s: dict, name: str, color: str | None = None) -> dict:
+    color = color or _CAT_COLORS[len(s["categories"]) % len(_CAT_COLORS)]
+    c = {"id": _id(), "name": (name or "Category").strip() or "Category", "color": color}
     s["categories"].append(c)
     return c
+
+
+def rename_category(s: dict, cid: str, name: str) -> None:
+    c = next((x for x in s["categories"] if x["id"] == cid), None)
+    if c and (name or "").strip():
+        c["name"] = name.strip()
+
+
+def move_category(s: dict, cid: str, direction: str) -> None:
+    """Reorder a category up/down — the buckets screen groups in this order."""
+    cats = s["categories"]
+    i = next((k for k, c in enumerate(cats) if c["id"] == cid), None)
+    if i is None:
+        return
+    j = i - 1 if direction == "up" else i + 1
+    if 0 <= j < len(cats):
+        cats[i], cats[j] = cats[j], cats[i]
+
+
+def archive_category(s: dict, cid: str) -> None:
+    if any(e.get("cat_id") == cid for e in s["envelopes"]):
+        raise ValueError("Move or remove its buckets first.")
+    s["categories"] = [c for c in s["categories"] if c["id"] != cid]
 
 
 def add_envelope(s: dict, name: str, cat_id: str, type: str = SPEND,

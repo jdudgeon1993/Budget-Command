@@ -521,8 +521,25 @@ def _app(store, demo: bool):
                 ui.html('<div class="cdm-sub">Name it, give it a home, and tell the Forecast when it is due.</div>')
                 name = ui.input("Name").props("dense outlined").classes("w-full")
                 cats = store.categories()
-                cat = ui.select({c["id"]: c["name"] for c in cats}, label="Category",
-                                value=(cats[0]["id"] if cats else None)).props("dense outlined").classes("w-full")
+                with ui.row().classes("w-full items-center no-wrap q-gutter-xs"):
+                    cat = ui.select({c["id"]: c["name"] for c in cats}, label="Category",
+                                    value=(cats[0]["id"] if cats else None)).props("dense outlined").style("flex:1;min-width:0")
+
+                    def add_cat_inline():
+                        nm = (newcat.value or "").strip()
+                        if not nm:
+                            ui.notify("Type a category name first.", type="warning"); return
+                        try:
+                            store.add_category(nm)
+                        except Exception as e:
+                            ui.notify(str(e)[:140], type="warning"); return
+                        fresh = store.categories()
+                        cid = next((x["id"] for x in fresh if x["name"] == nm), None)
+                        cat.set_options({x["id"]: x["name"] for x in fresh}, value=cid)
+                        newcat.set_value("")
+                        ui.notify(f"Added category “{nm}”.", type="positive")
+                    ui.button(icon="add", on_click=add_cat_inline).props("flat dense round color=indigo").tooltip("Create a new category")
+                newcat = ui.input(placeholder="…or type a new category name").props("dense outlined hide-bottom-space").classes("w-full")
                 typ = ui.select({"spend": "Spend", "goal": "Goal", "vault": "Vault"}, label="Type", value="spend").props("dense outlined").classes("w-full")
                 flex = ui.switch("Flexible — variable spending, no target").bind_visibility_from(typ, "value", backward=lambda v: v == "spend")
                 typ.on("update:model-value", lambda: typ.value != "spend" and flex.set_value(False))
@@ -1208,6 +1225,33 @@ def _settings_view(store, refresh_bg):
                 ui.button("Save" if existing else "Add", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
         dlg.open()
 
+    def _cat_row(c):
+        with ui.element("div").classes("cd-setrow"):
+            ui.html(f'<span class="cd-dot" style="background:{c.get("color", "#9aa0b5")};margin-right:4px"></span>')
+            nm = ui.input(value=c["name"]).props("dense borderless hide-bottom-space").style("flex:1;min-width:0;font-weight:600")
+            nm.on("blur", lambda i=c["id"], el=nm: _do(lambda: store.rename_category(i, el.value)))
+            n = c.get("bucket_count", 0)
+            ui.html(f'<span class="cd-set-meta" style="white-space:nowrap">{n} bucket{"s" if n != 1 else ""}</span>')
+            ui.button(icon="keyboard_arrow_up", on_click=lambda i=c["id"]: _do(lambda: store.move_category(i, "up"))).props("flat dense round size=sm color=grey")
+            ui.button(icon="keyboard_arrow_down", on_click=lambda i=c["id"]: _do(lambda: store.move_category(i, "down"))).props("flat dense round size=sm color=grey")
+            ui.button(icon="close", on_click=lambda i=c["id"]: _do(lambda: store.archive_category(i))).props("flat dense round size=sm color=grey")
+
+    def _open_add_category():
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html('<div class="cd-sh-title">New category</div>')
+            ui.html('<div class="cdm-sub">A group for your buckets — Housing, Food, Subscriptions.</div>')
+            name = ui.input("Name").props("outlined dense hide-bottom-space").classes("w-full")
+
+            def save():
+                if not (name.value or "").strip():
+                    ui.notify("Name the category.", type="warning"); return
+                store.add_category(name.value); dlg.close(); refresh_bg()
+            with ui.row().classes("w-full justify-end q-mt-md"):
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Add", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
+        dlg.open()
+
     # ── render ──
     ui.html('<div class="cd-set-title">Settings</div>'
             '<div class="cdm-sub" style="margin-bottom:18px">Your accounts, your income, and how each '
@@ -1222,6 +1266,15 @@ def _settings_view(store, refresh_bg):
         ui.html(f'<div class="cd-tally">Total cash <b>{money(round(total, 2))}</b> across {len(accts)} '
                 f'account{"s" if len(accts) != 1 else ""}</div>')
         ui.html('<div class="cd-set-add">＋ Add account</div>').on("click", lambda _: _open_account())
+
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Categories · how buckets are grouped</div>')
+        cats = store.categories()
+        if not cats:
+            ui.html('<div class="cd-sub" style="padding:4px 2px 10px">No categories yet — add one to group your buckets.</div>')
+        for c in cats:
+            _cat_row(c)
+        ui.html('<div class="cd-set-add">＋ Add category</div>').on("click", lambda _: _open_add_category())
 
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Income · paychecks</div>')

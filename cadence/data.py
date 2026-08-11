@@ -193,8 +193,45 @@ class LiveStore:
             self.move(source_id, dst, amount)
 
     def categories(self) -> list[dict]:
-        return [{"id": c["id"], "name": c["name"]}
-                for c in self.data["cats"] if not c.get("archived")]
+        live = [b.get("catId", "") for b in self._buckets()]
+        cats = sorted((c for c in self.data["cats"] if not c.get("archived")),
+                      key=lambda c: c.get("order", 0))
+        return [{"id": c["id"], "name": c["name"], "color": c.get("color") or "#9aa0b5",
+                 "bucket_count": sum(1 for cid in live if cid == c["id"])}
+                for c in cats]
+
+    def add_category(self, name, color=None):
+        cats = [c for c in self.data["cats"] if not c.get("archived")]
+        DB.insert(self.token, "bcc_categories", {
+            "id": DB.new_id(), "user_id": self.uid, "name": (name or "Category").strip() or "Category",
+            "color": color or MZ._CAT_COLORS[len(cats) % len(MZ._CAT_COLORS)],
+            "sort_order": (max((c.get("order", 0) for c in cats), default=-1) + 1)})
+        self._reload("cats_raw")
+
+    def rename_category(self, cid, name):
+        if (name or "").strip():
+            DB.update(self.token, "bcc_categories", self.uid, "id", cid, {"name": name.strip()})
+            self._reload("cats_raw")
+
+    def move_category(self, cid, direction):
+        cats = sorted((c for c in self.data["cats"] if not c.get("archived")),
+                      key=lambda c: c.get("order", 0))
+        i = next((k for k, c in enumerate(cats) if c["id"] == cid), None)
+        if i is None:
+            return
+        j = i - 1 if direction == "up" else i + 1
+        if not (0 <= j < len(cats)):
+            return
+        a, b = cats[i], cats[j]                                # swap their sort orders
+        DB.update(self.token, "bcc_categories", self.uid, "id", a["id"], {"sort_order": b.get("order", 0)})
+        DB.update(self.token, "bcc_categories", self.uid, "id", b["id"], {"sort_order": a.get("order", 0)})
+        self._reload("cats_raw")
+
+    def archive_category(self, cid):
+        if any(b.get("catId") == cid for b in self._buckets()):
+            raise ValueError("Move or remove its buckets first.")
+        DB.update(self.token, "bcc_categories", self.uid, "id", cid, {"archived": True})
+        self._reload("cats_raw")
 
     # ── ledger (read real transactions; writes land with the rest) ────────────
     def _bucket_meta(self) -> dict:

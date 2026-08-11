@@ -277,7 +277,21 @@ class Store:
             M.move(self.s, source_id, dst, min(amount, M.available(self.s, M.env(self.s, source_id))))
 
     def categories(self) -> list[dict]:
-        return [{"id": c["id"], "name": c["name"]} for c in self.s["categories"]]
+        return [{"id": c["id"], "name": c["name"], "color": c.get("color", "#9aa0b5"),
+                 "bucket_count": sum(1 for e in self.s["envelopes"] if e.get("cat_id") == c["id"])}
+                for c in self.s["categories"]]
+
+    def add_category(self, name, color=None):
+        return M.add_category(self.s, name, color)
+
+    def rename_category(self, cid, name):
+        M.rename_category(self.s, cid, name)
+
+    def move_category(self, cid, direction):
+        M.move_category(self.s, cid, direction)
+
+    def archive_category(self, cid):
+        M.archive_category(self.s, cid)
 
     # ── live operations ───────────────────────────────────────────────────────
     def fund(self, eid: str, amount: float):
