@@ -38,6 +38,36 @@ def accounts(s: dict) -> list[dict]:
     return [{**a, "balance": account_balance(s, a["id"])} for a in s["accounts"]]
 
 
+def add_account(s: dict, name: str, type: str = "cash", opening: float = 0.0) -> dict:
+    """A cash-flow account (savings/cash) — never a second budget account, which
+    would split Ready to Assign."""
+    a = {"id": _id(), "name": (name or "Account").strip(),
+         "type": type if type in ("savings", "cash") else "cash",
+         "opening": round(float(opening or 0), 2)}
+    s["accounts"].append(a)
+    return a
+
+
+def edit_account(s: dict, aid: str, name=None, type=None, opening=None) -> None:
+    a = next((x for x in s["accounts"] if x["id"] == aid), None)
+    if not a:
+        return
+    if name is not None:
+        a["name"] = (name or "").strip() or a["name"]
+    if type is not None and a.get("type") != "budget":       # budget account keeps its role
+        a["type"] = type if type in ("savings", "cash") else "cash"
+    if opening is not None:
+        a["opening"] = round(float(opening or 0), 2)
+
+
+def archive_account(s: dict, aid: str) -> None:
+    a = next((x for x in s["accounts"] if x["id"] == aid), None)
+    if a and a.get("type") == "budget":
+        raise ValueError("The budget account can't be removed — it drives Ready to Assign.")
+    if a:
+        a["archived"] = True
+
+
 def account_balance(s: dict, acc_id: str) -> float:
     acc = next((a for a in s["accounts"] if a["id"] == acc_id), None)
     bal = acc["opening"] if acc else 0.0
@@ -518,7 +548,8 @@ def available_balance(s: dict) -> float:
 
 def total_cash(s: dict) -> float:
     """Every cash-flow account combined — checking + savings."""
-    return round(sum(account_balance(s, a["id"]) for a in s["accounts"]), 2)
+    return round(sum(account_balance(s, a["id"]) for a in s["accounts"]
+                     if not a.get("archived")), 2)
 
 
 def age_of_money(s: dict, window_days: int = 30) -> int | None:

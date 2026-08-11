@@ -1159,10 +1159,69 @@ def _settings_view(store, refresh_bg):
             body.on("click", lambda _, i=r["id"]: _open_rule(i))
             ui.html(f'<div class="cd-set-val mono">{_rule_value_text(r)}</div>')
 
+    _ACCT_LBL = {"budget": "Budget · drives Ready to Assign", "savings": "Savings", "cash": "Cash"}
+    _ACCT_IC = {"budget": "$", "savings": "★", "cash": "≈"}
+
+    def _account_row(a):
+        with ui.element("div").classes("cd-setrow"):
+            ui.html(f'<div class="cd-set-ic in">{_ACCT_IC.get(a["type"], "≈")}</div>')
+            body = ui.element("div").style("min-width:0;cursor:pointer")
+            with body:
+                ui.html(f'<div class="cd-set-name">{_esc(a["name"])}</div>')
+                ui.html(f'<div class="cd-set-meta">{_ACCT_LBL.get(a["type"], "Cash")}</div>')
+            body.on("click", lambda _, i=a["id"]: _open_account(i))
+            ui.html(f'<div class="cd-set-val mono">{money(a["balance"])}</div>')
+
+    def _open_account(aid=None):
+        accts = store.accounts()
+        existing = next((a for a in accts if a["id"] == aid), None) if aid else None
+        is_budget = bool(existing and existing.get("is_budget"))
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html(f'<div class="cd-sh-title">{"Edit account" if existing else "Add cash-flow account"}</div>')
+            ui.html('<div class="cdm-sub">Cash-flow accounts only — checking, savings, cash. '
+                    'The budget account drives Ready to Assign; the rest are here so you can see '
+                    'your money, and move between them with a transfer.</div>')
+            name = ui.input("Name", value=existing["name"] if existing else "").props("outlined dense hide-bottom-space").classes("w-full")
+            with ui.row().classes("w-full q-gutter-sm q-mt-sm"):
+                tval = existing["type"] if existing else "savings"
+                type_sel = ui.select({"savings": "Savings", "cash": "Cash"}, value=(tval if tval in ("savings", "cash") else "cash"),
+                                     label="Type").props("outlined dense").classes("cd-half")
+                if is_budget:
+                    type_sel.set_enabled(False)
+                opening = ui.number("Opening balance", value=existing["opening"] if existing else 0, format="%.2f", prefix="$").props("outlined dense hide-bottom-space").classes("cd-half")
+
+            def save():
+                if not (name.value or "").strip():
+                    ui.notify("Give the account a name.", type="warning"); return
+                if existing:
+                    store.edit_account(existing["id"], name=name.value,
+                                       type=(None if is_budget else type_sel.value), opening=opening.value)
+                else:
+                    store.add_account(name.value, type_sel.value, opening.value)
+                dlg.close(); refresh_bg()
+            with ui.row().classes("w-full items-center q-mt-md"):
+                if existing and not is_budget:
+                    ui.button("Remove", on_click=lambda: _do(lambda: (store.archive_account(existing["id"]), dlg.close()))).props("flat color=red no-caps")
+                ui.space()
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Save" if existing else "Add", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
+        dlg.open()
+
     # ── render ──
     ui.html('<div class="cd-set-title">Settings</div>'
-            '<div class="cdm-sub" style="margin-bottom:18px">Your income and how each paycheck is split — '
-            'this is the engine behind the Forecast.</div>')
+            '<div class="cdm-sub" style="margin-bottom:18px">Your accounts, your income, and how each '
+            'paycheck is split — the engine behind the Forecast.</div>')
+
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Cash-flow accounts</div>')
+        accts = store.accounts()
+        for a in accts:
+            _account_row(a)
+        total = sum(a["balance"] for a in accts)
+        ui.html(f'<div class="cd-tally">Total cash <b>{money(round(total, 2))}</b> across {len(accts)} '
+                f'account{"s" if len(accts) != 1 else ""}</div>')
+        ui.html('<div class="cd-set-add">＋ Add account</div>').on("click", lambda _: _open_account())
 
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Income · paychecks</div>')

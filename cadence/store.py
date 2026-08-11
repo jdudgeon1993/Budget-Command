@@ -394,7 +394,19 @@ class Store:
             M.add_expense(self.s, bucket_id, amount, desc, date)
 
     def accounts(self) -> list[dict]:
-        return M.accounts(self.s)
+        return [{"id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
+                 "opening": round(a.get("opening", 0.0), 2), "balance": a["balance"],
+                 "is_budget": a.get("type") == "budget"}
+                for a in M.accounts(self.s) if not a.get("archived")]
+
+    def add_account(self, name, type="cash", opening=0.0):
+        return M.add_account(self.s, name, type, opening)
+
+    def edit_account(self, aid, name=None, type=None, opening=None):
+        M.edit_account(self.s, aid, name=name, type=type, opening=opening)
+
+    def archive_account(self, aid):
+        M.archive_account(self.s, aid)
 
     def add_transfer(self, from_id: str, to_id: str, amount: float, desc: str = "", date: str = ""):
         M.add_transfer(self.s, round(float(amount), 2), from_id, to_id, desc, date or _today())

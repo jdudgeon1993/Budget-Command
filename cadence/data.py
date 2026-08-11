@@ -445,8 +445,40 @@ class LiveStore:
 
     def accounts(self) -> list[dict]:
         return [{"id": a["id"], "name": a["name"], "type": a.get("type", "budget"),
-                 "balance": round(F.acct_balance(a, self.data["txs"]), 2)}
+                 "opening": round(float(a.get("openingBalance") or 0), 2),
+                 "balance": round(F.acct_balance(a, self.data["txs"]), 2),
+                 "is_budget": a.get("type") == "budget"}
                 for a in self.data["accounts"] if not a.get("archived")]
+
+    # ── cash-flow accounts (no debt accounts — visibility + light management) ──
+    def add_account(self, name, type="cash", opening=0.0):
+        DB.insert(self.token, "bcc_accounts", {
+            "id": DB.new_id(), "user_id": self.uid, "name": (name or "Account").strip(),
+            "type": type if type in ("savings", "cash") else "cash",   # never a 2nd budget acct
+            "opening_balance": round(float(opening or 0), 2),
+            "sort_order": len(self.data["accounts"])})
+        self._reload("accounts_raw")
+
+    def edit_account(self, aid, name=None, type=None, opening=None):
+        acct = next((a for a in self.data["accounts"] if a["id"] == aid), None)
+        fields = {}
+        if name is not None:
+            fields["name"] = (name or "").strip() or "Account"
+        # the single budget account keeps its type — it drives Ready to Assign
+        if type is not None and not (acct and acct.get("type") == "budget"):
+            fields["type"] = type if type in ("savings", "cash") else "cash"
+        if opening is not None:
+            fields["opening_balance"] = round(float(opening or 0), 2)
+        if fields:
+            DB.update(self.token, "bcc_accounts", self.uid, "id", aid, fields)
+            self._reload("accounts_raw")
+
+    def archive_account(self, aid):
+        acct = next((a for a in self.data["accounts"] if a["id"] == aid), None)
+        if acct and acct.get("type") == "budget":
+            raise ValueError("The budget account can't be removed — it drives Ready to Assign.")
+        DB.update(self.token, "bcc_accounts", self.uid, "id", aid, {"archived": True})
+        self._reload("accounts_raw")
 
     def add_transfer(self, from_id: str, to_id: str, amount: float, desc: str = "", date: str = ""):
         from datetime import date as _d
