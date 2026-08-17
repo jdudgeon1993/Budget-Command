@@ -1,4 +1,4 @@
-name: CI — Flask app sanity check
+name: CI — Cadence sanity check
 
 on:
   push:
@@ -15,31 +15,28 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r webapp/requirements.txt
+        run: pip install -r cadence/requirements.txt
 
       - name: Compile check
-        run: python -m compileall -q webapp
+        run: python -m compileall -q cadence
 
-      - name: Template render check
+      - name: Import check
         env:
           SUPABASE_URL: "https://placeholder.supabase.co"
           SUPABASE_ANON_KEY: "placeholder"
-          DEV_SEED: "1"
         run: |
           python - <<'EOF'
-          import sys
-          sys.path.insert(0, ".")
-          from webapp import create_app
-
-          app = create_app()
-          with app.test_request_context():
-              env = app.jinja_env
-              for name in env.list_templates():
-                  if name.endswith(".html"):
-                      env.get_template(name)
-          print("All templates compiled OK")
+          import cadence.main            # registers pages, wires the app
+          import cadence.money, cadence.store, cadence.data, cadence.forecast, cadence.formulas
+          from cadence.store import Store
+          s = Store()                    # demo engine boots + money invariant path
+          m = s.metrics()
+          rows = s._all_rows()
+          resid = round(m["cash"] - (m["unallocated"] + sum(r["funded"] - r["spent"] for r in rows)), 2)
+          assert abs(resid) < 0.005, f"money invariant drift: {resid}"
+          print("Cadence imports OK · invariant holds")
           EOF

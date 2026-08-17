@@ -1,0 +1,11 @@
+# Cadence service config. Used when this service's Root Directory is set to
+# `cadence` in Railway — keeps it independent of the repo-root railway.toml
+# (which builds the Flask app).
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/healthz"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
