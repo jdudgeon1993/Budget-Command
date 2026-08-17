@@ -516,18 +516,33 @@ def _app(store, demo: bool):
                                 n, total = len(b["items"]), b["items_total"]
                                 soonest = next((it["due_day"] for it in b["items"] if not it.get("paid") and it["due_day"] is not None),
                                                next((it["due_day"] for it in b["items"] if it["due_day"] is not None), None))
-                                ui.html(f'<div class="cd-sh-title">Merge “{_esc(b["name"])}” into one bucket</div>')
-                                ui.html(f'<div class="cdm-sub">Collapse these {n} bill{"s" if n != 1 else ""} into a single '
-                                        f'{money(total)} bucket with one due date. Your bills are kept, so you can split it '
-                                        'again later without re-entering them.</div>')
+                                ui.html(f'<div class="cd-sh-title">Convert “{_esc(b["name"])}” back</div>')
+                                ui.html(f'<div class="cdm-sub">This bucket holds {n} bill{"s" if n != 1 else ""}. '
+                                        'Turn them into separate buckets — one per bill — or collapse them into one.</div>')
+                                choice = ui.radio(
+                                    {"separate": f"Separate buckets — one per bill ({n}), each keeping its own amount & due date",
+                                     "one": f"One bucket — collapse into a single {money(total)} bucket"},
+                                    value="separate").props("color=indigo").classes("w-full")
                                 duesel = ui.select(_dueday_options(), value=_dueday_key(soonest),
-                                                   label="Due day for the merged bucket").props("outlined dense").classes("w-full")
+                                                   label="Due day for the single bucket").props("outlined dense").classes("w-full q-mt-sm")
+                                duesel.bind_visibility_from(choice, "value", backward=lambda v: v == "one")
+                                ui.html('<div class="cd-sub" style="margin:10px 2px 0;line-height:1.5">Funded money follows the '
+                                        'bills; anything left over returns to Ready to Assign. Splitting again later is easy.</div>')
 
-                                def do_merge():
-                                    act(lambda: store.convert_to_bucket(eid, duesel.value)); cdlg.close()
+                                def do_back():
+                                    if choice.value == "separate":
+                                        # the split bucket is deleted — close the sheet, don't refresh its body
+                                        try:
+                                            store.explode_to_buckets(eid)
+                                        except Exception as ex:
+                                            ui.notify(str(ex)[:150], type="warning"); return
+                                        cdlg.close(); dlg.close(); refresh_page()
+                                        ui.notify("Split into separate buckets.", type="positive")
+                                    else:
+                                        act(lambda: store.convert_to_bucket(eid, duesel.value)); cdlg.close()
                                 with ui.row().classes("w-full justify-end q-gutter-sm q-mt-md"):
                                     ui.button("Cancel", on_click=cdlg.close).props("flat no-caps")
-                                    ui.button("Merge to single bucket", on_click=do_merge).props("unelevated color=indigo no-caps")
+                                    ui.button("Convert", on_click=do_back).props("unelevated color=indigo no-caps")
                         cdlg.open()
 
                     if b["type"] == "spend" and not b["flex"]:

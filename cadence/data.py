@@ -647,6 +647,21 @@ class LiveStore:
             self.set_due_day(bid, due_day)
         self.set_split(bid, False)
 
+    def explode_to_buckets(self, bid: str):
+        """Turn each bill into its own standalone bucket in the same category, then
+        archive the split. The funded pool waterfalls into the new buckets
+        soonest-first; the remainder returns to Ready to Assign when the archived
+        bucket stops claiming it — money is conserved."""
+        b = self.bucket(bid)
+        cat = b["cat_id"]
+        for it in b["items"]:                          # split rows are soonest-due first
+            amt = round(it["amount"], 2)
+            nid = self.add_bucket(it["name"], cat, "spend", amt, due_day=it.get("due_day"))["id"]
+            give = round(min(amt, max(0.0, self.bucket(bid)["available"])), 2)
+            if give > 0.005:
+                self.move(bid, nid, give)
+        self.delete(bid)
+
     def add_item(self, bid: str, name: str, amount: float, due_day=None):
         DB.insert(self.token, "bcc_bucket_items", {
             "id": DB.new_id(), "user_id": self.uid, "bucket_id": bid,

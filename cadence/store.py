@@ -360,6 +360,22 @@ class Store:
             M.set_due_day(self.s, eid, due_day)
         M.set_split(self.s, eid, False)
 
+    def explode_to_buckets(self, eid: str):
+        """Turn each bill into its own standalone bucket (name/amount/due), in the
+        same category, then remove the split. The funded pool waterfalls into the
+        new buckets soonest-first; whatever's left returns to Unallocated on delete
+        — money is conserved."""
+        e = M.env(self.s, eid)
+        cat = e["cat_id"]
+        for it in M.item_rows(e.get("items", [])):    # soonest-due first
+            amt = round(it["amount"], 2)
+            nid = M.add_envelope(self.s, it["name"], cat, M.SPEND, amt, 0.0,
+                                 due_day=it.get("due_day"))["id"]
+            give = round(min(amt, max(0.0, M.available(self.s, e))), 2)
+            if give > 0.005:
+                M.move(self.s, eid, nid, give)
+        M.delete_envelope(self.s, eid)
+
     def add_item(self, eid: str, name: str, amount: float, due_day=None):
         return M.add_item(self.s, eid, name, amount, due_day)
 
