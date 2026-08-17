@@ -68,10 +68,20 @@ def archive_account(s: dict, aid: str) -> None:
         a["archived"] = True
 
 
+def is_scheduled(t: dict) -> bool:
+    """A transaction is scheduled (future-dated) if its date is after today — it
+    belongs to the Forecast, not yet to the cleared balance. Mirrors
+    formulas.is_scheduled so demo and live agree on what "today" has happened."""
+    d = t.get("date") or ""
+    return bool(d) and d > date.today().isoformat()
+
+
 def account_balance(s: dict, acc_id: str) -> float:
     acc = next((a for a in s["accounts"] if a["id"] == acc_id), None)
     bal = acc["opening"] if acc else 0.0
     for t in s["transactions"]:
+        if is_scheduled(t):                    # future-dated hasn't cleared yet
+            continue
         if t.get("account_id", CHECKING) == acc_id:
             if t["kind"] in (INCOME, REFUND):
                 bal += t["amount"]
@@ -399,7 +409,8 @@ def add_expense(s: dict, eid: str, amount: float, desc: str = "", date: str = ""
 
 def add_income(s: dict, amount: float, desc: str = "", date: str = "") -> dict:
     tx = _tx(s, INCOME, round(amount, 2), None, desc, date)
-    s["unallocated"] = round(s["unallocated"] + amount, 2)
+    if not is_scheduled(tx):                    # a future paycheck isn't spendable yet
+        s["unallocated"] = round(s["unallocated"] + amount, 2)
     return tx
 
 
@@ -417,10 +428,11 @@ def add_transfer(s: dict, amount: float, from_id: str = CHECKING, to_id: str = S
     Unallocated (and vice-versa), so the zero-based identity stays intact."""
     amount = round(amount, 2)
     tx = _tx(s, TRANSFER, amount, None, desc, date, account_id=from_id, to_account_id=to_id)
-    if from_id == CHECKING:
-        s["unallocated"] = round(s["unallocated"] - amount, 2)
-    if to_id == CHECKING:
-        s["unallocated"] = round(s["unallocated"] + amount, 2)
+    if not is_scheduled(tx):                    # a future transfer hasn't left the account yet
+        if from_id == CHECKING:
+            s["unallocated"] = round(s["unallocated"] - amount, 2)
+        if to_id == CHECKING:
+            s["unallocated"] = round(s["unallocated"] + amount, 2)
     return tx
 
 
@@ -544,10 +556,12 @@ def toggle_rule(s: dict, rid: str) -> None:
 # ── Derived metrics (computed, never stored) ──────────────────────────────────
 
 def spent(s: dict, eid: str) -> float:
-    """Net spent from an envelope: expenses less any refunds booked against it."""
+    """Net spent from an envelope: expenses less any refunds booked against it.
+    Future-dated (scheduled) entries haven't happened yet, so they don't count —
+    they show up in the Forecast instead."""
     total = 0.0
     for t in s["transactions"]:
-        if t.get("envelope_id") != eid:
+        if t.get("envelope_id") != eid or is_scheduled(t):
             continue
         if t["kind"] == EXPENSE:
             total += t["amount"]
