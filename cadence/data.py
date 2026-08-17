@@ -678,6 +678,34 @@ class LiveStore:
             if give > 0.005:
                 self.move(bid, nid, give)
         self.delete(bid)
+        # zero the now-archived bucket's leftover allocation so it can't ghost the
+        # books (it's excluded from RTS either way, but no dead allocation should linger)
+        DB.upsert_alloc(self.uid, self.token, self._mid, bid, 0.0)
+        self._reload("allocs_raw")
+
+    # ── reconciliation: expose where every allocated dollar lives ──────────────
+    def reconcile(self) -> dict:
+        m = self.metrics()
+        active = self._buckets()
+        active_ids = {b["id"] for b in active}
+        names = {b["id"]: b["name"] for b in self.data["buckets"]}
+        cur_alloc = (self._month.get("allocations") or {})     # {bucket_id: amount} this month
+        ghosts = [{"id": bid, "name": names.get(bid, "removed bucket"), "amount": round(amt, 2)}
+                  for bid, amt in cur_alloc.items() if bid not in active_ids and abs(amt) > 0.005]
+        total_alloc = round(sum(a for b, a in cur_alloc.items() if b in active_ids), 2)
+        resid = round(m["cash"] - (m["unallocated"] + m["in_buckets"]), 2)
+        return {"cash": m["cash"], "rts": m["unallocated"], "in_buckets": m["in_buckets"],
+                "total_alloc": total_alloc, "residual": resid,
+                "ghosts": ghosts, "ghost_total": round(sum(g["amount"] for g in ghosts), 2)}
+
+    def clear_ghost_allocations(self) -> float:
+        """Zero out allocations still sitting on archived buckets this month."""
+        rec = self.reconcile()
+        for g in rec["ghosts"]:
+            DB.upsert_alloc(self.uid, self.token, self._mid, g["id"], 0.0)
+        if rec["ghosts"]:
+            self._reload("allocs_raw")
+        return rec["ghost_total"]
 
     def add_item(self, bid: str, name: str, amount: float, due_day=None):
         DB.insert(self.token, "bcc_bucket_items", {

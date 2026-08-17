@@ -1440,6 +1440,34 @@ def _settings_view(store, refresh_bg):
             '<div class="cdm-sub" style="margin-bottom:18px">Your accounts, your income, and how each '
             'paycheck is split — the engine behind the Forecast.</div>')
 
+    # ── Reconcile — where every allocated dollar lives (catches ghosts/over-alloc) ──
+    rec = store.reconcile()
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Reconcile · where your money is</div>')
+        neg = rec["rts"] < -0.005
+        rts_col = "var(--neg)" if neg else "var(--pos)"
+        ui.html(f'''<div class="cd-recon-grid">
+            <div><div class="l">Checking</div><div class="v mono">{money(rec["cash"])}</div></div>
+            <div><div class="l">Assigned to buckets</div><div class="v mono">{money(rec["in_buckets"])}</div></div>
+            <div><div class="l">Unallocated</div><div class="v mono" style="color:{rts_col}">{money(rec["rts"])}</div></div>
+          </div>''')
+        if abs(rec["residual"]) > 0.005:
+            ui.html(f'<div class="cd-recon-warn">⚠ Books off by {money(abs(rec["residual"]))} — checking should equal '
+                    'unallocated + assigned. This is a bug; tell me and I\'ll trace it.</div>')
+        elif neg:
+            ui.html(f'<div class="cd-recon-warn">You\'ve assigned <b>{money(abs(rec["rts"]))}</b> more than your '
+                    'checking holds. Usually this means money was budgeted twice — e.g. re-funding buckets whose '
+                    'money was already spent. Pull the excess back from over-funded buckets to return to $0.</div>')
+        else:
+            ui.html('<div class="cd-sub" style="padding:2px 2px 6px">Every dollar accounted for ✓</div>')
+        if rec["ghosts"]:
+            names = ", ".join(f'{_esc(g["name"])} ({money(g["amount"])})' for g in rec["ghosts"][:6])
+            ui.html(f'<div class="cd-recon-ghost">👻 <b>{money(rec["ghost_total"])}</b> is stranded on removed '
+                    f'buckets: {names}. This is dead weight from an explode/delete — clear it to tidy up '
+                    '(does not change your Unallocated).</div>')
+            ui.button("Clear stranded allocations", on_click=lambda: _do(
+                lambda: store.clear_ghost_allocations())).props("outline color=deep-orange no-caps size=sm")
+
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Cash-flow accounts</div>')
         accts = store.accounts()

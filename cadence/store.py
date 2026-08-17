@@ -428,6 +428,16 @@ class Store:
         out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
         return out
 
+    def reconcile(self) -> dict:
+        m = self.metrics()
+        total_alloc = round(sum(e["funded"] for e in self.s["envelopes"]), 2)
+        resid = round(m["cash"] - (m["unallocated"] + m["in_buckets"]), 2)
+        return {"cash": m["cash"], "rts": m["unallocated"], "in_buckets": m["in_buckets"],
+                "total_alloc": total_alloc, "residual": resid, "ghosts": [], "ghost_total": 0.0}
+
+    def clear_ghost_allocations(self) -> float:
+        return 0.0
+
     def reassign_transactions(self, tids, bucket_id):
         """Re-home orphaned expenses/refunds onto a bucket. The funding that backed
         them was removed with their old bucket, so we restore matching funding to the
