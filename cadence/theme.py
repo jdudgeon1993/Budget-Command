@@ -348,8 +348,12 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-fc-eic.income{background:var(--pos-soft);color:var(--pos)}
 .cd-fc-eic.transfer{background:var(--warn-soft);color:var(--warn-ink)}
 .cd-fc-eic.bill{background:var(--bg);color:var(--muted)}
+.cd-fc-eic.internal{background:var(--violet-soft);color:var(--violet)}
 .cd-fc-cad{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--info-ink);background:var(--info-soft);padding:1px 6px;border-radius:6px}
 .cd-fc-uf{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--neg);background:var(--neg-soft);padding:1px 6px;border-radius:6px}
+.cd-fc-sch{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--info-ink);background:var(--info-soft);padding:1px 6px;border-radius:6px}
+.cd-fc-set{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--violet);background:var(--violet-soft);padding:1px 6px;border-radius:6px}
+.cd-fc-prange .set{color:var(--violet);font-weight:600}
 .cd-fc-eamt{text-align:right;font-weight:700}
 .cd-fc-ebal{text-align:right;font-size:12px}
 

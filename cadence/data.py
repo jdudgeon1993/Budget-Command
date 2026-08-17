@@ -273,6 +273,33 @@ class LiveStore:
         out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
         return out[:limit]
 
+    def scheduled(self) -> list[dict]:
+        """Future-dated transactions — committed items the Forecast injects so every
+        real outflow/inflow (a planned payment, a transfer, expected income) shows."""
+        meta = self._bucket_meta()
+        acct = {a["id"]: a["name"] for a in self.data["accounts"]}
+        out = []
+        for t in self.data["txs"]:
+            if not F.is_scheduled(t):
+                continue
+            typ, bid, amt = t.get("type"), t.get("bucketId") or None, float(t.get("amount") or 0)
+            if typ == "out" and amt < 0:
+                kind, label, amt = "refund", (t.get("desc") or meta.get(bid, ("", ""))[0] or "Refund"), -amt
+            elif typ == "out" and bid:
+                kind, label = "expense", (t.get("desc") or meta.get(bid, ("", ""))[0])
+            elif typ == "out":
+                kind, label, bid = "transfer", (t.get("desc") or "Transfer"), None
+            elif typ == "in":
+                kind, label, bid = "income", (t.get("desc") or "Income"), None
+            elif typ == "xfr":
+                kind, bid = "transfer", None
+                label = t.get("desc") or f'{acct.get(t.get("accountId"), "?")} → {acct.get(t.get("toAccountId"), "?")}'
+            else:
+                continue
+            out.append({"kind": kind, "amount": round(amt, 2), "date": t.get("date") or "",
+                        "bucket_id": bid, "name": label or kind.title()})
+        return out
+
     def reassign_transactions(self, tids, bucket_id):
         """Re-home orphaned expenses/refunds onto a bucket, then fund it to cover the
         re-homed net so it reads as budgeted rather than overspent (the funding that

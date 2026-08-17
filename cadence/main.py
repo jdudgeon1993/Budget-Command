@@ -1609,13 +1609,13 @@ def _forecast_bills(store) -> list[dict]:
                 for it in r["items"]:
                     if it["amount"] > 0.005 and it["due_day"] is not None:
                         # per-item funded state: the slice of the pool that reached this bill
-                        out.append({"name": f'{r["name"]} · {it["name"]}', "amount": it["amount"],
+                        out.append({"id": None, "name": f'{r["name"]} · {it["name"]}', "amount": it["amount"],
                                     "spent": it["amount"] if it.get("paid") else 0.0,
                                     "available": round(it["amount"] - it.get("item_gap", 0.0), 2),
                                     "due_day": it["due_day"], "frequency": None})
             elif r["target"] > 0 and (r["due_day"] is not None
                                       or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly")):
-                out.append({"name": r["name"], "amount": r["target"], "spent": r["spent"],
+                out.append({"id": r["id"], "name": r["name"], "amount": r["target"], "spent": r["spent"],
                             "available": r["available"], "due_day": r["due_day"],
                             "frequency": r["frequency"]})
     return out
@@ -1672,7 +1672,7 @@ def _forecast_chart(res: dict) -> str:
     </svg>'''
 
 
-_FC_ICON = {"income": "+", "transfer": "→", "bill": "−"}
+_FC_ICON = {"income": "+", "transfer": "→", "bill": "−", "internal": "◇"}
 
 
 def _forecast_view(store, refresh_bg):
@@ -1692,8 +1692,9 @@ def _forecast_view(store, refresh_bg):
                 'Add your paychecks in Settings (⚙, top-right) and your forward projection appears here.</div>')
         return
 
+    sched = store.scheduled() if hasattr(store, "scheduled") else []
     res = forecast.project(store.metrics()["cash"], store.paychecks(), store.rules(),
-                           _forecast_bills(store), horizon_days=hz)
+                           _forecast_bills(store), scheduled=sched, horizon_days=hz)
     # Which periods are expanded — the current one opens by default.
     exp = getattr(store, "_fc_expanded", None)
     if exp is None:
@@ -1743,7 +1744,8 @@ def _forecast_view(store, refresh_bg):
         ins = f'<span class="in">+{money(p["income"])}</span>' if p["income"] > 0 else ''
         outs = round(p["external"] + p["bills_out"], 2)
         out_s = f'<span class="out">−{money(outs)}</span>' if outs > 0 else ''
-        flow = ' · '.join(x for x in (ins, out_s) if x)
+        set_s = f'<span class="set">◇{money(p["internal"])}</span>' if p.get("internal", 0) > 0 else ''
+        flow = ' · '.join(x for x in (ins, out_s, set_s) if x)
         card = ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "") + (" open" if is_open else ""))
         with card:
             hd = ui.element("div").classes("cd-fc-phd")
@@ -1760,17 +1762,30 @@ def _forecast_view(store, refresh_bg):
                             f'<span class="cd-fc-ename">Starting balance</span><span></span>'
                             f'<span class="cd-fc-ebal mono">{money(p["start_balance"])}</span></div>')
                     for e in p["events"]:
-                        pos = e["kind"] == "income"
+                        kind = e["kind"]
+                        cad = f' <span class="cd-fc-cad">{e["cadence"]}</span>' if e.get("cadence") else ''
+                        sch = ' <span class="cd-fc-sch">scheduled</span>' if e.get("scheduled") else ''
+                        if kind == "internal":         # set aside — stays in checking, balance unchanged
+                            to = f' → {_esc(e["bucket"])}' if e.get("bucket") else ''
+                            tag = f'<span class="cd-fc-set">set aside{to}</span>'
+                            ui.html(
+                                f'<div class="cd-fc-erow">'
+                                f'<span class="cd-fc-edate">{_friendly_date(e["date"])}</span>'
+                                f'<span class="cd-fc-ename"><span class="cd-fc-eic internal">◇</span>'
+                                f'{_esc(e["name"])} {tag}{sch}</span>'
+                                f'<span class="cd-fc-eamt mono" style="color:var(--violet)">◇{money(e["amount"])}</span>'
+                                f'<span class="cd-fc-ebal mono" style="color:var(--muted)">{money(e["balance"])}</span></div>')
+                            continue
+                        pos = kind == "income"
                         acol = "var(--pos)" if pos else ("var(--neg)" if not e["funded"] else "var(--ink)")
                         sign = "+" if pos else "−"
-                        cad = f' <span class="cd-fc-cad">{e["cadence"]}</span>' if e.get("cadence") else ''
                         flag = ' <span class="cd-fc-uf">unfunded</span>' if not e["funded"] else ''
                         bcol = "var(--neg)" if e["balance"] < 0 else "var(--muted)"
                         ui.html(
                             f'<div class="cd-fc-erow">'
                             f'<span class="cd-fc-edate">{_friendly_date(e["date"])}</span>'
-                            f'<span class="cd-fc-ename"><span class="cd-fc-eic {e["kind"]}">{_FC_ICON[e["kind"]]}</span>'
-                            f'{_esc(e["name"])}{cad}{flag}</span>'
+                            f'<span class="cd-fc-ename"><span class="cd-fc-eic {kind}">{_FC_ICON[kind]}</span>'
+                            f'{_esc(e["name"])}{cad}{flag}{sch}</span>'
                             f'<span class="cd-fc-eamt mono" style="color:{acol}">{sign}{money(e["amount"])}</span>'
                             f'<span class="cd-fc-ebal mono" style="color:{bcol}">{money(e["balance"])}</span></div>')
 

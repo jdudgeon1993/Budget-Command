@@ -7,7 +7,7 @@ implementing the same handful of read/write methods against the DB — the UI
 never changes.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 from . import money as M
 
@@ -178,6 +178,12 @@ def seed() -> dict:
     M.add_rule(s, "Fill Rent", "internal", ids["Rent"], 0, "fund", True)
     M.add_rule(s, "Emergency fund", "internal", ids["Emergency"], 10, "pct", True)
     M.add_rule(s, "401(k) contribution", "external", None, 6, "pct", True)
+
+    # A couple of scheduled (future-dated) transactions so the Forecast shows it
+    # injects real committed items — a planned transfer and an upcoming bill.
+    _fmt = lambda n: (date.today() + timedelta(days=n)).isoformat()
+    M.add_transfer(s, 250.0, M.CHECKING, M.SAVINGS, "Extra savings sweep", _fmt(6))
+    M.add_expense(s, ids["Electric"], 160.0, "Electric bill (autopay)", _fmt(9))
 
     return s
 
@@ -410,7 +416,10 @@ class Store:
         live = {e["id"] for e in self.s["envelopes"]}
         acct = {a["id"]: a["name"] for a in self.s["accounts"]}
         out = []
+        today = _today()
         for i, t in enumerate(self.s["transactions"]):
+            if (t.get("date") or "") > today:          # future-dated → Forecast, not Ledger
+                continue
             eid = t.get("envelope_id")
             if eid:
                 name, color = meta.get(eid, ("", "#9aa0b5"))
@@ -424,8 +433,30 @@ class Store:
             out.append({"id": t["id"], "kind": t["kind"], "amount": round(t["amount"], 2),
                         "date": t.get("date") or "", "desc": t.get("desc") or "",
                         "bucket_id": eid, "bucket_name": name, "color": color, "orphaned": orphaned,
-                        "from_acct": t.get("account_id"), "to_acct": t.get("to_account_id"), "_seq": i})
+                        "from_acct": t.get("account_id"), "to_acct": t.get("to_account_id"),
+                        "scheduled": (t.get("date") or "") > _today(), "_seq": i})
         out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
+        return out
+
+    def scheduled(self) -> list[dict]:
+        """Future-dated transactions — committed items the Forecast injects so every
+        real outflow/inflow (a planned payment, a transfer, expected income) shows."""
+        today, meta = _today(), self._env_meta()
+        acct = {a["id"]: a["name"] for a in self.s["accounts"]}
+        out = []
+        for t in self.s["transactions"]:
+            d = t.get("date") or ""
+            if d <= today:
+                continue
+            eid = t.get("envelope_id")
+            if eid:
+                label = t.get("desc") or meta.get(eid, ("", ""))[0]
+            elif t["kind"] == M.TRANSFER:
+                label = t.get("desc") or f'{acct.get(t.get("account_id"), "?")} → {acct.get(t.get("to_account_id"), "?")}'
+            else:
+                label = t.get("desc") or "Income"
+            out.append({"kind": t["kind"], "amount": round(t["amount"], 2), "date": d,
+                        "bucket_id": eid, "name": label or t["kind"].title()})
         return out
 
     def reconcile(self) -> dict:
