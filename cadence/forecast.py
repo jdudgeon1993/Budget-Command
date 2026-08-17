@@ -1,16 +1,18 @@
 """
 Cadence Forecast — a forward cash-flow projection (pure, no framework).
 
-The question it answers: given the income you've set up and the bills on your
-calendar, what does your checking balance look like every day from now forward —
-and what's the *lowest* it gets? That forward-minimum is the honest "safe to
-spend today": dip into it and a future week craters.
+The question it answers: given the income you've set up, what you've committed
+to save, and the bills on your calendar, what's actually left every day from now
+forward — and what's the *lowest* it gets? That forward-minimum is the honest
+"safe to spend today": dip into it and a future week craters.
 
-Model (deliberately a cash-flow view of the checking account):
-  balance(t) = start + Σ income≤t − Σ external-transfers≤t − Σ bills≤t
-Internal funding (moving money between envelopes inside the account) doesn't
-move the checking balance, so it's shown as info, not an outflow. External rules
-(401k, transfers out) and dated bills are the real outflows.
+Model — a single running balance that depletes for every commitment, not just
+the ones that physically leave the bank:
+  balance(t) = start + Σ income≤t − Σ internal-set-asides≤t − Σ external-transfers≤t − Σ bills≤t
+Internal set-asides (funding a savings goal/vault) don't move the CHECKING
+balance at the bank — but once that money has a job, it's not yours to spend
+freely, so it comes out of the running number here too. Honoring your own
+savings commitments is part of "can I afford this," same as any bill.
 
 Everything here is a pure function of plain dicts, so the demo store and the live
 Supabase store feed it exactly the same way.
@@ -218,13 +220,12 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
     trajectory = [{"date": today.isoformat(), "balance": running}]
     low = {"balance": running, "date": today.isoformat()}
     for e in events:
-        if e["kind"] == "income":
-            running = round(running + e["amount"], 2)
-        elif e["kind"] in ("transfer", "bill"):        # internal set-asides don't leave checking
-            running = round(running - e["amount"], 2)
+        # every event depletes the running balance — income adds, everything else
+        # (internal set-asides included) subtracts, so the number always reflects
+        # what's actually left once you've honored your own savings commitments too.
+        running = round(running + e["amount"] if e["kind"] == "income" else running - e["amount"], 2)
         e["balance_after"] = running
-        if e["kind"] != "internal":
-            trajectory.append({"date": e["date"].isoformat(), "balance": running})
+        trajectory.append({"date": e["date"].isoformat(), "balance": running})
         if running < low["balance"]:
             low = {"balance": running, "date": e["date"].isoformat()}
 
@@ -248,9 +249,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
         internal = round(sum(e["amount"] for e in evs if e["kind"] == "internal"), 2)
         bill_evs = [e for e in evs if e["kind"] == "bill"]
         bills_out = round(sum(e["amount"] for e in bill_evs), 2)
-        # last non-internal event carries the period's ending balance
-        bal_evs = [e for e in evs if e["kind"] != "internal"]
-        end_bal = bal_evs[-1]["balance_after"] if bal_evs else start_bal
+        end_bal = evs[-1]["balance_after"] if evs else start_bal
         is_gap = not any(e["kind"] == "income" for e in evs)
         label = "Now → first payday" if is_gap else " · ".join(
             sorted({e["name"] for e in evs if e["kind"] == "income"}))
@@ -278,7 +277,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
         "safe_to_spend": safe,
         "shortfall": low["balance"] < -0.005,
         "total_income": round(sum(p["income"] for p in periods), 2),
-        "total_out": round(sum(p["external"] + p["bills_out"] for p in periods), 2),
+        "total_out": round(sum(p["external"] + p["internal"] + p["bills_out"] for p in periods), 2),
         "trajectory": trajectory,
         "periods": periods,
     }

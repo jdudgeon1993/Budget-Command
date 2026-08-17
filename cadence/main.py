@@ -1742,10 +1742,9 @@ def _forecast_view(store, refresh_bg):
         rng = f'{_friendly_date(p["start"])} – {_friendly_date(p["end"])}'
         ebcol = "var(--neg)" if p["negative"] else "var(--ink)"
         ins = f'<span class="in">+{money(p["income"])}</span>' if p["income"] > 0 else ''
-        outs = round(p["external"] + p["bills_out"], 2)
+        outs = round(p["external"] + p.get("internal", 0) + p["bills_out"], 2)
         out_s = f'<span class="out">−{money(outs)}</span>' if outs > 0 else ''
-        set_s = f'<span class="set">◇{money(p["internal"])}</span>' if p.get("internal", 0) > 0 else ''
-        flow = ' · '.join(x for x in (ins, out_s, set_s) if x)
+        flow = ' · '.join(x for x in (ins, out_s) if x)
         card = ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "") + (" open" if is_open else ""))
         with card:
             hd = ui.element("div").classes("cd-fc-phd")
@@ -1765,16 +1764,17 @@ def _forecast_view(store, refresh_bg):
                         kind = e["kind"]
                         cad = f' <span class="cd-fc-cad">{e["cadence"]}</span>' if e.get("cadence") else ''
                         sch = ' <span class="cd-fc-sch">scheduled</span>' if e.get("scheduled") else ''
-                        if kind == "internal":         # set aside — stays in checking, balance unchanged
+                        if kind == "internal":         # set aside — depletes the balance like any outflow
                             to = f' → {_esc(e["bucket"])}' if e.get("bucket") else ''
                             tag = f'<span class="cd-fc-set">set aside{to}</span>'
+                            bcol = "var(--neg)" if e["balance"] < 0 else "var(--muted)"
                             ui.html(
                                 f'<div class="cd-fc-erow">'
                                 f'<span class="cd-fc-edate">{_friendly_date(e["date"])}</span>'
                                 f'<span class="cd-fc-ename"><span class="cd-fc-eic internal">◇</span>'
                                 f'{_esc(e["name"])} {tag}{sch}</span>'
-                                f'<span class="cd-fc-eamt mono" style="color:var(--violet)">◇{money(e["amount"])}</span>'
-                                f'<span class="cd-fc-ebal mono" style="color:var(--muted)">{money(e["balance"])}</span></div>')
+                                f'<span class="cd-fc-eamt mono" style="color:var(--violet)">−{money(e["amount"])}</span>'
+                                f'<span class="cd-fc-ebal mono" style="color:{bcol}">{money(e["balance"])}</span></div>')
                             continue
                         pos = kind == "income"
                         acol = "var(--pos)" if pos else ("var(--neg)" if not e["funded"] else "var(--ink)")
