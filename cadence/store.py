@@ -407,6 +407,7 @@ class Store:
     def transactions(self) -> list[dict]:
         """Every ledger row, newest first — the shape the Ledger UI renders."""
         meta = self._env_meta()
+        live = {e["id"] for e in self.s["envelopes"]}
         acct = {a["id"]: a["name"] for a in self.s["accounts"]}
         out = []
         for i, t in enumerate(self.s["transactions"]):
@@ -418,12 +419,30 @@ class Store:
                 name, color = f"{frm} → {to}", "#f59e0b"
             else:
                 name, color = "Income", "#10b981"
+            # an expense/refund whose bucket no longer exists → needs re-homing
+            orphaned = bool(eid) and eid not in live and t["kind"] in (M.EXPENSE, M.REFUND)
             out.append({"id": t["id"], "kind": t["kind"], "amount": round(t["amount"], 2),
                         "date": t.get("date") or "", "desc": t.get("desc") or "",
-                        "bucket_id": eid, "bucket_name": name, "color": color,
+                        "bucket_id": eid, "bucket_name": name, "color": color, "orphaned": orphaned,
                         "from_acct": t.get("account_id"), "to_acct": t.get("to_account_id"), "_seq": i})
         out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
         return out
+
+    def reassign_transactions(self, tids, bucket_id):
+        """Re-home orphaned expenses/refunds onto a bucket. The funding that backed
+        them was removed with their old bucket, so we restore matching funding to the
+        target — the re-homed spend then reads as budgeted (not overspent) and the
+        money invariant holds (Σ gains equal funded and spent → net zero)."""
+        net = 0.0
+        for tid in tids:
+            t = next((x for x in self.s["transactions"] if x["id"] == tid), None)
+            if not t:
+                continue
+            net += t["amount"] if t["kind"] == M.EXPENSE else (-t["amount"] if t["kind"] == M.REFUND else 0.0)
+            M.edit_transaction(self.s, tid, envelope_id=bucket_id)
+        if abs(net) > 0.005:
+            e = M.env(self.s, bucket_id)
+            e["funded"] = round(e["funded"] + net, 2)
 
     def ledger_metrics(self) -> dict:
         mid = _today()[:7]                        # 'YYYY-MM'

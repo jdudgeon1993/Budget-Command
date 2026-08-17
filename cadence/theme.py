@@ -251,6 +251,18 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-tx-amt{font-size:15px;font-weight:700;letter-spacing:-.01em;text-align:right;white-space:nowrap}
 .cd-tx-amt.pos{color:var(--pos)}
 .cd-tx-amt.neg{color:var(--ink)}
+.cd-tx-orphan{font-weight:800;color:var(--neg);background:var(--neg-soft);padding:2px 8px;border-radius:6px;font-size:10px;letter-spacing:.02em;text-transform:uppercase}
+.cd-orphan-banner{display:flex;align-items:center;gap:12px;background:var(--warn-soft);border:1px solid #f4dfb8;
+  border-radius:14px;padding:13px 16px;margin:0 0 14px}
+.cd-ob-t{font-size:13.5px;font-weight:800;color:var(--warn-ink)}
+.cd-ob-s{font-size:12px;color:var(--warn-ink);opacity:.85;margin-top:2px}
+.cd-orphan-banner .q-btn{margin-left:auto;flex:0 0 auto}
+.cd-fixrow{padding:12px 2px;border-top:1px solid var(--line)}
+.cd-fixrow:first-of-type{border-top:none}
+.cd-fix-info{min-width:0;display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+.cd-fix-payee{font-size:14px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-fix-info .cd-sub{margin-left:auto;white-space:nowrap;flex:0 0 auto}
+.cd-fix-sel{width:100%}
 .cd-empty{background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:38px 20px;text-align:center;color:var(--muted)}
 .cd-empty .big{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px}
 

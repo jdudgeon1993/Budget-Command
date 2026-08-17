@@ -241,6 +241,7 @@ class LiveStore:
 
     def transactions(self, limit: int = 300) -> list[dict]:
         meta = self._bucket_meta()
+        live = {b["id"] for b in self._buckets()}     # active (non-archived) buckets
         acct = {a["id"]: a["name"] for a in self.data["accounts"]}
         out = []
         for i, t in enumerate(self.data["txs"]):
@@ -263,12 +264,28 @@ class LiveStore:
                 kind, name, color, bid = "transfer", f"{frm} → {to}", "#f59e0b", None
             else:
                 continue
+            # expense/refund whose bucket was archived/removed → needs re-homing
+            orphaned = bool(bid) and bid not in live and kind in ("expense", "refund")
             out.append({"id": t["id"], "kind": kind, "amount": round(amt, 2),
                         "date": t.get("date") or "", "desc": t.get("desc") or "",
-                        "bucket_id": bid, "bucket_name": name, "color": color,
+                        "bucket_id": bid, "bucket_name": name, "color": color, "orphaned": orphaned,
                         "from_acct": t.get("accountId"), "to_acct": t.get("toAccountId"), "_seq": i})
         out.sort(key=lambda r: (r["date"], r["_seq"]), reverse=True)
         return out[:limit]
+
+    def reassign_transactions(self, tids, bucket_id):
+        """Re-home orphaned expenses/refunds onto a bucket, then fund it to cover the
+        re-homed net so it reads as budgeted rather than overspent (the funding that
+        backed these went away with their old bucket)."""
+        net = 0.0
+        for tid in tids:
+            t = next((x for x in self.data["txs"] if x["id"] == tid), None)
+            if t is not None:
+                net += float(t.get("amount") or 0)        # 'out' amount: expense +, refund −
+            DB.update(self.token, "bcc_transactions", self.uid, "id", tid, {"bucket_id": bucket_id})
+        self._reload("txs_raw")
+        if abs(net) > 0.005:
+            self.fund(bucket_id, round(net, 2))
 
     def ledger_metrics(self) -> dict:
         txs = self.data["txs"]

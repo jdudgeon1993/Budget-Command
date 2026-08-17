@@ -897,6 +897,22 @@ def _bucket_options(store) -> dict:
     return opts
 
 
+def _best_bucket(payee: str, opts: dict):
+    """Guess which bucket a payee belongs in by name — exact match first, then a
+    loose contains either way (so a 'Netflix' charge finds the 'Netflix' bucket)."""
+    p = (payee or "").strip().lower()
+    if not p:
+        return None
+    for bid, name in opts.items():
+        if name.strip().lower() == p:
+            return bid
+    for bid, name in opts.items():
+        n = name.strip().lower()
+        if n and (n in p or p in n):
+            return bid
+    return None
+
+
 _TX_ICON = {"expense": "−", "income": "+", "refund": "↺", "transfer": "→"}
 _TX_CLASS = {"expense": "out", "income": "in", "refund": "refund", "transfer": "transfer"}
 
@@ -904,6 +920,7 @@ _TX_CLASS = {"expense": "out", "income": "in", "refund": "refund", "transfer": "
 def _ledger_view(store, refresh_bg, on_paycheck=None):
     """The cleared-money timeline: income, spending and refunds, grouped by day."""
     q = {"v": ""}
+    cur_ym = _cur_ym()
     # Which months are expanded — the current cycle opens by default, the rest stay
     # collapsed until tapped. Kept on the store so it survives list refreshes.
     exp = getattr(store, "_led_expanded", None)
@@ -1023,6 +1040,51 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
                 ui.button("Save" if existing else "Add", on_click=save).props("unelevated color=indigo no-caps")
         dlg.open()
 
+    def _open_fix(orphans):
+        """Re-home current-month transactions whose bucket was removed. Orphans are
+        grouped by payee, each group pre-set to its best-matching bucket."""
+        opts = _bucket_options(store)
+        # group by payee (fallback: the old bucket name, then a catch-all)
+        groups: "dict[str, list]" = {}
+        for r in orphans:
+            key = (r["desc"] or r["bucket_name"] or "Unlabelled").strip()
+            groups.setdefault(key, []).append(r)
+        picks = {}  # payee -> {"sel": select, "tids": [...]}
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html('<div class="cd-sh-title">Re-home these transactions</div>')
+            ui.html(f'<div class="cdm-sub">{len(orphans)} transaction'
+                    f'{"s" if len(orphans) != 1 else ""} this month lost their bucket — a bucket they '
+                    'pointed at was removed or exploded. Pick a home for each; matching payees are grouped.</div>')
+            if not opts:
+                ui.html('<div class="cd-sub" style="padding:6px 2px">No buckets to move them into — make one first.</div>')
+            for payee, rows in sorted(groups.items(), key=lambda kv: -sum(x["amount"] for x in kv[1])):
+                total = round(sum(x["amount"] for x in rows), 2)
+                with ui.element("div").classes("cd-fixrow"):
+                    ui.html(f'<div class="cd-fix-info"><div class="cd-fix-payee">{_esc(payee)}</div>'
+                            f'<div class="cd-sub">{len(rows)} · {money(total)}</div></div>')
+                    sel = ui.select(opts, value=_best_bucket(payee, opts), label="Move to") \
+                        .props("outlined dense").classes("cd-fix-sel")
+                    picks[payee] = {"sel": sel, "tids": [x["id"] for x in rows]}
+
+            def do_fix():
+                moves = [(g["tids"], g["sel"].value) for g in picks.values() if g["sel"].value]
+                if not moves:
+                    ui.notify("Pick a bucket for at least one group.", type="warning"); return
+                try:
+                    for tids, bid in moves:
+                        store.reassign_transactions(tids, bid)
+                except Exception as e:
+                    ui.notify(str(e)[:150], type="warning"); return
+                done = sum(len(t) for t, _ in moves)
+                dlg.close(); refresh_bg()
+                ui.notify(f"Re-homed {done} transaction{'s' if done != 1 else ''}.", type="positive")
+            with ui.row().classes("w-full items-center q-mt-md"):
+                ui.space()
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Re-home all", on_click=do_fix).props("unelevated color=indigo no-caps")
+        dlg.open()
+
     def _tx_row(r):
         row = ui.element("div").classes("cd-tx")
         with row:
@@ -1033,6 +1095,9 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
             elif r["kind"] == "income":
                 title = _esc(r["desc"] or "Income")
                 meta = '<span class="cd-tx-tag">Income → Unallocated</span>'
+            elif r.get("orphaned") and r["date"][:7] == cur_ym:
+                title = _esc(r["desc"] or "Expense")
+                meta = '<span class="cd-tx-tag cd-tx-orphan">⚠ needs a bucket</span>'
             else:
                 title = _esc(r["desc"] or r["bucket_name"])
                 verb = "refund →" if r["kind"] == "refund" else ""
@@ -1141,6 +1206,16 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
     with ui.element("div").classes("cd-actionbar"):
         ui.html('<div class="cd-newbtn">＋ Add transaction</div>').on("click", lambda _: _open_tx())
         ui.html('<span class="cd-hint">Tap any row to edit · income lifts Unallocated</span>').style("margin-left:auto")
+
+    # current-month transactions whose bucket was removed/exploded — flag to re-home
+    orphans = [r for r in store.transactions() if r.get("orphaned") and r["date"][:7] == cur_ym]
+    if orphans:
+        n, tot = len(orphans), round(sum(r["amount"] for r in orphans), 2)
+        with ui.element("div").classes("cd-orphan-banner"):
+            ui.html(f'<div><div class="cd-ob-t">⚠ {n} transaction{"s" if n != 1 else ""} this month lost '
+                    f'their bucket</div><div class="cd-ob-s">{money(tot)} needs a home — a bucket they used '
+                    'was removed or split apart.</div></div>')
+            ui.button("Re-home", on_click=lambda o=orphans: _open_fix(o)).props("unelevated color=deep-orange no-caps size=sm")
 
     search = ui.input(placeholder="Search payee or bucket…").props("outlined dense clearable").classes("w-full cd-led-search")
     search.on("update:model-value", lambda: (q.__setitem__("v", search.value or ""), lst.refresh()))
