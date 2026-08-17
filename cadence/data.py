@@ -626,6 +626,27 @@ class LiveStore:
     def set_split(self, bid: str, on: bool):
         self._bucket_update(bid, {"split": bool(on)})
 
+    def convert_to_split(self, bid: str):
+        """Plain bucket → bill split. Seed the first bill from the bucket's current
+        target + due (captured before the flag flips, since a split bucket derives
+        its target from the items). Reuse any dormant bills instead of duplicating."""
+        b = self.bucket(bid)                          # split off → target = its own budget
+        target, due, name = b["target"], b["due_day"], b["name"]
+        self.set_split(bid, True)
+        raw = next((x for x in self._buckets() if x["id"] == bid), None)
+        if raw is not None and not raw.get("items"):
+            self.add_item(bid, name, target, due)
+
+    def convert_to_bucket(self, bid: str, due_day=None):
+        """Bill split → one bucket: the bills' total becomes the single target and
+        one due date is chosen. Bills are kept (dormant) for an easy re-split."""
+        b = self.bucket(bid)
+        total = b["items_total"] if b.get("split") else b["target"]
+        self.set_target(bid, round(total, 2))         # preserve the money target
+        if due_day is not None:
+            self.set_due_day(bid, due_day)
+        self.set_split(bid, False)
+
     def add_item(self, bid: str, name: str, amount: float, due_day=None):
         DB.insert(self.token, "bcc_bucket_items", {
             "id": DB.new_id(), "user_id": self.uid, "bucket_id": bid,

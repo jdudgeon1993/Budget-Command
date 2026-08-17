@@ -340,6 +340,26 @@ class Store:
     def set_split(self, eid: str, on: bool):
         M.set_split(self.s, eid, on)
 
+    def convert_to_split(self, eid: str):
+        """Turn a plain bucket into a bill split. The bucket's current target and
+        due date seed the first bill so nothing is lost — the user adds the rest.
+        Existing (dormant) bills from a previous split are reused, not duplicated."""
+        e = M.env(self.s, eid)
+        target, due, name = e.get("target", 0.0), e.get("due_day"), e["name"]
+        M.set_split(self.s, eid, True)
+        if not e.get("items"):
+            M.add_item(self.s, eid, name, target, due)
+
+    def convert_to_bucket(self, eid: str, due_day=None):
+        """Collapse a bill split back into one bucket: the bills' total becomes the
+        single target and one due date is chosen. Bills are kept (dormant) so the
+        user can split again later without re-entering them."""
+        e = M.env(self.s, eid)
+        e["target"] = round(M.items_total(e), 2)      # preserve the money target
+        if due_day is not None:
+            M.set_due_day(self.s, eid, due_day)
+        M.set_split(self.s, eid, False)
+
     def add_item(self, eid: str, name: str, amount: float, due_day=None):
         return M.add_item(self.s, eid, name, amount, due_day)
 

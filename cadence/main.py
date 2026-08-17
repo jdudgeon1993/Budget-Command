@@ -491,14 +491,60 @@ def _app(store, demo: bool):
                                 hd = ui.switch(value=b["handled"]).props("dense color=indigo")
                                 hd.on("update:model-value", lambda: act(lambda: store.toggle_handled(eid)))
 
-                    # ── BILL SCHEDULE (split one pool into scheduled line-items) ──
+                    # ── BILL SCHEDULE — a bucket can convert to a bill split and back ──
+                    def _open_convert():
+                        to_split = not b["split"]
+                        cdlg = ui.dialog().props("position=bottom")
+                        with cdlg, ui.card().classes("cd-sheet"):
+                            ui.html('<div class="cd-hdl"></div>')
+                            if to_split:
+                                due_txt = ""
+                                if b["due_day"] is not None:
+                                    due_txt = f' and its {_dueday_options().get(_dueday_key(b["due_day"]), "due date")} due date'
+                                ui.html(f'<div class="cd-sh-title">Split “{_esc(b["name"])}” into bills</div>')
+                                ui.html('<div class="cdm-sub">Bill split is for one bucket whose money leaves on '
+                                        '<b>different dates</b> — a utility that bills on the 5th and again on the 20th, say. '
+                                        f'Its current {money(b["target"])} target{due_txt} becomes the first bill; add the rest '
+                                        'after. You can merge it back to a single bucket anytime.</div>')
+
+                                def do_split():
+                                    act(lambda: store.convert_to_split(eid)); cdlg.close()
+                                with ui.row().classes("w-full justify-end q-gutter-sm q-mt-md"):
+                                    ui.button("Cancel", on_click=cdlg.close).props("flat no-caps")
+                                    ui.button("Convert to bill split", on_click=do_split).props("unelevated color=indigo no-caps")
+                            else:
+                                n, total = len(b["items"]), b["items_total"]
+                                soonest = next((it["due_day"] for it in b["items"] if not it.get("paid") and it["due_day"] is not None),
+                                               next((it["due_day"] for it in b["items"] if it["due_day"] is not None), None))
+                                ui.html(f'<div class="cd-sh-title">Merge “{_esc(b["name"])}” into one bucket</div>')
+                                ui.html(f'<div class="cdm-sub">Collapse these {n} bill{"s" if n != 1 else ""} into a single '
+                                        f'{money(total)} bucket with one due date. Your bills are kept, so you can split it '
+                                        'again later without re-entering them.</div>')
+                                duesel = ui.select(_dueday_options(), value=_dueday_key(soonest),
+                                                   label="Due day for the merged bucket").props("outlined dense").classes("w-full")
+
+                                def do_merge():
+                                    act(lambda: store.convert_to_bucket(eid, duesel.value)); cdlg.close()
+                                with ui.row().classes("w-full justify-end q-gutter-sm q-mt-md"):
+                                    ui.button("Cancel", on_click=cdlg.close).props("flat no-caps")
+                                    ui.button("Merge to single bucket", on_click=do_merge).props("unelevated color=indigo no-caps")
+                        cdlg.open()
+
                     if b["type"] == "spend" and not b["flex"]:
                         with ui.element("div").classes("cd-bs-sec"):
-                            with ui.row().classes("items-center no-wrap w-full").style("margin-bottom:11px"):
-                                ui.html('<div class="cd-bs-lbl" style="margin:0">Bill schedule</div>')
-                                ui.space()
-                                sp = ui.switch(value=b["split"]).props("dense color=indigo")
-                                sp.on("update:model-value", lambda: act(lambda: store.set_split(eid, sp.value)))
+                            if not b["split"]:
+                                ui.html('<div class="cd-bs-lbl">Bill schedule</div>')
+                                with ui.element("div").classes("cd-bs-card"):
+                                    ui.html('<div class="cd-sub" style="line-height:1.55;margin-bottom:13px">Right now this is '
+                                            'one bucket with one due date. If the same money leaves on <b>different dates</b> — '
+                                            'utilities on the 5th and the 20th, a subscription bundle — split it into separate '
+                                            'bills, each with its own due date and Forecast entry.</div>')
+                                    ui.button("Split into bills", on_click=_open_convert).props("outline color=indigo no-caps")
+                            else:
+                                with ui.row().classes("items-center no-wrap w-full").style("margin-bottom:11px"):
+                                    ui.html('<div class="cd-bs-lbl" style="margin:0">Bill schedule</div>')
+                                    ui.space()
+                                    ui.button("↩ Merge to one bucket", on_click=_open_convert).props("flat color=grey no-caps size=sm")
                             if b["split"]:
                                 if b["items"]:
                                     need = round(sum(it.get("item_gap", 0.0) for it in b["items"] if not it.get("paid")), 2)
