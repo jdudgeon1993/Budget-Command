@@ -1492,6 +1492,27 @@ def _settings_view(store, refresh_bg):
                     else:
                         ui.html('<span class="cd-sub">Add a category first, in the card below.</span>')
 
+    # ── possible duplicate buckets — same name, likely from an explode ────────
+    dupes = store.duplicate_buckets() if hasattr(store, "duplicate_buckets") else []
+    if dupes:
+        visible_ids = {r["id"] for g in store.groups() for r in g["rows"]}
+        with ui.element("div").classes("cd-setcard"):
+            ui.html('<div class="cd-set-seclbl">⚠ Possible duplicate buckets</div>')
+            ui.html('<div class="cd-sub" style="padding:2px 2px 12px;line-height:1.5">'
+                    'These buckets share a name — often two of the same bill after a split exploded one that '
+                    'already existed on its own. Merge folds one\'s money and history into the other; nothing is lost.</div>')
+            for group in dupes:
+                with ui.element("div").classes("cd-dupgrp"):
+                    ui.html(f'<div class="cd-orow-name">{_esc(group[0]["name"])} ({len(group)})</div>')
+                    for b in group:
+                        hidden = "" if b["id"] in visible_ids else " · hidden"
+                        with ui.element("div").classes("cd-orow"):
+                            ui.html(f'<div class="cd-orow-info"><div class="cd-sub">{money(b["available"])} available · '
+                                    f'{money(b["funded"])} funded{hidden}</div></div>')
+                            keep_target = next(o for o in group if o["id"] != b["id"])
+                            ui.button("Merge into the other one", on_click=lambda keep=keep_target["id"], drop=b["id"]: _do(
+                                lambda: store.merge_buckets(keep, drop))).props("outline color=deep-orange no-caps size=sm")
+
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Cash-flow accounts</div>')
         accts = store.accounts()

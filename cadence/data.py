@@ -177,6 +177,40 @@ class LiveStore:
     def recategorize_bucket(self, bid: str, cat_id: str):
         self._bucket_update(bid, {"cat_id": cat_id})
 
+    def duplicate_buckets(self) -> list[list[dict]]:
+        """Buckets sharing a name (case/space-insensitive) — most often two of the
+        same subscription/bill after a split exploded one that already existed as
+        its own bucket. Scans every non-archived bucket (orphaned-category ones
+        included), since a duplicate is often exactly one visible + one hidden."""
+        groups: dict[str, list[dict]] = {}
+        for b in self._buckets():
+            key = (b.get("name") or "").strip().lower()
+            if key:
+                groups.setdefault(key, []).append(self._row(b))
+        return [rows for rows in groups.values() if len(rows) > 1]
+
+    def merge_buckets(self, keep_id: str, drop_id: str):
+        """Fold `drop` into `keep`: drop's funded money and every transaction that
+        ever pointed at it move to keep, then drop is archived. keep's name/due
+        date/category/type are untouched. Money is conserved exactly — this only
+        relabels which bucket funded dollars and history belong to."""
+        if keep_id == drop_id:
+            return
+        keep, drop = self.bucket(keep_id), self.bucket(drop_id)
+        if drop["type"] == "vault" or keep["type"] == "vault":
+            raise ValueError("Vaults are locked — release one to Ready to Assign and delete it instead of merging.")
+        if drop.get("split") and drop.get("items"):
+            raise ValueError(f'"{drop["name"]}" has its own bill schedule — clear or move its bills first.')
+        amt = round(drop["funded"], 2)
+        if amt > 0.005:
+            self.move(drop_id, keep_id, amt)
+        tids = [t["id"] for t in self.transactions(limit=10000) if t.get("bucket_id") == drop_id]
+        if tids:
+            for tid in tids:
+                DB.update(self.token, "bcc_transactions", self.uid, "id", tid, {"bucket_id": keep_id})
+            self._reload("txs_raw")
+        self.delete(drop_id)
+
     def distribute_steps(self, paycheck_amount=None) -> dict:
         return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
 

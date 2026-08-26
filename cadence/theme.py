@@ -301,6 +301,10 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-orow-name{font-weight:700;font-size:14px}
 .cd-orow-sel{flex:1;min-width:160px}
 @media (max-width:640px){.cd-orow{flex-direction:column;align-items:stretch}.cd-orow-sel{width:100%}}
+.cd-dupgrp{padding:12px 2px;border-top:1px solid var(--line)}
+.cd-dupgrp:first-of-type{border-top:none}
+.cd-dupgrp .cd-orow-name{margin-bottom:4px}
+.cd-dupgrp .cd-orow{padding:8px 2px;justify-content:space-between}
 .cd-rpt-cat{display:flex;align-items:center;gap:8px;margin:14px 0 8px;flex-wrap:wrap}
 .cd-rpt-cat-name{font-weight:800;font-size:14px}
 .cd-rpt-cat-nums{margin-left:auto;font-size:12px;color:var(--ink);font-variant-numeric:tabular-nums}

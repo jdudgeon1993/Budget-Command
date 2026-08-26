@@ -271,6 +271,36 @@ class Store:
     def recategorize_bucket(self, eid: str, cat_id: str):
         M.set_category(self.s, eid, cat_id)
 
+    def duplicate_buckets(self) -> list[list[dict]]:
+        """Buckets sharing a name (case/space-insensitive) — most often two of the
+        same subscription/bill after a split exploded one that already existed as
+        its own bucket."""
+        groups: dict[str, list[dict]] = {}
+        for e in self.s["envelopes"]:
+            key = (e.get("name") or "").strip().lower()
+            if key:
+                groups.setdefault(key, []).append(self._row(e))
+        return [rows for rows in groups.values() if len(rows) > 1]
+
+    def merge_buckets(self, keep_id: str, drop_id: str):
+        """Fold `drop` into `keep`: drop's funded money and every transaction that
+        ever pointed at it move to keep, then drop is deleted. Money is conserved
+        exactly — this only relabels which bucket funded dollars and history belong to."""
+        if keep_id == drop_id:
+            return
+        keep, drop = self.bucket(keep_id), self.bucket(drop_id)
+        if drop["type"] == "vault" or keep["type"] == "vault":
+            raise ValueError("Vaults are locked — release one to Unallocated and delete it instead of merging.")
+        if drop.get("split") and drop.get("items"):
+            raise ValueError(f'"{drop["name"]}" has its own bill schedule — clear or move its bills first.')
+        amt = round(M.env(self.s, drop_id)["funded"], 2)
+        if amt > 0.005:
+            M.move(self.s, drop_id, keep_id, amt)
+        for t in list(self.s["transactions"]):
+            if t.get("envelope_id") == drop_id:
+                t["envelope_id"] = keep_id
+        M.delete_envelope(self.s, drop_id)
+
     def distribute_steps(self, paycheck_amount=None) -> dict:
         return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
 
