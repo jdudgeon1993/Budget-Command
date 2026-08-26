@@ -160,7 +160,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
                 v = round(amt * r["value"] / 100.0 if r["value_type"] == "pct" else r["value"], 2)
                 if v > 0.005:
                     events.append({"date": d, "kind": "internal", "name": r["name"], "amount": v,
-                                   "bucket": r.get("bucket_name")})
+                                   "bucket": r.get("bucket_name"), "bucket_id": r.get("bucket_id")})
 
     # Specific future-dated transactions the user already entered — the real,
     # committed items. Scheduled expenses against a bucket also suppress that
@@ -187,6 +187,17 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             if t.get("bucket_id"):
                 sched_exp[(t["bucket_id"], ym)] = round(sched_exp.get((t["bucket_id"], ym), 0.0) + amt, 2)
 
+    # Each dated bill has its own running "available" — what's actually saved
+    # toward it — seeded from the bucket today and topped up by internal
+    # set-asides aimed at it as paydays land, in chronological order. This is
+    # what answers "will this paycheck actually afford the bill," not just
+    # whether cash overall survives: a bill can clear (money leaves checking
+    # either way) while still being genuinely UNDER-saved-for.
+    bucket_avail: dict[str, float] = {
+        b["id"]: round(b.get("available", 0.0), 2)
+        for b in bills if b.get("id") and b.get("frequency") not in _PPM
+    }
+
     # Bills. A dated bill (due day, no sub-monthly frequency) hits its full amount
     # once a month. A weekly/bi-weekly/tri-weekly bucket spreads its MONTHLY target
     # across the periods — $400/mo weekly ≈ $92 a week (sums back to the month).
@@ -198,7 +209,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             if per > 0.005:
                 for d in bill_dates(b.get("due_day"), freq, today, end):
                     events.append({"date": d, "kind": "bill", "name": b["name"],
-                                   "amount": per, "funded": True, "cadence": freq})
+                                   "amount": per, "funded": True, "shortfall": 0.0, "cadence": freq})
         else:
             spent = round(b.get("spent", 0.0), 2)
             for d in bill_dates(b.get("due_day"), freq, today, end):
@@ -208,9 +219,10 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
                 base = round(max(0.0, base - sched_exp.get((bid, (d.year, d.month)), 0.0)), 2)
                 if base <= 0.005:
                     continue
-                funded = (b.get("available", 0.0) >= base - 0.005) if this_month else True
+                # funded/shortfall is resolved once events are walked in order below —
+                # it depends on what's landed in the bucket by THIS date, not just today.
                 events.append({"date": d, "kind": "bill", "name": b["name"],
-                               "amount": base, "funded": funded})
+                               "amount": base, "_bid": bid, "_target": base})
 
     # Same-day order: income first, then set-asides, transfers out, bills clear.
     _ord = {"income": 0, "internal": 1, "transfer": 2, "bill": 3}
@@ -220,6 +232,19 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
     trajectory = [{"date": today.isoformat(), "balance": running}]
     low = {"balance": running, "date": today.isoformat()}
     for e in events:
+        if e["kind"] == "internal":
+            bid = e.get("bucket_id")
+            if bid in bucket_avail:
+                bucket_avail[bid] = round(bucket_avail[bid] + e["amount"], 2)
+        elif e["kind"] == "bill" and "_bid" in e:
+            bid, tgt = e["_bid"], e["_target"]
+            have = bucket_avail.get(bid, 0.0)
+            if round(have - tgt, 2) >= -0.005:
+                e["funded"], e["shortfall"] = True, 0.0
+                bucket_avail[bid] = round(have - tgt, 2)
+            else:
+                e["funded"], e["shortfall"] = False, round(tgt - have, 2)
+                bucket_avail[bid] = 0.0   # this occurrence used up everything saved
         # every event depletes the running balance — income adds, everything else
         # (internal set-asides included) subtracts, so the number always reflects
         # what's actually left once you've honored your own savings commitments too.
@@ -258,9 +283,15 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             "is_gap": is_gap, "income": income, "external": external, "internal": internal,
             "bills_out": bills_out,
             "unfunded": round(sum(e["amount"] for e in bill_evs if not e.get("funded", True)), 2),
+            # the real dollar gap — what's short toward a bill by the time it's due,
+            # not just "unfunded" ($0 saved would show unfunded even if only $1 short)
+            "shortfall_total": round(sum(e.get("shortfall", 0.0) for e in bill_evs), 2),
+            "shortfalls": [{"name": e["name"], "shortfall": round(e["shortfall"], 2)}
+                          for e in bill_evs if e.get("shortfall", 0.0) > 0.005],
             "start_balance": start_bal, "end_balance": end_bal, "negative": end_bal < 0,
             "events": [{"date": e["date"].isoformat(), "kind": e["kind"], "name": e["name"],
                         "amount": round(e["amount"], 2), "funded": e.get("funded", True),
+                        "shortfall": round(e.get("shortfall", 0.0), 2),
                         "cadence": e.get("cadence"), "scheduled": e.get("scheduled", False),
                         "bucket": e.get("bucket"), "balance": e["balance_after"]}
                        for e in evs],

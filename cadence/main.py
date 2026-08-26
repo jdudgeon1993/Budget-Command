@@ -331,7 +331,13 @@ def _app(store, demo: bool):
                     extra = f' · {unfunded} to fund' if unfunded else ' · all funded ✓'
                     ui.html(f'<div class="cd-sub" style="margin-top:1px">🗓 {r["items_paid"]}/{len(r["items"])} bills paid{extra}</div>')
                 ui.html('<div class="cd-tap">Tap to assign / manage →</div>')
-            card.on("click", lambda _, e=r["id"]: _open_assign(e))
+
+            def _open_safe(eid):
+                try:
+                    _open_assign(eid)
+                except Exception as e:
+                    ui.notify(f"Couldn't open that bucket: {str(e)[:150]}", type="negative")
+            card.on("click", lambda _, e=r["id"]: _open_safe(e))
 
         # ── bucket sheet: assign · spend · details ────────────────────────────
         def _open_assign(eid):
@@ -1746,12 +1752,27 @@ def _forecast_view(store, refresh_bg):
         exp = {res["periods"][0]["start"]} if res["periods"] else set()
         store._fc_expanded = exp
     low_when = _friendly_date(res["low"]["date"])
+    # The very next paycheck — the exact question "will THIS one afford everything
+    # due" — surfaced up top so it's visible without digging into the periods below.
+    next_period = next((p for p in res["periods"] if not p["is_gap"]), None)
+    next_short = next_period.get("shortfall_total", 0.0) if next_period else 0.0
+
     if res["shortfall"]:
         vcls, verdict = "red", f"Heads up — you dip below zero around {low_when}"
+    elif next_short > 0.005:
+        vcls, verdict = "red", f"Your next paycheck falls short by {money(next_short)}"
     elif res["safe_to_spend"] < 500:
         vcls, verdict = "amber", f"Cutting it close around {low_when}"
     else:
         vcls, verdict = "green", "You're on track"
+
+    short_line = ""
+    if next_short > 0.005 and next_period:
+        who = ", ".join(s["name"] for s in next_period.get("shortfalls", [])[:3])
+        more = len(next_period.get("shortfalls", [])) - 3
+        who += f" +{more} more" if more > 0 else ""
+        short_line = (f'<div class="cd-fc-heroshort">⚠ {money(next_short)} not yet saved up for '
+                      f'{_esc(who)}, due before your next paycheck after that</div>')
 
     # ── hero verdict ──
     ui.html(f'''
@@ -1760,6 +1781,7 @@ def _forecast_view(store, refresh_bg):
           <div class="cd-fc-verdict">{verdict}</div>
           <div class="cd-fc-safe mono">{money(res["safe_to_spend"])}</div>
           <div class="cd-fc-safe-lbl">safe to spend today · your balance never dips below this</div>
+          {short_line}
         </div>
         <div class="cd-fc-low">
           <div class="cd-fc-low-lbl">Lowest point</div>
@@ -1790,16 +1812,23 @@ def _forecast_view(store, refresh_bg):
         outs = round(p["external"] + p.get("internal", 0) + p["bills_out"], 2)
         out_s = f'<span class="out">−{money(outs)}</span>' if outs > 0 else ''
         flow = ' · '.join(x for x in (ins, out_s) if x)
+        short = p.get("shortfall_total", 0.0)
         card = ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "") + (" open" if is_open else ""))
         with card:
             hd = ui.element("div").classes("cd-fc-phd")
             with hd:
                 ui.html(f'<span class="cd-fc-chev">▸</span>')
-                ui.html(f'<div style="min-width:0"><div class="cd-fc-pname">{_esc(p["label"])}</div>'
-                        f'<div class="cd-fc-prange">{rng} · {flow}</div></div>')
+                ui.html(f'<div style="min-width:0"><div class="cd-fc-pname">{_esc(p["label"])}'
+                        + (f' <span class="cd-fc-short-badge">short {money(short)}</span>' if short > 0.005 else '')
+                        + f'</div><div class="cd-fc-prange">{rng} · {flow}</div></div>')
                 ui.html(f'<div class="cd-fc-pbal"><div class="cd-sub">projected balance</div>'
                         f'<div class="mono" style="font-weight:800;font-size:16px;color:{ebcol}">{money(p["end_balance"])}</div></div>')
             hd.on("click", lambda _, k=p["start"]: toggle_p(k))
+            if short > 0.005:
+                whos = ", ".join(f'{_esc(s["name"])} needs {money(s["shortfall"])} more' for s in p.get("shortfalls", []))
+                ui.html(f'<div class="cd-fc-shortbar">⚠ This paycheck doesn\'t cover everything due — {whos}. '
+                        'The bill still clears (it comes out of checking either way) but that bucket isn\'t actually '
+                        'saved up for it.</div>')
             if is_open:
                 with ui.element("div").classes("cd-fc-reg"):
                     ui.html(f'<div class="cd-fc-erow open-bal"><span></span>'
@@ -1824,7 +1853,9 @@ def _forecast_view(store, refresh_bg):
                         pos = kind == "income"
                         acol = "var(--pos)" if pos else ("var(--neg)" if not e["funded"] else "var(--ink)")
                         sign = "+" if pos else "−"
-                        flag = ' <span class="cd-fc-uf">unfunded</span>' if not e["funded"] else ''
+                        flag = (f' <span class="cd-fc-uf">short {money(e["shortfall"])}</span>'
+                                if not e["funded"] and e.get("shortfall", 0) > 0.005
+                                else ' <span class="cd-fc-uf">unfunded</span>' if not e["funded"] else '')
                         bcol = "var(--neg)" if e["balance"] < 0 else "var(--muted)"
                         ui.html(
                             f'<div class="cd-fc-erow">'

@@ -162,7 +162,10 @@ class LiveStore:
         return out
 
     def bucket(self, bid: str) -> dict:
-        return self._row(next(b for b in self._buckets() if b["id"] == bid))
+        b = next((x for x in self._buckets() if x["id"] == bid), None)
+        if b is None:
+            raise ValueError("That bucket isn't there anymore — it may have just been merged, archived, or removed. Refresh and try again.")
+        return self._row(b)
 
     def _all_rows(self) -> list[dict]:
         return [self._row(b) for b in self._buckets()]

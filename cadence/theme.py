@@ -329,6 +329,8 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-fc-hero.red .cd-fc-verdict{color:var(--neg)}
 .cd-fc-safe{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:4px 0 2px}
 .cd-fc-safe-lbl{font-size:12px;color:var(--muted)}
+.cd-fc-heroshort{margin-top:10px;padding:8px 12px;font-size:12px;line-height:1.5;font-weight:600;
+  color:var(--neg);background:var(--neg-soft);border-radius:10px;max-width:340px}
 .cd-fc-low{text-align:right;padding-left:20px;border-left:1px solid var(--line)}
 .cd-fc-low-lbl{font-size:11px;color:var(--muted)}
 .cd-fc-low-val{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:2px 0}
@@ -343,6 +345,10 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-fc-chev{width:14px;text-align:center;color:var(--muted);font-size:11px;transition:transform .18s}
 .cd-fc-period.open .cd-fc-chev{transform:rotate(90deg)}
 .cd-fc-pname{font-weight:700;font-size:14px}
+.cd-fc-short-badge{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+  color:#fff;background:var(--neg);padding:2px 7px;border-radius:6px;vertical-align:middle}
+.cd-fc-shortbar{margin:0 18px 12px;padding:10px 13px;font-size:12px;line-height:1.5;color:var(--neg);
+  background:var(--neg-soft);border-radius:10px}
 .cd-fc-prange{font-size:11px;color:var(--muted);margin-top:1px}
 .cd-fc-prange .in{color:var(--pos);font-weight:600}
 .cd-fc-prange .out{color:var(--neg);font-weight:600}

@@ -256,7 +256,10 @@ class Store:
                 "urgency": M.urgency_score(av, gap, d, flex, handled, typ == M.VAULT)}
 
     def bucket(self, eid: str) -> dict:
-        return self._row(M.env(self.s, eid))
+        e = next((x for x in self.s["envelopes"] if x["id"] == eid), None)
+        if e is None:
+            raise ValueError("That bucket isn't there anymore — it may have just been merged, archived, or removed. Refresh and try again.")
+        return self._row(e)
 
     def _all_rows(self) -> list[dict]:
         return [self._row(e) for e in self.s["envelopes"]]
