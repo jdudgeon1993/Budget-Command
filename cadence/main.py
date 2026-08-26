@@ -1468,6 +1468,30 @@ def _settings_view(store, refresh_bg):
             ui.button("Clear stranded allocations", on_click=lambda: _do(
                 lambda: store.clear_ghost_allocations())).props("outline color=deep-orange no-caps size=sm")
 
+    # ── buckets you can't see — filed under a category that's gone missing ────
+    orphans = store.orphaned_buckets() if hasattr(store, "orphaned_buckets") else []
+    if orphans:
+        cat_opts = {c["id"]: c["name"] for c in store.categories()}
+        with ui.element("div").classes("cd-setcard"):
+            ui.html('<div class="cd-set-seclbl">⚠ Buckets you can\'t see</div>')
+            ntot = round(sum(o["available"] for o in orphans), 2)
+            ui.html(f'<div class="cd-sub" style="padding:2px 2px 12px;line-height:1.5">'
+                    f'{len(orphans)} bucket{"s" if len(orphans) != 1 else ""} — {money(ntot)} total — '
+                    'filed under a category that no longer exists. The Buckets screen only shows buckets whose '
+                    'category is still active, so these were invisible. The money is real and unaffected; '
+                    'give each one a home to bring it back.</div>')
+            for o in orphans:
+                with ui.element("div").classes("cd-orow"):
+                    ui.html(f'<div class="cd-orow-info"><div class="cd-orow-name">{_esc(o["name"])}</div>'
+                            f'<div class="cd-sub">{money(o["available"])} available · {money(o["funded"])} funded'
+                            f'{" · " + money(o["target"]) + " target" if o["target"] else ""}</div></div>')
+                    if cat_opts:
+                        sel = ui.select(cat_opts, label="Move to category").props("outlined dense").classes("cd-orow-sel")
+                        ui.button("Save", on_click=lambda i=o["id"], s=sel: _do(
+                            lambda: store.recategorize_bucket(i, s.value))).props("unelevated color=indigo no-caps size=sm")
+                    else:
+                        ui.html('<span class="cd-sub">Add a category first, in the card below.</span>')
+
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Cash-flow accounts</div>')
         accts = store.accounts()

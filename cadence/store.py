@@ -261,6 +261,16 @@ class Store:
     def _all_rows(self) -> list[dict]:
         return [self._row(e) for e in self.s["envelopes"]]
 
+    def orphaned_buckets(self) -> list[dict]:
+        """Buckets filed under a category that no longer exists — groups() only
+        shows buckets whose category still exists, so these are real, funded, and
+        completely invisible on the Buckets screen until re-filed."""
+        live_cats = {c["id"] for c in self.s["categories"]}
+        return [self._row(e) for e in self.s["envelopes"] if e.get("cat_id") not in live_cats]
+
+    def recategorize_bucket(self, eid: str, cat_id: str):
+        M.set_category(self.s, eid, cat_id)
+
     def distribute_steps(self, paycheck_amount=None) -> dict:
         return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
 

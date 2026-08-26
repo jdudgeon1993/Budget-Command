@@ -167,6 +167,16 @@ class LiveStore:
     def _all_rows(self) -> list[dict]:
         return [self._row(b) for b in self._buckets()]
 
+    def orphaned_buckets(self) -> list[dict]:
+        """Buckets filed under a category that's missing or archived — groups()
+        only shows buckets whose category still exists, so these are real, funded,
+        and completely invisible on the Buckets screen until re-filed."""
+        live_cats = {c["id"] for c in self.data["cats"] if not c.get("archived")}
+        return [self._row(b) for b in self._buckets() if b.get("catId") not in live_cats]
+
+    def recategorize_bucket(self, bid: str, cat_id: str):
+        self._bucket_update(bid, {"cat_id": cat_id})
+
     def distribute_steps(self, paycheck_amount=None) -> dict:
         return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
 
@@ -480,6 +490,12 @@ class LiveStore:
     def add_bucket(self, name: str, cat_id: str, type: str, target: float,
                    due_day=None, frequency=None, flex: bool = False,
                    target_date=None, notes: str = ""):
+        # A bucket filed under a missing/archived category becomes invisible —
+        # groups() only shows buckets whose category still exists. Never create
+        # one silently orphaned; fall back to any live category.
+        live_cats = {c["id"] for c in self.data["cats"] if not c.get("archived")}
+        if cat_id not in live_cats:
+            cat_id = next(iter(live_cats), None)
         dbtype = self._DB_TYPE.get(type, "expense")
         row = {"id": DB.new_id(), "user_id": self.uid, "cat_id": cat_id or None,
                "name": (name or "New bucket").strip(), "type": dbtype,
