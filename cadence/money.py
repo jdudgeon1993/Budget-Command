@@ -134,6 +134,11 @@ def add_envelope(s: dict, name: str, cat_id: str, type: str = SPEND,
                  due_day=None, frequency: str | None = None,
                  flex: bool = False, target_date: str | None = None,
                  notes: str = "") -> dict:
+    # A bucket filed under a category that no longer exists becomes invisible —
+    # groups() only shows buckets whose category still exists. Never create one
+    # silently orphaned; fall back to any live category.
+    if not any(c["id"] == cat_id for c in s["categories"]):
+        cat_id = s["categories"][0]["id"] if s["categories"] else cat_id
     e = {"id": _id(), "name": name, "cat_id": cat_id, "type": type,
          "target": round(target, 2), "funded": round(funded, 2),
          "due_day": _norm_due_day(due_day), "frequency": frequency or None,
