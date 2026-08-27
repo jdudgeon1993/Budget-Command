@@ -345,10 +345,24 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-fc-chev{width:14px;text-align:center;color:var(--muted);font-size:11px;transition:transform .18s}
 .cd-fc-period.open .cd-fc-chev{transform:rotate(90deg)}
 .cd-fc-pname{font-weight:700;font-size:14px}
-.cd-fc-short-badge{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
-  color:#fff;background:var(--neg);padding:2px 7px;border-radius:6px;vertical-align:middle}
-.cd-fc-shortbar{margin:0 18px 12px;padding:10px 13px;font-size:12px;line-height:1.5;color:var(--neg);
-  background:var(--neg-soft);border-radius:10px}
+/* ranked period warnings — worst first, each its own severity color */
+.cd-fc-warn-badge{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+  padding:2px 7px;border-radius:6px;vertical-align:middle}
+.cd-fc-warn-badge.red{color:#fff;background:var(--neg)}
+.cd-fc-warn-badge.amber{color:#fff;background:var(--warn-ink)}
+.cd-fc-warn-badge.violet{color:#fff;background:var(--violet)}
+.cd-fc-warn-badge.green{color:#fff;background:var(--pos)}
+.cd-fc-warnrow{margin:0 18px 10px;padding:10px 13px;font-size:12px;line-height:1.5;border-radius:10px}
+.cd-fc-warnrow.red{color:var(--neg);background:var(--neg-soft)}
+.cd-fc-warnrow.amber{color:var(--warn-ink);background:var(--warn-soft)}
+.cd-fc-warnrow.violet{color:var(--violet);background:var(--violet-soft)}
+.cd-fc-warnrow.green{color:var(--pos);background:var(--pos-soft)}
+/* vaults — accumulation summary + per-paycheck growth tag */
+.cd-fc-vaults{font-size:12.5px;line-height:1.5;color:var(--muted);
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 14px}
+.cd-fc-vgrow{display:block;margin-top:3px;color:var(--violet);font-weight:600}
+.cd-fc-vnow{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--violet);background:var(--violet-soft);padding:1px 6px;border-radius:6px}
 .cd-fc-prange{font-size:11px;color:var(--muted);margin-top:1px}
 .cd-fc-prange .in{color:var(--pos);font-weight:600}
 .cd-fc-prange .out{color:var(--neg);font-weight:600}

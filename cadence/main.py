@@ -1686,6 +1686,14 @@ def _forecast_bills(store) -> list[dict]:
     return out
 
 
+def _forecast_vaults(store) -> list[dict]:
+    """Vault/goal buckets — pure accumulation, no due date, so the Forecast tracks
+    their growth (seeded from today, topped up by internal rules aimed at them)
+    instead of a funded/shortfall check."""
+    return [{"id": r["id"], "name": r["name"], "available": r["available"]}
+            for g in store.groups() for r in g["rows"] if r["type"] in ("vault", "goal")]
+
+
 def _forecast_chart(res: dict) -> str:
     """A balance-over-time line chart (inline SVG) for the projection."""
     traj = res["trajectory"]
@@ -1740,6 +1748,61 @@ def _forecast_chart(res: dict) -> str:
 _FC_ICON = {"income": "+", "transfer": "→", "bill": "−", "internal": "◇"}
 
 
+# kind -> (severity color class, icon)
+_WARN_META = {
+    "overdraft":          ("red", "⚠"),
+    "no_income":          ("red", "⚠"),
+    "rules_exceed":       ("red", "⚠"),
+    "paycheck_shortfall": ("amber", "⚠"),
+    "bucket_shortfall":   ("amber", "⚠"),
+    "vault_lever":        ("violet", "◇"),
+    "ahead":              ("green", "↑"),
+    "all_clear":          ("green", "✓"),
+}
+
+
+def _warn_msg(w: dict) -> str:
+    """Full detail sentence for one warning — same wording everywhere it appears
+    (hero detail line, period card), so there's one source of truth."""
+    k = w["kind"]
+    if k == "overdraft":
+        m = f"Balance dips to {money(w['end_balance'])}."
+        if w.get("vaults_total", 0) > 0.005:
+            m += (f" You have {money(w['vaults_total'])} in vault savings — since that money never left "
+                  "checking, releasing some toward what's short would close the gap without new income.")
+        return m
+    if k == "no_income":
+        return f"No paycheck lands in this stretch, but {money(w['total_out'])} still goes out."
+    if k == "rules_exceed":
+        return f"Your own rules alone ({money(w['rules_total'])}) outspend this paycheck ({money(w['income'])}) — before a single bill."
+    if k == "paycheck_shortfall":
+        return f"Even if this whole paycheck went to nothing but catching up, you'd still be {money(w['gap'])} short."
+    if k == "bucket_shortfall":
+        who = ", ".join(f'{_esc(s["name"])} needs {money(s["shortfall"])} more' for s in w["shortfalls"][:3])
+        more = len(w["shortfalls"]) - 3
+        who += f" +{more} more" if more > 0 else ""
+        return f"{money(w['shortfall_total'])} still needed across underfunded bills — {who}."
+    if k == "vault_lever":
+        return f"Skipping this period's {money(w['internal_vault'])} vault contribution would leave you at {money(w['would_be'])} instead."
+    if k == "ahead":
+        return f"{money(w['net'])} left over after everything this period — a good time to get ahead on next month's bills."
+    return "Fully funded and solvent this period."
+
+
+def _warn_headline(w: dict) -> str:
+    """Short version for the hero verdict line."""
+    return {
+        "overdraft": "Heads up — your balance dips below zero",
+        "no_income": "No paycheck lands before bills come due",
+        "rules_exceed": "Your own rules outspend this paycheck",
+        "paycheck_shortfall": f"This paycheck falls {money(w.get('gap', 0))} short",
+        "bucket_shortfall": "Some bills aren't fully saved for yet",
+        "vault_lever": "You have a lever if things get tight",
+        "ahead": "You're ahead",
+        "all_clear": "You're on track",
+    }.get(w["kind"], "You're on track")
+
+
 def _forecast_view(store, refresh_bg):
     hz = getattr(store, "_fc_horizon", 90)
 
@@ -1758,8 +1821,9 @@ def _forecast_view(store, refresh_bg):
         return
 
     sched = store.scheduled() if hasattr(store, "scheduled") else []
+    vaults = _forecast_vaults(store)
     res = forecast.project(store.metrics()["cash"], store.paychecks(), store.rules(),
-                           _forecast_bills(store), scheduled=sched, horizon_days=hz)
+                           _forecast_bills(store), vaults=vaults, scheduled=sched, horizon_days=hz)
     # Which periods are expanded — the current one opens by default.
     exp = getattr(store, "_fc_expanded", None)
     if exp is None:
@@ -1769,24 +1833,24 @@ def _forecast_view(store, refresh_bg):
     # The very next paycheck — the exact question "will THIS one afford everything
     # due" — surfaced up top so it's visible without digging into the periods below.
     next_period = next((p for p in res["periods"] if not p["is_gap"]), None)
-    next_short = next_period.get("shortfall_total", 0.0) if next_period else 0.0
+    next_warn = (next_period["warnings"][0] if next_period and next_period.get("warnings") else None)
 
     if res["shortfall"]:
         vcls, verdict = "red", f"Heads up — you dip below zero around {low_when}"
-    elif next_short > 0.005:
-        vcls, verdict = "red", f"Your next paycheck falls short by {money(next_short)}"
+    elif next_warn and next_warn["severity"] <= 4:
+        vcls = _WARN_META[next_warn["kind"]][0]
+        vcls = "red" if vcls == "red" else "amber"
+        verdict = _warn_headline(next_warn)
     elif res["safe_to_spend"] < 500:
         vcls, verdict = "amber", f"Cutting it close around {low_when}"
+    elif next_warn and next_warn["kind"] == "ahead":
+        vcls, verdict = "green", "You're ahead"
     else:
         vcls, verdict = "green", "You're on track"
 
     short_line = ""
-    if next_short > 0.005 and next_period:
-        who = ", ".join(s["name"] for s in next_period.get("shortfalls", [])[:3])
-        more = len(next_period.get("shortfalls", [])) - 3
-        who += f" +{more} more" if more > 0 else ""
-        short_line = (f'<div class="cd-fc-heroshort">⚠ {money(next_short)} not yet saved up for '
-                      f'{_esc(who)}, due before your next paycheck after that</div>')
+    if next_warn and next_warn["severity"] <= 4:
+        short_line = f'<div class="cd-fc-heroshort">{_WARN_META[next_warn["kind"]][1]} {_warn_msg(next_warn)}</div>'
 
     # ── hero verdict ──
     ui.html(f'''
@@ -1803,6 +1867,13 @@ def _forecast_view(store, refresh_bg):
           <div class="cd-fc-low-lbl">on {low_when}</div>
         </div>
       </div>''')
+
+    # ── vaults — internal savings, never left checking, growing paycheck by paycheck ──
+    if vaults:
+        grown = round((next_period["vaults_total"] if next_period else res["vaults_today"]) - res["vaults_today"], 2)
+        grow_txt = f' <span class="cd-fc-vgrow">→ {money(next_period["vaults_total"])} after your next paycheck</span>' if next_period and grown > 0.005 else ''
+        ui.html(f'<div class="cd-fc-vaults">🔒 <b>{money(res["vaults_today"])}</b> in vaults today — '
+                f'still inside your checking balance, not a separate stash{grow_txt}</div>')
 
     # ── horizon toggle ──
     with ui.element("div").classes("cd-fc-hztoggle"):
@@ -1826,23 +1897,26 @@ def _forecast_view(store, refresh_bg):
         outs = round(p["external"] + p.get("internal", 0) + p["bills_out"], 2)
         out_s = f'<span class="out">−{money(outs)}</span>' if outs > 0 else ''
         flow = ' · '.join(x for x in (ins, out_s) if x)
-        short = p.get("shortfall_total", 0.0)
+        p_warnings = p.get("warnings", [])
+        worst = p_warnings[0] if p_warnings else None
+        badge = ''
+        if worst and worst["kind"] not in ("ahead", "all_clear"):
+            wcls, wic = _WARN_META[worst["kind"]]
+            badge = f' <span class="cd-fc-warn-badge {wcls}">{wic} {worst["kind"].replace("_", " ")}</span>'
         card = ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "") + (" open" if is_open else ""))
         with card:
             hd = ui.element("div").classes("cd-fc-phd")
             with hd:
                 ui.html(f'<span class="cd-fc-chev">▸</span>')
-                ui.html(f'<div style="min-width:0"><div class="cd-fc-pname">{_esc(p["label"])}'
-                        + (f' <span class="cd-fc-short-badge">short {money(short)}</span>' if short > 0.005 else '')
-                        + f'</div><div class="cd-fc-prange">{rng} · {flow}</div></div>')
+                ui.html(f'<div style="min-width:0"><div class="cd-fc-pname">{_esc(p["label"])}{badge}</div>'
+                        f'<div class="cd-fc-prange">{rng} · {flow}</div></div>')
                 ui.html(f'<div class="cd-fc-pbal"><div class="cd-sub">projected balance</div>'
                         f'<div class="mono" style="font-weight:800;font-size:16px;color:{ebcol}">{money(p["end_balance"])}</div></div>')
             hd.on("click", lambda _, k=p["start"]: toggle_p(k))
-            if short > 0.005:
-                whos = ", ".join(f'{_esc(s["name"])} needs {money(s["shortfall"])} more' for s in p.get("shortfalls", []))
-                ui.html(f'<div class="cd-fc-shortbar">⚠ This paycheck doesn\'t cover everything due — {whos}. '
-                        'The bill still clears (it comes out of checking either way) but that bucket isn\'t actually '
-                        'saved up for it.</div>')
+            # worst-first: every warning that genuinely applies to this period, ranked
+            for w in p_warnings:
+                wcls, wic = _WARN_META[w["kind"]]
+                ui.html(f'<div class="cd-fc-warnrow {wcls}">{wic} {_warn_msg(w)}</div>')
             if is_open:
                 with ui.element("div").classes("cd-fc-reg"):
                     ui.html(f'<div class="cd-fc-erow open-bal"><span></span>'
@@ -1855,6 +1929,8 @@ def _forecast_view(store, refresh_bg):
                         if kind == "internal":         # set aside — depletes the balance like any outflow
                             to = f' → {_esc(e["bucket"])}' if e.get("bucket") else ''
                             tag = f'<span class="cd-fc-set">set aside{to}</span>'
+                            if e.get("vault_balance_after") is not None:
+                                tag += f' <span class="cd-fc-vnow">vault now {money(e["vault_balance_after"])}</span>'
                             bcol = "var(--neg)" if e["balance"] < 0 else "var(--muted)"
                             ui.html(
                                 f'<div class="cd-fc-erow">'
