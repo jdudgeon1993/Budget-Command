@@ -401,7 +401,8 @@ class LiveStore:
         names = {b["id"]: b["name"] for b in self._buckets()}
         out = []
         for r in self.data["allocationRules"]:
-            kind = "external" if r.get("rule_type") == "external" else "internal"
+            rt = r.get("rule_type")
+            kind = rt if rt in ("internal", "external", "roundup") else "internal"
             bid = r.get("bucket_id") or r.get("bucketId") or None
             vtype = r.get("value_type") or r.get("type") or "fixed"
             out.append({"id": r.get("id", ""), "name": r.get("name", "Rule"), "kind": kind,
@@ -431,6 +432,7 @@ class LiveStore:
 
     def defund(self, bid: str, amount: float):
         self.fund(bid, -amount)
+        self._maybe_sweep_roundup()      # freeing up Unallocated may clear a queued pool
 
     def move(self, src: str, dst: str, amount: float):
         self.defund(src, amount)
@@ -568,6 +570,61 @@ class LiveStore:
             row["income_type"] = income_type
         DB.insert(self.token, "bcc_transactions", row)
         self._reload("txs_raw")
+        if not F.is_scheduled({"date": when}):
+            if typ == "out" and amount > 0:      # a real, already-happened expense
+                self._queue_roundup(amount)
+            elif typ == "in":                    # fresh Unallocated may clear a queued pool
+                self._maybe_sweep_roundup()
+
+    # ── roundup savings (spare change queued, then swept into a bucket) ───────
+    def roundup_status(self) -> dict:
+        r = self.data["roundup"]
+        month = F.current_month_id()
+        swept = r["swept_this_month"] if r.get("swept_month") == month else 0.0
+        return {"pending": round(r["pending"], 2), "threshold": round(r["threshold"], 2),
+                "swept_this_month": round(swept, 2)}
+
+    def set_roundup_threshold(self, amount):
+        amount = round(max(0.01, float(amount or 0)), 2)
+        DB.upsert_roundup_pool(self.uid, self.token, {"threshold": amount})
+        self._reload("roundup_raw")
+
+    def _queue_roundup(self, amount: float):
+        cents = MZ.roundup_cents(amount)
+        if cents <= 0:
+            return
+        pending = round(self.data["roundup"]["pending"] + cents, 2)
+        DB.upsert_roundup_pool(self.uid, self.token, {"pending": pending})
+        self._reload("roundup_raw")
+        self._maybe_sweep_roundup()
+
+    def _maybe_sweep_roundup(self) -> float:
+        """Once the queued pool crosses its threshold AND Unallocated can cover
+        it, sweep the whole pool in one move, split evenly (to the penny) across
+        every active roundup rule. Never partial — either it all lands, or it
+        keeps waiting. Mirrors money.py's demo-engine logic exactly."""
+        pool = self.data["roundup"]
+        pending = round(pool["pending"], 2)
+        if pending < pool["threshold"] - 0.005:
+            return 0.0
+        targets = [r for r in self.rules() if r["kind"] == "roundup" and r["active"] and r.get("bucket_id")]
+        if not targets or pending > round(self.metrics()["unallocated"], 2) + 0.005:
+            return 0.0
+        n = len(targets)
+        total_cents = int(round(pending * 100))
+        base = total_cents // n
+        shares = [base] * n
+        for i in range(total_cents - base * n):
+            shares[i] += 1
+        for r, cents in zip(targets, shares):
+            if cents > 0:
+                self.fund(r["bucket_id"], cents / 100.0)
+        month = F.current_month_id()
+        swept_this_month = pool["swept_this_month"] if pool.get("swept_month") == month else 0.0
+        DB.upsert_roundup_pool(self.uid, self.token, {
+            "pending": 0.0, "swept_month": month, "swept_this_month": round(swept_this_month + pending, 2)})
+        self._reload("roundup_raw")
+        return pending
 
     def _view_date(self) -> str:
         """A date inside the month you're browsing — today when that's the current
@@ -696,7 +753,7 @@ class LiveStore:
     def add_rule(self, name, kind, bucket_id, value, value_type, active=True):
         DB.insert(self.token, "bcc_allocation_rules", {
             "id": DB.new_id(), "user_id": self.uid, "name": (name or "Rule").strip(),
-            "rule_type": kind if kind in ("internal", "external") else "internal",
+            "rule_type": kind if kind in ("internal", "external", "roundup") else "internal",
             "bucket_id": bucket_id or None, "value": round(float(value or 0), 2),
             "value_type": value_type if value_type in ("fixed", "pct", "fund") else "fixed",
             "active": bool(active)})
@@ -707,7 +764,7 @@ class LiveStore:
         if name is not None:
             fields["name"] = name.strip() or "Rule"
         if kind is not None:
-            fields["rule_type"] = kind if kind in ("internal", "external") else "internal"
+            fields["rule_type"] = kind if kind in ("internal", "external", "roundup") else "internal"
         if bucket_id is not ...:
             fields["bucket_id"] = bucket_id or None
         if value is not None:

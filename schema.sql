@@ -375,3 +375,24 @@ SELECT id, user_id, name, color, archived, sort_order, created_at
 FROM bcc_categories WHERE archived = true
 ON CONFLICT (id) DO NOTHING;
 DELETE FROM bcc_categories WHERE archived = true;
+
+-- ─── ROUNDUP SAVINGS POOL ────────────────────────────────────────────────────
+-- One row per user. Every real (already-happened) expense's spare change to
+-- the next whole dollar queues into `pending` here — not real money moving
+-- yet. Once `pending` crosses `threshold` and Unallocated can cover it, it
+-- sweeps in one shot, split evenly across every active roundup-kind row in
+-- bcc_allocation_rules (rule_type='roundup', no schema change needed there —
+-- that column has always been free text). `swept_this_month` is a running
+-- tally for display, reset lazily whenever swept_month rolls to a new month.
+CREATE TABLE IF NOT EXISTS bcc_roundup_pool (
+    user_id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    pending           NUMERIC(12,2) NOT NULL DEFAULT 0,
+    threshold         NUMERIC(12,2) NOT NULL DEFAULT 5,
+    swept_month       TEXT,
+    swept_this_month  NUMERIC(12,2) NOT NULL DEFAULT 0,
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE bcc_roundup_pool ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS bcc_roundup_pool_user_policy ON bcc_roundup_pool;
+CREATE POLICY bcc_roundup_pool_user_policy ON bcc_roundup_pool
+    FOR ALL USING (user_id::text = (auth.uid())::text) WITH CHECK (user_id::text = (auth.uid())::text);

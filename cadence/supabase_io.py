@@ -95,6 +95,7 @@ _RAW_TABLES = {
     "paychecks_raw": "bcc_paychecks",
     "rules_raw":     "bcc_allocation_rules",
     "items_raw":     "bcc_bucket_items",
+    "roundup_raw":   "bcc_roundup_pool",
 }
 _ALL_RAW_KEYS = tuple(_RAW_TABLES) + ("txs_raw",)
 
@@ -234,10 +235,17 @@ def assemble(results: dict) -> dict:
         "vaultWithdrawals": vault_by_mid.get(m["id"], {}),
     } for m in months_raw]
 
+    roundup_raw = results.get("roundup_raw", [])
+    r0 = roundup_raw[0] if roundup_raw else {}
+    roundup = {"pending": float(r0.get("pending") or 0), "threshold": float(r0.get("threshold") or 5),
+               "swept_month": r0.get("swept_month") or "",
+               "swept_this_month": float(r0.get("swept_this_month") or 0)}
+
     return {
         "accounts": accounts, "cats": cats, "buckets": buckets,
         "txs": txs, "months": months,
         "paychecks": paychecks_raw, "allocationRules": rules_raw,
+        "roundup": roundup,
     }
 
 
@@ -245,6 +253,13 @@ def upsert_alloc(uid: str, token: str, mid: str, bid: str, amount: float) -> Non
     client(token).table("bcc_month_allocations").upsert({
         "user_id": uid, "month_id": mid, "bucket_id": bid, "amount": amount,
     }, on_conflict="user_id,month_id,bucket_id").execute()
+
+
+def upsert_roundup_pool(uid: str, token: str, fields: dict) -> None:
+    """Partial update of the one-row-per-user spare-change pool — Supabase upsert
+    only touches the columns given, existing ones stay put on conflict."""
+    client(token).table("bcc_roundup_pool").upsert(
+        {"user_id": uid, **fields}, on_conflict="user_id").execute()
 
 
 def vault_release_to_pool(uid: str, token: str, mid: str, bid: str,

@@ -48,7 +48,7 @@ def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
     by_id = {r["id"]: r for r in rows}
     external, internal = [], []
     for r in rules:
-        if not r.get("active"):
+        if not r.get("active") or r["kind"] == "roundup":   # roundup runs silently, not a Distribute step
             continue
         pct = r["value_type"] == "pct"
         if r["kind"] == "external":
@@ -121,9 +121,9 @@ def seed() -> dict:
         ("Rent", 1500, "August rent", "2026-08-01"),
         ("Subscriptions", 46, "Streaming + music", "2026-08-01"),
         ("Utilities", 142, "Power + water", "2026-08-02"),
-        ("Groceries", 286, "Trader Joe's", "2026-08-02"),
-        ("Gas", 52, "Shell", "2026-08-03"),
-        ("Groceries", 63, "Corner market", "2026-08-04"),
+        ("Groceries", 285.62, "Trader Joe's", "2026-08-02"),
+        ("Gas", 51.85, "Shell", "2026-08-03"),
+        ("Groceries", 62.53, "Corner market", "2026-08-04"),
         ("Fun Money", 120, "Concert tickets", "2026-08-04"),
         ("Dining Out", 88, "Dinner w/ friends", "2026-08-05"),
     ]
@@ -178,6 +178,8 @@ def seed() -> dict:
     M.add_rule(s, "Fill Rent", "internal", ids["Rent"], 0, "fund", True)
     M.add_rule(s, "Emergency fund", "internal", ids["Emergency"], 10, "pct", True)
     M.add_rule(s, "401(k) contribution", "external", None, 6, "pct", True)
+    M.add_rule(s, "Spare change", "roundup", ids["Emergency"], 0, "fixed", True)
+    M.set_roundup_threshold(s, 1.00)   # low, so the demo shows a real sweep already happened
 
     # A couple of scheduled (future-dated) transactions so the Forecast shows it
     # injects real committed items — a planned transfer and an upcoming bill.
@@ -610,7 +612,7 @@ class Store:
     def rules_summary(self) -> dict:
         pct = fixed = ext = 0.0
         for r in self.s["rules"]:
-            if not r["active"]:
+            if not r["active"] or r["kind"] == "roundup":
                 continue
             if r["kind"] == "external":
                 ext += r["value"] if r["value_type"] == "fixed" else 0.0
@@ -633,6 +635,12 @@ class Store:
 
     def toggle_rule(self, rid):
         M.toggle_rule(self.s, rid)
+
+    def roundup_status(self) -> dict:
+        return M.roundup_status(self.s)
+
+    def set_roundup_threshold(self, amount):
+        M.set_roundup_threshold(self.s, amount)
 
     def delete(self, eid: str):
         M.delete_envelope(self.s, eid)

@@ -1223,6 +1223,13 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
                 ui.html(f'<div class="l">{label}</div>'
                         f'<div class="v mono" style="color:{col}">{money(val)}</div>')
 
+    if any(r["kind"] == "roundup" and r["active"] for r in store.rules()):
+        rs = store.roundup_status()
+        if rs["swept_this_month"] > 0.005 or rs["pending"] > 0.005:
+            ui.html(f'<div class="cd-roundup-tally">🪙 Roundup savings this month: '
+                    f'<b>{money(rs["swept_this_month"])}</b>'
+                    + (f' · {money(rs["pending"])} queued' if rs["pending"] > 0.005 else '') + '</div>')
+
     with ui.element("div").classes("cd-actionbar"):
         ui.html('<div class="cd-newbtn">＋ Add transaction</div>').on("click", lambda _: _open_tx())
         ui.html('<span class="cd-hint">Tap any row to edit · income lifts Unallocated</span>').style("margin-left:auto")
@@ -1245,7 +1252,8 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
 # ── Settings pillar (income + allocation rules → the Forecast engine) ─────────
 _FREQ_LBL = {"weekly": "Weekly", "biweekly": "Bi-weekly",
              "semimonthly": "Semi-monthly", "monthly": "Monthly"}
-_RULE_KIND_LBL = {"internal": "Internal — fund a bucket", "external": "External — leaves the budget"}
+_RULE_KIND_LBL = {"internal": "Internal — fund a bucket", "external": "External — leaves the budget",
+                  "roundup": "Roundup — spare change to a bucket"}
 _RULE_VT_LBL = {"fund": "Fund to target", "pct": "% of each paycheck", "fixed": "$ fixed amount"}
 
 
@@ -1258,6 +1266,8 @@ def _friendly_date(iso: str) -> str:
 
 
 def _rule_value_text(r: dict) -> str:
+    if r["kind"] == "roundup":
+        return "spare change"
     if r["value_type"] == "fund":
         return "fund to target"
     if r["value_type"] == "pct":
@@ -1319,26 +1329,30 @@ def _settings_view(store, refresh_bg):
             ui.html('<div class="cd-hdl"></div>')
             ui.html(f'<div class="cd-sh-title">{"Edit rule" if existing else "Add allocation rule"}</div>')
             ui.html('<div class="cdm-sub">Applied to every paycheck — internal rules fund a bucket, '
-                    'external rules move money out of the budget.</div>')
+                    'external rules move money out of the budget, roundup rules share in the spare-change pool.</div>')
             name = ui.input("Rule name", value=existing["name"] if existing else "").props("outlined dense hide-bottom-space").classes("w-full")
             kind = ui.select(_RULE_KIND_LBL, value=existing["kind"] if existing else "internal", label="Type").props("outlined dense").classes("w-full q-mt-sm")
             bucket_row = ui.row().classes("w-full q-mt-sm")
             with bucket_row:
                 bval = existing["bucket_id"] if (existing and existing.get("bucket_id") in allb) else next(iter(allb), None)
                 bucket = ui.select(allb, label="Fund which bucket", value=bval).props("outlined dense").classes("w-full")
-            bucket_row.bind_visibility_from(kind, "value", backward=lambda v: v == "internal")
-            with ui.row().classes("w-full q-gutter-sm q-mt-sm"):
+            bucket_row.bind_visibility_from(kind, "value", backward=lambda v: v in ("internal", "roundup"))
+            amount_row = ui.row().classes("w-full q-gutter-sm q-mt-sm")
+            with amount_row:
                 vtype = ui.select(_RULE_VT_LBL, value=existing["value_type"] if existing else "fund", label="How much").props("outlined dense").classes("cd-half")
                 value = ui.number("Value", value=existing["value"] if existing else None, format="%.2f").props("outlined dense hide-bottom-space").classes("cd-half")
                 value.bind_visibility_from(vtype, "value", backward=lambda v: v != "fund")
+            amount_row.bind_visibility_from(kind, "value", backward=lambda v: v != "roundup")
+            ui.html('<div class="cdm-sub">Every active roundup rule shares the queued pool equally when it '
+                    'sweeps — no amount to set.</div>').bind_visibility_from(kind, "value", backward=lambda v: v == "roundup")
 
             def save():
                 if not (name.value or "").strip():
                     ui.notify("Name the rule.", type="warning"); return
                 k = kind.value
-                vt = vtype.value
-                bid = bucket.value if k == "internal" else None
-                val = 0 if vt == "fund" else float(value.value or 0)
+                vt = "fixed" if k == "roundup" else vtype.value
+                bid = bucket.value if k in ("internal", "roundup") else None
+                val = 0 if (vt == "fund" or k == "roundup") else float(value.value or 0)
                 if existing:
                     store.edit_rule(existing["id"], name=name.value, kind=k, bucket_id=bid,
                                     value=val, value_type=vt)
@@ -1351,6 +1365,29 @@ def _settings_view(store, refresh_bg):
                 ui.space()
                 ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
                 ui.button("Save" if existing else "Add", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
+        dlg.open()
+
+    # ── roundup threshold sheet ──
+    def _open_roundup_threshold():
+        rs = store.roundup_status()
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html('<div class="cd-sh-title">Sweep threshold</div>')
+            ui.html('<div class="cdm-sub">Spare change queues up quietly until it crosses this amount, '
+                    'then it sweeps into your roundup bucket(s) in one move.</div>')
+            amt = ui.number("Threshold", value=rs["threshold"], format="%.2f").props(
+                "outlined dense hide-bottom-space prefix=$").classes("w-full q-mt-sm")
+
+            def save():
+                v = float(amt.value or 0)
+                if v <= 0:
+                    ui.notify("Threshold has to be more than $0.", type="warning"); return
+                store.set_roundup_threshold(v)
+                dlg.close(); refresh_bg()
+            with ui.row().classes("w-full items-center q-mt-md"):
+                ui.space()
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Save", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
         dlg.open()
 
     def _paycheck_row(p):
@@ -1371,10 +1408,12 @@ def _settings_view(store, refresh_bg):
             body = ui.element("div").style("min-width:0;cursor:pointer")
             with body:
                 ui.html(f'<div class="cd-set-name">{_esc(r["name"])}</div>')
-                if r["kind"] == "internal":
-                    tgt = f'→ {_esc(r["bucket_name"] or "—")}'
-                else:
+                if r["kind"] == "external":
                     tgt = "leaves the budget"
+                elif r["kind"] == "roundup":
+                    tgt = f'→ {_esc(r["bucket_name"] or "—")} · shares the pool'
+                else:
+                    tgt = f'→ {_esc(r["bucket_name"] or "—")}'
                 ui.html(f'<div class="cd-set-meta"><span class="cd-rule-badge {r["kind"]}">{r["kind"]}</span> {tgt}</div>')
             body.on("click", lambda _, i=r["id"]: _open_rule(i))
             ui.html(f'<div class="cd-set-val mono">{_rule_value_text(r)}</div>')
@@ -1571,6 +1610,23 @@ def _settings_view(store, refresh_bg):
         for r in store.rules():
             _rule_row(r)
         ui.html('<div class="cd-set-add">＋ Add rule</div>').on("click", lambda _: _open_rule())
+
+    active_roundup = [r for r in store.rules() if r["kind"] == "roundup" and r["active"]]
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Roundup savings · spare change, swept automatically</div>')
+        if not active_roundup:
+            ui.html('<div class="cd-sub" style="padding:4px 2px 10px">No active roundup rule yet — add '
+                    'one above (Type: Roundup) to start banking spare change on every purchase.</div>')
+        else:
+            rs = store.roundup_status()
+            pct = min(1.0, rs["pending"] / rs["threshold"]) if rs["threshold"] > 0 else 0.0
+            ui.html(f'<div class="cd-tally">Queued <b>{money(rs["pending"])}</b> of {money(rs["threshold"])} '
+                    f'threshold · swept <b>{money(rs["swept_this_month"])}</b> this month</div>')
+            ui.html(f'<div class="cd-bar"><div class="cd-bar-fill" '
+                    f'style="width:{pct * 100:.0f}%;background:var(--violet)"></div></div>')
+        with ui.row().classes("w-full items-center justify-between q-mt-sm"):
+            ui.html(f'<div class="cd-sub">Sweep threshold: <b>{money(store.roundup_status()["threshold"])}</b></div>')
+            ui.button("Change", on_click=_open_roundup_threshold).props("flat dense no-caps color=indigo size=sm")
 
 
 # ── Reports (Budget vs Actual + spending mix, for the viewed month) ───────────

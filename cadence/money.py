@@ -13,6 +13,7 @@ Ready to Spend excludes vaults (locked savings). Nothing is cached.
 from __future__ import annotations
 import uuid
 import calendar
+import math
 from datetime import date
 
 SPEND, GOAL, VAULT = "spend", "goal", "vault"
@@ -26,6 +27,8 @@ def genesis(opening: float, savings_opening: float = 0.0) -> dict:
     return {"opening": round(opening, 2), "unallocated": round(opening, 2),
             "categories": [], "envelopes": [], "transactions": [],
             "paychecks": [], "rules": [],
+            "roundup": {"pending": 0.0, "threshold": 5.0,
+                        "swept_month": "", "swept_this_month": 0.0},
             "accounts": [
                 {"id": CHECKING, "name": "Checking", "type": "budget",
                  "opening": round(opening, 2)},
@@ -329,6 +332,68 @@ def status(available: float, gap: float, days, flex: bool = False, handled: bool
 
 # ── Placement (silent — no ledger row) ────────────────────────────────────────
 
+def roundup_cents(amount: float) -> float:
+    """The spare change a purchase leaves on the table — the gap up to the next
+    whole dollar. $12.37 -> $0.63. A whole-dollar amount leaves nothing."""
+    amount = round(amount, 2)
+    if amount <= 0:
+        return 0.0
+    cents = round(math.ceil(amount) - amount, 2)
+    return cents if cents > 0.005 else 0.0
+
+
+def set_roundup_threshold(s: dict, amount: float) -> None:
+    """How big the queued spare-change pool has to get before it actually moves
+    anywhere — keeps every sweep a meaningful, single, visible amount instead of
+    penny-sized noise on every purchase."""
+    s["roundup"]["threshold"] = round(max(0.01, float(amount or 0)), 2)
+
+
+def roundup_status(s: dict) -> dict:
+    r = s["roundup"]
+    month = date.today().isoformat()[:7]
+    swept = r["swept_this_month"] if r.get("swept_month") == month else 0.0
+    return {"pending": round(r["pending"], 2), "threshold": round(r["threshold"], 2),
+            "swept_this_month": round(swept, 2)}
+
+
+def _maybe_sweep_roundup(s: dict) -> float:
+    """Once the queued pool crosses its threshold AND Unallocated can actually
+    cover it, sweep the whole pool in one move, split evenly (to the penny)
+    across every active roundup rule. Never a partial sweep — either the whole
+    queued amount lands, or it keeps waiting. Returns the amount swept."""
+    pool = s["roundup"]
+    pending = round(pool["pending"], 2)
+    if pending < pool["threshold"] - 0.005:
+        return 0.0
+    targets = [r for r in s["rules"] if r["kind"] == "roundup" and r["active"] and r.get("bucket_id")]
+    if not targets or pending > round(s["unallocated"], 2) + 0.005:
+        return 0.0
+    n = len(targets)
+    total_cents = int(round(pending * 100))
+    base = total_cents // n
+    shares = [base] * n
+    for i in range(total_cents - base * n):     # distribute the odd penny(s)
+        shares[i] += 1
+    for r, cents in zip(targets, shares):
+        if cents > 0:
+            fund(s, r["bucket_id"], cents / 100.0)
+    month = date.today().isoformat()[:7]
+    swept_this_month = pool["swept_this_month"] if pool.get("swept_month") == month else 0.0
+    pool["pending"] = 0.0
+    pool["swept_month"] = month
+    pool["swept_this_month"] = round(swept_this_month + pending, 2)
+    return pending
+
+
+def _queue_roundup(s: dict, amount: float) -> None:
+    cents = roundup_cents(amount)
+    if cents <= 0:
+        return
+    s["roundup"]["pending"] = round(s["roundup"]["pending"] + cents, 2)
+    _maybe_sweep_roundup(s)
+
+
 def fund(s: dict, eid: str, amount: float) -> float:
     """Move money Unallocated → envelope. RULE: you can never assign more than
     you have, so Unallocated never goes negative — a positive request is capped
@@ -345,6 +410,7 @@ def fund(s: dict, eid: str, amount: float) -> float:
 
 def defund(s: dict, eid: str, amount: float) -> None:
     fund(s, eid, -amount)
+    _maybe_sweep_roundup(s)         # freeing up Unallocated may clear a queued pool
 
 
 def move(s: dict, src_id: str, dst_id: str, amount: float) -> None:
@@ -409,13 +475,17 @@ def delete_envelope(s: dict, eid: str) -> None:
 def add_expense(s: dict, eid: str, amount: float, desc: str = "", date: str = "") -> dict:
     if env(s, eid)["type"] == VAULT:
         raise ValueError("a vault can't be spent from — move money out with a transfer first")
-    return _tx(s, EXPENSE, round(amount, 2), eid, desc, date)
+    tx = _tx(s, EXPENSE, round(amount, 2), eid, desc, date)
+    if not is_scheduled(tx):                    # a future purchase hasn't left spare change yet
+        _queue_roundup(s, tx["amount"])
+    return tx
 
 
 def add_income(s: dict, amount: float, desc: str = "", date: str = "") -> dict:
     tx = _tx(s, INCOME, round(amount, 2), None, desc, date)
     if not is_scheduled(tx):                    # a future paycheck isn't spendable yet
         s["unallocated"] = round(s["unallocated"] + amount, 2)
+        _maybe_sweep_roundup(s)                  # fresh Unallocated may clear a queued pool
     return tx
 
 
@@ -493,7 +563,7 @@ def delete_transaction(s: dict, tid: str) -> None:
 # ── Income sources + allocation rules (settings that feed the Forecast) ───────
 
 PAY_FREQS = ("weekly", "biweekly", "semimonthly", "monthly")
-RULE_KINDS = ("internal", "external")
+RULE_KINDS = ("internal", "external", "roundup")
 RULE_VALUE_TYPES = ("fixed", "pct", "fund")
 
 
