@@ -1680,8 +1680,11 @@ def _forecast_bills(store) -> list[dict]:
                                     "due_day": it["due_day"], "frequency": None})
             elif r["target"] > 0 and (r["due_day"] is not None
                                       or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly")):
+                # money already gotten-ahead-of (prefunded into a future month) is
+                # otherwise invisible here — bucket_available only sees today's month
+                prefunded = store.prefunded(r["id"]) if hasattr(store, "prefunded") else 0.0
                 out.append({"id": r["id"], "name": r["name"], "amount": r["target"], "spent": r["spent"],
-                            "available": r["available"], "due_day": r["due_day"],
+                            "available": round(r["available"] + prefunded, 2), "due_day": r["due_day"],
                             "frequency": r["frequency"]})
     return out
 

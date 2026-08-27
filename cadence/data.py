@@ -447,6 +447,17 @@ class LiveStore:
         DB.upsert_alloc(self.uid, self.token, nxt, bid, new)
         self._reload("allocs_raw", "months_raw")
 
+    def prefunded(self, bid: str) -> float:
+        """Sum of this bucket's allocations already sitting in months AFTER today's.
+        bucket_available() only ever looks at the currently-VIEWED month, so money
+        prefunded ahead via prefund()/"get ahead" is real and correctly subtracted
+        from RTS, but is otherwise invisible until you browse forward to that month
+        — including to the Forecast, which would otherwise show a bill as fully
+        unfunded even though it's already been gotten-ahead-of."""
+        today_mid = F.current_month_id()
+        return round(sum(F.b_alloc(m, bid) for m in self.data["months"]
+                         if F.month_sort_key(m["id"]) > F.month_sort_key(today_mid)), 2)
+
     def _is_vault(self, bid) -> bool:
         b = next((x for x in self.data["buckets"] if x["id"] == bid), None)
         return bool(b) and _TYPE.get(b.get("type", "expense")) == "vault"

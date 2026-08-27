@@ -367,6 +367,11 @@ class Store:
         like a normal assign — the live app routes it to next month's allocation."""
         M.fund(self.s, eid, round(float(amount or 0), 2))
 
+    def prefunded(self, eid: str) -> float:
+        """No month siloing in the demo — prefund() already lands directly in
+        `available`, so there's nothing hidden in a future month to report."""
+        return 0.0
+
     def rename(self, eid: str, name: str):
         M.rename(self.s, eid, name)
 
