@@ -124,10 +124,24 @@ def _dueday_options() -> dict:
 
 
 def _dueday_key(due_day) -> str:
-    """Current stored due_day (int, 'eom', or None) → select key."""
+    """Current stored due_day (int, 'eom', or None) → select key.
+
+    The dropdown only offers 1–28 + End of month (any month has at least 28 days,
+    so those never crash the calendar math); the data model has always accepted
+    1–31. A stored 29/30/31 — from before this screen existed, an import, or a
+    split item whose own day never went through this same dropdown — has no
+    matching option. Passing it straight to ui.select raises (NiceGUI validates
+    the initial value against the option keys), which silently killed the whole
+    sheet. Map it to the nearest real option instead of crashing."""
     if due_day is None or due_day == "":
         return ""
-    return "eom" if str(due_day).lower() == "eom" else str(due_day)
+    if str(due_day).lower() == "eom":
+        return "eom"
+    try:
+        d = int(due_day)
+    except (ValueError, TypeError):
+        return ""
+    return "eom" if d >= 29 else str(d)
 
 
 # Frequency options — triweekly included, for parity with the Forecast engine.
