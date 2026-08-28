@@ -8,7 +8,7 @@ that depend on it re-render in place over a WebSocket. Scroll and focus never
 jump. Sign in to see your real Supabase budget, or open the demo for sample data.
 """
 import os
-from datetime import date
+from datetime import date, timedelta
 from html import escape as _esc
 from nicegui import ui, app
 from . import theme, forecast
@@ -1265,6 +1265,41 @@ def _friendly_date(iso: str) -> str:
         return iso or "—"
 
 
+def _next_payday(p: dict, today: date | None = None) -> str:
+    """The real next occurrence for a paycheck, computed forward from whatever
+    anchor is on file — however stale (a raw anchor set once at signup and
+    never touched again is normal, not a bug). Never shows a display date in
+    the past: Settings should always read as "next Sep 11", never "next Apr 15"."""
+    today = today or date.today()
+    dates = forecast.pay_dates(p["anchor"], p["freq"], today, today + timedelta(days=400))
+    return dates[0].isoformat() if dates else (p["anchor"] or "")
+
+
+def _reconciled_paychecks(store, today: date) -> list[dict]:
+    """Self-healing fix for the Forecast double-counting a paycheck that's
+    already landed: if a paycheck's cadence puts an occurrence on `today` AND
+    a real income transaction dated today with a close-enough amount is
+    already in the Ledger, project from its NEXT occurrence instead — no
+    click, no stored-anchor mutation, re-evaluated fresh on every render."""
+    todays_income = [t for t in store.transactions()
+                     if t.get("kind") == "income" and (t.get("date") or "")[:10] == today.isoformat()]
+    used_ids = set()
+    out = []
+    for pc in store.paychecks():
+        pc = dict(pc)
+        if forecast.pay_dates(pc["anchor"], pc["freq"], today, today):
+            tol = max(5.0, pc["amount"] * 0.03)
+            match = next((t for t in todays_income if t["id"] not in used_ids
+                         and abs(t["amount"] - pc["amount"]) <= tol), None)
+            if match:
+                used_ids.add(match["id"])
+                nxt = forecast.next_payday(pc["anchor"], pc["freq"], today)
+                if nxt:
+                    pc["anchor"] = nxt
+        out.append(pc)
+    return out
+
+
 def _rule_value_text(r: dict) -> str:
     if r["kind"] == "roundup":
         return "spare change"
@@ -1391,7 +1426,9 @@ def _settings_view(store, refresh_bg):
         dlg.open()
 
     def _paycheck_row(p):
-        due = (p["anchor"] or "")[:10] <= _today_iso()
+        today = date.today()
+        next_date = _next_payday(p, today)
+        due = next_date == today.isoformat()
         row = ui.element("div").classes("cd-setrow")
         with row:
             ui.html('<div class="cd-set-ic in">$</div>')
@@ -1399,7 +1436,7 @@ def _settings_view(store, refresh_bg):
             with body:
                 ui.html(f'<div class="cd-set-name">{_esc(p["label"])}</div>')
                 ui.html(f'<div class="cd-set-meta">{_FREQ_LBL.get(p["freq"], p["freq"])} · '
-                        f'next {_friendly_date(p["anchor"])}</div>')
+                        f'next {_friendly_date(next_date)}</div>')
             body.on("click", lambda _, i=p["id"]: _open_paycheck(i))
             with ui.element("div").style("display:flex;flex-direction:column;align-items:flex-end;gap:4px"):
                 ui.html(f'<div class="cd-set-val mono">{money(p["amount"])}</div>')
@@ -1600,7 +1637,7 @@ def _settings_view(store, refresh_bg):
 
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Income · paychecks</div>')
-        pcs = store.paychecks()
+        pcs = _reconciled_paychecks(store, date.today())
         if not pcs:
             ui.html('<div class="cd-sub" style="padding:4px 2px 10px">No paychecks yet — add your income so the Forecast can project forward.</div>')
         for p in pcs:
@@ -1888,7 +1925,8 @@ def _forecast_view(store, refresh_bg):
 
     sched = store.scheduled() if hasattr(store, "scheduled") else []
     vaults = _forecast_vaults(store)
-    res = forecast.project(store.metrics()["cash"], store.paychecks(), store.rules(),
+    paychecks = _reconciled_paychecks(store, date.today())
+    res = forecast.project(store.metrics()["cash"], paychecks, store.rules(),
                            _forecast_bills(store), vaults=vaults, scheduled=sched, horizon_days=hz)
     # Which periods are expanded — the current one opens by default.
     exp = getattr(store, "_fc_expanded", None)
