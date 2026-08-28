@@ -281,6 +281,9 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-set-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cd-set-meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px}
 .cd-set-val{font-weight:700;font-size:14px;white-space:nowrap}
+.cd-gotpaid{font-size:10px;font-weight:800;letter-spacing:.02em;color:var(--pos);background:var(--pos-soft);
+  padding:5px 9px;border-radius:8px;white-space:nowrap;cursor:pointer}
+.cd-gotpaid:hover{filter:brightness(0.96)}
 .cd-toggle{font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 10px;border-radius:8px;background:var(--line);color:var(--muted);cursor:pointer;user-select:none;min-width:44px;text-align:center}
 .cd-toggle.on{background:var(--pos-soft);color:var(--pos)}
 .cd-rule-badge{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:6px}

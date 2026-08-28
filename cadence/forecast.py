@@ -102,6 +102,16 @@ def pay_dates(anchor_iso: str, freq: str, start: date, end: date) -> list[date]:
     return out
 
 
+def next_payday(anchor_iso: str, freq: str, after: date) -> str | None:
+    """The next payday strictly after `after` — used to advance a paycheck's
+    stored anchor once it's been received, so a stale anchor (still sitting on
+    today or a past date) doesn't get projected again on top of the real
+    income already logged in the Ledger. None if the anchor can't be parsed."""
+    start = after + timedelta(days=1)
+    dates = pay_dates(anchor_iso, freq, start, start + timedelta(days=400))
+    return dates[0].isoformat() if dates else None
+
+
 def bill_dates(due_day, frequency, start: date, end: date) -> list[date]:
     """Due dates in [start, end] for a bill. A due_day gives a monthly date (or a
     recurring one if paired with a weekly/biweekly/triweekly frequency); a bare

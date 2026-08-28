@@ -6,7 +6,7 @@ math (formulas) — self-contained so this service deploys from cadence/ alone,
 while still producing exactly the same numbers as Cura. Requires SUPABASE_URL /
 SUPABASE_ANON_KEY in the env.
 """
-from . import supabase_io as DB, formulas as F, money as MZ
+from . import supabase_io as DB, formulas as F, money as MZ, forecast as FC
 from .store import _effective_days, _build_steps
 
 # bcc bucket type → Cadence type
@@ -744,6 +744,17 @@ class LiveStore:
         if fields:
             DB.update(self.token, "bcc_paychecks", self.uid, "id", pid, fields)
             self._reload("paychecks_raw")
+
+    def advance_paycheck(self, pid: str):
+        """Already got this one — roll its anchor to the next occurrence so the
+        Forecast stops projecting a payday that's already real, logged income."""
+        from datetime import date as _d
+        p = next((x for x in self.paychecks() if x["id"] == pid), None)
+        if not p:
+            return
+        nxt = FC.next_payday(p["anchor"], p["freq"], _d.today())
+        if nxt:
+            self.edit_paycheck(pid, anchor=nxt)
 
     def delete_paycheck(self, pid):
         DB.delete(self.token, "bcc_paychecks", self.uid, "id", pid)

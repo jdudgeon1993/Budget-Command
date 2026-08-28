@@ -1391,15 +1391,22 @@ def _settings_view(store, refresh_bg):
         dlg.open()
 
     def _paycheck_row(p):
+        due = (p["anchor"] or "")[:10] <= _today_iso()
         row = ui.element("div").classes("cd-setrow")
         with row:
             ui.html('<div class="cd-set-ic in">$</div>')
-            with ui.element("div").style("min-width:0"):
+            body = ui.element("div").style("min-width:0;cursor:pointer")
+            with body:
                 ui.html(f'<div class="cd-set-name">{_esc(p["label"])}</div>')
                 ui.html(f'<div class="cd-set-meta">{_FREQ_LBL.get(p["freq"], p["freq"])} · '
                         f'next {_friendly_date(p["anchor"])}</div>')
-            ui.html(f'<div class="cd-set-val mono">{money(p["amount"])}</div>')
-        row.on("click", lambda _, i=p["id"]: _open_paycheck(i))
+            body.on("click", lambda _, i=p["id"]: _open_paycheck(i))
+            with ui.element("div").style("display:flex;flex-direction:column;align-items:flex-end;gap:4px"):
+                ui.html(f'<div class="cd-set-val mono">{money(p["amount"])}</div>')
+                if due:
+                    got = ui.html('<div class="cd-gotpaid" title="Already got paid — remove today\'s '
+                                  'projected paycheck (and its rule transfers) from the Forecast">✓ Got paid</div>')
+                    got.on("click", lambda _, i=p["id"]: _do(lambda: store.advance_paycheck(i)))
 
     def _rule_row(r):
         with ui.element("div").classes("cd-setrow" + ("" if r["active"] else " off")):

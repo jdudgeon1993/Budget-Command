@@ -605,6 +605,15 @@ class Store:
     def delete_paycheck(self, pid):
         M.delete_paycheck(self.s, pid)
 
+    def advance_paycheck(self, pid: str):
+        """Already got this one — roll its anchor to the next occurrence so the
+        Forecast stops projecting a payday that's already real, logged income."""
+        from . import forecast as FC
+        p = next(x for x in self.s["paychecks"] if x["id"] == pid)
+        nxt = FC.next_payday(p["anchor"], p["freq"], date.today())
+        if nxt:
+            M.edit_paycheck(self.s, pid, anchor=nxt)
+
     def rules(self) -> list[dict]:
         names = {e["id"]: e["name"] for e in self.s["envelopes"]}
         return [{**r, "bucket_name": names.get(r["bucket_id"], "")} for r in self.s["rules"]]
