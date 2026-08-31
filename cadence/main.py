@@ -1047,12 +1047,26 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
             sav = next((a["id"] for a in accts if a["type"] != "budget"), chk)
             acct_row = ui.row().classes("w-full q-gutter-sm q-mt-sm")
             with acct_row:
-                from_sel = ui.select(aopts, label="From", value=(existing.get("from_acct") if existing else chk) or chk).props("outlined dense").classes("cd-half")
-                to_sel = ui.select(aopts, label="To", value=(existing.get("to_acct") if existing else sav) or sav).props("outlined dense").classes("cd-half")
+                # NiceGUI's select validates its initial `value` against `options` at
+                # construction — an account that's since been archived (or, for `payee`
+                # below, any description not among the most-recent options, blank ones
+                # included) would otherwise crash the sheet outright on open. Construct
+                # safe, then assign the real value after — that bypasses the constructor
+                # check without losing the actual saved value.
+                from_val = existing.get("from_acct") if existing else None
+                from_sel = ui.select(aopts, label="From", value=chk).props("outlined dense").classes("cd-half")
+                if from_val and from_val in aopts:
+                    from_sel.value = from_val
+                to_val = existing.get("to_acct") if existing else None
+                to_sel = ui.select(aopts, label="To", value=sav).props("outlined dense").classes("cd-half")
+                if to_val and to_val in aopts:
+                    to_sel.value = to_val
             acct_row.set_visibility(st["kind"] == "transfer")
 
-            payee = ui.select(store.payees(), label="Payee / note", value=existing["desc"] if existing else None,
+            payee = ui.select(store.payees(), label="Payee / note", value=None,
                               with_input=True, new_value_mode="add-unique").props("outlined dense").classes("w-full q-mt-sm")
+            if existing and existing.get("desc"):
+                payee.value = existing["desc"]
 
             has_rules = any(r["active"] for r in store.rules())
             auto = ui.switch("Auto-distribute across my rules", value=has_rules and not existing).classes("q-mt-xs")
@@ -1184,7 +1198,12 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
             pos = r["kind"] in ("income", "refund")
             signed = ("+" if pos else "−") + money(r["amount"]).lstrip("-")
             ui.html(f'<div class="cd-tx-amt {"pos" if pos else "neg"} mono">{signed}</div>')
-        row.on("click", lambda _, t=r["id"]: _open_tx(t))
+        def _open_safely(t):
+            try:
+                _open_tx(t)
+            except Exception as e:
+                ui.notify(f"Couldn't open that transaction: {str(e)[:150]}", type="warning")
+        row.on("click", lambda _, t=r["id"]: _open_safely(t))
 
     def _render_days(rows, day_end):
         """A run of day-groups. day_end maps date→end-of-day balance (or None to
