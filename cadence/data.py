@@ -104,7 +104,10 @@ class LiveStore:
         sp = round(F.b_spent(self._mid, b["id"], self.data["txs"]), 2)
         if typ == "spend":
             funded = round(av + sp, 2)
-            target = F.b_budget(self._month, b["id"]) or float(b.get("defaultBudget") or b.get("dueAmount") or 0)
+            # the bucket's own live-editable target — nothing in this app writes to
+            # bcc_month_budgets any more (that table predates this rebuild), so
+            # reading it here would silently override what set_target() just saved
+            target = float(b.get("defaultBudget") or b.get("dueAmount") or 0)
             pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
         else:
             funded, sp = av, 0.0
