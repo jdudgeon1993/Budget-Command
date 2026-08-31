@@ -1869,18 +1869,26 @@ def _reports_view(store, refresh_bg, monthbar=None):
 def _forecast_bills(store) -> list[dict]:
     """Scheduled spend buckets that hit the calendar (feed the projection). A split
     bucket contributes one dated bill per line-item, so each subscription lands on
-    its own due date; a paid item is skipped for the current cycle."""
+    its own due date; a paid item is skipped for the current cycle.
+
+    "Handled" is a per-MONTH flag (dismiss this bucket from this cycle's to-do
+    list) — it must only suppress the CURRENT month's occurrence, never future
+    ones. project() already treats an occurrence as settled once spent reaches
+    target for THIS month specifically (future months always use the full
+    target regardless), so reporting a handled bucket as fully spent gets that
+    for free — dropping the bucket from this list entirely, like before, wiped
+    every future occurrence too."""
     out = []
     for g in store.groups():
         for r in g["rows"]:
-            if r["type"] != "spend" or r["flex"] or r["handled"]:
+            if r["type"] != "spend" or r["flex"]:
                 continue
             if r["split"] and r["items"]:
                 for it in r["items"]:
                     if it["amount"] > 0.005 and it["due_day"] is not None:
                         # per-item funded state: the slice of the pool that reached this bill
                         out.append({"id": None, "name": f'{r["name"]} · {it["name"]}', "amount": it["amount"],
-                                    "spent": it["amount"] if it.get("paid") else 0.0,
+                                    "spent": it["amount"] if (it.get("paid") or r["handled"]) else 0.0,
                                     "available": round(it["amount"] - it.get("item_gap", 0.0), 2),
                                     "due_day": it["due_day"], "frequency": None})
             elif r["target"] > 0 and (r["due_day"] is not None
@@ -1888,7 +1896,8 @@ def _forecast_bills(store) -> list[dict]:
                 # money already gotten-ahead-of (prefunded into a future month) is
                 # otherwise invisible here — bucket_available only sees today's month
                 prefunded = store.prefunded(r["id"]) if hasattr(store, "prefunded") else 0.0
-                out.append({"id": r["id"], "name": r["name"], "amount": r["target"], "spent": r["spent"],
+                spent = r["target"] if r["handled"] else r["spent"]
+                out.append({"id": r["id"], "name": r["name"], "amount": r["target"], "spent": spent,
                             "available": round(r["available"] + prefunded, 2), "due_day": r["due_day"],
                             "frequency": r["frequency"]})
     return out
