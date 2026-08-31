@@ -14,6 +14,34 @@ balance at the bank — but once that money has a job, it's not yours to spend
 freely, so it comes out of the running number here too. Honoring your own
 savings commitments is part of "can I afford this," same as any bill.
 
+Two more things layer on top of the balance line:
+
+  • Per-bill funding — each dated bill tracks its own "saved so far" (seeded
+    from the bucket today, topped up by internal rules AND, in Aggressive
+    mode, by automatic sinking-fund pacing — see pace_amount()) so a bill's
+    per-event "funded"/"shortfall" flag reflects what's actually true by the
+    time it's due, not just today's snapshot.
+
+  • Vaults — pure accumulation, no due date. Tracked the same way (seeded from
+    today, topped up by internal rules), so growth is visible paycheck by
+    paycheck.
+
+  • Warnings — deliberately just one honest question per period: does the
+    projected balance ever dip, and how badly (see _period_warnings()). The
+    Forecast doesn't try to explain WHICH bucket is short or why — that's
+    Buckets' job, and Aggressive pacing's. Two separate, honest questions
+    instead of one page trying to answer both.
+
+Aggressive mode (see pace_amount(), paychecks_between(), next_unmet_due()) is
+the sinking-fund distribution model: every underfunded dated bill gets paced
+toward its due date automatically, evenly split across today + every future
+payday before it's due — recomputed fresh each time, which is what gives it a
+safety margin for free (once only one future payday remains, that payday
+demands the full remaining amount, leaving the true last one as pure slack).
+`_build_steps()` in store.py uses the same functions for the live Distribute
+plan, so what the Forecast projects and what Distribute actually asks for
+agree by construction.
+
 Everything here is a pure function of plain dicts, so the demo store and the live
 Supabase store feed it exactly the same way.
 """
@@ -78,6 +106,59 @@ def pay_dates(anchor_iso: str, freq: str, start: date, end: date) -> list[date]:
     return out
 
 
+def next_payday(anchor_iso: str, freq: str, after: date) -> str | None:
+    """The next payday strictly after `after` — used to advance a paycheck's
+    stored anchor once it's been received, so a stale anchor (still sitting on
+    today or a past date) doesn't get projected again on top of the real
+    income already logged in the Ledger. None if the anchor can't be parsed."""
+    start = after + timedelta(days=1)
+    dates = pay_dates(anchor_iso, freq, start, start + timedelta(days=400))
+    return dates[0].isoformat() if dates else None
+
+
+def paychecks_between(paychecks: list[dict], today: date, due: date) -> int:
+    """How many real paydays land in (today, due] — the union across every
+    income source, since any of them is a funding opportunity for a bill."""
+    if due <= today:
+        return 0
+    seen = set()
+    for pc in paychecks:
+        seen.update(pay_dates(pc.get("anchor", ""), pc.get("freq", "biweekly"),
+                              today + timedelta(days=1), due))
+    return len(seen)
+
+
+def pace_amount(gap: float, due: date | None, today: date, paychecks: list[dict]) -> float:
+    """Sinking-fund pacing: what THIS paycheck should put toward a bill. Split
+    evenly across today + every future payday before it's due — BUT this is
+    always recomputed fresh, live, against whatever's still actually owed. That
+    self-buffering is what gives it the safety margin: once only one future
+    payday remains, this one demands the full remaining amount, automatically
+    leaving that last payday as pure slack instead of cutting it on the wire.
+    Zero future paydays (due before/at the next one) collapses the same way —
+    needs it all, now, there's no more runway to spread across."""
+    gap = round(max(0.0, gap), 2)
+    if gap <= 0.005 or due is None:
+        return 0.0
+    n = paychecks_between(paychecks, today, due)   # future paydays only, not counting today
+    return round(gap / max(1, n), 2)
+
+
+def next_unmet_due(due_day, frequency, gap: float, days_until_due, today: date) -> date | None:
+    """The due date pacing should aim at: the bill's current occurrence if it's
+    still unfunded (even if overdue — days_until_due can be negative), otherwise
+    the NEXT occurrence after this one's already been satisfied. This is what
+    lets pacing keep going the moment a bill clears instead of going idle until
+    it's "due" again — e.g. a mortgage paid on the 1st starts pacing toward next
+    month's payment immediately, it doesn't wait around."""
+    if due_day is None and frequency not in _STEP and frequency != "monthly":
+        return None
+    if gap > 0.005 and days_until_due is not None:
+        return today + timedelta(days=days_until_due)
+    dates = bill_dates(due_day, frequency, today + timedelta(days=1), today + timedelta(days=400))
+    return dates[0] if dates else None
+
+
 def bill_dates(due_day, frequency, start: date, end: date) -> list[date]:
     """Due dates in [start, end] for a bill. A due_day gives a monthly date (or a
     recurring one if paired with a weekly/biweekly/triweekly frequency); a bare
@@ -119,22 +200,34 @@ def bill_dates(due_day, frequency, start: date, end: date) -> list[date]:
     return out
 
 
+DIP_CAUTION = 1000.0     # below this, the period is worth a look
+DIP_DANGER = 0.0         # below this, it's a real overdraft
+
+
+def _period_warnings(end_bal: float) -> list[dict]:
+    """One honest signal per period: does the projected balance ever dip. That's
+    the whole question the Forecast answers — not which bucket is short or why
+    (that's Buckets' job, and Aggressive pacing's). Below $0 is immediate
+    action; below $1,000 is worth a look; otherwise this period is quiet."""
+    if end_bal < DIP_DANGER - 0.005:
+        return [{"kind": "danger", "severity": 0, "end_balance": round(end_bal, 2)}]
+    if end_bal < DIP_CAUTION - 0.005:
+        return [{"kind": "caution", "severity": 1, "end_balance": round(end_bal, 2)}]
+    return []
+
+
 def project(start_balance: float, paychecks: list[dict], rules: list[dict],
-            bills: list[dict], scheduled: list[dict] | None = None,
-            today: date | None = None, horizon_days: int = 90) -> dict:
+            bills: list[dict], vaults: list[dict] | None = None,
+            scheduled: list[dict] | None = None,
+            today: date | None = None, horizon_days: int = 90,
+            aggressive: bool = False) -> dict:
     """Roll the checking balance forward. See module docstring for the model.
 
-    Injects *everything* that moves the account: recurring income (paychecks),
-    external transfers out (rules), recurring bills (bucket targets), AND any
-    specific future-dated transactions the user has already entered (scheduled
-    payments, transfers, expected income). Internal rule allocations (funding
-    savings goals / vaults) are shown per paycheck as money set aside — they don't
-    leave checking, so they don't move the balance line, but you see where the
-    paycheck goes.
-
     paychecks: [{label, amount, freq, anchor}]
-    rules:     [{name, kind, value, value_type, active, bucket_name}]
+    rules:     [{name, kind, value, value_type, active, bucket_name, bucket_id}]
     bills:     [{id, name, amount(target), spent, available, due_day, frequency}]
+    vaults:    [{id, name, available}]                  (vault/goal buckets — pure
+                accumulation, no due date, tracked the same way as bill funding)
     scheduled: [{kind, amount, date, bucket_id, name}]   (future-dated real txns)
     """
     today = today or date.today()
@@ -143,6 +236,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
     int_rules = [r for r in rules if r.get("active") and r["kind"] == "internal"
                  and r.get("value_type") in ("pct", "fixed")]
     scheduled = scheduled or []
+    vaults = vaults or []
 
     events: list[dict] = []
 
@@ -160,7 +254,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
                 v = round(amt * r["value"] / 100.0 if r["value_type"] == "pct" else r["value"], 2)
                 if v > 0.005:
                     events.append({"date": d, "kind": "internal", "name": r["name"], "amount": v,
-                                   "bucket": r.get("bucket_name")})
+                                   "bucket": r.get("bucket_name"), "bucket_id": r.get("bucket_id")})
 
     # Specific future-dated transactions the user already entered — the real,
     # committed items. Scheduled expenses against a bucket also suppress that
@@ -187,6 +281,21 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             if t.get("bucket_id"):
                 sched_exp[(t["bucket_id"], ym)] = round(sched_exp.get((t["bucket_id"], ym), 0.0) + amt, 2)
 
+    # Each dated bill has its own running "available" — what's actually saved
+    # toward it — seeded from the bucket today and topped up by internal
+    # set-asides aimed at it as paydays land, in chronological order. This is
+    # what answers "will this paycheck actually afford the bill," not just
+    # whether cash overall survives: a bill can clear (money leaves checking
+    # either way) while still being genuinely UNDER-saved-for.
+    bucket_avail: dict[str, float] = {
+        b["id"]: round(b.get("available", 0.0), 2)
+        for b in bills if b.get("id") and b.get("frequency") not in _PPM
+    }
+    # Vaults never "clear" — they just accumulate. Same tracking, no bill event.
+    vault_avail: dict[str, float] = {v["id"]: round(v.get("available", 0.0), 2) for v in vaults if v.get("id")}
+    vault_names = {v["id"]: v["name"] for v in vaults if v.get("id")}
+    vaults_today = round(sum(vault_avail.values()), 2)
+
     # Bills. A dated bill (due day, no sub-monthly frequency) hits its full amount
     # once a month. A weekly/bi-weekly/tri-weekly bucket spreads its MONTHLY target
     # across the periods — $400/mo weekly ≈ $92 a week (sums back to the month).
@@ -198,7 +307,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             if per > 0.005:
                 for d in bill_dates(b.get("due_day"), freq, today, end):
                     events.append({"date": d, "kind": "bill", "name": b["name"],
-                                   "amount": per, "funded": True, "cadence": freq})
+                                   "amount": per, "funded": True, "shortfall": 0.0, "cadence": freq})
         else:
             spent = round(b.get("spent", 0.0), 2)
             for d in bill_dates(b.get("due_day"), freq, today, end):
@@ -208,9 +317,38 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
                 base = round(max(0.0, base - sched_exp.get((bid, (d.year, d.month)), 0.0)), 2)
                 if base <= 0.005:
                     continue
-                funded = (b.get("available", 0.0) >= base - 0.005) if this_month else True
+                # funded/shortfall is resolved once events are walked in order below —
+                # it depends on what's landed in the bucket by THIS date, not just today.
                 events.append({"date": d, "kind": "bill", "name": b["name"],
-                               "amount": base, "funded": funded})
+                               "amount": base, "_bid": bid, "_target": base})
+
+    # Aggressive pacing: every dated bill without an explicit internal rule
+    # already claiming it gets the same sinking-fund pace Distribute uses —
+    # a placeholder event per payday, its amount resolved live during the walk
+    # below against that moment's actual remaining gap. That's what lets a
+    # future period correctly show a bill as funded by the time it's due,
+    # instead of only ever seeing today's snapshot.
+    if aggressive:
+        ruled_buckets = {r.get("bucket_id") for r in int_rules if r.get("bucket_id")}
+        bill_occurrences: dict[str, list[dict]] = {}
+        for e in events:
+            # a split bucket's individual bill items carry no bucket id of their
+            # own (the money pool is the parent bucket, which isn't represented
+            # here at all) — grouping by _bid would merge unrelated items from
+            # different split buckets under the same "None" key and double-count
+            # them as a phantom pacing contribution on top of their real bill
+            # event. Nothing to pace toward without a real bucket, so skip them.
+            if e["kind"] == "bill" and e.get("_bid"):
+                bill_occurrences.setdefault(e["_bid"], []).append(e)
+        for occ in bill_occurrences.values():
+            occ.sort(key=lambda x: x["date"])
+        all_paydays = sorted({e["date"] for e in events if e["kind"] == "income"})
+        for bid, occ in bill_occurrences.items():
+            if bid in ruled_buckets:
+                continue
+            for d in all_paydays:
+                events.append({"date": d, "kind": "internal", "name": "Paced funding",
+                               "amount": 0.0, "bucket_id": bid, "_pace_occ": occ})
 
     # Same-day order: income first, then set-asides, transfers out, bills clear.
     _ord = {"income": 0, "internal": 1, "transfer": 2, "bill": 3}
@@ -220,14 +358,43 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
     trajectory = [{"date": today.isoformat(), "balance": running}]
     low = {"balance": running, "date": today.isoformat()}
     for e in events:
+        if e["kind"] == "internal" and "_pace_occ" in e:
+            occ = [o for o in e["_pace_occ"] if o["date"] > e["date"]]
+            if occ:
+                nxt = occ[0]
+                gap_now = max(0.0, round(nxt["_target"] - bucket_avail.get(e["bucket_id"], 0.0), 2))
+                e["amount"] = pace_amount(gap_now, nxt["date"], e["date"], paychecks)
+                e["bucket"] = nxt["name"]
+        if e["kind"] == "internal":
+            bid = e.get("bucket_id")
+            if bid in bucket_avail:
+                bucket_avail[bid] = round(bucket_avail[bid] + e["amount"], 2)
+            if bid in vault_avail:
+                vault_avail[bid] = round(vault_avail[bid] + e["amount"], 2)
+                e["vault_name"] = vault_names.get(bid)
+                e["vault_balance_after"] = vault_avail[bid]
+        elif e["kind"] == "bill" and "_bid" in e:
+            bid, tgt = e["_bid"], e["_target"]
+            have = bucket_avail.get(bid, 0.0)
+            if round(have - tgt, 2) >= -0.005:
+                e["funded"], e["shortfall"] = True, 0.0
+                bucket_avail[bid] = round(have - tgt, 2)
+            else:
+                e["funded"], e["shortfall"] = False, round(tgt - have, 2)
+                bucket_avail[bid] = 0.0   # this occurrence used up everything saved
         # every event depletes the running balance — income adds, everything else
         # (internal set-asides included) subtracts, so the number always reflects
         # what's actually left once you've honored your own savings commitments too.
         running = round(running + e["amount"] if e["kind"] == "income" else running - e["amount"], 2)
         e["balance_after"] = running
+        e["_vaults_total_after"] = round(sum(vault_avail.values()), 2)
         trajectory.append({"date": e["date"].isoformat(), "balance": running})
         if running < low["balance"]:
             low = {"balance": running, "date": e["date"].isoformat()}
+
+    # a paced bucket already fully covered by the time a payday lands resolves
+    # to $0 — drop those rather than showing a zero-amount "paced funding" line
+    events = [e for e in events if not ("_pace_occ" in e and e["amount"] <= 0.005)]
 
     # ── pay periods (payday → day before next payday) ─────────────────────────
     pay_ds = sorted({e["date"] for e in events if e["kind"] == "income"})
@@ -241,7 +408,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             pe = pay_ds[i + 1] - timedelta(days=1) if i + 1 < len(pay_ds) else end
             bounds.append((pd, pe))
 
-    periods, start_bal = [], round(start_balance, 2)
+    periods, start_bal, vault_bal = [], round(start_balance, 2), vaults_today
     for ps, pe in bounds:
         evs = [e for e in events if ps <= e["date"] <= pe]
         income = round(sum(e["amount"] for e in evs if e["kind"] == "income"), 2)
@@ -250,6 +417,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
         bill_evs = [e for e in evs if e["kind"] == "bill"]
         bills_out = round(sum(e["amount"] for e in bill_evs), 2)
         end_bal = evs[-1]["balance_after"] if evs else start_bal
+        vault_bal = evs[-1]["_vaults_total_after"] if evs else vault_bal
         is_gap = not any(e["kind"] == "income" for e in evs)
         label = "Now → first payday" if is_gap else " · ".join(
             sorted({e["name"] for e in evs if e["kind"] == "income"}))
@@ -257,12 +425,16 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
             "label": label or "Paycheck", "start": ps.isoformat(), "end": pe.isoformat(),
             "is_gap": is_gap, "income": income, "external": external, "internal": internal,
             "bills_out": bills_out,
-            "unfunded": round(sum(e["amount"] for e in bill_evs if not e.get("funded", True)), 2),
             "start_balance": start_bal, "end_balance": end_bal, "negative": end_bal < 0,
+            "vaults_total": vault_bal,
+            "warnings": _period_warnings(end_bal),
             "events": [{"date": e["date"].isoformat(), "kind": e["kind"], "name": e["name"],
                         "amount": round(e["amount"], 2), "funded": e.get("funded", True),
+                        "shortfall": round(e.get("shortfall", 0.0), 2),
                         "cadence": e.get("cadence"), "scheduled": e.get("scheduled", False),
-                        "bucket": e.get("bucket"), "balance": e["balance_after"]}
+                        "bucket": e.get("bucket"), "vault_name": e.get("vault_name"),
+                        "vault_balance_after": e.get("vault_balance_after"),
+                        "balance": e["balance_after"]}
                        for e in evs],
         })
         start_bal = end_bal
@@ -276,6 +448,7 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
         "low": {"balance": round(low["balance"], 2), "date": low["date"]},
         "safe_to_spend": safe,
         "shortfall": low["balance"] < -0.005,
+        "vaults_today": vaults_today,
         "total_income": round(sum(p["income"] for p in periods), 2),
         "total_out": round(sum(p["external"] + p["internal"] + p["bills_out"] for p in periods), 2),
         "trajectory": trajectory,

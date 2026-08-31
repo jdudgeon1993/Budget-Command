@@ -6,7 +6,7 @@ math (formulas) — self-contained so this service deploys from cadence/ alone,
 while still producing exactly the same numbers as Cura. Requires SUPABASE_URL /
 SUPABASE_ANON_KEY in the env.
 """
-from . import supabase_io as DB, formulas as F, money as MZ
+from . import supabase_io as DB, formulas as F, money as MZ, forecast as FC
 from .store import _effective_days, _build_steps
 
 # bcc bucket type → Cadence type
@@ -104,7 +104,10 @@ class LiveStore:
         sp = round(F.b_spent(self._mid, b["id"], self.data["txs"]), 2)
         if typ == "spend":
             funded = round(av + sp, 2)
-            target = F.b_budget(self._month, b["id"]) or float(b.get("defaultBudget") or b.get("dueAmount") or 0)
+            # the bucket's own live-editable target — nothing in this app writes to
+            # bcc_month_budgets any more (that table predates this rebuild), so
+            # reading it here would silently override what set_target() just saved
+            target = float(b.get("defaultBudget") or b.get("dueAmount") or 0)
             pct = min(1.0, max(0.0, sp / funded)) if funded > 0 else 0.0
         else:
             funded, sp = av, 0.0
@@ -162,13 +165,61 @@ class LiveStore:
         return out
 
     def bucket(self, bid: str) -> dict:
-        return self._row(next(b for b in self._buckets() if b["id"] == bid))
+        b = next((x for x in self._buckets() if x["id"] == bid), None)
+        if b is None:
+            raise ValueError("That bucket isn't there anymore — it may have just been merged, archived, or removed. Refresh and try again.")
+        return self._row(b)
 
     def _all_rows(self) -> list[dict]:
         return [self._row(b) for b in self._buckets()]
 
+    def orphaned_buckets(self) -> list[dict]:
+        """Buckets filed under a category that's missing or archived — groups()
+        only shows buckets whose category still exists, so these are real, funded,
+        and completely invisible on the Buckets screen until re-filed."""
+        live_cats = {c["id"] for c in self.data["cats"] if not c.get("archived")}
+        return [self._row(b) for b in self._buckets() if b.get("catId") not in live_cats]
+
+    def recategorize_bucket(self, bid: str, cat_id: str):
+        self._bucket_update(bid, {"cat_id": cat_id})
+
+    def duplicate_buckets(self) -> list[list[dict]]:
+        """Buckets sharing a name (case/space-insensitive) — most often two of the
+        same subscription/bill after a split exploded one that already existed as
+        its own bucket. Scans every non-archived bucket (orphaned-category ones
+        included), since a duplicate is often exactly one visible + one hidden."""
+        groups: dict[str, list[dict]] = {}
+        for b in self._buckets():
+            key = (b.get("name") or "").strip().lower()
+            if key:
+                groups.setdefault(key, []).append(self._row(b))
+        return [rows for rows in groups.values() if len(rows) > 1]
+
+    def merge_buckets(self, keep_id: str, drop_id: str):
+        """Fold `drop` into `keep`: drop's funded money and every transaction that
+        ever pointed at it move to keep, then drop is archived. keep's name/due
+        date/category/type are untouched. Money is conserved exactly — this only
+        relabels which bucket funded dollars and history belong to."""
+        if keep_id == drop_id:
+            return
+        keep, drop = self.bucket(keep_id), self.bucket(drop_id)
+        if drop["type"] == "vault" or keep["type"] == "vault":
+            raise ValueError("Vaults are locked — release one to Ready to Assign and delete it instead of merging.")
+        if drop.get("split") and drop.get("items"):
+            raise ValueError(f'"{drop["name"]}" has its own bill schedule — clear or move its bills first.')
+        amt = round(drop["funded"], 2)
+        if amt > 0.005:
+            self.move(drop_id, keep_id, amt)
+        tids = [t["id"] for t in self.transactions(limit=10000) if t.get("bucket_id") == drop_id]
+        if tids:
+            for tid in tids:
+                DB.update(self.token, "bcc_transactions", self.uid, "id", tid, {"bucket_id": keep_id})
+            self._reload("txs_raw")
+        self.delete(drop_id)
+
     def distribute_steps(self, paycheck_amount=None) -> dict:
-        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
+        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount,
+                            aggressive=self.is_aggressive(), paychecks=self.paychecks())
 
     def default_transfer_accounts(self):
         frm = self._budget_account_id()
@@ -354,7 +405,8 @@ class LiveStore:
         names = {b["id"]: b["name"] for b in self._buckets()}
         out = []
         for r in self.data["allocationRules"]:
-            kind = "external" if r.get("rule_type") == "external" else "internal"
+            rt = r.get("rule_type")
+            kind = rt if rt in ("internal", "external", "roundup") else "internal"
             bid = r.get("bucket_id") or r.get("bucketId") or None
             vtype = r.get("value_type") or r.get("type") or "fixed"
             out.append({"id": r.get("id", ""), "name": r.get("name", "Rule"), "kind": kind,
@@ -384,6 +436,7 @@ class LiveStore:
 
     def defund(self, bid: str, amount: float):
         self.fund(bid, -amount)
+        self._maybe_sweep_roundup()      # freeing up Unallocated may clear a queued pool
 
     def move(self, src: str, dst: str, amount: float):
         self.defund(src, amount)
@@ -399,6 +452,17 @@ class LiveStore:
         new = max(0.0, round(F.b_alloc(nxt_month, bid) + amount, 2))
         DB.upsert_alloc(self.uid, self.token, nxt, bid, new)
         self._reload("allocs_raw", "months_raw")
+
+    def prefunded(self, bid: str) -> float:
+        """Sum of this bucket's allocations already sitting in months AFTER today's.
+        bucket_available() only ever looks at the currently-VIEWED month, so money
+        prefunded ahead via prefund()/"get ahead" is real and correctly subtracted
+        from RTS, but is otherwise invisible until you browse forward to that month
+        — including to the Forecast, which would otherwise show a bill as fully
+        unfunded even though it's already been gotten-ahead-of."""
+        today_mid = F.current_month_id()
+        return round(sum(F.b_alloc(m, bid) for m in self.data["months"]
+                         if F.month_sort_key(m["id"]) > F.month_sort_key(today_mid)), 2)
 
     def _is_vault(self, bid) -> bool:
         b = next((x for x in self.data["buckets"] if x["id"] == bid), None)
@@ -455,6 +519,16 @@ class LiveStore:
     def set_due_day(self, bid: str, day):
         self._bucket_update(bid, {"due_day": MZ._norm_due_day(day)})
 
+    def set_allocated(self, bid: str, value: float):
+        """Set a bucket's THIS-month allocation to an absolute value — the table
+        view's inline edit, translated into the same fund/defund path the modal uses."""
+        target = round(float(value or 0), 2)
+        delta = round(target - F.b_alloc(self._month, bid), 2)
+        if delta > 0:
+            self.fund(bid, delta)
+        elif delta < 0:
+            self.defund(bid, -delta)
+
     def set_frequency(self, bid: str, freq):
         col = "contrib_freq" if self._raw_bucket(bid)["type"] in ("goal", "sinking") else "pay_freq"
         self._bucket_update(bid, {col: freq or None})
@@ -480,6 +554,12 @@ class LiveStore:
     def add_bucket(self, name: str, cat_id: str, type: str, target: float,
                    due_day=None, frequency=None, flex: bool = False,
                    target_date=None, notes: str = ""):
+        # A bucket filed under a missing/archived category becomes invisible —
+        # groups() only shows buckets whose category still exists. Never create
+        # one silently orphaned; fall back to any live category.
+        live_cats = {c["id"] for c in self.data["cats"] if not c.get("archived")}
+        if cat_id not in live_cats:
+            cat_id = next(iter(live_cats), None)
         dbtype = self._DB_TYPE.get(type, "expense")
         row = {"id": DB.new_id(), "user_id": self.uid, "cat_id": cat_id or None,
                "name": (name or "New bucket").strip(), "type": dbtype,
@@ -504,6 +584,68 @@ class LiveStore:
             row["income_type"] = income_type
         DB.insert(self.token, "bcc_transactions", row)
         self._reload("txs_raw")
+        if not F.is_scheduled({"date": when}):
+            if typ == "out" and amount > 0:      # a real, already-happened expense
+                self._queue_roundup(amount)
+            elif typ == "in":                    # fresh Unallocated may clear a queued pool
+                self._maybe_sweep_roundup()
+
+    # ── roundup savings (spare change queued, then swept into a bucket) ───────
+    def roundup_status(self) -> dict:
+        r = self.data["roundup"]
+        month = F.current_month_id()
+        swept = r["swept_this_month"] if r.get("swept_month") == month else 0.0
+        return {"pending": round(r["pending"], 2), "threshold": round(r["threshold"], 2),
+                "swept_this_month": round(swept, 2)}
+
+    def set_roundup_threshold(self, amount):
+        amount = round(max(0.01, float(amount or 0)), 2)
+        DB.upsert_roundup_pool(self.uid, self.token, {"threshold": amount})
+        self._reload("roundup_raw")
+
+    def set_aggressive(self, on: bool):
+        DB.upsert_roundup_pool(self.uid, self.token, {"aggressive": bool(on)})
+        self._reload("roundup_raw")
+
+    def is_aggressive(self) -> bool:
+        return bool(self.data["roundup"].get("aggressive", False))
+
+    def _queue_roundup(self, amount: float):
+        cents = MZ.roundup_cents(amount)
+        if cents <= 0:
+            return
+        pending = round(self.data["roundup"]["pending"] + cents, 2)
+        DB.upsert_roundup_pool(self.uid, self.token, {"pending": pending})
+        self._reload("roundup_raw")
+        self._maybe_sweep_roundup()
+
+    def _maybe_sweep_roundup(self) -> float:
+        """Once the queued pool crosses its threshold AND Unallocated can cover
+        it, sweep the whole pool in one move, split evenly (to the penny) across
+        every active roundup rule. Never partial — either it all lands, or it
+        keeps waiting. Mirrors money.py's demo-engine logic exactly."""
+        pool = self.data["roundup"]
+        pending = round(pool["pending"], 2)
+        if pending < pool["threshold"] - 0.005:
+            return 0.0
+        targets = [r for r in self.rules() if r["kind"] == "roundup" and r["active"] and r.get("bucket_id")]
+        if not targets or pending > round(self.metrics()["unallocated"], 2) + 0.005:
+            return 0.0
+        n = len(targets)
+        total_cents = int(round(pending * 100))
+        base = total_cents // n
+        shares = [base] * n
+        for i in range(total_cents - base * n):
+            shares[i] += 1
+        for r, cents in zip(targets, shares):
+            if cents > 0:
+                self.fund(r["bucket_id"], cents / 100.0)
+        month = F.current_month_id()
+        swept_this_month = pool["swept_this_month"] if pool.get("swept_month") == month else 0.0
+        DB.upsert_roundup_pool(self.uid, self.token, {
+            "pending": 0.0, "swept_month": month, "swept_this_month": round(swept_this_month + pending, 2)})
+        self._reload("roundup_raw")
+        return pending
 
     def _view_date(self) -> str:
         """A date inside the month you're browsing — today when that's the current
@@ -624,6 +766,17 @@ class LiveStore:
             DB.update(self.token, "bcc_paychecks", self.uid, "id", pid, fields)
             self._reload("paychecks_raw")
 
+    def advance_paycheck(self, pid: str):
+        """Already got this one — roll its anchor to the next occurrence so the
+        Forecast stops projecting a payday that's already real, logged income."""
+        from datetime import date as _d
+        p = next((x for x in self.paychecks() if x["id"] == pid), None)
+        if not p:
+            return
+        nxt = FC.next_payday(p["anchor"], p["freq"], _d.today())
+        if nxt:
+            self.edit_paycheck(pid, anchor=nxt)
+
     def delete_paycheck(self, pid):
         DB.delete(self.token, "bcc_paychecks", self.uid, "id", pid)
         self._reload("paychecks_raw")
@@ -632,7 +785,7 @@ class LiveStore:
     def add_rule(self, name, kind, bucket_id, value, value_type, active=True):
         DB.insert(self.token, "bcc_allocation_rules", {
             "id": DB.new_id(), "user_id": self.uid, "name": (name or "Rule").strip(),
-            "rule_type": kind if kind in ("internal", "external") else "internal",
+            "rule_type": kind if kind in ("internal", "external", "roundup") else "internal",
             "bucket_id": bucket_id or None, "value": round(float(value or 0), 2),
             "value_type": value_type if value_type in ("fixed", "pct", "fund") else "fixed",
             "active": bool(active)})
@@ -643,7 +796,7 @@ class LiveStore:
         if name is not None:
             fields["name"] = name.strip() or "Rule"
         if kind is not None:
-            fields["rule_type"] = kind if kind in ("internal", "external") else "internal"
+            fields["rule_type"] = kind if kind in ("internal", "external", "roundup") else "internal"
         if bucket_id is not ...:
             fields["bucket_id"] = bucket_id or None
         if value is not None:

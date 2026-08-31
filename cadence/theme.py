@@ -42,7 +42,7 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-newbtn:active,.cd-distbtn:active{transform:translateY(1px)}
 
 /* ── shell + top nav (shared) ─────────────────────────────────────────────── */
-.cd-shell{max-width:960px;margin:0 auto;padding:0 20px 80px}
+.cd-shell{width:100%;max-width:960px;min-width:0;margin:0 auto;padding:0 20px 80px;box-sizing:border-box}
 .cd-top{display:flex;align-items:center;gap:18px;padding:22px 4px 10px}
 .cd-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--violet));
   display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;box-shadow:0 6px 16px rgba(99,102,241,.35)}
@@ -103,6 +103,25 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
   padding:8px 15px;border-radius:10px;cursor:pointer;margin-left:10px;display:inline-flex;align-items:center;gap:7px}
 .cd-distbtn.hot{color:var(--warn-ink);background:var(--warn-soft);border-color:#f6e2c0}
 .cd-hint{margin-left:auto;font-size:12px;color:var(--muted)}
+.cd-viewtoggle{flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:15px;color:var(--muted);background:var(--card);border:1px solid var(--line);
+  cursor:pointer}
+.cd-viewtoggle:hover{color:var(--ink);border-color:var(--accent)}
+.cd-tbl-wrap{overflow-x:auto;max-width:100%;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;box-shadow:var(--shadow);margin-bottom:14px;padding:4px}
+.cd-tbl-row{display:grid;grid-template-columns:2fr .7fr 1.1fr 1.1fr 1fr 1fr;gap:6px;align-items:center;
+  min-width:560px;padding:6px 10px;border-top:1px solid var(--line)}
+.cd-tbl-row:first-of-type,.cd-tbl-hd{border-top:none}
+.cd-tbl-row:hover{background:#fafbff}
+.cd-tbl-hd{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.cd-tbl-grouphd{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);padding:10px 10px 4px;min-width:560px}
+.cd-tbl-grouphd .cd-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:7px}
+.cd-tbl-name{font-weight:600;color:var(--ink);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-tbl-due{color:var(--muted);font-size:12px}
+.cd-tbl-input{width:100%}
+.cd-tbl-input .q-field__control{height:30px}
+.cd-tbl-input input{font-size:13px;font-weight:600}
 
 /* ── distribute sheet (Buckets) — stepped distribution flow ───────────────── */
 .cd-step-h{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;letter-spacing:-.01em;margin:20px 2px 12px}
@@ -257,6 +276,9 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-ob-t{font-size:13.5px;font-weight:800;color:var(--warn-ink)}
 .cd-ob-s{font-size:12px;color:var(--warn-ink);opacity:.85;margin-top:2px}
 .cd-orphan-banner .q-btn{margin-left:auto;flex:0 0 auto}
+.cd-roundup-tally{font-size:12px;color:var(--violet);background:var(--violet-soft);border-radius:12px;
+  padding:9px 14px;margin:0 0 12px}
+.cd-roundup-tally b{font-weight:800}
 .cd-fixrow{padding:12px 2px;border-top:1px solid var(--line)}
 .cd-fixrow:first-of-type{border-top:none}
 .cd-fix-info{min-width:0;display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
@@ -278,11 +300,15 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-set-name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cd-set-meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px}
 .cd-set-val{font-weight:700;font-size:14px;white-space:nowrap}
+.cd-gotpaid{font-size:10px;font-weight:800;letter-spacing:.02em;color:var(--pos);background:var(--pos-soft);
+  padding:5px 9px;border-radius:8px;white-space:nowrap;cursor:pointer}
+.cd-gotpaid:hover{filter:brightness(0.96)}
 .cd-toggle{font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 10px;border-radius:8px;background:var(--line);color:var(--muted);cursor:pointer;user-select:none;min-width:44px;text-align:center}
 .cd-toggle.on{background:var(--pos-soft);color:var(--pos)}
 .cd-rule-badge{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:6px}
 .cd-rule-badge.internal{background:var(--accent-soft);color:var(--accent)}
 .cd-rule-badge.external{background:var(--warn-soft);color:var(--warn-ink)}
+.cd-rule-badge.roundup{background:var(--violet-soft);color:var(--violet)}
 .cd-tally{font-size:12px;color:var(--muted);padding:0 2px 12px}
 .cd-tally b{color:var(--ink)}
 .cd-recon-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
@@ -295,6 +321,16 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
   border-radius:10px;padding:11px 13px;margin-bottom:10px}
 .cd-recon-ghost b{font-weight:800}
 @media (max-width:640px){.cd-recon-grid{grid-template-columns:1fr;gap:8px}}
+.cd-orow{display:flex;align-items:center;gap:12px;padding:12px 2px;border-top:1px solid var(--line);flex-wrap:wrap}
+.cd-orow:first-of-type{border-top:none}
+.cd-orow-info{min-width:140px}
+.cd-orow-name{font-weight:700;font-size:14px}
+.cd-orow-sel{flex:1;min-width:160px}
+@media (max-width:640px){.cd-orow{flex-direction:column;align-items:stretch}.cd-orow-sel{width:100%}}
+.cd-dupgrp{padding:12px 2px;border-top:1px solid var(--line)}
+.cd-dupgrp:first-of-type{border-top:none}
+.cd-dupgrp .cd-orow-name{margin-bottom:4px}
+.cd-dupgrp .cd-orow{padding:8px 2px;justify-content:space-between}
 .cd-rpt-cat{display:flex;align-items:center;gap:8px;margin:14px 0 8px;flex-wrap:wrap}
 .cd-rpt-cat-name{font-weight:800;font-size:14px}
 .cd-rpt-cat-nums{margin-left:auto;font-size:12px;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -319,6 +355,8 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-fc-hero.red .cd-fc-verdict{color:var(--neg)}
 .cd-fc-safe{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:4px 0 2px}
 .cd-fc-safe-lbl{font-size:12px;color:var(--muted)}
+.cd-fc-heroshort{margin-top:10px;padding:8px 12px;font-size:12px;line-height:1.5;font-weight:600;
+  color:var(--neg);background:var(--neg-soft);border-radius:10px;max-width:340px}
 .cd-fc-low{text-align:right;padding-left:20px;border-left:1px solid var(--line)}
 .cd-fc-low-lbl{font-size:11px;color:var(--muted)}
 .cd-fc-low-val{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:2px 0}
@@ -333,6 +371,20 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-fc-chev{width:14px;text-align:center;color:var(--muted);font-size:11px;transition:transform .18s}
 .cd-fc-period.open .cd-fc-chev{transform:rotate(90deg)}
 .cd-fc-pname{font-weight:700;font-size:14px}
+/* ranked period warnings — worst first, each its own severity color */
+.cd-fc-warn-badge{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+  padding:2px 7px;border-radius:6px;vertical-align:middle}
+.cd-fc-warn-badge.red{color:#fff;background:var(--neg)}
+.cd-fc-warn-badge.amber{color:#fff;background:var(--warn-ink)}
+.cd-fc-warnrow{margin:0 18px 10px;padding:10px 13px;font-size:12px;line-height:1.5;border-radius:10px}
+.cd-fc-warnrow.red{color:var(--neg);background:var(--neg-soft)}
+.cd-fc-warnrow.amber{color:var(--warn-ink);background:var(--warn-soft)}
+/* vaults — accumulation summary + per-paycheck growth tag */
+.cd-fc-vaults{font-size:12.5px;line-height:1.5;color:var(--muted);
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 14px}
+.cd-fc-vgrow{display:block;margin-top:3px;color:var(--violet);font-weight:600}
+.cd-fc-vnow{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--violet);background:var(--violet-soft);padding:1px 6px;border-radius:6px}
 .cd-fc-prange{font-size:11px;color:var(--muted);margin-top:1px}
 .cd-fc-prange .in{color:var(--pos);font-weight:600}
 .cd-fc-prange .out{color:var(--neg);font-weight:600}

@@ -10,6 +10,7 @@ never changes.
 from datetime import date, timedelta
 
 from . import money as M
+from . import forecast as FC
 
 
 def _today() -> str:
@@ -33,7 +34,8 @@ def _dsort(x):
 
 
 def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
-                 paycheck_amount=None) -> dict:
+                 paycheck_amount=None, aggressive: bool = False,
+                 paychecks: list[dict] | None = None) -> dict:
     """The shared distribution plan behind both the Buckets 'Distribute' and the
     paycheck flow, so they read the same. Percentages are of the paycheck when
     distributing one, otherwise of what's unallocated.
@@ -41,14 +43,19 @@ def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
     • external  — rule-driven transfers out (checking → savings)
     • internal  — rule-driven funding suggestions (fund a bucket)
     • obligations — underfunded bills, soonest-due first; anything already funded
-      OR already paid this cycle drops off the list
-    • next      — the same bills, offered again to pre-fund next month (get ahead)
+      OR already paid this cycle drops off the list. In Aggressive mode each
+      bill asks for its sinking-fund PACE toward its due date instead of the
+      full gap — see forecast.pace_amount().
+    • next      — dated bills already settled this cycle, offered to pre-fund
+      the next occurrence (get ahead). Aggressive mode paces this too and
+      folds it in automatically instead of leaving it optional.
     """
     base = round(paycheck_amount if paycheck_amount else unallocated, 2)
     by_id = {r["id"]: r for r in rows}
+    today = date.today()
     external, internal = [], []
     for r in rules:
-        if not r.get("active"):
+        if not r.get("active") or r["kind"] == "roundup":   # roundup runs silently, not a Distribute step
             continue
         pct = r["value_type"] == "pct"
         if r["kind"] == "external":
@@ -77,22 +84,46 @@ def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
         if r["split"] and r["items"]:
             # each unpaid, still-underfunded bill is its own obligation, soonest first
             for it in r["items"]:
-                if not it.get("paid") and it.get("item_gap", 0.0) > 0.005:
-                    obligations.append({"key": f'{r["id"]}#{it["id"]}', "id": r["id"], "split_item": True,
-                                        "name": f'{r["name"]} · {it["name"]}', "gap": it["item_gap"],
-                                        "days_until_due": it["days_until_due"]})
+                if it.get("paid") or it.get("item_gap", 0.0) <= 0.005:
+                    continue
+                gap = it["item_gap"]
+                amt = gap
+                if aggressive:
+                    due = today + timedelta(days=it["days_until_due"]) if it["days_until_due"] is not None else None
+                    amt = FC.pace_amount(gap, due, today, paychecks or [])
+                obligations.append({"key": f'{r["id"]}#{it["id"]}', "id": r["id"], "split_item": True,
+                                    "name": f'{r["name"]} · {it["name"]}', "gap": gap, "amount": round(amt, 2),
+                                    "paced": aggressive, "days_until_due": it["days_until_due"]})
         elif r["gap"] > 0.005:                                  # non-split, underfunded & not paid
             paid = r["target"] > 0 and r["spent"] >= r["target"] - 0.005
             if not paid:
+                gap = r["gap"]
+                amt = gap
+                if aggressive and dated:
+                    due = FC.next_unmet_due(r["due_day"], r["frequency"], gap, r["days_until_due"], today)
+                    amt = FC.pace_amount(gap, due, today, paychecks or [])
                 obligations.append({"key": r["id"], "id": r["id"], "name": r["name"],
-                                    "gap": r["gap"], "days_until_due": r["days_until_due"]})
-        if dated and r["target"] > 0:                           # any dated bill → can pre-fund
+                                    "gap": gap, "amount": round(amt, 2), "paced": aggressive and dated,
+                                    "days_until_due": r["days_until_due"]})
+        if not dated or r["target"] <= 0:
+            continue
+        if aggressive:
+            # already settled this cycle → pace toward the NEXT occurrence automatically,
+            # folded in rather than left as a manual, unchecked "maybe"
+            if r["gap"] <= 0.005:
+                due = FC.next_unmet_due(r["due_day"], r["frequency"], 0.0, None, today)
+                amt = FC.pace_amount(r["target"], due, today, paychecks or [])
+                if amt > 0.005:
+                    days = (due - today).days if due else None
+                    nexts.append({"id": r["id"], "name": r["name"], "amount": round(amt, 2),
+                                  "paced": True, "days_until_due": days})
+        else:                                                   # unpaced — full target, purely optional
             nexts.append({"id": r["id"], "name": r["name"], "amount": round(r["target"], 2),
-                          "days_until_due": r["days_until_due"]})
+                          "paced": False, "days_until_due": r["days_until_due"]})
     obligations.sort(key=_dsort)
     nexts.sort(key=_dsort)
     return {"unallocated": round(unallocated, 2), "base": base, "external": external,
-            "internal": internal, "obligations": obligations, "next": nexts}
+            "internal": internal, "obligations": obligations, "next": nexts, "aggressive": aggressive}
 
 
 def seed() -> dict:
@@ -121,9 +152,9 @@ def seed() -> dict:
         ("Rent", 1500, "August rent", "2026-08-01"),
         ("Subscriptions", 46, "Streaming + music", "2026-08-01"),
         ("Utilities", 142, "Power + water", "2026-08-02"),
-        ("Groceries", 286, "Trader Joe's", "2026-08-02"),
-        ("Gas", 52, "Shell", "2026-08-03"),
-        ("Groceries", 63, "Corner market", "2026-08-04"),
+        ("Groceries", 285.62, "Trader Joe's", "2026-08-02"),
+        ("Gas", 51.85, "Shell", "2026-08-03"),
+        ("Groceries", 62.53, "Corner market", "2026-08-04"),
         ("Fun Money", 120, "Concert tickets", "2026-08-04"),
         ("Dining Out", 88, "Dinner w/ friends", "2026-08-05"),
     ]
@@ -178,6 +209,8 @@ def seed() -> dict:
     M.add_rule(s, "Fill Rent", "internal", ids["Rent"], 0, "fund", True)
     M.add_rule(s, "Emergency fund", "internal", ids["Emergency"], 10, "pct", True)
     M.add_rule(s, "401(k) contribution", "external", None, 6, "pct", True)
+    M.add_rule(s, "Spare change", "roundup", ids["Emergency"], 0, "fixed", True)
+    M.set_roundup_threshold(s, 1.00)   # low, so the demo shows a real sweep already happened
 
     # A couple of scheduled (future-dated) transactions so the Forecast shows it
     # injects real committed items — a planned transfer and an upcoming bill.
@@ -256,13 +289,57 @@ class Store:
                 "urgency": M.urgency_score(av, gap, d, flex, handled, typ == M.VAULT)}
 
     def bucket(self, eid: str) -> dict:
-        return self._row(M.env(self.s, eid))
+        e = next((x for x in self.s["envelopes"] if x["id"] == eid), None)
+        if e is None:
+            raise ValueError("That bucket isn't there anymore — it may have just been merged, archived, or removed. Refresh and try again.")
+        return self._row(e)
 
     def _all_rows(self) -> list[dict]:
         return [self._row(e) for e in self.s["envelopes"]]
 
+    def orphaned_buckets(self) -> list[dict]:
+        """Buckets filed under a category that no longer exists — groups() only
+        shows buckets whose category still exists, so these are real, funded, and
+        completely invisible on the Buckets screen until re-filed."""
+        live_cats = {c["id"] for c in self.s["categories"]}
+        return [self._row(e) for e in self.s["envelopes"] if e.get("cat_id") not in live_cats]
+
+    def recategorize_bucket(self, eid: str, cat_id: str):
+        M.set_category(self.s, eid, cat_id)
+
+    def duplicate_buckets(self) -> list[list[dict]]:
+        """Buckets sharing a name (case/space-insensitive) — most often two of the
+        same subscription/bill after a split exploded one that already existed as
+        its own bucket."""
+        groups: dict[str, list[dict]] = {}
+        for e in self.s["envelopes"]:
+            key = (e.get("name") or "").strip().lower()
+            if key:
+                groups.setdefault(key, []).append(self._row(e))
+        return [rows for rows in groups.values() if len(rows) > 1]
+
+    def merge_buckets(self, keep_id: str, drop_id: str):
+        """Fold `drop` into `keep`: drop's funded money and every transaction that
+        ever pointed at it move to keep, then drop is deleted. Money is conserved
+        exactly — this only relabels which bucket funded dollars and history belong to."""
+        if keep_id == drop_id:
+            return
+        keep, drop = self.bucket(keep_id), self.bucket(drop_id)
+        if drop["type"] == "vault" or keep["type"] == "vault":
+            raise ValueError("Vaults are locked — release one to Unallocated and delete it instead of merging.")
+        if drop.get("split") and drop.get("items"):
+            raise ValueError(f'"{drop["name"]}" has its own bill schedule — clear or move its bills first.')
+        amt = round(M.env(self.s, drop_id)["funded"], 2)
+        if amt > 0.005:
+            M.move(self.s, drop_id, keep_id, amt)
+        for t in list(self.s["transactions"]):
+            if t.get("envelope_id") == drop_id:
+                t["envelope_id"] = keep_id
+        M.delete_envelope(self.s, drop_id)
+
     def distribute_steps(self, paycheck_amount=None) -> dict:
-        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
+        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount,
+                            aggressive=self.is_aggressive(), paychecks=self.paychecks())
 
     def default_transfer_accounts(self):
         return (M.CHECKING, M.SAVINGS)
@@ -314,6 +391,16 @@ class Store:
     def move(self, src: str, dst: str, amount: float):
         M.move(self.s, src, dst, min(amount, M.env(self.s, src)["funded"]))
 
+    def set_allocated(self, eid: str, value: float):
+        """Set a bucket's funded amount to an absolute value — the table view's
+        inline edit, translated into the same fund/defund path the modal uses."""
+        target = round(float(value or 0), 2)
+        delta = round(target - M.env(self.s, eid)["funded"], 2)
+        if delta > 0:
+            M.fund(self.s, eid, delta)
+        elif delta < 0:
+            M.defund(self.s, eid, -delta)
+
     def release_vault(self, eid: str, amount: float):
         """Deliberately move money out of a vault back to Unallocated — the only
         way a vault gives money up. Clamped to what it holds."""
@@ -323,6 +410,11 @@ class Store:
         """Get ahead. The demo has no month model, so this funds from Unallocated
         like a normal assign — the live app routes it to next month's allocation."""
         M.fund(self.s, eid, round(float(amount or 0), 2))
+
+    def prefunded(self, eid: str) -> float:
+        """No month siloing in the demo — prefund() already lands directly in
+        `available`, so there's nothing hidden in a future month to report."""
+        return 0.0
 
     def rename(self, eid: str, name: str):
         M.rename(self.s, eid, name)
@@ -555,6 +647,15 @@ class Store:
     def delete_paycheck(self, pid):
         M.delete_paycheck(self.s, pid)
 
+    def advance_paycheck(self, pid: str):
+        """Already got this one — roll its anchor to the next occurrence so the
+        Forecast stops projecting a payday that's already real, logged income."""
+        from . import forecast as FC
+        p = next(x for x in self.s["paychecks"] if x["id"] == pid)
+        nxt = FC.next_payday(p["anchor"], p["freq"], date.today())
+        if nxt:
+            M.edit_paycheck(self.s, pid, anchor=nxt)
+
     def rules(self) -> list[dict]:
         names = {e["id"]: e["name"] for e in self.s["envelopes"]}
         return [{**r, "bucket_name": names.get(r["bucket_id"], "")} for r in self.s["rules"]]
@@ -562,7 +663,7 @@ class Store:
     def rules_summary(self) -> dict:
         pct = fixed = ext = 0.0
         for r in self.s["rules"]:
-            if not r["active"]:
+            if not r["active"] or r["kind"] == "roundup":
                 continue
             if r["kind"] == "external":
                 ext += r["value"] if r["value_type"] == "fixed" else 0.0
@@ -585,6 +686,18 @@ class Store:
 
     def toggle_rule(self, rid):
         M.toggle_rule(self.s, rid)
+
+    def roundup_status(self) -> dict:
+        return M.roundup_status(self.s)
+
+    def set_roundup_threshold(self, amount):
+        M.set_roundup_threshold(self.s, amount)
+
+    def set_aggressive(self, on: bool):
+        M.set_aggressive(self.s, on)
+
+    def is_aggressive(self) -> bool:
+        return M.is_aggressive(self.s)
 
     def delete(self, eid: str):
         M.delete_envelope(self.s, eid)
