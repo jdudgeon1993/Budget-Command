@@ -332,7 +332,13 @@ def project(start_balance: float, paychecks: list[dict], rules: list[dict],
         ruled_buckets = {r.get("bucket_id") for r in int_rules if r.get("bucket_id")}
         bill_occurrences: dict[str, list[dict]] = {}
         for e in events:
-            if e["kind"] == "bill" and "_bid" in e:
+            # a split bucket's individual bill items carry no bucket id of their
+            # own (the money pool is the parent bucket, which isn't represented
+            # here at all) — grouping by _bid would merge unrelated items from
+            # different split buckets under the same "None" key and double-count
+            # them as a phantom pacing contribution on top of their real bill
+            # event. Nothing to pace toward without a real bucket, so skip them.
+            if e["kind"] == "bill" and e.get("_bid"):
                 bill_occurrences.setdefault(e["_bid"], []).append(e)
         for occ in bill_occurrences.values():
             occ.sort(key=lambda x: x["date"])

@@ -147,6 +147,15 @@ def _dueday_key(due_day) -> str:
 # Frequency options — triweekly included, for parity with the Forecast engine.
 _FREQ = {"": "— none —", "weekly": "Weekly", "biweekly": "Biweekly",
          "triweekly": "Triweekly", "monthly": "Monthly"}
+
+
+def _freq_key(freq) -> str:
+    """Same problem as _dueday_key: set_frequency() writes whatever string it's
+    given, with no validation, and a bucket carrying a value from before this
+    screen existed (or outside the 5 this dropdown offers) would otherwise
+    crash the whole sheet the instant it's opened — before you could ever fix
+    it through the UI. Fall back to "none" rather than raise."""
+    return freq if freq in _FREQ else ""
 _PERIODS_PER_MONTH = {"weekly": 30.44 / 7, "biweekly": 30.44 / 14,
                       "triweekly": 30.44 / 21, "monthly": 1.0}
 _PERIOD_WORD = {"weekly": "week", "biweekly": "2 weeks",
@@ -488,13 +497,13 @@ def _app(store, demo: bool):
                                 with ui.row().classes("items-center q-gutter-sm w-full q-mt-sm"):
                                     td = ui.input("Target month", value=b.get("target_date") or "").props("dense outlined hide-bottom-space type=month").classes("cd-half")
                                     td.on("blur", lambda: act(lambda: store.set_target_date(eid, td.value)))
-                                    fq = ui.select(_FREQ, value=b["frequency"] or "", label="Contribution cadence").props("dense outlined").classes("cd-half")
+                                    fq = ui.select(_FREQ, value=_freq_key(b["frequency"]), label="Contribution cadence").props("dense outlined").classes("cd-half")
                                     fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
                             elif not is_vault:
                                 with ui.row().classes("items-center q-gutter-sm w-full q-mt-sm"):
                                     dd = ui.select(_dueday_options(), value=_dueday_key(b["due_day"]), label="Due day").props("dense outlined").classes("cd-half")
                                     dd.on("update:model-value", lambda: act(lambda: store.set_due_day(eid, dd.value)))
-                                    fq = ui.select(_FREQ, value=b["frequency"] or "", label="Frequency (if no due day)").props("dense outlined").classes("cd-half")
+                                    fq = ui.select(_FREQ, value=_freq_key(b["frequency"]), label="Frequency (if no due day)").props("dense outlined").classes("cd-half")
                                     fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
                             hint = _period_hint(b)
                             if hint:
@@ -896,8 +905,18 @@ def _app(store, demo: bool):
                 ui.html(f'<span class="cd-tbl-due">{due_txt}</span>')
                 tgt = ui.number(value=r["target"], format="%.2f").props("dense borderless").classes("cd-tbl-input mono")
                 tgt.on("blur", lambda _, bid=r["id"], el=tgt: _cell_edit(lambda: store.set_target(bid, el.value or 0)))
-                alloc = ui.number(value=r["funded"], format="%.2f").props("dense borderless").classes("cd-tbl-input mono")
-                alloc.on("blur", lambda _, bid=r["id"], el=alloc: _cell_edit(lambda: store.set_allocated(bid, el.value or 0)))
+                if r["type"] == "spend":
+                    alloc = ui.number(value=r["funded"], format="%.2f").props("dense borderless").classes("cd-tbl-input mono")
+                    alloc.on("blur", lambda _, bid=r["id"], el=alloc: _cell_edit(lambda: store.set_allocated(bid, el.value or 0)))
+                else:
+                    # vault/goal funding accumulates across months — "Allocated" here
+                    # would be the all-time total, but set_allocated() can only ever
+                    # move money in the CURRENTLY VIEWED month's row (same as fund()/
+                    # defund() everywhere else), so an inline edit against that total
+                    # silently does the wrong thing. Read-only here; use the bucket
+                    # sheet's Add/Release, which already handles this correctly.
+                    ui.html(f'<span class="mono cd-sub" title="Vaults/goals accumulate across months — '
+                            f'edit funding from the bucket sheet">{money(r["funded"])}</span>')
                 ui.html(f'<span class="mono" style="color:{avail_col};font-weight:700">{money(r["available"])}</span>')
                 ui.html(f'<span class="mono cd-sub">{money(r["spent"])}</span>')
 
