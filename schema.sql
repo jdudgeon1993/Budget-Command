@@ -396,3 +396,7 @@ ALTER TABLE bcc_roundup_pool ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS bcc_roundup_pool_user_policy ON bcc_roundup_pool;
 CREATE POLICY bcc_roundup_pool_user_policy ON bcc_roundup_pool
     FOR ALL USING (user_id::text = (auth.uid())::text) WITH CHECK (user_id::text = (auth.uid())::text);
+
+-- Aggressive distribution toggle lives here too — one settings row per user,
+-- no reason for a second table.
+ALTER TABLE bcc_roundup_pool ADD COLUMN IF NOT EXISTS aggressive BOOLEAN NOT NULL DEFAULT FALSE;

@@ -28,7 +28,7 @@ def genesis(opening: float, savings_opening: float = 0.0) -> dict:
             "categories": [], "envelopes": [], "transactions": [],
             "paychecks": [], "rules": [],
             "roundup": {"pending": 0.0, "threshold": 5.0,
-                        "swept_month": "", "swept_this_month": 0.0},
+                        "swept_month": "", "swept_this_month": 0.0, "aggressive": False},
             "accounts": [
                 {"id": CHECKING, "name": "Checking", "type": "budget",
                  "opening": round(opening, 2)},
@@ -347,6 +347,14 @@ def set_roundup_threshold(s: dict, amount: float) -> None:
     anywhere — keeps every sweep a meaningful, single, visible amount instead of
     penny-sized noise on every purchase."""
     s["roundup"]["threshold"] = round(max(0.01, float(amount or 0)), 2)
+
+
+def set_aggressive(s: dict, on: bool) -> None:
+    s["roundup"]["aggressive"] = bool(on)
+
+
+def is_aggressive(s: dict) -> bool:
+    return bool(s["roundup"].get("aggressive", False))
 
 
 def roundup_status(s: dict) -> dict:

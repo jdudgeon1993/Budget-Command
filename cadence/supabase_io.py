@@ -239,7 +239,8 @@ def assemble(results: dict) -> dict:
     r0 = roundup_raw[0] if roundup_raw else {}
     roundup = {"pending": float(r0.get("pending") or 0), "threshold": float(r0.get("threshold") or 5),
                "swept_month": r0.get("swept_month") or "",
-               "swept_this_month": float(r0.get("swept_this_month") or 0)}
+               "swept_this_month": float(r0.get("swept_this_month") or 0),
+               "aggressive": bool(r0.get("aggressive", False))}
 
     return {
         "accounts": accounts, "cats": cats, "buckets": buckets,

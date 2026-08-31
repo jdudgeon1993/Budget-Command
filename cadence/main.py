@@ -706,7 +706,9 @@ def _app(store, demo: bool):
                 return
             checked = ({"ext:" + e["id"] for e in st["external"]}
                        | {"int:" + r["id"] for r in st["internal"]}
-                       | {"ob:" + o["key"] for o in st["obligations"]})   # get-ahead starts off
+                       | {"ob:" + o["key"] for o in st["obligations"]})
+            if st.get("aggressive"):    # paced get-ahead is automatic, not a manual maybe
+                checked |= {"next:" + n["id"] for n in st["next"]}
 
             def _compute():
                 cap = st["unallocated"]
@@ -721,12 +723,16 @@ def _app(store, demo: bool):
                         a = round(min(r["amount"], remaining), 2)
                         amt["int:" + r["id"]] = a; remaining = round(remaining - a, 2); total += a
                         extra[r["bucket_id"]] = round(extra.get(r["bucket_id"], 0) + a, 2)
+                # soonest-due first (obligations are pre-sorted that way): when money runs
+                # short, bills with the least runway get funded before ones with more —
+                # that's the "due now has right of way" priority, falling straight out of
+                # processing order rather than needing separate priority logic.
                 for o in st["obligations"]:
                     if "ob:" + o["key"] in checked:
                         # split items are distinct bills sharing one pool — each funds its
-                        # own gap; non-split obligations net out any rule already aimed here.
-                        gap_now = o["gap"] if o.get("split_item") else max(0.0, round(o["gap"] - extra.get(o["id"], 0), 2))
-                        a = round(min(gap_now, remaining), 2)
+                        # own need; non-split obligations net out any rule already aimed here.
+                        need_now = o["amount"] if o.get("split_item") else max(0.0, round(o["amount"] - extra.get(o["id"], 0), 2))
+                        a = round(min(need_now, remaining), 2)
                         amt["ob:" + o["key"]] = a; remaining = round(remaining - a, 2); total += a
                         extra[o["id"]] = round(extra.get(o["id"], 0) + a, 2)
                 for n in st["next"]:
@@ -787,16 +793,21 @@ def _app(store, demo: bool):
                     ui.html('<div class="cd-step-h"><span class="cd-step-n">2</span>Fill what\'s due</div>')
                     if st["obligations"]:
                         for o in st["obligations"]:
-                            srow("ob:" + o["key"], o["name"], f'needs {money(o["gap"])}',
-                                 tag=_days_tag(o["days_until_due"]))
+                            det = f'needs {money(o["amount"])}' + (f' of {money(o["gap"])} · paced' if o.get("paced") and o["amount"] < o["gap"] - 0.005 else '')
+                            srow("ob:" + o["key"], o["name"], det, tag=_days_tag(o["days_until_due"]))
                     else:
                         ui.html('<div class="cd-sub" style="padding:2px 2px 8px">Nothing underfunded — every bill is covered. ✓</div>')
 
-                    # Step 3 — get ahead (optional)
+                    # Step 3 — get ahead (automatic + paced under Aggressive, optional otherwise)
                     if st["next"] and remaining > 0.005:
-                        ui.html('<div class="cd-step-h"><span class="cd-step-n">3</span>Get ahead · pre-fund next month</div>')
-                        ui.html('<div class="cd-sub" style="margin:-6px 2px 8px">You\'ve covered what\'s due. Put the rest '
-                                'toward next month\'s bills to build a buffer.</div>')
+                        if st.get("aggressive"):
+                            ui.html('<div class="cd-step-h"><span class="cd-step-n">3</span>Pacing ahead</div>')
+                            ui.html('<div class="cd-sub" style="margin:-6px 2px 8px">These bills are settled for now — '
+                                    'staying paced toward their next due date so nothing goes idle.</div>')
+                        else:
+                            ui.html('<div class="cd-step-h"><span class="cd-step-n">3</span>Get ahead · pre-fund next month</div>')
+                            ui.html('<div class="cd-sub" style="margin:-6px 2px 8px">You\'ve covered what\'s due. Put the rest '
+                                    'toward next month\'s bills to build a buffer.</div>')
                         for n in st["next"]:
                             srow("next:" + n["id"], n["name"], f'another {money(n["amount"])}',
                                  tag=_days_tag(n["days_until_due"]))
@@ -845,9 +856,50 @@ def _app(store, demo: bool):
                 ui.html('<div class="cd-newbtn">＋ New bucket</div>').on("click", lambda _: _open_create())
                 if un > 0.005:
                     ui.html(f'<div class="cd-distbtn hot">⚡ Distribute {money(un)}</div>').on("click", lambda _: _open_distribute())
-                    ui.html('<span class="cd-hint">Tap a bucket to manage · or distribute what\'s unallocated</span>').style("margin-left:auto")
+                    ui.html('<span class="cd-hint">Tap a bucket to manage · or distribute what\'s unallocated</span>')
                 else:
-                    ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>').style("margin-left:auto")
+                    ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>')
+                bkview = getattr(store, "_bk_view", "cards")
+                icon = "☰" if bkview == "cards" else "⊞"
+                title = "Switch to table view" if bkview == "cards" else "Switch to card view"
+                ui.html(f'<span class="cd-viewtoggle" title="{title}">{icon}</span>').style("margin-left:auto") \
+                    .on("click", lambda: (setattr(store, "_bk_view", "table" if bkview == "cards" else "cards"), refresh_page()))
+
+        def buckets_table():
+            groups = store.groups()
+            if not groups:
+                ui.html('<div class="cd-sub" style="padding:20px 4px">No buckets yet — add one above.</div>')
+                return
+            with ui.element("div").classes("cd-tbl-wrap"):
+                with ui.element("div").classes("cd-tbl-row cd-tbl-hd"):
+                    for h in ("Bucket", "Due", "Target", "Allocated", "Available", "Spent"):
+                        ui.html(f"<span>{h}</span>")
+                for g in groups:
+                    ui.html(f'<div class="cd-tbl-grouphd"><span class="cd-dot" '
+                            f'style="background:{g["color"]}"></span>{_esc(g["name"])}</div>')
+                    for r in g["rows"]:
+                        _table_row(r)
+
+        def _cell_edit(fn):
+            try:
+                fn()
+            except Exception as e:
+                ui.notify(str(e)[:150], type="warning"); return
+            refresh_page()
+
+        def _table_row(r):
+            due = _dueday_key(r["due_day"]) if r.get("due_day") is not None else ""
+            due_txt = {"eom": "EOM"}.get(due, due) or "—"
+            avail_col = "var(--neg)" if r["available"] < 0 else "var(--pos)"
+            with ui.element("div").classes("cd-tbl-row"):
+                ui.html(f'<span class="cd-tbl-name">{_esc(r["name"])}</span>')
+                ui.html(f'<span class="cd-tbl-due">{due_txt}</span>')
+                tgt = ui.number(value=r["target"], format="%.2f").props("dense borderless").classes("cd-tbl-input mono")
+                tgt.on("blur", lambda _, bid=r["id"], el=tgt: _cell_edit(lambda: store.set_target(bid, el.value or 0)))
+                alloc = ui.number(value=r["funded"], format="%.2f").props("dense borderless").classes("cd-tbl-input mono")
+                alloc.on("blur", lambda _, bid=r["id"], el=alloc: _cell_edit(lambda: store.set_allocated(bid, el.value or 0)))
+                ui.html(f'<span class="mono" style="color:{avail_col};font-weight:700">{money(r["available"])}</span>')
+                ui.html(f'<span class="mono cd-sub">{money(r["spent"])}</span>')
 
         def monthbar():
             # Month navigation is a live-data feature — the demo has no month model.
@@ -886,7 +938,10 @@ def _app(store, demo: bool):
                 hero()
                 monthbar()
                 actionbar()
-                buckets()
+                if getattr(store, "_bk_view", "cards") == "table":
+                    buckets_table()
+                else:
+                    buckets()
         content()
 
 
@@ -1645,6 +1700,18 @@ def _settings_view(store, refresh_bg):
         ui.html('<div class="cd-set-add">＋ Add paycheck</div>').on("click", lambda _: _open_paycheck())
 
     with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Distribution</div>')
+        agg = store.is_aggressive()
+        with ui.row().classes("w-full items-center justify-between"):
+            with ui.element("div").style("min-width:0"):
+                ui.html('<div class="cd-set-name">Aggressive pacing</div>')
+                ui.html('<div class="cd-set-meta">Every underfunded bill gets a share of each paycheck, '
+                        'paced to its due date — near-term bills first when money\'s tight. '
+                        'Off = soonest-due-first, full amount, one at a time.</div>')
+            tgl = ui.html(f'<div class="cd-toggle {"on" if agg else ""}">{"ON" if agg else "OFF"}</div>')
+            tgl.on("click", lambda: _do(lambda: store.set_aggressive(not store.is_aggressive())))
+
+    with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Allocation rules · applied to each paycheck</div>')
         summ = store.rules_summary()
         parts = ([f'{summ["pct"]:g}%'] if summ["pct"] > 0 else []) + ([money(summ["fixed"])] if summ["fixed"] > 0 else [])
@@ -1851,59 +1918,28 @@ def _forecast_chart(res: dict) -> str:
 _FC_ICON = {"income": "+", "transfer": "→", "bill": "−", "internal": "◇"}
 
 
-# kind -> (severity color class, icon)
+# kind -> (severity color class, icon). Just two: does the balance ever dip,
+# and how badly — the "why" lives in Buckets, not here.
 _WARN_META = {
-    "overdraft":          ("red", "⚠"),
-    "no_income":          ("red", "⚠"),
-    "rules_exceed":       ("red", "⚠"),
-    "paycheck_shortfall": ("amber", "⚠"),
-    "bucket_shortfall":   ("amber", "⚠"),
-    "vault_lever":        ("violet", "◇"),
-    "ahead":              ("green", "↑"),
-    "all_clear":          ("green", "✓"),
+    "danger":  ("red", "⚠"),
+    "caution": ("amber", "⚠"),
 }
+_WARN_BADGE = {"danger": "action needed", "caution": "tight"}
 
 
 def _warn_msg(w: dict) -> str:
-    """Full detail sentence for one warning — same wording everywhere it appears
-    (hero detail line, period card), so there's one source of truth."""
-    k = w["kind"]
-    if k == "overdraft":
-        m = f"Balance dips to {money(w['end_balance'])}."
-        if w.get("vaults_total", 0) > 0.005:
-            m += (f" You have {money(w['vaults_total'])} in vault savings — since that money never left "
-                  "checking, releasing some toward what's short would close the gap without new income.")
-        return m
-    if k == "no_income":
-        return f"No paycheck lands in this stretch, but {money(w['total_out'])} still goes out."
-    if k == "rules_exceed":
-        return f"Your own rules alone ({money(w['rules_total'])}) outspend this paycheck ({money(w['income'])}) — before a single bill."
-    if k == "paycheck_shortfall":
-        return f"Even if this whole paycheck went to nothing but catching up, you'd still be {money(w['gap'])} short."
-    if k == "bucket_shortfall":
-        who = ", ".join(f'{_esc(s["name"])} needs {money(s["shortfall"])} more' for s in w["shortfalls"][:3])
-        more = len(w["shortfalls"]) - 3
-        who += f" +{more} more" if more > 0 else ""
-        return f"{money(w['shortfall_total'])} still needed across underfunded bills — {who}."
-    if k == "vault_lever":
-        return f"Skipping this period's {money(w['internal_vault'])} vault contribution would leave you at {money(w['would_be'])} instead."
-    if k == "ahead":
-        return f"{money(w['net'])} left over after everything this period — a good time to get ahead on next month's bills."
-    return "Fully funded and solvent this period."
+    """Full detail sentence — same wording everywhere it appears (hero detail
+    line, period card), so there's one source of truth."""
+    if w["kind"] == "danger":
+        return f"Balance dips to {money(w['end_balance'])} — immediate action needed."
+    return f"Balance dips to {money(w['end_balance'])} — worth a look."
 
 
 def _warn_headline(w: dict) -> str:
     """Short version for the hero verdict line."""
-    return {
-        "overdraft": "Heads up — your balance dips below zero",
-        "no_income": "No paycheck lands before bills come due",
-        "rules_exceed": "Your own rules outspend this paycheck",
-        "paycheck_shortfall": f"This paycheck falls {money(w.get('gap', 0))} short",
-        "bucket_shortfall": "Some bills aren't fully saved for yet",
-        "vault_lever": "You have a lever if things get tight",
-        "ahead": "You're ahead",
-        "all_clear": "You're on track",
-    }.get(w["kind"], "You're on track")
+    if w["kind"] == "danger":
+        return f"Heads up — balance dips to {money(w['end_balance'])}"
+    return f"Getting tight — dips to {money(w['end_balance'])}"
 
 
 def _forecast_view(store, refresh_bg):
@@ -1927,7 +1963,8 @@ def _forecast_view(store, refresh_bg):
     vaults = _forecast_vaults(store)
     paychecks = _reconciled_paychecks(store, date.today())
     res = forecast.project(store.metrics()["cash"], paychecks, store.rules(),
-                           _forecast_bills(store), vaults=vaults, scheduled=sched, horizon_days=hz)
+                           _forecast_bills(store), vaults=vaults, scheduled=sched, horizon_days=hz,
+                           aggressive=store.is_aggressive() if hasattr(store, "is_aggressive") else False)
     # Which periods are expanded — the current one opens by default.
     exp = getattr(store, "_fc_expanded", None)
     if exp is None:
@@ -1941,19 +1978,16 @@ def _forecast_view(store, refresh_bg):
 
     if res["shortfall"]:
         vcls, verdict = "red", f"Heads up — you dip below zero around {low_when}"
-    elif next_warn and next_warn["severity"] <= 4:
+    elif next_warn:
         vcls = _WARN_META[next_warn["kind"]][0]
-        vcls = "red" if vcls == "red" else "amber"
         verdict = _warn_headline(next_warn)
-    elif res["safe_to_spend"] < 500:
+    elif res["safe_to_spend"] < forecast.DIP_CAUTION:
         vcls, verdict = "amber", f"Cutting it close around {low_when}"
-    elif next_warn and next_warn["kind"] == "ahead":
-        vcls, verdict = "green", "You're ahead"
     else:
         vcls, verdict = "green", "You're on track"
 
     short_line = ""
-    if next_warn and next_warn["severity"] <= 4:
+    if next_warn:
         short_line = f'<div class="cd-fc-heroshort">{_WARN_META[next_warn["kind"]][1]} {_warn_msg(next_warn)}</div>'
 
     # ── hero verdict ──
@@ -2004,9 +2038,9 @@ def _forecast_view(store, refresh_bg):
         p_warnings = p.get("warnings", [])
         worst = p_warnings[0] if p_warnings else None
         badge = ''
-        if worst and worst["kind"] not in ("ahead", "all_clear"):
+        if worst:
             wcls, wic = _WARN_META[worst["kind"]]
-            badge = f' <span class="cd-fc-warn-badge {wcls}">{wic} {worst["kind"].replace("_", " ")}</span>'
+            badge = f' <span class="cd-fc-warn-badge {wcls}">{wic} {_WARN_BADGE[worst["kind"]]}</span>'
         card = ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "") + (" open" if is_open else ""))
         with card:
             hd = ui.element("div").classes("cd-fc-phd")

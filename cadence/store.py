@@ -10,6 +10,7 @@ never changes.
 from datetime import date, timedelta
 
 from . import money as M
+from . import forecast as FC
 
 
 def _today() -> str:
@@ -33,7 +34,8 @@ def _dsort(x):
 
 
 def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
-                 paycheck_amount=None) -> dict:
+                 paycheck_amount=None, aggressive: bool = False,
+                 paychecks: list[dict] | None = None) -> dict:
     """The shared distribution plan behind both the Buckets 'Distribute' and the
     paycheck flow, so they read the same. Percentages are of the paycheck when
     distributing one, otherwise of what's unallocated.
@@ -41,11 +43,16 @@ def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
     • external  — rule-driven transfers out (checking → savings)
     • internal  — rule-driven funding suggestions (fund a bucket)
     • obligations — underfunded bills, soonest-due first; anything already funded
-      OR already paid this cycle drops off the list
-    • next      — the same bills, offered again to pre-fund next month (get ahead)
+      OR already paid this cycle drops off the list. In Aggressive mode each
+      bill asks for its sinking-fund PACE toward its due date instead of the
+      full gap — see forecast.pace_amount().
+    • next      — dated bills already settled this cycle, offered to pre-fund
+      the next occurrence (get ahead). Aggressive mode paces this too and
+      folds it in automatically instead of leaving it optional.
     """
     base = round(paycheck_amount if paycheck_amount else unallocated, 2)
     by_id = {r["id"]: r for r in rows}
+    today = date.today()
     external, internal = [], []
     for r in rules:
         if not r.get("active") or r["kind"] == "roundup":   # roundup runs silently, not a Distribute step
@@ -77,22 +84,46 @@ def _build_steps(rows: list[dict], rules: list[dict], unallocated: float,
         if r["split"] and r["items"]:
             # each unpaid, still-underfunded bill is its own obligation, soonest first
             for it in r["items"]:
-                if not it.get("paid") and it.get("item_gap", 0.0) > 0.005:
-                    obligations.append({"key": f'{r["id"]}#{it["id"]}', "id": r["id"], "split_item": True,
-                                        "name": f'{r["name"]} · {it["name"]}', "gap": it["item_gap"],
-                                        "days_until_due": it["days_until_due"]})
+                if it.get("paid") or it.get("item_gap", 0.0) <= 0.005:
+                    continue
+                gap = it["item_gap"]
+                amt = gap
+                if aggressive:
+                    due = today + timedelta(days=it["days_until_due"]) if it["days_until_due"] is not None else None
+                    amt = FC.pace_amount(gap, due, today, paychecks or [])
+                obligations.append({"key": f'{r["id"]}#{it["id"]}', "id": r["id"], "split_item": True,
+                                    "name": f'{r["name"]} · {it["name"]}', "gap": gap, "amount": round(amt, 2),
+                                    "paced": aggressive, "days_until_due": it["days_until_due"]})
         elif r["gap"] > 0.005:                                  # non-split, underfunded & not paid
             paid = r["target"] > 0 and r["spent"] >= r["target"] - 0.005
             if not paid:
+                gap = r["gap"]
+                amt = gap
+                if aggressive and dated:
+                    due = FC.next_unmet_due(r["due_day"], r["frequency"], gap, r["days_until_due"], today)
+                    amt = FC.pace_amount(gap, due, today, paychecks or [])
                 obligations.append({"key": r["id"], "id": r["id"], "name": r["name"],
-                                    "gap": r["gap"], "days_until_due": r["days_until_due"]})
-        if dated and r["target"] > 0:                           # any dated bill → can pre-fund
+                                    "gap": gap, "amount": round(amt, 2), "paced": aggressive and dated,
+                                    "days_until_due": r["days_until_due"]})
+        if not dated or r["target"] <= 0:
+            continue
+        if aggressive:
+            # already settled this cycle → pace toward the NEXT occurrence automatically,
+            # folded in rather than left as a manual, unchecked "maybe"
+            if r["gap"] <= 0.005:
+                due = FC.next_unmet_due(r["due_day"], r["frequency"], 0.0, None, today)
+                amt = FC.pace_amount(r["target"], due, today, paychecks or [])
+                if amt > 0.005:
+                    days = (due - today).days if due else None
+                    nexts.append({"id": r["id"], "name": r["name"], "amount": round(amt, 2),
+                                  "paced": True, "days_until_due": days})
+        else:                                                   # unpaced — full target, purely optional
             nexts.append({"id": r["id"], "name": r["name"], "amount": round(r["target"], 2),
-                          "days_until_due": r["days_until_due"]})
+                          "paced": False, "days_until_due": r["days_until_due"]})
     obligations.sort(key=_dsort)
     nexts.sort(key=_dsort)
     return {"unallocated": round(unallocated, 2), "base": base, "external": external,
-            "internal": internal, "obligations": obligations, "next": nexts}
+            "internal": internal, "obligations": obligations, "next": nexts, "aggressive": aggressive}
 
 
 def seed() -> dict:
@@ -307,7 +338,8 @@ class Store:
         M.delete_envelope(self.s, drop_id)
 
     def distribute_steps(self, paycheck_amount=None) -> dict:
-        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
+        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount,
+                            aggressive=self.is_aggressive(), paychecks=self.paychecks())
 
     def default_transfer_accounts(self):
         return (M.CHECKING, M.SAVINGS)
@@ -358,6 +390,16 @@ class Store:
 
     def move(self, src: str, dst: str, amount: float):
         M.move(self.s, src, dst, min(amount, M.env(self.s, src)["funded"]))
+
+    def set_allocated(self, eid: str, value: float):
+        """Set a bucket's funded amount to an absolute value — the table view's
+        inline edit, translated into the same fund/defund path the modal uses."""
+        target = round(float(value or 0), 2)
+        delta = round(target - M.env(self.s, eid)["funded"], 2)
+        if delta > 0:
+            M.fund(self.s, eid, delta)
+        elif delta < 0:
+            M.defund(self.s, eid, -delta)
 
     def release_vault(self, eid: str, amount: float):
         """Deliberately move money out of a vault back to Unallocated — the only
@@ -650,6 +692,12 @@ class Store:
 
     def set_roundup_threshold(self, amount):
         M.set_roundup_threshold(self.s, amount)
+
+    def set_aggressive(self, on: bool):
+        M.set_aggressive(self.s, on)
+
+    def is_aggressive(self) -> bool:
+        return M.is_aggressive(self.s)
 
     def delete(self, eid: str):
         M.delete_envelope(self.s, eid)

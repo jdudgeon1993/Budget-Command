@@ -215,7 +215,8 @@ class LiveStore:
         self.delete(drop_id)
 
     def distribute_steps(self, paycheck_amount=None) -> dict:
-        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount)
+        return _build_steps(self._all_rows(), self.rules(), self.metrics()["unallocated"], paycheck_amount,
+                            aggressive=self.is_aggressive(), paychecks=self.paychecks())
 
     def default_transfer_accounts(self):
         frm = self._budget_account_id()
@@ -515,6 +516,16 @@ class LiveStore:
     def set_due_day(self, bid: str, day):
         self._bucket_update(bid, {"due_day": MZ._norm_due_day(day)})
 
+    def set_allocated(self, bid: str, value: float):
+        """Set a bucket's THIS-month allocation to an absolute value — the table
+        view's inline edit, translated into the same fund/defund path the modal uses."""
+        target = round(float(value or 0), 2)
+        delta = round(target - F.b_alloc(self._month, bid), 2)
+        if delta > 0:
+            self.fund(bid, delta)
+        elif delta < 0:
+            self.defund(bid, -delta)
+
     def set_frequency(self, bid: str, freq):
         col = "contrib_freq" if self._raw_bucket(bid)["type"] in ("goal", "sinking") else "pay_freq"
         self._bucket_update(bid, {col: freq or None})
@@ -588,6 +599,13 @@ class LiveStore:
         amount = round(max(0.01, float(amount or 0)), 2)
         DB.upsert_roundup_pool(self.uid, self.token, {"threshold": amount})
         self._reload("roundup_raw")
+
+    def set_aggressive(self, on: bool):
+        DB.upsert_roundup_pool(self.uid, self.token, {"aggressive": bool(on)})
+        self._reload("roundup_raw")
+
+    def is_aggressive(self) -> bool:
+        return bool(self.data["roundup"].get("aggressive", False))
 
     def _queue_roundup(self, amount: float):
         cents = MZ.roundup_cents(amount)

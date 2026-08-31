@@ -42,7 +42,7 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
 .cd-newbtn:active,.cd-distbtn:active{transform:translateY(1px)}
 
 /* ── shell + top nav (shared) ─────────────────────────────────────────────── */
-.cd-shell{max-width:960px;margin:0 auto;padding:0 20px 80px}
+.cd-shell{width:100%;max-width:960px;min-width:0;margin:0 auto;padding:0 20px 80px;box-sizing:border-box}
 .cd-top{display:flex;align-items:center;gap:18px;padding:22px 4px 10px}
 .cd-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--violet));
   display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;box-shadow:0 6px 16px rgba(99,102,241,.35)}
@@ -103,6 +103,25 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
   padding:8px 15px;border-radius:10px;cursor:pointer;margin-left:10px;display:inline-flex;align-items:center;gap:7px}
 .cd-distbtn.hot{color:var(--warn-ink);background:var(--warn-soft);border-color:#f6e2c0}
 .cd-hint{margin-left:auto;font-size:12px;color:var(--muted)}
+.cd-viewtoggle{flex:0 0 auto;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:15px;color:var(--muted);background:var(--card);border:1px solid var(--line);
+  cursor:pointer}
+.cd-viewtoggle:hover{color:var(--ink);border-color:var(--accent)}
+.cd-tbl-wrap{overflow-x:auto;max-width:100%;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;box-shadow:var(--shadow);margin-bottom:14px;padding:4px}
+.cd-tbl-row{display:grid;grid-template-columns:2fr .7fr 1.1fr 1.1fr 1fr 1fr;gap:6px;align-items:center;
+  min-width:560px;padding:6px 10px;border-top:1px solid var(--line)}
+.cd-tbl-row:first-of-type,.cd-tbl-hd{border-top:none}
+.cd-tbl-row:hover{background:#fafbff}
+.cd-tbl-hd{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.cd-tbl-grouphd{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);padding:10px 10px 4px;min-width:560px}
+.cd-tbl-grouphd .cd-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:7px}
+.cd-tbl-name{font-weight:600;color:var(--ink);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cd-tbl-due{color:var(--muted);font-size:12px}
+.cd-tbl-input{width:100%}
+.cd-tbl-input .q-field__control{height:30px}
+.cd-tbl-input input{font-size:13px;font-weight:600}
 
 /* ── distribute sheet (Buckets) — stepped distribution flow ───────────────── */
 .cd-step-h{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;letter-spacing:-.01em;margin:20px 2px 12px}
@@ -357,13 +376,9 @@ body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--
   padding:2px 7px;border-radius:6px;vertical-align:middle}
 .cd-fc-warn-badge.red{color:#fff;background:var(--neg)}
 .cd-fc-warn-badge.amber{color:#fff;background:var(--warn-ink)}
-.cd-fc-warn-badge.violet{color:#fff;background:var(--violet)}
-.cd-fc-warn-badge.green{color:#fff;background:var(--pos)}
 .cd-fc-warnrow{margin:0 18px 10px;padding:10px 13px;font-size:12px;line-height:1.5;border-radius:10px}
 .cd-fc-warnrow.red{color:var(--neg);background:var(--neg-soft)}
 .cd-fc-warnrow.amber{color:var(--warn-ink);background:var(--warn-soft)}
-.cd-fc-warnrow.violet{color:var(--violet);background:var(--violet-soft)}
-.cd-fc-warnrow.green{color:var(--pos);background:var(--pos-soft)}
 /* vaults — accumulation summary + per-paycheck growth tag */
 .cd-fc-vaults{font-size:12.5px;line-height:1.5;color:var(--muted);
   background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 14px}
