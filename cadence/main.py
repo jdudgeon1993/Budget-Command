@@ -8,7 +8,7 @@ that depend on it re-render in place over a WebSocket. Scroll and focus never
 jump. Sign in to see your real Supabase budget, or open the demo for sample data.
 """
 import os
-from datetime import date
+from datetime import date, timedelta
 from html import escape as _esc
 from nicegui import ui, app
 from . import theme, forecast
@@ -124,15 +124,38 @@ def _dueday_options() -> dict:
 
 
 def _dueday_key(due_day) -> str:
-    """Current stored due_day (int, 'eom', or None) → select key."""
+    """Current stored due_day (int, 'eom', or None) → select key.
+
+    The dropdown only offers 1–28 + End of month (any month has at least 28 days,
+    so those never crash the calendar math); the data model has always accepted
+    1–31. A stored 29/30/31 — from before this screen existed, an import, or a
+    split item whose own day never went through this same dropdown — has no
+    matching option. Passing it straight to ui.select raises (NiceGUI validates
+    the initial value against the option keys), which silently killed the whole
+    sheet. Map it to the nearest real option instead of crashing."""
     if due_day is None or due_day == "":
         return ""
-    return "eom" if str(due_day).lower() == "eom" else str(due_day)
+    if str(due_day).lower() == "eom":
+        return "eom"
+    try:
+        d = int(due_day)
+    except (ValueError, TypeError):
+        return ""
+    return "eom" if d >= 29 else str(d)
 
 
 # Frequency options — triweekly included, for parity with the Forecast engine.
 _FREQ = {"": "— none —", "weekly": "Weekly", "biweekly": "Biweekly",
          "triweekly": "Triweekly", "monthly": "Monthly"}
+
+
+def _freq_key(freq) -> str:
+    """Same problem as _dueday_key: set_frequency() writes whatever string it's
+    given, with no validation, and a bucket carrying a value from before this
+    screen existed (or outside the 5 this dropdown offers) would otherwise
+    crash the whole sheet the instant it's opened — before you could ever fix
+    it through the UI. Fall back to "none" rather than raise."""
+    return freq if freq in _FREQ else ""
 _PERIODS_PER_MONTH = {"weekly": 30.44 / 7, "biweekly": 30.44 / 14,
                       "triweekly": 30.44 / 21, "monthly": 1.0}
 _PERIOD_WORD = {"weekly": "week", "biweekly": "2 weeks",
@@ -331,7 +354,13 @@ def _app(store, demo: bool):
                     extra = f' · {unfunded} to fund' if unfunded else ' · all funded ✓'
                     ui.html(f'<div class="cd-sub" style="margin-top:1px">🗓 {r["items_paid"]}/{len(r["items"])} bills paid{extra}</div>')
                 ui.html('<div class="cd-tap">Tap to assign / manage →</div>')
-            card.on("click", lambda _, e=r["id"]: _open_assign(e))
+
+            def _open_safe(eid):
+                try:
+                    _open_assign(eid)
+                except Exception as e:
+                    ui.notify(f"Couldn't open that bucket: {str(e)[:150]}", type="negative")
+            card.on("click", lambda _, e=r["id"]: _open_safe(e))
 
         # ── bucket sheet: assign · spend · details ────────────────────────────
         def _open_assign(eid):
@@ -468,13 +497,13 @@ def _app(store, demo: bool):
                                 with ui.row().classes("items-center q-gutter-sm w-full q-mt-sm"):
                                     td = ui.input("Target month", value=b.get("target_date") or "").props("dense outlined hide-bottom-space type=month").classes("cd-half")
                                     td.on("blur", lambda: act(lambda: store.set_target_date(eid, td.value)))
-                                    fq = ui.select(_FREQ, value=b["frequency"] or "", label="Contribution cadence").props("dense outlined").classes("cd-half")
+                                    fq = ui.select(_FREQ, value=_freq_key(b["frequency"]), label="Contribution cadence").props("dense outlined").classes("cd-half")
                                     fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
                             elif not is_vault:
                                 with ui.row().classes("items-center q-gutter-sm w-full q-mt-sm"):
                                     dd = ui.select(_dueday_options(), value=_dueday_key(b["due_day"]), label="Due day").props("dense outlined").classes("cd-half")
                                     dd.on("update:model-value", lambda: act(lambda: store.set_due_day(eid, dd.value)))
-                                    fq = ui.select(_FREQ, value=b["frequency"] or "", label="Frequency (if no due day)").props("dense outlined").classes("cd-half")
+                                    fq = ui.select(_FREQ, value=_freq_key(b["frequency"]), label="Frequency (if no due day)").props("dense outlined").classes("cd-half")
                                     fq.on("update:model-value", lambda: act(lambda: store.set_frequency(eid, fq.value)))
                             hint = _period_hint(b)
                             if hint:
@@ -686,7 +715,9 @@ def _app(store, demo: bool):
                 return
             checked = ({"ext:" + e["id"] for e in st["external"]}
                        | {"int:" + r["id"] for r in st["internal"]}
-                       | {"ob:" + o["key"] for o in st["obligations"]})   # get-ahead starts off
+                       | {"ob:" + o["key"] for o in st["obligations"]})
+            if st.get("aggressive"):    # paced get-ahead is automatic, not a manual maybe
+                checked |= {"next:" + n["id"] for n in st["next"]}
 
             def _compute():
                 cap = st["unallocated"]
@@ -701,12 +732,16 @@ def _app(store, demo: bool):
                         a = round(min(r["amount"], remaining), 2)
                         amt["int:" + r["id"]] = a; remaining = round(remaining - a, 2); total += a
                         extra[r["bucket_id"]] = round(extra.get(r["bucket_id"], 0) + a, 2)
+                # soonest-due first (obligations are pre-sorted that way): when money runs
+                # short, bills with the least runway get funded before ones with more —
+                # that's the "due now has right of way" priority, falling straight out of
+                # processing order rather than needing separate priority logic.
                 for o in st["obligations"]:
                     if "ob:" + o["key"] in checked:
                         # split items are distinct bills sharing one pool — each funds its
-                        # own gap; non-split obligations net out any rule already aimed here.
-                        gap_now = o["gap"] if o.get("split_item") else max(0.0, round(o["gap"] - extra.get(o["id"], 0), 2))
-                        a = round(min(gap_now, remaining), 2)
+                        # own need; non-split obligations net out any rule already aimed here.
+                        need_now = o["amount"] if o.get("split_item") else max(0.0, round(o["amount"] - extra.get(o["id"], 0), 2))
+                        a = round(min(need_now, remaining), 2)
                         amt["ob:" + o["key"]] = a; remaining = round(remaining - a, 2); total += a
                         extra[o["id"]] = round(extra.get(o["id"], 0) + a, 2)
                 for n in st["next"]:
@@ -767,16 +802,21 @@ def _app(store, demo: bool):
                     ui.html('<div class="cd-step-h"><span class="cd-step-n">2</span>Fill what\'s due</div>')
                     if st["obligations"]:
                         for o in st["obligations"]:
-                            srow("ob:" + o["key"], o["name"], f'needs {money(o["gap"])}',
-                                 tag=_days_tag(o["days_until_due"]))
+                            det = f'needs {money(o["amount"])}' + (f' of {money(o["gap"])} · paced' if o.get("paced") and o["amount"] < o["gap"] - 0.005 else '')
+                            srow("ob:" + o["key"], o["name"], det, tag=_days_tag(o["days_until_due"]))
                     else:
                         ui.html('<div class="cd-sub" style="padding:2px 2px 8px">Nothing underfunded — every bill is covered. ✓</div>')
 
-                    # Step 3 — get ahead (optional)
+                    # Step 3 — get ahead (automatic + paced under Aggressive, optional otherwise)
                     if st["next"] and remaining > 0.005:
-                        ui.html('<div class="cd-step-h"><span class="cd-step-n">3</span>Get ahead · pre-fund next month</div>')
-                        ui.html('<div class="cd-sub" style="margin:-6px 2px 8px">You\'ve covered what\'s due. Put the rest '
-                                'toward next month\'s bills to build a buffer.</div>')
+                        if st.get("aggressive"):
+                            ui.html('<div class="cd-step-h"><span class="cd-step-n">3</span>Pacing ahead</div>')
+                            ui.html('<div class="cd-sub" style="margin:-6px 2px 8px">These bills are settled for now — '
+                                    'staying paced toward their next due date so nothing goes idle.</div>')
+                        else:
+                            ui.html('<div class="cd-step-h"><span class="cd-step-n">3</span>Get ahead · pre-fund next month</div>')
+                            ui.html('<div class="cd-sub" style="margin:-6px 2px 8px">You\'ve covered what\'s due. Put the rest '
+                                    'toward next month\'s bills to build a buffer.</div>')
                         for n in st["next"]:
                             srow("next:" + n["id"], n["name"], f'another {money(n["amount"])}',
                                  tag=_days_tag(n["days_until_due"]))
@@ -825,9 +865,60 @@ def _app(store, demo: bool):
                 ui.html('<div class="cd-newbtn">＋ New bucket</div>').on("click", lambda _: _open_create())
                 if un > 0.005:
                     ui.html(f'<div class="cd-distbtn hot">⚡ Distribute {money(un)}</div>').on("click", lambda _: _open_distribute())
-                    ui.html('<span class="cd-hint">Tap a bucket to manage · or distribute what\'s unallocated</span>').style("margin-left:auto")
+                    ui.html('<span class="cd-hint">Tap a bucket to manage · or distribute what\'s unallocated</span>')
                 else:
-                    ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>').style("margin-left:auto")
+                    ui.html('<span class="cd-hint">Every dollar has a job — tap any bucket to manage it</span>')
+                bkview = getattr(store, "_bk_view", "cards")
+                icon = "☰" if bkview == "cards" else "⊞"
+                title = "Switch to table view" if bkview == "cards" else "Switch to card view"
+                ui.html(f'<span class="cd-viewtoggle" title="{title}">{icon}</span>').style("margin-left:auto") \
+                    .on("click", lambda: (setattr(store, "_bk_view", "table" if bkview == "cards" else "cards"), refresh_page()))
+
+        def buckets_table():
+            groups = store.groups()
+            if not groups:
+                ui.html('<div class="cd-sub" style="padding:20px 4px">No buckets yet — add one above.</div>')
+                return
+            with ui.element("div").classes("cd-tbl-wrap"):
+                with ui.element("div").classes("cd-tbl-row cd-tbl-hd"):
+                    for h in ("Bucket", "Due", "Target", "Allocated", "Available", "Spent"):
+                        ui.html(f"<span>{h}</span>")
+                for g in groups:
+                    ui.html(f'<div class="cd-tbl-grouphd"><span class="cd-dot" '
+                            f'style="background:{g["color"]}"></span>{_esc(g["name"])}</div>')
+                    for r in g["rows"]:
+                        _table_row(r)
+
+        def _cell_edit(fn):
+            try:
+                fn()
+            except Exception as e:
+                ui.notify(str(e)[:150], type="warning"); return
+            refresh_page()
+
+        def _table_row(r):
+            due = _dueday_key(r["due_day"]) if r.get("due_day") is not None else ""
+            due_txt = {"eom": "EOM"}.get(due, due) or "—"
+            avail_col = "var(--neg)" if r["available"] < 0 else "var(--pos)"
+            with ui.element("div").classes("cd-tbl-row"):
+                ui.html(f'<span class="cd-tbl-name">{_esc(r["name"])}</span>')
+                ui.html(f'<span class="cd-tbl-due">{due_txt}</span>')
+                tgt = ui.number(value=r["target"], format="%.2f").props("dense borderless").classes("cd-tbl-input mono")
+                tgt.on("blur", lambda _, bid=r["id"], el=tgt: _cell_edit(lambda: store.set_target(bid, el.value or 0)))
+                if r["type"] == "spend":
+                    alloc = ui.number(value=r["funded"], format="%.2f").props("dense borderless").classes("cd-tbl-input mono")
+                    alloc.on("blur", lambda _, bid=r["id"], el=alloc: _cell_edit(lambda: store.set_allocated(bid, el.value or 0)))
+                else:
+                    # vault/goal funding accumulates across months — "Allocated" here
+                    # would be the all-time total, but set_allocated() can only ever
+                    # move money in the CURRENTLY VIEWED month's row (same as fund()/
+                    # defund() everywhere else), so an inline edit against that total
+                    # silently does the wrong thing. Read-only here; use the bucket
+                    # sheet's Add/Release, which already handles this correctly.
+                    ui.html(f'<span class="mono cd-sub" title="Vaults/goals accumulate across months — '
+                            f'edit funding from the bucket sheet">{money(r["funded"])}</span>')
+                ui.html(f'<span class="mono" style="color:{avail_col};font-weight:700">{money(r["available"])}</span>')
+                ui.html(f'<span class="mono cd-sub">{money(r["spent"])}</span>')
 
         def monthbar():
             # Month navigation is a live-data feature — the demo has no month model.
@@ -866,7 +957,10 @@ def _app(store, demo: bool):
                 hero()
                 monthbar()
                 actionbar()
-                buckets()
+                if getattr(store, "_bk_view", "cards") == "table":
+                    buckets_table()
+                else:
+                    buckets()
         content()
 
 
@@ -972,12 +1066,26 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
             sav = next((a["id"] for a in accts if a["type"] != "budget"), chk)
             acct_row = ui.row().classes("w-full q-gutter-sm q-mt-sm")
             with acct_row:
-                from_sel = ui.select(aopts, label="From", value=(existing.get("from_acct") if existing else chk) or chk).props("outlined dense").classes("cd-half")
-                to_sel = ui.select(aopts, label="To", value=(existing.get("to_acct") if existing else sav) or sav).props("outlined dense").classes("cd-half")
+                # NiceGUI's select validates its initial `value` against `options` at
+                # construction — an account that's since been archived (or, for `payee`
+                # below, any description not among the most-recent options, blank ones
+                # included) would otherwise crash the sheet outright on open. Construct
+                # safe, then assign the real value after — that bypasses the constructor
+                # check without losing the actual saved value.
+                from_val = existing.get("from_acct") if existing else None
+                from_sel = ui.select(aopts, label="From", value=chk).props("outlined dense").classes("cd-half")
+                if from_val and from_val in aopts:
+                    from_sel.value = from_val
+                to_val = existing.get("to_acct") if existing else None
+                to_sel = ui.select(aopts, label="To", value=sav).props("outlined dense").classes("cd-half")
+                if to_val and to_val in aopts:
+                    to_sel.value = to_val
             acct_row.set_visibility(st["kind"] == "transfer")
 
-            payee = ui.select(store.payees(), label="Payee / note", value=existing["desc"] if existing else None,
+            payee = ui.select(store.payees(), label="Payee / note", value=None,
                               with_input=True, new_value_mode="add-unique").props("outlined dense").classes("w-full q-mt-sm")
+            if existing and existing.get("desc"):
+                payee.value = existing["desc"]
 
             has_rules = any(r["active"] for r in store.rules())
             auto = ui.switch("Auto-distribute across my rules", value=has_rules and not existing).classes("q-mt-xs")
@@ -1109,7 +1217,12 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
             pos = r["kind"] in ("income", "refund")
             signed = ("+" if pos else "−") + money(r["amount"]).lstrip("-")
             ui.html(f'<div class="cd-tx-amt {"pos" if pos else "neg"} mono">{signed}</div>')
-        row.on("click", lambda _, t=r["id"]: _open_tx(t))
+        def _open_safely(t):
+            try:
+                _open_tx(t)
+            except Exception as e:
+                ui.notify(f"Couldn't open that transaction: {str(e)[:150]}", type="warning")
+        row.on("click", lambda _, t=r["id"]: _open_safely(t))
 
     def _render_days(rows, day_end):
         """A run of day-groups. day_end maps date→end-of-day balance (or None to
@@ -1203,6 +1316,13 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
                 ui.html(f'<div class="l">{label}</div>'
                         f'<div class="v mono" style="color:{col}">{money(val)}</div>')
 
+    if any(r["kind"] == "roundup" and r["active"] for r in store.rules()):
+        rs = store.roundup_status()
+        if rs["swept_this_month"] > 0.005 or rs["pending"] > 0.005:
+            ui.html(f'<div class="cd-roundup-tally">🪙 Roundup savings this month: '
+                    f'<b>{money(rs["swept_this_month"])}</b>'
+                    + (f' · {money(rs["pending"])} queued' if rs["pending"] > 0.005 else '') + '</div>')
+
     with ui.element("div").classes("cd-actionbar"):
         ui.html('<div class="cd-newbtn">＋ Add transaction</div>').on("click", lambda _: _open_tx())
         ui.html('<span class="cd-hint">Tap any row to edit · income lifts Unallocated</span>').style("margin-left:auto")
@@ -1225,7 +1345,8 @@ def _ledger_view(store, refresh_bg, on_paycheck=None):
 # ── Settings pillar (income + allocation rules → the Forecast engine) ─────────
 _FREQ_LBL = {"weekly": "Weekly", "biweekly": "Bi-weekly",
              "semimonthly": "Semi-monthly", "monthly": "Monthly"}
-_RULE_KIND_LBL = {"internal": "Internal — fund a bucket", "external": "External — leaves the budget"}
+_RULE_KIND_LBL = {"internal": "Internal — fund a bucket", "external": "External — leaves the budget",
+                  "roundup": "Roundup — spare change to a bucket"}
 _RULE_VT_LBL = {"fund": "Fund to target", "pct": "% of each paycheck", "fixed": "$ fixed amount"}
 
 
@@ -1237,7 +1358,44 @@ def _friendly_date(iso: str) -> str:
         return iso or "—"
 
 
+def _next_payday(p: dict, today: date | None = None) -> str:
+    """The real next occurrence for a paycheck, computed forward from whatever
+    anchor is on file — however stale (a raw anchor set once at signup and
+    never touched again is normal, not a bug). Never shows a display date in
+    the past: Settings should always read as "next Sep 11", never "next Apr 15"."""
+    today = today or date.today()
+    dates = forecast.pay_dates(p["anchor"], p["freq"], today, today + timedelta(days=400))
+    return dates[0].isoformat() if dates else (p["anchor"] or "")
+
+
+def _reconciled_paychecks(store, today: date) -> list[dict]:
+    """Self-healing fix for the Forecast double-counting a paycheck that's
+    already landed: if a paycheck's cadence puts an occurrence on `today` AND
+    a real income transaction dated today with a close-enough amount is
+    already in the Ledger, project from its NEXT occurrence instead — no
+    click, no stored-anchor mutation, re-evaluated fresh on every render."""
+    todays_income = [t for t in store.transactions()
+                     if t.get("kind") == "income" and (t.get("date") or "")[:10] == today.isoformat()]
+    used_ids = set()
+    out = []
+    for pc in store.paychecks():
+        pc = dict(pc)
+        if forecast.pay_dates(pc["anchor"], pc["freq"], today, today):
+            tol = max(5.0, pc["amount"] * 0.03)
+            match = next((t for t in todays_income if t["id"] not in used_ids
+                         and abs(t["amount"] - pc["amount"]) <= tol), None)
+            if match:
+                used_ids.add(match["id"])
+                nxt = forecast.next_payday(pc["anchor"], pc["freq"], today)
+                if nxt:
+                    pc["anchor"] = nxt
+        out.append(pc)
+    return out
+
+
 def _rule_value_text(r: dict) -> str:
+    if r["kind"] == "roundup":
+        return "spare change"
     if r["value_type"] == "fund":
         return "fund to target"
     if r["value_type"] == "pct":
@@ -1299,26 +1457,30 @@ def _settings_view(store, refresh_bg):
             ui.html('<div class="cd-hdl"></div>')
             ui.html(f'<div class="cd-sh-title">{"Edit rule" if existing else "Add allocation rule"}</div>')
             ui.html('<div class="cdm-sub">Applied to every paycheck — internal rules fund a bucket, '
-                    'external rules move money out of the budget.</div>')
+                    'external rules move money out of the budget, roundup rules share in the spare-change pool.</div>')
             name = ui.input("Rule name", value=existing["name"] if existing else "").props("outlined dense hide-bottom-space").classes("w-full")
             kind = ui.select(_RULE_KIND_LBL, value=existing["kind"] if existing else "internal", label="Type").props("outlined dense").classes("w-full q-mt-sm")
             bucket_row = ui.row().classes("w-full q-mt-sm")
             with bucket_row:
                 bval = existing["bucket_id"] if (existing and existing.get("bucket_id") in allb) else next(iter(allb), None)
                 bucket = ui.select(allb, label="Fund which bucket", value=bval).props("outlined dense").classes("w-full")
-            bucket_row.bind_visibility_from(kind, "value", backward=lambda v: v == "internal")
-            with ui.row().classes("w-full q-gutter-sm q-mt-sm"):
+            bucket_row.bind_visibility_from(kind, "value", backward=lambda v: v in ("internal", "roundup"))
+            amount_row = ui.row().classes("w-full q-gutter-sm q-mt-sm")
+            with amount_row:
                 vtype = ui.select(_RULE_VT_LBL, value=existing["value_type"] if existing else "fund", label="How much").props("outlined dense").classes("cd-half")
                 value = ui.number("Value", value=existing["value"] if existing else None, format="%.2f").props("outlined dense hide-bottom-space").classes("cd-half")
                 value.bind_visibility_from(vtype, "value", backward=lambda v: v != "fund")
+            amount_row.bind_visibility_from(kind, "value", backward=lambda v: v != "roundup")
+            ui.html('<div class="cdm-sub">Every active roundup rule shares the queued pool equally when it '
+                    'sweeps — no amount to set.</div>').bind_visibility_from(kind, "value", backward=lambda v: v == "roundup")
 
             def save():
                 if not (name.value or "").strip():
                     ui.notify("Name the rule.", type="warning"); return
                 k = kind.value
-                vt = vtype.value
-                bid = bucket.value if k == "internal" else None
-                val = 0 if vt == "fund" else float(value.value or 0)
+                vt = "fixed" if k == "roundup" else vtype.value
+                bid = bucket.value if k in ("internal", "roundup") else None
+                val = 0 if (vt == "fund" or k == "roundup") else float(value.value or 0)
                 if existing:
                     store.edit_rule(existing["id"], name=name.value, kind=k, bucket_id=bid,
                                     value=val, value_type=vt)
@@ -1333,16 +1495,48 @@ def _settings_view(store, refresh_bg):
                 ui.button("Save" if existing else "Add", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
         dlg.open()
 
+    # ── roundup threshold sheet ──
+    def _open_roundup_threshold():
+        rs = store.roundup_status()
+        with ui.dialog().props("position=bottom") as dlg, ui.card().classes("cd-sheet"):
+            ui.html('<div class="cd-hdl"></div>')
+            ui.html('<div class="cd-sh-title">Sweep threshold</div>')
+            ui.html('<div class="cdm-sub">Spare change queues up quietly until it crosses this amount, '
+                    'then it sweeps into your roundup bucket(s) in one move.</div>')
+            amt = ui.number("Threshold", value=rs["threshold"], format="%.2f").props(
+                "outlined dense hide-bottom-space prefix=$").classes("w-full q-mt-sm")
+
+            def save():
+                v = float(amt.value or 0)
+                if v <= 0:
+                    ui.notify("Threshold has to be more than $0.", type="warning"); return
+                store.set_roundup_threshold(v)
+                dlg.close(); refresh_bg()
+            with ui.row().classes("w-full items-center q-mt-md"):
+                ui.space()
+                ui.button("Cancel", on_click=dlg.close).props("flat no-caps")
+                ui.button("Save", on_click=lambda: _do(save)).props("unelevated color=indigo no-caps")
+        dlg.open()
+
     def _paycheck_row(p):
+        today = date.today()
+        next_date = _next_payday(p, today)
+        due = next_date == today.isoformat()
         row = ui.element("div").classes("cd-setrow")
         with row:
             ui.html('<div class="cd-set-ic in">$</div>')
-            with ui.element("div").style("min-width:0"):
+            body = ui.element("div").style("min-width:0;cursor:pointer")
+            with body:
                 ui.html(f'<div class="cd-set-name">{_esc(p["label"])}</div>')
                 ui.html(f'<div class="cd-set-meta">{_FREQ_LBL.get(p["freq"], p["freq"])} · '
-                        f'next {_friendly_date(p["anchor"])}</div>')
-            ui.html(f'<div class="cd-set-val mono">{money(p["amount"])}</div>')
-        row.on("click", lambda _, i=p["id"]: _open_paycheck(i))
+                        f'next {_friendly_date(next_date)}</div>')
+            body.on("click", lambda _, i=p["id"]: _open_paycheck(i))
+            with ui.element("div").style("display:flex;flex-direction:column;align-items:flex-end;gap:4px"):
+                ui.html(f'<div class="cd-set-val mono">{money(p["amount"])}</div>')
+                if due:
+                    got = ui.html('<div class="cd-gotpaid" title="Already got paid — remove today\'s '
+                                  'projected paycheck (and its rule transfers) from the Forecast">✓ Got paid</div>')
+                    got.on("click", lambda _, i=p["id"]: _do(lambda: store.advance_paycheck(i)))
 
     def _rule_row(r):
         with ui.element("div").classes("cd-setrow" + ("" if r["active"] else " off")):
@@ -1351,10 +1545,12 @@ def _settings_view(store, refresh_bg):
             body = ui.element("div").style("min-width:0;cursor:pointer")
             with body:
                 ui.html(f'<div class="cd-set-name">{_esc(r["name"])}</div>')
-                if r["kind"] == "internal":
-                    tgt = f'→ {_esc(r["bucket_name"] or "—")}'
-                else:
+                if r["kind"] == "external":
                     tgt = "leaves the budget"
+                elif r["kind"] == "roundup":
+                    tgt = f'→ {_esc(r["bucket_name"] or "—")} · shares the pool'
+                else:
+                    tgt = f'→ {_esc(r["bucket_name"] or "—")}'
                 ui.html(f'<div class="cd-set-meta"><span class="cd-rule-badge {r["kind"]}">{r["kind"]}</span> {tgt}</div>')
             body.on("click", lambda _, i=r["id"]: _open_rule(i))
             ui.html(f'<div class="cd-set-val mono">{_rule_value_text(r)}</div>')
@@ -1468,6 +1664,51 @@ def _settings_view(store, refresh_bg):
             ui.button("Clear stranded allocations", on_click=lambda: _do(
                 lambda: store.clear_ghost_allocations())).props("outline color=deep-orange no-caps size=sm")
 
+    # ── buckets you can't see — filed under a category that's gone missing ────
+    orphans = store.orphaned_buckets() if hasattr(store, "orphaned_buckets") else []
+    if orphans:
+        cat_opts = {c["id"]: c["name"] for c in store.categories()}
+        with ui.element("div").classes("cd-setcard"):
+            ui.html('<div class="cd-set-seclbl">⚠ Buckets you can\'t see</div>')
+            ntot = round(sum(o["available"] for o in orphans), 2)
+            ui.html(f'<div class="cd-sub" style="padding:2px 2px 12px;line-height:1.5">'
+                    f'{len(orphans)} bucket{"s" if len(orphans) != 1 else ""} — {money(ntot)} total — '
+                    'filed under a category that no longer exists. The Buckets screen only shows buckets whose '
+                    'category is still active, so these were invisible. The money is real and unaffected; '
+                    'give each one a home to bring it back.</div>')
+            for o in orphans:
+                with ui.element("div").classes("cd-orow"):
+                    ui.html(f'<div class="cd-orow-info"><div class="cd-orow-name">{_esc(o["name"])}</div>'
+                            f'<div class="cd-sub">{money(o["available"])} available · {money(o["funded"])} funded'
+                            f'{" · " + money(o["target"]) + " target" if o["target"] else ""}</div></div>')
+                    if cat_opts:
+                        sel = ui.select(cat_opts, label="Move to category").props("outlined dense").classes("cd-orow-sel")
+                        ui.button("Save", on_click=lambda i=o["id"], s=sel: _do(
+                            lambda: store.recategorize_bucket(i, s.value))).props("unelevated color=indigo no-caps size=sm")
+                    else:
+                        ui.html('<span class="cd-sub">Add a category first, in the card below.</span>')
+
+    # ── possible duplicate buckets — same name, likely from an explode ────────
+    dupes = store.duplicate_buckets() if hasattr(store, "duplicate_buckets") else []
+    if dupes:
+        visible_ids = {r["id"] for g in store.groups() for r in g["rows"]}
+        with ui.element("div").classes("cd-setcard"):
+            ui.html('<div class="cd-set-seclbl">⚠ Possible duplicate buckets</div>')
+            ui.html('<div class="cd-sub" style="padding:2px 2px 12px;line-height:1.5">'
+                    'These buckets share a name — often two of the same bill after a split exploded one that '
+                    'already existed on its own. Merge folds one\'s money and history into the other; nothing is lost.</div>')
+            for group in dupes:
+                with ui.element("div").classes("cd-dupgrp"):
+                    ui.html(f'<div class="cd-orow-name">{_esc(group[0]["name"])} ({len(group)})</div>')
+                    for b in group:
+                        hidden = "" if b["id"] in visible_ids else " · hidden"
+                        with ui.element("div").classes("cd-orow"):
+                            ui.html(f'<div class="cd-orow-info"><div class="cd-sub">{money(b["available"])} available · '
+                                    f'{money(b["funded"])} funded{hidden}</div></div>')
+                            keep_target = next(o for o in group if o["id"] != b["id"])
+                            ui.button("Merge into the other one", on_click=lambda keep=keep_target["id"], drop=b["id"]: _do(
+                                lambda: store.merge_buckets(keep, drop))).props("outline color=deep-orange no-caps size=sm")
+
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Cash-flow accounts</div>')
         accts = store.accounts()
@@ -1489,12 +1730,24 @@ def _settings_view(store, refresh_bg):
 
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Income · paychecks</div>')
-        pcs = store.paychecks()
+        pcs = _reconciled_paychecks(store, date.today())
         if not pcs:
             ui.html('<div class="cd-sub" style="padding:4px 2px 10px">No paychecks yet — add your income so the Forecast can project forward.</div>')
         for p in pcs:
             _paycheck_row(p)
         ui.html('<div class="cd-set-add">＋ Add paycheck</div>').on("click", lambda _: _open_paycheck())
+
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Distribution</div>')
+        agg = store.is_aggressive()
+        with ui.row().classes("w-full items-center justify-between"):
+            with ui.element("div").style("min-width:0"):
+                ui.html('<div class="cd-set-name">Aggressive pacing</div>')
+                ui.html('<div class="cd-set-meta">Every underfunded bill gets a share of each paycheck, '
+                        'paced to its due date — near-term bills first when money\'s tight. '
+                        'Off = soonest-due-first, full amount, one at a time.</div>')
+            tgl = ui.html(f'<div class="cd-toggle {"on" if agg else ""}">{"ON" if agg else "OFF"}</div>')
+            tgl.on("click", lambda: _do(lambda: store.set_aggressive(not store.is_aggressive())))
 
     with ui.element("div").classes("cd-setcard"):
         ui.html('<div class="cd-set-seclbl">Allocation rules · applied to each paycheck</div>')
@@ -1506,6 +1759,23 @@ def _settings_view(store, refresh_bg):
         for r in store.rules():
             _rule_row(r)
         ui.html('<div class="cd-set-add">＋ Add rule</div>').on("click", lambda _: _open_rule())
+
+    active_roundup = [r for r in store.rules() if r["kind"] == "roundup" and r["active"]]
+    with ui.element("div").classes("cd-setcard"):
+        ui.html('<div class="cd-set-seclbl">Roundup savings · spare change, swept automatically</div>')
+        if not active_roundup:
+            ui.html('<div class="cd-sub" style="padding:4px 2px 10px">No active roundup rule yet — add '
+                    'one above (Type: Roundup) to start banking spare change on every purchase.</div>')
+        else:
+            rs = store.roundup_status()
+            pct = min(1.0, rs["pending"] / rs["threshold"]) if rs["threshold"] > 0 else 0.0
+            ui.html(f'<div class="cd-tally">Queued <b>{money(rs["pending"])}</b> of {money(rs["threshold"])} '
+                    f'threshold · swept <b>{money(rs["swept_this_month"])}</b> this month</div>')
+            ui.html(f'<div class="cd-bar"><div class="cd-bar-fill" '
+                    f'style="width:{pct * 100:.0f}%;background:var(--violet)"></div></div>')
+        with ui.row().classes("w-full items-center justify-between q-mt-sm"):
+            ui.html(f'<div class="cd-sub">Sweep threshold: <b>{money(store.roundup_status()["threshold"])}</b></div>')
+            ui.button("Change", on_click=_open_roundup_threshold).props("flat dense no-caps color=indigo size=sm")
 
 
 # ── Reports (Budget vs Actual + spending mix, for the viewed month) ───────────
@@ -1599,26 +1869,46 @@ def _reports_view(store, refresh_bg, monthbar=None):
 def _forecast_bills(store) -> list[dict]:
     """Scheduled spend buckets that hit the calendar (feed the projection). A split
     bucket contributes one dated bill per line-item, so each subscription lands on
-    its own due date; a paid item is skipped for the current cycle."""
+    its own due date; a paid item is skipped for the current cycle.
+
+    "Handled" is a per-MONTH flag (dismiss this bucket from this cycle's to-do
+    list) — it must only suppress the CURRENT month's occurrence, never future
+    ones. project() already treats an occurrence as settled once spent reaches
+    target for THIS month specifically (future months always use the full
+    target regardless), so reporting a handled bucket as fully spent gets that
+    for free — dropping the bucket from this list entirely, like before, wiped
+    every future occurrence too."""
     out = []
     for g in store.groups():
         for r in g["rows"]:
-            if r["type"] != "spend" or r["flex"] or r["handled"]:
+            if r["type"] != "spend" or r["flex"]:
                 continue
             if r["split"] and r["items"]:
                 for it in r["items"]:
                     if it["amount"] > 0.005 and it["due_day"] is not None:
                         # per-item funded state: the slice of the pool that reached this bill
                         out.append({"id": None, "name": f'{r["name"]} · {it["name"]}', "amount": it["amount"],
-                                    "spent": it["amount"] if it.get("paid") else 0.0,
+                                    "spent": it["amount"] if (it.get("paid") or r["handled"]) else 0.0,
                                     "available": round(it["amount"] - it.get("item_gap", 0.0), 2),
                                     "due_day": it["due_day"], "frequency": None})
             elif r["target"] > 0 and (r["due_day"] is not None
                                       or r["frequency"] in ("weekly", "biweekly", "triweekly", "monthly")):
-                out.append({"id": r["id"], "name": r["name"], "amount": r["target"], "spent": r["spent"],
-                            "available": r["available"], "due_day": r["due_day"],
+                # money already gotten-ahead-of (prefunded into a future month) is
+                # otherwise invisible here — bucket_available only sees today's month
+                prefunded = store.prefunded(r["id"]) if hasattr(store, "prefunded") else 0.0
+                spent = r["target"] if r["handled"] else r["spent"]
+                out.append({"id": r["id"], "name": r["name"], "amount": r["target"], "spent": spent,
+                            "available": round(r["available"] + prefunded, 2), "due_day": r["due_day"],
                             "frequency": r["frequency"]})
     return out
+
+
+def _forecast_vaults(store) -> list[dict]:
+    """Vault/goal buckets — pure accumulation, no due date, so the Forecast tracks
+    their growth (seeded from today, topped up by internal rules aimed at them)
+    instead of a funded/shortfall check."""
+    return [{"id": r["id"], "name": r["name"], "available": r["available"]}
+            for g in store.groups() for r in g["rows"] if r["type"] in ("vault", "goal")]
 
 
 def _forecast_chart(res: dict) -> str:
@@ -1675,6 +1965,30 @@ def _forecast_chart(res: dict) -> str:
 _FC_ICON = {"income": "+", "transfer": "→", "bill": "−", "internal": "◇"}
 
 
+# kind -> (severity color class, icon). Just two: does the balance ever dip,
+# and how badly — the "why" lives in Buckets, not here.
+_WARN_META = {
+    "danger":  ("red", "⚠"),
+    "caution": ("amber", "⚠"),
+}
+_WARN_BADGE = {"danger": "action needed", "caution": "tight"}
+
+
+def _warn_msg(w: dict) -> str:
+    """Full detail sentence — same wording everywhere it appears (hero detail
+    line, period card), so there's one source of truth."""
+    if w["kind"] == "danger":
+        return f"Balance dips to {money(w['end_balance'])} — immediate action needed."
+    return f"Balance dips to {money(w['end_balance'])} — worth a look."
+
+
+def _warn_headline(w: dict) -> str:
+    """Short version for the hero verdict line."""
+    if w["kind"] == "danger":
+        return f"Heads up — balance dips to {money(w['end_balance'])}"
+    return f"Getting tight — dips to {money(w['end_balance'])}"
+
+
 def _forecast_view(store, refresh_bg):
     hz = getattr(store, "_fc_horizon", 90)
 
@@ -1693,20 +2007,35 @@ def _forecast_view(store, refresh_bg):
         return
 
     sched = store.scheduled() if hasattr(store, "scheduled") else []
-    res = forecast.project(store.metrics()["cash"], store.paychecks(), store.rules(),
-                           _forecast_bills(store), scheduled=sched, horizon_days=hz)
+    vaults = _forecast_vaults(store)
+    paychecks = _reconciled_paychecks(store, date.today())
+    res = forecast.project(store.metrics()["cash"], paychecks, store.rules(),
+                           _forecast_bills(store), vaults=vaults, scheduled=sched, horizon_days=hz,
+                           aggressive=store.is_aggressive() if hasattr(store, "is_aggressive") else False)
     # Which periods are expanded — the current one opens by default.
     exp = getattr(store, "_fc_expanded", None)
     if exp is None:
         exp = {res["periods"][0]["start"]} if res["periods"] else set()
         store._fc_expanded = exp
     low_when = _friendly_date(res["low"]["date"])
+    # The very next paycheck — the exact question "will THIS one afford everything
+    # due" — surfaced up top so it's visible without digging into the periods below.
+    next_period = next((p for p in res["periods"] if not p["is_gap"]), None)
+    next_warn = (next_period["warnings"][0] if next_period and next_period.get("warnings") else None)
+
     if res["shortfall"]:
         vcls, verdict = "red", f"Heads up — you dip below zero around {low_when}"
-    elif res["safe_to_spend"] < 500:
+    elif next_warn:
+        vcls = _WARN_META[next_warn["kind"]][0]
+        verdict = _warn_headline(next_warn)
+    elif res["safe_to_spend"] < forecast.DIP_CAUTION:
         vcls, verdict = "amber", f"Cutting it close around {low_when}"
     else:
         vcls, verdict = "green", "You're on track"
+
+    short_line = ""
+    if next_warn:
+        short_line = f'<div class="cd-fc-heroshort">{_WARN_META[next_warn["kind"]][1]} {_warn_msg(next_warn)}</div>'
 
     # ── hero verdict ──
     ui.html(f'''
@@ -1715,6 +2044,7 @@ def _forecast_view(store, refresh_bg):
           <div class="cd-fc-verdict">{verdict}</div>
           <div class="cd-fc-safe mono">{money(res["safe_to_spend"])}</div>
           <div class="cd-fc-safe-lbl">safe to spend today · your balance never dips below this</div>
+          {short_line}
         </div>
         <div class="cd-fc-low">
           <div class="cd-fc-low-lbl">Lowest point</div>
@@ -1722,6 +2052,13 @@ def _forecast_view(store, refresh_bg):
           <div class="cd-fc-low-lbl">on {low_when}</div>
         </div>
       </div>''')
+
+    # ── vaults — internal savings, never left checking, growing paycheck by paycheck ──
+    if vaults:
+        grown = round((next_period["vaults_total"] if next_period else res["vaults_today"]) - res["vaults_today"], 2)
+        grow_txt = f' <span class="cd-fc-vgrow">→ {money(next_period["vaults_total"])} after your next paycheck</span>' if next_period and grown > 0.005 else ''
+        ui.html(f'<div class="cd-fc-vaults">🔒 <b>{money(res["vaults_today"])}</b> in vaults today — '
+                f'still inside your checking balance, not a separate stash{grow_txt}</div>')
 
     # ── horizon toggle ──
     with ui.element("div").classes("cd-fc-hztoggle"):
@@ -1745,16 +2082,26 @@ def _forecast_view(store, refresh_bg):
         outs = round(p["external"] + p.get("internal", 0) + p["bills_out"], 2)
         out_s = f'<span class="out">−{money(outs)}</span>' if outs > 0 else ''
         flow = ' · '.join(x for x in (ins, out_s) if x)
+        p_warnings = p.get("warnings", [])
+        worst = p_warnings[0] if p_warnings else None
+        badge = ''
+        if worst:
+            wcls, wic = _WARN_META[worst["kind"]]
+            badge = f' <span class="cd-fc-warn-badge {wcls}">{wic} {_WARN_BADGE[worst["kind"]]}</span>'
         card = ui.element("div").classes("cd-fc-period" + (" neg" if p["negative"] else "") + (" open" if is_open else ""))
         with card:
             hd = ui.element("div").classes("cd-fc-phd")
             with hd:
                 ui.html(f'<span class="cd-fc-chev">▸</span>')
-                ui.html(f'<div style="min-width:0"><div class="cd-fc-pname">{_esc(p["label"])}</div>'
+                ui.html(f'<div style="min-width:0"><div class="cd-fc-pname">{_esc(p["label"])}{badge}</div>'
                         f'<div class="cd-fc-prange">{rng} · {flow}</div></div>')
                 ui.html(f'<div class="cd-fc-pbal"><div class="cd-sub">projected balance</div>'
                         f'<div class="mono" style="font-weight:800;font-size:16px;color:{ebcol}">{money(p["end_balance"])}</div></div>')
             hd.on("click", lambda _, k=p["start"]: toggle_p(k))
+            # worst-first: every warning that genuinely applies to this period, ranked
+            for w in p_warnings:
+                wcls, wic = _WARN_META[w["kind"]]
+                ui.html(f'<div class="cd-fc-warnrow {wcls}">{wic} {_warn_msg(w)}</div>')
             if is_open:
                 with ui.element("div").classes("cd-fc-reg"):
                     ui.html(f'<div class="cd-fc-erow open-bal"><span></span>'
@@ -1767,6 +2114,8 @@ def _forecast_view(store, refresh_bg):
                         if kind == "internal":         # set aside — depletes the balance like any outflow
                             to = f' → {_esc(e["bucket"])}' if e.get("bucket") else ''
                             tag = f'<span class="cd-fc-set">set aside{to}</span>'
+                            if e.get("vault_balance_after") is not None:
+                                tag += f' <span class="cd-fc-vnow">vault now {money(e["vault_balance_after"])}</span>'
                             bcol = "var(--neg)" if e["balance"] < 0 else "var(--muted)"
                             ui.html(
                                 f'<div class="cd-fc-erow">'
@@ -1779,7 +2128,9 @@ def _forecast_view(store, refresh_bg):
                         pos = kind == "income"
                         acol = "var(--pos)" if pos else ("var(--neg)" if not e["funded"] else "var(--ink)")
                         sign = "+" if pos else "−"
-                        flag = ' <span class="cd-fc-uf">unfunded</span>' if not e["funded"] else ''
+                        flag = (f' <span class="cd-fc-uf">short {money(e["shortfall"])}</span>'
+                                if not e["funded"] and e.get("shortfall", 0) > 0.005
+                                else ' <span class="cd-fc-uf">unfunded</span>' if not e["funded"] else '')
                         bcol = "var(--neg)" if e["balance"] < 0 else "var(--muted)"
                         ui.html(
                             f'<div class="cd-fc-erow">'
